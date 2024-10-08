@@ -36,7 +36,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
             self.restrict_value_impl = Identity()
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         x = self.restrict_value_impl(x)
         x = self.clamp_min_ste(x)
         return x
@@ -52,7 +52,7 @@ class _RestrictValue(brevitas.jit.ScriptModule):
             self.restrict_value_impl = Identity()
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         x = self.restrict_value_impl(x)
         return x
 
@@ -68,7 +68,7 @@ class _ClampValue(brevitas.jit.ScriptModule):
         self.min_val = scaling_min_val
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         x = self.clamp_min_ste(x)
         return x
 
@@ -90,8 +90,11 @@ class FloatRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return Identity()
 
+    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
+        return x / threshold
+
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         return x
 
 
@@ -104,7 +107,7 @@ class LogFloatRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_float(self, x: float):
         return math.log2(x)
 
-    def restrict_init_tensor(self, x: torch.Tensor):
+    def restrict_init_tensor(self, x: Tensor):
         return torch.log2(x)
 
     def restrict_init_module(self):
@@ -113,8 +116,11 @@ class LogFloatRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
 
+    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
+        return x - threshold
+
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         x = self.power_of_two(x)
         return x
 
@@ -128,7 +134,7 @@ class IntRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_float(self, x: float):
         return x
 
-    def restrict_init_tensor(self, x: torch.Tensor):
+    def restrict_init_tensor(self, x: Tensor):
         return x
 
     def restrict_init_module(self):
@@ -137,8 +143,11 @@ class IntRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return Identity()
 
+    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
+        return x / threshold
+
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         x = self.float_to_int_impl(x)
         return x
 
@@ -153,7 +162,7 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_float(self, x: float):
         return math.log2(x)
 
-    def restrict_init_tensor(self, x: torch.Tensor):
+    def restrict_init_tensor(self, x: Tensor):
         return torch.log2(x)
 
     def restrict_init_module(self):
@@ -162,8 +171,11 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
 
+    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
+        return x - threshold
+
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         x = self.float_to_int_impl(x)
         x = self.power_of_two(x)
         return x

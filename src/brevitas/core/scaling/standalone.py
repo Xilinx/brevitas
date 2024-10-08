@@ -15,6 +15,7 @@ from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import _RestrictValue
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.scaling.runtime import _StatsScaling
 from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import _Stats
@@ -60,7 +61,7 @@ class ConstScaling(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
-            restrict_scaling_impl: Optional[Module] = None,
+            restrict_scaling_impl: Module = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -68,18 +69,23 @@ class ConstScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         if isinstance(scaling_init, Tensor):
             scaling_init = scaling_init.to(device=device, dtype=dtype)
-            if restrict_scaling_impl is not None:
-                scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+            scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+            self.restrict_init_module = restrict_scaling_impl.restrict_init_module()
             self.value = StatelessBuffer(scaling_init.detach())
         else:
-            if restrict_scaling_impl is not None:
-                scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
+            scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
+            self.restrict_init_module = restrict_scaling_impl.restrict_init_module()
             self.value = StatelessBuffer(torch.tensor(scaling_init, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
-    def forward(self, placeholder: Tensor) -> Tensor:
-        value = self.value()
-        restricted_value = self.restrict_clamp_scaling(value)
+    def forward(self, placeholder: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(placeholder)
+        # We first apply any restriction to scaling
+        # For IntQuant, this is no-op, retrocompatible.
+        threshold = self.restrict_clamp_scaling(self.restrict_init_module(threshold))
+        restricted_value = self.restrict_clamp_scaling(self.value())
+        restricted_value = restricted_value / threshold
         return restricted_value
 
 
@@ -126,7 +132,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             self,
             scaling_init: Union[float, Tensor],
             scaling_shape: Optional[Tuple[int, ...]] = None,
-            restrict_scaling_impl: Optional[Module] = None,
+            restrict_scaling_impl: Module = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -141,17 +147,24 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             scaling_init = scaling_init.detach()
         else:
             scaling_init = torch.tensor(scaling_init, dtype=dtype, device=device)
-        if restrict_scaling_impl is not None:
-            scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+
+        scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+        self.restrict_init_module = restrict_scaling_impl.restrict_init_module()
+
         if scaling_init.shape == SCALAR_SHAPE and scaling_shape is not None:
             scaling_init = torch.full(scaling_shape, scaling_init, dtype=dtype, device=device)
         self.value = Parameter(scaling_init)
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
 
     @brevitas.jit.script_method
-    def forward(self, placeholder: Tensor) -> Tensor:
+    def forward(self, placeholder: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(placeholder)
+        # We first apply any restriction to scaling
+        # For IntQuant, this is no-op, retrocompatible.
+        threshold = self.restrict_clamp_scaling(self.restrict_init_module(threshold))
         value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
-        return value
+        return value / threshold
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
@@ -178,8 +191,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module,
             scaling_stats_input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter],
-            restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
+            restrict_scaling_impl: Module = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -190,20 +203,26 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl,
             scaling_stats_input_concat_dim,
             tracked_parameter_list)
+        self.restrict_scaling_impl = restrict_scaling_impl
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl, scaling_shape, scaling_min_val, False, False, dtype, device)
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
-        if restrict_scaling_impl is not None:
-            self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
-        else:
-            self.restrict_inplace_preprocess = Identity()
+        self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
+        self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
+    def forward(self, ignored: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(ignored)
+        # Threshold division must happen after we update self.value, but before we apply restrict_preproces
+        # This is because we don't want to store a parameter dependant on a runtime value (threshold)
+        # And because restrict needs to happen after we divide by threshold
         if self.init_done:
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            threshold = self.restrict_inplace_preprocess(threshold)
+            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
             return value
         else:
             stats = self.parameter_list_stats()
@@ -212,8 +231,10 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             if self.local_loss_mode:
                 return self.stats_scaling_impl(stats)
             stats = self.restrict_inplace_preprocess(stats)
+            threshold = self.restrict_inplace_preprocess(threshold)
             inplace_tensor_mul(self.value.detach(), stats)
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
             self.init_done = True
             return value
 
@@ -290,7 +311,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
-            restrict_scaling_impl: Optional[Module] = None,
+            restrict_scaling_impl: Module = FloatRestrictValue(),
             scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
@@ -305,19 +326,19 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_momentum, Optional[float])
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        self.restrict_scaling_impl = restrict_scaling_impl
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
         self.local_loss_mode: bool = brevitas.jit.Attribute(
             False, bool)  # required to support MSE eval or variants
-        if restrict_scaling_impl is not None:
-            self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
-            self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
-        else:
-            self.restrict_inplace_preprocess = Identity()
-            self.restrict_preprocess = Identity()
+        self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
+        self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
 
     @brevitas.jit.script_method
-    def training_forward(self, stats_input: Tensor) -> Tensor:
+    def training_forward(self, stats_input: Tensor, threshold: Tensor) -> Tensor:
+        # Threshold division must happen after we update self.value, but before we apply restrict_preproces
+        # This is because we don't want to store a parameter dependent on a runtime value (threshold)
+        # And because restrict needs to happen after we divide by threshold
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
@@ -327,32 +348,41 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             new_counter = self.counter + 1
             # Whenever we are in local loss mode, we don't update the counter nor the buffer
             if self.local_loss_mode:
-                return abs_binary_sign_grad(clamped_stats)
+                # Local loss mode, we early exit and divide by threshold
+                return abs_binary_sign_grad(clamped_stats / threshold)
             if self.counter == 0:
                 inplace_tensor_mul(self.buffer, clamped_stats.detach())
             else:
                 inplace_momentum_update(
                     self.buffer, clamped_stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            return abs_binary_sign_grad(clamped_stats)
+            return abs_binary_sign_grad(clamped_stats / threshold)
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
             inplace_tensor_mul(self.value.detach(), self.buffer)
+            threshold = self.restrict_preprocess(threshold)
+            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
             self.counter = self.counter + 1
-            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
+            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
         else:
-            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
+            threshold = self.restrict_preprocess(threshold)
+            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
+            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
 
     @brevitas.jit.script_method
-    def forward(self, stats_input: Tensor) -> Tensor:
+    def forward(self, stats_input: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats_input)
         if self.training:
-            return self.training_forward(stats_input)
+            # Threshold division handled inside the training_forward
+            return self.training_forward(stats_input, threshold)
         else:
             if self.counter <= self.collect_stats_steps:
-                out = self.buffer
+                out = self.buffer / threshold
                 out = self.restrict_preprocess(out)
             else:
-                out = self.value
+                threshold = self.restrict_preprocess(threshold)
+                out = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
             out = abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(out)))
         return out
 

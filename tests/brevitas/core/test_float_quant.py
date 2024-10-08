@@ -109,9 +109,10 @@ def test_float_to_quant_float(inp, minifloat_format):
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
 @jit_disabled_for_mock()
 def test_scaling_impls_called_once(inp, minifloat_format):
+    float_scaling_impl_return = 1.
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
-    scaling_impl = mock.Mock(side_effect=lambda x: 1.)
-    float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
+    scaling_impl = mock.Mock(side_effect=lambda x, y: 1.)
+    float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: float_scaling_impl_return)
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
@@ -142,14 +143,15 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             scaling_impl=scaling_impl,
             float_scaling_impl=float_scaling_impl,
             float_clamp_impl=float_clamp)
-        scale = float_quant.scaling_impl(inp)
+        float_scaling = float_scaling_impl(exponent_bit_width, mantissa_bit_width, exponent_bias)
+        scale = float_quant.scaling_impl(inp, float_scaling)
         _ = float_quant.quantize(inp, scale)
         # scaling implementations should be called exaclty once on the input
         float_scaling_impl.assert_called_once_with(
             torch.tensor(exponent_bit_width),
             torch.tensor(mantissa_bit_width),
             torch.tensor(exponent_bias))
-        scaling_impl.assert_called_once_with(inp)
+        scaling_impl.assert_called_once_with(inp, float_scaling_impl_return)
 
 
 @given(
@@ -161,7 +163,7 @@ def test_inner_scale(inp, minifloat_format, scale):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
-    scaling_impl = mock.Mock(side_effect=lambda x: scale)
+    scaling_impl = mock.Mock(side_effect=lambda x, y: scale)
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(

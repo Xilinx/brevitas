@@ -11,6 +11,7 @@ import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import _RuntimeStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
@@ -27,8 +28,8 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module,
             scaling_stats_input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter],
-            restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
+            restrict_scaling_impl: Module = FloatRestrictValue(),
             affine_rescaling: bool = False,
             affine_shift_scale: bool = False,
             scaling_min_val: Optional[float] = None,
@@ -51,9 +52,12 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             device)
 
     @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, ignored: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         stats = self.parameter_list_stats()
-        return self.stats_scaling_impl(stats)
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats)
+        return self.stats_scaling_impl(stats, threshold)
 
 
 class _StatsScaling(brevitas.jit.ScriptModule):
@@ -78,10 +82,16 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             self.affine_rescaling = Identity()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
+        self.restrict_scaling_impl = restrict_scaling_impl
 
     @brevitas.jit.script_method
-    def forward(self, stats: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, stats: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats)
+        threshold = self.restrict_scaling_pre(threshold)
         stats = self.restrict_scaling_pre(stats)
+        stats = self.restrict_scaling_impl.combine_scale_threshold(stats, threshold)
         stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
         return stats
@@ -93,10 +103,10 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             self,
             scaling_stats_impl: Module,
             scaling_stats_input_view_shape_impl: Module,
-            restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool = False,
             affine_shift_scale: bool = False,
+            restrict_scaling_impl: Module = FloatRestrictValue(),
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
@@ -120,9 +130,9 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             device)
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         stats = self.runtime_stats(x)
-        return self.stats_scaling_impl(stats)
+        return self.stats_scaling_impl(stats, threshold)
 
 
 class _AffineRescaling(brevitas.jit.ScriptModule):
@@ -163,13 +173,13 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
 class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
 
     def __init__(
-            self,
-            group_size: int,
-            group_dim: int,
-            input_view_impl: torch.nn.Module,
-            scaling_stats_impl: torch.nn.Module,
-            scaling_min_val: Optional[float],
-            restrict_scaling_impl: Optional[torch.nn.Module]) -> None:
+        self,
+        group_size: int,
+        group_dim: int,
+        input_view_impl: Module,
+        scaling_stats_impl: Module,
+        scaling_min_val: Optional[float],
+        restrict_scaling_impl: Module = FloatRestrictValue()) -> None:
         super(RuntimeDynamicGroupStatsScaling, self).__init__()
         self.group_size = group_size
         self.group_dim = group_dim
@@ -179,9 +189,14 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
 
     @brevitas.jit.script_method
-    def forward(self, stats_input) -> torch.Tensor:
+    def forward(
+            self,
+            stats_input: torch.Tensor,
+            threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats_input)
         stats_input_reshaped = self.input_view_impl(stats_input)
-        out = self.scaling_stats_impl(stats_input_reshaped)
+        out = self.scaling_stats_impl(stats_input_reshaped) / threshold
         # Scaling min val
         out = self.restrict_clamp_scaling(out)
         return out
