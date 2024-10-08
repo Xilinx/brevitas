@@ -165,6 +165,11 @@ class OverSubChannelBlockView(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
+        # This one is a bit tricky but we could end up here:
+        # - If we quantize the zero point, which will already have expanded shape matching the scale (although no padding, but we don't need the padding)
+        # - Groupwise HQO quantization, where weight will already have been padded and expanded
+        if len(x.shape) == len(self.expanded_groupwise_shape):
+            return x
         y = torch.nn.functional.pad(
             x, padding(x, self.group_size, self.group_dim), mode='constant', value=0.)
         y = y.view(self.expanded_groupwise_shape)

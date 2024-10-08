@@ -64,11 +64,10 @@ class FloatQuant(brevitas.jit.ScriptModule):
         if dtype is None:
             dtype = torch.get_default_dtype()
         self.eps = torch.finfo(dtype).tiny
+        self.observer_only = brevitas.jit.Attribute(False, bool)
 
     @brevitas.jit.script_method
-    def quantize(self, x: torch.Tensor):
-        scale = self.scaling_impl(x)
-
+    def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
                 self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
@@ -86,10 +85,15 @@ class FloatQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x):
-        y, scale = self.quantize(x)
-        # after quantizing, clamp to special cases like NaN/inf if they are set
-        y, saturating, inf_values, nan_values = self.float_clamp_impl(
-            y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
-        y = self.dequantize(y, scale)
+        scale = self.scaling_impl(x)
+        if self.observer_only:
+            y = x
+            saturating, inf_values, nan_values = self.float_clamp_impl.saturating, self.float_clamp_impl.inf_values, self.float_clamp_impl.nan_values
+        else:
+            y, scale = self.quantize(x, scale)
+            # after quantizing, clamp to special cases like NaN/inf if they are set
+            y, saturating, inf_values, nan_values = self.float_clamp_impl(
+                y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
+            y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias(), saturating, inf_values, nan_values

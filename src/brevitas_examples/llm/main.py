@@ -233,6 +233,7 @@ def main(args):
             weight_quant_type=args.weight_quant_type,
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
+            weight_group_dim=args.weight_group_dim,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             weight_quant_format=args.weight_quant_format,
             input_bit_width=args.input_bit_width,
@@ -365,6 +366,12 @@ def parse_args(args):
         default='per_group',
         choices=['per_channel', 'per_tensor', 'per_group'],
         help='Granularity for scales/zero-point of weights. Default: per_group.')
+    parser.add_argument(
+        '--weight-group-dim',
+        type=int,
+        default=None,
+        choices=[1, 0],
+        help='Override default group_dim for groupsize quantization. Default: layer-dependant')
     parser.add_argument(
         '--weight-group-size',
         type=int,

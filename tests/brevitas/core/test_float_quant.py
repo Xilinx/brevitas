@@ -98,8 +98,8 @@ def test_float_to_quant_float(inp, minifloat_format):
             signed=signed,
             float_clamp_impl=float_clamp)
         expected_out, *_ = float_quant(inp)
-
-        out_quant, scale = float_quant.quantize(inp)
+        scale = float_quant.scaling_impl(inp)
+        out_quant, scale = float_quant.quantize(inp, scale)
         exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
         out_quant, *_ = float_quant.float_clamp_impl(
             out_quant, exponent_bit_width, mantissa_bit_width, exponent_bias)
@@ -142,7 +142,8 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             scaling_impl=scaling_impl,
             float_scaling_impl=float_scaling_impl,
             float_clamp_impl=float_clamp)
-        _ = float_quant.quantize(inp)
+        scale = float_quant.scaling_impl(inp)
+        _ = float_quant.quantize(inp, scale)
         # scaling implementations should be called exaclty once on the input
         float_scaling_impl.assert_called_once_with(
             torch.tensor(exponent_bit_width),
