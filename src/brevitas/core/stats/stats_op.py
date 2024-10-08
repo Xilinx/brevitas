@@ -591,7 +591,12 @@ class HalfQuadraticOptimizerScale(torch.nn.Module):
         self.hqo_init_op = hqo_init_op_scale
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
         self.proxy_forward = proxy_module.forward
+        self.previous_observer_mode = dict()
         self.set_local_loss_mode = lambda enabled: _set_local_loss_mode(proxy_module, enabled)
+        self.set_observer_mode = lambda enabled: _set_observer_mode(
+            proxy_module, enabled, self.previous_observer_mode)
+        self.restore_observer_mode = lambda: _restore_observer_mode(
+            proxy_module, self.previous_observer_mode)
         self.internal_candidate = None
         self.hqo_iters = hqo_iters_scale
         self.stats_reduce_dim = stats_reduce_dim
@@ -618,8 +623,10 @@ class HalfQuadraticOptimizerScale(torch.nn.Module):
             for i in range(0, self.hqo_iters):
                 self.internal_candidate = candidate
                 self.set_local_loss_mode(True)
+                self.set_observer_mode(False)
                 quant_tensor = self.proxy_forward(x).detach()
                 self.set_local_loss_mode(False)
+                self.restore_observer_mode()
                 loss = torch.abs(quant_tensor.value - x).mean()
 
                 best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
@@ -690,7 +697,12 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
         self.hqo_init_op_zp = hqo_init_op_zp
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
         self.proxy_forward = proxy_module.forward
+        self.previous_observer_mode = dict()
         self.set_local_loss_mode = lambda enabled: _set_local_loss_mode(proxy_module, enabled)
+        self.set_observer_mode = lambda enabled: _set_observer_mode(
+            proxy_module, enabled, self.previous_observer_mode)
+        self.restore_observer_mode = lambda: _restore_observer_mode(
+            proxy_module, self.previous_observer_mode)
         self.internal_candidate = None
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
@@ -708,8 +720,10 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
             for i in range(0, self.hqo_iters):
                 self.internal_candidate = candidate
                 self.set_local_loss_mode(True)
+                self.set_observer_mode(False)
                 quant_tensor = self.proxy_forward(x).detach()
                 self.set_local_loss_mode(False)
+                self.restore_observer_mode()
                 qt_value = self.input_view_shape_impl(quant_tensor.value)
                 qt_scale = self.input_view_shape_impl(quant_tensor.scale)
                 qt_zp = self.input_view_shape_impl(quant_tensor.zero_point)
