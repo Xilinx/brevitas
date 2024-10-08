@@ -12,7 +12,6 @@ from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
-import brevitas.config as config
 from brevitas.export import export_qonnx
 from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
 

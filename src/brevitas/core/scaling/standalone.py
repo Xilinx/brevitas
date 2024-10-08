@@ -261,10 +261,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
-        value_key = prefix + 'value'
-
         super(ParameterFromStatsFromParameterScaling, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        value_key = prefix + 'value'
         # disable stats collection when a pretrained value is loaded
         if value_key not in missing_keys:
             self.init_done = True
