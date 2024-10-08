@@ -17,11 +17,12 @@ Set the env variable BREVITAS_JIT=1 to speed up the quantization process. Curren
 usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--seqlen SEQLEN] [--eval] [--dataset {wikitext2,c4}]
                [--weight-bit-width WEIGHT_BIT_WIDTH]
-               [--weight-param-method {stats,mse}]
+               [--weight-param-method {stats,mse,hqo}]
                [--weight-scale-precision {float_scale,po2_scale}]
                [--weight-quant-type {sym,asym}]
                [--weight-quant-format WEIGHT_QUANT_FORMAT]
                [--weight-quant-granularity {per_channel,per_tensor,per_group}]
+               [--weight-group-dim {1,0}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--quantize-weight-zero-point]
                [--input-bit-width INPUT_BIT_WIDTH]
@@ -38,6 +39,7 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--weight-equalization]
                [--act-equalization {None,layerwise,fx}] [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
+               [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME]
 
 options:
@@ -51,7 +53,7 @@ options:
                         Dataset to use for quantization (default: wikitext2)
   --weight-bit-width WEIGHT_BIT_WIDTH
                         Weight bit width. Default: 8.
-  --weight-param-method {stats,mse}
+  --weight-param-method {stats,mse,hqo}
                         How scales/zero-point are determined. Default: stats.
   --weight-scale-precision {float_scale,po2_scale}
                         Whether scale is a float value or a po2. Default: po2.
@@ -65,6 +67,9 @@ options:
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
                         per_group.
+  --weight-group-dim {1,0}
+                        Override default group_dim for groupsize quantization.
+                        Default: layer-dependant
   --weight-group-size WEIGHT_GROUP_SIZE
                         Group size for per_group weight quantization. Default:
                         128.
@@ -119,6 +124,10 @@ options:
   --load-awq LOAD_AWQ   Load the awq search results.
   --export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}
                         Model export.
+  --export-prefix EXPORT_PREFIX
+                        Path prefix to use for the various export flows. If
+                        None, a path will be derived from the model name
+                        (default: None)
   --checkpoint-name CHECKPOINT_NAME
                         Filename to save checkpoint. If `None`, no checkpoint
                         is saved (default: None)
