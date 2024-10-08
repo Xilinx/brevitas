@@ -102,9 +102,9 @@ WEIGHT_QUANT_MAP = {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFixedPointMSE},
                 'per_channel': {
-                    'sym': Int8WeightPerChannelFixedPointMSE}},
-            'per_group': {
-                'sym': MXInt8WeightMSE, 'asym': ShiftedMXUInt8WeightMSE}}},
+                    'sym': Int8WeightPerChannelFixedPointMSE},
+                'per_group': {
+                    'sym': MXInt8WeightMSE, 'asym': ShiftedMXUInt8WeightMSE}}}},
     'float': {
         'float_scale': {
             'stats': {
@@ -210,6 +210,7 @@ def generate_quantizers(
         weight_group_size,
         quantize_weight_zero_point,
         weight_quant_format='int',
+        weight_group_dim=None,
         input_bit_width=None,
         input_quant_format='',
         input_scale_precision=None,
@@ -276,6 +277,10 @@ def generate_quantizers(
             'narrow_range': False,
             'quantize_zero_point': quantize_weight_zero_point},
         **weight_float_format)
+
+    if weight_group_dim is not None:
+        weight_quant = weight_quant.let(**{'group_dim': weight_group_dim})
+
     if dtype == torch.float16:
         weight_quant = weight_quant.let(**{'scaling_min_val': 1e-4})
     if weight_kwargs is not None:
@@ -285,9 +290,8 @@ def generate_quantizers(
     if weight_quant_granularity == 'per_group':
         weight_quant = weight_quant.let(**{'group_size': weight_group_size})
     # weight scale is converted to a standalone parameter
-    # This is done already by default in the per_group quantizer
-    if weight_quant_granularity != 'per_group':
-        weight_quant = weight_quant.let(scaling_impl_type='parameter_from_stats')
+
+    weight_quant = weight_quant.let(scaling_impl_type='parameter_from_stats')
     # weight zero-point is converted to a standalone parameter
     # This is done already by default in the per_group quantizer
     if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group':

@@ -5,7 +5,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.quant.base import *
 from brevitas.quant.base import HQOActZeroPoint
-from brevitas.quant.base import HQOZeroPoint
+from brevitas.quant.base import HQOWeightZeroPoint
 from brevitas.quant.solver.act import ActQuantSolver
 from brevitas.quant.solver.weight import WeightQuantSolver
 
@@ -145,7 +145,7 @@ class ShiftedUint8WeightPerChannelFloatMSE(MSEAsymmetricScale,
     pass
 
 
-class ShiftedUint8WeightPerTensorFloatHQO(HQOZeroPoint, ShiftedUint8WeightPerTensorFloat):
+class ShiftedUint8WeightPerTensorFloatHQO(HQOWeightZeroPoint, ShiftedUint8WeightPerTensorFloat):
     """
     8-bit per-tensor unsigned int weight quantizer with floating-point per-channel scale factor and integer
     zero point. Zero-point is initialized from HQO local loss.
@@ -157,7 +157,7 @@ class ShiftedUint8WeightPerTensorFloatHQO(HQOZeroPoint, ShiftedUint8WeightPerTen
     quantize_zero_point = False
 
 
-class ShiftedUint8WeightPerChannelFloatHQO(HQOZeroPoint, ShiftedUint8WeightPerChannelFloat):
+class ShiftedUint8WeightPerChannelFloatHQO(HQOWeightZeroPoint, ShiftedUint8WeightPerChannelFloat):
     """
     8-bit per-tensor unsigned int weight quantizer with floating-point per-channel scale factor and integer
     zero point. Zero-point is initialized from HQO local loss.

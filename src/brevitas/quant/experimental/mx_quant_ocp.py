@@ -123,14 +123,14 @@ class MXInt8Act(MXActMixin, GroupwiseActProxyMixin, IntQuant, MaxStatsScaling, A
     bit_width = 8
 
 
-class MXInt8WeightMSE(MXInt8Weight, MSESymmetricScale):
+class MXInt8WeightMSE(MSESymmetricScale, MXInt8Weight):
     """
     MX Int signed weight quantizer with per-channel MSE-based scaling.
     """
     pass
 
 
-class ShiftedMXUInt8WeightMSE(ShiftedMXUInt8Weight, MSEAsymmetricScale):
+class ShiftedMXUInt8WeightMSE(MSEAsymmetricScale, ShiftedMXUInt8Weight):
     """
     MX Int signed weight quantizer with per-channel MSE-based scaling.
     """
