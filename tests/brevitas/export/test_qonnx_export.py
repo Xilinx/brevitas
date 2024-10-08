@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import os
+
 import torch
 
 from brevitas.export import enable_debug
@@ -9,13 +11,14 @@ from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas.nn import QuantReLU
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas_examples import imagenet_classification
 from tests.marker import jit_disabled_for_export
+
+from .quant_module_fixture import *
 
 OUT_CH = 50
 IN_CH = 40
@@ -48,6 +51,7 @@ def test_generic_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     export_qonnx(model, inp, export_path='generic_quant_linear.onnx')
+    os.remove('generic_quant_linear.onnx')
 
 
 @jit_disabled_for_export()
@@ -77,6 +81,37 @@ def test_generic_decoupled_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     export_qonnx(model, inp, export_path='generic_decoupled_quant_linear.onnx')
+
+
+@jit_disabled_for_export()
+def test_a2q_quant_linear_export(a2q_weight_act_quantizers):
+    IN_SIZE = (2, IN_CH)
+
+    _, (weight_quant, io_quant) = a2q_weight_act_quantizers
+
+    class Model(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.linear = QuantLinear(
+                out_features=OUT_CH,
+                in_features=IN_CH,
+                bias=True,
+                input_quant=io_quant,
+                output_quant=io_quant,
+                weight_quant=weight_quant,
+                bias_quant=Int16Bias,
+                return_quant_tensor=False)
+            self.linear.weight.data.uniform_(-0.1, 0.1)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    inp = torch.randn(IN_SIZE)
+    model = Model()
+    model(inp)  # collect scale factors
+    model.eval()
+    export_qonnx(model, inp, export_path='a2q_quant_linear.onnx')
 
 
 @jit_disabled_for_export()

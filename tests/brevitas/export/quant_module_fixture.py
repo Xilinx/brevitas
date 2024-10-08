@@ -7,6 +7,7 @@ from pytest_cases import set_case_id
 import torch
 from torch import nn
 
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
@@ -20,6 +21,7 @@ from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
+from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
@@ -39,6 +41,17 @@ FEATURES = 5
 KERNEL_SIZE = 3
 TOLERANCE = 1
 
+
+class Int8AccumulatorawareZeroCenterWeightQuantPerTensorFloat(
+        Int8AccumulatorAwareZeroCenterWeightQuant):
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
+
+
+A2Q_QUANTIZERS = {
+    'a2q_per_channel_float': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
+    'a2q_plus_per_tensor_float':
+        (Int8AccumulatorawareZeroCenterWeightQuantPerTensorFloat, Int8ActPerTensorFloat)}
+
 QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
@@ -46,14 +59,15 @@ QUANTIZERS = {
     'asymmetric_per_channel_float':
         (ShiftedUint8WeightPerChannelFloat, ShiftedUint8ActPerTensorFloat),
     'symmetric_per_channel_float': (Int8WeightPerChannelFloat, Int8ActPerTensorFloat),
-    'a2q': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
     'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
     'symmetric_per_channel_fixed_point':
-        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
+        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
+    **A2Q_QUANTIZERS}
 
 BIAS_QUANTIZERS = {
     'bias_external_scale': (Int32Bias,),
     'bias_internal_scale': (Int8BiasPerTensorFloatInternalScaling,)}
+
 QUANT_WBIOL_IMPL = [
     QuantLinear,
     QuantConv1d,
@@ -62,6 +76,7 @@ QUANT_WBIOL_IMPL = [
     QuantConvTranspose1d,
     QuantConvTranspose2d,
     QuantConvTranspose3d,]
+
 BIT_WIDTHS = [4, 8, 10]  # below 8, equal 8, above 8
 BIAS_BIT_WIDTHS = [8, 16, 32]
 
@@ -99,6 +114,12 @@ def bias_bit_width(bit_width):
 @fixture
 @parametrize('quantizers', QUANTIZERS.items(), ids=list(QUANTIZERS.keys()))
 def weight_act_quantizers(quantizers):
+    return quantizers
+
+
+@fixture
+@parametrize('quantizers', A2Q_QUANTIZERS.items(), ids=list(A2Q_QUANTIZERS.keys()))
+def a2q_weight_act_quantizers(quantizers):
     return quantizers
 
 
