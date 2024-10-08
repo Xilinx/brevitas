@@ -82,7 +82,7 @@ class gpfq_mode(gpxq_mode):
         if gpfq_class is None:
             gpfq_class = GPFQ
         self.gpfq_class = gpfq_class
-        assert isinstance(gpfq_class, GPxQ), \
+        assert issubclass(gpfq_class, GPxQ), \
             "Error: expected `gpfq_class` to be derived from `brevitas.graph.gpxq.GPxQ`."
 
     def catch_stopfwd(self, *args, **kwargs):
