@@ -353,7 +353,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor, threshold: torch.Tensor) -> Tensor:
         # Threshold division must happen after we update self.value, but before we apply restrict_preproces
-        # This is because we don't want to store a parameter dependant on a runtime value (threshold)
+        # This is because we don't want to store a parameter dependent on a runtime value (threshold)
         # And because restrict needs to happen after we divide by threshold
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
