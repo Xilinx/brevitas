@@ -40,7 +40,7 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--act-equalization {None,layerwise,fx}] [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
-               [--checkpoint-name CHECKPOINT_NAME]
+               [--checkpoint-name CHECKPOINT_NAME] [--fuse-sequences]
 
 options:
   -h, --help            show this help message and exit
@@ -131,5 +131,10 @@ options:
   --checkpoint-name CHECKPOINT_NAME
                         Filename to save checkpoint. If `None`, no checkpoint
                         is saved (default: None)
+  --fuse-sequences      Whether to merge the dataset sequences in case they
+                        are shorter than the requested number of samples per
+                        sequence. This is useful in case you would like to
+                        quantize or evaluate on long sequences (default:
+                        False).
 
 ```
