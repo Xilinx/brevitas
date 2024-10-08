@@ -143,7 +143,8 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             scaling_impl=scaling_impl,
             float_scaling_impl=float_scaling_impl,
             float_clamp_impl=float_clamp)
-        scale = float_quant.scaling_impl(inp)
+        float_scaling = float_scaling_impl(exponent_bit_width, mantissa_bit_width, exponent_bias)
+        scale = float_quant.scaling_impl(inp, float_scaling)
         _ = float_quant.quantize(inp, scale)
         # scaling implementations should be called exaclty once on the input
         float_scaling_impl.assert_called_once_with(
