@@ -6,6 +6,7 @@ import math
 from typing import List, Optional
 
 import numpy as np
+from packaging import version
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -18,6 +19,7 @@ import warnings
 
 import unfoldNd
 
+from brevitas import torch_version
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpxq import GPxQ
@@ -303,6 +305,8 @@ class GPFQv2(GPFQ):
                                      dtype=torch.float32,
                                      pin_memory=torch.cuda.is_available())
         self.nsamples = 0
+
+        assert torch_version >= version.parse('1.10'), "GPFQv2 requires torch 1.10 or higher"
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:

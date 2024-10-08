@@ -89,8 +89,8 @@ def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq
     dataset = TensorDataset(inp, inp)
     calib_loader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
 
-    if (name == 'gptq' and torch_version < version.parse('1.10')):
-        # GPTQ usage of linalg_cholesky() is not compatible with torch 1.9.1 and below
+    if ((name == 'gptq' or name == 'gpfq2') and torch_version < version.parse('1.10')):
+        # Usage of linalg_cholesky() is not compatible with torch 1.9.1 and below
         with pytest.raises(AssertionError):
             apply_gpxq(
                 calib_loader=calib_loader,
@@ -98,8 +98,9 @@ def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq
                 act_order=act_order,
                 use_quant_activations=use_quant_activations)
 
-    apply_gpxq(
-        calib_loader=calib_loader,
-        model=model,
-        act_order=act_order,
-        use_quant_activations=use_quant_activations)
+    else:
+        apply_gpxq(
+            calib_loader=calib_loader,
+            model=model,
+            act_order=act_order,
+            use_quant_activations=use_quant_activations)
