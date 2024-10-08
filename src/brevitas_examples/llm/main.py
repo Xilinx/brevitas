@@ -109,14 +109,13 @@ def validate(args):
                 assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
             else:
                 assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
-    
+
     if not args.fuse_sequences:
         # 350 is approximately the 99% percentile for the sequence length in WikiText2 (train partition, using AutoTokenizer)
         if args.seqlen >= 350:
             warn(
                 "Data loading can take a long time or, potentially, enter an infinite loop. Consider setting --args.fuse_sequences "
-                "or decreasing the sequence length (seqlen)"
-            )
+                "or decreasing the sequence length (seqlen)")
 
 
 def main(args):
@@ -479,7 +478,8 @@ def parse_args(args):
         "--fuse-sequences",
         action="store_true",
         default=False,
-        help="Whether to merge the dataset sequences in case they are shorter than the requested number of samples per sequence. This is useful in case you would like to quantize or evaluate on long sequences (default: %(default)s).",
+        help=
+        "Whether to merge the dataset sequences in case they are shorter than the requested number of samples per sequence. This is useful in case you would like to quantize or evaluate on long sequences (default: %(default)s).",
     )
     return parser.parse_args(args)
 
