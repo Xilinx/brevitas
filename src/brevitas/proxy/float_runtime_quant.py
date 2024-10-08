@@ -49,7 +49,7 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
         is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
         is_ocp_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values() == (('111',))
 
-        is_e5m2 = self.mantissa_bit_width() == 5 and self.exponent_bit_width() == 2
+        is_e5m2 = self.mantissa_bit_width() == 2 and self.exponent_bit_width() == 5
         is_ocp_e5m2 = is_e5m2 and self.inf_values() == (
             ('00',)) and self.nan_values() == ('01', '11', '10')
 
@@ -61,7 +61,7 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
         is_fnuz_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values(
         ) is None and self.exponent_bias() == 8
 
-        is_e5m2 = self.mantissa_bit_width() == 5 and self.exponent_bit_width() == 2
+        is_e5m2 = self.mantissa_bit_width() == 2 and self.exponent_bit_width() == 5
         is_fnuz_e5m2 = is_e5m2 and self.inf_values() is None and self.nan_values(
         ) is None and self.exponent_bias() == 16
         return is_fnuz_e4m3 or is_fnuz_e5m2
