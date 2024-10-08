@@ -228,7 +228,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         # And because restrict needs to happen after we divide by threshold
         if self.init_done:
             threshold = self.restrict_inplace_preprocess(threshold)
-            value = self.restrict_scaling_impl.combine_scale_threshold(value, threshold)
+            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
             value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
             return value
         else:
