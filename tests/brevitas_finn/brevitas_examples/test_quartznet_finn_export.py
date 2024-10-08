@@ -12,9 +12,11 @@ from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
+import brevitas.config as config
 from brevitas.export import export_qonnx
 from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
 
+config._RETROCOMPATIBLE_SCALING = True
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence
 MIN_INP_VAL = 0.0
 MAX_INP_VAL = 200.0

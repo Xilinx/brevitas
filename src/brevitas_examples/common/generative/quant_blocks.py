@@ -25,10 +25,10 @@ class RuntimeDynamicStatsScaling(nn.Module):
         self.stats_impl = scaling_stats_impl
         self.dynamic_scaling_broadcastable_fn = dynamic_scaling_broadcastable_fn
 
-    def forward(self, x) -> Tensor:
+    def forward(self, x, threshold) -> Tensor:
         shape = x.shape
         x = self.scaling_stats_input_view_shape_impl(x)
-        x = self.stats_impl(x)
+        x = self.stats_impl(x) / threshold
 
         x = self.dynamic_scaling_broadcastable_fn(x, shape)
         return x
