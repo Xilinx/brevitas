@@ -118,7 +118,6 @@ def validate(args):
 def main(args):
     validate(args)
     set_seed(args.seed)
-
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
@@ -340,6 +339,13 @@ def parse_args(args):
         choices=['wikitext2', 'c4'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
+    parser.add_argument(
+        '--gptq-block-name',
+        type=str,
+        default=None,
+        help=
+        'Block name for faster GPTQ optimization. It works only if FX is not needed (default: %(default)s)'
+    )
     parser.add_argument(
         '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
     parser.add_argument(
