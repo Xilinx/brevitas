@@ -21,16 +21,18 @@ from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.utils import is_conv_transposed
 import brevitas.nn as qnn
 from brevitas.quant_tensor import IntQuantTensor
-from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
+
+SUPPORTED_TCONV_OP = (
+    qnn.QuantConvTranspose1d,
+    qnn.QuantConvTranspose2d,
+    qnn.QuantConvTranspose3d)
 
 SUPPORTED_CONV_OP = (
     qnn.QuantConv1d,
     qnn.QuantConv2d,
     qnn.QuantConv3d,
-    qnn.QuantConvTranspose1d,
-    qnn.QuantConvTranspose2d,
-    qnn.QuantConvTranspose3d)
+    *SUPPORTED_TCONV_OP)
 
 
 class StopFwdException(Exception):

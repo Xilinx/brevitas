@@ -2,43 +2,29 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-import math
-from math import pi
-from typing import Callable, List, Optional
+from typing import List, Optional
 
+import math
 import numpy as np
 import torch
-from torch.fft import fft
-from torch.fft import fftn
+from torch import Tensor
 import torch.nn as nn
+try:
+    from torch.linalg import LinAlgError
+except:
+    LinAlgError = RuntimeError
 import unfoldNd
+import warnings
 
-from brevitas.function import get_upper_bound_on_l1_norm
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
+from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
+from brevitas.quant_tensor import _unpack_quant_tensor
 import brevitas.nn as qnn
-
-
-def random_projection(
-        float_input: torch.Tensor, quantized_input: torch.Tensor, compression_rate: float):
-    # use random projection to reduce dimensionality
-    n = quantized_input.size(1)
-    target_dim = int(compression_rate * n)
-    dev = float_input.device
-    # create gaussian random matrix
-    R = torch.normal(mean=0.0, std=1. / math.sqrt(n), size=(target_dim, n), device=dev)
-    quantized_input = torch.transpose(quantized_input, 1, 2) @ R.T
-    float_input = torch.transpose(float_input, 1, 2) @ R.T
-    del R
-    # reshape back
-    quantized_input = torch.transpose(quantized_input, 1, 2)
-    float_input = torch.transpose(float_input, 1, 2)
-
-    return float_input, quantized_input
 
 
 class gpfq_mode(gpxq_mode):
@@ -58,10 +44,6 @@ class gpfq_mode(gpxq_mode):
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
-        use_gpfa2q (bool): Whether to use accumulator-aware GPFQ. Default: False
-        accumulator_bit_width (Optional, int): The target accumulator bit width. Default: None
-        a2q_layer_filter_fnc (Optional, callable): An optional lambda function to filter layers for
-            accumulator cosntraints. Should return True for layers to constrain. Default: `lambda x: True`
 
     Example:
         >>> with torch.no_grad():
@@ -84,10 +66,7 @@ class gpfq_mode(gpxq_mode):
             p: float = 1.0,
             return_forward_output: bool = False,
             act_order: bool = False,
-            use_gpfa2q: bool = False,
-            accumulator_bit_width: Optional[int] = None,
-            a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True,
-            compression_rate: Optional[float] = 0.0) -> None:
+            gpfq_class: Optional[nn.Module] = None) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -100,16 +79,11 @@ class gpfq_mode(gpxq_mode):
             return_forward_output)
 
         self.p = p
-
-        # GPFA2Q params
-        self.use_gpfa2q = use_gpfa2q
-        self.accumulator_bit_width = accumulator_bit_width
-        self.a2q_layer_filter_fnc = a2q_layer_filter_fnc  # returns true when to use GPFA2Q
-
-        # selecting impl of random proj
-        self.compression_rate = compression_rate
-        if self.compression_rate < 0.0 or self.compression_rate > 1.0:
-            raise ValueError('Compression rate for random projection must be between 0 and 1.')
+        if gpfq_class is None:
+            gpfq_class = GPFQ
+        self.gpfq_class = gpfq_class
+        assert isinstance(gpfq_class, GPxQ), \
+            "Error: expected `gpfq_class` to be derived from `brevitas.graph.gpxq.GPxQ`."
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -148,25 +122,13 @@ class gpfq_mode(gpxq_mode):
 
     def initialize_module_optimizer(
             self, layer, name, act_order, len_parallel_layers, create_weight_orig):
-        if (not self.a2q_layer_filter_fnc(layer)) or (not self.use_gpfa2q):
-            return GPFQ(
-                layer=layer,
-                name=name,
-                act_order=act_order,
-                len_parallel_layers=len_parallel_layers,
-                create_weight_orig=create_weight_orig,
-                p=self.p,
-                compression_rate=self.compression_rate)
-        else:
-            return GPFA2Q(
-                layer=layer,
-                name=name,
-                act_order=act_order,
-                len_parallel_layers=len_parallel_layers,
-                create_weight_orig=create_weight_orig,
-                p=self.p,
-                accumulator_bit_width=self.accumulator_bit_width,
-                compression_rate=self.compression_rate)
+        return self.gpfq_class(
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            len_parallel_layers=len_parallel_layers,
+            create_weight_orig=create_weight_orig,
+            p=self.p)
 
 
 class GPFQ(GPxQ):
@@ -175,16 +137,14 @@ class GPFQ(GPxQ):
     """
 
     def __init__(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig, p,
-            compression_rate) -> None:
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig, p) -> None:
 
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
 
         self.float_input = None
-        self.quantized_input = None
+        self.quant_input = None
         self.index_computed = False
         self.p = p
-        self.compression_rate = compression_rate
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -206,9 +166,7 @@ class GPFQ(GPxQ):
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
             # Pick the correct unfoldNd class
-            if isinstance(
-                    self.layer,
-                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
+            if isinstance(self.layer, SUPPORTED_TCONV_OP):
                 unfold_impl = unfoldNd.UnfoldTransposeNd
             else:
                 unfold_impl = unfoldNd.UnfoldNd
@@ -255,10 +213,10 @@ class GPFQ(GPxQ):
             else:
                 self.float_input = torch.cat([self.float_input, inp_processed], dim=1)
         else:
-            if self.quantized_input is None:
-                self.quantized_input = inp_processed
+            if self.quant_input is None:
+                self.quant_input = inp_processed
             else:
-                self.quantized_input = torch.cat([self.quantized_input, inp_processed], dim=1)
+                self.quant_input = torch.cat([self.quant_input, inp_processed], dim=1)
         # If we are executing GPFQ with group of parallel layers, we keep track of how many forward
         # we executed. Once we executed as many as the number of parallel_layers, we raise
         # StopFwdException
@@ -268,26 +226,24 @@ class GPFQ(GPxQ):
             raise StopFwdException
 
     def single_layer_update(self):
-        assert not self.layer.weight_quant.requires_quant_input, "Error: GPFQ does not support weight quantizers that require quantized inputs."
+        assert not self.layer.weight_quant.requires_quant_input, \
+            "Error: GPFQ does not support weight quantizers that require quantized inputs."
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(
-                    self.layer,
-                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
+            if isinstance(self.layer, SUPPORTED_TCONV_OP):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
-        if self.compression_rate > 0.0:
-            self.float_input, self.quantized_input = random_projection(self.float_input, self.quantized_input, self.compression_rate)
+
         self.float_input = self.float_input.to(dev)
-        self.quantized_input = self.quantized_input.to(dev)
+        self.quant_input = self.quant_input.to(dev)
         U = torch.zeros(
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
         # We don't need full Hessian, we just need the diagonal
-        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
-            2)  # summing over Batch dimension
+        # Summing over batch dimension
+        self.H_diag = self.quant_input.transpose(2, 1).square().sum(2)
         permutation_list = []
         for group_index in range(self.groups):
             if self.act_order:
@@ -305,10 +261,10 @@ class GPFQ(GPxQ):
                     self.float_input[group_index, :, permutation_list[group_index][t]].unsqueeze(
                         0))  #[OC/Groups, 1] * [1, INSHAPE[1]]
                 norm = torch.linalg.norm(
-                    self.quantized_input[group_index, :, permutation_list[group_index][t]], 2) ** 2
+                    self.quant_input[group_index, :, permutation_list[group_index][t]], 2) ** 2
                 if norm > 0:
                     q_arg = U[group_index].matmul(
-                        self.quantized_input[group_index, :,
+                        self.quant_input[group_index, :,
                                              permutation_list[group_index][t]]) / norm
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
@@ -318,111 +274,202 @@ class GPFQ(GPxQ):
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
                     q[group_index].unsqueeze(1),
-                    self.quantized_input[group_index, :,
+                    self.quant_input[group_index, :,
                                          permutation_list[group_index][t]].unsqueeze(0))
 
         del self.float_input
-        del self.quantized_input
+        del self.quant_input
 
 
-class GPFA2Q(GPFQ):
+class GPFQv2(GPFQ):
+    """
+    Memory-efficient GPFQ formulation introduced in https://arxiv.org/pdf/2409.17092
+    """
+    def __init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig, p) -> None:
+        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig, p)
+        # Initialize covariance matrices. We need it in float32 to compute the inverse
+        # H = (\hat{X} \hat{X}^T)^{1/2}
+        self.H: Tensor = torch.zeros(
+            (self.groups, self.columns, self.columns),
+            device="cpu", dtype=torch.float32)
+        # G = X \hat{X}^T
+        self.G: Tensor = torch.zeros(
+            (self.groups, self.columns, self.columns),
+            device="cpu", dtype=torch.float32)
+        # buffer to speed-up GPU to CPU transfer
+        self.B: Tensor = torch.zeros(
+            (self.groups, self.columns, self.columns),
+            device="cpu", dtype=torch.float32,
+            pin_memory=torch.cuda.is_available())
+        self.nsamples = 0
 
-    def __init__(
-            self,
-            layer,
-            name,
-            act_order,
-            len_parallel_layers,
-            create_weight_orig,
-            accumulator_bit_width,
-            p,
-            compression_rate) -> None:
-        GPFQ.__init__(
-            self,
-            layer=layer,
-            name=name,
-            act_order=act_order,
-            len_parallel_layers=len_parallel_layers,
-            create_weight_orig=create_weight_orig,
-            p=p,
-            compression_rate=compression_rate)
-        self.accumulator_bit_width = accumulator_bit_width
-        assert self.accumulator_bit_width is not None
+    def update_batch(self, module, input, current_layer):
+        if self.disable_pre_forward_hook:
+            return input
 
-    def single_layer_update(self):
-        # raise error in case no quant-input is here
-        if self.quant_metadata is None:
-            raise ValueError('Expected self.quant_metadata to calculate L1-norm upper bound, but recevied None. ' + \
-                'Make sure that either the input to the model is a IntQuantTensor or the layer has an input quant enabled. ' \
-                'Also, check if `use_quant_activations=True` in `gpfq_mode` when `accumulator_bit_width` is specified. ' + \
-                'Alternatively, provide a custom `a2q_layer_filter_fnc` to `gpfq_mode` to filter layers without a quant_tensor input.')
+        # Update reference to current layer
+        current_layer.layer_names.add(self.name)
+        is_quant_enabled = module.weight_quant.is_quant_enabled
+
+        inp = self.process_input(input)
+        inp = _unpack_quant_tensor(inp)
+
+        # Preprocess the input to compute the Hessian
+        if isinstance(self.layer, qnn.QuantLinear):
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
+            inp = inp.t()
+            # For QuantLinear layer, groups will be 1
+            inp_processed = inp.unsqueeze(0)
+
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            # Pick the correct unfoldNd class
+            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+                unfold_impl = unfoldNd.UnfoldTransposeNd
+            else:
+                unfold_impl = unfoldNd.UnfoldNd
+
+            unfold = unfold_impl(
+                self.layer.kernel_size,
+                dilation=self.layer.dilation,
+                padding=self.layer.padding,
+                stride=self.layer.stride)
+
+            # Split input based on how many groups in convolution
+            inp_by_group = torch.chunk(inp, self.groups, 1)
+            inp_processed = []
+            # Preprocess input by group
+            for inp in inp_by_group:
+                inp = unfold(inp)
+                inp = inp.transpose(1, 0)
+                inp = inp.flatten(1)
+                inp_processed.append(inp)
+            inp_processed = torch.stack(inp_processed)
+
+        # NOTE: in the gpfq_mode context manager, we first collect quant inputs, then
+        # we collect float inputs for the same batch. We assume this pattern here, but
+        # will add a check just in case.
+        n = inp_processed.size(1)
+        inp_processed = math.sqrt(2 / n) * inp_processed.to(torch.float32)
+
+        # if quant is not enabled, then it is the float input; if it is a float input
+        # then a quant input has already happened and we can update G
+        if not is_quant_enabled:
+            # Computing the normalized H matrix using CPU buffer
+            self.B.copy_(self.quant_input.bmm(inp_processed.transpose(2, 1)))
+            self.G += self.B
+            self.quant_input = None  # NOTE: set back to None now that we've used it
+        else:
+            # Computing the normalized H matrix using CPU buffer
+            self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+            self.H += self.B
+            # store the quantized input for computing the H matrix
+            assert self.quant_input is None
+            self.quant_input = inp_processed
+
+        # If we are executing GPFQ with group of parallel layers, we keep track of how many forward
+        # we executed. Once we executed as many as the number of parallel_layers, we raise
+        # StopFwdException
+        current_layer.forward_count += 1
+        if current_layer.forward_count == self.len_parallel_layers:
+            current_layer.forward_count = 0
+            raise StopFwdException
+
+    def _get_permutation_list(self, weight: Tensor):
+        permutation_list = []
+        if self.act_order:
+            # We don't need full Hessian, we just need the diagonal
+            H_diag = self.quant_input.transpose(2, 1).square().sum(2)
+            for group_index in range(self.groups):
+                # Re-order Hessian_diagonal so that weights associated to
+                # higher magnitude activations are quantized first
+                perm = torch.argsort(H_diag[group_index, :], descending=True)
+                perm = perm.to(weight.device)
+                permutation_list.append(perm)
+        else:
+            for group_index in range(self.groups):
+                # No permutation, permutation tensor is a ordered index
+                perm = torch.tensor(range(weight.shape[-1]), device=weight.device)
+                permutation_list.append(perm)
+        return permutation_list
+
+    def single_layer_update(self, percdamp: float = 0.01):
+        assert not self.layer.weight_quant.requires_quant_input, \
+            "Error: GPFQ does not support weight quantizers that require quantized inputs."
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+            if isinstance(self.layer, SUPPORTED_TCONV_OP):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
+
+        # stablize H with a dampening factor and then square root the matrix
+        norms = torch.zeros(
+            (self.groups, self.columns),
+            device=dev,
+            dtype=dtype)
+        self.H = self.H.to(dev)
+        diag = torch.arange(self.columns, device='cpu')
+        for i in range(self.groups):
+            damp = percdamp * self.H[i].diag().mean()
+            self.H[i, diag, diag] += damp
+            norms[i] = self.H[i].diag()  # set the norms post-dampening
+            eigvals, eigvecs = torch.linalg.eigh(self.H[i])
+            eigvals.clamp_min_(0.0).sqrt_()  # should be positive-definite
+            self.H[i] = eigvecs @ torch.diag(eigvals) @ eigvecs.t()
+        del eigvecs, eigvals, diag
+        self.quant_input = self.H  # NOTE: do this here for the `get_permutation_list` function
+
+        # Try/Except in case the inverse of H cannot be computed
+        try:
+            self.float_input = self.H.clone()  # going to calculate H^{-1} here
+            for i in range(self.groups):
+                # from our matrix sqrt, we know G is symmetric and positive-definite, so we
+                # can use Cholesky decomposition as an efficient, numerically stable inverse
+                L = torch.linalg.cholesky(self.float_input[i])
+                self.float_input[i] = torch.cholesky_inverse(L)
+            self.float_input = torch.bmm(self.float_input.to(dev), self.G.to(dev))
+        except LinAlgError:
+            warnings.warn(
+                f'Failed to compute the inverse of H for layer {self.name} '
+                f'GPFQ will not be applied. '
+                f'Increasing the number of samples might fix this issue')
+            return
+        finally:
+            del self.H, self.G, self.B, L
+
+        permutation_list = self._get_permutation_list(weight)
+
         U = torch.zeros(
-            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
-        if self.compression_rate > 0.0:
-            self.float_input, self.quantized_input = random_projection(self.float_input, self.quantized_input, self.compression_rate)
-        self.float_input = self.float_input.to(dev)
-        self.quantized_input = self.quantized_input.to(dev)
-
-        # get upper bound
-        input_bit_width = self.quant_metadata.bit_width
-        input_is_signed = self.quant_metadata.signed
-        T = get_upper_bound_on_l1_norm(
-            torch.tensor(self.accumulator_bit_width), input_bit_width, input_is_signed)
-        s = self.layer.weight_quant.scale()
-        if s.ndim > 1:
-            s = s.view(self.groups, -1)  # [Groups, OC/Groups]
-
-        # initialize cumulative l1-norm
-        z = torch.zeros(weight.shape[:-1], device=dev)
-
-        # We don't need full Hessian, we just need the diagonal
-        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
-            2)  # summing over Batch dimension
-        permutation_list = []
-        for group_index in range(self.groups):
-            if self.act_order:
-                # Re-order Hessian_diagonal so that weights associated to
-                # higher magnitude activations are quantized first
-                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
-            else:
-                # No permutation, permutation tensor is a ordered index
-                perm = torch.tensor(range(weight.shape[-1]), device=dev)
-            permutation_list.append(perm)
+            weight.shape[0],
+            weight.shape[1],
+            self.float_input.shape[1],
+            device=dev,
+            dtype=dtype)  # [Groups, OC/groups, Samples]
 
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
+                i = permutation_list[group_index][t]
                 U[group_index] += torch.matmul(
-                    weight[group_index, :, permutation_list[group_index][t]].unsqueeze(1),
-                    self.float_input[group_index, :, permutation_list[group_index][t]].unsqueeze(
-                        0))  #[OC/Groups, 1] * [1, INSHAPE[1]]
-                norm = torch.linalg.norm(
-                    self.quantized_input[group_index, :, permutation_list[group_index][t]], 2) ** 2
+                    weight[group_index, :, i].unsqueeze(1),
+                    self.float_input[group_index, :, i].unsqueeze(0),
+                )  # [OC/Groups, 1] * [1, INSHAPE[1]]
+                norm = norms[group_index, i]
                 if norm > 0:
-                    q_arg = U[group_index].matmul(
-                        self.quantized_input[group_index, :,
-                                             permutation_list[group_index][t]]) / norm
+                    q_arg = U[group_index].matmul(self.quant_input[group_index, :, i]) / norm
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
-
-                max_q_arg = s * torch.clamp_min(T - z, 0.)
-                q_arg = q_arg.sign() * torch.clamp_max(q_arg.abs(), max_q_arg[group_index, :])
-                weight[group_index, :, permutation_list[group_index][t]] = q_arg
-            q = self.get_quant_weights(t, 0, permutation_list)
-            z += q.abs() / s  # increment cumulative l1-norm
-
+                weight[group_index, :, i] = q_arg
+            q_groups = self.get_quant_weights(t, 0, permutation_list)
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
-                    q[group_index].unsqueeze(1),
-                    self.quantized_input[group_index, :,
-                                         permutation_list[group_index][t]].unsqueeze(0))
+                    q_groups[group_index].unsqueeze(1),
+                    self.quant_input[
+                        group_index, :, permutation_list[group_index][t]
+                    ].unsqueeze(0),
+                )
 
         del self.float_input
-        del self.quantized_input
+        del self.quant_input
