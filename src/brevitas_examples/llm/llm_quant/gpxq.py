@@ -6,8 +6,8 @@ Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 import torch
 from tqdm import tqdm
 
-from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gptq import gptq_mode
 
 
 @torch.no_grad()
@@ -17,8 +17,7 @@ def apply_gptq(
         act_order=True,
         group_of_parallel_layers=None,
         use_quant_activations=True,
-        create_weight_orig=False
-):
+        create_weight_orig=False):
     with gptq_mode(model,
                    act_order=act_order,
                    group_of_parallel_layers=group_of_parallel_layers,
@@ -32,14 +31,8 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def apply_gpfq(
-        model,
-        dataloader,
-        act_order=True,
-        group_of_parallel_layers=None
-):
-    with gpfq_mode(model,
-                   act_order=act_order,
+def apply_gpfq(model, dataloader, act_order=True, group_of_parallel_layers=None):
+    with gpfq_mode(model, act_order=act_order,
                    group_of_parallel_layers=group_of_parallel_layers) as gpfq:
         gpfq_model = gpfq.model
         for _ in tqdm(range(gpfq.num_layers)):

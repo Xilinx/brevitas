@@ -2,19 +2,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
+import math
 from typing import List, Optional
 
-import math
 import numpy as np
 import torch
 from torch import Tensor
 import torch.nn as nn
+
 try:
     from torch.linalg import LinAlgError
 except:
     LinAlgError = RuntimeError
-import unfoldNd
 import warnings
+
+import unfoldNd
 
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
@@ -23,8 +25,8 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
-from brevitas.quant_tensor import _unpack_quant_tensor
 import brevitas.nn as qnn
+from brevitas.quant_tensor import _unpack_quant_tensor
 
 
 class gpfq_mode(gpxq_mode):
@@ -136,8 +138,7 @@ class GPFQ(GPxQ):
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
     """
 
-    def __init__(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig, p) -> None:
+    def __init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig, p) -> None:
 
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
 
@@ -264,8 +265,7 @@ class GPFQ(GPxQ):
                     self.quant_input[group_index, :, permutation_list[group_index][t]], 2) ** 2
                 if norm > 0:
                     q_arg = U[group_index].matmul(
-                        self.quant_input[group_index, :,
-                                             permutation_list[group_index][t]]) / norm
+                        self.quant_input[group_index, :, permutation_list[group_index][t]]) / norm
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
@@ -274,8 +274,7 @@ class GPFQ(GPxQ):
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
                     q[group_index].unsqueeze(1),
-                    self.quant_input[group_index, :,
-                                         permutation_list[group_index][t]].unsqueeze(0))
+                    self.quant_input[group_index, :, permutation_list[group_index][t]].unsqueeze(0))
 
         del self.float_input
         del self.quant_input
@@ -285,22 +284,23 @@ class GPFQv2(GPFQ):
     """
     Memory-efficient GPFQ formulation introduced in https://arxiv.org/pdf/2409.17092
     """
+
     def __init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig, p) -> None:
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig, p)
         # Initialize covariance matrices. We need it in float32 to compute the inverse
         # H = (\hat{X} \hat{X}^T)^{1/2}
-        self.H: Tensor = torch.zeros(
-            (self.groups, self.columns, self.columns),
-            device="cpu", dtype=torch.float32)
+        self.H: Tensor = torch.zeros((self.groups, self.columns, self.columns),
+                                     device="cpu",
+                                     dtype=torch.float32)
         # G = X \hat{X}^T
-        self.G: Tensor = torch.zeros(
-            (self.groups, self.columns, self.columns),
-            device="cpu", dtype=torch.float32)
+        self.G: Tensor = torch.zeros((self.groups, self.columns, self.columns),
+                                     device="cpu",
+                                     dtype=torch.float32)
         # buffer to speed-up GPU to CPU transfer
-        self.B: Tensor = torch.zeros(
-            (self.groups, self.columns, self.columns),
-            device="cpu", dtype=torch.float32,
-            pin_memory=torch.cuda.is_available())
+        self.B: Tensor = torch.zeros((self.groups, self.columns, self.columns),
+                                     device="cpu",
+                                     dtype=torch.float32,
+                                     pin_memory=torch.cuda.is_available())
         self.nsamples = 0
 
     def update_batch(self, module, input, current_layer):
@@ -406,10 +406,7 @@ class GPFQv2(GPFQ):
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
 
         # stablize H with a dampening factor and then square root the matrix
-        norms = torch.zeros(
-            (self.groups, self.columns),
-            device=dev,
-            dtype=dtype)
+        norms = torch.zeros((self.groups, self.columns), device=dev, dtype=dtype)
         self.H = self.H.to(dev)
         diag = torch.arange(self.columns, device='cpu')
         for i in range(self.groups):
@@ -443,10 +440,7 @@ class GPFQv2(GPFQ):
         permutation_list = self._get_permutation_list(weight)
 
         U = torch.zeros(
-            weight.shape[0],
-            weight.shape[1],
-            self.float_input.shape[1],
-            device=dev,
+            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev,
             dtype=dtype)  # [Groups, OC/groups, Samples]
 
         for t in range(weight.shape[-1]):
@@ -466,9 +460,7 @@ class GPFQv2(GPFQ):
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
                     q_groups[group_index].unsqueeze(1),
-                    self.quant_input[
-                        group_index, :, permutation_list[group_index][t]
-                    ].unsqueeze(0),
+                    self.quant_input[group_index, :, permutation_list[group_index][t]].unsqueeze(0),
                 )
 
         del self.float_input

@@ -15,7 +15,6 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-import warnings
 
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
@@ -30,8 +29,8 @@ from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
-from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
+from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
@@ -74,7 +73,7 @@ def model_export(model, ref_input, args):
 def validate(args):
     if not args.no_quantize:
         if args.gptq and args.gpfq:
-            warnings.warn("Both GPTQ and GPFQ are enabled.")
+            warn("Both GPTQ and GPFQ are enabled.")
         if args.export_target is not None:
             assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
         if args.export_target is not None and args.input_bit_width is not None:
@@ -257,7 +256,7 @@ def main(args):
             input_quant_format=args.input_quant_format,
             quantize_embedding=False)
         if not args.quantize_last_layer:
-            name_blacklist += ["lm_head"]
+            name_blacklist += ["lm_head", "embed_out"]
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Tie back first/last layer weights in case they got untied
@@ -291,10 +290,7 @@ def main(args):
 
     if args.gpfq:
         print("Applying GPFQ...")
-        apply_gpfq(
-            model,
-            calibration_loader,
-            act_order=args.gpxq_act_order)
+        apply_gpfq(model, calibration_loader, act_order=args.gpxq_act_order)
         print("GPFQ applied.")
 
     if args.bias_corr:
@@ -445,9 +441,14 @@ def parse_args(args):
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
-    parser.add_argument('--gpxq-act-order', action='store_true', help='Apply GPXQ activation ordering.')
-    parser.add_argument('--gpxq-use-quant-activations', action='store_true', help='Use quantized activations in GPXQ.')
-    parser.add_argument('--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPXQ.')
+    parser.add_argument(
+        '--gpxq-act-order', action='store_true', help='Apply GPXQ activation ordering.')
+    parser.add_argument(
+        '--gpxq-use-quant-activations',
+        action='store_true',
+        help='Use quantized activations in GPXQ.')
+    parser.add_argument(
+        '--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPXQ.')
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
