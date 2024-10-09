@@ -662,11 +662,7 @@ def test_layerwise_stats_vs_mse(simple_model, quant_granularity):
     methods.
 
     We test:
-    - We can feed data through the model.
-    - That the stat observer is explictly MSE.
-    - That the view on the quantization granularity is as desired.
-    - That during calibration, the qparams are derived by finding values that minimize the MSE
-    between the floating point and quantized tensor.
+    - Recostruction error of MSE should be smaller or equal to stats
     """
     weight_bit_width = 8
     act_bit_width = 8
