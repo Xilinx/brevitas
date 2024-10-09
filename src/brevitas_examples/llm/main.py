@@ -4,7 +4,6 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 import argparse
-import re
 import sys
 from warnings import warn
 
@@ -22,25 +21,21 @@ from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
-from brevitas_examples.llm.llm_quant.eval import create_validation_dataloader
-from brevitas_examples.llm.llm_quant.eval import model_eval
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
-from brevitas_examples.llm.llm_quant.gptq import apply_gptq
+from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
+from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
-from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
-from brevitas_examples.llm.llm_quant.run_utils import modify_dataloader
 
 
 def set_seed(seed):
@@ -77,6 +72,8 @@ def model_export(model, ref_input, args):
 
 def validate(args):
     if not args.no_quantize:
+        if args.gptq and args.gpfq:
+            warn("Both GPTQ and GPFQ are enabled.")
         if args.export_target is not None:
             assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
         if args.export_target is not None and args.input_bit_width is not None:
@@ -188,7 +185,7 @@ def main(args):
         float_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {float_ppl}")
+        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
     if require_fx:
         model = get_fx(model)
@@ -259,7 +256,7 @@ def main(args):
             input_quant_format=args.input_quant_format,
             quantize_embedding=False)
         if not args.quantize_last_layer:
-            name_blacklist += ["lm_head"]
+            name_blacklist += ["lm_head", "embed_out"]
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Tie back first/last layer weights in case they got untied
@@ -283,8 +280,18 @@ def main(args):
 
     if args.gptq:
         print("Applying GPTQ...")
-        apply_gptq(model, calibration_loader)
+        apply_gptq(
+            model,
+            calibration_loader,
+            act_order=args.gpxq_act_order,
+            use_quant_activations=args.gpxq_use_quant_activations,
+            create_weight_orig=args.gpxq_create_weight_orig)
         print("GPTQ applied.")
+
+    if args.gpfq:
+        print("Applying GPFQ...")
+        apply_gpfq(model, calibration_loader, act_order=args.gpxq_act_order)
+        print("GPFQ applied.")
 
     if args.bias_corr:
         print("Applying bias correction...")
@@ -295,7 +302,7 @@ def main(args):
         print("Model eval...")
         quant_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-        print(f"Quantized perplexity ({args.dataset}): {quant_ppl}")
+        print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
     remove_hooks(model)
 
     if args.checkpoint_name is not None:
@@ -433,6 +440,15 @@ def parse_args(args):
     parser.add_argument(
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
+    parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
+    parser.add_argument(
+        '--gpxq-act-order', action='store_true', help='Apply GPXQ activation ordering.')
+    parser.add_argument(
+        '--gpxq-use-quant-activations',
+        action='store_true',
+        help='Use quantized activations in GPXQ.')
+    parser.add_argument(
+        '--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPXQ.')
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
