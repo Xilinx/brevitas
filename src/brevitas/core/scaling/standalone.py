@@ -229,7 +229,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             if self.local_loss_mode:
-                return self.stats_scaling_impl(stats)
+                return self.stats_scaling_impl(stats, threshold)
             stats = self.restrict_inplace_preprocess(stats)
             threshold = self.restrict_inplace_preprocess(threshold)
             inplace_tensor_mul(self.value.detach(), stats)
