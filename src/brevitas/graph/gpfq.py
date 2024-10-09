@@ -433,6 +433,7 @@ class GPFQv2(GPFQ):
                 L = torch.linalg.cholesky(self.float_input[i])
                 self.float_input[i] = torch.cholesky_inverse(L)
             self.float_input = torch.bmm(self.float_input.to(dev), self.G.to(dev))
+            del L  # memory management
         except LinAlgError:
             warnings.warn(
                 f'Failed to compute the inverse of H for layer {self.name} '
@@ -440,7 +441,7 @@ class GPFQv2(GPFQ):
                 f'Increasing the number of samples might fix this issue')
             return
         finally:
-            del self.H, self.G, self.B, L
+            del self.H, self.G, self.B  # memory management
 
         permutation_list = self._get_permutation_list(weight)
 
