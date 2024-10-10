@@ -40,7 +40,6 @@ class QuantUpsample(QuantLayerMixin, Upsample):
         x = self.unpack_input(input)
         if self.export_mode:
             out = self.export_handler(x.value)
-            self._set_global_is_quant_layer(False)
             return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         if self.mode != 'nearest':
@@ -69,7 +68,6 @@ class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
         x = self.unpack_input(input)
         if self.export_mode:
             out = self.export_handler(x.value)
-            self._set_global_is_quant_layer(False)
             return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         # round interpolated values to scale
@@ -97,7 +95,6 @@ class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
         x = self.unpack_input(input)
         if self.export_mode:
             out = self.export_handler(x.value)
-            self._set_global_is_quant_layer(False)
             return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         y = x.set(value=y_value)

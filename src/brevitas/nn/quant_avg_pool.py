@@ -117,7 +117,6 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler(_unpack_quant_tensor(x))
-            self._set_global_is_quant_layer(False)
             return out
 
         if isinstance(x, QuantTensor) and self.is_trunc_quant_enabled:
