@@ -142,6 +142,8 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # Optimum seems to require torchvision
     session.install('-e', '.[test, llm, export]')
+    session.install(
+        'optimum-amd[brevitas] @ git+https://github.com/huggingface/optimum-amd.git@main')
     session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_llm.py')
 
 
