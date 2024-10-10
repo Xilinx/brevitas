@@ -2,12 +2,12 @@
 
 ## Requirements
 
-- transformers (from source)
+- transformers
 - datasets
 - torch_mlir (optional for torch-mlir based export)
-- optimum (from source)
-- optimum-amd (WIP, install brevitas-compatibility branch)
-- accelerate (from source)
+- optimum
+- optimum-amd (install from main)
+- accelerate
 
 ## Run
 
