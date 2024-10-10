@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Getting started &#8212; Brevitas 0.10.2 documentation</title>
+    <title>Getting started &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -580,11 +580,13 @@ result is the following:</p>
 <span class="c1"># ... training ...</span>
 </pre></div>
 </div>
-<p>Compared to the previous scenario:
-- We now set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> in every quantized activations to propagate a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to the next layer. This informs each <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> or <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> of how the input passed in has been quantized.
-- A <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is just a tensor-like data structure providing metadata about how a tensor has been quantized, similar to a <cite>torch.qint</cite> dtype, but training friendly. Setting <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> does not affect the way quantization is performed, it only changes the way the output is represented.
-- We enable bias quantization by setting the <cite>Int32Bias</cite> quantizer. What it does is to perform bias quantization with <code class="docutils literal notranslate"><span class="pre">`bias_scale</span> <span class="pre">=</span> <span class="pre">input_scale</span> <span class="pre">*</span> <span class="pre">weight_scale</span></code>, as it commonly done across inference toolchains. This is why we have to set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>: each layer with <code class="docutils literal notranslate"><span class="pre">Int32Bias</span></code> can read the input scale from the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> passed in and use for bias quantization.
-- <code class="docutils literal notranslate"><span class="pre">torch</span></code> operations that are algorithmically invariant to quantization, such as <cite>F.max_pool2d</cite>, can propagate QuantTensor through them without extra changes.</p>
+<p>Compared to the previous scenario:</p>
+<ul class="simple">
+<li><p>We now set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> in every quantized activations to propagate a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to the next layer. This informs each <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> or <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> of how the input passed in has been quantized.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is just a tensor-like data structure providing metadata about how a tensor has been quantized, similar to a <cite>torch.qint</cite> dtype, but training friendly. Setting <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> does not affect the way quantization is performed, it only changes the way the output is represented.</p></li>
+<li><p>We enable bias quantization by setting the <cite>Int32Bias</cite> quantizer. What it does is to perform bias quantization with <code class="docutils literal notranslate"><span class="pre">`bias_scale</span> <span class="pre">=</span> <span class="pre">input_scale</span> <span class="pre">*</span> <span class="pre">weight_scale</span></code>, as it commonly done across inference toolchains. This is why we have to set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>: each layer with <code class="docutils literal notranslate"><span class="pre">Int32Bias</span></code> can read the input scale from the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> passed in and use for bias quantization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">torch</span></code> operations that are algorithmically invariant to quantization, such as <cite>F.max_pool2d</cite>, can propagate QuantTensor through them without extra changes.</p></li>
+</ul>
 </section>
 <section id="export-to-onnx">
 <h3>Export to ONNX<a class="headerlink" href="#export-to-onnx" title="Permalink to this heading">#</a></h3>

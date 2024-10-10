@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core.stats package &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.stats package &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -447,11 +447,11 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsAve">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">AbsAve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsAve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsAve" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsAve.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsAve.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsAve.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -467,11 +467,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMax">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">AbsMax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMax"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMax" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMax.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMax.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMax.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -487,11 +487,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMaxAve">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">AbsMaxAve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMaxAve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMaxAve" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMaxAve.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMaxAve.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMaxAve.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -507,11 +507,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMaxL2">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">AbsMaxL2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMaxL2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMaxL2" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMaxL2.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMaxL2.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMaxL2.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -527,11 +527,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMinMax">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">AbsMinMax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMinMax"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMinMax" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsMinMax.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsMinMax.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsMinMax.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -547,11 +547,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsPercentile">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">AbsPercentile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">high_percentile_q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">percentile_q</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsPercentile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsPercentile" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.AbsPercentile.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#AbsPercentile.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.AbsPercentile.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -565,15 +565,75 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">HalfQuadraticOptimizerScale</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">proxy_module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_init_op_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_beta_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_kappa_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_lp_norm_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.7</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_iters_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize">
+<span class="sig-name descname"><span class="pre">optimize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale.optimize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search">
+<span class="sig-name descname"><span class="pre">parameter_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerScale.parameter_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">HalfQuadraticOptimizerZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">proxy_module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_init_op_zp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_beta_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_kappa_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_lp_norm_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hqo_iters_zp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize">
+<span class="sig-name descname"><span class="pre">optimize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint.optimize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search">
+<span class="sig-name descname"><span class="pre">parameter_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#HalfQuadraticOptimizerZeroPoint.parameter_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.KLMinimizerThreshold">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">KLMinimizerThreshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">smoothing_eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#KLMinimizerThreshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>Based on:
 <a class="github reference external" href="https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/contrib/quantization.py">apache/incubator-mxnet</a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.KLMinimizerThreshold.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#KLMinimizerThreshold.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -594,13 +654,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.L1Norm">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">L1Norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#L1Norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.L1Norm" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule implementation to collect per-channel L1 normalization stats
 for weight normalization-based quantization.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.L1Norm.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#L1Norm.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.L1Norm.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -616,13 +676,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.L2Norm">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">L2Norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#L2Norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.L2Norm" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule implementation to collect per-channel L2 normalization stats
 for weight normalization-based quantization.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.L2Norm.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#L2Norm.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.L2Norm.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -638,7 +698,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MSE">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">MSE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">proxy_module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mse_init_op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inner_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mse_search_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'fibonacci'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mse_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MSE"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MSE" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MSE.evaluate_loss">
 <span class="sig-name descname"><span class="pre">evaluate_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidate</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MSE.evaluate_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MSE.evaluate_loss" title="Permalink to this definition">#</a></dt>
@@ -647,7 +707,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MSE.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MSE.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MSE.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -683,11 +743,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MeanLearnedSigmaStd">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">MeanLearnedSigmaStd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sigma</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_output_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">std_dev_epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MeanLearnedSigmaStd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MeanLearnedSigmaStd" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MeanLearnedSigmaStd.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MeanLearnedSigmaStd.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MeanLearnedSigmaStd.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -703,11 +763,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MeanSigmaStd">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">MeanSigmaStd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sigma</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">std_dev_epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MeanSigmaStd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MeanSigmaStd" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.MeanSigmaStd.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#MeanSigmaStd.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.MeanSigmaStd.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -723,13 +783,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.NegativeMinOrZero">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">NegativeMinOrZero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#NegativeMinOrZero"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.NegativeMinOrZero" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.NegativeMinOrZero.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#NegativeMinOrZero.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.NegativeMinOrZero.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -744,13 +804,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.NegativePercentileOrZero">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">NegativePercentileOrZero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">low_percentile_q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#NegativePercentileOrZero"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.NegativePercentileOrZero" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.NegativePercentileOrZero.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#NegativePercentileOrZero.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.NegativePercentileOrZero.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -765,13 +825,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.PercentileInterval">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">PercentileInterval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">low_percentile_q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">high_percentile_q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#PercentileInterval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.PercentileInterval" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.stats.stats_op.PercentileInterval.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#PercentileInterval.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.PercentileInterval.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -781,6 +841,40 @@ registered hooks while the latter silently ignores them.</p>
 </div>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.masked_median">
+<span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">masked_median</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepdim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#masked_median"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.masked_median" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the median of tensor x along dim, ignoring values where mask is False.
+x and mask need to be broadcastable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Tensor to compute median of.</p></li>
+<li><p><strong>mask</strong> (<em>BoolTensor</em>) – Same shape as x with True where x is valid and False
+where x should be masked. Mask should not be all False in any column of
+dimension dim to avoid NaNs from zero division.</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>optional</em>) – Dimension to take median of. Defaults to 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Same shape as x, except dimension dim reduced.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.core.stats.stats_op.shrink_lp_op">
+<span class="sig-prename descclassname"><span class="pre">brevitas.core.stats.stats_op.</span></span><span class="sig-name descname"><span class="pre">shrink_lp_op</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lp_norm</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/stats/stats_op.html#shrink_lp_op"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.stats.stats_op.shrink_lp_op" title="Permalink to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -864,6 +958,18 @@ registered hooks while the latter silently ignores them.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.AbsPercentile.forward"><code class="docutils literal notranslate"><span class="pre">AbsPercentile.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.optimize()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.parameter_search()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.optimize()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.parameter_search()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold.forward"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold.forward()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.KLMinimizerThreshold.smooth_normalize_distribution"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold.smooth_normalize_distribution()</span></code></a></li>
@@ -906,6 +1012,8 @@ registered hooks while the latter silently ignores them.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.PercentileInterval.forward"><code class="docutils literal notranslate"><span class="pre">PercentileInterval.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.masked_median"><code class="docutils literal notranslate"><span class="pre">masked_median()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.stats.stats_op.shrink_lp_op"><code class="docutils literal notranslate"><span class="pre">shrink_lp_op()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.core.stats.stats_wrapper">brevitas.core.stats.stats_wrapper module</a></li>

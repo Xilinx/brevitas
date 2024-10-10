@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.function.ops &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.function.ops &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -599,7 +599,7 @@ document.write(`
     <span class="k">return</span> <span class="n">value</span></div>
 
 
-<div class="viewcode-block" id="max_float"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops.max_float">[docs]</a><span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span>
+<div class="viewcode-block" id="max_float"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops.max_float">[docs]</a><span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ignore</span>
 <span class="k">def</span> <span class="nf">max_float</span><span class="p">(</span><span class="n">exponent_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">mantissa_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">exponent_bias</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
     <span class="n">max_exponent</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">**</span> <span class="n">exponent_bit_width</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.</span> <span class="o">-</span> <span class="n">exponent_bias</span>
     <span class="n">max_mantissa</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span>

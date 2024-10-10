@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>ONNX Export &#8212; Brevitas 0.10.2 documentation</title>
+    <title>ONNX Export &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -129,8 +129,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -449,13 +449,22 @@ document.write(`
 <h2>Requirements<a class="headerlink" href="#Requirements" title="Permalink to this heading">#</a></h2>
 <p>Brevitas requires Python 3.8+ and PyTorch 1.9.1+ and can be installed from PyPI with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">brevitas</span></code>.</p>
 <p>For this notebook, you will also need to install <code class="docutils literal notranslate"><span class="pre">onnx</span></code>, <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>, <code class="docutils literal notranslate"><span class="pre">onnxoptimizer</span></code> and <code class="docutils literal notranslate"><span class="pre">netron</span></code> (for visualization of ONNX models). For this tutorial, PyTorch 1.8.1+ is required.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="k">pip</span> install netron
 </pre></div>
 </div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Requirement already satisfied: netron in /proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages (7.2.9)
+Note: you may need to restart the kernel to use updated packages.
+</pre></div></div>
 </div>
 </section>
 <section id="Introduction">
@@ -475,12 +484,17 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 <p>First, we will look at <code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantLinear</span></code>, a quantized alternative to <code class="docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code>. Similar considerations can also be used for <code class="docutils literal notranslate"><span class="pre">QuantConv1d</span></code>, <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>, <code class="docutils literal notranslate"><span class="pre">QuantConvTranspose1d</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantConvTranspose2d</span></code>.</p>
 <p>Brevitas offers several API to export Pytorch modules into several different formats, all sharing the same interface. The three required arguments are: - The PyTorch model to export - A representative input tensor (or a tuple of input args) - The path where to save the exported model</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">netron</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">IFrame</span>
+
+<span class="c1"># helpers</span>
+<span class="k">def</span> <span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">show_netron</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
     <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">3.</span><span class="p">)</span>
@@ -490,7 +504,7 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 </div>
 </div>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">brevitas.nn</span> <span class="k">as</span> <span class="nn">qnn</span>
@@ -501,6 +515,9 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 <span class="n">OUT_CH</span> <span class="o">=</span> <span class="mi">128</span>
 <span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
 
+<span class="c1"># set seed</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
 <span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
 <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_linear_qcdq.onnx&#39;</span>
@@ -510,7 +527,7 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">8082</span><span class="p">)</span>
@@ -526,7 +543,7 @@ Serving &#39;quant_linear_qcdq.onnx&#39; at http://localhost:8082
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -547,7 +564,7 @@ interval is perfectly symmetric (otherwise, the minimum integer would be -128), 
 <h3>Complete Model<a class="headerlink" href="#Complete-Model" title="Permalink to this heading">#</a></h3>
 <p>A similar approach can be used with entire Pytorch models, rather than single layer.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">QuantModel</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
@@ -570,7 +587,7 @@ interval is perfectly symmetric (otherwise, the minimum integer would be -128), 
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
@@ -586,7 +603,7 @@ Serving &#39;quant_model_qcdq.onnx&#39; at http://localhost:8083
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -611,7 +628,7 @@ Serving &#39;quant_model_qcdq.onnx&#39; at http://localhost:8083
 <p>In Brevitas however, if a quantized layer with bit-width &lt;= 8 is exported, the Clip node will be automatically inserted, with the min/max values computed based on the particular type of quantized performed (i.e., signed vs unsigned, narrow range vs no narrow range, etc.).</p>
 <p>Even though the Tensor data type will still be a Int8 or UInt8, its values are restricted to the desired bit-width.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
@@ -636,7 +653,7 @@ Serving &#39;quant_model_qcdq.onnx&#39; at http://localhost:8083
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">8084</span><span class="p">)</span>
@@ -652,7 +669,7 @@ Serving &#39;quant_model_3b_4b_qcdq.onnx&#39; at http://localhost:8084
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -668,285 +685,6 @@ Serving &#39;quant_model_3b_4b_qcdq.onnx&#39; at http://localhost:8084
 <p>As can be seen from the generated ONNX, the weights of the <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> layer are clipped between -3 and 3, considering that we are performing a signed 3 bit quantization, with <code class="docutils literal notranslate"><span class="pre">narrow_range=True</span></code>.</p>
 <p>Similarly, the output of the QuantReLU is clipped between 0 and 15, since in this case we are doing an unsigned 4 bit quantization.</p>
 </section>
-</section>
-<section id="QOps-Export">
-<h2>QOps Export<a class="headerlink" href="#QOps-Export" title="Permalink to this heading">#</a></h2>
-<p>Another supported style for exporting quantized operation in ONNX is represented by QOps.</p>
-<p>Compared to QCDQ, where it is possible to re-use standard floating point nodes (e.g., GEMM or Conv2d) preceeded by QCDQ nodes, with QOps the entire layer is replaced by its quantized counterpart.</p>
-<p>Opposite to what happens with QCDQ, all elements of the computation in this case have to be quantized: Input, Weight, Bias (if present), and Output tensors.</p>
-<p>This introduces some contraints on how we define our quantized layers through Brevitas.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">Int32Bias</span>
-<span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qop</span>
-
-<span class="n">IN_CH</span> <span class="o">=</span> <span class="mi">3</span>
-<span class="n">IMG_SIZE</span> <span class="o">=</span> <span class="mi">128</span>
-<span class="n">OUT_CH</span> <span class="o">=</span> <span class="mi">128</span>
-<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
-
-<span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">input_quant</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span>
-            <span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">,</span>
-            <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
-        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_quant</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
-        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">inp</span>
-
-<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">,</span> <span class="n">IMG_SIZE</span><span class="p">,</span> <span class="n">IMG_SIZE</span><span class="p">)</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-
-
-<span class="n">export_onnx_qop</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="s2">&quot;quant_model_qop.onnx&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-c:\users\alessand\documents\brevitas\src\brevitas\export\onnx\standard\manager.py:23: UserWarning: ONNX opset version set to 13, override with opset_version=
-  warnings.warn(f&#34;ONNX opset version set to {DEFAULT_OPSET}, override with {ka}=&#34;)
-</pre></div></div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-ir_version: 7
-producer_name: &#34;pytorch&#34;
-producer_version: &#34;1.13.1&#34;
-graph {
-  node {
-    output: &#34;/input_quant/export_handler/Constant_output_0&#34;
-    name: &#34;/input_quant/export_handler/Constant&#34;
-    op_type: &#34;Constant&#34;
-    attribute {
-      name: &#34;value&#34;
-      t {
-        data_type: 1
-        raw_data: &#34;\000\000\000&lt;&#34;
-      }
-      type: TENSOR
-    }
-  }
-  node {
-    output: &#34;/input_quant/export_handler/Constant_1_output_0&#34;
-    name: &#34;/input_quant/export_handler/Constant_1&#34;
-    op_type: &#34;Constant&#34;
-    attribute {
-      name: &#34;value&#34;
-      t {
-        data_type: 3
-        raw_data: &#34;\000&#34;
-      }
-      type: TENSOR
-    }
-  }
-  node {
-    input: &#34;inp.1&#34;
-    input: &#34;/input_quant/export_handler/Constant_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_1_output_0&#34;
-    output: &#34;/input_quant/export_handler/QuantizeLinear_output_0&#34;
-    name: &#34;/input_quant/export_handler/QuantizeLinear&#34;
-    op_type: &#34;QuantizeLinear&#34;
-  }
-  node {
-    output: &#34;/linear/export_handler/Constant_output_0&#34;
-    name: &#34;/linear/export_handler/Constant&#34;
-    op_type: &#34;Constant&#34;
-    attribute {
-      name: &#34;value&#34;
-      t {
-        dims: 128
-        dims: 3
-        dims: 3
-        dims: 3
-        data_type: 3
-        raw_data: &#34;\374\372\376\374\005\000\375\374\004\375\373\373\375\007\376\374\377\000\000\373\373\004\005\371\003\375\004\373\004\374\000\006\002\003\003\005\004\377\005\000\373\376\375\376\002\376\004\377\003\005\375\371\006\373\003\007\377\374\005\375\375\006\375\377\374\001\005\371\006\005\007\376\376\372\376\004\001\374\002\373\373\376\002\376\375\377\001\376\006\371\002\000\004\005\005\000\004\373\004\002\003\000\374\376\005\000\004\372\004\000\373\000\006\377\002\005\004\005\374\000\007\377\374\371\373\007\004\376\372\001\005\001\372\377\003\001\375\006\372\377\006\003\006\004\001\004\372\005\006\003\376\373\374\375\376\005\000\004\377\372\373\000\007\377\373\003\373\376\374\374\377\375\377\003\372\005\004\007\003\375\377\001\007\377\373\374\000\377\376\374\373\377\373\375\003\004\004\376\004\377\375\003\003\377\004\000\005\004\000\372\005\007\003\004\377\373\003\371\373\002\377\006\006\007\377\376\375\002\006\005\004\374\002\000\373\004\002\002\374\371\372\371\375\001\004\000\006\376\377\002\000\372\001\001\375\007\376\005\001\373\003\374\005\003\007\005\372\004\006\375\005\003\001\373\376\374\002\376\377\376\000\006\001\375\376\377\374\000\005\002\005\006\371\375\005\375\376\374\004\001\003\001\372\005\007\371\005\000\372\001\001\371\007\374\372\373\373\372\376\004\000\002\375\376\000\004\003\003\375\003\001\376\006\001\000\372\374\376\373\002\002\004\372\377\374\005\000\001\005\005\374\007\003\377\377\000\007\002\377\377\377\374\001\001\376\000\377\373\001\004\376\003\000\007\005\000\374\372\376\005\003\003\004\372\375\372\377\006\376\374\007\373\002\374\003\377\374\002\007\373\004\376\004\004\003\005\373\003\005\376\001\000\002\371\376\000\374\377\372\375\005\373\002\373\373\377\004\375\006\377\005\005\002\375\375\003\376\376\006\002\371\000\002\373\000\006\002\372\372\006\374\372\004\006\004\000\003\001\377\371\376\003\003\373\005\000\001\003\004\001\005\001\004\373\373\372\002\371\375\372\004\377\005\375\376\374\375\003\372\001\373\372\376\005\003\372\004\373\004\374\374\376\376\377\371\375\004\375\377\376\007\004\372\000\007\372\006\002\006\001\006\372\004\004\003\002\375\006\374\002\001\001\000\376\376\006\373\374\002\372\005\374\004\004\001\374\004\377\373\002\376\001\377\003\377\007\004\372\371\002\375\377\373\002\376\375\377\006\001\001\000\374\001\006\004\371\377\375\374\377\376\003\372\373\002\005\374\000\002\004\372\004\372\003\006\375\003\377\376\000\377\374\006\377\374\375\377\373\376\372\375\006\004\371\372\374\375\004\002\372\376\001\001\002\373\000\003\000\371\001\003\377\376\371\376\004\000\003\376\002\006\004\372\007\005\004\376\000\007\372\003\002\005\005\004\372\002\377\006\002\371\375\375\372\376\005\003\000\002\371\005\372\373\377\371\376\005\374\377\007\003\001\376\006\376\001\374\374\001\373\006\376\376\001\372\377\003\006\372\373\003\377\376\000\377\373\004\372\371\376\002\004\004\006\001\372\001\376\005\001\000\000\007\002\375\002\375\375\006\007\375\375\002\006\371\375\002\377\002\377\000\373\001\372\372\001\377\372\001\002\000\375\373\377\372\001\371\372\007\372\001\377\372\004\376\376\374\375\373\373\005\371\375\006\005\007\374\373\005\372\000\001\374\005\000\002\373\004\001\004\006\002\003\373\376\372\374\003\375\005\000\005\373\001\375\374\002\002\000\373\374\003\005\376\003\374\374\373\374\000\004\371\375\372\003\375\005\005\006\007\371\003\372\003\375\004\374\001\376\373\000\004\003\001\003\372\377\003\004\374\000\376\002\377\001\374\376\002\002\001\005\375\373\001\372\000\007\004\007\006\006\000\004\004\006\000\377\375\000\002\374\376\374\006\373\377\000\374\006\373\005\001\001\006\005\373\373\001\003\371\006\372\003\005\372\003\005\006\005\006\001\001\377\372\001\003\372\005\002\376\377\373\005\376\375\373\005\004\007\001\000\002\001\374\004\003\377\004\372\373\373\007\375\002\002\377\373\007\001\004\374\007\376\000\003\376\006\371\377\003\376\003\004\375\006\376\371\373\373\004\000\005\377\372\372\377\004\002\001\000\005\372\004\377\376\375\001\005\375\375\000\003\006\374\004\377\004\006\000\374\003\000\005\376\372\371\371\000\374\372\006\004\006\376\377\001\377\376\373\374\000\003\004\372\375\000\006\002\374\377\004\372\371\373\001\006\377\003\007\377\373\000\371\002\376\003\002\377\006\006\006\371\006\373\377\006\000\374\375\376\001\376\007\003\007\376\004\001\005\003\375\372\003\004\376\374\005\372\372\000\006\377\003\000\002\001\003\375\000\004\375\372\000\001\000\000\002\000\004\005\377\005\007\376\372\001\374\006\002\376\002\005\374\372\000\375\372\372\000\001\000\377\007\376\000\374\375\000\373\003\001\006\003\376\007\374\376\374\005\371\372\001\374\374\002\375\004\001\002\002\376\003\373\000\375\375\005\373\002\376\371\006\004\001\001\371\376\005\377\375\005\003\374\375\002\373\376\001\002\001\007\002\004\376\375\377\376\004\373\000\001\375\377\372\376\002\001\375\006\005\006\004\376\004\004\001\001\377\004\006\003\001\005\006\001\377\000\000\000\372\004\375\004\377\377\006\377\373\003\375\373\004\005\377\006\376\374\374\371\376\003\376\374\001\373\001\375\001\376\376\000\376\371\376\377\372\373\374\374\375\376\003\376\002\372\375\375\007\377\373\377\006\376\377\373\002\001\000\005\004\006\376\001\373\372\371\001\371\001\373\374\001\375\373\003\375\373\005\373\004\377\002\000\002\006\001\373\375\005\376\004\000\376\003\007\000\377\003\004\005\376\004\003\004\006\006\006\371\002\374\375\003\375\000\375\377\004\003\374\373\004\005\375\003\376\001\001\374\003\377\004\006\003\377\001\003\377\377\371\000\374\003\373\374\006\372\372\006\004\375\375\373\004\005\001\373\371\377\376\004\005\373\374\005\000\376\001\002\003\006\006\374\375\374\377\001\373\003\004\372\004\375\001\371\004\002\001\376\377\005\000\376\376\372\005\000\376\004\371\000\377\377\377\373\377\001\004\002\374\373\000\374\377\373\373\374\005\006\374\003\373\000\006\001\003\371\373\006\374\005\005\006\371\002\005\373\000\377\377\003\005\003\004\376\372\000\005\004\371\372\376\371\005\375\000\001\001\000\006\005\006\002\002\000\003\006\374\005\000\373\372\376\002\372\006\003\375\373\373\375\002\004\001\007\373\377\004\005\004\375\005\376\376\004\003\000\004\376\006\001\376\003\376\007\006\002\376\001\376\006\371\006\375\375\004\003\006\377\374\004\003\375\372\374\375\006\377\000\004\373\002\006\373\377\374\372\000\000\376\006\373\372\004\001\006\003\377\006\371\006\006\004\004\005\371\376\001\003\372\005\001\002\373\001\372\375\004\372\006\373\375\001\003\375\377\003\372\374\374\373\006\005\373\002\000\004\376\377\004\374\006\374\006\373\004\375\373\006\376\006\002\002\377\372\372\005\004\375\000\002\374\002\376\007\373\376\371\377\005\376\006\002\006\376\004\372\000\005\002\002\003\006\004\377\007\374\372\372\002\375\377\001\375\005\374\377\003\007\002\005\006\006\000\001\004\000\376\371\001\000\005\004\375\372\375\004\007\371\374\002\005\000\002\002\004\004\007\005\006\373\006\004\002\005\004\376\375\000\372\004\377\003\374\003\376\006\376\006\006\005\002\006\007\002\372\372\377\373\004\373\375\004\004\003\006\002\000\002\376\000\000\005\006\005\372\003\372\006\001\007\372\002\372\004\001\005\002\005\374\372\372\002\372\001\377\002\006\005\000\005\372\375\007\377\375\004\005\003\372\004\005\376\373\001\372\003\371\371\374\005\002\005\374\377\004\002\376\004\373\377\377\377\001\005\372\003\373\375\006\374\007\376\372\006\005\371\377\005\001\003\005\002\006\003\001\377\374\004\376\374\375\376\001\001\001\004\007\007\000\005\001\376\003\376\000\000\001\001\375\371\006\002\001\373\000\377\007\004\002\374\000\001\377\003\374\003\007\373\371\373\001\005\373\372\005\373\375\005\006\372\000\005\007\003\003\377\005\006\004\374\372\375\003\004\000\005\376\374\374\375\375\377\372\000\004\002\005\002\000\374\376\373\373\376\002\374\000\376\373\000\371\373\372\006\000\376\002\375\376\005\372\004\376\375\005\006\006\004\003\002\002\002\002\375\006\377\000\004\375\004\007\004\005\372\374\004\377\003\377\000\375\372\374\372\000\004\007\002\007\372\376\004\371\375\001\001\007\003\000\004\373\001\001\376\002\377\377\006\002\003\373\373\004\372\372\376\372\002\002\002\373\001\375\374\000\004\003\376\003\376\002\373\374\003\372\371\001\375\004\371\374\004\005\002\374\371\001\373\377\374\006\373\006\000\005\005\006\006\002\375\002\001\001\005\375\000\372\371\003\004\375\376\003\377\374\005\007\007\377\374\375\374\376\373\003\002\002\374\377\373\004\375\372\374\003\374\005\376\002\373\376\006\005\374\002\371\005\004\001\373\000\377\374\003\000\001\001\003\372\005\001\371\371\000\375\001\375\372\374\003\373\376\001\371\006\005\004\377\004\376\377\377\003\373\001\372\376\006\372\372\005\374\001\374\004\001\004\375\002\002\373\006\000\001\002\377\371\005\005\374\374\006\003\001\002\001\374\377\372\000\377\374\373\371\007\003\375\373\374\373\374\005\004\005\006\002\374\000\372\001\376\002\373\371\372\374\374\377\005\375\371\002\374\374\005\377\007\004\376\007\373\372\007\007\377\004\002\002\007\377\375\002\005\006\003\002\006\376\003\004\003\000\371\002\002\374\006\373\005\003\003\002\003\376\002\004\377\377\371\007\001\373\376\003\002\007\376\002\005\004\374\003\377\374\003\007\004\377\002\001\003\005\373\377\374\002\377\004\000\000\005\007\002\003\376\371\377\006\372\372\002\372\371\375\000\376\005\372\000\373\372\007\002\001\372\374\375\005\005\004\001\002\002\006\372\001\007\373\375\000\372\005\003\000\375\377\001\003\006\000\376\374\002\375\375\003\001\007\376\377\003\000\005\376\374\005\373\004\377\000\375\002\005\001\001\000\001\375\374\001\006\372\375\376\372\371\001\372\005\004\376\373\006\005\375\006\377\001\001\000\006\000\006\007\003\372\004\375\373\372\372\000\374\001\006\007\376\374\371\373\372\375\003\377\372\377\005\002\006\372\006\004\005\000\376\007\003\372\004\377\006\001\373\375\374\373\373\004\004\375\373\005\376\000\001\375\371\372\005\375\000\002\372\003\004\372\003\374\005\002\374\377\001\005\376\377\374\376\005\376\372\003\373\372\006\372\377\373\006\372\004\006\373\005\375\375\007\374\005\002\374\374\002\002\377\375\376\372\005\375\371\003\005\003\372\377\375\372\002\005\000\006\372\005\371\376\000\001\377\004\004\006\000\377\007\002\006\000\371\375\374\374\001\373\371\002\376\002\000\374\006\001\374\006\005\001\003\376\003\374\003\374\002\007\373\002\004\007\005\374\376\372\372\001\371\002\005\373\376\006\375\372\376\004\003\001\004\376\002\373\006\006\371\372\003\004\006\375\004\007\371\000\000\001\000\374\001\006\002\006\002\000\002\373\372\372\000\372\005\006\004\000\376\372\373\006\007\373\006\373\377\003\375\373\001\377\001\002\376\003\373\002\376\007\371\371\374\006\377\001\002\005\001\376\375\000\377\371\005\372\002\377\375\375\002\375\376\003\003\373\373\005\004\004\373\000\000\007\003\372\375\004\003\376\377\373\376\004\372\004\377\376\007\002\005\003\001\006\006\002\005\373\000\004\000\004\374\372\376\007\002\003\006\002\000\372\001\374\005\376\006\007\373\001\375\004\377\374\375\377\001\377\003\375\005\000\003\376\375\003\377\372\002\006\003\007\005\374\003\006\003\000\375\000\001\000\001\002\374\377\372\004\372\377\377\003\377\007\006\371\003\005\004\007\006\371\006\001\375\001\001\376\002\374\006\375\375\376\377\002\002\007\373\373\374\373\377\001\006\375\375\001\375\373\375\373\372\376\003\371\006\376\376\375\007\377\374\376\377\006\377\001\371\377\007\375\371\005\002\373\003\005\002\371\375\003\003\003\374\000\377\375\003\002\006\006\375\006\002\000\374\373\374\002\003\373\002\375\377\004\006\003\006\000\377\372\375\375\002\002\003\006\003\003\377\373\003\003\003\003\377\004\004\372\377\000\374\375\005\004\005\003\002\375\376\001\376\003\374\002\007\002\376\377\007\006\376\372\374\004\371\004\006\006\374\374\377\374\003\006\371\377\007\372\375\006\374\374\005\372\006\372\371\001\000\375\372\374\373\374\374\374\005\004\002\375\004\007\004\006\002\005\005\372\375\000\004\000\377\004\004\001\374\377\006\003\377\374\000\376\372\376\373\377\006\377\376\002\005\005\372\004\000\001\004\005\373\005\003\371\374\373\000\375\002\375\006\003\001\004\377\374\372\005\006\005\005\005\005\007\372\006\004\006\372\372\002\373\371\001\004\006\374\005\373\004\006\001\005\006\377\006\373\001\373\373\376\375\007\372\374\372\377\004\006\004\375\374\000\007\005\000\002\377\002\372\002\001\377\372\006\002\001\000\376\375\374\003\376\371\005\001\000\002\372\373\375\004\376\371\374\376\000\004\004\376\375\007\374\377\375\377\001\003\005\372\002\376\003\003\375\001\004\001\001\000\002\004\375\375\372\003\003\372\002\375\372\377\373\000\002\371\005\003\001\001\376\372\374\001\001\376\000\001\376\001\376\005\002\374\002\004\004\000\374\007\000\000\006\003\371\376\371\006\005\006\007\002\371\373\005\372\375\006\003\373\005\375\375\373\002\000\375\005\001\372\377\377\373\375\375\374\000\376\372\000\374\001\001\372\375\373\004\374\000\006\375\004\001\006\000\373\001\375\003\372\000\373\376\003\374\005\007\377\373\007\006\002\371\373\377\004\373\001\374\000\001\004\001\005\375\372\002\376\377\371\374\375\371\373\005\376\374\001\377\376\371\375\371\000\375\373\377\006\002\003\005\372\003\004\005\005\004\000\376\372\371\006\000\377\373\003\376\005\007\006\372\004\007\374\375\376\374\000\001\001\375\003\371\001\006\374\376\006\377\000\001\375\006\004\372\371\001\377\377\377\376\006\375\372\000\371\376\002\374\372\006\372\002\006\005\001\376\004\374\002\376\000\004\376\375\000\376\004\000\006\372\005\007\006\002\004\373\373\006\003\007\001\375\007\007\372\004\005\376\005\376\007\002\376\004\373\373\376\004\372\375\373\374\001\000\375\004\375\375\377\004\001\377\002\376\004\377\001\001\374\376\374\377\377\001\000\000\377\373\374\002\006\001\375\376\000\000\374\006\004\004\004\375\001\376\001\002\373\006\006\376\002\005\005\374\373\377\376\004\005\374\000\376\002\375\376\004\373\001\377\377\002\377\373\372\371\003\003\372\006\000\002\003\005\375\371\375\004\376\374\007\375\371\002\374\000\375\005\006\374\373\004\371\000\007\376\001\375\377\372\372\373\005\005\001\372\377\371\377\375&#34;
-      }
-      type: TENSOR
-    }
-  }
-  node {
-    output: &#34;/linear/export_handler/Constant_1_output_0&#34;
-    name: &#34;/linear/export_handler/Constant_1&#34;
-    op_type: &#34;Constant&#34;
-    attribute {
-      name: &#34;value&#34;
-      t {
-        data_type: 1
-        raw_data: &#34;\263-\341&lt;&#34;
-      }
-      type: TENSOR
-    }
-  }
-  node {
-    output: &#34;/linear/export_handler/Constant_2_output_0&#34;
-    name: &#34;/linear/export_handler/Constant_2&#34;
-    op_type: &#34;Constant&#34;
-    attribute {
-      name: &#34;value&#34;
-      t {
-        dims: 128
-        data_type: 6
-        raw_data: &#34;\271\377\377\377\032\003\000\0009\001\000\000\302\002\000\000;\375\377\377\031\000\000\000\024\003\000\000d\003\000\000\327\374\377\377\363\377\377\377u\003\000\000\374\000\000\000t\000\000\000\321\002\000\000\236\377\377\377\241\377\377\377\237\375\377\377\010\000\000\000\350\002\000\000}\376\377\377\267\377\377\377\374\000\000\000\355\001\000\000N\375\377\377\\\002\000\000\346\002\000\000\317\000\000\000\207\001\000\000?\000\000\000\302\002\000\000Y\377\377\377\326\376\377\377\\\003\000\000\374\376\377\377\334\000\000\000\200\001\000\000\362\377\377\377+\000\000\000\304\375\377\377u\000\000\000\340\000\000\000\275\001\000\000\324\377\377\377\332\000\000\000\026\001\000\000\333\001\000\000\371\375\377\377\363\000\000\000|\002\000\000\335\376\377\377\226\375\377\377\335\002\000\0002\001\000\000F\377\377\377\006\003\000\000\310\375\377\377\344\377\377\377\177\376\377\377&gt;\001\000\000\033\002\000\000I\003\000\000\006\376\377\377\315\375\377\377\033\003\000\000\236\000\000\000@\376\377\377\031\002\000\000\321\002\000\000;\000\000\000\035\377\377\377\354\377\377\377Z\001\000\000N\375\377\377I\001\000\000\030\001\000\000w\377\377\377\303\002\000\000\022\000\000\000\377\001\000\000!\000\000\000\035\001\000\000\003\375\377\377^\377\377\377\336\374\377\377p\377\377\377\351\002\000\000X\376\377\377\247\000\000\000H\376\377\377}\000\000\000\225\374\377\3776\001\000\000\301\001\000\000\210\001\000\000\374\376\377\377\307\377\377\377\320\374\377\377\267\377\377\377F\375\377\377\352\377\377\377=\377\377\3770\376\377\377#\000\000\000\313\376\377\377\334\000\000\000\261\001\000\000\363\001\000\000\037\001\000\000\220\377\377\377\202\000\000\000d\377\377\377\013\002\000\000\266\002\000\000\347\374\377\377+\001\000\000\301\376\377\377\341\377\377\377O\003\000\000\037\375\377\377\244\375\377\377\352\000\000\000\302\001\000\000I\002\000\000~\377\377\377*\376\377\377\333\000\000\000\214\000\000\000\014\002\000\000&#34;
-      }
-      type: TENSOR
-    }
-  }
-  node {
-    input: &#34;/input_quant/export_handler/QuantizeLinear_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_1_output_0&#34;
-    input: &#34;/linear/export_handler/Constant_output_0&#34;
-    input: &#34;/linear/export_handler/Constant_1_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_1_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_1_output_0&#34;
-    input: &#34;/linear/export_handler/Constant_2_output_0&#34;
-    output: &#34;/linear/export_handler/QLinearConv_output_0&#34;
-    name: &#34;/linear/export_handler/QLinearConv&#34;
-    op_type: &#34;QLinearConv&#34;
-    attribute {
-      name: &#34;dilations&#34;
-      ints: 1
-      ints: 1
-      type: INTS
-    }
-    attribute {
-      name: &#34;group&#34;
-      i: 1
-      type: INT
-    }
-    attribute {
-      name: &#34;kernel_shape&#34;
-      ints: 3
-      ints: 3
-      type: INTS
-    }
-    attribute {
-      name: &#34;pads&#34;
-      ints: 0
-      ints: 0
-      ints: 0
-      ints: 0
-      type: INTS
-    }
-    attribute {
-      name: &#34;strides&#34;
-      ints: 1
-      ints: 1
-      type: INTS
-    }
-  }
-  node {
-    input: &#34;/linear/export_handler/QLinearConv_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_output_0&#34;
-    input: &#34;/input_quant/export_handler/Constant_1_output_0&#34;
-    output: &#34;10&#34;
-    name: &#34;/linear/export_handler/DequantizeLinear&#34;
-    op_type: &#34;DequantizeLinear&#34;
-  }
-  name: &#34;torch_jit&#34;
-  input {
-    name: &#34;inp.1&#34;
-    type {
-      tensor_type {
-        elem_type: 1
-        shape {
-          dim {
-            dim_value: 1
-          }
-          dim {
-            dim_value: 3
-          }
-          dim {
-            dim_value: 128
-          }
-          dim {
-            dim_value: 128
-          }
-        }
-      }
-    }
-  }
-  output {
-    name: &#34;10&#34;
-    type {
-      tensor_type {
-        elem_type: 1
-        shape {
-          dim {
-            dim_value: 1
-          }
-          dim {
-            dim_value: 128
-          }
-          dim {
-            dim_value: 126
-          }
-          dim {
-            dim_value: 126
-          }
-        }
-      }
-    }
-  }
-}
-opset_import {
-  domain: &#34;&#34;
-  version: 13
-}
-</pre></div></div>
-</div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="s2">&quot;quant_model_qop.onnx&quot;</span><span class="p">,</span> <span class="mi">8085</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
-</pre></div></div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
-</pre></div>
-</div>
-<div class="output_area rendered_html docutils container">
-<iframe
-    width="100%"
-    height="400"
-    src="http://localhost:8085/"
-    frameborder="0"
-    allowfullscreen
-
-></iframe></div>
-</div>
-<p>In this case, we need to make sure that our input to <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> is quantized. Using the approach shown above, with a standalone <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, Brevitas will add a <code class="docutils literal notranslate"><span class="pre">QuantizeLinear</span></code> node. If <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> is specified in <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, a <code class="docutils literal notranslate"><span class="pre">DeQuantizeLinear</span></code> node won’t be added. Setting <code class="docutils literal notranslate"><span class="pre">input_quant</span></code> in <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> is also an option.</p>
-<p>Note that the way <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> is interpreted differs between QCDQ export and QOps export. With QCDQ, it doesn’t affect the export, as a dequantize node is always generated. With QOps export, it prevents a quantization node from being inserted, so that an integer tensor is passed to the next layer.</p>
-<p>Moreover, our <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> layer has to specify how to re-quantize the output - in this case, with the <code class="docutils literal notranslate"><span class="pre">Int8ActPerTensorFloat</span></code> activation quantizer, otherwise an error will be raised during export-time.</p>
-<p>Similarly, if the bias is present, it has to be quantized or an error will be raised.</p>
 <section id="Clipping-in-QOps">
 <h3>Clipping in QOps<a class="headerlink" href="#Clipping-in-QOps" title="Permalink to this heading">#</a></h3>
 <p>Even when using <code class="docutils literal notranslate"><span class="pre">QLinearConv</span></code> and <code class="docutils literal notranslate"><span class="pre">QLinearMatMul</span></code>, it is still possible to represent bit-width &lt; 8 through the use of clipping.</p>
@@ -959,8 +697,8 @@ Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
 <section id="QCDQ">
 <h3>QCDQ<a class="headerlink" href="#QCDQ" title="Permalink to this heading">#</a></h3>
 <p>Since for QCDQ we are only using standard ONNX operation, it is possible to run the exported model using ONNX Runtime.</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
@@ -992,9 +730,27 @@ Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
 <span class="n">out_brevitas</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
 <span class="n">out_ort</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">pred_onx</span><span class="p">)</span>
 
-<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">out_brevitas</span><span class="p">,</span> <span class="n">out_ort</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">out_brevitas</span><span class="p">,</span> <span class="n">out_ort</span><span class="p">))</span>
 </pre></div>
 </div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2024-09-12 12:18:03.405472924 [W:onnxruntime:, graph.cc:1283 Graph] Initializer linear.bias appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/quant_linear.py:69: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
+  output_tensor = linear(x, quant_weight, quant_bias)
+</pre></div></div>
 </div>
 <section id="QGEMM-vs-GEMM">
 <h4>QGEMM vs GEMM<a class="headerlink" href="#QGEMM-vs-GEMM" title="Permalink to this heading">#</a></h4>
@@ -1003,7 +759,7 @@ Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
 <p>We did not observe a similar behavior for other operations such as <code class="docutils literal notranslate"><span class="pre">QuantConvNd</span></code>.</p>
 <p>An example of a layer that will match this definition is the following:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int32Bias</span>
@@ -1021,62 +777,71 @@ Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
 <p>Unfortunately ONNX Runtime does not provide a built-in way to log whether execution goes through unoptimized floating-point GEMM, or int8 QGEMM.</p>
 </section>
 </section>
-<section id="QOps">
-<h3>QOps<a class="headerlink" href="#QOps" title="Permalink to this heading">#</a></h3>
-<p>As for the QCDQ case, also in this case we are using only standard ONNX operations, thus we can use ONNX Runtime for executing our exported models.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+<section id="Export-Dynamically-Quantized-Models-to-ONNX">
+<h3>Export Dynamically Quantized Models to ONNX<a class="headerlink" href="#Export-Dynamically-Quantized-Models-to-ONNX" title="Permalink to this heading">#</a></h3>
+<p>You can also export dynamically quantized models to ONNX, but there are some limitations. The ONNX DynamicQuantizeLinear requires the following settings: - Asymmetric quantization (and therefore <em>unsigned</em>) - Min-max scaling - Rounding to nearest - Per tensor scaling - Bit width set to 8</p>
+<p>This is shown in the following example:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas_examples.common.generative.quantizers</span> <span class="kn">import</span> <span class="n">ShiftedUint8DynamicActPerTensorFloat</span>
+
+<span class="n">IN_CH</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">IMG_SIZE</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">OUT_CH</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
 
 <span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">input_quant</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span>
-            <span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-            <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
-            <span class="n">output_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-            <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">input_quant</span><span class="o">=</span><span class="n">ShiftedUint8DynamicActPerTensorFloat</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">input_quant</span><span class="o">=</span><span class="n">ShiftedUint8DynamicActPerTensorFloat</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
-        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_quant</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
-        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conv</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">act</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">inp</span>
 
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
 <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">,</span> <span class="n">IMG_SIZE</span><span class="p">,</span> <span class="n">IMG_SIZE</span><span class="p">)</span>
-<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_qops_4b_4b.onnx&#39;</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;dynamic_quant_model_qcdq.onnx&#39;</span>
 
-<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qop</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
-
-<span class="n">sess_opt</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
-<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sess_opt</span><span class="p">)</span>
-<span class="n">input_name</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
-<span class="n">pred_onx</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="n">input_name</span><span class="p">:</span> <span class="n">inp</span><span class="o">.</span><span class="n">numpy</span><span class="p">()})[</span><span class="mi">0</span><span class="p">]</span>
-
-
-<span class="n">out_brevitas</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
-<span class="n">out_ort</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">pred_onx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">out_brevitas</span><span class="p">,</span> <span class="n">out_ort</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="s2">&quot;dynamic_quant_model_qcdq.onnx&quot;</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
 <div class="prompt empty docutils container">
 </div>
-<div class="output_area stderr docutils container">
+<div class="output_area docutils container">
 <div class="highlight"><pre>
-c:\users\alessand\documents\brevitas\src\brevitas\export\onnx\standard\manager.py:23: UserWarning: ONNX opset version set to 13, override with opset_version=
-  warnings.warn(f&#34;ONNX opset version set to {DEFAULT_OPSET}, override with {ka}=&#34;)
+Serving &#39;dynamic_quant_model_qcdq.onnx&#39; at http://localhost:8086
 </pre></div></div>
 </div>
-<p>Note a few things. <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> defines <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> so that the exported ONNX model doesn’t have a dequantize node at the end. Vecause we set <code class="docutils literal notranslate"><span class="pre">output_bit_width=4</span></code> (overriding the 8 bit bit-width in the <code class="docutils literal notranslate"><span class="pre">output_quant</span></code> quantizer), we have a <code class="docutils literal notranslate"><span class="pre">Clip</span></code> node at the end. At the same time, within Brevitas, <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> means the PyTorch model returns a Brevitas <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>, from which we are taking the <code class="docutils literal notranslate"><span class="pre">int</span></code> representation.</p>
-<p>Due to differences in how the computation is performed between Brevitas and ONNX Runtime, it might happen the two results are slightly different (since Brevitas uses a style closer to QCDQ, rather than operating between integers), thus we added a tolerance for off-by-1 errors.</p>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8086/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
 </section>
 </section>
 </section>
@@ -1130,9 +895,6 @@ c:\users\alessand\documents\brevitas\src\brevitas\export\onnx\standard\manager.p
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Basic-Example">Basic Example</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Complete-Model">Complete Model</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#The-C-in-QCDQ-(Bitwidth-&lt;=-8)">The C in QCDQ (Bitwidth &lt;= 8)</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#QOps-Export">QOps Export</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Clipping-in-QOps">Clipping in QOps</a></li>
 </ul>
 </li>
@@ -1141,7 +903,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\export\onnx\standard\manager.p
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#QGEMM-vs-GEMM">QGEMM vs GEMM</a></li>
 </ul>
 </li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#QOps">QOps</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#Export-Dynamically-Quantized-Models-to-ONNX">Export Dynamically Quantized Models to ONNX</a></li>
 </ul>
 </li>
 </ul>

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core.bit_width package &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.bit_width package &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -447,11 +447,11 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.const.BitWidthConst">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.bit_width.const.</span></span><span class="sig-name descname"><span class="pre">BitWidthConst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/const.html#BitWidthConst"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.const.BitWidthConst" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule that returns a constant bit-width wrapped in a float torch.tensor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – bit-width value.</p>
+<dd class="field-odd"><p><strong>bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – bit-width value.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
@@ -472,9 +472,9 @@ a checkpoint.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.const.BitWidthConst.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/const.html#BitWidthConst.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.const.BitWidthConst.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -489,12 +489,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.const.BitWidthStatefulConst">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.bit_width.const.</span></span><span class="sig-name descname"><span class="pre">BitWidthStatefulConst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/const.html#BitWidthStatefulConst"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.const.BitWidthStatefulConst" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule that returns a constant bit-width wrapped in a float torch.tensor but retains the
 bit-width as part of the module state.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – bit-width value.</p>
+<dd class="field-odd"><p><strong>bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – bit-width value.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
@@ -517,9 +517,9 @@ will be saved as part of a checkpoint.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.const.BitWidthStatefulConst.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/const.html#BitWidthStatefulConst.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.const.BitWidthStatefulConst.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -534,13 +534,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.const.MsbClampBitWidth">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.bit_width.const.</span></span><span class="sig-name descname"><span class="pre">MsbClampBitWidth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width_to_remove_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_overall_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_overall_bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/const.html#MsbClampBitWidth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.const.MsbClampBitWidth" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.const.MsbClampBitWidth.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/const.html#MsbClampBitWidth.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.const.MsbClampBitWidth.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -558,15 +558,15 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.parameter.BitWidthParameter">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.bit_width.parameter.</span></span><span class="sig-name descname"><span class="pre">BitWidthParameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bit_width=2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_bit_width_impl=IntRestrictValue(</span>&#160;&#160; <span class="pre">(float_to_int_impl):</span> <span class="pre">RoundSte()</span> <span class="pre">)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_pretrained_bit_width=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/parameter.html#BitWidthParameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.parameter.BitWidthParameter" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule that returns a learnable bit-width wrapped in a float torch.Tensor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – value to initialize the output learned bit-width.</p></li>
-<li><p><strong>min_bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – lower bound for the output learned bit-width. Default: 2.</p></li>
-<li><p><strong>restrict_bit_width_impl</strong> (<a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>) – restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).</p></li>
-<li><p><strong>override_pretrained_bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – ignore pretrained bit-width loaded from a state dict. Default: False.</p></li>
+<li><p><strong>bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – value to initialize the output learned bit-width.</p></li>
+<li><p><strong>min_bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – lower bound for the output learned bit-width. Default: 2.</p></li>
+<li><p><strong>restrict_bit_width_impl</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>) – restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).</p></li>
+<li><p><strong>override_pretrained_bit_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – ignore pretrained bit-width loaded from a state dict. Default: False.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -576,7 +576,7 @@ registered hooks while the latter silently ignores them.</p>
 <dd class="field-odd"><p>Tensor</p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.12)"><strong>RuntimeError</strong></a> – if bit_width &lt; min_bit_width.</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><strong>RuntimeError</strong></a> – if bit_width &lt; min_bit_width.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
@@ -597,9 +597,9 @@ from a floating point state dict.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.parameter.BitWidthParameter.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/parameter.html#BitWidthParameter.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.parameter.BitWidthParameter.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -614,13 +614,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.parameter.RemoveBitwidthParameter">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.bit_width.parameter.</span></span><span class="sig-name descname"><span class="pre">RemoveBitwidthParameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width_to_remove</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_pretrained_bit_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">non_zero_epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_zero_bit_width</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/parameter.html#RemoveBitwidthParameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.parameter.RemoveBitwidthParameter" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.bit_width.parameter.RemoveBitwidthParameter.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/bit_width/parameter.html#RemoveBitwidthParameter.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.bit_width.parameter.RemoveBitwidthParameter.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within

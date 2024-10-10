@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.function_wrapper.clamp &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.function_wrapper.clamp &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -414,12 +414,16 @@ document.write(`
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">ScriptModule wrappers for various variants of clamping.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
 <span class="kn">from</span> <span class="nn">brevitas.function</span> <span class="kn">import</span> <span class="n">tensor_clamp</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">max_float</span>
 
 
 <div class="viewcode-block" id="TensorClamp"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.TensorClamp">[docs]</a><span class="k">class</span> <span class="nc">TensorClamp</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -483,6 +487,90 @@ document.write(`
 <div class="viewcode-block" id="ClampMin.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.ClampMin.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_val</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="FloatClamp"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp">[docs]</a><span class="k">class</span> <span class="nc">FloatClamp</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule for clamping minifloat formats to their inf/NaN implementations.</span>
+
+<span class="sd">    Currently, inf/NaN codes have to be encoded through the mantissa.</span>
+<span class="sd">    I.e. setting inf to 1101.111 (E4M3) is not a valid code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;saturating&#39;</span><span class="p">,</span> <span class="s1">&#39;inf_values&#39;</span><span class="p">,</span> <span class="s1">&#39;nan_values&#39;</span><span class="p">,</span> <span class="s1">&#39;signed&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">tensor_clamp_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+            <span class="n">inf_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">nan_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">max_available_float</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">saturating</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FloatClamp</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tensor_clamp_impl</span> <span class="o">=</span> <span class="n">tensor_clamp_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">saturating</span> <span class="o">=</span> <span class="n">saturating</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inf_values</span> <span class="o">=</span> <span class="n">inf_values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nan_values</span> <span class="o">=</span> <span class="n">nan_values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="o">=</span> <span class="n">signed</span>
+
+        <span class="k">if</span> <span class="n">max_available_float</span><span class="p">:</span>
+            <span class="n">max_available_float</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">max_available_float</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_available_float</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">max_available_float</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_available_float</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="FloatClamp.inf_nan_clamp"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.inf_nan_clamp">[docs]</a>    <span class="k">def</span> <span class="nf">inf_nan_clamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">inf_mask</span><span class="p">,</span> <span class="n">p_max_val_mask</span><span class="p">,</span> <span class="n">n_max_val_mask</span><span class="p">):</span>
+
+        <span class="c1"># if non-saturating, we need to map values greater than max_val to nan or inf</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inf_values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># we have inf values, so we set abs values &gt; max_value to +- inf, and leave inf at inf</span>
+            <span class="n">x</span><span class="p">[</span><span class="n">p_max_val_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">))</span>
+            <span class="n">x</span><span class="p">[</span><span class="n">n_max_val_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">nan_values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># no inf values, so we need to map them to NaN</span>
+            <span class="n">full_max_val_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">p_max_val_mask</span><span class="p">,</span> <span class="n">n_max_val_mask</span><span class="p">)</span>
+            <span class="n">x</span><span class="p">[</span><span class="n">full_max_val_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span>
+
+            <span class="c1"># we also map the inf values to NaN in this case</span>
+            <span class="n">x</span><span class="p">[</span><span class="n">inf_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;nan&#39;</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;Clamping is not saturating, but neither `inf_values` nor `nan_values` is specified&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+<div class="viewcode-block" id="FloatClamp.saturating_clamp"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.saturating_clamp">[docs]</a>    <span class="k">def</span> <span class="nf">saturating_clamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">min_value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tensor_clamp_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="n">max_value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FloatClamp.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">exponent_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">mantissa_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">exponent_bias</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+
+        <span class="n">max_value</span> <span class="o">=</span> <span class="n">max_float</span><span class="p">(</span><span class="n">exponent_bit_width</span><span class="p">,</span> <span class="n">mantissa_bit_width</span><span class="p">,</span> <span class="n">exponent_bias</span><span class="p">)</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_available_float</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span>
+            <span class="n">max_value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_available_float</span><span class="p">())</span>
+        <span class="n">min_value</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="k">else</span> <span class="o">-</span><span class="n">max_value</span>
+
+        <span class="c1"># Compute masks</span>
+        <span class="n">inf_mask</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">isinf</span><span class="p">()</span>
+        <span class="n">p_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">max_value</span>
+        <span class="n">n_max_val_mask</span> <span class="o">=</span> <span class="o">-</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">max_value</span>
+
+        <span class="c1"># first clamp everything to +- max_value, basically the saturating case</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saturating_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">min_value</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">saturating</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inf_nan_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">inf_mask</span><span class="p">,</span> <span class="n">p_max_val_mask</span><span class="p">,</span> <span class="n">n_max_val_mask</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">saturating</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">inf_values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nan_values</span></div></div>
 </pre></div>
 
                 </article>

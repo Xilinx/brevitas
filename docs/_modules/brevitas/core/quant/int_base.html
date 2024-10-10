@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.quant.int_base &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.quant.int_base &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -461,6 +461,7 @@ document.write(`
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
             <span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+            <span class="n">input_view_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">float_to_int_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">RoundSte</span><span class="p">(),</span>
             <span class="n">tensor_clamp_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">TensorClamp</span><span class="p">(),</span>
             <span class="n">quant_delay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
@@ -470,9 +471,11 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="o">=</span> <span class="n">signed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span> <span class="o">=</span> <span class="n">narrow_range</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">delay_wrapper</span> <span class="o">=</span> <span class="n">DelayWrapper</span><span class="p">(</span><span class="n">quant_delay_steps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_view_impl</span> <span class="o">=</span> <span class="n">input_view_impl</span>
 
 <div class="viewcode-block" id="IntQuant.to_int"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.IntQuant.to_int">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">to_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">scale</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">zero_point</span>
         <span class="n">min_int_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_int</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
@@ -534,6 +537,7 @@ document.write(`
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
             <span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+            <span class="n">input_view_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">float_to_int_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">RoundSte</span><span class="p">(),</span>
             <span class="n">tensor_clamp_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">TensorClamp</span><span class="p">(),</span>
             <span class="n">quant_delay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
@@ -543,11 +547,13 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="o">=</span> <span class="n">signed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span> <span class="o">=</span> <span class="n">narrow_range</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">delay_wrapper</span> <span class="o">=</span> <span class="n">DelayWrapper</span><span class="p">(</span><span class="n">quant_delay_steps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_view_impl</span> <span class="o">=</span> <span class="n">input_view_impl</span>
 
 <div class="viewcode-block" id="DecoupledIntQuant.to_int"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.DecoupledIntQuant.to_int">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">to_int</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">pre_zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
             <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">pre_scale</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">pre_zero_point</span>
         <span class="n">min_int_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_int</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>

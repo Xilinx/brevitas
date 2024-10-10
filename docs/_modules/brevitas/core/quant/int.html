@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.quant.int &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.quant.int &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -555,15 +555,18 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">int_scaling_impl</span> <span class="o">=</span> <span class="n">int_scaling_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_impl</span> <span class="o">=</span> <span class="n">zero_point_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observer_only</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
 
 <div class="viewcode-block" id="RescalingIntQuant.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.RescalingIntQuant.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
         <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">()</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">int_threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_scaling_impl</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
-        <span class="n">scale</span> <span class="o">=</span> <span class="n">threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">int_threshold</span><span class="p">)</span>
         <span class="n">zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">observer_only</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span></div></div>
 
 
@@ -586,6 +589,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">pre_zero_point_impl</span> <span class="o">=</span> <span class="n">pre_zero_point_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_impl</span> <span class="o">=</span> <span class="n">zero_point_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">observer_only</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
 
 <div class="viewcode-block" id="DecoupledRescalingIntQuant.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuant.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
@@ -594,10 +598,12 @@ document.write(`
         <span class="n">pre_threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">pre_scale</span> <span class="o">=</span> <span class="n">pre_threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
         <span class="n">pre_zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">scale</span> <span class="o">=</span> <span class="n">threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">int_threshold</span><span class="p">)</span>
         <span class="n">zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoupled_int_quant</span><span class="p">(</span><span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">observer_only</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoupled_int_quant</span><span class="p">(</span><span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span></div></div>
 
 
@@ -660,10 +666,12 @@ document.write(`
         <span class="n">pre_threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">input_bit_width</span><span class="p">,</span> <span class="n">input_is_signed</span><span class="p">)</span>
         <span class="n">pre_scale</span> <span class="o">=</span> <span class="n">pre_threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
         <span class="n">pre_zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">scale</span> <span class="o">=</span> <span class="n">threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">int_threshold</span><span class="p">)</span>
         <span class="n">zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoupled_int_quant</span><span class="p">(</span><span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">observer_only</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoupled_int_quant</span><span class="p">(</span><span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span></div></div>
 </pre></div>
 

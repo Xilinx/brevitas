@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.restrict_val &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.restrict_val &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -446,7 +446,7 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
 
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span>
@@ -462,7 +462,7 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
 
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span>
 
@@ -478,7 +478,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span> <span class="o">=</span> <span class="n">scaling_min_val</span>
 
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span>
 
@@ -500,8 +500,11 @@ document.write(`
 <div class="viewcode-block" id="FloatRestrictValue.restrict_init_inplace_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_inplace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Identity</span><span class="p">()</span></div>
 
+<div class="viewcode-block" id="FloatRestrictValue.combine_scale_threshold"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.combine_scale_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">/</span> <span class="n">threshold</span></div>
+
 <div class="viewcode-block" id="FloatRestrictValue.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">x</span></div></div>
 
 
@@ -514,7 +517,7 @@ document.write(`
 <div class="viewcode-block" id="LogFloatRestrictValue.restrict_init_float"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_float">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_float</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="LogFloatRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<div class="viewcode-block" id="LogFloatRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LogFloatRestrictValue.restrict_init_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -523,8 +526,11 @@ document.write(`
 <div class="viewcode-block" id="LogFloatRestrictValue.restrict_init_inplace_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_inplace_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_inplace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">InplaceLogTwo</span><span class="p">()</span></div>
 
+<div class="viewcode-block" id="LogFloatRestrictValue.combine_scale_threshold"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.combine_scale_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">-</span> <span class="n">threshold</span></div>
+
 <div class="viewcode-block" id="LogFloatRestrictValue.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">power_of_two</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span></div></div>
 
@@ -538,7 +544,7 @@ document.write(`
 <div class="viewcode-block" id="IntRestrictValue.restrict_init_float"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_float">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_float</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">x</span></div>
 
-<div class="viewcode-block" id="IntRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<div class="viewcode-block" id="IntRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">x</span></div>
 
 <div class="viewcode-block" id="IntRestrictValue.restrict_init_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -547,8 +553,11 @@ document.write(`
 <div class="viewcode-block" id="IntRestrictValue.restrict_init_inplace_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_inplace_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_inplace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Identity</span><span class="p">()</span></div>
 
+<div class="viewcode-block" id="IntRestrictValue.combine_scale_threshold"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.combine_scale_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">/</span> <span class="n">threshold</span></div>
+
 <div class="viewcode-block" id="IntRestrictValue.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">float_to_int_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span></div></div>
 
@@ -563,7 +572,7 @@ document.write(`
 <div class="viewcode-block" id="PowerOfTwoRestrictValue.restrict_init_float"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_float">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_float</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="PowerOfTwoRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<div class="viewcode-block" id="PowerOfTwoRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="PowerOfTwoRestrictValue.restrict_init_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -572,8 +581,11 @@ document.write(`
 <div class="viewcode-block" id="PowerOfTwoRestrictValue.restrict_init_inplace_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_inplace_module">[docs]</a>    <span class="k">def</span> <span class="nf">restrict_init_inplace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">InplaceLogTwo</span><span class="p">()</span></div>
 
+<div class="viewcode-block" id="PowerOfTwoRestrictValue.combine_scale_threshold"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.combine_scale_threshold">[docs]</a>    <span class="k">def</span> <span class="nf">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">-</span> <span class="n">threshold</span></div>
+
 <div class="viewcode-block" id="PowerOfTwoRestrictValue.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">float_to_int_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">power_of_two</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span></div></div>

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core.function_wrapper package &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core.function_wrapper package &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -448,7 +448,7 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.ClampMin">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.clamp.</span></span><span class="sig-name descname"><span class="pre">ClampMin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#ClampMin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.ClampMin" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <code class="xref py py-func docutils literal notranslate"><span class="pre">clamp_min()</span></code>.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">clamp_min</span> <span class="o">=</span> <span class="n">ClampMin</span><span class="p">(</span><span class="n">min_val</span><span class="o">=-</span><span class="mf">2.0</span><span class="p">)</span>
@@ -459,7 +459,7 @@ document.write(`
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.ClampMin.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#ClampMin.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.ClampMin.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -473,10 +473,44 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.FloatClamp">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.clamp.</span></span><span class="sig-name descname"><span class="pre">FloatClamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inf_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nan_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_available_float</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saturating</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#FloatClamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.FloatClamp" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>”
+ScriptModule for clamping minifloat formats to their inf/NaN implementations.</p>
+<p>Currently, inf/NaN codes have to be encoded through the mantissa.
+I.e. setting inf to 1101.111 (E4M3) is not a valid code.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.FloatClamp.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mantissa_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent_bias</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#FloatClamp.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.FloatClamp.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.FloatClamp.inf_nan_clamp">
+<span class="sig-name descname"><span class="pre">inf_nan_clamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inf_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_max_val_mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_max_val_mask</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#FloatClamp.inf_nan_clamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.FloatClamp.inf_nan_clamp" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.FloatClamp.saturating_clamp">
+<span class="sig-name descname"><span class="pre">saturating_clamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#FloatClamp.saturating_clamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.FloatClamp.saturating_clamp" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.ScalarClamp">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.clamp.</span></span><span class="sig-name descname"><span class="pre">ScalarClamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#ScalarClamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.ScalarClamp" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
-<p>ScriptModule wrapper for <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.clamp.html#torch.clamp" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">clamp()</span></code></a>.</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>ScriptModule wrapper for <code class="xref py py-func docutils literal notranslate"><span class="pre">clamp()</span></code>.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scalar_clamp</span> <span class="o">=</span> <span class="n">ScalarClamp</span><span class="p">(</span><span class="n">min_val</span><span class="o">=-</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">scalar_clamp</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]))</span>
@@ -486,7 +520,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.ScalarClamp.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#ScalarClamp.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.ScalarClamp.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -502,7 +536,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.TensorClamp">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.clamp.</span></span><span class="sig-name descname"><span class="pre">TensorClamp</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#TensorClamp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.TensorClamp" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.tensor_clamp" title="brevitas.function.ops.tensor_clamp"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code></a>.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tensor_clamp</span> <span class="o">=</span> <span class="n">TensorClamp</span><span class="p">()</span>
@@ -515,7 +549,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.clamp.TensorClamp.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/clamp.html#TensorClamp.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.clamp.TensorClamp.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -535,7 +569,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.Identity">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.misc.</span></span><span class="sig-name descname"><span class="pre">Identity</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#Identity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.Identity" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>Identity ScriptModule.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">identity</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
@@ -548,9 +582,9 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.Identity.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#Identity.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.Identity.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -565,7 +599,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.InplaceLogTwo">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.misc.</span></span><span class="sig-name descname"><span class="pre">InplaceLogTwo</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#InplaceLogTwo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.InplaceLogTwo" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>Module wrapper for <code class="xref py py-func docutils literal notranslate"><span class="pre">log2_()</span></code>.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">inplace_log_two</span> <span class="o">=</span> <span class="n">InplaceLogTwo</span><span class="p">()</span>
@@ -580,9 +614,9 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.InplaceLogTwo.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#InplaceLogTwo.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.InplaceLogTwo.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -597,8 +631,8 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.LogTwo">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.misc.</span></span><span class="sig-name descname"><span class="pre">LogTwo</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#LogTwo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.LogTwo" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
-<p>ScriptModule wrapper for <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.log2.html#torch.log2" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">log2()</span></code></a>.</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>ScriptModule wrapper for <code class="xref py py-func docutils literal notranslate"><span class="pre">log2()</span></code>.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">log_two</span> <span class="o">=</span> <span class="n">LogTwo</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">8.0</span><span class="p">)</span>
@@ -609,9 +643,9 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.LogTwo.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#LogTwo.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.LogTwo.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -626,7 +660,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.PowerOfTwo">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.misc.</span></span><span class="sig-name descname"><span class="pre">PowerOfTwo</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#PowerOfTwo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.PowerOfTwo" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule implementation of 2.0 ** x.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">power_of_two</span> <span class="o">=</span> <span class="n">PowerOfTwo</span><span class="p">()</span>
@@ -638,9 +672,9 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.PowerOfTwo.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#PowerOfTwo.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.PowerOfTwo.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -659,12 +693,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.CeilSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">CeilSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#CeilSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.CeilSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste" title="brevitas.function.ops_ste.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.CeilSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#CeilSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.CeilSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -680,12 +714,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.DPURoundSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">DPURoundSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#DPURoundSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.DPURoundSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.dpu_round_ste" title="brevitas.function.ops_ste.dpu_round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.DPURoundSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#DPURoundSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.DPURoundSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -701,12 +735,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.FloorSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">FloorSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#FloorSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.FloorSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.floor_ste" title="brevitas.function.ops_ste.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.FloorSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#FloorSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.FloorSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -722,12 +756,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.InplaceTensorClampSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">InplaceTensorClampSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#InplaceTensorClampSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.InplaceTensorClampSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste_" title="brevitas.function.ops_ste.tensor_clamp_ste_"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.InplaceTensorClampSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#InplaceTensorClampSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.InplaceTensorClampSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -743,12 +777,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.RoundSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">RoundSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#RoundSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.RoundSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_ste" title="brevitas.function.ops_ste.round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.RoundSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#RoundSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.RoundSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -764,12 +798,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.RoundToZeroSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">RoundToZeroSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#RoundToZeroSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.RoundToZeroSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_to_zero_ste" title="brevitas.function.ops_ste.round_to_zero_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.RoundToZeroSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#RoundToZeroSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.RoundToZeroSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -785,12 +819,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ScalarClampMinSte</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#ScalarClampMinSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_min_ste" title="brevitas.function.ops_ste.scalar_clamp_min_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#ScalarClampMinSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -806,12 +840,12 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.TensorClampSte">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">TensorClampSte</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#TensorClampSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.TensorClampSte" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste" title="brevitas.function.ops_ste.tensor_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste()</span></code></a>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.TensorClampSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#TensorClampSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.TensorClampSte.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -829,9 +863,29 @@ registered hooks while the latter silently ignores them.</p>
 <span id="brevitas-core-function-wrapper-shape-module"></span><h2>brevitas.core.function_wrapper.shape module<a class="headerlink" href="#module-brevitas.core.function_wrapper.shape" title="Permalink to this heading">#</a></h2>
 <p>ScriptModule classes to compute the view of a tensor according to various different criteria.</p>
 <dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">DynamicOverSubChannelBlockView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#DynamicOverSubChannelBlockView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#DynamicOverSubChannelBlockView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverBatchOverOutputChannelView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permute_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverBatchOverOutputChannelView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule to compute the <a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_batch_over_output_channels" title="brevitas.function.shape.over_batch_over_output_channels"><code class="xref py py-func docutils literal notranslate"><span class="pre">over_batch_over_output_channels()</span></code></a>
 view of an input tensor.</p>
 <p class="rubric">Examples</p>
@@ -844,7 +898,7 @@ view of an input tensor.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverBatchOverOutputChannelView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -860,7 +914,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverBatchOverTensorView">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverBatchOverTensorView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permute_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverBatchOverTensorView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverBatchOverTensorView" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptMoodule to compute the <a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_batch_over_tensor" title="brevitas.function.shape.over_batch_over_tensor"><code class="xref py py-func docutils literal notranslate"><span class="pre">over_batch_over_tensor()</span></code></a> view of an
 input tensor.</p>
 <p class="rubric">Examples</p>
@@ -873,7 +927,7 @@ input tensor.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverBatchOverTensorView.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverBatchOverTensorView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverBatchOverTensorView.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -889,7 +943,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverOutputChannelView">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverOutputChannelView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permute_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverOutputChannelView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverOutputChannelView" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptMoodule to compute the <a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_output_channels" title="brevitas.function.shape.over_output_channels"><code class="xref py py-func docutils literal notranslate"><span class="pre">over_output_channels()</span></code></a> view of an
 input tensor.</p>
 <p class="rubric">Examples</p>
@@ -902,7 +956,7 @@ input tensor.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverOutputChannelView.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverOutputChannelView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverOutputChannelView.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -918,7 +972,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverOutputFeaturesView">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverOutputFeaturesView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permute_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverOutputFeaturesView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule to compute the <a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_output_features" title="brevitas.function.shape.over_output_features"><code class="xref py py-func docutils literal notranslate"><span class="pre">over_output_features()</span></code></a>
 view of an input tensor.</p>
 <p class="rubric">Examples</p>
@@ -931,7 +985,27 @@ view of an input tensor.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverOutputFeaturesView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverSubChannelBlockView">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverSubChannelBlockView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expanded_groupwise_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverSubChannelBlockView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverSubChannelBlockView" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverSubChannelBlockView.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverSubChannelBlockView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverSubChannelBlockView.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -947,7 +1021,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverTensorView">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverTensorView</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverTensorView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverTensorView" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptMoodule to compute the <a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_tensor" title="brevitas.function.shape.over_tensor"><code class="xref py py-func docutils literal notranslate"><span class="pre">over_tensor()</span></code></a> view of an input tensor.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">view_module</span> <span class="o">=</span> <span class="n">OverTensorView</span><span class="p">()</span>
@@ -959,7 +1033,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverTensorView.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverTensorView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverTensorView.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -975,11 +1049,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.PermuteDims">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">PermuteDims</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permute_dims</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#PermuteDims"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.PermuteDims" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.PermuteDims.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#PermuteDims.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.PermuteDims.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -995,9 +1069,15 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">StatsInputViewShapeImpl</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#StatsInputViewShapeImpl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.
 All adhere to the same interface.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK">
+<span class="sig-name descname"><span class="pre">DYNAMIC_OVER_SUBCHANNEL_BLOCK</span></span><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK" title="Permalink to this definition">#</a></dt>
+<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView" title="brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView"><code class="xref py py-class docutils literal notranslate"><span class="pre">DynamicOverSubChannelBlockView</span></code></a></p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS">
 <span class="sig-name descname"><span class="pre">OVER_BATCH_OVER_OUTPUT_CHANNELS</span></span><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS" title="Permalink to this definition">#</a></dt>
@@ -1020,6 +1100,12 @@ All adhere to the same interface.</p>
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES">
 <span class="sig-name descname"><span class="pre">OVER_OUTPUT_FEATURES</span></span><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES" title="Permalink to this definition">#</a></dt>
 <dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView" title="brevitas.core.function_wrapper.shape.OverOutputFeaturesView"><code class="xref py py-class docutils literal notranslate"><span class="pre">OverOutputFeaturesView</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK">
+<span class="sig-name descname"><span class="pre">OVER_SUBCHANNEL_BLOCK</span></span><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK" title="Permalink to this definition">#</a></dt>
+<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.shape.OverSubChannelBlockView" title="brevitas.core.function_wrapper.shape.OverSubChannelBlockView"><code class="xref py py-class docutils literal notranslate"><span class="pre">OverSubChannelBlockView</span></code></a></p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -1083,6 +1169,12 @@ All adhere to the same interface.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.core.function_wrapper.clamp">brevitas.core.function_wrapper.clamp module</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.ClampMin"><code class="docutils literal notranslate"><span class="pre">ClampMin</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.ClampMin.forward"><code class="docutils literal notranslate"><span class="pre">ClampMin.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.FloatClamp"><code class="docutils literal notranslate"><span class="pre">FloatClamp</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.FloatClamp.forward"><code class="docutils literal notranslate"><span class="pre">FloatClamp.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.FloatClamp.inf_nan_clamp"><code class="docutils literal notranslate"><span class="pre">FloatClamp.inf_nan_clamp()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.FloatClamp.saturating_clamp"><code class="docutils literal notranslate"><span class="pre">FloatClamp.saturating_clamp()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.clamp.ScalarClamp"><code class="docutils literal notranslate"><span class="pre">ScalarClamp</span></code></a><ul class="nav section-nav flex-column">
@@ -1150,6 +1242,10 @@ All adhere to the same interface.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.core.function_wrapper.shape">brevitas.core.function_wrapper.shape module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView"><code class="docutils literal notranslate"><span class="pre">DynamicOverSubChannelBlockView</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView.forward"><code class="docutils literal notranslate"><span class="pre">DynamicOverSubChannelBlockView.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView"><code class="docutils literal notranslate"><span class="pre">OverBatchOverOutputChannelView</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView.forward"><code class="docutils literal notranslate"><span class="pre">OverBatchOverOutputChannelView.forward()</span></code></a></li>
 </ul>
@@ -1166,6 +1262,10 @@ All adhere to the same interface.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward"><code class="docutils literal notranslate"><span class="pre">OverOutputFeaturesView.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverSubChannelBlockView"><code class="docutils literal notranslate"><span class="pre">OverSubChannelBlockView</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverSubChannelBlockView.forward"><code class="docutils literal notranslate"><span class="pre">OverSubChannelBlockView.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverTensorView"><code class="docutils literal notranslate"><span class="pre">OverTensorView</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverTensorView.forward"><code class="docutils literal notranslate"><span class="pre">OverTensorView.forward()</span></code></a></li>
 </ul>
@@ -1175,10 +1275,12 @@ All adhere to the same interface.</p>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_TENSOR</span></code></a></li>
 </ul>
 </li>

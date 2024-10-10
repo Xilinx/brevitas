@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core package &#8212; Brevitas 0.10.2 documentation</title>
+    <title>brevitas.core package &#8212; Brevitas 0.11.0 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -478,6 +478,12 @@ document.write(`
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.ClampMin.forward"><code class="docutils literal notranslate"><span class="pre">ClampMin.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp"><code class="docutils literal notranslate"><span class="pre">FloatClamp</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.forward"><code class="docutils literal notranslate"><span class="pre">FloatClamp.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.inf_nan_clamp"><code class="docutils literal notranslate"><span class="pre">FloatClamp.inf_nan_clamp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.saturating_clamp"><code class="docutils literal notranslate"><span class="pre">FloatClamp.saturating_clamp()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.ScalarClamp"><code class="docutils literal notranslate"><span class="pre">ScalarClamp</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.ScalarClamp.forward"><code class="docutils literal notranslate"><span class="pre">ScalarClamp.forward()</span></code></a></li>
 </ul>
@@ -543,6 +549,10 @@ document.write(`
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.shape">brevitas.core.function_wrapper.shape module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView"><code class="docutils literal notranslate"><span class="pre">DynamicOverSubChannelBlockView</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView.forward"><code class="docutils literal notranslate"><span class="pre">DynamicOverSubChannelBlockView.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView"><code class="docutils literal notranslate"><span class="pre">OverBatchOverOutputChannelView</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverBatchOverOutputChannelView.forward"><code class="docutils literal notranslate"><span class="pre">OverBatchOverOutputChannelView.forward()</span></code></a></li>
 </ul>
@@ -559,6 +569,10 @@ document.write(`
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward"><code class="docutils literal notranslate"><span class="pre">OverOutputFeaturesView.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverSubChannelBlockView"><code class="docutils literal notranslate"><span class="pre">OverSubChannelBlockView</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverSubChannelBlockView.forward"><code class="docutils literal notranslate"><span class="pre">OverSubChannelBlockView.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverTensorView"><code class="docutils literal notranslate"><span class="pre">OverTensorView</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverTensorView.forward"><code class="docutils literal notranslate"><span class="pre">OverTensorView.forward()</span></code></a></li>
 </ul>
@@ -568,10 +582,12 @@ document.write(`
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_TENSOR</span></code></a></li>
 </ul>
 </li>
@@ -668,6 +684,10 @@ document.write(`
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.runtime">brevitas.core.scaling.runtime module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.scaling.html#brevitas.core.scaling.runtime.RuntimeDynamicGroupStatsScaling"><code class="docutils literal notranslate"><span class="pre">RuntimeDynamicGroupStatsScaling</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#brevitas.core.scaling.runtime.RuntimeDynamicGroupStatsScaling.forward"><code class="docutils literal notranslate"><span class="pre">RuntimeDynamicGroupStatsScaling.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.scaling.html#brevitas.core.scaling.runtime.RuntimeStatsScaling"><code class="docutils literal notranslate"><span class="pre">RuntimeStatsScaling</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#brevitas.core.scaling.runtime.RuntimeStatsScaling.forward"><code class="docutils literal notranslate"><span class="pre">RuntimeStatsScaling.forward()</span></code></a></li>
 </ul>
@@ -730,6 +750,18 @@ document.write(`
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsPercentile.forward"><code class="docutils literal notranslate"><span class="pre">AbsPercentile.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.optimize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerScale.parameter_search()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.optimize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search"><code class="docutils literal notranslate"><span class="pre">HalfQuadraticOptimizerZeroPoint.parameter_search()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.forward"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold.forward()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.smooth_normalize_distribution"><code class="docutils literal notranslate"><span class="pre">KLMinimizerThreshold.smooth_normalize_distribution()</span></code></a></li>
@@ -772,6 +804,8 @@ document.write(`
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval.forward"><code class="docutils literal notranslate"><span class="pre">PercentileInterval.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.masked_median"><code class="docutils literal notranslate"><span class="pre">masked_median()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.stats.html#brevitas.core.stats.stats_op.shrink_lp_op"><code class="docutils literal notranslate"><span class="pre">shrink_lp_op()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.stats_wrapper">brevitas.core.stats.stats_wrapper module</a></li>
@@ -790,13 +824,23 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.FloatRestrictValue">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.restrict_val.</span></span><span class="sig-name descname"><span class="pre">FloatRestrictValue</span></span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#FloatRestrictValue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.restrict_val.FloatRestrictValue.combine_scale_threshold">
+<span class="sig-name descname"><span class="pre">combine_scale_threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#FloatRestrictValue.combine_scale_threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.combine_scale_threshold" title="Permalink to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.FloatRestrictValue.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#FloatRestrictValue.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -811,7 +855,7 @@ registered hooks while the latter silently ignores them.</p>
 <span class="sig-name descname"><span class="pre">restrict_init_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#FloatRestrictValue.restrict_init_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -831,7 +875,7 @@ registered hooks while the latter silently ignores them.</p>
 <span class="sig-name descname"><span class="pre">restrict_init_tensor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#FloatRestrictValue.restrict_init_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_tensor" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -841,11 +885,21 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.IntRestrictValue">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.restrict_val.</span></span><span class="sig-name descname"><span class="pre">IntRestrictValue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restrict_value_float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#IntRestrictValue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.restrict_val.IntRestrictValue.combine_scale_threshold">
+<span class="sig-name descname"><span class="pre">combine_scale_threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#IntRestrictValue.combine_scale_threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.combine_scale_threshold" title="Permalink to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.IntRestrictValue.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#IntRestrictValue.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -881,11 +935,21 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.LogFloatRestrictValue">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.restrict_val.</span></span><span class="sig-name descname"><span class="pre">LogFloatRestrictValue</span></span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#LogFloatRestrictValue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.restrict_val.LogFloatRestrictValue.combine_scale_threshold">
+<span class="sig-name descname"><span class="pre">combine_scale_threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#LogFloatRestrictValue.combine_scale_threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.combine_scale_threshold" title="Permalink to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.LogFloatRestrictValue.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#LogFloatRestrictValue.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -921,11 +985,21 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.PowerOfTwoRestrictValue">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.restrict_val.</span></span><span class="sig-name descname"><span class="pre">PowerOfTwoRestrictValue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">restrict_value_float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#PowerOfTwoRestrictValue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.combine_scale_threshold">
+<span class="sig-name descname"><span class="pre">combine_scale_threshold</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#PowerOfTwoRestrictValue.combine_scale_threshold"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.combine_scale_threshold" title="Permalink to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/restrict_val.html#PowerOfTwoRestrictValue.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -964,11 +1038,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.utils.ParameterWrapper">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">ParameterWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#ParameterWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.ParameterWrapper" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.utils.ParameterWrapper.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#ParameterWrapper.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.ParameterWrapper.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -984,11 +1058,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.utils.SingleArgStatelessBuffer">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">SingleArgStatelessBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#SingleArgStatelessBuffer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.SingleArgStatelessBuffer" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.utils.SingleArgStatelessBuffer.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">placeholder</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#SingleArgStatelessBuffer.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.SingleArgStatelessBuffer.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1004,13 +1078,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.utils.SliceTensor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">SliceTensor</span></span><a class="reference internal" href="../_modules/brevitas/core/utils.html#SliceTensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.SliceTensor" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.utils.SliceTensor.eager_forward">
 <span class="sig-name descname"><span class="pre">eager_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#SliceTensor.eager_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.SliceTensor.eager_forward" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1018,9 +1092,9 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.utils.SliceTensor.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#SliceTensor.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.SliceTensor.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1035,11 +1109,11 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.utils.StatelessBuffer">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">StatelessBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#StatelessBuffer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.utils.StatelessBuffer.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#StatelessBuffer.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1053,7 +1127,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.utils.StatelessBuffer.state_dict">
 <span class="sig-name descname"><span class="pre">state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">destination</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_vars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#StatelessBuffer.state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer.state_dict" title="Permalink to this definition">#</a></dt>
-<dd><p>Returns a dictionary containing references to the whole state of the module.</p>
+<dd><p>Return a dictionary containing references to the whole state of the module.</p>
 <p>Both parameters and persistent buffers (e.g. running averages) are
 included. Keys are corresponding parameter and buffer names.
 Parameters and buffers set to <code class="docutils literal notranslate"><span class="pre">None</span></code> are not included.</p>
@@ -1077,13 +1151,13 @@ designed for end-users.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>destination</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)"><em>dict</em></a><em>, </em><em>optional</em>) – If provided, the state of module will
+<li><p><strong>destination</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>, </em><em>optional</em>) – If provided, the state of module will
 be updated into the dict and the same object is returned.
 Otherwise, an <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> will be created and returned.
 Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
-<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><em>optional</em>) – a prefix added to parameter and buffer
+<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><em>optional</em>) – a prefix added to parameter and buffer
 names to compose the keys in state_dict. Default: <code class="docutils literal notranslate"><span class="pre">''</span></code>.</p></li>
-<li><p><strong>keep_vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a><em>, </em><em>optional</em>) – by default the <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a> s
+<li><p><strong>keep_vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>optional</em>) – by default the <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code> s
 returned in the state dict are detached from autograd. If it’s
 set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, detaching will not be performed.
 Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
@@ -1093,7 +1167,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dd class="field-even"><p>a dictionary containing a whole state of the module</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)">dict</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 <p>Example:</p>
@@ -1111,7 +1185,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">inplace_momentum_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">momentum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">counter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#inplace_momentum_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.inplace_momentum_update" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1121,7 +1195,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">inplace_tensor_add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#inplace_tensor_add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.inplace_tensor_add" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1131,7 +1205,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <span class="sig-prename descclassname"><span class="pre">brevitas.core.utils.</span></span><span class="sig-name descname"><span class="pre">inplace_tensor_mul</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/utils.html#inplace_tensor_mul"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.utils.inplace_tensor_mul" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1142,13 +1216,13 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterFromRuntimeZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">ParameterFromRuntimeZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">collect_stats_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantize_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_momentum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromRuntimeZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromRuntimeZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1161,7 +1235,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.state_dict">
 <span class="sig-name descname"><span class="pre">state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">destination</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_vars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromRuntimeZeroPoint.state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.state_dict" title="Permalink to this definition">#</a></dt>
-<dd><p>Returns a dictionary containing references to the whole state of the module.</p>
+<dd><p>Return a dictionary containing references to the whole state of the module.</p>
 <p>Both parameters and persistent buffers (e.g. running averages) are
 included. Keys are corresponding parameter and buffer names.
 Parameters and buffers set to <code class="docutils literal notranslate"><span class="pre">None</span></code> are not included.</p>
@@ -1185,13 +1259,13 @@ designed for end-users.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>destination</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)"><em>dict</em></a><em>, </em><em>optional</em>) – If provided, the state of module will
+<li><p><strong>destination</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>, </em><em>optional</em>) – If provided, the state of module will
 be updated into the dict and the same object is returned.
 Otherwise, an <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> will be created and returned.
 Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
-<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><em>optional</em>) – a prefix added to parameter and buffer
+<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><em>optional</em>) – a prefix added to parameter and buffer
 names to compose the keys in state_dict. Default: <code class="docutils literal notranslate"><span class="pre">''</span></code>.</p></li>
-<li><p><strong>keep_vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a><em>, </em><em>optional</em>) – by default the <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a> s
+<li><p><strong>keep_vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>optional</em>) – by default the <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code> s
 returned in the state dict are detached from autograd. If it’s
 set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, detaching will not be performed.
 Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
@@ -1201,7 +1275,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dd class="field-even"><p>a dictionary containing a whole state of the module</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)">dict</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 <p>Example:</p>
@@ -1217,7 +1291,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <span class="sig-name descname"><span class="pre">training_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromRuntimeZeroPoint.training_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.training_forward" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1227,15 +1301,15 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">ParameterFromStatsFromParameterZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantize_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromStatsFromParameterZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>ScriptModule implementation of a learned scale factor initialized from statistics of a parameter,
 e.g. weights MSE or AbsMax.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromStatsFromParameterZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1248,7 +1322,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint.state_dict">
 <span class="sig-name descname"><span class="pre">state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">destination</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_vars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterFromStatsFromParameterZeroPoint.state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint.state_dict" title="Permalink to this definition">#</a></dt>
-<dd><p>Returns a dictionary containing references to the whole state of the module.</p>
+<dd><p>Return a dictionary containing references to the whole state of the module.</p>
 <p>Both parameters and persistent buffers (e.g. running averages) are
 included. Keys are corresponding parameter and buffer names.
 Parameters and buffers set to <code class="docutils literal notranslate"><span class="pre">None</span></code> are not included.</p>
@@ -1272,13 +1346,13 @@ designed for end-users.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>destination</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)"><em>dict</em></a><em>, </em><em>optional</em>) – If provided, the state of module will
+<li><p><strong>destination</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>, </em><em>optional</em>) – If provided, the state of module will
 be updated into the dict and the same object is returned.
 Otherwise, an <code class="docutils literal notranslate"><span class="pre">OrderedDict</span></code> will be created and returned.
 Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
-<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><em>optional</em>) – a prefix added to parameter and buffer
+<li><p><strong>prefix</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><em>optional</em>) – a prefix added to parameter and buffer
 names to compose the keys in state_dict. Default: <code class="docutils literal notranslate"><span class="pre">''</span></code>.</p></li>
-<li><p><strong>keep_vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a><em>, </em><em>optional</em>) – by default the <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a> s
+<li><p><strong>keep_vars</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>optional</em>) – by default the <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code> s
 returned in the state dict are detached from autograd. If it’s
 set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, detaching will not be performed.
 Default: <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
@@ -1288,7 +1362,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dd class="field-even"><p>a dictionary containing a whole state of the module</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)">dict</a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 <p>Example:</p>
@@ -1304,13 +1378,13 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">ParameterZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zero_point_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantize_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ParameterZeroPoint.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ParameterZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ParameterZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1325,15 +1399,15 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.PreZeroCenterZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">PreZeroCenterZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point_shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#PreZeroCenterZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <p>Experimental ScriptModule implementation of a pre-scaling zero-point that zero-centers
 the incoming tensors. This is intended to be used with <cite>DecoupledIntQuant</cite>.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.PreZeroCenterZeroPoint.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#PreZeroCenterZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1348,7 +1422,7 @@ registered hooks while the latter silently ignores them.</p>
 <span class="sig-name descname"><span class="pre">get_zero_center</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#PreZeroCenterZeroPoint.get_zero_center"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint.get_zero_center" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -1358,13 +1432,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.StatsFromParameterZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">StatsFromParameterZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantize_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#StatsFromParameterZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.StatsFromParameterZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.StatsFromParameterZeroPoint.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#StatsFromParameterZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.StatsFromParameterZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1379,13 +1453,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ZeroZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">ZeroZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ZeroZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ZeroZeroPoint" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.ZeroZeroPoint.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#ZeroZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.ZeroZeroPoint.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
+<dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1450,6 +1524,7 @@ registered hooks while the latter silently ignores them.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.core.restrict_val">brevitas.core.restrict_val module</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.FloatRestrictValue"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.FloatRestrictValue.combine_scale_threshold"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.combine_scale_threshold()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.FloatRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.forward()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.restrict_init_float()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.restrict_init_inplace_module()</span></code></a></li>
@@ -1458,6 +1533,7 @@ registered hooks while the latter silently ignores them.</p>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.IntRestrictValue"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.IntRestrictValue.combine_scale_threshold"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.combine_scale_threshold()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.IntRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.forward()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.IntRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.restrict_init_float()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.IntRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.restrict_init_inplace_module()</span></code></a></li>
@@ -1466,6 +1542,7 @@ registered hooks while the latter silently ignores them.</p>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.LogFloatRestrictValue"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.LogFloatRestrictValue.combine_scale_threshold"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.combine_scale_threshold()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.LogFloatRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.forward()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.restrict_init_float()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.restrict_init_inplace_module()</span></code></a></li>
@@ -1474,6 +1551,7 @@ registered hooks while the latter silently ignores them.</p>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.combine_scale_threshold"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.combine_scale_threshold()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.forward()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.restrict_init_float()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.restrict_init_inplace_module()</span></code></a></li>
