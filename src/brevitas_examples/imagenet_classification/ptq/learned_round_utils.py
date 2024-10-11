@@ -32,7 +32,9 @@ import torch.nn.functional as F
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
+from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
@@ -185,6 +187,7 @@ def save_inp_out_data(
         disable_quant_class = DisableEnableQuantization()
         disable_quant_class.disable_act_quantization(model, False)
         disable_quant_class.disable_param_quantization(model, False)
+        return_quant_tensor_state = disable_return_quant_tensor(model)
     device = next(model.parameters()).device
     data_saver = DataSaverHook(store_output=store_out)
     handle = module.register_forward_hook(data_saver)
@@ -213,4 +216,5 @@ def save_inp_out_data(
     if disable_quant:
         disable_quant_class.enable_act_quantization(model, False)
         disable_quant_class.enable_param_quantization(model, False)
+        restore_return_quant_tensor(model, return_quant_tensor_state)
     return cached
