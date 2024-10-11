@@ -217,12 +217,13 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         output_bit_width = self.msb_clamp_bit_width_impl()
         trunc_bit_width = input_bit_width - output_bit_width
         trunc_scale = 2.0 ** trunc_bit_width
+        output_scale = scale * trunc_scale
         y = y / trunc_scale
         y = self.float_to_int_impl(y)
         y = y - zero_point
-        y = y * scale
+        y = y * output_scale
         y = self.delay_wrapper(x, y)
-        return y, scale, zero_point, output_bit_width
+        return y, output_scale, zero_point, output_bit_width
 
 
 class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
