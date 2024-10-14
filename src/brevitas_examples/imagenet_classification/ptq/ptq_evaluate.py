@@ -47,7 +47,7 @@ def parse_type(v, default_type):
         return default_type(v)
 
 
-def validate(args):
+def validate_args(args):
     if args.learned_round:
         assert args.target_backend == "layerwise", "Currently, learned round is only supported with target-backend=layerwise"
 
@@ -285,7 +285,7 @@ def generate_ref_input(args, device, dtype):
 
 def main():
     args = parser.parse_args()
-    validate(args)
+    validate_args(args)
     dtype = getattr(torch, args.dtype)
 
     random.seed(SEED)
