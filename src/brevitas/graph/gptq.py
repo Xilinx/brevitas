@@ -296,4 +296,3 @@ class gptq_mode(gpxq_mode):
             len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig,
             num_blocks=self.num_blocks)
-
