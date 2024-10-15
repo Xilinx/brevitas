@@ -115,7 +115,8 @@ def apply_gpfq(model, dataloader, act_order=True, group_of_parallel_layers=None,
     else:
         with gpfq_mode(model,
                        act_order=act_order,
-                       group_of_parallel_layers=group_of_parallel_layers) as gpfq:
+                       group_of_parallel_layers=group_of_parallel_layers,
+                       create_weight_orig=True) as gpfq:
             gpfq_model = gpfq.model
             for _ in tqdm(range(gpfq.num_layers)):
                 for inps in dataloader:
