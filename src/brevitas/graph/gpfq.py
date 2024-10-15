@@ -70,7 +70,7 @@ class gpfq_mode(gpxq_mode):
             p: float = 1.0,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gpfq_class: Optional[nn.Module] = None) -> None:
+            gpfq_class: Optional[GPxQ] = None) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -86,8 +86,6 @@ class gpfq_mode(gpxq_mode):
         if gpfq_class is None:
             gpfq_class = GPFQ
         self.gpfq_class = gpfq_class
-        assert issubclass(gpfq_class, GPxQ), \
-            "Error: expected `gpfq_class` to be derived from `brevitas.graph.gpxq.GPxQ`."
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -401,6 +399,8 @@ class GPFQv2(GPFQ):
     def single_layer_update(self, percdamp: float = 0.01):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require quantized inputs."
+        if hasattr(self.layer, "allocate_params"):
+            self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -468,6 +468,7 @@ class GPFQv2(GPFQ):
                     q_groups[group_index].unsqueeze(1),
                     self.quant_input[group_index, :, permutation_list[group_index][t]].unsqueeze(0),
                 )
-
+        if hasattr(self.layer, 'offload_params'):
+            self.layer.offload_params(self.layer)
         del self.float_input
         del self.quant_input
