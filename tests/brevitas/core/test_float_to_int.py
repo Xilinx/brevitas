@@ -6,6 +6,7 @@ import pytest_cases
 import torch
 
 from brevitas import config
+from brevitas.core.function_wrapper.auto_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
@@ -56,3 +57,44 @@ class TestLearnedRound():
             quant_conv.load_state_dict(fp_conv.state_dict())
         except RuntimeError as e:
             pytest.fail(str(e))
+
+
+class TestAutoRound():
+
+    @pytest_cases.fixture()
+    def autoround_float_to_int_impl(self):
+        sample_weight = torch.randn(OUT_CH, IN_CH, KERNEL_SIZE, KERNEL_SIZE)
+        impl = AutoRoundSte(torch.full(sample_weight.shape, 0.))
+
+        # Simulate learned parameter, values should be in the interval (-0.5, 0.5)
+        impl.value.data = torch.rand_like(impl.value) * 0.5
+        return impl, sample_weight
+
+    def test_autoround(self, autoround_float_to_int_impl):
+        impl, sample_weight = autoround_float_to_int_impl
+
+        out = impl(sample_weight)
+        # Check that all values are integers
+        assert torch.allclose(out, torch.round(out))
+        # Check that the values differ by at most 1 unit
+        assert torch.all(torch.abs(sample_weight - out) < 1)
+
+    def test_autoround_load_dict(self, autoround_float_to_int_impl):
+        config.IGNORE_MISSING_KEYS = True
+
+        impl, _ = autoround_float_to_int_impl
+        quant_conv = qnn.QuantConv2d(IN_CH, OUT_CH, KERNEL_SIZE, weight_float_to_int_impl=impl)
+        fp_conv = torch.nn.Conv2d(IN_CH, OUT_CH, KERNEL_SIZE)
+        try:
+            quant_conv.load_state_dict(fp_conv.state_dict())
+        except RuntimeError as e:
+            pytest.fail(str(e))
+
+    def test_autoround_edge_cases(self):
+        sample_weight = torch.tensor([-1.000, -0.500, 0.000, 0.500, 1.000])
+        impl_data = torch.tensor([-0.500, 0.500, 0.000, -0.500, 0.500])
+        impl = AutoRoundSte(impl_data)
+
+        out = impl(sample_weight)
+        # Check that all values are integers
+        assert torch.allclose(out, torch.tensor([-2.000, 0.000, 0.000, 0.000, 2.000]))
