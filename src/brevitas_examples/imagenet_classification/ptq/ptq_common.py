@@ -2,9 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
+import itertools
 import math
+import re
+from typing import Callable, List
+from warnings import warn
 
 import torch
+from torch import nn
+<<<<<<< HEAD
+=======
+import torch.backends.cudnn as cudnn
+from torch.optim.optimizer import Optimizer
+from torch.utils.data.dataloader import DataLoader
+>>>>>>> Remove legacy code
 from tqdm import tqdm
 
 from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
@@ -12,17 +23,23 @@ from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScal
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import disable_return_quant_tensor
+from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import norm_correction_mode
+from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject import value
 import brevitas.nn as qnn
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -72,9 +89,6 @@ from brevitas_examples.common.axe import A2GPFQ
 from brevitas_examples.common.axe import A2GPTQ
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
 
 # Every element of the Batch will have its own scale factor and zero point
@@ -645,33 +659,12 @@ def apply_gpfq(
                 gpfq.update()
 
 
-def apply_learned_round_learning(
-        model, dataloader, optimizer_class=torch.optim.Adam, iters=1000, optimizer_lr=1e-1):
-    layers = []
-    split_layers(model, layers)
-    print(f"Total Iterations per layer {iters}")
-    print(f"Number of layers {len(layers)}")
+def _is_resnet_block(module: nn.Module, module_name: str) -> bool:
+    return (re.search(r"layer\d+", module_name) is not None)
 
-    for layer, layer_loss, learned_round_module in learned_round_iterator(layers, iters=iters):
-        optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
-        _, all_fp_out = save_inp_out_data(model, layer, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
-        all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
-        max_size = len(all_fp_out)
-        pbar = tqdm(range(iters), desc='')
-        for i in pbar:
-            idx = torch.randint(0, max_size, (dataloader.batch_size,))
-            quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
-            layer.train()
 
-            optimizer.zero_grad()
-            quant_out = layer(quant_inp)
-            loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
-
-            loss.backward()
-            optimizer.step()
-            pbar.set_description(
-                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
-                    loss, rec_loss, round_loss, b))
+def _is_layer(module: nn.Module, module_name: str) -> bool:
+    return isinstance(module, QuantWBIOL)
 
 
 def check_positive_int(*args):

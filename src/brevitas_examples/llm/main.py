@@ -24,6 +24,8 @@ from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
@@ -34,6 +36,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
+from brevitas_examples.llm.llm_quant.learned_round_utils import LearnedRoundLLMUtils
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
@@ -367,6 +370,17 @@ def main(args):
     with torch.no_grad():
         model(**calibration_loader[0])
 
+    if args.learned_round:
+        print("Applying learned round...")
+
+        learned_round_llm_utils = LearnedRoundLLMUtils()
+        learned_round = AutoRound()
+        learned_round_optimiser = LearnedRoundOptimizer(
+            learned_round=learned_round, learned_round_utils=learned_round_llm_utils)
+        learned_round_optimiser.apply_learned_round(model, calibration_loader)
+
+        print("Learned round applied.")
+
     if args.act_calibration:
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
@@ -658,6 +672,11 @@ def parse_args(args):
         help=
         "Whether to merge the dataset sequences in case they are shorter than the requested number of samples per sequence. This is useful in case you would like to quantize or evaluate on long sequences (default: %(default)s).",
     )
+    parser.add_argument(
+        '--learned-round',
+        default=None,
+        choices=[None, 'auto_round'],
+        help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     return parser.parse_args(args)
 
 
