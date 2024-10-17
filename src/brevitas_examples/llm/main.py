@@ -118,7 +118,6 @@ def validate(args):
 def main(args):
     validate(args)
     set_seed(args.seed)
-
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
@@ -189,6 +188,8 @@ def main(args):
 
     if require_fx:
         model = get_fx(model)
+        # Blockwise optimization does not work with FX at the moment
+        args.gpxq_block_name = None
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
@@ -285,12 +286,17 @@ def main(args):
             calibration_loader,
             act_order=args.gpxq_act_order,
             use_quant_activations=args.gpxq_use_quant_activations,
-            create_weight_orig=args.gpxq_create_weight_orig)
+            create_weight_orig=args.gpxq_create_weight_orig,
+            block_name=args.gpxq_block_name)
         print("GPTQ applied.")
 
     if args.gpfq:
         print("Applying GPFQ...")
-        apply_gpfq(model, calibration_loader, act_order=args.gpxq_act_order)
+        apply_gpfq(
+            model,
+            calibration_loader,
+            act_order=args.gpxq_act_order,
+            block_name=args.gpxq_block_name)
         print("GPFQ applied.")
 
     if args.bias_corr:
@@ -340,6 +346,13 @@ def parse_args(args):
         choices=['wikitext2', 'c4'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
+    parser.add_argument(
+        '--gpxq-block-name',
+        type=str,
+        default=None,
+        help=
+        'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
+    )
     parser.add_argument(
         '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
     parser.add_argument(
