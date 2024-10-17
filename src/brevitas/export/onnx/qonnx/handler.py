@@ -15,13 +15,32 @@ from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
+from brevitas.nn import QuantRotaryPositionEmbedding
 
 from .function import BrevitasBinaryQuantFn
 from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
 from .function import BrevitasTruncFn
+from .function import BrevitaRoPEQuantFN
 
 
+class BrevitasQuantLayerHandler(ONNXBaseHandler, ABC):
+    def prepare_for_export(self, module):
+        pass
+    
+    def symbolic_execution(self, x: Tensor):
+        pass
+    
+
+# Incredibly hacky stuff to get the RoPE quantization to work
+class BrevitasRoPEHandler(BrevitasQuantLayerHandler):
+    handled_layer = QuantRotaryPositionEmbedding
+    
+    def symbolic_execution(self, x: Tensor):
+        x = BrevitaRoPEQuantFN.apply(x, *self.symbolic_kwargs.values())
+        return x
+
+    
 class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
 
     def validate(self, module):
@@ -173,3 +192,19 @@ class BrevitasQuantLSTMLayerHandler(QuantLSTMLayerHandler):
             quant_bias_cell,
             quant_bias_output,
             *self.symbolic_kwargs.values())
+
+
+    
+# class RoPEQuantHandler(ONNXBaseHandler, ABC):
+#     handled_layer = QuantRotaryPositionEmbedding
+#     def __init__(self):
+#         super(WeightBlockQuantHandlerBase, self).__init__()
+
+#     @abstractmethod
+#     def prepare_for_export(self, module):
+#         pass
+
+#     @abstractmethod
+#     def forward(self, x):
+#         pass
+    

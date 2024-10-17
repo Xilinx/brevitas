@@ -19,7 +19,7 @@ from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
-from brevitas.nn import QuantLinear
+from brevitas.nn import QuantLinear, QuantRotaryPositionEmbedding
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 
 

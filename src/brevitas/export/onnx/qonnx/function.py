@@ -15,6 +15,16 @@ from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
 DOMAIN_STRING = "onnx.brevitas"
 
+class BrevitaRoPEQuantFN(Function):
+    @staticmethod
+    def symbolic(g,inp, position_ids=None):
+        ret = g.op(
+            f'{DOMAIN_STRING}::Trunc',
+            inp)
+        return ret
+    
+    def forward(ctx, inp, position_ids=None):
+        return inp
 
 class BrevitasBinaryQuantFn(Function):
 

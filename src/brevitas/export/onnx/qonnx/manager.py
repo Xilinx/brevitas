@@ -7,7 +7,9 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_layer_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
@@ -17,6 +19,7 @@ from .function import BrevitasBinaryQuantFn
 from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
 from .function import BrevitasTruncFn
+from .function import BrevitaRoPEQuantFN
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantProxyHandler
@@ -24,6 +27,7 @@ from .handler import BrevitasDecoupledWeightQuantWithInputProxyHandler
 from .handler import BrevitasQuantLSTMLayerHandler
 from .handler import BrevitasTruncQuantProxyHandler
 from .handler import BrevitasWeightQuantProxyHandler
+from .handler import BrevitasRoPEHandler
 
 
 class QONNXManager(ONNXBaseManager):
@@ -42,21 +46,25 @@ class QONNXManager(ONNXBaseManager):
         BrevitasDecoupledWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
-        BrevitasQuantLSTMLayerHandler]
+        BrevitasQuantLSTMLayerHandler,
+        BrevitasRoPEHandler]
 
     custom_fns = [
         DebugMarkerFunction,
         BrevitasQuantFn,
         BrevitasBinaryQuantFn,
         BrevitasTruncFn,
-        BrevitasQuantLSTMCellFn]
+        BrevitasQuantLSTMCellFn,
+        BrevitaRoPEQuantFN]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
+        _set_layer_export_mode(model,enabled)
         _set_proxy_export_mode(model, enabled)
         _set_recurrent_layer_export_mode(model, enabled)
 
     @classmethod
     def set_export_handler(cls, module: Module):
+        _set_layer_export_handler(cls, module)
         _set_proxy_export_handler(cls, module)
         _set_recurrent_layer_export_handler(cls, module)

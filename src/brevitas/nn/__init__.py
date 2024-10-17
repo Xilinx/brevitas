@@ -31,4 +31,5 @@ from .quant_scale_bias import ScaleBias
 from .quant_upsample import QuantUpsample
 from .quant_upsample import QuantUpsamplingBilinear2d
 from .quant_upsample import QuantUpsamplingNearest2d
+from .quant_rotary_position_embedding import QuantRotaryPositionEmbedding
 from .target import flexml
