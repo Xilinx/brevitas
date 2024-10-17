@@ -1,5 +1,5 @@
 bitstring
-onnx==1.15
+onnx==1.16.0
 onnxoptimizer
 onnxruntime>=1.15.0
 qonnx
