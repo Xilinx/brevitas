@@ -2,7 +2,15 @@ from inspect import signature
 
 import torch
 
+from brevitas.graph.hadamard import get_hadK
+from brevitas.graph.hadamard import matmul_hadU
+from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.nn.quant_mha import QuantMultiheadAttention
+
+try:
+    import fast_hadamard_transform
+except:
+    fast_hadamard_transform = None
 
 INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
@@ -41,3 +49,45 @@ class EqualizedModule(torch.nn.Module):
         # We convert everything to args so that hooks can work correctly
         out = self.layer(*kwargs.values())
         return out
+
+
+class RotatedModule(torch.nn.Module):
+
+    def __init__(self, layer, had_mat=None, k=None) -> None:
+        super().__init__()
+        if had_mat is not None:
+            self.had_mat = torch.nn.Parameter(had_mat).cpu()
+        else:
+            self.had_mat = None
+        self.layer = layer
+        self.k = k
+
+    def forward(self, inp, **kwargs):
+        is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
+        if is_cuda and fast_hadamard_transform is not None:
+            if self.had_mat is None or self.k is None:
+                had_K, K = get_hadK(inp.shape[-1])
+            else:
+                had_K = self.had_mat
+                K = self.k
+            inp = matmul_hadU_cuda(inp, had_K, K)
+        else:
+            inp = matmul_hadU(inp)
+        o = self.layer(inp)
+
+        return o
+
+
+def functional_rotate_input(inp, transpose=False):
+    is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
+    if transpose:
+        inp = inp.t()
+    if is_cuda and fast_hadamard_transform is not None:
+        had_K, K = get_hadK(inp.shape[-1])
+        inp = matmul_hadU_cuda(inp, had_K, K)
+    else:
+        inp = matmul_hadU(inp)
+
+    if transpose:
+        inp = inp.t()
+    return inp

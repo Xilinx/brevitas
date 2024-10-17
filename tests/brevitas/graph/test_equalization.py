@@ -10,10 +10,14 @@ from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _is_supported_module
+from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.equalize import GraphRotationEqualization
+from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
+from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
 
@@ -28,13 +32,13 @@ def test_resnet18_equalization():
     expected_out = model(inp)
 
     model_orig = copy.deepcopy(model)
-    regions = _extract_regions(model)
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     _ = equalize_test(
         regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     out = model(inp)
-
-    # Check that equalization is not introducing FP variations
-    assert torch.allclose(expected_out, out, atol=ATOL)
 
     regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
     resnet_18_regions = sorted(RESNET_18_REGIONS, key=lambda region: region[0][0])
@@ -58,6 +62,9 @@ def test_resnet18_equalization():
         orig_module = get_module(model_orig, layer)
         assert not torch.allclose(eq_module.weight, orig_module.weight)
 
+    # Check that equalization is not introducing FP variations
+    assert torch.allclose(expected_out, out, atol=ATOL)
+
 
 @pytest_cases.parametrize("merge_bias", [True, False])
 def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool):
@@ -73,7 +80,10 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
 
     expected_out = model(inp)
 
-    regions = _extract_regions(model)
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     scale_factor_regions = equalize_test(
         regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
@@ -126,7 +136,10 @@ def test_models(toy_model, merge_bias, request):
         expected_out = model(inp)
 
     model = symbolic_trace(model)
-    regions = _extract_regions(model)
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     scale_factor_regions = equalize_test(
         regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
@@ -225,3 +238,41 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool):
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
     assert any([shape != () for shape in shape_scale_regions])
+
+
+@requires_pt_ge('2.4')
+@pytest_cases.parametrize('partial_had', [True, False])
+def test_models(rotation_fixtures, partial_had):
+
+    in_shape = IN_SIZE_LINEAR
+
+    model_class = rotation_fixtures
+    model = model_class()
+    inp = torch.ones(in_shape)
+
+    model.eval()
+    penultimate_weight = model.linear_1.weight.data
+    last_weight = model.linear_2.weight.data
+    with torch.no_grad():
+        expected_out = model(inp)
+
+    model = symbolic_trace(model)
+    merge = MergeLnAffine()
+    model = merge.apply(model)
+    eq = GraphRotationEqualization(orphan_sink=partial_had)
+    model = eq.apply(model)
+
+    with torch.no_grad():
+        out = model(inp)
+
+    penultimate_weight_new = model.linear_1.weight.data
+
+    # Invariance of the output
+    assert torch.allclose(out, expected_out, atol=ATOL)
+    # Rotate weights must be different
+    assert not torch.allclose(penultimate_weight, penultimate_weight_new)
+    # Merging affine parameters of RMS
+    assert torch.allclose(model.rms.weight.data, torch.ones_like(model.rms.weight.data))
+    if partial_had:
+        last_weight_new = model.linear_2.layer.weight.data
+        assert not torch.allclose(last_weight, last_weight_new)

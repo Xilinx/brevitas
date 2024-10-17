@@ -491,3 +491,40 @@ list_of_quant_fixtures = [
 
 toy_quant_model = fixture_union(
     'toy_quant_model', list_of_quant_fixtures, ids=list_of_quant_fixtures)
+
+## List of Rotation fixtures
+
+
+@pytest_cases.fixture
+def linear_rms():
+
+    class LinearRMSModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear = nn.Linear(3, 4, bias=True)
+            self.linear.weight.data.fill_(2.)
+            self.linear.bias.data.fill_(1.)
+            self.rms = nn.RMSNorm(4)
+            self.rms.weight.data = torch.randn_like(
+                self.rms.weight.data)  # Change learned parameters
+            self.linear_1 = nn.Linear(4, 8, bias=False)
+            self.linear_1.weight.data.fill_(2.)
+            self.linear_2 = nn.Linear(8, 8, bias=False)
+
+        def forward(self, x):
+            x = self.linear(x)
+            x = self.rms(x)
+            x = self.linear_1(x)
+            x = self.linear_2(x) * x
+            x = torch.matmul(x.flatten(1), x.flatten(1).t())
+
+            return x
+
+    return LinearRMSModel
+
+
+list_of_rotation_mixtures = ['linear_rms']
+
+rotation_fixtures = fixture_union(
+    'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)
