@@ -3,6 +3,7 @@ from inspect import signature
 import torch
 
 from brevitas.nn.quant_mha import QuantMultiheadAttention
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 
 INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
@@ -40,4 +41,19 @@ class EqualizedModule(torch.nn.Module):
             kwargs['value'] = out
         # We convert everything to args so that hooks can work correctly
         out = self.layer(*kwargs.values())
+        return out
+
+class RotatedModule(torch.nn.Module):
+
+    def __init__(self, h_inv, layer) -> None:
+        super().__init__()
+        self.h_inv = torch.nn.Parameter(h_inv)
+        self.layer = layer
+
+    def forward(self, *args, **kwargs):
+        inp = args[0]
+        if isinstance(inp, QuantTensor):
+            inp = inp.value
+        inp = torch.matmul(inp, self.h_inv)
+        out = self.layer(inp)
         return out
