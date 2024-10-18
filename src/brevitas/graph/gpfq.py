@@ -358,7 +358,7 @@ class GPFQv2(GPFQ):
         # if quant is not enabled, then it is the float input; if it is a float input
         # then a quant input has already happened and we can update G
         if not is_quant_enabled:
-            # Computing the normalized H matrix using CPU buffer
+            # Computing the normalized G matrix using CPU buffer
             self.B.copy_(self.quant_input.bmm(inp_processed.transpose(2, 1)))
             self.G += self.B
             self.quant_input = None  # NOTE: set back to None now that we've used it
