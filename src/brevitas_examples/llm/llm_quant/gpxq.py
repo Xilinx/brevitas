@@ -1,9 +1,8 @@
-"""
-Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-"""
 
 from copy import deepcopy
+from functools import partial
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -13,9 +12,13 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gpfq import GPFQv2
+from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.common.axe import A2GPFQ
+from brevitas_examples.common.axe import A2GPTQ
 
 
 @torch.no_grad()
@@ -109,20 +112,33 @@ def apply_gptq(
         use_quant_activations=False,
         create_weight_orig=False,
         group_of_parallel_layers=None,
-        block_name=None):
+        block_name=None,
+        max_accumulator_bit_width=None,
+        max_accumulator_tile_size=128):
+    if max_accumulator_bit_width is not None:
+        # Use accumulator-aware extension (AXE) framework
+        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
+        gptq_class = partial(
+            A2GPTQ,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
+    else:
+        gptq_class = GPTQ
     if block_name is not None:
         context_manager_kwargs = {
             'act_order': act_order,
             'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': create_weight_orig,
-            'use_quant_activations': use_quant_activations}
+            'use_quant_activations': use_quant_activations,
+            'gptq_class': gptq_class}
         block_optimization(model, dataloader, block_name, gptq_mode, context_manager_kwargs)
     else:
         with gptq_mode(model,
                        use_quant_activations=use_quant_activations,
                        group_of_parallel_layers=group_of_parallel_layers,
                        act_order=act_order,
-                       create_weight_orig=create_weight_orig) as gptq:
+                       create_weight_orig=create_weight_orig,
+                       gptq_class=gptq_class) as gptq:
             gptq_model = gptq.model
             for _ in tqdm(range(gptq.num_layers)):
                 for inps in dataloader:
@@ -131,14 +147,36 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def apply_gpfq(model, dataloader, act_order=True, group_of_parallel_layers=None, block_name=None):
+def apply_gpfq(
+        model,
+        dataloader,
+        act_order=True,
+        group_of_parallel_layers=None,
+        block_name=None,
+        max_accumulator_bit_width=None,
+        max_accumulator_tile_size=128):
+    if max_accumulator_bit_width is not None:
+        # Use accumulator-aware extension (AXE) framework
+        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
+        gpfq_class = partial(
+            A2GPFQ,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
+    else:
+        gpfq_class = GPFQv2
     if block_name is not None:
-        raise RuntimeError("Block optimization not support for GPFQ at the moment")
+        context_manager_kwargs = {
+            'act_order': act_order,
+            'group_of_parallel_layers': group_of_parallel_layers,
+            'create_weight_orig': True,
+            'gpfq_class': gpfq_class}
+        block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
     else:
         with gpfq_mode(model,
                        act_order=act_order,
                        group_of_parallel_layers=group_of_parallel_layers,
-                       create_weight_orig=True) as gpfq:
+                       create_weight_orig=True,
+                       gpfq_class=gpfq_class) as gpfq:
             gpfq_model = gpfq.model
             for _ in tqdm(range(gpfq.num_layers)):
                 for inps in dataloader:

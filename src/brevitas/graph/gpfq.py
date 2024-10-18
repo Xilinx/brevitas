@@ -70,7 +70,7 @@ class gpfq_mode(gpxq_mode):
             p: float = 1.0,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gpfq_class: Optional[nn.Module] = None) -> None:
+            gpfq_class: Optional[GPxQ] = None) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -86,8 +86,6 @@ class gpfq_mode(gpxq_mode):
         if gpfq_class is None:
             gpfq_class = GPFQ
         self.gpfq_class = gpfq_class
-        assert issubclass(gpfq_class, GPxQ), \
-            "Error: expected `gpfq_class` to be derived from `brevitas.graph.gpxq.GPxQ`."
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -360,7 +358,7 @@ class GPFQv2(GPFQ):
         # if quant is not enabled, then it is the float input; if it is a float input
         # then a quant input has already happened and we can update G
         if not is_quant_enabled:
-            # Computing the normalized H matrix using CPU buffer
+            # Computing the normalized G matrix using CPU buffer
             self.B.copy_(self.quant_input.bmm(inp_processed.transpose(2, 1)))
             self.G += self.B
             self.quant_input = None  # NOTE: set back to None now that we've used it
@@ -401,6 +399,8 @@ class GPFQv2(GPFQ):
     def single_layer_update(self, percdamp: float = 0.01):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require quantized inputs."
+        if hasattr(self.layer, "allocate_params"):
+            self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -468,6 +468,7 @@ class GPFQv2(GPFQ):
                     q_groups[group_index].unsqueeze(1),
                     self.quant_input[group_index, :, permutation_list[group_index][t]].unsqueeze(0),
                 )
-
+        if hasattr(self.layer, 'offload_params'):
+            self.layer.offload_params(self.layer)
         del self.float_input
         del self.quant_input
