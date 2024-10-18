@@ -1,9 +1,8 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from functools import partial
-
 from copy import deepcopy
+from functools import partial
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -150,10 +149,10 @@ def apply_gptq(
 
 @torch.no_grad()
 def apply_gpfq(
-        model, 
-        dataloader, 
-        act_order=True, 
-        group_of_parallel_layers=None, 
+        model,
+        dataloader,
+        act_order=True,
+        group_of_parallel_layers=None,
         block_name=None,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=128):
@@ -167,7 +166,12 @@ def apply_gpfq(
     else:
         gpfq_class = GPFQv2
     if block_name is not None:
-        raise RuntimeError("Block optimization not support for GPFQ at the moment")
+        context_manager_kwargs = {
+            'act_order': act_order,
+            'group_of_parallel_layers': group_of_parallel_layers,
+            'create_weight_orig': True,
+            'gpfq_class': gpfq_class}
+        block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
     else:
         with gpfq_mode(model,
                        act_order=act_order,
