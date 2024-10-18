@@ -196,7 +196,7 @@ class GPTQ(GPxQ):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index]  # [OC/groups]
+                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
                     w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
                     d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
