@@ -103,16 +103,18 @@ class A2GPTQ(GPTQ):
             weight = weight.flatten(1)
 
         # TODO: add support for signed input activations
-        assert not self.quant_metadata.signed
+        if self.quant_metadata.signed:
+            raise NotImplementedError("Signed inputs not yet supported.")
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
 
         s = self.layer.weight_quant.scale()
         P = torch.tensor(self.max_accumulator_bit_width)
         N = self.quant_metadata.bit_width
-        # TODO: add support for two's complement accumulator representation
+        # NOTE: using sign-magnitude here, which is sufficient to support both
+        # sign-magnitude and 2s complement accumulators
         A = (pow(2, P - 1) - 1) / float(pow(2, N) - 1)
-        B = (-pow(2, P - 1) - 1) / float(pow(2, N) - 1)
+        B = -A
         Z = (pow(2, P) - 2) / float(pow(2, N) - 1)
         # translating into the quantized range; need to pad to get these thresholds
         wT = pad_tensor_with_zeros(weight / s, self.max_accumulator_tile_size).view(
@@ -203,7 +205,7 @@ class A2GPTQ(GPTQ):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [Groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index]  # [OC/groups]
+                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
                     w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
                     d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
@@ -280,16 +282,18 @@ class A2GPFQ(GPFQv2):
             weight = weight.flatten(1)
 
         # TODO: add support for signed input activations
-        assert not self.quant_metadata.signed
+        if self.quant_metadata.signed:
+            raise NotImplementedError("Signed inputs not yet supported.")
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
 
         s = self.layer.weight_quant.scale()
         P = torch.tensor(self.max_accumulator_bit_width)
         N = self.quant_metadata.bit_width
-        # TODO: add support for two's complement accumulator representation
+        # NOTE: using sign-magnitude here, which is sufficient to support both
+        # sign-magnitude and 2s complement accumulators
         A = (pow(2, P - 1) - 1) / float(pow(2, N) - 1)
-        B = (-pow(2, P - 1) - 1) / float(pow(2, N) - 1)
+        B = -A
         Z = (pow(2, P) - 2) / float(pow(2, N) - 1)
         # translating into the quantized range; need to pad to get these thresholds
         wT = pad_tensor_with_zeros(weight / s, self.max_accumulator_tile_size).view(
@@ -307,7 +311,7 @@ class A2GPFQ(GPFQv2):
         b = torch.zeros_like(T, device=dev)  # neg
 
         # stablize G with a dampening factor and then square root the matrix
-        norms = torch.zeros((self.groups, self.columns), device=dev, dtype=dtype)
+        norms = torch.zeros((self.groups, self.columns), device=dev, dtype=torch.float32)
         self.H = self.H.to(dev)
         diag = torch.arange(self.columns, device='cpu')
         for i in range(self.groups):
@@ -342,14 +346,17 @@ class A2GPFQ(GPFQv2):
         permutation_list = self._get_permutation_list(weight)
 
         U = torch.zeros(
-            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev,
-            dtype=dtype)  # [Groups, OC/groups, Samples]
+            weight.shape[0],
+            weight.shape[1],
+            self.float_input.shape[1],
+            device=dev,
+            dtype=torch.float32)  # [Groups, OC/groups, Samples]
 
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
                 U[group_index] += torch.matmul(
-                    weight[group_index, :, i].unsqueeze(1),
+                    weight[group_index, :, i].unsqueeze(1).to(torch.float32),
                     self.float_input[group_index, :, i].unsqueeze(0))
                 norm = norms[group_index, i]
                 if norm > 0:
@@ -364,12 +371,12 @@ class A2GPFQ(GPFQv2):
                 q_max = s[group_index] * torch.clamp_min(A - a[group_index, bx, :] - 0.5, 0.0)
                 q_min = s[group_index] * torch.clamp_max(B - b[group_index, bx, :] + 0.5, 0.0)
                 q_arg.clamp_(q_min, q_max)
-                weight[group_index, :, i] = q_arg
+                weight[group_index, :, i] = q_arg.to(dtype)
             q_groups: Tensor = self.get_quant_weights(t, 0, permutation_list)
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
                 U[group_index] -= torch.matmul(
-                    q_groups[group_index].unsqueeze(1),
+                    q_groups[group_index].unsqueeze(1).to(torch.float32),
                     self.quant_input[group_index, :, i].unsqueeze(0))
                 bx = i // self.max_accumulator_tile_size  # block index
                 q = q_groups[group_index] / s[group_index]  # [OC/groups]

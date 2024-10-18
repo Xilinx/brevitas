@@ -17,9 +17,8 @@ from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.utils.python_utils import recurse_getattr
-
-from .axe import A2GPFQ
-from .axe import A2GPTQ
+from brevitas_examples.common.axe import A2GPFQ
+from brevitas_examples.common.axe import A2GPTQ
 
 
 @torch.no_grad()
