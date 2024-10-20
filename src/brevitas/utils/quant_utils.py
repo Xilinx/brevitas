@@ -214,6 +214,8 @@ def float_to_int_impl_to_enum(module):
         return FloatToIntImplType.DPU
     elif isinstance(module, LearnedRoundSte):
         return FloatToIntImplType.LEARNED_ROUND
+    elif isinstance(module, AutoRoundSte):
+        return FloatToIntImplType.AUTO_ROUND
     elif isinstance(module, StochasticRoundSte):
         if module.deterministic_inference:
             return FloatToIntImplType.ROUND

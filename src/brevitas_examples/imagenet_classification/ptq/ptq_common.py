@@ -2,10 +2,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
+import itertools
 import math
+from typing import Callable, List
 from warnings import warn
 
+from accelerate.utils.operations import send_to_device
 import torch
+from torch import nn
+import torch.backends.cudnn as cudnn
 from tqdm import tqdm
 
 from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
@@ -13,12 +18,16 @@ from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScal
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import disable_return_quant_tensor
+from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import norm_correction_mode
+from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
@@ -74,6 +83,7 @@ from brevitas_examples.common.axe import A2GPFQ
 from brevitas_examples.common.axe import A2GPTQ
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import auto_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
@@ -676,37 +686,203 @@ def apply_learned_round_learning(
                     loss, rec_loss, round_loss, b))
 
 
-def apply_auto_round_learning(
-        model, dataloader, optimizer_class=SignSGD, iters=1000, optimizer_lr=1e-1):
+# TODO: Replace by an actual function. Remove
+def _is_resnet_block(module: nn.Module, module_name: str) -> bool:
+    import re
+    return (re.search(r"layer\d+", module_name) is not None)
+
+
+def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
+                                                          bool]) -> List[nn.Module]:
+    blocks = []
+
+    # Iterating over .modules() might have been more readable but
+    # with this recursive implementation, once a block is reached,
+    # its subtree of modules is not expanded.
+    def _get_blocks(module: nn.Module):
+        for module_name, module_child in module.named_children():
+            if block_check_fn(module_child, module_name):
+                blocks.append(module_child)
+            else:
+                _get_blocks(module_child)
+
+    # Run recursive function that updates the list blocks
+    _get_blocks(model)
+    return blocks
+
+
+def apply_auto_round_learning_debug(
+        model, dataloader, device, optimizer_class=SignSGD, iters=1000, optimizer_lr=1e-1):
     # Add message in case the range can be surpassed
-    if iters * optimizer_lr > 0.5:
+    if optimizer_class == SignSGD and iters * optimizer_lr > 0.5:
         warn("It is possible that the weights are not rounded to their floor or ceil.")
 
-    layers = []
-    split_layers(model, layers)
-    print(f"Total Iterations per layer {iters}")
-    print(f"Number of layers {len(layers)}")
+    blocks = get_blocks(model, _is_resnet_block)
+    print(f"Total Iterations per block {iters}")
+    print(f"Number of blocks {len(blocks)}")
 
-    for layer, layer_loss, learned_round_module in learned_round_iterator(layers, iters=iters):
-        optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
-        _, all_fp_out = save_inp_out_data(model, layer, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
-        all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+    # The following code reuses most of the code in auto_learned_round_learning. This implementation
+    # requires a forward pass through the whole net to capture inputs/outputs of a single block,
+    # while for auto_learned_round_learning_efficient a single forward is required.
+
+    # Iterate over the blocks, keeping track of outputs to pass them to next block
+    for block_idx, (block, learned_round_modules) in enumerate(auto_round_iterator(blocks)):
+        # Instantiate optimizer with the parameters of the learned round modules
+        optimizer = optimizer_class(
+            itertools.chain(
+                *[
+                    learned_round_module.parameters()
+                    for learned_round_module in learned_round_modules]),
+            lr=optimizer_lr)
+        # Use MSE loss to measure the discrepancy between quantised and unquantised outputs
+        mse_loss_fn = nn.MSELoss()
+        # Save inputs and outputs
+        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
+        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+
         max_size = len(all_fp_out)
-        pbar = tqdm(range(iters), desc='')
-        for i in pbar:
-            idx = torch.randint(0, max_size, (dataloader.batch_size,))
-            quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
-            layer.train()
+        with tqdm(total=iters) as pbar:
+            for _ in range(iters):
+                idx = torch.randint(0, max_size, (dataloader.batch_size,))
+                quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
+                block.train()
 
-            optimizer.zero_grad()
-            quant_out = layer(quant_inp)
-            loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
+                optimizer.zero_grad()
+                quant_out = block(quant_inp)
+                loss = mse_loss_fn(quant_out, fp_out)
 
-            loss.backward()
-            optimizer.step()
-            pbar.set_description(
-                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
-                    loss, rec_loss, round_loss, b))
+                loss.backward()
+                optimizer.step()
+                # Update progress bar
+                pbar.set_description(
+                    "block = {:d}/{:d}, loss = {:.4f}".format(block_idx + 1, len(blocks), loss))
+                pbar.update(1)
+
+
+# TODO: Investigate performance drop
+def apply_auto_round_learning_efficient(
+        model, dataloader, device, optimizer_class=SignSGD, iters=1000, optimizer_lr=1e-1):
+    # Add message in case the range can be surpassed
+    if optimizer_class == SignSGD and iters * optimizer_lr > 0.5:
+        warn("It is possible that the weights are not rounded to their floor or ceil.")
+
+    blocks = get_blocks(model, _is_resnet_block)
+    print(f"Total Iterations per block {iters}")
+    print(f"Number of blocks {len(blocks)}")
+
+    # NOTE: Note that we are storing the output for each batch, thus
+    # resulting in a memory cost proportional to the number of samples
+    # in the calibration set. It might be desirable to consider
+    # alternatives that enable rounding in a batch-wise manner.
+    cached_args, cached_kwargs = [], []
+
+    # Method to intercept the input to the first block
+    def intercept_input(module: nn.Module, args, kwargs):
+        args = send_to_device(args, 'cpu')
+        kwargs = send_to_device(kwargs, 'cpu')
+        cached_args.append(args)
+        cached_kwargs.append(kwargs)
+        raise StopFwdException
+
+    # Method to intercept output of each block
+    def intercept_output(module: nn.Module, args, kwargs, output, cache: List):
+        if isinstance(output, tuple):
+            output = output[0]
+        output = send_to_device(output, 'cpu')
+        cache.append((output,))
+        raise StopFwdException
+
+    # Assumptions of the following code:
+    # 1: The order in the list blocks corresponds to the order in which
+    #    each block forward is run, when the model forward is executed.
+    # 2: The input to each block is the output of the previous block.
+
+    # Disable quantisation for retrieving FP inputs
+    # TODO: Check value for call_act_quantizer_impl
+    toggle_quant_inference = DisableEnableQuantization(call_act_quantizer_impl=False)
+    toggle_quant_inference.disable_param_quantization(model, is_training=True)
+    toggle_quant_inference.disable_bias_quantization(model, is_training=True)
+    return_model_quant_tensor_state = disable_return_quant_tensor(model)
+
+    # Capture inputs to the first block and store them in cached_args, cached_kwargs
+    hook = blocks[0].register_forward_pre_hook(intercept_input, with_kwargs=True)
+    with torch.no_grad():
+        for img_batch, _ in dataloader:
+            try:
+                img_batch = img_batch.to(device)
+                model(img_batch)
+            except StopFwdException:
+                pass
+    hook.remove()
+
+    # Enable quantisation for consistency
+    toggle_quant_inference.enable_param_quantization(model, is_training=True)
+    toggle_quant_inference.enable_bias_quantization(model, is_training=True)
+    restore_return_quant_tensor(model, return_model_quant_tensor_state)
+
+    # Iterate over the blocks, keeping track of outputs to pass them to next block
+    for block_idx, (block, learned_round_modules) in enumerate(auto_round_iterator(blocks)):
+        # Instantiate optimizer with the parameters of the learned round modules
+        optimizer = optimizer_class(
+            itertools.chain(
+                *[
+                    learned_round_module.parameters()
+                    for learned_round_module in learned_round_modules]),
+            lr=optimizer_lr)
+        # Use MSE loss to measure the discrepancy between quantised and unquantised outputs
+        mse_loss_fn = nn.MSELoss()
+        # Prevent needing to perform a deep copy
+        past_cached_args = cached_args
+        cached_args = []
+        # Process each batch storing outputs
+        hook = block.register_forward_hook(
+            partial(intercept_output, cache=cached_args), with_kwargs=True)
+        # Disable quantisation to get FP outputs
+        toggle_quant_inference.disable_param_quantization(block, is_training=True)
+        toggle_quant_inference.disable_bias_quantization(block, is_training=True)
+        return_block_quant_tensor_state = disable_return_quant_tensor(block)
+        # Retrieve the FP outputs
+        with torch.no_grad():
+            for args, kwargs in zip(past_cached_args, cached_kwargs):
+                try:
+                    args = send_to_device(args, device)
+                    kwargs = send_to_device(kwargs, device)
+                    block(*args, **kwargs)
+                except StopFwdException:
+                    pass
+        hook.remove()
+        # Enable quantisation to get Quant outputs
+        toggle_quant_inference.enable_param_quantization(block, is_training=True)
+        toggle_quant_inference.enable_bias_quantization(block, is_training=True)
+        restore_return_quant_tensor(block, return_block_quant_tensor_state)
+
+        # Concatenate inputs and outputs along the batch dimension
+        past_cached_args_opt = tuple(
+            torch.cat(tensors, dim=0) for tensors in zip(*past_cached_args))
+        cached_args_opt = tuple(torch.cat(tensors, dim=0) for tensors in zip(*cached_args))
+
+        # TODO: Verify with the implementation of AutoRound
+        with tqdm(total=iters) as pbar:
+            block.train()
+            for _ in range(iters):
+                # Subsample in calibration subset
+                idx = torch.randint(0, cached_args_opt[0].shape[0], (dataloader.batch_size,))
+                fp_input, fp_out = past_cached_args_opt[0][idx], cached_args_opt[0][idx]
+                # Move tensor to appropiate devices
+                fp_input = send_to_device(fp_input, device)
+                fp_out = send_to_device(fp_out, device)
+
+                quant_out = block(fp_input)
+                loss = mse_loss_fn(fp_out, quant_out)
+
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+
+                # Update progress bar
+                pbar.set_description(
+                    "block = {:d}/{:d}, loss = {:.4f}".format(block_idx + 1, len(blocks), loss))
+                pbar.update(1)
 
 
 def check_positive_int(*args):

@@ -26,11 +26,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from typing import List, Optional
+
 import numpy as np
 import torch
+from torch import nn
 import torch.nn.functional as F
 
 from brevitas import config
+from brevitas.core.function_wrapper.auto_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
@@ -159,6 +163,45 @@ def split_layers(model, layers):
             layers.append(module)
         else:
             split_layers(module, layers)
+
+
+def insert_auto_round_quantizer_block_layers(block: nn.Module) -> None:
+    # Iterate over the layers and insert AutoRound quantizer in QuantWBIOL layers
+    for module in block.modules():
+        if isinstance(module, QuantWBIOL):
+            value = torch.zeros_like(module.weight.data)
+            module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
+                float_to_int_impl_type=FloatToIntImplType.AUTO_ROUND,
+                learned_round_init=value,
+            )
+            module.weight_quant.init_tensor_quant(preserve_state_dict=True)
+
+
+def find_round_modules_in_block(block: nn.Module,
+                                class_round_quant=AutoRoundSte) -> List[nn.Module]:
+    round_modules = []
+    for module in block.modules():
+        if isinstance(module, class_round_quant):
+            round_modules.append(module)
+    return round_modules
+
+
+def auto_round_iterator(blocks: List[nn.Module]):
+    for block in blocks:
+        # Insert AutoRound quantizer in the block layers
+        insert_auto_round_quantizer_block_layers(block)
+        # Freeze block parameters
+        for params in block.parameters():
+            params.requires_grad = False
+        # Retrieve learned round modules
+        learned_round_modules = find_round_modules_in_block(block, AutoRoundSte)
+        # Enable gradient tracking in learned round modules
+        for round_module in learned_round_modules:
+            for params in round_module.parameters():
+                params.requires_grad = True
+
+        yield block, learned_round_modules
+        block.eval()
 
 
 def learned_round_iterator(layers, iters=1000):

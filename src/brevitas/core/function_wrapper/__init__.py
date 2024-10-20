@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from .auto_round import AutoRoundSte
 from .clamp import ClampMin
 from .clamp import FloatClamp
 from .clamp import ScalarClamp
