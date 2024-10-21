@@ -47,6 +47,11 @@ def parse_type(v, default_type):
         return default_type(v)
 
 
+def validate_args(args):
+    if args.learned_round:
+        assert args.target_backend == "layerwise", "Currently, learned round is only supported with target-backend=layerwise"
+
+
 model_names = sorted(
     name for name in torchvision.models.__dict__ if name.islower() and not name.startswith("__") and
     callable(torchvision.models.__dict__[name]) and not name.startswith("get_"))
@@ -280,6 +285,7 @@ def generate_ref_input(args, device, dtype):
 
 def main():
     args = parser.parse_args()
+    validate_args(args)
     dtype = getattr(torch, args.dtype)
 
     random.seed(SEED)
