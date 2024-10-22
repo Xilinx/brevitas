@@ -80,6 +80,8 @@ def validate(args):
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
             assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
+            if args.max_accumulator_bit_width is not None:
+                assert args.max_accumulator_tile_size == args.weight_group_size, "Group size must be equal to tile size."
         if args.export_target == 'sharded_packed_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
@@ -470,7 +472,7 @@ def parse_args(args):
     parser.add_argument(
         '--gpxq-max-accumulator-tile-size',
         type=int,
-        default=128,
+        default=None,
         help='Maximum accumulator tile size for GPxQ using AXE.')
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
