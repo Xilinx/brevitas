@@ -241,7 +241,7 @@ class GPFQ(GPxQ):
         self.float_input = self.float_input.to(dev)
         self.quant_input = self.quant_input.to(dev)
         U = torch.zeros(
-            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
+            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=torch.float32)
         # We don't need full Hessian, we just need the diagonal
         # Summing over batch dimension
         H_diag = self.quant_input.transpose(2, 1).square().sum(2)
@@ -259,7 +259,7 @@ class GPFQ(GPxQ):
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 U[group_index] += torch.matmul(
-                    weight[group_index, :, permutation_list[group_index][t]].unsqueeze(1),
+                    weight[group_index, :, permutation_list[group_index][t]].unsqueeze(1).to(torch.float32),
                     self.float_input[group_index, :, permutation_list[group_index][t]].unsqueeze(
                         0))  #[OC/Groups, 1] * [1, INSHAPE[1]]
                 norm = torch.linalg.norm(
@@ -270,11 +270,11 @@ class GPFQ(GPxQ):
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
-                weight[group_index, :, permutation_list[group_index][t]] = q_arg
+                weight[group_index, :, permutation_list[group_index][t]] = q_arg.to(dtype)
             q = self.get_quant_weights(t, 0, permutation_list)
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
-                    q[group_index].unsqueeze(1),
+                    q[group_index].unsqueeze(1).to(torch.float32),
                     self.quant_input[group_index, :, permutation_list[group_index][t]].unsqueeze(0))
 
         del self.float_input
@@ -447,13 +447,13 @@ class GPFQv2(GPFQ):
 
         U = torch.zeros(
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev,
-            dtype=dtype)  # [Groups, OC/groups, Samples]
+            dtype=torch.float32)  # [Groups, OC/groups, Samples]
 
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
                 U[group_index] += torch.matmul(
-                    weight[group_index, :, i].unsqueeze(1),
+                    weight[group_index, :, i].unsqueeze(1).to(torch.float32),
                     self.float_input[group_index, :, i].unsqueeze(0),
                 )  # [OC/Groups, 1] * [1, INSHAPE[1]]
                 norm = norms[group_index, i]
@@ -461,11 +461,11 @@ class GPFQv2(GPFQ):
                     q_arg = U[group_index].matmul(self.quant_input[group_index, :, i]) / norm
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
-                weight[group_index, :, i] = q_arg
+                weight[group_index, :, i] = q_arg.to(dtype)
             q_groups = self.get_quant_weights(t, 0, permutation_list)
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
-                    q_groups[group_index].unsqueeze(1),
+                    q_groups[group_index].unsqueeze(1).to(torch.float32),
                     self.quant_input[group_index, :, permutation_list[group_index][t]].unsqueeze(0),
                 )
         if hasattr(self.layer, 'offload_params'):
