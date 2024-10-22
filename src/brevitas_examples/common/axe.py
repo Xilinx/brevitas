@@ -122,17 +122,20 @@ class A2GPTQ(GPTQ):
         # translating into the quantized range; need to pad to get these thresholds
         wT = pad_tensor_with_zeros(weight / scales, self.max_accumulator_tile_size).view(
             -1, self.max_accumulator_tile_size)  # [OC * Tiles, IC / Tiles]
-        thresholds = calc_average_nonzero_mag(wT - wT.mean(axis=1, keepdim=True), Z)  # [Groups * OC * Tiles]
+        thresholds = calc_average_nonzero_mag(
+            wT - wT.mean(axis=1, keepdim=True), Z)  # [Groups * OC * Tiles]
         thresholds = thresholds.view(self.groups, n_tiles, -1)  # [Groups, Tiles, OC/Groups]
         del wT
         # supporting groupwise quantization where each tile has its own scaling factor
         if self.layer.weight_quant.is_groupwise:
-            scales = pad_tensor_with_zeros(scales, self.max_accumulator_tile_size).view(-1, self.max_accumulator_tile_size)  # [Groups, OC * Tiles, IC / Tiles]
-            scales = scales[:,0]  # [Groups * OC * Tiles, 1]
-            scales = scales.view(self.groups, -1, n_tiles).transpose(1,2)  # [Groups, Tiles, OC/Groups]
+            scales = pad_tensor_with_zeros(scales, self.max_accumulator_tile_size).view(
+                -1, self.max_accumulator_tile_size)  # [Groups, OC * Tiles, IC / Tiles]
+            scales = scales[:, 0]  # [Groups * OC * Tiles, 1]
+            scales = scales.view(self.groups, -1,
+                                 n_tiles).transpose(1, 2)  # [Groups, Tiles, OC/Groups]
         # else each tile has the same scaling factor (per-tensor or per-channel)
         else:
-            scales = scales.view(self.groups, 1 , -1)  # [Groups, 1, OC/Groups]
+            scales = scales.view(self.groups, 1, -1)  # [Groups, 1, OC/Groups]
             scales = scales.repeat(1, n_tiles, 1)  # [Groups, Tiles, OC/Groups]
         thresholds *= scales  # translating centers back to the float range
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
@@ -312,17 +315,21 @@ class A2GPFQ(GPFQv2):
         # translating into the quantized range; need to pad to get these thresholds
         wT = pad_tensor_with_zeros(weight / scales, self.max_accumulator_tile_size).view(
             -1, self.max_accumulator_tile_size)  # [OC * Tiles, IC / Tiles]
-        thresholds = calc_average_nonzero_mag(wT - wT.mean(axis=1, keepdim=True), Z)  # [Groups * OC * Tiles]
-        thresholds = thresholds.view(self.groups, -1, n_tiles).transpose(1,2)  # [Groups, Tiles, OC/Groups]
+        thresholds = calc_average_nonzero_mag(
+            wT - wT.mean(axis=1, keepdim=True), Z)  # [Groups * OC * Tiles]
+        thresholds = thresholds.view(self.groups, -1,
+                                     n_tiles).transpose(1, 2)  # [Groups, Tiles, OC/Groups]
         del wT
         # supporting groupwise quantization where each tile has its own scaling factor
         if self.layer.weight_quant.is_groupwise:
-            scales = pad_tensor_with_zeros(scales, self.max_accumulator_tile_size).view(-1, self.max_accumulator_tile_size)  # [Groups, OC * Tiles, IC / Tiles]
-            scales = scales[:,0]  # [Groups * OC * Tiles, 1]
-            scales = scales.view(self.groups, -1, n_tiles).transpose(1,2)  # [Groups, Tiles, OC/Groups]
+            scales = pad_tensor_with_zeros(scales, self.max_accumulator_tile_size).view(
+                -1, self.max_accumulator_tile_size)  # [Groups, OC * Tiles, IC / Tiles]
+            scales = scales[:, 0]  # [Groups * OC * Tiles, 1]
+            scales = scales.view(self.groups, -1,
+                                 n_tiles).transpose(1, 2)  # [Groups, Tiles, OC/Groups]
         # else each tile has the same scaling factor (per-tensor or per-channel)
         else:
-            scales = scales.view(self.groups, 1 , -1)  # [Groups, 1, OC/Groups]
+            scales = scales.view(self.groups, 1, -1)  # [Groups, 1, OC/Groups]
             scales = scales.repeat(1, n_tiles, 1)  # [Groups, Tiles, OC/Groups]
         thresholds *= scales  # translating centers back to the float range
 
@@ -398,8 +405,10 @@ class A2GPFQ(GPFQv2):
                     q_arg.abs() - thresholds[group_index, bx, :])  # soft thresholding
 
                 # TODO: assuming round to nearest; need to generally support other rounding
-                q_max = scales[group_index, bx] * torch.clamp_min(self.upper_lim - a[group_index, bx, :] - 0.5, 0.0)
-                q_min = scales[group_index, bx] * torch.clamp_max(self.lower_lim - b[group_index, bx, :] + 0.5, 0.0)
+                q_max = scales[group_index, bx] * torch.clamp_min(
+                    self.upper_lim - a[group_index, bx, :] - 0.5, 0.0)
+                q_min = scales[group_index, bx] * torch.clamp_max(
+                    self.lower_lim - b[group_index, bx, :] + 0.5, 0.0)
                 q_arg.clamp_(q_min, q_max)
                 weight[group_index, :, i] = q_arg.to(dtype)
             q_groups: Tensor = self.get_quant_weights(t, 0, permutation_list)
