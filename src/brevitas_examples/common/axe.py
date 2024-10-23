@@ -124,7 +124,8 @@ class A2GPTQ(GPTQ):
             -1, self.max_accumulator_tile_size)  # [OC * Tiles, IC / Tiles]
         thresholds = calc_average_nonzero_mag(
             wT - wT.mean(axis=1, keepdim=True), Z)  # [Groups * OC * Tiles]
-        thresholds = thresholds.view(self.groups, n_tiles, -1)  # [Groups, Tiles, OC/Groups]
+        thresholds = thresholds.view(self.groups, -1,
+                                     n_tiles).transpose(1, 2)  # [Groups, Tiles, OC/Groups]
         del wT
         # supporting groupwise quantization where each tile has its own scaling factor
         if self.layer.weight_quant.is_groupwise:
@@ -273,7 +274,8 @@ class A2GPFQ(GPFQv2):
         assert self.max_accumulator_bit_width > 2, "Error: accumulator bit width needs to be bigger than 2."
 
     def single_layer_update(self, percdamp=0.01):
-        assert not self.layer.weight_quant.requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."
+        assert not self.layer.weight_quant.requires_quant_input, \
+            "Error: GPFQ does not support weight quantizers that require quantized inputs."
         if self.quant_metadata is None:
             raise ValueError(
                 "Expected self.quant_metadata to calculate accumualtor bounds, but recevied None. "
