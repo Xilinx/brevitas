@@ -59,6 +59,52 @@ class BrevitasQuantFn(Function):
         return y
 
 
+class BrevitasFloatQuantFn(Function):
+
+    @staticmethod
+    def symbolic(
+            g,
+            x,
+            scale,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            has_inf,
+            has_nan,
+            has_subnormal,
+            rounding_mode,
+            max_val):
+        ret = g.op(
+            f'{DOMAIN_STRING}::FloatQuant',
+            x,
+            scale,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            has_inf_i=int(has_inf),
+            has_nan_i=int(has_nan),
+            has_subnormal_i=int(has_subnormal),
+            rounding_mode_s=rounding_mode,
+            max_val_f=max_val)
+        ret.setType(x.type())
+        return ret
+
+    @staticmethod
+    def forward(
+            g,
+            x,
+            scale,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            has_inf,
+            has_nan,
+            has_subnormal,
+            rounding_mode,
+            max_val):
+        return x
+
+
 class BrevitasTruncFn(Function):
 
     @staticmethod

@@ -17,12 +17,14 @@ from .function import BrevitasBinaryQuantFn
 from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
 from .function import BrevitasTruncFn
+from .handler import BrevitasActFloatQuantProxyHandler
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantWithInputProxyHandler
 from .handler import BrevitasQuantLSTMLayerHandler
 from .handler import BrevitasTruncQuantProxyHandler
+from .handler import BrevitasWeightFloatQuantProxyHandler
 from .handler import BrevitasWeightQuantProxyHandler
 
 
@@ -42,7 +44,9 @@ class QONNXManager(ONNXBaseManager):
         BrevitasDecoupledWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
-        BrevitasQuantLSTMLayerHandler]
+        BrevitasQuantLSTMLayerHandler,
+        BrevitasWeightFloatQuantProxyHandler,
+        BrevitasActFloatQuantProxyHandler]
 
     custom_fns = [
         DebugMarkerFunction,

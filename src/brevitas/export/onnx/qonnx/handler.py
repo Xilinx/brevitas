@@ -14,12 +14,93 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .function import BrevitasBinaryQuantFn
+from .function import BrevitasFloatQuantFn
 from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
 from .function import BrevitasTruncFn
+
+
+class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
+
+    def validate(self, module):
+        assert not module.is_groupwise, "Export with Per Group quantization not supported"
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            self.symbolic_kwargs = {
+                'scale': module.scale(),
+                'exponent_bit_width': module.exponent_bit_width(),
+                'mantissa_bit_width': module.mantissa_bit_width(),
+                'exponent_bias': module.exponent_bias(),
+                'has_inf': module.inf_values() is not None,
+                'has_nan': module.nan_values() is not None,
+                'has_subnormal': True,  # Currently we only support subnormal
+                'rounding_mode': module.rounding_mode,
+                'max_float': module.quant_injector.max_available_float}
+            self.return_args = {
+                'scale': module.scale(),
+                'zero_point': torch.zeros_like(module.scale()),
+                'exponent_bit_width': module.exponent_bit_width(),
+                'mantissa_bit_width': module.mantissa_bit_width(),
+                'exponent_bias': module.exponent_bias(),
+                'saturating': module.is_saturating(),
+                'inf_values': module.inf_values(),
+                'nan_values': module.nan_values(),}
+
+    def symbolic_execution(self, x: Tensor):
+        xx = tuple(self.symbolic_kwargs.values())
+        scale = self.symbolic_kwargs['scale']
+        print(self.symbolic_kwargs.values())
+        x = BrevitasFloatQuantFn.apply(x, *self.symbolic_kwargs.values())
+        return x, *self.return_args.values()
+
+
+class BrevitasWeightFloatQuantProxyHandler(BrevitasFloatQuantProxyHandler):
+    handled_layer = WeightFloatQuantProxyFromInjector
+
+    def __init__(self):
+        super().__init__()
+        self.quant_weights = None
+
+    def validate(self, zero_point):
+        assert zero_point == 0, "Zero-point not supported for binary quant."
+
+    def prepare_for_export(self, module: WeightQuantProxyFromInjector):
+        if module.is_quant_enabled:
+            first_qweight = module.tracked_module_list[0].quant_weight()
+            self.validate(first_qweight.zero_point)
+            self.symbolic_kwargs = {
+                'scale': first_qweight.scale,
+                'exponent_bit_width': first_qweight.exponent_bit_width,
+                'mantissa_bit_width': first_qweight.mantissa_bit_width,
+                'exponent_bias': first_qweight.exponent_bias,
+                'has_inf': first_qweight.inf_values is not None,
+                'has_nan': first_qweight.nan_values is not None,
+                'has_subnormal': True,  # Currently we only support subnormal
+                'rounding_mode': module.rounding_mode,
+                'max_float': module.quant_injector.max_available_float,}
+            self.return_args = {
+                'scale': first_qweight.scale,
+                'zero_point': torch.zeros_like(first_qweight.scale),
+                'exponent_bit_width': first_qweight.exponent_bit_width,
+                'mantissa_bit_width': first_qweight.mantissa_bit_width,
+                'exponent_bias': first_qweight.exponent_bias,
+                'saturating': first_qweight.saturating,
+                'inf_values': first_qweight.inf_values,
+                'nan_values': first_qweight.nan_values,}
+
+    def symbolic_execution(self, x: Tensor):
+        return super().symbolic_execution(x)
+
+
+class BrevitasActFloatQuantProxyHandler(BrevitasFloatQuantProxyHandler):
+    handled_layer = ActFloatQuantProxyFromInjector
 
 
 class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
