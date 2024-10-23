@@ -27,17 +27,10 @@ from brevitas_examples.imagenet_classification.ptq.learned_round_utils import Au
 from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_layer
 from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_resnet_block
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
-from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_auto_round_learning
-from brevitas_examples.imagenet_classification.ptq.ptq_common import \
-    apply_auto_round_learning_efficient
-from brevitas_examples.imagenet_classification.ptq.ptq_common import \
-    apply_auto_round_learning_layerwise
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
-from brevitas_examples.imagenet_classification.ptq.ptq_common import \
-    apply_learned_round_learning_generalized
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -525,8 +518,7 @@ def main():
         elif args.learned_round_type == "ada_round":
             learned_round = AdaRound(iters=args.learned_round_iters)
 
-        """
-        apply_learned_round_learning_generalized(
+        apply_learned_round_learning(
             model=quant_model,
             dataloader=calib_loader,
             learned_round=learned_round,
@@ -535,28 +527,6 @@ def main():
             optimizer_lr=args.learned_round_lr,
             block_check_fn=block_check_fn
         )
-        """
-
-    # TODO: Remove after validation
-
-    if args.learned_round_type == "auto_round":
-        print("Applying Auto Round:")
-        apply_auto_round_learning(
-            quant_model,
-            calib_loader,
-            device,
-            optimizer_class=optimizer_class,
-            iters=args.learned_round_iters,
-            optimizer_lr=args.learned_round_lr)
-
-    if args.learned_round_type == "ada_round":
-        print("Applying Learned Round (AdaRound):")
-        apply_learned_round_learning(
-            quant_model,
-            calib_loader,
-            optimizer_class=optimizer_class,
-            iters=args.learned_round_iters,
-            optimizer_lr=args.learned_round_lr)
 
     if args.calibrate_bn:
         print("Calibrate BN:")
