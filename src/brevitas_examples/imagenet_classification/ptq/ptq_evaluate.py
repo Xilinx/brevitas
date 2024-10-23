@@ -22,14 +22,22 @@ from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.optim.sign_sgd import SignSGD
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRound
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AutoRound
+from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_layer
+from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_resnet_block
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_auto_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import \
     apply_auto_round_learning_efficient
+from brevitas_examples.imagenet_classification.ptq.ptq_common import \
+    apply_auto_round_learning_layerwise
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
+from brevitas_examples.imagenet_classification.ptq.ptq_common import \
+    apply_learned_round_learning_generalized
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -167,6 +175,11 @@ parser.add_argument(
     default='none',
     choices=['none', 'ada_round', 'auto_round'],
     help='Learned round type (default: none)')
+parser.add_argument(
+    '--learned-round-mode',
+    default='layerwise',
+    choices=['layerwise', 'blockwise'],
+    help='Learned round mode (default: none)')
 parser.add_argument(
     '--learned-round-iters',
     default=1000,
@@ -498,6 +511,33 @@ def main():
         optimizer_class = SignSGD
     else:
         raise ValueError(f"{args.optimizer} is not a valid optimizer.")
+
+    if args.learned_round_mode == "layerwise":
+        block_check_fn = _is_layer
+    elif args.learned_round_mode == "blockwise":
+        # if args.learned_round_type == "ada_round":
+        #    raise ValueError(f"Block-wise round is not available with AdaRound.")
+        block_check_fn = _is_resnet_block
+
+    if args.learned_round_type != "none":
+        if args.learned_round_type =="auto_round":
+            learned_round = AutoRound(iters=args.learned_round_iters)
+        elif args.learned_round_type == "ada_round":
+            learned_round = AdaRound(iters=args.learned_round_iters)
+
+        """
+        apply_learned_round_learning_generalized(
+            model=quant_model,
+            dataloader=calib_loader,
+            learned_round=learned_round,
+            optimizer_class=optimizer_class,
+            iters=args.learned_round_iters,
+            optimizer_lr=args.learned_round_lr,
+            block_check_fn=block_check_fn
+        )
+        """
+
+    # TODO: Remove after validation
 
     if args.learned_round_type == "auto_round":
         print("Applying Auto Round:")

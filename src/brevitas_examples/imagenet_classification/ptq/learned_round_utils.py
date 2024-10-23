@@ -26,7 +26,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import List, Optional
+from abc import ABC
+from abc import abstractmethod
+from typing import Callable, Generator, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -95,6 +97,176 @@ class LinearTempDecay:
             return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
 
+class LearnedRoundLoss(ABC):
+
+    @abstractmethod
+    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
+        pass
+
+    @abstractmethod
+    def format_loss_components(self, *args) -> str:
+        pass
+
+
+class AdaRoundLoss(LearnedRoundLoss):
+
+    def __init__(
+            self,
+            module: nn.Module,
+            learned_round_modules: List[nn.Module],
+            weight: float = 0.01,
+            max_count: int = 1000,
+            b_range: Tuple = (20, 2),
+            warmup: float = 0.2,
+            decay_start: float = 0.0) -> None:
+        super().__init__()
+        # AdaRound operates in a layer-wise manner, so integrity needs to be checked
+        assert isinstance(module, QuantWBIOL), "AdaRound can only accept a single QuantWBIOL layer."
+        assert len(learned_round_modules) == 1, "AdaRound can only accept a single learned round module."
+
+        self.weight = weight
+        self.module = module
+        self.loss_start = max_count * warmup
+        self.temp_decay = LinearTempDecay(
+            max_count,
+            start_b=b_range[0],
+            end_b=b_range[1],
+            rel_start_decay=warmup + (1.0 - warmup) * decay_start)
+        self.iter = 0
+        self.learned_round_module = learned_round_modules[0]
+
+    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
+        self.iter += 1
+
+        rec_loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
+
+        if self.iter < self.loss_start:
+            b = self.temp_decay(self.iter)
+            round_loss = 0
+        else:  # 1 - |(h-0.5)*2|**b
+            b = self.temp_decay(self.iter)
+            round_vals = self.learned_round_module.p_forward()
+            round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
+
+        total_loss = rec_loss + round_loss
+        return total_loss, (total_loss, rec_loss, round_loss, b)
+
+    def format_loss_components(self, loss: float, rec_loss: float, round_loss: float, b) -> str:
+        return "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
+            loss, rec_loss, round_loss, b)
+
+
+class AutoRoundLoss(LearnedRoundLoss):
+
+    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
+        loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
+        return loss, (loss,)
+
+    def format_loss_components(self, loss: float) -> str:
+        return "loss = {:.4f}".format(loss)
+
+
+class LearnedRound(ABC):
+
+    def __init__(self, iters: int = 100) -> None:
+        self.iters = iters
+
+    def _insert_learned_round_quantizer(self, block: nn.Module) -> None:
+        for module in block.modules():
+            if isinstance(module, QuantWBIOL) and not find_learned_round_module(module):
+                self._insert_learned_round_quantizer_to_layer(module)
+                module.weight_quant.init_tensor_quant(preserve_state_dict=True)
+
+    @abstractmethod
+    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
+        pass
+
+    @abstractmethod
+    def _is_learned_round_module(self, module: nn.Module) -> bool:
+        pass
+
+    @abstractmethod
+    def _instantiate_loss(
+            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> LearnedRoundLoss:
+        pass
+
+    def _find_learned_round_modules(self, block: nn.Module) -> List[nn.Module]:
+        round_modules = []
+        for module in block.modules():
+            if self._is_learned_round_module(module):
+                round_modules.append(module)
+        return round_modules
+
+    def learned_round_iterator(
+            self,
+            blocks: List[nn.Module]) -> Generator[nn.Module, LearnedRoundLoss, List[nn.Module]]:
+        for block in blocks:
+            # Insert learned round quantizers into the appropiate submodules
+            self._insert_learned_round_quantizer(block)
+            # Freeze block parameters
+            for params in block.parameters():
+                params.requires_grad = False
+            # Retrieve learned round modules
+            learned_round_modules = self._find_learned_round_modules(block)
+            # Enable gradient tracking in learned round modules
+            for round_module in learned_round_modules:
+                for params in round_module.parameters():
+                    params.requires_grad = True
+            block_loss = self._instantiate_loss(block, learned_round_modules)
+            yield block, block_loss, learned_round_modules
+            block.eval()
+
+
+class AdaRound(LearnedRound):
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+    def _is_learned_round_module(self, module: nn.Module) -> bool:
+        return isinstance(module, LearnedRoundSte)
+
+    def _insert_learned_round_quantizer_to_layer(
+            self,
+            layer: nn.Module,
+            learned_round_zeta: float = 1.1,
+            learned_round_gamma: float = -0.1) -> None:
+        floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
+        delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
+        value = -torch.log((learned_round_zeta - learned_round_gamma) /
+                           (delta - learned_round_gamma) - 1)
+        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
+            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+            learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
+            learned_round_gamma=learned_round_gamma,
+            learned_round_zeta=learned_round_zeta,
+            learned_round_init=value)
+
+    def _instantiate_loss(
+            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> AdaRoundLoss:
+        return AdaRoundLoss(block, learned_round_modules, max_count=self.iters)
+
+
+class AutoRound(LearnedRound):
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+    def _is_learned_round_module(self, module: nn.Module) -> bool:
+        return isinstance(module, AutoRoundSte)
+
+    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
+        value = torch.zeros_like(layer.weight.data)
+        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
+            float_to_int_impl_type=FloatToIntImplType.AUTO_ROUND,
+            learned_round_init=value,
+        )
+
+    def _instantiate_loss(
+            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> AutoRoundLoss:
+        return AutoRoundLoss()
+
+
+# TODO: Remove after validation
 class Loss:
 
     def __init__(
@@ -134,6 +306,7 @@ class Loss:
         return total_loss, rec_loss, round_loss, b
 
 
+# TODO: Remove after validation
 def find_learned_round_module(module):
     for submodule in module.modules():
         if isinstance(submodule, LearnedRoundSte):
@@ -141,6 +314,7 @@ def find_learned_round_module(module):
     return False
 
 
+# TODO: Remove after validation
 def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_gamma=-0.1):
     if isinstance(layer, QuantWBIOL):
         if not find_learned_round_module(layer):
@@ -157,6 +331,7 @@ def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_
             layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
+# TODO: Remove after validation
 def split_layers(model, layers):
     for module in model.children():
         if isinstance(module, QuantWBIOL):
@@ -165,6 +340,7 @@ def split_layers(model, layers):
             split_layers(module, layers)
 
 
+# TODO: Remove after validation
 def insert_auto_round_quantizer_block_layers(block: nn.Module) -> None:
     # Iterate over the layers and insert AutoRound quantizer in QuantWBIOL layers
     for module in block.modules():
@@ -177,6 +353,7 @@ def insert_auto_round_quantizer_block_layers(block: nn.Module) -> None:
             module.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
+# TODO: Remove after validation
 def find_round_modules_in_block(block: nn.Module,
                                 class_round_quant=AutoRoundSte) -> List[nn.Module]:
     round_modules = []
@@ -186,6 +363,7 @@ def find_round_modules_in_block(block: nn.Module,
     return round_modules
 
 
+# Remove after validation
 def auto_round_iterator(blocks: List[nn.Module]):
     for block in blocks:
         # Insert AutoRound quantizer in the block layers
@@ -204,6 +382,7 @@ def auto_round_iterator(blocks: List[nn.Module]):
         block.eval()
 
 
+# TODO: Remove after validation
 def learned_round_iterator(layers, iters=1000):
     for layer in layers:
         insert_learned_round_quantizer(layer)
@@ -215,6 +394,20 @@ def learned_round_iterator(layers, iters=1000):
         learned_round_module.value.requires_grad = True
         layer_loss = Loss(module=layer, learned_round_module=learned_round_module, max_count=iters)
         yield layer, layer_loss, learned_round_module
+        layer.eval()
+
+
+# TODO: Remove, fast-experimentation code
+def auto_round_layerwise_iterator(layers):
+    for layer in layers:
+        insert_auto_round_quantizer_block_layers(layer)
+
+        for p in layer.parameters():
+            p.requires_grad = False
+
+        learned_round_module = find_round_modules_in_block(layer)[0]
+        learned_round_module.value.requires_grad = True
+        yield layer, learned_round_module
         layer.eval()
 
 
@@ -252,9 +445,9 @@ def save_inp_out_data(
                 else:
                     cached[1].append(data_saver.output_store.detach().cpu())
     if store_inp:
-        cached[0] = torch.cat([x for x in cached[0]])
+        cached[0] = torch.cat([x for x in cached[0]], dim=0)
     if store_out:
-        cached[1] = torch.cat([x for x in cached[1]])
+        cached[1] = torch.cat([x for x in cached[1]], dim=0)
     handle.remove()
     if disable_quant:
         disable_quant_class.enable_act_quantization(model, False)

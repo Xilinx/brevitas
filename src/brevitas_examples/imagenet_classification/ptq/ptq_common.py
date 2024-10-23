@@ -33,6 +33,7 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject import value
 import brevitas.nn as qnn
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
@@ -83,8 +84,10 @@ from brevitas_examples.common.axe import A2GPFQ
 from brevitas_examples.common.axe import A2GPTQ
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRound
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import auto_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import LearnedRound
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
@@ -657,6 +660,48 @@ def apply_gpfq(
                 gpfq.update()
 
 
+# TODO: Remove after debugging
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    auto_round_layerwise_iterator
+
+
+def apply_auto_round_learning_layerwise(
+        model, dataloader, device, optimizer_class=torch.optim.Adam, iters=1000, optimizer_lr=1e-1):
+    layers = []
+    split_layers(model, layers)
+    print(f"Total Iterations per layer {iters}")
+    print(f"Number of layers {len(layers)}")
+
+    for layer_idx, (layer,
+                    learned_round_module) in enumerate(auto_round_layerwise_iterator(layers)):
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        # Start measuring time
+        start.record()
+
+        optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
+        _, all_fp_out = save_inp_out_data(model, layer, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
+        all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+        max_size = len(all_fp_out)
+        mse_loss = nn.MSELoss()
+        pbar = tqdm(range(iters), desc='')
+        for _ in pbar:
+            idx = torch.randint(0, max_size, (dataloader.batch_size,))
+            quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
+            layer.train()
+
+            optimizer.zero_grad()
+            quant_out = layer(quant_inp)
+            loss = mse_loss(quant_out, fp_out)
+
+            loss.backward()
+            optimizer.step()
+            # Update progress bar
+            pbar.set_description(
+                "block = {:d}/{:d}, loss = {:.4f}".format(layer_idx + 1, len(layers), loss))
+            pbar.update(1)
+
+
 def apply_learned_round_learning(
         model, dataloader, optimizer_class=torch.optim.Adam, iters=1000, optimizer_lr=1e-1):
     layers = []
@@ -664,7 +709,8 @@ def apply_learned_round_learning(
     print(f"Total Iterations per layer {iters}")
     print(f"Number of layers {len(layers)}")
 
-    for layer, layer_loss, learned_round_module in learned_round_iterator(layers, iters=iters):
+    for layer_idx, (layer, layer_loss,
+                    learned_round_module) in enumerate(learned_round_iterator(layers, iters=iters)):
         optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
         _, all_fp_out = save_inp_out_data(model, layer, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
         all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
@@ -692,6 +738,56 @@ def _is_resnet_block(module: nn.Module, module_name: str) -> bool:
     return (re.search(r"layer\d+", module_name) is not None)
 
 
+def _is_layer(module: nn.Module, module_name: str) -> bool:
+    return isinstance(module, QuantWBIOL)
+
+
+def apply_learned_round_learning_generalized(
+    model: nn.Module,
+    dataloader: torch.utils.data.dataloader.DataLoader,
+    learned_round: LearnedRound = AdaRound,
+    optimizer_class=torch.optim.Adam,
+    iters: int = 1000,
+    optimizer_lr: float = 1e-1,
+    block_check_fn: Callable = _is_layer,
+):
+    # Retrieve blocks using the appropiate function to check blocks
+    blocks = get_blocks(model, block_check_fn)
+
+    print(f"Total Iterations per block {iters}")
+    print(f"Number of blocks {len(blocks)}")
+
+    for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
+            learned_round.learned_round_iterator(blocks)):
+        optimizer = optimizer = optimizer_class(
+            itertools.chain(
+                *[
+                    learned_round_module.parameters()
+                    for learned_round_module in block_learned_round_modules]),
+            lr=optimizer_lr)
+        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
+        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+        max_size = len(all_fp_out)
+        pbar = tqdm(range(iters), desc='')
+        for _ in pbar:
+            idx = torch.randint(0, max_size, (dataloader.batch_size,))
+            quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
+            block.train()
+
+            optimizer.zero_grad()
+            quant_out = block(quant_inp)
+            loss, loss_components = block_loss(quant_out, fp_out)
+
+            loss.backward()
+            optimizer.step()
+            # Update progress bar
+            pbar.set_description(
+                "block = {:d}/{:d}, {}".format(
+                    block_idx + 1, len(blocks),
+                    block_loss.format_loss_components(*loss_components)))
+            pbar.update(1)
+
+
 def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
                                                           bool]) -> List[nn.Module]:
     blocks = []
@@ -711,7 +807,7 @@ def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
     return blocks
 
 
-def apply_auto_round_learning_debug(
+def apply_auto_round_learning(
         model, dataloader, device, optimizer_class=SignSGD, iters=1000, optimizer_lr=1e-1):
     # Add message in case the range can be surpassed
     if optimizer_class == SignSGD and iters * optimizer_lr > 0.5:
