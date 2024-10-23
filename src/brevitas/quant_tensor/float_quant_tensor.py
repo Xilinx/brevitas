@@ -150,11 +150,6 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             int_scale = float_internal_scale(
                 minifloat_value, self.mantissa_bit_width, fp_internal_scale, eps)
             float_value = torch.round(self._pre_round_float_value) * int_scale
-            return float_value.type(self.scale.dtype)
-        else:
-            raise RuntimeError(f"FloatQuantTensor not valid.")
-
-    @staticmethod
     def check_input_type(tensor):
         if not isinstance(tensor, FloatQuantTensor):
             raise RuntimeError("Tensor is not a FloatQuantTensor")
