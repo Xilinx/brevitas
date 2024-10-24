@@ -220,9 +220,10 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         # This is because we don't want to store a parameter dependant on a runtime value (threshold)
         # And because restrict needs to happen after we divide by threshold
         if self.init_done:
-            threshold = self.restrict_inplace_preprocess(threshold)
-            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
+            threshold = self.stats_scaling_impl.restrict_clamp_scaling(
+                self.restrict_preprocess(threshold))
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = value / threshold
             return value
         else:
             stats = self.parameter_list_stats()
@@ -231,10 +232,11 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             if self.local_loss_mode:
                 return self.stats_scaling_impl(stats, threshold)
             stats = self.restrict_inplace_preprocess(stats)
-            threshold = self.restrict_inplace_preprocess(threshold)
+            threshold = self.stats_scaling_impl.restrict_clamp_scaling(
+                self.restrict_preprocess(threshold))
             inplace_tensor_mul(self.value.detach(), stats)
-            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = value / threshold
             self.init_done = True
             return value
 
@@ -360,14 +362,16 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
             inplace_tensor_mul(self.value.detach(), self.buffer)
-            threshold = self.restrict_preprocess(threshold)
-            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
+            threshold = self.restrict_scaling(self.restrict_preprocess(threshold))
+            value = self.clamp_scaling(self.restrict_scaling(self.value))
+            value = value / threshold
             self.counter = self.counter + 1
-            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
+            return abs_binary_sign_grad(value)
         else:
-            threshold = self.restrict_preprocess(threshold)
-            value = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
-            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
+            threshold = self.restrict_scaling(self.restrict_preprocess(threshold))
+            value = self.clamp_scaling(self.restrict_scaling(self.value))
+            value = value / threshold
+            return abs_binary_sign_grad(value)
 
     @brevitas.jit.script_method
     def forward(self, stats_input: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
@@ -378,12 +382,14 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             return self.training_forward(stats_input, threshold)
         else:
             if self.counter <= self.collect_stats_steps:
-                out = self.buffer / threshold
+                out = self.buffer
                 out = self.restrict_preprocess(out)
             else:
-                threshold = self.restrict_preprocess(threshold)
-                out = self.restrict_scaling_impl.combine_scale_threshold(self.value, threshold)
-            out = abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(out)))
+                out = self.value
+            threshold = self.restrict_scaling(self.restrict_preprocess(threshold))
+            out = self.clamp_scaling(self.restrict_scaling(out))
+            out = out / threshold
+            out = abs_binary_sign_grad(self.clamp_scaling(out))
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):

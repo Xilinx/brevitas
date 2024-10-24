@@ -90,10 +90,11 @@ class _StatsScaling(brevitas.jit.ScriptModule):
         if threshold is None:
             threshold = torch.ones(1).type_as(stats)
         threshold = self.restrict_scaling_pre(threshold)
+        threshold = self.restrict_clamp_scaling(threshold)
         stats = self.restrict_scaling_pre(stats)
-        stats = self.restrict_scaling_impl.combine_scale_threshold(stats, threshold)
         stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
+        stats = stats / threshold
         return stats
 
 
