@@ -187,6 +187,8 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.scaling_min_val = scaling_min_val
         self.input_view_impl = input_view_impl
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_module = self.restrict_clamp_scaling.restrict_value_impl.restrict_init_module(
+        )
 
     @brevitas.jit.script_method
     def forward(
@@ -197,6 +199,8 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
             threshold = torch.ones(1).type_as(stats_input)
         stats_input_reshaped = self.input_view_impl(stats_input)
         out = self.scaling_stats_impl(stats_input_reshaped) / threshold
+        # Apply log scaling
+        out = self.restrict_module(out)
         # Scaling min val
         out = self.restrict_clamp_scaling(out)
         return out
