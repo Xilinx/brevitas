@@ -36,7 +36,7 @@ class AutoRoundSte(brevitas.jit.ScriptModule):
         # p should be between [-0.5, 0.5], so this learnable parameter decides whether to "ceil" or "floor"
         p = self.value
         p = self.tensor_slicer(p)
-        return round_ste(x + p.to(x.dtype))
+        return round_ste(x + (p.to(x.dtype)).view_as(x))
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

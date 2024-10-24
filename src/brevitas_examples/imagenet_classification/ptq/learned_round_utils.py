@@ -30,6 +30,7 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Callable, Generator, List, Optional, Tuple
 
+from accelerate.utils.operations import send_to_device
 import numpy as np
 import torch
 from torch import nn
@@ -310,3 +311,206 @@ def save_inp_out_data(
         disable_quant_class.enable_param_quantization(model, False)
         restore_return_quant_tensor(model, return_quant_tensor_state)
     return cached
+
+
+class DataSaverHookLLM:
+
+    def __init__(
+            self,
+            cache_args: List,
+            cache_kwargs: List,
+            cache_outs: List,
+            store_args: bool = True,
+            store_kwargs: bool = True,
+            store_outs: bool = True,
+            keep_gpu: bool = True):
+        self.cache_args = cache_args
+        self.cache_kwargs = cache_kwargs
+        self.cache_outs = cache_outs
+
+        self.store_args = store_args
+        self.store_kwargs = store_kwargs
+        self.store_outs = store_outs
+
+        self.keep_gpu = keep_gpu
+
+    def __call__(self, module, args, kwargs, output):
+        # NOTE: If args/kwargs are QuantTensors, should include logic to unpack their values
+        if isinstance(output, (tuple, list)):
+            output = output[0]
+
+        # Store each element in the appropiate cache
+        for element_to_cache, should_cache, cache in zip(
+            [args, kwargs, output],
+            [self.store_args, self.store_kwargs, self.store_outs],
+            [self.cache_args, self.cache_kwargs, self.cache_outs]
+        ):
+            if should_cache:
+                if not self.keep_gpu:
+                    element_to_cache = send_to_device(element_to_cache, 'cpu')
+                cache.append(element_to_cache)
+
+        raise StopFwdException
+
+
+def save_inp_out_data_llm(
+        model,
+        module,
+        dataloader: torch.utils.data.DataLoader,
+        cache_args: List,
+        cache_kwargs: List,
+        cache_outs: List,
+        store_args: bool = True,
+        store_kwargs: bool = False,
+        store_outs: bool = True,
+        keep_gpu: bool = True,
+        disable_quant=False) -> None:
+    if disable_quant:
+        disable_quant_class = DisableEnableQuantization()
+        disable_quant_class.disable_act_quantization(model, False)
+        disable_quant_class.disable_param_quantization(model, False)
+        return_quant_tensor_state = disable_return_quant_tensor(model)
+
+    device = next(model.parameters()).device
+    data_saver = DataSaverHookLLM(
+        cache_args, cache_kwargs, cache_outs, store_args, store_kwargs, store_outs, keep_gpu)
+    handle = module.register_forward_hook(data_saver, with_kwargs=True)
+    with torch.no_grad():
+        for inps in dataloader:
+            try:
+                inps = send_to_device(inps, device)
+                model(**inps)
+            except StopFwdException:
+                pass
+    handle.remove()
+    if disable_quant:
+        disable_quant_class.enable_act_quantization(model, False)
+        disable_quant_class.enable_param_quantization(model, False)
+        restore_return_quant_tensor(model, return_quant_tensor_state)
+
+
+# TODO: Move imports to their appropiate place
+import itertools
+
+from torch.optim.optimizer import Optimizer
+from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+from transformers.models.opt.modeling_opt import OPTDecoderLayer
+
+from brevitas.optim.sign_sgd import SignSGD
+
+
+def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
+                                                          bool]) -> List[nn.Module]:
+    blocks = []
+
+    # Iterating over .modules() might have been more readable but
+    # with this recursive implementation, once a block is reached,
+    # its subtree of modules is not expanded.
+    def _get_blocks(module: nn.Module):
+        for module_name, module_child in module.named_children():
+            if block_check_fn(module_child, module_name):
+                blocks.append(module_child)
+            else:
+                _get_blocks(module_child)
+
+    # Run recursive function that updates the list blocks
+    _get_blocks(model)
+    return blocks
+
+
+def _is_block_llm(module: nn.Module, module_name: str) -> bool:
+    return isinstance(module, LlamaDecoderLayer) or isinstance(module, OPTDecoderLayer)
+
+
+def apply_learned_round_learning_llm(
+    model: nn.Module,
+    dataloader: DataLoader,
+    learned_round: LearnedRound = AutoRound(iters=100),
+    optimizer_class: Optimizer = SignSGD,
+    iters: int = 100,
+    optimizer_lr: float = 5e-3,
+    block_check_fn: Callable = _is_block_llm,
+):
+    # Disable the cache to prevent memory buildup
+    cache_state = model.config.use_cache
+    model.config.use_cache = False
+    # NOTE: Can be problematic is more than one GPU is used.
+    device = next(model.parameters()).device
+    # Retrieve blocks using the appropiate function to check blocks
+    blocks = get_blocks(model, block_check_fn)
+
+    print(f"Total Iterations per block {iters}")
+    print(f"Number of blocks {len(blocks)}")
+
+    cache_args, cache_kwargs, cache_outs = [], [], []
+
+    for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
+            learned_round.learned_round_iterator(blocks)):
+        optimizer = optimizer = optimizer_class(
+            itertools.chain(
+                *[
+                    learned_round_module.parameters()
+                    for learned_round_module in block_learned_round_modules]),
+            lr=optimizer_lr)
+        # Cache needs to be cleaned between blocks. No need to clear the
+        # kwargs cache, as this is only updates for the first block.
+        cache_args = []
+        cache_outs = []
+        # Save FP output
+        save_inp_out_data_llm(
+            model,
+            block,
+            dataloader,
+            cache_args,
+            cache_kwargs,
+            cache_outs,
+            store_args=False,
+            store_kwargs=False,
+            store_outs=True,
+            keep_gpu=True,
+            disable_quant=True)
+        # Save Quant input
+        save_inp_out_data_llm(
+            model,
+            block,
+            dataloader,
+            cache_args,
+            cache_kwargs,
+            cache_outs,
+            store_args=True,
+            store_kwargs=len(cache_kwargs) == 0,
+            store_outs=False,
+            keep_gpu=True,
+            disable_quant=False)
+
+        pbar = tqdm(range(iters), desc='')
+        for _ in pbar:
+            idx = torch.randint(0, len(cache_args), (1,))
+            args, kwargs, fp_out = cache_args[idx], cache_kwargs[idx], cache_outs[idx]
+            block.train()
+
+            optimizer.zero_grad()
+
+            args = send_to_device(args, device)
+            kwargs = send_to_device(kwargs, device)
+            fp_out = send_to_device(fp_out, device)
+
+            quant_out = block(*args, **kwargs)
+            if isinstance(quant_out, tuple):
+                quant_out = quant_out[0]
+
+            loss, loss_components = block_loss(quant_out, fp_out)
+
+            loss.backward()
+            optimizer.step()
+            # Update progress bar
+            pbar.set_description(
+                "block = {:d}/{:d}, {}".format(
+                    block_idx + 1, len(blocks),
+                    block_loss.format_loss_components(*loss_components)))
+            pbar.update(1)
+
+    # Restore cache state
+    model.config.use_cache = cache_state

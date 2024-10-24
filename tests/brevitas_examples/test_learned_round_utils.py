@@ -19,10 +19,11 @@ from brevitas_examples.imagenet_classification.ptq.learned_round_utils import Ad
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRoundLoss
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AutoRound
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AutoRoundLoss
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import get_blocks
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
-from brevitas_examples.imagenet_classification.ptq.ptq_common import get_blocks
 
 config.IGNORE_MISSING_KEYS = True
+
 
 # TODO: Include some integration test
 class TestLearnedRound:
@@ -31,6 +32,7 @@ class TestLearnedRound:
     def quant_model():
 
         class QuantBlock(nn.Module):
+
             def __init__(self, in_features: int, hidden_dim: int, out_features: int) -> None:
                 super().__init__()
                 self.layer1 = qnn.QuantLinear(in_features=in_features, out_features=hidden_dim)
@@ -44,11 +46,15 @@ class TestLearnedRound:
                 return self.relu(out)
 
         class TestQuantModel(nn.Module):
+
             def __init__(self, in_features: int, out_features: int, hidden_dim: int) -> None:
                 super().__init__()
-                self.in_proj_mlp = QuantBlock(in_features=in_features, hidden_dim=hidden_dim, out_features=hidden_dim)
-                self.hidden_mlp = QuantBlock(in_features=hidden_dim, hidden_dim=hidden_dim, out_features=hidden_dim)
-                self.out_proj_mlp = QuantBlock(in_features=hidden_dim, hidden_dim=hidden_dim, out_features=out_features)
+                self.in_proj_mlp = QuantBlock(
+                    in_features=in_features, hidden_dim=hidden_dim, out_features=hidden_dim)
+                self.hidden_mlp = QuantBlock(
+                    in_features=hidden_dim, hidden_dim=hidden_dim, out_features=hidden_dim)
+                self.out_proj_mlp = QuantBlock(
+                    in_features=hidden_dim, hidden_dim=hidden_dim, out_features=out_features)
 
             def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
                 out = self.in_proj_mlp(x)
@@ -61,6 +67,7 @@ class TestLearnedRound:
     def model():
 
         class Block(nn.Module):
+
             def __init__(self, in_features: int, hidden_dim: int, out_features: int) -> None:
                 super().__init__()
                 self.layer1 = nn.Linear(in_features=in_features, out_features=hidden_dim)
@@ -74,11 +81,15 @@ class TestLearnedRound:
                 return self.relu(out)
 
         class TestModel(nn.Module):
+
             def __init__(self, in_features: int, out_features: int, hidden_dim: int) -> None:
                 super().__init__()
-                self.in_proj_mlp = Block(in_features=in_features, hidden_dim=hidden_dim, out_features=hidden_dim)
-                self.hidden_mlp = Block(in_features=hidden_dim, hidden_dim=hidden_dim, out_features=hidden_dim)
-                self.out_proj_mlp = Block(in_features=hidden_dim, hidden_dim=hidden_dim, out_features=out_features)
+                self.in_proj_mlp = Block(
+                    in_features=in_features, hidden_dim=hidden_dim, out_features=hidden_dim)
+                self.hidden_mlp = Block(
+                    in_features=hidden_dim, hidden_dim=hidden_dim, out_features=hidden_dim)
+                self.out_proj_mlp = Block(
+                    in_features=hidden_dim, hidden_dim=hidden_dim, out_features=out_features)
 
             def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
                 out = self.in_proj_mlp(x)
@@ -91,6 +102,7 @@ class TestLearnedRound:
     def data_loader():
 
         class TestDataset(Dataset):
+
             def __init__(self):
                 self.data = torch.tensor([[1.0, 2.0]])
                 self.labels = torch.tensor([0])
@@ -119,10 +131,12 @@ class TestLearnedRound:
             return isinstance(module, QuantWBIOL)
 
         expected_layers = [
-            quant_model.in_proj_mlp.layer1, quant_model.in_proj_mlp.layer2,
-            quant_model.hidden_mlp.layer1, quant_model.hidden_mlp.layer2,
-            quant_model.out_proj_mlp.layer1, quant_model.out_proj_mlp.layer2
-        ]
+            quant_model.in_proj_mlp.layer1,
+            quant_model.in_proj_mlp.layer2,
+            quant_model.hidden_mlp.layer1,
+            quant_model.hidden_mlp.layer2,
+            quant_model.out_proj_mlp.layer1,
+            quant_model.out_proj_mlp.layer2]
         layers = get_blocks(quant_model, _is_layer)
 
         assert expected_layers == layers
@@ -136,7 +150,8 @@ class TestLearnedRound:
     @pytest.mark.parametrize("store_out", [True, False])
     @pytest.mark.parametrize("keep_gpu", [True, False])
     @pytest.mark.parametrize("disable_quant", [True, False])
-    def test_save_inp_out_data(self, model, quant_model, data_loader, store_input, store_out, keep_gpu, disable_quant):
+    def test_save_inp_out_data(
+            self, model, quant_model, data_loader, store_input, store_out, keep_gpu, disable_quant):
         # Make sure that the quant and FP models share the same weights
         quant_model.load_state_dict(model.state_dict())
 
@@ -155,7 +170,8 @@ class TestLearnedRound:
         cache_fp_partial_input = []
         cache_fp_partial_output = []
 
-        def _aux_check_tensors(result_tensor, expected_tensor, keep_gpu, disable_quant, assert_type=False):
+        def _aux_check_tensors(
+                result_tensor, expected_tensor, keep_gpu, disable_quant, assert_type=False):
             # Verify that tensor is of the appropiate type
             if assert_type:
                 assert isinstance(result_tensor, torch.Tensor if disable_quant else QuantTensor)
@@ -201,7 +217,8 @@ class TestLearnedRound:
         # Verify that empty lists are returned
         if store_input:
             if disable_quant:
-                _aux_check_tensors(input_data, fp_partial_input, keep_gpu, disable_quant, assert_type=True)
+                _aux_check_tensors(
+                    input_data, fp_partial_input, keep_gpu, disable_quant, assert_type=True)
             else:
                 _aux_check_tensors(input_data, quant_partial_input, keep_gpu, disable_quant)
         else:
@@ -211,12 +228,16 @@ class TestLearnedRound:
             if disable_quant:
                 _aux_check_tensors(out_data, fp_partial_output, keep_gpu, disable_quant)
             else:
-                _aux_check_tensors(out_data, quant_partial_output, keep_gpu, disable_quant, assert_type=True)
+                _aux_check_tensors(
+                    out_data, quant_partial_output, keep_gpu, disable_quant, assert_type=True)
         else:
             assert len(out_data) == 0
 
-    @pytest.mark.parametrize("learned_round_class, rounding_mode, float_to_int_impl", [(AutoRound, "AUTO_ROUND", AutoRoundSte), (AdaRound, "LEARNED_ROUND", LearnedRoundSte)])
-    def test_insert_learned_round_quantizer(self, quant_model, learned_round_class, rounding_mode, float_to_int_impl):
+    @pytest.mark.parametrize(
+        "learned_round_class, rounding_mode, float_to_int_impl",
+        [(AutoRound, "AUTO_ROUND", AutoRoundSte), (AdaRound, "LEARNED_ROUND", LearnedRoundSte)])
+    def test_insert_learned_round_quantizer(
+            self, quant_model, learned_round_class, rounding_mode, float_to_int_impl):
         block = quant_model.in_proj_mlp
         learned_round = learned_round_class(iters=100)
         learned_round._insert_learned_round_quantizer(block)
@@ -224,11 +245,15 @@ class TestLearnedRound:
         for module in block.modules():
             if hasattr(module, "weight_quant"):
                 assert module.weight_quant.rounding_mode == rounding_mode
-                assert isinstance(module.weight_quant.tensor_quant.int_quant.float_to_int_impl, float_to_int_impl)
+                assert isinstance(
+                    module.weight_quant.tensor_quant.int_quant.float_to_int_impl, float_to_int_impl)
 
     @pytest.mark.parametrize("learned_round_class", [AutoRound, AdaRound])
-    @pytest.mark.parametrize("block_strs, num_round_modules", [([], 0), (["hidden_mlp"], 2), (["in_proj_mlp", "out_proj_mlp"], 4)])
-    def test_find_learned_round_modules(self, quant_model, learned_round_class, block_strs, num_round_modules):
+    @pytest.mark.parametrize(
+        "block_strs, num_round_modules", [([], 0), (["hidden_mlp"], 2),
+                                          (["in_proj_mlp", "out_proj_mlp"], 4)])
+    def test_find_learned_round_modules(
+            self, quant_model, learned_round_class, block_strs, num_round_modules):
         learned_round = learned_round_class(iters=100)
         # Inject quantizers in quant model
         for block_str in block_strs:
@@ -237,9 +262,18 @@ class TestLearnedRound:
         learned_round_modules = learned_round._find_learned_round_modules(quant_model)
         assert len(learned_round_modules) == num_round_modules
 
-    @pytest.mark.parametrize("learned_round_class, learned_round_loss_class", [(AutoRound, AutoRoundLoss)])
-    @pytest.mark.parametrize("block_strs, num_round_modules", [([], 0), (["hidden_mlp"], 2), (["in_proj_mlp", "out_proj_mlp"], 4)])
-    def test_learned_round_iter_blockwise(self, quant_model, learned_round_class, learned_round_loss_class, block_strs, num_round_modules):
+    @pytest.mark.parametrize(
+        "learned_round_class, learned_round_loss_class", [(AutoRound, AutoRoundLoss)])
+    @pytest.mark.parametrize(
+        "block_strs, num_round_modules", [([], 0), (["hidden_mlp"], 2),
+                                          (["in_proj_mlp", "out_proj_mlp"], 4)])
+    def test_learned_round_iter_blockwise(
+            self,
+            quant_model,
+            learned_round_class,
+            learned_round_loss_class,
+            block_strs,
+            num_round_modules):
         # Retrieve blocks from quant model
         blocks = [getattr(quant_model, block_str) for block_str in block_strs]
         learned_round = learned_round_class(iters=100)
@@ -248,7 +282,8 @@ class TestLearnedRound:
         blocks_count = 0
         learned_round_modules_count = 0
 
-        for (block, block_loss, block_learned_round_modules) in learned_round.learned_round_iterator(blocks):
+        for (block, block_loss,
+             block_learned_round_modules) in learned_round.learned_round_iterator(blocks):
             assert isinstance(block_loss, learned_round_loss_class)
 
             for learned_round_module in block_learned_round_modules:
@@ -261,8 +296,11 @@ class TestLearnedRound:
         assert blocks_count == len(blocks)
         assert learned_round_modules_count == num_round_modules
 
-    @pytest.mark.parametrize("learned_round_class, learned_round_loss_class", [(AutoRound, AutoRoundLoss), (AdaRound, AdaRoundLoss)])
-    def test_learned_round_iter_layerwise(self, quant_model, learned_round_class, learned_round_loss_class):
+    @pytest.mark.parametrize(
+        "learned_round_class, learned_round_loss_class", [(AutoRound, AutoRoundLoss),
+                                                          (AdaRound, AdaRoundLoss)])
+    def test_learned_round_iter_layerwise(
+            self, quant_model, learned_round_class, learned_round_loss_class):
         # Retrieve blocks from quant model
         blocks = [module for module in quant_model.modules() if isinstance(module, QuantWBIOL)]
         learned_round = learned_round_class(iters=100)
@@ -271,7 +309,8 @@ class TestLearnedRound:
         blocks_count = 0
         learned_round_modules_count = 0
 
-        for (block, block_loss, block_learned_round_modules) in learned_round.learned_round_iterator(blocks):
+        for (block, block_loss,
+             block_learned_round_modules) in learned_round.learned_round_iterator(blocks):
             assert isinstance(block_loss, learned_round_loss_class)
 
             for learned_round_module in block_learned_round_modules:

@@ -24,6 +24,8 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import quant_format_validator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    apply_learned_round_learning_llm
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
@@ -367,6 +369,11 @@ def main(args):
     with torch.no_grad():
         model(**calibration_loader[0])
 
+    if args.learned_round:
+        print("Applying learned round...")
+        apply_learned_round_learning_llm(model, calibration_loader)
+        print("Learned round applied.")
+
     if args.act_calibration:
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
@@ -658,6 +665,11 @@ def parse_args(args):
         help=
         "Whether to merge the dataset sequences in case they are shorter than the requested number of samples per sequence. This is useful in case you would like to quantize or evaluate on long sequences (default: %(default)s).",
     )
+    parser.add_argument(
+        '--learned-round',
+        default=None,
+        choices=[None, 'auto_round'],
+        help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     return parser.parse_args(args)
 
 

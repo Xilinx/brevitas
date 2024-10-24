@@ -87,6 +87,7 @@ from brevitas_examples.common.axe import A2GPTQ
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRound
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import get_blocks
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import LearnedRound
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 
@@ -670,7 +671,7 @@ def _is_layer(module: nn.Module, module_name: str) -> bool:
 def apply_learned_round_learning(
     model: nn.Module,
     dataloader: DataLoader,
-    learned_round: LearnedRound = AdaRound,
+    learned_round: LearnedRound = AdaRound(iters=1000),
     optimizer_class: Optimizer = torch.optim.Adam,
     iters: int = 1000,
     optimizer_lr: float = 1e-1,
@@ -711,25 +712,6 @@ def apply_learned_round_learning(
                     block_idx + 1, len(blocks),
                     block_loss.format_loss_components(*loss_components)))
             pbar.update(1)
-
-
-def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
-                                                          bool]) -> List[nn.Module]:
-    blocks = []
-
-    # Iterating over .modules() might have been more readable but
-    # with this recursive implementation, once a block is reached,
-    # its subtree of modules is not expanded.
-    def _get_blocks(module: nn.Module):
-        for module_name, module_child in module.named_children():
-            if block_check_fn(module_child, module_name):
-                blocks.append(module_child)
-            else:
-                _get_blocks(module_child)
-
-    # Run recursive function that updates the list blocks
-    _get_blocks(model)
-    return blocks
 
 
 def check_positive_int(*args):
