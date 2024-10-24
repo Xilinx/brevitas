@@ -195,8 +195,9 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)
-        tensor_shape_list[self.group_dim] = int(tensor_shape_list[self.group_dim] / self.group_size)
-        block_dim = self.group_dim + 1 if self.group_dim != -1 else -1
+        tensor_shape_list[self.group_dim] = (
+            tensor_shape_list[self.group_dim] + self.group_size - 1) // self.group_size
+        block_dim = self.group_dim + 1 if self.group_dim != -1 else len(tensor_shape_list)
         tensor_shape_list.insert(block_dim, self.group_size)
         x = x.view(tensor_shape_list)
         return x
