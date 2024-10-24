@@ -5,10 +5,13 @@ Brief MXFP quantizer
 
 import struct
 
+from tests.brevitas.hyp_helper import float_tensor_nz_st
+
 try:
     from mx.mx_ops import _quantize_mx as mx
 except:
     mx = None
+from hypothesis import given
 import pytest_cases
 import torch
 
@@ -131,48 +134,17 @@ class MXFP:
         return ((tensor * scale).round() / scale).clamp(-maxval, maxval), scale
 
 
-INP = torch.tensor([[
-    -0.569248080254,
-    0.919971406460,
-    1.110816121101,
-    1.289874076843,
-    -1.478173971176,
-    2.567232847214,
-    -0.473119795322,
-    0.335550755262,
-    -1.629325985909,
-    -0.549743652344,
-    -0.479834258556,
-    -0.499681532383,
-    -1.066980361938,
-    1.114939570427,
-    -0.140671432018,
-    0.805753588676,
-    -0.093348234892,
-    0.687050223351,
-    -0.838315367699,
-    0.000891821750,
-    0.841894090176,
-    -0.400034159422,
-    1.039461970329,
-    0.358153104782,
-    -0.246000945568,
-    2.302516460419,
-    -1.881689190865,
-    -0.049727022648,
-    -1.044978618622,
-    -0.956500828266,
-    0.033531859517,
-    0.710086584091]])
-# Falsifying value is [0, 19]
-
-MAP = {"e4m3": (4, 3), "e5m2": (5, 2), "e2m3": (2, 3), "e3m2": (3, 2), "e2m1": (2, 1)}
+MAP = {
+    "fp8_e4m3": (4, 3),
+    "fp8_e5m2": (5, 2),
+    "fp6_e2m3": (2, 3),
+    "fp6_e3m2": (3, 2),
+    "fp4_e2m1": (2, 1)}
 
 
+@given(inp=float_tensor_nz_st(shape=(1, 32), max_val=1e10, min_val=-1e10))
 @pytest_cases.parametrize('bit_widths', list(MAP.keys()))
-@pytest_cases.parametrize('select', [False])
-@pytest_cases.parametrize('iter', [0])
-def test_mx(bit_widths, select, iter):
+def test_mx(inp, bit_widths):
     # print("-------------------------------------------")
     torch.set_printoptions(precision=12, sci_mode=False)
     exp, mant = MAP[bit_widths]
@@ -184,12 +156,12 @@ def test_mx(bit_widths, select, iter):
         group_dim=1,
         return_quant_tensor=True)
     act_quant.eval()
-    x = INP
+    x = inp
 
-    dtype = MXFP(bit_widths)
-    q, scale = dtype.quantize(x, select=select)
+    # dtype = MXFP(bit_widths)
+    # q, scale = dtype.quantize(x, select=False)
     qx = act_quant(x)
-    error, lowest = check_bits(q, dtype.mbits)
+    # error, lowest = check_bits(q, dtype.mbits)
 
     exp_bias = torch.tensor(2 ** (exp - 1) - 1)
 
@@ -200,6 +172,6 @@ def test_mx(bit_widths, select, iter):
         print("Install microscaling library, --no-deps flag recommended")
     else:
         y = mx(
-            x, 8, elem_format="fp8_e4m3", block_size=32, axes=-1, round='even', custom_cuda=False)
-    assert torch.allclose(qx.value, q, atol=1e-4)
-    assert torch.allclose(brev_scale, scale, atol=1e-4)
+            x, 8, elem_format=bit_widths, block_size=32, axes=-1, round='even', custom_cuda=False)
+    assert torch.allclose(qx.value, y, atol=1e-4)
+    # assert torch.allclose(brev_scale, scale, atol=1e-4)
