@@ -4,6 +4,7 @@
 from dependencies import value
 
 from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import RestrictValueType
@@ -46,14 +47,14 @@ class GroupwiseActProxyMixin(ExtendedInjector):
 class MXWeightMixin(ExtendedInjector):
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
-    restrict_value_float_to_int_impl = CeilSte
+    restrict_value_float_to_int_impl = FloorSte
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
 
 class MXActMixin(ExtendedInjector):
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
-    restrict_value_float_to_int_impl = CeilSte
+    restrict_value_float_to_int_impl = FloorSte
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
