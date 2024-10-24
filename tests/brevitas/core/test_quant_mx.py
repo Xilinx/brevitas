@@ -166,17 +166,13 @@ INP = torch.tensor([[
     0.710086584091]])
 # Falsifying value is [0, 19]
 
-MAP = {
-    "e4m3": (4, 3),}
-#    "e5m2": (5,2),
-#    "e2m3": (2,3),
-#    "e3m2": (3,2),
-#    "e2m1": (2,1)}
+MAP = {"e4m3": (4, 3), "e5m2": (5, 2), "e2m3": (2, 3), "e3m2": (3, 2), "e2m1": (2, 1)}
 
 
 @pytest_cases.parametrize('bit_widths', list(MAP.keys()))
 @pytest_cases.parametrize('select', [False])
-def test_mx(bit_widths, select):
+@pytest_cases.parametrize('iter', [0])
+def test_mx(bit_widths, select, iter):
     # print("-------------------------------------------")
     torch.set_printoptions(precision=12, sci_mode=False)
     exp, mant = MAP[bit_widths]
@@ -185,7 +181,7 @@ def test_mx(bit_widths, select):
         exponent_bit_width=exp,
         mantissa_bit_width=mant,
         bit_width=mant + exp + 1,
-        group_dim=-1,
+        group_dim=1,
         return_quant_tensor=True)
     act_quant.eval()
     x = INP
