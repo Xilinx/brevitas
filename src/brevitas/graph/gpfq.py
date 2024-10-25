@@ -31,108 +31,6 @@ import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 
 
-class gpfq_mode(gpxq_mode):
-    """
-    Apply GPFQ algorithm.
-
-    Args:
-        model (Module): The model to quantize with GPFQ
-        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
-            of layer names that can be optimized in parallel. Default: None
-        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
-        create_weight_orig (bool): If True, store the original floating point weights before applying
-            gpfq. These weights will be used anytime quantization is disabled. Default: True
-        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
-            GPFQ. Default: False
-        p (float): The percentage of processed inputs to use. Default: 1.0
-        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
-            forward call inside the context manager returns None. Default: False
-        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
-
-    Example:
-        >>> with torch.no_grad():
-        >>>     with gpfq_mode(model) as gpfq:
-        >>>         gpfq_model = gpfq.model
-        >>>         for i in tqdm(range(gpfq.num_layers)):
-        >>>             for img, t in calib_loader:
-        >>>                 img = img.cuda()
-        >>>                 gpfq_model(img)
-        >>>             gpfq.update()
-    """
-
-    def __init__(
-            self,
-            model: nn.Module,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            p: float = 1.0,
-            return_forward_output: bool = False,
-            act_order: bool = False,
-            gpfq_class: Optional[GPxQ] = None) -> None:
-        if not inplace:
-            model = deepcopy(model)
-        super().__init__(
-            model,
-            group_of_parallel_layers,
-            inplace,
-            create_weight_orig,
-            use_quant_activations,
-            act_order,
-            return_forward_output)
-
-        self.p = p
-        if gpfq_class is None:
-            gpfq_class = GPFQ
-        self.gpfq_class = gpfq_class
-
-    def catch_stopfwd(self, *args, **kwargs):
-        # Collect quant input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
-
-        # Disable quantization
-        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
-        self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
-        self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
-        # Collect float input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
-
-        # Re-enable quantization. If activation quantization is disabled,
-        # we also disable bias quantization
-        self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
-        if self.use_quant_activations:
-            self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
-        else:
-            self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
-        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
-
-        if self.return_forward_output:
-            # If we want to return the output of the network, we need to disable all hooks
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = True
-            out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = False
-            return out
-
-    def initialize_module_optimizer(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
-        return self.gpfq_class(
-            layer=layer,
-            name=name,
-            act_order=act_order,
-            len_parallel_layers=len_parallel_layers,
-            create_weight_orig=create_weight_orig,
-            p=self.p)
-
-
 class GPFQ(GPxQ):
     """
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
@@ -480,3 +378,105 @@ class GPFQv2(GPFQ):
             self.layer.offload_params(self.layer)
         del self.float_input
         del self.quant_input
+
+
+class gpfq_mode(gpxq_mode):
+    """
+    Apply GPFQ algorithm.
+
+    Args:
+        model (Module): The model to quantize with GPFQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
+        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gpfq. These weights will be used anytime quantization is disabled. Default: True
+        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
+            GPFQ. Default: False
+        p (float): The percentage of processed inputs to use. Default: 1.0
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
+            forward call inside the context manager returns None. Default: False
+        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
+        gpfq_class (GPFQ): The uninitialized class to perform GPFQ.  Default: `brevitas.graph.gpfq.GPFQv2`,
+            which is the memory-efficient formulation
+
+    Example:
+        >>> with torch.no_grad():
+        >>>     with gpfq_mode(model) as gpfq:
+        >>>         gpfq_model = gpfq.model
+        >>>         for i in tqdm(range(gpfq.num_layers)):
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 gpfq_model(img)
+        >>>             gpfq.update()
+    """
+
+    def __init__(
+            self,
+            model: nn.Module,
+            group_of_parallel_layers: Optional[List[str]] = None,
+            inplace: bool = True,
+            create_weight_orig: bool = True,
+            use_quant_activations: bool = True,
+            p: float = 1.0,
+            return_forward_output: bool = False,
+            act_order: bool = False,
+            gpfq_class: GPFQ = GPFQv2) -> None:
+        if not inplace:
+            model = deepcopy(model)
+        super().__init__(
+            model,
+            group_of_parallel_layers,
+            inplace,
+            create_weight_orig,
+            use_quant_activations,
+            act_order,
+            return_forward_output)
+
+        self.p = p
+        self.gpfq_class = gpfq_class
+
+    def catch_stopfwd(self, *args, **kwargs):
+        # Collect quant input
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+
+        # Disable quantization
+        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+        self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
+        self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
+        # Collect float input
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+
+        # Re-enable quantization. If activation quantization is disabled,
+        # we also disable bias quantization
+        self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
+        if self.use_quant_activations:
+            self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
+        else:
+            self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
+        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+
+        if self.return_forward_output:
+            # If we want to return the output of the network, we need to disable all hooks
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = True
+            out = self.orig_forward(*args, **kwargs)
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = False
+            return out
+
+    def initialize_module_optimizer(
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
+        return self.gpfq_class(
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            len_parallel_layers=len_parallel_layers,
+            create_weight_orig=create_weight_orig,
+            p=self.p)
