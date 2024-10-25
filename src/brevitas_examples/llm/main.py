@@ -72,6 +72,20 @@ def validate(args):
     if not args.no_quantize:
         if args.gptq and args.gpfq:
             warn("Both GPTQ and GPFQ are enabled.")
+        if args.gpxq_max_accumulator_bit_width is not None:
+            assert args.weight_quant_format == 'int', "AXE only supports integer formats."
+            assert args.input_quant_format == 'int', "AXE only supports integer formats."
+            assert args.input_bit_width is not None, \
+                "Specify input bit width; activation quantization is required to guarantee accumulator bounds."
+            if not (args.gptq or args.gpfq):
+                warn("Max accumulator bit width is specified, but no GPxQ is enabled.")
+            if args.gpxq_max_accumulator_tile_size is not None:
+                if args.weight_quant_granularity == 'per_group':
+                    assert args.gpxq_max_accumulator_tile_size == args.weight_group_size, \
+                        "Group size must be equal to tile size with per_group quantization."
+                if args.input_quant_granularity == 'per_group':
+                    assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
+                        "Group size must be equal to tile size with per_group quantization."
         if args.export_target is not None:
             assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
         if args.export_target is not None and args.input_bit_width is not None:
@@ -80,8 +94,6 @@ def validate(args):
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
             assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
-            if args.max_accumulator_bit_width is not None:
-                assert args.max_accumulator_tile_size == args.weight_group_size, "Group size must be equal to tile size."
         if args.export_target == 'sharded_packed_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
