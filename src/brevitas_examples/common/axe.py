@@ -105,6 +105,11 @@ class A2GPTQ(GPTQ):
         # TODO: add support for signed input activations
         if self.quant_metadata.signed:
             raise NotImplementedError("Signed inputs not yet supported.")
+        
+        # TODO: currently assuming round-to-zero; need to handle other rounding functions
+        rounding_mode = self.layer.weight_quant.rounding_mode
+        if rounding_mode.lower() != "round":
+            raise NotImplementedError(f"{rounding_mode} not yet supported.")
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
         scales: Tensor = self.layer.weight_quant.scale()
@@ -204,7 +209,6 @@ class A2GPTQ(GPTQ):
                     perm = permutation_list[group_index]
                     bx = perm[i1:i2][i] // self.max_accumulator_tile_size  # block index
                     # calculate the q_max and q_min for the right group and right block
-                    # TODO: currently assuming round-to-zero; need to handle other rounding functions
                     q_max = scales[group_index, bx, :] * torch.clamp_min(
                         self.upper_lim - a[group_index, bx, :] - 0.5, 0.0)  # [OC/groups]
                     q_min = scales[group_index, bx, :] * torch.clamp_max(
@@ -228,7 +232,6 @@ class A2GPTQ(GPTQ):
                         error.unsqueeze(1).matmul(
                             h_inv_block[group_index, i, i:].unsqueeze(0).to(dev))).to(dtype)
                 # update the tracking mechanisms
-                # TODO: need to handle non-zero zero points
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     bx = perm[i1:i2][i] // self.max_accumulator_tile_size  # block index
@@ -300,6 +303,11 @@ class A2GPFQ(GPFQv2):
         # TODO: add support for signed input activations
         if self.quant_metadata.signed:
             raise NotImplementedError("Signed inputs not yet supported.")
+
+        # TODO: currently assuming round-to-zero; need to handle other rounding functions
+        rounding_mode = self.layer.weight_quant.rounding_mode
+        if rounding_mode.lower() != "round":
+            raise NotImplementedError(f"{rounding_mode} not yet supported.")
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
         scales: Tensor = self.layer.weight_quant.scale()
@@ -405,8 +413,6 @@ class A2GPFQ(GPFQv2):
                 bx = i // self.max_accumulator_tile_size  # block index
                 q_arg = q_arg.sign() * torch.relu(
                     q_arg.abs() - thresholds[group_index, bx, :])  # soft thresholding
-
-                # TODO: assuming round to nearest; need to generally support other rounding
                 q_max = scales[group_index, bx] * torch.clamp_min(
                     self.upper_lim - a[group_index, bx, :] - 0.5, 0.0)
                 q_min = scales[group_index, bx] * torch.clamp_max(
