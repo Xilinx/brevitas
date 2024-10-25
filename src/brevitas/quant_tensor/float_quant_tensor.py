@@ -109,6 +109,10 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         minifloat_value = minifloat_value / int_scale
         return minifloat_value
 
+    def int(self):
+        fx_value = torch.round(self._pre_round_float_value)
+        return fx_value
+
     @property
     def is_valid(self):
         with torch.no_grad():
