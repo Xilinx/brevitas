@@ -232,6 +232,7 @@ class gptq_mode(gpxq_mode):
         act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
+        gptq_class (GPTQ): The uninitialized class to perform GPTQ. Default: `brevitas.graph.gptq.GPTQ`
 
     Example:
         >>> with torch.no_grad():
@@ -254,7 +255,7 @@ class gptq_mode(gpxq_mode):
             num_blocks: int = 100,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gptq_class: Optional[GPxQ] = None) -> None:
+            gptq_class: GPTQ = GPTQ) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -268,8 +269,6 @@ class gptq_mode(gpxq_mode):
 
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
-        if gptq_class is None:
-            gptq_class = GPTQ
         self.gptq_class = gptq_class
 
     def catch_stopfwd(self, *args, **kwargs):
