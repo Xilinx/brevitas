@@ -22,7 +22,7 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
-from brevitas.utils.torch_utils import compute_channel_view_shape
+from brevitas.utils.torch_utils import compute_channel_view_shape, is_broadcastable
 
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
@@ -309,7 +309,12 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
         channel_dim = -1 if isinstance(module, torch.nn.Linear) else 1
         output_scale_shape = compute_channel_view_shape(input, channel_dim=channel_dim)
         output_scale = weight.scale.view(output_scale_shape)
-        output_scale = output_scale * input.scale.view(output_scale_shape)
+
+        input_scale_view = input.scale.view(output_scale_shape)
+        if not is_broadcastable(output_scale.shape, input_scale_view.shape):
+            return None
+
+        output_scale = output_scale * input_scale_view
         return output_scale
 
     def compute_bias_scale(
@@ -336,8 +341,8 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             weight: Optional[Union[Tensor,
                                    IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
         out = x
-        input_scale = self.compute_bias_scale(input, weight)
         if self.is_quant_enabled:
+            input_scale = self.compute_bias_scale(input, weight)
             impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None and self.is_quant_enabled:
                 input_scale = self.scale()
