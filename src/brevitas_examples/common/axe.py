@@ -105,7 +105,7 @@ class A2GPTQ(GPTQ):
         # TODO: add support for signed input activations
         if self.quant_metadata.signed:
             raise NotImplementedError("Signed inputs not yet supported.")
-        
+
         # TODO: currently assuming round-to-zero; need to handle other rounding functions
         rounding_mode = self.layer.weight_quant.rounding_mode
         if rounding_mode.lower() != "round":
