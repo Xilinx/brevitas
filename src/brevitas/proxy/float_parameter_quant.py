@@ -14,6 +14,13 @@ from brevitas.utils.quant_utils import _CachedIOFloat
 
 class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, ABC):
 
+    def bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        x = self.__call__(self.tracked_parameter_list[0])
+        bit_width = x.mantissa_bit_width + x.exponent_bit_width + 1
+        return bit_width
+
     def scale(self):
         if not self.is_quant_enabled:
             return None
