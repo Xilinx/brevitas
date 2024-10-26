@@ -15,7 +15,11 @@ from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
+from brevitas.utils.quant_utils import _CachedIO
+from brevitas.utils.quant_utils import _CachedIOFloat
+from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
 
 
 class Operator(Enum):
@@ -167,16 +171,20 @@ def test_minifloat(quant_class_key_vale):
     # Check that minifloat doesn't raise error
     qx.minifloat()
 
-
-def test_int_quant_tensor(bit_width=8):
+@pytest.mark.parametrize("metadata_only", [True, False])
+def test_int_quant_tensor(metadata_only, bit_width=8):
     limit = np.exp2(bit_width) - 1
     w = torch.randn(32, 1024)
     q = to_quant_tensor(w, bit_width=bit_width)
     i = q.int().float()
     assert ((i.max() - i.min()) <= limit).all()
+    # test caching works
+    cache = _CachedIO(q, metadata_only=metadata_only)
+    assert cache.bit_width == bit_width
 
 
-def test_float_quant_tensor(bit_width=8, exponent_bit_width=4, mantissa_bit_width=3):
+@pytest.mark.parametrize("metadata_only", [True, False])
+def test_float_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, mantissa_bit_width=3):
     assert mantissa_bit_width + exponent_bit_width + 1 == bit_width
     limit = (np.exp2(mantissa_bit_width + 1) - 1) * np.exp2(np.exp2(exponent_bit_width) - 2)
     w = torch.randn(32, 1024)
@@ -185,11 +193,17 @@ def test_float_quant_tensor(bit_width=8, exponent_bit_width=4, mantissa_bit_widt
         bit_width=bit_width,
         exponent_bit_width=exponent_bit_width,
         mantissa_bit_width=mantissa_bit_width)
+    # test that the integer API returns fixed point values in the right range
     i = q.int().float()
     assert ((i.max() - i.min()) <= limit).all()
+    # test caching works
+    cache = _CachedIOFloat(q, metadata_only=metadata_only)
+    assert cache.mantissa_bit_width == mantissa_bit_width
+    assert cache.exponent_bit_width == exponent_bit_width
 
 
-def test_mx_quant_tensor(bit_width=8, exponent_bit_width=4, mantissa_bit_width=3):
+@pytest.mark.parametrize("metadata_only", [True, False])
+def test_mx_quant_tensor(metadata_only, bit_width=8, exponent_bit_width=4, mantissa_bit_width=3):
     assert mantissa_bit_width + exponent_bit_width + 1 == bit_width
     limit = (np.exp2(mantissa_bit_width + 1) - 1) * np.exp2(np.exp2(exponent_bit_width) - 2)
     w = torch.randn(32, 1024)
@@ -197,6 +211,15 @@ def test_mx_quant_tensor(bit_width=8, exponent_bit_width=4, mantissa_bit_width=3
         w,
         bit_width=bit_width,
         exponent_bit_width=exponent_bit_width,
-        mantissa_bit_width=mantissa_bit_width)
+        mantissa_bit_width=mantissa_bit_width,
+        group_size=32,
+        group_dim=1)
+    # test that the integer API returns fixed point values in the right range
     i = q.int().float()
     assert ((i.max() - i.min()) <= limit).all()
+    # test caching works
+    cache = _CachedIOGroupwiseFloat(q, metadata_only=metadata_only)
+    assert cache.mantissa_bit_width == mantissa_bit_width
+    assert cache.exponent_bit_width == exponent_bit_width
+    assert cache.group_size == 32
+    assert cache.group_dim == 1
