@@ -1,7 +1,9 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
+
 from enum import Enum
 
+import numpy as np
 from packaging import version
 import pytest
 import pytest_cases
@@ -24,14 +26,40 @@ class Operator(Enum):
     MATMUL = 4
 
 
-def to_quant_tensor(input: torch.Tensor) -> IntQuantTensor:
-    mod = QuantIdentity(bit_width=8, return_quant_tensor=True)
+def to_quant_tensor(input: torch.Tensor, bit_width=8) -> IntQuantTensor:
+    mod = QuantIdentity(bit_width=bit_width, return_quant_tensor=True)
     return mod(input)
 
 
-def to_float_quant_tensor(input: torch.Tensor) -> FloatQuantTensor:
+def to_float_quant_tensor(
+        input: torch.Tensor,
+        bit_width=8,
+        exponent_bit_width=4,
+        mantissa_bit_width=3) -> FloatQuantTensor:
     mod = QuantIdentity(
-        bit_width=8, return_quant_tensor=True, act_quant=Fp8e5m2OCPActPerTensorFloat)
+        bit_width=bit_width,
+        exponent_bit_width=exponent_bit_width,
+        mantissa_bit_width=mantissa_bit_width,
+        return_quant_tensor=True,
+        act_quant=Fp8e5m2OCPActPerTensorFloat)
+    return mod(input)
+
+
+def to_mx_quant_tensor(
+        input: torch.Tensor,
+        bit_width=8,
+        exponent_bit_width=4,
+        mantissa_bit_width=3,
+        group_size=32,
+        group_dim=1) -> FloatQuantTensor:
+    mod = QuantIdentity(
+        bit_width=bit_width,
+        group_size=group_size,
+        group_dim=group_dim,
+        exponent_bit_width=exponent_bit_width,
+        mantissa_bit_width=mantissa_bit_width,
+        return_quant_tensor=True,
+        act_quant=MXFloat8e4m3Act)
     return mod(input)
 
 
@@ -138,3 +166,37 @@ def test_minifloat(quant_class_key_vale):
     qx = q(x)
     # Check that minifloat doesn't raise error
     qx.minifloat()
+
+
+def test_int_quant_tensor(bit_width=8):
+    limit = np.exp2(bit_width) - 1
+    w = torch.randn(32, 1024)
+    q = to_quant_tensor(w, bit_width=bit_width)
+    i = q.int().float()
+    assert ((i.max() - i.min()) <= limit).all()
+
+
+def test_float_quant_tensor(bit_width=8, exponent_bit_width=4, mantissa_bit_width=3):
+    assert mantissa_bit_width + exponent_bit_width + 1 == bit_width
+    limit = (np.exp2(mantissa_bit_width + 1) - 1) * np.exp2(np.exp2(exponent_bit_width) - 2)
+    w = torch.randn(32, 1024)
+    q = to_float_quant_tensor(
+        w,
+        bit_width=bit_width,
+        exponent_bit_width=exponent_bit_width,
+        mantissa_bit_width=mantissa_bit_width)
+    i = q.int().float()
+    assert ((i.max() - i.min()) <= limit).all()
+
+
+def test_mx_quant_tensor(bit_width=8, exponent_bit_width=4, mantissa_bit_width=3):
+    assert mantissa_bit_width + exponent_bit_width + 1 == bit_width
+    limit = (np.exp2(mantissa_bit_width + 1) - 1) * np.exp2(np.exp2(exponent_bit_width) - 2)
+    w = torch.randn(32, 1024)
+    q = to_mx_quant_tensor(
+        w,
+        bit_width=bit_width,
+        exponent_bit_width=exponent_bit_width,
+        mantissa_bit_width=mantissa_bit_width)
+    i = q.int().float()
+    assert ((i.max() - i.min()) <= limit).all()
