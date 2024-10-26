@@ -34,6 +34,9 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--input-quant-granularity {per_tensor,per_row,per_group}]
                [--input-group-size INPUT_GROUP_SIZE]
                [--quantize-input-zero-point] [--quantize-last-layer] [--gptq]
+               [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations] [--gpxq-create-weight-orig]
+               [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH]
+               [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--no-quantize] [--no-float16] [--replace-mha]
                [--weight-equalization]
@@ -105,6 +108,16 @@ options:
   --quantize-last-layer
                         Quantize last nn.Linear layer.
   --gptq                Apply GPTQ.
+  --gpfq                Apply GPFQ.
+  --gpxq-act-order      Apply GPxQ activation ordering.
+  --gpxq-use-quant-activations
+                        Use quantized activations in GPxQ.
+  --gpxq-create-weight-orig
+                        Create weight_orig in GPxQ.
+  --gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH
+                        Maximum accumulator bit width for GPxQ using AXE.
+  --gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE
+                        Maximum accumulator tile size for GPxQ using AXE.
   --act-calibration     Apply activation calibration.
   --bias-corr           Apply bias correction.
   --ln-affine-merge     Merge LN affine params.

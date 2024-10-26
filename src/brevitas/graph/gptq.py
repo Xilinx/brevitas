@@ -23,85 +23,6 @@ from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
 
 
-class gptq_mode(gpxq_mode):
-    """
-    Apply GPTQ algorithm https://arxiv.org/abs/2210.17323.
-
-    Args:
-        model (Module): The model to quantize with GPTQ
-        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
-            of layer names that can be optimized in parallel. Default: None
-        inplace (bool): Wheter to apply GPTQ inplace or perform a deepcopy. Default: True
-        create_weight_orig (bool): If True, store the original floating point weights before applying
-            gptq. These weights will be used anytime quantization is disabled. Default: True
-        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
-            GPTQ. Default: False
-        num_blocks (int): The number of sub-blocks to use to speed-up GPTQ computation. Default: 100
-        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
-        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
-            forward call inside the context manager returns None. Default: False
-
-    Example:
-        >>> with torch.no_grad():
-        >>>     with gptq_mode(model) as gptq:
-        >>>         gptq_model = gptq.model
-        >>>         for i in tqdm(range(gptq.num_layers)):
-        >>>             for img, t in calib_loader:
-        >>>                 img = img.cuda()
-        >>>                 gptq_model(img)
-        >>>             gptq.update()
-    """
-
-    def __init__(
-            self,
-            model,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            num_blocks: int = 100,
-            return_forward_output: bool = False,
-            act_order: bool = False) -> None:
-        if not inplace:
-            model = deepcopy(model)
-        super().__init__(
-            model,
-            group_of_parallel_layers,
-            inplace,
-            create_weight_orig,
-            use_quant_activations,
-            act_order,
-            return_forward_output)
-
-        # How many subblock to use during GPTQ for each layer
-        self.num_blocks = num_blocks
-
-    def catch_stopfwd(self, *args, **kwargs):
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
-        finally:
-            if self.return_forward_output:
-                # If we want to return the output of the network, we need to disable all hooks
-                for name, gpxq_class in self.gpxq_layers.items():
-                    gpxq_class.disable_pre_forward_hook = True
-                out = self.orig_forward(*args, **kwargs)
-                for name, gpxq_class in self.gpxq_layers.items():
-                    gpxq_class.disable_pre_forward_hook = False
-                return out
-
-    def initialize_module_optimizer(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
-        return GPTQ(
-            layer=layer,
-            name=name,
-            act_order=act_order,
-            len_parallel_layers=len_parallel_layers,
-            create_weight_orig=create_weight_orig,
-            num_blocks=self.num_blocks)
-
-
 class GPTQ(GPxQ):
     """
     Adapted from https://github.com/IST-DASLab/gptq, released under the following LICENSE:
@@ -275,7 +196,7 @@ class GPTQ(GPxQ):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index]  # [OC/groups]
+                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
                     w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
                     d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
@@ -292,3 +213,85 @@ class GPTQ(GPxQ):
                                                           i2:].to(dev))).to(dtype)
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+
+
+class gptq_mode(gpxq_mode):
+    """
+    Apply GPTQ algorithm https://arxiv.org/abs/2210.17323.
+
+    Args:
+        model (Module): The model to quantize with GPTQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
+        inplace (bool): Wheter to apply GPTQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gptq. These weights will be used anytime quantization is disabled. Default: True
+        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
+            GPTQ. Default: False
+        num_blocks (int): The number of sub-blocks to use to speed-up GPTQ computation. Default: 100
+        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
+            forward call inside the context manager returns None. Default: False
+        gptq_class (GPTQ): The uninitialized class to perform GPTQ. Default: `brevitas.graph.gptq.GPTQ`
+
+    Example:
+        >>> with torch.no_grad():
+        >>>     with gptq_mode(model) as gptq:
+        >>>         gptq_model = gptq.model
+        >>>         for i in tqdm(range(gptq.num_layers)):
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 gptq_model(img)
+        >>>             gptq.update()
+    """
+
+    def __init__(
+            self,
+            model,
+            group_of_parallel_layers: Optional[List[str]] = None,
+            inplace: bool = True,
+            create_weight_orig: bool = True,
+            use_quant_activations: bool = True,
+            num_blocks: int = 100,
+            return_forward_output: bool = False,
+            act_order: bool = False,
+            gptq_class: GPTQ = GPTQ) -> None:
+        if not inplace:
+            model = deepcopy(model)
+        super().__init__(
+            model,
+            group_of_parallel_layers,
+            inplace,
+            create_weight_orig,
+            use_quant_activations,
+            act_order,
+            return_forward_output)
+
+        # How many subblock to use during GPTQ for each layer
+        self.num_blocks = num_blocks
+        self.gptq_class = gptq_class
+
+    def catch_stopfwd(self, *args, **kwargs):
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+        finally:
+            if self.return_forward_output:
+                # If we want to return the output of the network, we need to disable all hooks
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = True
+                out = self.orig_forward(*args, **kwargs)
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = False
+                return out
+
+    def initialize_module_optimizer(
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
+        return self.gptq_class(
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            len_parallel_layers=len_parallel_layers,
+            create_weight_orig=create_weight_orig,
+            num_blocks=self.num_blocks)

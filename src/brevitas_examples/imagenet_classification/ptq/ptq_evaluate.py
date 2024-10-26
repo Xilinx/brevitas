@@ -233,10 +233,15 @@ parser.add_argument(
     type=int,
     help='Exponent bit width used with float quantization for activations (default: 3)')
 parser.add_argument(
-    '--accumulator-bit-width',
+    '--gpxq-accumulator-bit-width',
     default=None,
     type=int,
-    help='Accumulator Bit Width for GPFA2Q (default: None)')
+    help='Accumulator Bit Width for GPxQ (default: None)')
+parser.add_argument(
+    '--gpxq-accumulator-tile-size',
+    default=None,
+    type=int,
+    help='Accumulator tile size for GPxQ (default: None)')
 parser.add_argument('--onnx-opset-version', default=None, type=int, help='ONNX opset version')
 parser.add_argument(
     '--channel-splitting-ratio',
@@ -245,17 +250,20 @@ parser.add_argument(
     help=
     'Split Ratio for Channel Splitting. When set to 0.0, Channel Splitting will not be applied. (default: 0.0)'
 )
-parser.add_argument(
-    '--compression-rate',
-    default=0.0,
-    type=float,
-    help='Specify compression rate < 1.0 for random projection. Default is 0.0 and does not use RP.'
-)
 add_bool_arg(parser, 'gptq', default=False, help='GPTQ (default: disabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
-add_bool_arg(parser, 'gpfa2q', default=False, help='GPFA2Q (default: disabled)')
 add_bool_arg(
     parser, 'gpxq-act-order', default=False, help='GPxQ Act order heuristic (default: disabled)')
+add_bool_arg(
+    parser,
+    'gptq-use-quant-activations',
+    default=False,
+    help='Use quant activations for GPTQ (default: disabled)')
+add_bool_arg(
+    parser,
+    'gpxq-create-weight-orig',
+    default=False,
+    help='Maintain original weights for non-quant forward pass (default: disabled)')
 add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 add_bool_arg(
@@ -270,7 +278,7 @@ add_bool_arg(
     help='Merge BN layers before quantizing the model (default: enabled)')
 add_bool_arg(
     parser,
-    'uint_sym_act_for_unsigned_values',
+    'uint-sym-act-for-unsigned-values',
     default=True,
     help='Use unsigned act quant when possible (default: enabled)')
 add_bool_arg(parser, 'compile', default=False, help='Use torch.compile (default: disabled)')
@@ -312,7 +320,6 @@ def main():
         f"w{args.weight_bit_width}_"
         f"{'gptq_' if args.gptq else ''}"
         f"{'gpfq_' if args.gpfq else ''}"
-        f"{'gpfa2q_' if args.gpfa2q else ''}"
         f"{'gpxq_act_order_' if args.gpxq_act_order else ''}"
         f"{'learned_round_' if args.learned_round else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
@@ -335,10 +342,8 @@ def main():
         f"Weight bit width: {args.weight_bit_width} - "
         f"GPTQ: {args.gptq} - "
         f"GPFQ: {args.gpfq} - "
-        f"GPFA2Q: {args.gpfa2q} - "
-        f"GPFQ P: {args.gpfq_p} - "
         f"GPxQ Act Order: {args.gpxq_act_order} - "
-        f"GPFA2Q Accumulator Bit Width: {args.accumulator_bit_width} - "
+        f"GPxQ Accumulator Bit Width: {args.gpxq_accumulator_bit_width} - "
         f"Learned Round: {args.learned_round} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
@@ -412,7 +417,9 @@ def main():
     if args.act_equalization is not None:
         print("Applying activation equalization:")
         apply_act_equalization(model, calib_loader, layerwise=args.act_equalization == 'layerwise')
+
     device = next(iter(model.parameters())).device
+
     # Define the quantized model
     quant_model = quantize_model(
         model,
@@ -452,24 +459,21 @@ def main():
         apply_gpfq(
             calib_loader,
             quant_model,
-            p=args.gpfq_p,
             act_order=args.gpxq_act_order,
-            compression_rate=args.compression_rate)
-
-    if args.gpfa2q:
-        print("Performing GPFA2Q:")
-        apply_gpfq(
-            calib_loader,
-            quant_model,
-            p=args.gpfq_p,
-            act_order=args.gpxq_act_order,
-            use_gpfa2q=args.gpfa2q,
-            accumulator_bit_width=args.accumulator_bit_width,
-            compression_rate=args.compression_rate)
+            create_weight_orig=args.gpxq_create_weight_orig,
+            max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
+            max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
     if args.gptq:
         print("Performing GPTQ:")
-        apply_gptq(calib_loader, quant_model, act_order=args.gpxq_act_order)
+        apply_gptq(
+            calib_loader,
+            quant_model,
+            act_order=args.gpxq_act_order,
+            use_quant_activations=args.gptq_use_quant_activations,
+            create_weight_orig=args.gpxq_create_weight_orig,
+            max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
+            max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
     if args.learned_round:
         print("Applying Learned Round:")

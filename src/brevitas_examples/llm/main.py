@@ -1,7 +1,5 @@
-"""
-Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-"""
 
 import argparse
 import sys
@@ -74,6 +72,20 @@ def validate(args):
     if not args.no_quantize:
         if args.gptq and args.gpfq:
             warn("Both GPTQ and GPFQ are enabled.")
+        if args.gpxq_max_accumulator_bit_width is not None:
+            assert args.weight_quant_format == 'int', "AXE only supports integer formats."
+            assert args.input_quant_format == 'int', "AXE only supports integer formats."
+            assert args.input_bit_width is not None, \
+                "Specify input bit width; activation quantization is required to guarantee accumulator bounds."
+            if not (args.gptq or args.gpfq):
+                warn("Max accumulator bit width is specified, but no GPxQ is enabled.")
+            if args.gpxq_max_accumulator_tile_size is not None:
+                if args.weight_quant_granularity == 'per_group':
+                    assert args.gpxq_max_accumulator_tile_size == args.weight_group_size, \
+                        "Group size must be equal to tile size with per_group quantization."
+                if args.input_quant_granularity == 'per_group':
+                    assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
+                        "Group size must be equal to tile size with per_group quantization."
         if args.export_target is not None:
             assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
         if args.export_target is not None and args.input_bit_width is not None:
@@ -158,8 +170,7 @@ def main(args):
         seed=args.seed,
         require_fx=require_fx,
         device=None,
-        fuse_sequences=args.fuse_sequences,
-    )
+        fuse_sequences=args.fuse_sequences)
 
     validation_loader = get_dataset_for_model(
         args.model,
@@ -171,8 +182,7 @@ def main(args):
         seed=args.seed,
         require_fx=require_fx,
         device=None,
-        fuse_sequences=args.fuse_sequences,
-    )
+        fuse_sequences=args.fuse_sequences)
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")
@@ -287,7 +297,9 @@ def main(args):
             act_order=args.gpxq_act_order,
             use_quant_activations=args.gpxq_use_quant_activations,
             create_weight_orig=args.gpxq_create_weight_orig,
-            block_name=args.gpxq_block_name)
+            block_name=args.gpxq_block_name,
+            max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
+            max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
         print("GPTQ applied.")
 
     if args.gpfq:
@@ -296,7 +308,9 @@ def main(args):
             model,
             calibration_loader,
             act_order=args.gpxq_act_order,
-            block_name=args.gpxq_block_name)
+            block_name=args.gpxq_block_name,
+            max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
+            max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
         print("GPFQ applied.")
 
     if args.bias_corr:
@@ -304,7 +318,7 @@ def main(args):
         apply_bias_correction(model, calibration_loader)
         print("Bias correction applied.")
 
-    if args.eval:
+    if args.eval and not args.no_quantize:
         print("Model eval...")
         quant_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
@@ -455,13 +469,23 @@ def parse_args(args):
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
-        '--gpxq-act-order', action='store_true', help='Apply GPXQ activation ordering.')
+        '--gpxq-act-order', action='store_true', help='Apply GPxQ activation ordering.')
     parser.add_argument(
         '--gpxq-use-quant-activations',
         action='store_true',
-        help='Use quantized activations in GPXQ.')
+        help='Use quantized activations in GPxQ.')
     parser.add_argument(
-        '--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPXQ.')
+        '--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPxQ.')
+    parser.add_argument(
+        '--gpxq-max-accumulator-bit-width',
+        type=int,
+        default=None,
+        help='Maximum accumulator bit width for GPxQ using AXE.')
+    parser.add_argument(
+        '--gpxq-max-accumulator-tile-size',
+        type=int,
+        default=None,
+        help='Maximum accumulator tile size for GPxQ using AXE.')
     parser.add_argument(
         '--act-calibration', action='store_true', help='Apply activation calibration.')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
