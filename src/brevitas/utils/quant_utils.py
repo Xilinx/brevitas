@@ -91,7 +91,7 @@ class _CachedIOGroupwiseFloat:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value_=None)
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
@@ -146,7 +146,7 @@ class _CachedIOGroupwiseInt:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value_=None)
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
