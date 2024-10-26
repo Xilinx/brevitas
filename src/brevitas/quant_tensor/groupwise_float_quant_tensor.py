@@ -153,7 +153,7 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
     def int(self):
         fx_value = torch.round(self._pre_round_float_value)
         return fx_value
-    
+
     @property
     def is_valid(self):
         with torch.no_grad():
