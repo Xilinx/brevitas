@@ -4,11 +4,14 @@ from enum import Enum
 
 from packaging import version
 import pytest
+import pytest_cases
 import torch
 
 from brevitas import torch_version
 from brevitas.nn import QuantIdentity
+from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
 
@@ -119,3 +122,19 @@ def test_quant_tensor_view():
     assert torch.allclose(a.view(2, -1), b.view(2, -1), atol=0.01)
     assert torch.allclose(a.view(16, -1), b.view(16, -1), atol=0.01)
     assert torch.allclose(a.view(8, 2), b.view(8, 2), atol=0.01)
+
+
+QUANT_CLASS = {'fp8': Fp8e4m3ActPerTensorFloat, 'mxfp8': MXFloat8e4m3Act}
+
+
+@pytest_cases.parametrize('quant_class_key_vale', QUANT_CLASS.items())
+def test_minifloat(quant_class_key_vale):
+    key, quant_class = quant_class_key_vale
+
+    x = torch.randn((1, 32))
+    q = QuantIdentity(quant_class, group_dim=-1, return_quant_tensor=True)
+    q.eval()
+
+    qx = q(x)
+    # Check that minifloat doesn't raise error
+    qx.minifloat()
