@@ -171,6 +171,7 @@ def test_minifloat(quant_class_key_vale):
     # Check that minifloat doesn't raise error
     qx.minifloat()
 
+
 @pytest.mark.parametrize("metadata_only", [True, False])
 def test_int_quant_tensor(metadata_only, bit_width=8):
     limit = np.exp2(bit_width) - 1
