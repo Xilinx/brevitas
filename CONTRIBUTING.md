@@ -8,10 +8,11 @@ Please follow the steps below and be sure that your contribution complies with o
 
 	We welcome submissions for:
 
-	1. New features like novel PTQ algorithms. Keep in mind that Brevitas tends to integrate new algorithms within the existing infrastructure rather than having standalone implementations
-    2. Support for new quantized layers
-    3. Support for new quantized topologies under brevitas_examples
-	4. Contributions to the documentation and Jupyter notebooks/tutorials
+	* New features like novel PTQ algorithms. Keep in mind that Brevitas tends to integrate new algorithms within the existing infrastructure rather than having standalone implementations
+	* Support for new quantized layers
+	* Support for new quantized topologies under brevitas_examples
+	* Contributions to the documentation and Jupyter notebooks/tutorials
+ 	* Bugfixes
 
 
 2. Submitting your pull request:
@@ -29,8 +30,8 @@ Please follow the steps below and be sure that your contribution complies with o
 	6. If you are introducing new functionality or fixing a bug, add at least one unit test under the `tests/` folder and make sure it passes before you submit the pull request.
 
 	7. Submit a pull request by clicking the *pull request* button on your GitHub repo:
-		1. The <a href="https://github.com/Xilinx/brevitas" target="_blank">main branch</a> should always be treated as stable and clean. Only hot fixes are allowed to be pull-requested. The hot fix is supposed to be very important such that without this fix, a lot of things will break.
-        2. For new features, smaller bug fixes, doc updates, and many other fixes, users should pull request against the <a href="https://github.com/Xilinx/brevitas/tree/dev" target="_blank">development branch</a>.
+		* The <a href="https://github.com/Xilinx/brevitas" target="_blank">main branch</a> should always be treated as stable and clean. Only hot fixes are allowed to be pull-requested. The hot fix is supposed to be very important such that without this fix, a lot of things will break.
+		*  For new features, bug fixes, doc updates, users should pull request against the <a href="https://github.com/Xilinx/brevitas/tree/dev" target="_blank">development branch</a>.
 
 3. Sign Your Work
 
