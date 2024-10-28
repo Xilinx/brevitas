@@ -24,7 +24,10 @@ assert FloatToIntImplType
 
 class _RestrictClampValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, scaling_min_val: Optional[float], restrict_value_impl: Optional[Module]):
+    def __init__(
+            self,
+            scaling_min_val: Optional[float] = None,
+            restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)

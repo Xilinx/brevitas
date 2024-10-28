@@ -1,10 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import this
 from dependencies import value
 
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.function_wrapper.ops_ste import FloorSte
+from brevitas.core.restrict_val import PowerOfTwo
+from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import RestrictValueType
@@ -44,14 +47,25 @@ class GroupwiseActProxyMixin(ExtendedInjector):
     proxy_class = GroupwiseActQuantProxyFromInjector
 
 
+class RestrictThresholdMixin(ExtendedInjector):
+    restrict_value_float_to_int_impl = FloorSte
+    restrict_scaling_impl = PowerOfTwoRestrictValue
+
+
 class MXWeightMixin(ExtendedInjector):
+    threshold_mixin = RestrictThresholdMixin
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = FloorSte
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
+    @value
+    def restrict_threshold_impl():
+        return this.threshold_mixin.restrict_scaling_impl
+
 
 class MXActMixin(ExtendedInjector):
+    threshold_mixin = RestrictThresholdMixin
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = FloorSte
@@ -65,6 +79,10 @@ class MXActMixin(ExtendedInjector):
             return -1
         else:
             return group_dim + 1
+
+    @value
+    def restrict_threshold_impl():
+        return this.threshold_mixin.restrict_scaling_impl
 
 
 class MXFloat8e4m3Weight(MXWeightMixin,
