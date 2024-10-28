@@ -8,6 +8,9 @@ import torch
 from torch import nn
 
 from brevitas import nn as qnn
+from brevitas.core.function_wrapper import CeilSte
+from brevitas.core.function_wrapper import FloorSte
+from brevitas.core.restrict_val import RoundSte
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.quant.experimental.float import Fp8e4m3Act
@@ -220,6 +223,7 @@ def generate_quantizers(
         input_quant_granularity=None,
         input_group_size=None,
         quantize_input_zero_point=False,
+        scale_rounding_func_type=None,
         device=None,
         weight_kwargs=None,
         input_kwargs=None):
@@ -277,6 +281,15 @@ def generate_quantizers(
             'narrow_range': False,
             'quantize_zero_point': quantize_weight_zero_point},
         **weight_float_format)
+
+    if scale_rounding_func_type is not None:
+        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte}
+        scale_type = scale_rounding_func_dict[scale_rounding_func_type]
+        weight_quant = weight_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
+        input_quant = input_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
+        sym_input_quant = sym_input_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
+        linear_input_quant = linear_input_quant.let(
+            **{'restrict_value_float_to_int_impl': scale_type})
 
     if weight_group_dim is not None:
         weight_quant = weight_quant.let(**{'group_dim': weight_group_dim})
