@@ -55,7 +55,7 @@ def to_mx_quant_tensor(
         exponent_bit_width=4,
         mantissa_bit_width=3,
         group_size=32,
-        group_dim=1) -> FloatQuantTensor:
+        group_dim=1) -> GroupwiseFloatQuantTensor:
     mod = QuantIdentity(
         bit_width=bit_width,
         group_size=group_size,
