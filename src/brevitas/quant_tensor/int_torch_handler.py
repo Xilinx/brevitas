@@ -9,7 +9,8 @@ import torch.nn.functional as F
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.utils.torch_utils import compute_channel_view_shape, is_broadcastable
+from brevitas.utils.torch_utils import compute_channel_view_shape
+from brevitas.utils.torch_utils import is_broadcastable
 
 INT_QUANT_TENSOR_FN_HANDLER = {}
 

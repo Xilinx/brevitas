@@ -114,6 +114,7 @@ def padding(x: torch.Tensor, group_size: int, group_dim: int) -> List[int]:
     padding = list(reversed(padding))
     return padding
 
+
 def is_broadcastable(tensor, other):
     for a, b in zip(tensor[::-1], other[::-1]):
         if a == 1 or b == 1 or a == b:

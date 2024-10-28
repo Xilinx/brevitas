@@ -22,7 +22,8 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
-from brevitas.utils.torch_utils import compute_channel_view_shape, is_broadcastable
+from brevitas.utils.torch_utils import compute_channel_view_shape
+from brevitas.utils.torch_utils import is_broadcastable
 
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
