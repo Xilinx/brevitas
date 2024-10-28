@@ -244,9 +244,6 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
     def forward(self, ignored: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
         if threshold is None:
             threshold = torch.ones(1).type_as(ignored)
-        # Threshold division must happen after we update self.value, but before we apply restrict_preproces
-        # This is because we don't want to store a parameter dependant on a runtime value (threshold)
-        # And because restrict needs to happen after we divide by threshold
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
@@ -373,9 +370,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor, threshold: Tensor) -> Tensor:
-        # Threshold division must happen after we update self.value, but before we apply restrict_preproces
-        # This is because we don't want to store a parameter dependent on a runtime value (threshold)
-        # And because restrict needs to happen after we divide by threshold
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
@@ -437,7 +431,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             del output_dict[prefix + 'value']
         # Save buffer into value for any non-zero number of collection steps
         elif self.counter <= self.collect_stats_steps:
-            output_dict[prefix + 'value'] = self.restrict_preprocess(self.buffer)
+            output_dict[prefix + 'value'] = self.restrict_scaling_pre(self.buffer)
         return output_dict
 
     def _load_from_state_dict(
