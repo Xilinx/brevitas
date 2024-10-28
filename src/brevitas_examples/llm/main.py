@@ -253,7 +253,9 @@ def main(args):
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            device=device)
+            device=device,
+            weight_scale_rounding_func_type=args.weight_scale_rounding_func_type
+            )
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,
             weight_quant=weight_quant,
@@ -400,6 +402,12 @@ def parse_args(args):
         default='per_group',
         choices=['per_channel', 'per_tensor', 'per_group'],
         help='Granularity for scales/zero-point of weights. Default: per_group.')
+    parser.add_argument(
+        '--weight-scale-rounding-func-type',
+        type=str,
+        default=None,
+        choices=['round', 'ceil', 'floor'],
+        help='Rounding function to use with Po2 scale. Default: None.')
     parser.add_argument(
         '--weight-group-dim',
         type=int,

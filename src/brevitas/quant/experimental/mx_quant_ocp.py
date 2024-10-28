@@ -206,6 +206,7 @@ def build_options(
         raise RuntimeError("Not supported")
 
     if is_po2_scale:
+        assert scale_rounding_func_type is not None
         scale_rounding_func = scale_rounding_func_dict[scale_rounding_func_type]
         options['restrict_scaling_type'] = RestrictValueType.POWER_OF_TWO
         options['restrict_value_float_to_int_impl'] = scale_rounding_func
