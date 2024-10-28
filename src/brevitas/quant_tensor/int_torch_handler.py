@@ -237,7 +237,7 @@ def quant_output_scale_impl(
     if len(quant_input_scale.shape) == 0:
         quant_input_scale = quant_input_scale.view(output_scale_shape)
     quant_input_scale = quant_input_scale.view(output_scale_shape)
-    if not is_broadcastable(output_scale_shape, quant_input_scale.shape):
+    if not is_broadcastable(quant_weight_scale.shape, quant_input_scale.shape):
         return None
 
     output_scale = quant_weight_scale * quant_input_scale
