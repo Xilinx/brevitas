@@ -199,6 +199,11 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None) -> None:
         super(RuntimeDynamicGroupStatsScaling, self).__init__()
+
+        # Ensure retro-compatibility with shared threshold/scaling restrict
+        if restrict_threshold_impl is None:
+            restrict_threshold_impl = restrict_scaling_impl
+
         self.group_size = group_size
         self.group_dim = group_dim
         self.scaling_stats_impl = scaling_stats_impl
