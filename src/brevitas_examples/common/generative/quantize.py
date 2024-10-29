@@ -286,10 +286,14 @@ def generate_quantizers(
         scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         weight_quant = weight_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
-        input_quant = input_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
-        sym_input_quant = sym_input_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
-        linear_input_quant = linear_input_quant.let(
-            **{'restrict_value_float_to_int_impl': scale_type})
+        if input_quant is not None:
+            input_quant = input_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
+        if sym_input_quant is not None:
+            sym_input_quant = sym_input_quant.let(
+                **{'restrict_value_float_to_int_impl': scale_type})
+        if linear_input_quant is not None:
+            linear_input_quant = linear_input_quant.let(
+                **{'restrict_value_float_to_int_impl': scale_type})
 
     if weight_group_dim is not None:
         weight_quant = weight_quant.let(**{'group_dim': weight_group_dim})
