@@ -20,6 +20,9 @@ from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerTen
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import Fp8e4m3WeightSymmetricGroupQuant
+from brevitas.quant.experimental.mx_quant_ocp import GroupwiseFloatWeightQuantizerBuilder
+from brevitas.quant.experimental.mx_quant_ocp import GroupwiseIntWeightQuantizerBuilder
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3WeightMSE
@@ -55,7 +58,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
-from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
@@ -222,7 +224,8 @@ def generate_quantizers(
         quantize_input_zero_point=False,
         device=None,
         weight_kwargs=None,
-        input_kwargs=None):
+        input_kwargs=None,
+        weight_scale_rounding_func_type=None):
     """
     Replace float layers with quant layers in the target model
     """
@@ -243,8 +246,32 @@ def generate_quantizers(
     else:
         input_float_format = {}
 
-    weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
-        weight_param_method][weight_quant_granularity][weight_quant_type]
+    if weight_quant_granularity == 'per_group':
+        if weight_quant_format == 'int':
+            weight_quant = GroupwiseIntWeightQuantizerBuilder(
+                bit_width=weight_bit_width,
+                scale_stats_op='max' if weight_param_method != 'mse' else weight_param_method,
+                is_po2_scale=weight_scale_precision == 'po2_scale',
+                scale_computation_type='parameter_from_stats',
+                scale_rounding_func_type=weight_scale_rounding_func_type,
+                group_dim=weight_group_dim,
+                group_size=weight_group_size,
+                scaling_min_val=1e-4 if dtype == torch.float16 else 1e-8)
+        else:
+            weight_quant = GroupwiseFloatWeightQuantizerBuilder(
+                exponent_bit_width=weight_float_format['exponent_bit_width'],
+                mantissa_bit_width=weight_float_format['mantissa_bit_width'],
+                bit_width=weight_bit_width,
+                scale_stats_op='max' if weight_param_method != 'mse' else weight_param_method,
+                is_po2_scale=weight_scale_precision == 'po2_scale',
+                scale_computation_type='parameter_from_stats',
+                scale_rounding_func_type=weight_scale_rounding_func_type,
+                group_dim=weight_group_dim,
+                group_size=weight_group_size,
+                scaling_min_val=1e-4 if dtype == torch.float16 else 1e-8)
+    else:
+        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
+            weight_param_method][weight_quant_granularity][weight_quant_type]
 
     if input_bit_width is not None and input_scale_type == 'no_scale':
         input_quant = sym_input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][

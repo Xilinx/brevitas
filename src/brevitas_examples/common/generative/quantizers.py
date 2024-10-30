@@ -49,15 +49,6 @@ class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
 
-class Fp8e4m3WeightSymmetricGroupQuant(Fp8e4m3WeightPerChannelFloat):
-    """
-    Block / group / vector signed symmetric e4m3 weight quantizer with float scales.
-    We inherit from a per-channel quantizer to re-use some underlying machinery.
-    """
-    proxy_class = GroupwiseWeightFloatQuantProxyFromInjector
-    scaling_per_output_type = ScalingPerOutputType.GROUP
-
-
 class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.

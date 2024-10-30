@@ -24,7 +24,10 @@ assert FloatToIntImplType
 
 class _RestrictClampValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, scaling_min_val: Optional[float], restrict_value_impl: Optional[Module]):
+    def __init__(
+            self,
+            scaling_min_val: Optional[float] = None,
+            restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
@@ -90,9 +93,6 @@ class FloatRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return Identity()
 
-    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
-        return x / threshold
-
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:
         return x
@@ -115,9 +115,6 @@ class LogFloatRestrictValue(brevitas.jit.ScriptModule):
 
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
-
-    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
-        return x - threshold
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
@@ -143,9 +140,6 @@ class IntRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return Identity()
 
-    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
-        return x / threshold
-
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         x = self.float_to_int_impl(x)
@@ -170,9 +164,6 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
-
-    def combine_scale_threshold(self, x: Tensor, threshold: Tensor) -> Tensor:
-        return x - threshold
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
