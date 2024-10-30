@@ -1,6 +1,7 @@
-# This code is and updated and improved version of https://github.com/huggingface/optimum-amd/blob/main/optimum/amd/brevitas/accelerate_utils.py
-# Copyright 2023 The HuggingFace Team. All rights reserved.
-# Licensed under the MIT License.
+"""
+Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+"""
 
 import logging
 from typing import Dict, Mapping, Optional, Union
