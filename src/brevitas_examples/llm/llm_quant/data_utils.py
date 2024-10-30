@@ -30,10 +30,11 @@ from typing import Any, Optional, Union
 import numpy as np
 from optimum.amd.brevitas.data_utils import DatasetToDevice
 from optimum.amd.brevitas.data_utils import get_c4
-from optimum.amd.brevitas.data_utils import get_wikitext2
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from transformers import AutoConfig
+
+from .data import get_wikitext2
 
 
 def get_dataset_for_model(
