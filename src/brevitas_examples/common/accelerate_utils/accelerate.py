@@ -40,6 +40,7 @@ def align_input(model, device_map):
 
 
 # Adapted from accelerate.utils.modeling.infer_auto_device_map
+# Licensed under Apache License 2.0.
 def infer_fx_auto_device_map(
     model: torch.fx.GraphModule,
     max_memory: Optional[Dict[Union[int, str], Union[int, str]]] = None,
