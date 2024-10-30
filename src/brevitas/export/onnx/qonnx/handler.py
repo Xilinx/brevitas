@@ -43,7 +43,7 @@ class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
                 'saturating': module.is_saturating(),
                 'has_subnormal': True,  # Currently we only support subnormal
                 'rounding_mode': module.rounding_mode,
-                'max_float': module.quant_injector.max_available_float}
+                'max_float': torch.tensor(module.quant_injector.max_available_float).type_as(module.scale())}
             self.return_args = {
                 'scale': module.scale(),
                 'zero_point': torch.zeros_like(module.scale()),
@@ -84,7 +84,7 @@ class BrevitasWeightFloatQuantProxyHandler(BrevitasFloatQuantProxyHandler):
                 'saturating': first_qweight.saturating,
                 'has_subnormal': True,  # Currently we only support subnormal
                 'rounding_mode': module.rounding_mode,
-                'max_float': module.quant_injector.max_available_float,}
+                'max_float': torch.tensor(module.quant_injector.max_available_float).type_as(first_qweight.scale)}
             self.return_args = {
                 'scale': first_qweight.scale,
                 'zero_point': torch.zeros_like(first_qweight.scale),
