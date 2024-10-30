@@ -6,8 +6,6 @@ import sys
 from warnings import warn
 
 import numpy as np
-from optimum.amd.brevitas.accelerate_utils import offload_model
-from optimum.amd.brevitas.accelerate_utils import remove_hooks
 from optimum.amd.brevitas.data_utils import compute_perplexity
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
@@ -17,6 +15,8 @@ from transformers import AutoTokenizer
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import quant_format_validator
