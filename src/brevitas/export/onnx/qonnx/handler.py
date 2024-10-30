@@ -40,6 +40,7 @@ class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
                 'exponent_bias': module.exponent_bias(),
                 'has_inf': module.inf_values() is not None,
                 'has_nan': module.nan_values() is not None,
+                'saturating': module.is_saturating(),
                 'has_subnormal': True,  # Currently we only support subnormal
                 'rounding_mode': module.rounding_mode,
                 'max_float': module.quant_injector.max_available_float}
@@ -54,9 +55,6 @@ class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
                 'nan_values': module.nan_values(),}
 
     def symbolic_execution(self, x: Tensor):
-        xx = tuple(self.symbolic_kwargs.values())
-        scale = self.symbolic_kwargs['scale']
-        print(self.symbolic_kwargs.values())
         x = BrevitasFloatQuantFn.apply(x, *self.symbolic_kwargs.values())
         return x, *self.return_args.values()
 
@@ -69,7 +67,7 @@ class BrevitasWeightFloatQuantProxyHandler(BrevitasFloatQuantProxyHandler):
         self.quant_weights = None
 
     def validate(self, zero_point):
-        assert zero_point == 0, "Zero-point not supported for binary quant."
+        assert zero_point == 0, "Zero-point not supported for minifloat quant."
 
     def prepare_for_export(self, module: WeightQuantProxyFromInjector):
         if module.is_quant_enabled:
@@ -82,6 +80,7 @@ class BrevitasWeightFloatQuantProxyHandler(BrevitasFloatQuantProxyHandler):
                 'exponent_bias': first_qweight.exponent_bias,
                 'has_inf': first_qweight.inf_values is not None,
                 'has_nan': first_qweight.nan_values is not None,
+                'saturating': first_qweight.saturating,
                 'has_subnormal': True,  # Currently we only support subnormal
                 'rounding_mode': module.rounding_mode,
                 'max_float': module.quant_injector.max_available_float,}

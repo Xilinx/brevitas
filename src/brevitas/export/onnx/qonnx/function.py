@@ -71,6 +71,7 @@ class BrevitasFloatQuantFn(Function):
             exponent_bias,
             has_inf,
             has_nan,
+            saturating,
             has_subnormal,
             rounding_mode,
             max_val):
@@ -81,11 +82,12 @@ class BrevitasFloatQuantFn(Function):
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
+            max_val,
             has_inf_i=int(has_inf),
             has_nan_i=int(has_nan),
             has_subnormal_i=int(has_subnormal),
             rounding_mode_s=rounding_mode,
-            max_val_f=max_val)
+            saturation_i=saturating)
         ret.setType(x.type())
         return ret
 
@@ -99,6 +101,7 @@ class BrevitasFloatQuantFn(Function):
             exponent_bias,
             has_inf,
             has_nan,
+            saturating,
             has_subnormal,
             rounding_mode,
             max_val):
