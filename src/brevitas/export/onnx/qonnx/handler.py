@@ -56,7 +56,8 @@ class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
 
     def symbolic_execution(self, x: Tensor):
         x = BrevitasFloatQuantFn.apply(x, *self.symbolic_kwargs.values())
-        return x, *self.return_args.values()
+        return_args = (x, *self.return_args.values())
+        return return_args
 
 
 class BrevitasWeightFloatQuantProxyHandler(BrevitasFloatQuantProxyHandler):
