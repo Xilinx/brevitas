@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import torch
+
 from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
@@ -17,7 +19,7 @@ class _CachedIO:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value=torch.empty(1).type_as(quant_tensor.scale))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility

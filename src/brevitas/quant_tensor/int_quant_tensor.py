@@ -18,10 +18,19 @@ IS_VALID_ATOL = 2e-1
 B_FLOAT16_IS_VALID_ATOL = 0.5
 
 
-class IntQuantTensor(IntQuantTensorBase, QuantTensor):
+class IntQuantTensor(torch.Tensor, QuantTensor):
 
-    def __new__(cls, value, scale, zero_point, bit_width, signed, training):
+    @staticmethod
+    def __new__(cls, value, scale, zero_point, bit_width, signed, training, requires_grad=False):
+        return torch.Tensor._make_wrapper_subclass(
+            cls,
+            value.size(),
+            strides=value.stride(),
+            dtype=value.dtype,
+            device=value.device,
+            requires_grad=requires_grad)
 
+    def __init__(self, value, scale, zero_point, bit_width, signed, training, requires_grad=False):
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if not isinstance(zero_point, torch.Tensor):
@@ -32,18 +41,76 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
-        return quant_tensor
+        self.value = value
+        self.scale = scale
+        self.zero_point = zero_point
+        self.bit_width = bit_width
+        self.signed_t = signed
+        self.training_t = training
+        self._fields = {
+            'value': value,
+            'scale': scale,
+            'zero_point': zero_point,
+            'bit_width': bit_width,
+            'signed_t': signed,
+            'training_t': training,}
+
+    def __tensor_flatten__(self):
+        inner_tensors = {"value": self.value}
+        # Since meta can be used for serialization, use only AST compatible strings
+        meta = {
+            "scale": self.scale,
+            "zero_point": self.zero_point,
+            "bit_width": self.bit_width,
+            "signed": self.signed,
+            "training": self.training,}
+        return inner_tensors, meta
+
+    @staticmethod
+    def __tensor_unflatten__(inner_tensors, meta):
+        assert len(inner_tensors) == 1
+        assert len(meta) == 5
+        value = inner_tensors["value"]
+        # Meta should contain only AST compatible strings
+        scale = meta["scale"]
+        zero_point = meta["zero_point"]
+        bit_width = meta["bit_width"]
+        signed = meta["signed"]
+        training = meta["training"]
+        return IntQuantTensor(value, scale, zero_point, bit_width, signed, training)
+
+    def detach(self):
+        qt_type = type(self)
+        values = []
+        for field in self._fields:
+            value = getattr(self, field)
+            if isinstance(value, torch.Tensor):
+                value = value.detach()
+            values.append(value)
+        return qt_type(*values)
+
+    @classmethod
+    def __torch_dispatch__(cls, op, types, args, kwargs=None):
+        super().__torch_dispatch__(cls, op, types, args, kwargs)
 
     @property
     def signed(self):
         return self.signed_t.item()
+
+    def set(self, **kwargs):
+        value, meta = self.__tensor_flatten__()
+        value['value'] = kwargs.get('value', value['value'])
+        for k, v in meta.items():
+            meta[k] = kwargs.get(k, v)
+
+        return IntQuantTensor.__tensor_unflatten__(value, meta)
 
     @property
     def training(self):
         return self.training_t.item()
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
+
         if kwargs is None:
             kwargs = {}
         if func in INT_QUANT_TENSOR_FN_HANDLER:
