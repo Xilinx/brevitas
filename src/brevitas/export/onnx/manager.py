@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
-from contextlib import ExitStack
 from io import BytesIO
 from typing import Optional, Tuple, Union
 import warnings
@@ -167,7 +166,6 @@ class ONNXBaseManager(BaseManager, ABC):
 
                     with PatchFp8Ops():
                         torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
-
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
                     cls.set_export_mode(module, enabled=False)

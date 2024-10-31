@@ -796,6 +796,7 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
         flat_pre_scale = to_0dim_if_scalar(pre_scale.flatten())
         flat_scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
+        zp = self.zero_point_with_dtype(signed, output_bit_width, zp)
         x = self.quantize_fn(x, flat_pre_scale, zp, dtype, self.quant_axis(pre_scale))
         clip_symbolic_kwargs = self.int_clip_symbolic_kwargs(
             signed=signed, narrow=False, bit_width=output_bit_width)

@@ -60,6 +60,10 @@ class ActQuantProxyProtocol(QuantProxyProtocol, Protocol):
 @runtime_checkable
 class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
 
+    def __init__(self):
+        super().__init__()
+        self.return_quant_tensor = True
+
     def forward(self, x: QuantTensor) -> QuantTensor:
         ...
 
@@ -98,6 +102,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
+        self.return_quant_tensor = False
 
     @property
     def input_view_impl(self):
@@ -188,7 +193,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
 
-        if is_dynamo_compiling():
+        if not self.return_quant_tensor:
             out = y[0]
         else:
             # If the second value (i.e., scale) is None, then quant is disabled
@@ -250,6 +255,8 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
+            if not self.return_quant_tensor:
+                return out_value
             return IntQuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         return x
@@ -274,6 +281,8 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             else:
                 out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
+            if not self.return_quant_tensor:
+                return out_value
             return IntQuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
         else:

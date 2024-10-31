@@ -95,6 +95,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_inference_quant_weight_metadata_only = False
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
+        self.return_quant_tensor = True
 
     @property
     def input_view_impl(self):
@@ -138,7 +139,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                     out = self.create_quant_tensor(out)
             else:
                 out = self.tensor_quant(x)
-                if is_dynamo_compiling():
+                if not self.return_quant_tensor:
                     out = out[0]
                 else:
                     out = self.create_quant_tensor(out)
@@ -263,7 +264,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             self._cached_act = cached_inp
 
         if self.is_quant_enabled:
-            if quant_input is None:
+            if quant_input is None or isinstance(quant_input, Tensor):
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:
@@ -274,6 +275,8 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
 
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
+            if torch._C._get_tracing_state() is not None:
+                return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
@@ -356,7 +359,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            if not is_dynamo_compiling():
+            if not is_dynamo_compiling() or torch._C._get_tracing_state() is not None:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
                 if not self.training and self.cache_inference_quant_bias:
