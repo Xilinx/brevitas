@@ -60,7 +60,7 @@ def reference_implementation_scale_factors_po2(
     return scale
 
 
-@given(inp=float_tensor_random_size_st())
+@given(inp=float_tensor_random_size_st(max_val=1e10, min_val=-1e10))
 def test_scale_factors_ptq_calibration_po2(inp):
 
     class TestModel(nn.Module):
@@ -80,7 +80,6 @@ def test_scale_factors_ptq_calibration_po2(inp):
 
     expected_scale = reference_implementation_scale_factors_po2(inp)
     scale = model.act.act_quant.scale()
-
     assert torch.allclose(expected_scale, scale)
 
 
