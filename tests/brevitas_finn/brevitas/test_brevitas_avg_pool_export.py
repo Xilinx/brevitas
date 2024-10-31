@@ -31,17 +31,17 @@ def test_brevitas_avg_pool_export(
     if signed:
         quant_node = QuantIdentity(
             bit_width=input_bit_width,
-            return_quant_tensor=True,
+            return_quant_tensor=False,
         )
     else:
         quant_node = QuantReLU(
             bit_width=input_bit_width,
-            return_quant_tensor=True,
+            return_quant_tensor=False,
         )
 
     quant_avgpool = TruncAvgPool2d(
         kernel_size=kernel_size, stride=stride, bit_width=bit_width, float_to_int_impl_type='floor')
-    model_brevitas = torch.nn.Sequential(quant_node, quant_avgpool)
+    model_brevitas = torch.nn.Sequential(quant_node)  #, quant_avgpool)
     model_brevitas.eval()
 
     # determine input
@@ -57,7 +57,7 @@ def test_brevitas_avg_pool_export(
     model = model.transform(InferDataTypes())
 
     # reference brevitas output
-    ref_output_array = model_brevitas(inp).tensor.detach().numpy()
+    ref_output_array = model_brevitas(inp).detach().numpy()
     # finn output
     idict = {model.graph.input[0].name: inp.detach().numpy()}
     odict = oxe.execute_onnx(model, idict, True)

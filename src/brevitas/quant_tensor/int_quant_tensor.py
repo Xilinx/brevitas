@@ -91,7 +91,16 @@ class IntQuantTensor(torch.Tensor, QuantTensor):
 
     @classmethod
     def __torch_dispatch__(cls, op, types, args, kwargs=None):
-        super().__torch_dispatch__(cls, op, types, args, kwargs)
+        if op == torch.ops.aten._to_copy.default:
+            (tensors,) = args
+            if isinstance(tensors, IntQuantTensor):
+                value, meta = tensors.__tensor_flatten__()
+                value = value['value'].to(**kwargs)
+                return value  #IntQuantTensor(value, *meta.values())
+
+        # print(cls)
+        # print(op, types, args, kwargs)
+        # super().__torch_dispatch__(cls, op, types, args, kwargs)
 
     @property
     def signed(self):

@@ -188,7 +188,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
 
-        if is_dynamo_compiling():
+        if is_dynamo_compiling() or torch._C._get_tracing_state() is not None:
             out = y[0]
         else:
             # If the second value (i.e., scale) is None, then quant is disabled
