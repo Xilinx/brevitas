@@ -22,6 +22,7 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
+from brevitas.utils.quant_utils import DelayWrapper
 from brevitas.utils.torch_utils import compute_channel_view_shape
 
 from .quant_proxy import QuantProxyFromInjector
@@ -94,6 +95,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_inference_quant_weight_metadata_only = False
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
+        self.delay_wrapper = DelayWrapper()
 
     @property
     def input_view_impl(self):
@@ -136,7 +138,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                 else:
                     out = self.create_quant_tensor(out)
             else:
-                out = self.tensor_quant(x)
+                out = self.delay_wrapper(self.tensor_quant)(x)
                 if is_dynamo_compiling():
                     out = out[0]
                 else:

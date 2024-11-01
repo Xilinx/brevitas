@@ -17,6 +17,7 @@ from brevitas import is_dynamo_compiling
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
+from brevitas.utils.quant_utils import DelayWrapper
 
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
@@ -90,6 +91,8 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
 class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtocol, ABC):
 
+    delay_wrapper: DelayWrapper
+
     def __init__(self, quant_layer, quant_injector):
         QuantProxyFromInjector.__init__(self, quant_layer, quant_injector)
         ActQuantProxyProtocol.__init__(self)
@@ -98,6 +101,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
+        self.delay_wrapper = DelayWrapper()
 
     @property
     def input_view_impl(self):
@@ -184,7 +188,8 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             y = self.apply_input_view(self.fused_activation_quant_proxy.activation_impl(y))
             y = (y, None)
         else:
-            y = self.fused_activation_quant_proxy(y)
+            y = self.delay_wrapper(self.fused_activation_quant_proxy)(y)
+
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
 

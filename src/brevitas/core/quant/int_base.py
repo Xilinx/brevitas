@@ -60,7 +60,6 @@ class IntQuant(brevitas.jit.ScriptModule):
         self.tensor_clamp_impl = tensor_clamp_impl
         self.signed = signed
         self.narrow_range = narrow_range
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
         self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
@@ -87,7 +86,6 @@ class IntQuant(brevitas.jit.ScriptModule):
         y_int = self.to_int(scale, zero_point, bit_width, x)
         y = y_int - zero_point
         y = y * scale
-        y = self.delay_wrapper(x, y)
         return y
 
 

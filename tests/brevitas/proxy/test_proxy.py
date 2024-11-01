@@ -80,3 +80,42 @@ class TestProxy:
 
         model.act_quant.disable_quant = True
         assert model.act_quant.bit_width() is None
+
+    def test_delay_wrapper_weight_proxy(self):
+        model = QuantLinear(10, 5, weight_quant=Int8WeightPerTensorFloat, quant_delay_steps=2)
+        # Initially quantization should be disabled
+        assert model.weight_quant.scale() is None
+        assert model.weight_quant.zero_point() is None
+        assert model.weight_quant.bit_width() is None
+
+        # After 1 step, still disabled
+        model.weight_quant.quant_delay_steps()
+        assert model.weight_quant.scale() is None
+        assert model.weight_quant.zero_point() is None
+        assert model.weight_quant.bit_width() is None
+
+        # After 2 steps, quantization should be enabled
+        model.weight_quant.quant_delay_steps()
+        assert model.weight_quant.scale() is not None
+        assert model.weight_quant.zero_point() is not None
+        assert model.weight_quant.bit_width() is not None
+
+    def test_delay_wrapper_act_proxy(self):
+        model = QuantReLU(quant_delay_steps=3)
+        # Initially quantization should be disabled
+        assert model.act_quant.scale() is None
+        assert model.act_quant.zero_point() is None
+        assert model.act_quant.bit_width() is None
+
+        # After 2 steps, still disabled
+        model.act_quant.quant_delay_steps()
+        model.act_quant.quant_delay_steps()
+        assert model.act_quant.scale() is None
+        assert model.act_quant.zero_point() is None
+        assert model.act_quant.bit_width() is None
+
+        # After 3 steps, quantization should be enabled
+        model.act_quant.quant_delay_steps()
+        assert model.act_quant.scale() is not None
+        assert model.act_quant.zero_point() is not None
+        assert model.act_quant.bit_width() is not None
