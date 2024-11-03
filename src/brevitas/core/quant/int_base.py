@@ -8,7 +8,6 @@ from torch.nn import Module
 import brevitas
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
-from brevitas.core.quant.delay import DelayWrapper
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 
@@ -53,14 +52,12 @@ class IntQuant(brevitas.jit.ScriptModule):
             signed: bool,
             input_view_impl: Module,
             float_to_int_impl: Module = RoundSte(),
-            tensor_clamp_impl: Module = TensorClamp(),
-            quant_delay_steps: int = 0):
+            tensor_clamp_impl: Module = TensorClamp()):
         super(IntQuant, self).__init__()
         self.float_to_int_impl = float_to_int_impl
         self.tensor_clamp_impl = tensor_clamp_impl
         self.signed = signed
         self.narrow_range = narrow_range
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
         self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
@@ -87,7 +84,6 @@ class IntQuant(brevitas.jit.ScriptModule):
         y_int = self.to_int(scale, zero_point, bit_width, x)
         y = y_int - zero_point
         y = y * scale
-        y = self.delay_wrapper(x, y)
         return y
 
 
@@ -129,14 +125,12 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
             signed: bool,
             input_view_impl: Module,
             float_to_int_impl: Module = RoundSte(),
-            tensor_clamp_impl: Module = TensorClamp(),
-            quant_delay_steps: int = 0):
+            tensor_clamp_impl: Module = TensorClamp()):
         super(DecoupledIntQuant, self).__init__()
         self.float_to_int_impl = float_to_int_impl
         self.tensor_clamp_impl = tensor_clamp_impl
         self.signed = signed
         self.narrow_range = narrow_range
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
         self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
@@ -172,5 +166,4 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
         y_int = self.to_int(pre_scale, pre_zero_point, bit_width, x)
         y = y_int - zero_point
         y = y * scale
-        y = self.delay_wrapper(x, y)
         return y

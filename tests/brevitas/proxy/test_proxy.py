@@ -80,3 +80,27 @@ class TestProxy:
 
         model.act_quant.disable_quant = True
         assert model.act_quant.bit_width() is None
+
+    def test_delay_wrapper_in_weight_proxy(self):
+        model = QuantLinear(10, 5, weight_quant=Int8WeightPerTensorFloat)
+        assert model.weight_quant.delay_wrapper is not None
+
+        model.weight_quant.delay_wrapper.quant_delay_steps = 5
+        for _ in range(5):
+            quantized_out = model.weight_quant(model.weight)
+            assert torch.equal(quantized_out, model.weight)
+
+        quantized_out = model.weight_quant(model.weight)
+        assert not torch.equal(quantized_out, model.weight)
+
+    def test_delay_wrapper_in_bias_proxy(self):
+        model = QuantLinear(10, 5, bias_quant=Int8BiasPerTensorFloatInternalScaling)
+        assert model.bias_quant.delay_wrapper is not None
+
+        model.bias_quant.delay_wrapper.quant_delay_steps = 5
+        for _ in range(5):
+            quantized_out = model.bias_quant(model.bias)
+            assert torch.equal(quantized_out, model.bias)
+
+        quantized_out = model.bias_quant(model.bias)
+        assert not torch.equal(quantized_out, model.bias)

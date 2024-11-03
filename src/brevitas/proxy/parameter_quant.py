@@ -16,6 +16,7 @@ from typing_extensions import runtime_checkable
 from brevitas import config
 from brevitas import is_dynamo_compiling
 from brevitas.core.function_wrapper.misc import Identity
+from brevitas.core.quant.delay import DelayWrapper
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import _unpack_quant_tensor
@@ -94,6 +95,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_inference_quant_weight_metadata_only = False
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
+        self.delay_wrapper = DelayWrapper(quant_injector.quant_delay_steps)
 
     @property
     def input_view_impl(self):
@@ -136,7 +138,8 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                 else:
                     out = self.create_quant_tensor(out)
             else:
-                out = self.tensor_quant(x)
+                quantized_out = self.tensor_quant(x)
+                out = self.delay_wrapper(x, quantized_out)
                 if is_dynamo_compiling():
                     out = out[0]
                 else:
