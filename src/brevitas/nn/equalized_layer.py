@@ -41,3 +41,49 @@ class EqualizedModule(torch.nn.Module):
         # We convert everything to args so that hooks can work correctly
         out = self.layer(*kwargs.values())
         return out
+
+
+class RotationEqualizedLayer(torch.nn.Module):
+
+    def __init__(self, layer, rotation_matrix1, rotation_matrix2) -> None:
+        super().__init__()
+        self.layer = layer
+        self.rotation_matrix1 = torch.nn.Parameter(rotation_matrix1)
+        self.rotation_matrix2 = torch.nn.Parameter(rotation_matrix2)
+
+    def forward(self, *args, **kwargs):
+        # Convert args + kwargs + defaults into kwargs
+        bound_arguments = signature(self.layer.forward).bind(*args, **kwargs)
+        bound_arguments.apply_defaults()
+        kwargs = bound_arguments.arguments
+
+        possible_input_kwargs = INPUT_NAMES
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        x = kwargs[input_kwarg]
+        out = x
+
+        # Apply the first rotation
+        out = torch.matmul(out, self.rotation_matrix1)
+
+        kwargs[input_kwarg] = out
+        # QuantMultiheadAttention is not a subclass of MultiheadAttention
+        # We need to preserve the correctness of the forward even after
+        # quantization has been applied
+        if isinstance(self.layer, (torch.nn.MultiheadAttention, QuantMultiheadAttention)):
+            kwargs['key'] = out
+            kwargs['value'] = out
+        # We convert everything to args so that hooks can work correctly
+        out = self.layer(*kwargs.values())
+
+        # Apply the second rotation
+        out = torch.matmul(out, self.rotation_matrix2)
+
+        return out
+
+    def fuse_rotation_matrices(self):
+        with torch.no_grad():
+            self.layer.weight.data = torch.matmul(self.rotation_matrix1, self.layer.weight.data)
+            self.layer.weight.data = torch.matmul(self.layer.weight.data, self.rotation_matrix2)
+            if self.layer.bias is not None:
+                self.layer.bias.data = torch.matmul(self.rotation_matrix1, self.layer.bias.data)
+                self.layer.bias.data = torch.matmul(self.layer.bias.data, self.rotation_matrix2)
