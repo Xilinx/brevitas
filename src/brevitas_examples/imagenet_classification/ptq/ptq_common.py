@@ -86,10 +86,6 @@ from brevitas_examples.common.axe import A2GPFQ
 from brevitas_examples.common.axe import A2GPTQ
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRound
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import get_blocks
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import LearnedRound
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 
 
 # Every element of the Batch will have its own scale factor and zero point
@@ -666,52 +662,6 @@ def _is_resnet_block(module: nn.Module, module_name: str) -> bool:
 
 def _is_layer(module: nn.Module, module_name: str) -> bool:
     return isinstance(module, QuantWBIOL)
-
-
-def apply_learned_round_learning(
-    model: nn.Module,
-    dataloader: DataLoader,
-    learned_round: LearnedRound = AdaRound(iters=1000),
-    optimizer_class: Optimizer = torch.optim.Adam,
-    iters: int = 1000,
-    optimizer_lr: float = 1e-1,
-    block_check_fn: Callable = _is_layer,
-):
-    # Retrieve blocks using the appropiate function to check blocks
-    blocks = get_blocks(model, block_check_fn)
-
-    print(f"Total Iterations per block {iters}")
-    print(f"Number of blocks {len(blocks)}")
-
-    for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
-            learned_round.learned_round_iterator(blocks)):
-        optimizer = optimizer = optimizer_class(
-            itertools.chain(
-                *[
-                    learned_round_module.parameters()
-                    for learned_round_module in block_learned_round_modules]),
-            lr=optimizer_lr)
-        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
-        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
-        max_size = len(all_fp_out)
-        pbar = tqdm(range(iters), desc='')
-        for _ in pbar:
-            idx = torch.randint(0, max_size, (dataloader.batch_size,))
-            quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
-            block.train()
-
-            optimizer.zero_grad()
-            quant_out = block(quant_inp)
-            loss, loss_components = block_loss(quant_out, fp_out)
-
-            loss.backward()
-            optimizer.step()
-            # Update progress bar
-            pbar.set_description(
-                "block = {:d}/{:d}, {}".format(
-                    block_idx + 1, len(blocks),
-                    block_loss.format_loss_components(*loss_components)))
-            pbar.update(1)
 
 
 def check_positive_int(*args):

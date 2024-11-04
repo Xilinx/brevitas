@@ -15,17 +15,17 @@ from brevitas.inject.enum import FloatToIntImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRound
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRoundLoss
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AutoRound
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AutoRoundLoss
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import get_blocks
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
+from brevitas_examples.common.learned_round.learned_round_method import AdaRound
+from brevitas_examples.common.learned_round.learned_round_method import AdaRoundLoss
+from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_method import AutoRoundLoss
+from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    LearnedRoundVisionUtils
 
 config.IGNORE_MISSING_KEYS = True
 
 
-# TODO: Include some integration test
 class TestLearnedRound:
 
     @fixture
@@ -152,6 +152,8 @@ class TestLearnedRound:
     @pytest.mark.parametrize("disable_quant", [True, False])
     def test_save_inp_out_data(
             self, model, quant_model, data_loader, store_input, store_out, keep_gpu, disable_quant):
+        # Initialise utils to save tensors
+        learned_round_vision_utils = LearnedRoundVisionUtils()
         # Make sure that the quant and FP models share the same weights
         quant_model.load_state_dict(model.state_dict())
 
@@ -213,7 +215,7 @@ class TestLearnedRound:
         cache_fp_partial_output = torch.cat(cache_fp_partial_output, dim=0)
 
         # Retrieve input and output data
-        input_data, out_data = save_inp_out_data(quant_model, module, data_loader, store_input, store_out, keep_gpu, disable_quant)
+        input_data, out_data = learned_round_vision_utils._save_inp_out_data(quant_model, module, data_loader, store_input, store_out, keep_gpu, disable_quant)
         # Verify that empty lists are returned
         if store_input:
             if disable_quant:

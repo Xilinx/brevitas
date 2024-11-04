@@ -31,9 +31,9 @@ from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.parse_utils import quant_format_validator
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
-    apply_learned_round_learning_llm
 from brevitas_examples.imagenet_classification.ptq.utils import get_gpu_index
 from brevitas_examples.imagenet_classification.ptq.utils import get_next_available_gpu
 from brevitas_examples.imagenet_classification.utils import SEED
@@ -47,6 +47,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
+from brevitas_examples.llm.llm_quant.learned_round_utils import LearnedRoundLLMUtils
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
@@ -350,7 +351,13 @@ def ptq_llm_models(args):
 
     if config_namespace.learned_round:
         print("Applying learned round...")
-        apply_learned_round_learning_llm(model, calibration_loader)
+        learned_round_llm_utils = LearnedRoundLLMUtils()
+        learned_round = AutoRound()
+        learned_round_optimiser = LearnedRoundOptimizer(
+            learned_round=learned_round,
+            learned_round_utils=learned_round_llm_utils
+        )
+        learned_round_optimiser.apply_learned_round(model, calibration_loader)
         print("Learned round applied.")
 
     if config_namespace.act_calibration:

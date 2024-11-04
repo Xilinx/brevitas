@@ -22,15 +22,17 @@ from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.optim.sign_sgd import SignSGD
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AdaRound
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import AutoRound
+from brevitas_examples.common.learned_round.learned_round_method import AdaRound
+from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    LearnedRoundVisionUtils
 from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_layer
 from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_resnet_block
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
-from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -183,6 +185,11 @@ parser.add_argument(
     default=1e-3,
     type=float,
     help='Learning rate for learned round (default: 1e-3)')
+parser.add_argument(
+    '--learned-round-batch-size',
+    default=1,
+    type=int,
+    help='Learning rate for learned round (default: %(default)d)')
 parser.add_argument(
     '--act-quant-percentile',
     default=99.999,
@@ -498,33 +505,38 @@ def main():
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
-    if args.optimizer == "adam":
-        optimizer_class = torch.optim.Adam
-    elif args.optimizer == "sign_sgd":
-        optimizer_class = SignSGD
-    else:
-        raise ValueError(f"{args.optimizer} is not a valid optimizer.")
-
-    if args.learned_round_mode == "layerwise":
-        block_check_fn = _is_layer
-    elif args.learned_round_mode == "blockwise":
-        # if args.learned_round_type == "ada_round":
-        #    raise ValueError(f"Block-wise round is not available with AdaRound.")
-        block_check_fn = _is_resnet_block
-
     if args.learned_round_type != "none":
+        # Initialisation of rounding method
         if args.learned_round_type =="auto_round":
             learned_round = AutoRound(iters=args.learned_round_iters)
         elif args.learned_round_type == "ada_round":
             learned_round = AdaRound(iters=args.learned_round_iters)
+        # Optimizer to tune the
+        if args.optimizer == "adam":
+            optimizer_class = torch.optim.Adam
+        elif args.optimizer == "sign_sgd":
+            optimizer_class = SignSGD
+        else:
+            raise ValueError(f"{args.optimizer} is not a valid optimizer.")
+        # Granularity of the rounding blocks
+        if args.learned_round_mode == "layerwise":
+            block_check_fn = _is_layer
+        elif args.learned_round_mode == "blockwise":
+            block_check_fn = _is_resnet_block
 
-        apply_learned_round_learning(
-            model=quant_model,
-            dataloader=calib_loader,
+        learned_round_vision_utils = LearnedRoundVisionUtils()
+        learned_round_optimiser = LearnedRoundOptimizer(
             learned_round=learned_round,
+            learned_round_utils=learned_round_vision_utils,
             optimizer_class=optimizer_class,
-            iters=args.learned_round_iters,
+            lr_scheduler_class= None if args.optimizer == "adam" else torch.optim.lr_scheduler.LinearLR,
             optimizer_lr=args.learned_round_lr,
+            batch_size=args.learned_round_batch_size,
+            iters=args.learned_round_iters,
+        )
+        learned_round_optimiser.apply_learned_round(
+            model,
+            data_loader=calib_loader,
             block_check_fn=block_check_fn
         )
 
