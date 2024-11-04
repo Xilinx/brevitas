@@ -2,11 +2,16 @@ import warnings
 
 import torch
 from transformers.models.opt.modeling_opt import OPTAttention
+from transformers.models.opt.modeling_opt import OPTSdpaAttention
 
 from brevitas.graph import ModuleToModuleByClass
 from brevitas_examples.llm.llm_quant.mha_layers import QuantizableOPTAttention
 
-QUANTIZABLE_MHA_MAP = {OPTAttention: (QuantizableOPTAttention, {'batch_first': True})}
+QUANTIZABLE_MHA_MAP = {
+    OPTAttention: (QuantizableOPTAttention, {
+        'batch_first': True}),
+    OPTSdpaAttention: (QuantizableOPTAttention, {
+        'batch_first': True}),}
 
 
 def replace_mha_with_quantizable_layers(model, dtype):
