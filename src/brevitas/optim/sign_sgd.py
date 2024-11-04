@@ -9,7 +9,6 @@ from torch.optim.optimizer import _foreach_doc
 from torch.optim.optimizer import _fused_doc
 from torch.optim.optimizer import _maximize_doc
 from torch.optim.optimizer import _use_grad_for_differentiable
-from torch.optim.optimizer import DeviceDict
 from torch.optim.optimizer import Optimizer
 from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 
