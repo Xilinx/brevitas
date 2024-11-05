@@ -1,5 +1,23 @@
-# Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
-# SPDX-License-Identifier: BSD-3-Clause
+"""
+Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause
+
+Adapted from https://github.com/intel/auto-round, released under the following LICENSE:
+
+Copyright (c) 2023 Intel Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
 
 from abc import ABC
 from abc import abstractmethod
@@ -23,23 +41,25 @@ from brevitas_examples.common.learned_round.learned_round_method import LearnedR
 
 config.IGNORE_MISSING_KEYS = True
 
+
 def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
                                                           bool]) -> List[nn.Module]:
-        blocks = []
+    blocks = []
 
-        # Iterating over .modules() might have been more readable but
-        # with this recursive implementation, once a block is reached,
-        # its subtree of modules is not expanded.
-        def _get_blocks(module: nn.Module):
-            for module_name, module_child in module.named_children():
-                if block_check_fn(module_child, module_name):
-                    blocks.append(module_child)
-                else:
-                    _get_blocks(module_child)
+    # Iterating over .modules() might have been more readable but
+    # with this recursive implementation, once a block is reached,
+    # its subtree of modules is not expanded.
+    def _get_blocks(module: nn.Module):
+        for module_name, module_child in module.named_children():
+            if block_check_fn(module_child, module_name):
+                blocks.append(module_child)
+            else:
+                _get_blocks(module_child)
 
-        # Run recursive function that updates the list blocks
-        _get_blocks(model)
-        return blocks
+    # Run recursive function that updates the list blocks
+    _get_blocks(model)
+    return blocks
+
 
 class LearnedRoundModelUtils(ABC):
 
@@ -99,6 +119,7 @@ class LearnedRoundModelUtils(ABC):
     ) -> torch.Tensor:
         pass
 
+
 class LearnedRoundOptimizer:
 
     def __init__(
@@ -114,17 +135,15 @@ class LearnedRoundOptimizer:
         use_amp: bool = True,
         amp_dtype: torch.dtype = torch.float16,
         optimizer_kwargs: Dict = {},
-        lr_scheduler_kwargs : Dict = {
+        lr_scheduler_kwargs: Dict = {
             "start_factor": 1.0,
             "end_factor": 0.0,
-            "verbose": False,
-        }
+            "verbose": False,}
     ) -> None:
         if learned_round.iters != iters:
             warnings.warn(
                 "The number of iterations passed to the learned round optimiser is different "
-                "to that of the learned round method, which might lead to unexpected behaviour."
-            )
+                "to that of the learned round method, which might lead to unexpected behaviour.")
         self.learned_round = learned_round
         self.learned_round_utils = learned_round_utils
         self.optimizer_class = optimizer_class
@@ -166,12 +185,11 @@ class LearnedRoundOptimizer:
             lr_scheduler.step()
 
     def apply_learned_round(
-        self,
-        model: nn.Module,
-        data_loader: DataLoader,
-        block_check_fn: Callable = None,
-        keep_gpu: bool = True
-    ) -> None:
+            self,
+            model: nn.Module,
+            data_loader: DataLoader,
+            block_check_fn: Callable = None,
+            keep_gpu: bool = True) -> None:
         # Prepare model for optimization
         self.learned_round_utils.init_model_learned_round(model)
 
@@ -187,7 +205,7 @@ class LearnedRoundOptimizer:
 
         # Loop across blocks to optimise rounding within each
         for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
-            self.learned_round.learned_round_iterator(blocks)):
+                self.learned_round.learned_round_iterator(blocks)):
             # Block needs to be in eval mode while the rounding is optimised
             block.eval()
 
@@ -196,17 +214,13 @@ class LearnedRoundOptimizer:
                 itertools.chain(
                     *[
                         learned_round_module.parameters()
-                        for learned_round_module in block_learned_round_modules
-                    ]
-                ),
+                        for learned_round_module in block_learned_round_modules]),
                 lr=self.optimizer_lr,
                 **self.optimizer_kwargs,
             )
             lr_scheduler = (
                 self.lr_scheduler_class(optimizer, **self.lr_scheduler_kwargs)
-                if self.lr_scheduler_class
-                else None
-            )
+                if self.lr_scheduler_class else None)
 
             # Variables needed for printing
             best_loss = torch.finfo(torch.float).max
@@ -235,7 +249,8 @@ class LearnedRoundOptimizer:
                 quant_outs = self.learned_round_utils.run_forward(block, inputs)
 
                 if self.use_amp:
-                    with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu", dtype=self.amp_dtype):
+                    with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
+                                  dtype=self.amp_dtype):
                         loss, loss_components = block_loss(quant_outs, fp_outs)
                 else:
                     loss, loss_components = block_loss(quant_outs.to(torch.float32), fp_outs.to(torch.float32))
@@ -252,10 +267,11 @@ class LearnedRoundOptimizer:
                 self._scale_loss_and_backward(loss)
                 self._step(optimizer, lr_scheduler)
 
-                 # Update progress bar
+                # Update progress bar
                 pbar.set_description(
                     "Block = {:d}/{:d}, {}".format(
-                        block_idx + 1, len(blocks),
+                        block_idx + 1,
+                        len(blocks),
                         block_loss.format_loss_components(*loss_components)))
                 pbar.update(1)
 
@@ -268,7 +284,7 @@ class LearnedRoundOptimizer:
 
             print(
                 f"Quantized block {block_idx+1}/{len(blocks)}, "
-                f"loss iter 0: {init_loss:.6f} -> iter {last_best_iter}: {best_loss:.6f}"
+                f"initial loss: {init_loss:.6f}, best loss: {best_loss:.6f}, at iteration {last_best_iter}."
             )
 
         # Finish optimisation
