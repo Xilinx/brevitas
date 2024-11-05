@@ -168,7 +168,7 @@ class QuantizableOPTAttention(MultiheadAttentionWrapper):
         attention_mask = (
             attention_mask_handler(
                 attention_mask, batch_size, num_heads, query_seq_length, key_value_seq_length)
-            if attention_mask else None)
+            if attention_mask is not None else None)
         attn_output, attn_output_weights = self.mha(
             hidden_states,
             key_value_states,

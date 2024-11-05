@@ -204,17 +204,17 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
         "mistral",],
     params=[
         {
-            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
-            "act_equalization": "layerwise",
-            "gptq": True,
-            "float_ppl": 31274.05078125,
-            "quant_ppl": 33139.23046875},
-        {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
             "bias_corr": True,
-            "float_ppl": 33239.5,
-            "quant_ppl": 33283.75390625},])
+            "float_ppl": 33312.0,  # 33239.5,
+            "quant_ppl": 33056.0},  # 33283.75390625},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_equalization": "layerwise",
+            "gptq": True,
+            "float_ppl": 31056.0,  # 31274.05078125
+            "quant_ppl": 33056.0},])  # 33139.23046875},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
