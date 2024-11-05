@@ -13,12 +13,8 @@ from transformers.models.opt.modeling_opt import OPTDecoderLayer
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas_examples.common.learned_round.learned_round_method import StopFwdException
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundModelUtils
-
-
-class StopFwdException(Exception):
-    """Used to throw and catch an exception to stop traversing the graph."""
-    pass
 
 
 class LearnedRoundLLMUtils(LearnedRoundModelUtils):

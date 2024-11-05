@@ -54,13 +54,12 @@ def unique(sequence):
     return [x for x in sequence if not (x in seen or seen.add(x))]
 
 
-# Torchvision models with top1 accuracy
-LLM_TOP1_MAP = {
+LLM_PPL_MAP = {
     'facebook/opt-125m': None,
     'meta-llama/Llama-2-7b-hf': None,}
 
 OPTIONS_DEFAULT = {
-    'model': list(LLM_TOP1_MAP.keys()),  # HF model name. Default: facebook/opt-125m.
+    'model': list(LLM_PPL_MAP.keys()),  # HF model name. Default: facebook/opt-125m.
     'seed': [0],  # Seed for sampling the calibration data. Default: 0.
     'nsamples': [128],  # Number of calibration data samples. Default: 128.
     'seqlen': [2048],  # Sequence length. Default: 2048.

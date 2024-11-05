@@ -9,9 +9,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
 from brevitas import config
-from brevitas.core.function_wrapper.auto_round import AutoRoundSte
+from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
-from brevitas.inject.enum import FloatToIntImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor

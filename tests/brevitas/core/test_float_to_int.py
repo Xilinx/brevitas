@@ -6,7 +6,7 @@ import pytest_cases
 import torch
 
 from brevitas import config
-from brevitas.core.function_wrapper.auto_round import AutoRoundSte
+from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte

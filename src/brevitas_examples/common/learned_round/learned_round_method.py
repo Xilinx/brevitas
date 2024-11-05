@@ -9,11 +9,16 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from brevitas.core.function_wrapper.auto_round import AutoRoundSte
+from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+
+
+class StopFwdException(Exception):
+    """Used to throw and catch an exception to stop traversing the graph."""
+    pass
 
 
 class LearnedRoundLoss(ABC):
@@ -25,6 +30,7 @@ class LearnedRoundLoss(ABC):
     @abstractmethod
     def format_loss_components(self, *args) -> str:
         pass
+
 
 class LearnedRound(ABC):
 
@@ -76,6 +82,7 @@ class LearnedRound(ABC):
             block_loss = self._instantiate_loss(block, learned_round_modules)
             yield block, block_loss, learned_round_modules
 
+
 class LinearTempDecay:
 
     def __init__(self, t_max: int, rel_start_decay: float = 0.2, start_b: int = 10, end_b: int = 2):
@@ -91,6 +98,7 @@ class LinearTempDecay:
             rel_t = (t - self.start_decay) / (self.t_max - self.start_decay)
             return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
+
 class AdaRoundLoss(LearnedRoundLoss):
 
     def __init__(
@@ -101,8 +109,7 @@ class AdaRoundLoss(LearnedRoundLoss):
             max_count: int = 1000,
             b_range: Tuple = (20, 2),
             warmup: float = 0.2,
-            decay_start: float = 0.0
-        ) -> None:
+            decay_start: float = 0.0) -> None:
         super().__init__()
         # AdaRound operates in a layer-wise manner, so integrity needs to be checked
         assert isinstance(module, QuantWBIOL), "AdaRound can only accept a single QuantWBIOL layer."
@@ -139,6 +146,7 @@ class AdaRoundLoss(LearnedRoundLoss):
         return "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
             loss, rec_loss, round_loss, b)
 
+
 class AdaRound(LearnedRound):
 
     def __init__(
@@ -149,7 +157,7 @@ class AdaRound(LearnedRound):
             warmup: float = 0.2,
             decay_start: float = 0.0,
             **kwargs,
-        ) -> None:
+    ) -> None:
         super().__init__(iters, **kwargs)
         # Loss-related configuration
         self.weight = weight
@@ -187,6 +195,7 @@ class AdaRound(LearnedRound):
             decay_start=self.decay_start,
         )
 
+
 class AutoRoundLoss(LearnedRoundLoss):
 
     def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
@@ -195,6 +204,7 @@ class AutoRoundLoss(LearnedRoundLoss):
 
     def format_loss_components(self, loss: float) -> str:
         return "loss = {:.4f}".format(loss)
+
 
 class AutoRound(LearnedRound):
 

@@ -3,6 +3,7 @@
 
 from brevitas.core.bit_width import *
 from brevitas.core.function_wrapper import *
+from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
