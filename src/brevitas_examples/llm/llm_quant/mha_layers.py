@@ -176,7 +176,6 @@ class QuantizableOPTAttention(MultiheadAttentionWrapper):
             attn_mask=attention_mask,
             need_weights=output_attentions,
             average_attn_weights=False,
-            position_ids=position_ids,
         )
         past_key_value = None
         return attn_output, attn_output_weights, past_key_value

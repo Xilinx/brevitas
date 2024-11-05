@@ -602,8 +602,7 @@ class QuantMultiheadAttention(Module):
             key_padding_mask: Optional[Tensor] = None,
             need_weights: bool = True,
             attn_mask: Optional[Tensor] = None,
-            average_attn_weights: bool = True,
-            position_ids: Optional[Tensor] = None) -> Tuple[Tensor, Optional[Tensor]]:
+            average_attn_weights: bool = True) -> Tuple[Tensor, Optional[Tensor]]:
         r"""
     Args:
         query: Query embeddings of shape :math:`(L, E_q)` for unbatched input, :math:`(L, N, E_q)` when ``batch_first=False``
