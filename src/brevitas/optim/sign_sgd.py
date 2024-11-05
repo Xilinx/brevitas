@@ -52,12 +52,13 @@ from torch.optim.optimizer import _fused_doc
 from torch.optim.optimizer import _maximize_doc
 from torch.optim.optimizer import _use_grad_for_differentiable
 from torch.optim.optimizer import Optimizer
+from torch.optim.sgd import SGD
 from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 
 __all__ = ["SignSGD", "sign_sgd"]
 
 
-class SignSGD(Optimizer):
+class SignSGD(SGD):
 
     def __init__(
         self,
@@ -73,14 +74,8 @@ class SignSGD(Optimizer):
         differentiable: bool = False,
         fused: Optional[bool] = None,
     ):
-        if lr < 0.0:
-            raise ValueError(f"Invalid learning rate: {lr}")
-        if momentum < 0.0:
-            raise ValueError(f"Invalid momentum value: {momentum}")
-        if weight_decay < 0.0:
-            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
-
-        defaults = dict(
+        super().__init__(
+            params=params,
             lr=lr,
             momentum=momentum,
             dampening=dampening,
@@ -91,49 +86,6 @@ class SignSGD(Optimizer):
             differentiable=differentiable,
             fused=fused,
         )
-        if nesterov and (momentum <= 0 or dampening != 0):
-            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
-        super().__init__(params, defaults)
-
-        if fused:
-            self._step_supports_amp_scaling = True
-
-            fused_supported_devices = _get_fused_kernels_supported_devices()
-            if not all(p.device.type in fused_supported_devices and torch.is_floating_point(p)
-                       for pg in self.param_groups
-                       for p in pg["params"]):
-                raise RuntimeError(
-                    "`fused=True` requires all the params to be floating point Tensors of "
-                    f"supported devices: {fused_supported_devices}.")
-            if differentiable:
-                raise RuntimeError("`fused` does not support `differentiable`")
-            if foreach:
-                raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
-
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        for group in self.param_groups:
-            group.setdefault("nesterov", False)
-            group.setdefault("maximize", False)
-            group.setdefault("foreach", None)
-            group.setdefault("differentiable", False)
-            group.setdefault("fused", False)
-
-    def _init_group(self, group, params, grads, momentum_buffer_list):
-        has_sparse_grad = False
-
-        for p in group["params"]:
-            if p.grad is not None:
-                params.append(p)
-                grads.append(p.grad)
-                if p.grad.is_sparse:
-                    has_sparse_grad = True
-
-                if group["momentum"] != 0:
-                    state = self.state[p]
-                    momentum_buffer_list.append(state.get("momentum_buffer"))
-
-        return has_sparse_grad
 
     @_use_grad_for_differentiable
     def step(self, closure=None):
@@ -182,7 +134,7 @@ class SignSGD(Optimizer):
 
 
 SignSGD.__doc__ = (
-    r"""Implements stochastic gradient descent (optionally with momentum).
+    r"""Implements signed stochastic gradient descent (optionally with momentum).
 
     .. math::
        \begin{aligned}
@@ -206,9 +158,9 @@ SignSGD.__doc__ = (
             &\hspace{10mm}\textbf{else}                                                   \\[-1.ex]
             &\hspace{15mm} g_t  \leftarrow  \textbf{b}_t                                         \\
             &\hspace{5mm}\textbf{if} \: \textit{maximize}                                          \\
-            &\hspace{10mm}\theta_t \leftarrow \theta_{t-1} + \gamma g_t                   \\[-1.ex]
+            &\hspace{10mm}\theta_t \leftarrow \theta_{t-1} + \gamma \text{sign}(g_t)      \\[-1.ex]
             &\hspace{5mm}\textbf{else}                                                    \\[-1.ex]
-            &\hspace{10mm}\theta_t \leftarrow \theta_{t-1} - \gamma g_t                   \\[-1.ex]
+            &\hspace{10mm}\theta_t \leftarrow \theta_{t-1} - \gamma \text{sign}(g_t)      \\[-1.ex]
             &\rule{110mm}{0.4pt}                                                          \\[-1.ex]
             &\bf{return} \:  \theta_t                                                     \\[-1.ex]
             &\rule{110mm}{0.4pt}                                                          \\[-1.ex]
@@ -233,42 +185,12 @@ SignSGD.__doc__ = (
 
     Example:
         >>> # xdoctest: +SKIP
-        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+        >>> optimizer = torch.optim.SignSGD(model.parameters(), lr=0.1, momentum=0.9)
         >>> optimizer.zero_grad()
         >>> loss_fn(model(input), target).backward()
         >>> optimizer.step()
 
     __ http://www.cs.toronto.edu/%7Ehinton/absps/momentum.pdf
-
-    .. note::
-        The implementation of SGD with Momentum/Nesterov subtly differs from
-        Sutskever et al. and implementations in some other frameworks.
-
-        Considering the specific case of Momentum, the update can be written as
-
-        .. math::
-            \begin{aligned}
-                v_{t+1} & = \mu * v_{t} + g_{t+1}, \\
-                p_{t+1} & = p_{t} - \text{lr} * v_{t+1},
-            \end{aligned}
-
-        where :math:`p`, :math:`g`, :math:`v` and :math:`\mu` denote the
-        parameters, gradient, velocity, and momentum respectively.
-
-        This is in contrast to Sutskever et al. and
-        other frameworks which employ an update of the form
-
-        .. math::
-            \begin{aligned}
-                v_{t+1} & = \mu * v_{t} + \text{lr} * g_{t+1}, \\
-                p_{t+1} & = p_{t} - v_{t+1}.
-            \end{aligned}
-
-        The Nesterov version is analogously modified.
-
-        Moreover, the initial value of the momentum buffer is set to the
-        gradient value at the first step. This is in contrast to some other
-        frameworks that initialize it to all zeros.
 
     """)
 
@@ -292,9 +214,9 @@ def sign_sgd(
     nesterov: bool,
     maximize: bool,
 ):
-    r"""Functional API that performs SGD algorithm computation.
+    r"""Functional API that performs Sign SGD algorithm computation.
 
-    See :class:`~torch.optim.SGD` for details.
+    See :class:`~torch.optim.SignSGD` for details.
     """
 
     # Respect when the user inputs False/True for foreach or fused. We only want to change
