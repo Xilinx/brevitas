@@ -437,6 +437,8 @@ class LearnedRoundOptimizer:
                         len(blocks),
                         block_loss.format_loss_components(*loss_components)))
                 pbar.update(1)
+            # Make sure no updates are received in the progress bar
+            pbar.close()
 
             if self.use_best_model:
                 self._load_round_params(block, optimal_rounding_params)
