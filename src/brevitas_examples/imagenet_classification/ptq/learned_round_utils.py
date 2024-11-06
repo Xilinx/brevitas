@@ -40,14 +40,10 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
+from brevitas_examples.common.learned_round.learned_round_method import StopFwdException
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundModelUtils
 
 config.IGNORE_MISSING_KEYS = True
-
-
-class StopFwdException(Exception):
-    """Used to throw and catch an exception to stop traversing the graph."""
-    pass
 
 
 class LearnedRoundVisionUtils(LearnedRoundModelUtils):
