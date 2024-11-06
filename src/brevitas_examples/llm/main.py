@@ -377,7 +377,7 @@ def main(args):
         learned_round = AutoRound()
         learned_round_optimiser = LearnedRoundOptimizer(
             learned_round=learned_round, learned_round_utils=learned_round_llm_utils)
-        learned_round_optimiser.apply_learned_round(model, calibration_loader)
+        learned_round_optimiser.apply_learned_round(model, calibration_loader, args.gpxq_block_name)
 
         print("Learned round applied.")
 

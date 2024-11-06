@@ -200,27 +200,28 @@ from tqdm import tqdm
 
 from brevitas import config
 from brevitas.optim.sign_sgd import SignSGD
+from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 
 config.IGNORE_MISSING_KEYS = True
 
 
-def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
-                                                          bool]) -> List[nn.Module]:
-    blocks = []
+def get_blocks(model: nn.Module, block_name: Callable[[nn.Module, str], bool]) -> List[nn.Module]:
+    # blocks = []
 
-    # Iterating over .modules() might have been more readable but
-    # with this recursive implementation, once a block is reached,
-    # its subtree of modules is not expanded.
-    def _get_blocks(module: nn.Module):
-        for module_name, module_child in module.named_children():
-            if block_check_fn(module_child, module_name):
-                blocks.append(module_child)
-            else:
-                _get_blocks(module_child)
+    # # Iterating over .modules() might have been more readable but
+    # # with this recursive implementation, once a block is reached,
+    # # its subtree of modules is not expanded.
+    # def _get_blocks(module: nn.Module):
+    #     for module_name, module_child in module.named_children():
+    #         if block_check_fn(module_child, module_name):
+    #             blocks.append(module_child)
+    #         else:
+    #             _get_blocks(module_child)
 
-    # Run recursive function that updates the list blocks
-    _get_blocks(model)
+    # # Run recursive function that updates the list blocks
+    # _get_blocks(model)
+    blocks = recurse_getattr(model, block_name)
     return blocks
 
 
@@ -351,14 +352,14 @@ class LearnedRoundOptimizer:
             self,
             model: nn.Module,
             data_loader: DataLoader,
-            block_check_fn: Callable = None,
+            block_name: Callable = None,
             keep_gpu: bool = True) -> None:
         # Prepare model for optimization
         self.learned_round_utils.init_model_learned_round(model)
 
-        block_check_fn = block_check_fn if block_check_fn else self.learned_round_utils.default_block_check_fn
+        # block_check_fn = block_check_fn if block_check_fn else self.learned_round_utils.default_block_check_fn
         # Retrieve blocks using the appropiate function to check blocks
-        blocks = get_blocks(model, block_check_fn)
+        blocks = get_blocks(model, block_name)
 
         print(f"Total Iterations per block {self.iters}")
         print(f"Number of blocks {len(blocks)}")
