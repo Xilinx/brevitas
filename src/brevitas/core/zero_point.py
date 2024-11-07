@@ -82,7 +82,7 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
-        stats = self.parameter_list_stats()
+        stats = self.parameter_list_stats(x)
         return self.scale_shift_zero_point(-stats, scale, bit_width)
 
 
@@ -266,7 +266,7 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             value = self.scale_shift_zero_point(value, scale, bit_width)
             return value
         else:
-            stats = self.parameter_list_stats()
+            stats = self.parameter_list_stats(x)
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             if self.local_loss_mode:
