@@ -1,3 +1,6 @@
+# Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from hypothesis import given
 import pytest
 import pytest_cases

@@ -23,6 +23,8 @@ from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.learned_round.learned_round_builder import \
+    instantiate_learned_round_optimizer
 from brevitas_examples.common.learned_round.learned_round_method import AutoRound
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.parse_utils import quant_format_validator
@@ -372,13 +374,11 @@ def main(args):
 
     if args.learned_round:
         print("Applying learned round...")
-
-        learned_round_llm_utils = LearnedRoundLLMUtils()
-        learned_round = AutoRound()
-        learned_round_optimiser = LearnedRoundOptimizer(
-            learned_round=learned_round, learned_round_utils=learned_round_llm_utils)
-        learned_round_optimiser.apply_learned_round(model, calibration_loader)
-
+        learned_round_optimizer = instantiate_learned_round_optimizer(
+            utils_type="llm",
+            method_type=args.learned_round,
+        )
+        learned_round_optimizer.apply_learned_round(model, calibration_loader)
         print("Learned round applied.")
 
     if args.act_calibration:

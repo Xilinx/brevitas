@@ -22,6 +22,8 @@ from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.optim.sign_sgd import SignSGD
+from brevitas_examples.common.learned_round.learned_round_builder import \
+    instantiate_learned_round_optimizer
 from brevitas_examples.common.learned_round.learned_round_method import AdaRound
 from brevitas_examples.common.learned_round.learned_round_method import AutoRound
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
@@ -166,9 +168,10 @@ parser.add_argument(
     type=int,
     help='Numbers of iterations for graph equalization (default: 20)')
 parser.add_argument(
-    '--learned-round-type',
-    default='none',
-    choices=['none', 'ada_round', 'auto_round'],
+    '--learned-round',
+    default=None,
+    type=str,
+    choices=[None, 'ada_round', 'auto_round'],
     help='Learned round type (default: none)')
 parser.add_argument(
     '--learned-round-mode',
@@ -347,7 +350,7 @@ def main():
         f"{'gptq_' if args.gptq else ''}"
         f"{'gpfq_' if args.gpfq else ''}"
         f"{'gpxq_act_order_' if args.gpxq_act_order else ''}"
-        f"{'learned_round_type' if args.learned_round_type != "none" else ''}"
+        f"{'learned_round' if args.learned_round is not None else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
         f"{args.bias_bit_width}bias_"
         f"{args.weight_quant_granularity}_"
@@ -369,7 +372,8 @@ def main():
         f"GPTQ: {args.gptq} - "
         f"GPFQ: {args.gpfq} - "
         f"GPxQ Act Order: {args.gpxq_act_order} - "
-        f"Learned Round type: {args.learned_round_type} - "
+        f"GPxQ Accumulator Bit Width: {args.gpxq_accumulator_bit_width} - "
+        f"Learned Round method: {args.learned_round} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
         f"Weight scale factors type: {args.weight_quant_granularity} - "
@@ -423,7 +427,7 @@ def main():
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
     elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
-        if args.learned_round_type != "auto_round":
+        if args.learned_round != "auto_round":
             model = preprocess_for_quantize(
                 model,
                 equalize_iters=args.graph_eq_iterations,
@@ -434,11 +438,7 @@ def main():
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
 
-    device = (
-        torch.device(f"cuda:{args.gpu}")
-        if args.gpu is not None
-        else torch.device("cpu")
-    )
+    device = (torch.device(f"cuda:{args.gpu}") if args.gpu is not None else torch.device("cpu"))
     model = model.to(device=device)
     # If available, use the selected GPU
     if args.gpu is not None:
@@ -505,13 +505,9 @@ def main():
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
-    if args.learned_round_type != "none":
-        # Initialisation of rounding method
-        if args.learned_round_type =="auto_round":
-            learned_round = AutoRound(iters=args.learned_round_iters)
-        elif args.learned_round_type == "ada_round":
-            learned_round = AdaRound(iters=args.learned_round_iters)
-        # Optimizer to tune the
+    if args.learned_round:
+        print("Applying Learned Round:")
+        # Optimizer to tune the rounding
         if args.optimizer == "adam":
             optimizer_class = torch.optim.Adam
         elif args.optimizer == "sign_sgd":
@@ -523,21 +519,26 @@ def main():
             block_check_fn = _is_layer
         elif args.learned_round_mode == "blockwise":
             block_check_fn = _is_resnet_block
-
-        learned_round_vision_utils = LearnedRoundVisionUtils()
-        learned_round_optimiser = LearnedRoundOptimizer(
-            learned_round=learned_round,
-            learned_round_utils=learned_round_vision_utils,
-            optimizer_class=optimizer_class,
-            lr_scheduler_class= None if args.optimizer == "adam" else torch.optim.lr_scheduler.LinearLR,
-            optimizer_lr=args.learned_round_lr,
-            batch_size=args.learned_round_batch_size,
+        # Instantiate optimizer
+        learned_round_optimizer = instantiate_learned_round_optimizer(
+            utils_type="imagenet_classification",
+            method_type=args.learned_round,
             iters=args.learned_round_iters,
-        )
-        learned_round_optimiser.apply_learned_round(
+            optimizer_params={
+                "optimizer_lr":
+                    args.learned_round_lr,
+                "optimizer_class":
+                    optimizer_class,
+                "lr_scheduler_class":
+                    None if args.optimizer == "adam" else torch.optim.lr_scheduler.LinearLR,
+                "batch_size":
+                    args.learned_round_batch_size,
+                "use_best_model":
+                    False if args.learned_round == "ada_round" else True,})
+        learned_round_optimizer.apply_learned_round(
             model,
-            data_loader=calib_loader,
-            block_check_fn=block_check_fn
+            calib_loader,
+            block_check_fn=block_check_fn,
         )
 
     if args.calibrate_bn:

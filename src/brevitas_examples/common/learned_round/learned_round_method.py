@@ -37,12 +37,15 @@ class LearnedRound(ABC):
     def __init__(self, iters: int = 200, **kwargs) -> None:
         self.iters = iters
 
-    def _insert_learned_round_quantizer(self, block: nn.Module) -> None:
+    def _insert_and_return_learned_round_quantizers(self, block: nn.Module) -> List[nn.Module]:
+        round_modules = []
         for module in block.modules():
             if isinstance(module, QuantWBIOL) and len(
                     self._find_learned_round_modules(module)) == 0:
                 self._insert_learned_round_quantizer_to_layer(module)
                 module.weight_quant.init_tensor_quant(preserve_state_dict=True)
+                round_modules.append(module.weight_quant.tensor_quant.int_quant.float_to_int_impl)
+        return round_modules
 
     @abstractmethod
     def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
@@ -69,17 +72,17 @@ class LearnedRound(ABC):
             blocks: List[nn.Module]) -> Generator[nn.Module, LearnedRoundLoss, List[nn.Module]]:
         for block in blocks:
             # Insert learned round quantizers into the appropiate submodules
-            self._insert_learned_round_quantizer(block)
+            learned_round_modules = self._insert_and_return_learned_round_quantizers(block)
             # Freeze block parameters
             for params in block.parameters():
                 params.requires_grad = False
-            # Retrieve learned round modules
-            learned_round_modules = self._find_learned_round_modules(block)
             # Enable gradient tracking in learned round modules
             for round_module in learned_round_modules:
                 for params in round_module.parameters():
                     params.requires_grad = True
             block_loss = self._instantiate_loss(block, learned_round_modules)
+            # Block needs to be in eval mode while the rounding is optimised
+            block.eval()
             yield block, block_loss, learned_round_modules
 
 
@@ -152,6 +155,10 @@ class AdaRound(LearnedRound):
     def __init__(
             self,
             iters: int = 200,
+            *,
+            learned_round_zeta: float = 1.1,
+            learned_round_gamma: float = -0.1,
+            learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
             weight: float = 0.01,
             b_range: Tuple = (20, 2),
             warmup: float = 0.2,
@@ -159,6 +166,10 @@ class AdaRound(LearnedRound):
             **kwargs,
     ) -> None:
         super().__init__(iters, **kwargs)
+        # Quantiser-related configuration
+        self.learned_round_zeta = learned_round_zeta
+        self.learned_round_gamma = learned_round_gamma
+        self.learned_round_impl_type = learned_round_impl_type
         # Loss-related configuration
         self.weight = weight
         self.b_range = b_range
@@ -168,20 +179,16 @@ class AdaRound(LearnedRound):
     def _is_learned_round_module(self, module: nn.Module) -> bool:
         return isinstance(module, LearnedRoundSte)
 
-    def _insert_learned_round_quantizer_to_layer(
-            self,
-            layer: nn.Module,
-            learned_round_zeta: float = 1.1,
-            learned_round_gamma: float = -0.1) -> None:
+    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
         floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
         delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
-        value = -torch.log((learned_round_zeta - learned_round_gamma) /
-                           (delta - learned_round_gamma) - 1)
+        value = -torch.log((self.learned_round_zeta - self.learned_round_gamma) /
+                           (delta - self.learned_round_gamma) - 1)
         layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
             float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-            learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
-            learned_round_gamma=learned_round_gamma,
-            learned_round_zeta=learned_round_zeta,
+            learned_round_impl_type=self.learned_round_impl_type,
+            learned_round_gamma=self.learned_round_gamma,
+            learned_round_zeta=self.learned_round_zeta,
             learned_round_init=value)
 
     def _instantiate_loss(
@@ -208,8 +215,8 @@ class AutoRoundLoss(LearnedRoundLoss):
 
 class AutoRound(LearnedRound):
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, iters: int = 200, **kwargs) -> None:
+        super().__init__(iters, **kwargs)
 
     def _is_learned_round_module(self, module: nn.Module) -> bool:
         return isinstance(module, AutoRoundSte)

@@ -289,6 +289,7 @@ class LearnedRoundOptimizer:
         self,
         learned_round: LearnedRound,
         learned_round_utils: LearnedRoundModelUtils,
+        *,
         optimizer_class: Optimizer = SignSGD,
         lr_scheduler_class: LRScheduler = LinearLR,
         optimizer_lr: float = 5e-3,
@@ -369,9 +370,6 @@ class LearnedRoundOptimizer:
         # Loop across blocks to optimise rounding within each
         for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
                 self.learned_round.learned_round_iterator(blocks)):
-            # Block needs to be in eval mode while the rounding is optimised
-            block.eval()
-
             # Initialise optimiser and LR scheduler
             optimizer = self.optimizer_class(
                 itertools.chain(
@@ -401,6 +399,9 @@ class LearnedRoundOptimizer:
                 data_loader,
                 keep_gpu=keep_gpu,
             )
+            # Enable training model in quantizer modules
+            for learned_round_module in block_learned_round_modules:
+                learned_round_module.train()
 
             pbar = tqdm(range(self.iters), desc='')
             for i in pbar:
@@ -439,6 +440,10 @@ class LearnedRoundOptimizer:
                 pbar.update(1)
             # Make sure no updates are received in the progress bar
             pbar.close()
+
+            # Set back quantizers to eval mode
+            for learned_round_module in block_learned_round_modules:
+                learned_round_module.eval()
 
             if self.use_best_model:
                 self._load_round_params(block, optimal_rounding_params)

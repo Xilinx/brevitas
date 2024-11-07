@@ -19,9 +19,10 @@ from brevitas_examples.common.learned_round.learned_round_optimizer import Learn
 
 class LearnedRoundLLMUtils(LearnedRoundModelUtils):
 
-    def __init__(self) -> None:
+    def __init__(self, loss_scaling_factor: float = 1000.) -> None:
         super(LearnedRoundLLMUtils, self).__init__()
         self.llm_cache_state = None
+        self.loss_scaling_factor = loss_scaling_factor
 
     def default_block_check_fn(self, module: nn.Module, module_name: str) -> bool:
         return isinstance(module, LlamaDecoderLayer) or isinstance(module, OPTDecoderLayer)
@@ -210,4 +211,4 @@ class LearnedRoundLLMUtils(LearnedRoundModelUtils):
         self,
         loss: torch.Tensor,
     ) -> torch.Tensor:
-        return loss * 1000
+        return loss * self.loss_scaling_factor
