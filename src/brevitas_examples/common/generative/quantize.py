@@ -181,7 +181,8 @@ INPUT_QUANT_MAP = {
         'dynamic': {
             'float_scale': {
                 'stats': {
-                    'per_group': Fp8e4m3DynamicActPerGroupFloat}}},
+                    'per_group': {
+                        'sym': Fp8e4m3DynamicActPerGroupFloat}}}},
         'no_scale': {
             'sym': Fp8e4m3Act,}},
     'float_ocp': {
