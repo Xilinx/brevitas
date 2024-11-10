@@ -200,6 +200,7 @@ from tqdm import tqdm
 
 from brevitas import config
 from brevitas.optim.sign_sgd import SignSGD
+from brevitas.proxy import WeightQuantProxyFromInjectorBase
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 
@@ -291,10 +292,12 @@ class LearnedRoundOptimizer:
         learned_round: LearnedRound,
         learned_round_utils: LearnedRoundModelUtils,
         optimizer_class: Optimizer = SignSGD,
+        scale_optimizer_class: Optimizer = torch.optim.SGD,
         lr_scheduler_class: LRScheduler = LinearLR,
         optimizer_lr: float = 5e-3,
         batch_size: float = 8,
-        iters: int = 200,
+        learn_scale: bool = False,
+        iters: int = 600,
         use_best_model: bool = True,
         use_amp: bool = True,
         amp_dtype: torch.dtype = torch.float16,
@@ -319,6 +322,8 @@ class LearnedRoundOptimizer:
         self.use_amp = use_amp
         self.amp_dtype = amp_dtype
         self.optimizer_kwargs = optimizer_kwargs
+        self.learned_scale = learn_scale
+        self.scale_optimizer_class = scale_optimizer_class
 
         self.lr_scheduler_kwargs = lr_scheduler_kwargs
         self.lr_scheduler_kwargs["total_iters"] = self.iters
@@ -342,11 +347,14 @@ class LearnedRoundOptimizer:
         scaled_loss.backward()
         return scaled_loss
 
-    def _step(self, optimizer: Optimizer, lr_scheduler: LRScheduler) -> None:
-        optimizer.step()
-        optimizer.zero_grad()
-        if lr_scheduler:
-            lr_scheduler.step()
+    def _step(self, optimizer: List[Optimizer], lr_scheduler: List[LRScheduler]) -> None:
+        for opt in optimizer:
+            if opt:
+                opt.step()
+                opt.zero_grad()
+        for sched in lr_scheduler:
+            if sched:
+                sched.step()
 
     def apply_learned_round(
             self,
@@ -372,13 +380,36 @@ class LearnedRoundOptimizer:
                 self.learned_round.learned_round_iterator(blocks)):
             # Block needs to be in eval mode while the rounding is optimised
             block.eval()
+            params = [
+                list(learned_round_module.parameters())
+                for learned_round_module in block_learned_round_modules]
+
+            if self.learn_scale:
+                p = []
+                for m in block.modules():
+                    if isinstance(m, WeightQuantProxyFromInjectorBase):
+                        for n, v in m.named_parameters():
+                            if n.endswith('scaling_impl.value'):
+                                v.requires_grad = True
+                                p.append(v)
+
+                optimizer_scale = self.scale_optimizer_class(
+                    p,
+                    lr=self.optimizer_lr,
+                    momentum=0.9,
+                    **self.optimizer_kwargs,
+                )
+                lr_scheduler_scale = (
+                    self.lr_scheduler_class(
+                        optimizer_scale, start_factor=1, end_factor=0, total_iters=600)
+                    if self.lr_scheduler_class else None)
+            else:
+                optimizer_scale = None
+                lr_scheduler_scale = None
 
             # Initialise optimiser and LR scheduler
             optimizer = self.optimizer_class(
-                itertools.chain(
-                    *[
-                        learned_round_module.parameters()
-                        for learned_round_module in block_learned_round_modules]),
+                itertools.chain.from_iterable(params),
                 lr=self.optimizer_lr,
                 **self.optimizer_kwargs,
             )
@@ -429,7 +460,13 @@ class LearnedRoundOptimizer:
 
                 # Scale loss and perform gradient step
                 self._scale_loss_and_backward(loss)
-                self._step(optimizer, lr_scheduler)
+                self._step([optimizer, optimizer_scale], [lr_scheduler, lr_scheduler_scale])
+                with torch.no_grad():
+                    for pp in params:
+                        pp[0].data = torch.clamp(
+                            pp[0].data,
+                            torch.tensor(-0.5).type_as(pp[0]),
+                            torch.tensor(0.5).type_as(pp[0]))
 
                 # Update progress bar
                 pbar.set_description(
@@ -453,3 +490,6 @@ class LearnedRoundOptimizer:
 
         # Finish optimisation
         self.learned_round_utils.finish_model_learned_round(model)
+        for pp in params:
+            print(torch.sum(torch.abs(pp[0]) > 0.5))
+        # print(params)

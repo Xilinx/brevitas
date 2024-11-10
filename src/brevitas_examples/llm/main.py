@@ -294,7 +294,7 @@ def main(args):
     if args.act_equalization is not None:
         offload_model(model)
         print("Apply act equalization (SmoothQuant)...")
-        apply_act_equalization(model, args.act_equalization, calibration_loader)
+        apply_act_equalization(model, args.act_equalization, calibration_loader, alpha=0.8)
         print("Act equalization applied.")
         remove_hooks(model)
 
@@ -376,7 +376,10 @@ def main(args):
         learned_round_llm_utils = LearnedRoundLLMUtils()
         learned_round = AutoRound()
         learned_round_optimiser = LearnedRoundOptimizer(
-            learned_round=learned_round, learned_round_utils=learned_round_llm_utils)
+            learned_round=learned_round,
+            learned_round_utils=learned_round_llm_utils,
+            learn_scale=args.learned_round_scale,
+            iters=args.learned_round_iters)
         learned_round_optimiser.apply_learned_round(model, calibration_loader, args.gpxq_block_name)
 
         print("Learned round applied.")
@@ -566,10 +569,19 @@ def parse_args(args):
         default=64,
         help='Group size for per_group input quantization. Default: 64.')
     parser.add_argument(
+        '--learned-round-iters',
+        type=int,
+        default=200,
+        help='Number of iterations for learned round. Default: 200.')
+    parser.add_argument(
         '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
     parser.add_argument(
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
+    parser.add_argument(
+        '--learned-round-scale',
+        action='store_true',
+        help='Learned scale factor together with round.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
         '--gpxq-act-order', action='store_true', help='Apply GPxQ activation ordering.')
