@@ -322,7 +322,7 @@ class LearnedRoundOptimizer:
         self.use_amp = use_amp
         self.amp_dtype = amp_dtype
         self.optimizer_kwargs = optimizer_kwargs
-        self.learned_scale = learn_scale
+        self.learn_scale = learn_scale
         self.scale_optimizer_class = scale_optimizer_class
 
         self.lr_scheduler_kwargs = lr_scheduler_kwargs
