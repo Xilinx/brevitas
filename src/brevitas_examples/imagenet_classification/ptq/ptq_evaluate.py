@@ -21,16 +21,7 @@ from brevitas.export import export_torch_qcdq
 from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
-from brevitas.optim.sign_sgd import SignSGD
-from brevitas_examples.common.learned_round.learned_round_builder import \
-    instantiate_learned_round_optimizer
-from brevitas_examples.common.learned_round.learned_round_method import AdaRound
-from brevitas_examples.common.learned_round.learned_round_method import AutoRound
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
-    LearnedRoundVisionUtils
-from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_layer
-from brevitas_examples.imagenet_classification.ptq.ptq_common import _is_resnet_block
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import apply_learned_round
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
@@ -507,38 +498,15 @@ def main():
 
     if args.learned_round:
         print("Applying Learned Round:")
-        # Optimizer to tune the rounding
-        if args.optimizer == "adam":
-            optimizer_class = torch.optim.Adam
-        elif args.optimizer == "sign_sgd":
-            optimizer_class = SignSGD
-        else:
-            raise ValueError(f"{args.optimizer} is not a valid optimizer.")
-        # Granularity of the rounding blocks
-        if args.learned_round_mode == "layerwise":
-            block_check_fn = _is_layer
-        elif args.learned_round_mode == "blockwise":
-            block_check_fn = _is_resnet_block
-        # Instantiate optimizer
-        learned_round_optimizer = instantiate_learned_round_optimizer(
-            utils_type="imagenet_classification",
-            method_type=args.learned_round,
+        apply_learned_round(
+            model=quant_model,
+            calibration_loader=calib_loader,
+            learned_round_name=args.learned_round,
+            optimizer=args.optimizer,
+            learned_round_mode=args.learned_round_mode,
             iters=args.learned_round_iters,
-            optimizer_params={
-                "optimizer_lr":
-                    args.learned_round_lr,
-                "optimizer_class":
-                    optimizer_class,
-                "lr_scheduler_class":
-                    None if args.optimizer == "adam" else torch.optim.lr_scheduler.LinearLR,
-                "batch_size":
-                    args.learned_round_batch_size,
-                "use_best_model":
-                    False if args.learned_round == "ada_round" else True,})
-        learned_round_optimizer.apply_learned_round(
-            model,
-            calib_loader,
-            block_check_fn=block_check_fn,
+            optimizer_lr=args.learned_round_lr,
+            batch_size=args.learned_round_batch_size,
         )
 
     if args.calibrate_bn:

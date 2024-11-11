@@ -186,9 +186,10 @@ from abc import ABC
 from abc import abstractmethod
 import copy
 import itertools
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import warnings
 
+from accelerate.utils.operations import send_to_device
 import torch
 from torch import autocast
 from torch import nn
@@ -199,6 +200,9 @@ from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from brevitas import config
+from brevitas.graph.calibrate import disable_return_quant_tensor
+from brevitas.graph.calibrate import DisableEnableQuantization
+from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 
@@ -224,63 +228,68 @@ def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
     return blocks
 
 
-class LearnedRoundModelUtils(ABC):
+class StopFwdException(Exception):
+    """Used to throw and catch an exception to stop traversing the graph."""
+    pass
 
-    def __init__(self) -> None:
+
+class Cache(ABC):
+
+    @abstractmethod
+    def __len__(self) -> int:
         pass
 
     @abstractmethod
-    def default_block_check_fn(self, module: nn.Module, module_name: str) -> bool:
+    def store_inputs(self, args: Any, kwargs: Any) -> None:
         pass
 
     @abstractmethod
-    def init_model_learned_round(self, model: nn.Module) -> None:
+    def store_output(self, output: Any) -> None:
         pass
 
     @abstractmethod
-    def finish_model_learned_round(self, model: nn.Module) -> None:
+    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
         pass
 
     @abstractmethod
-    def init_cache(self) -> Any:
+    def initialize_cache(self) -> None:
         pass
 
     @abstractmethod
-    def populate_cache(
+    def clear_cache(self) -> None:
+        pass
+
+    @abstractmethod
+    def reset_cache(self) -> None:
+        pass
+
+
+class DataSaverHook:
+
+    def __init__(
         self,
-        cache: Any,
-        model: nn.Module,
-        block: nn.Module,
-        data_loader: DataLoader,
+        cache: Cache,
+        store_inputs: bool = True,
+        store_output: bool = True,
         keep_gpu: bool = True,
-        **kwargs,
-    ) -> int:
-        pass
+    ) -> None:
+        self.cache = cache
+        self.store_inputs = store_inputs
+        self.store_output = store_output
+        self.keep_gpu = keep_gpu
 
-    @abstractmethod
-    def sample_cache(
-        self,
-        block: nn.Module,
-        cache: Any,
-        indices: torch.Tensor,
-        **kwargs,
-    ) -> Tuple[Any, torch.Tensor]:
-        pass
+    def __call__(self, module, args, kwargs, output) -> None:
+        if self.store_inputs:
+            if not self.keep_gpu:
+                args = send_to_device(args, 'cpu')
+                kwargs = send_to_device(kwargs, 'cpu')
+            self.cache.store_inputs(args, kwargs)
+        if self.store_output:
+            if not self.keep_gpu:
+                output = send_to_device(output, 'cpu')
+            self.cache.store_output(output)
 
-    @abstractmethod
-    def run_forward(
-        self,
-        block: nn.Module,
-        inputs: Any,
-    ) -> torch.Tensor:
-        pass
-
-    @abstractmethod
-    def loss_scaler(
-        self,
-        loss: torch.Tensor,
-    ) -> torch.Tensor:
-        pass
+        raise StopFwdException
 
 
 class LearnedRoundOptimizer:
@@ -288,7 +297,6 @@ class LearnedRoundOptimizer:
     def __init__(
         self,
         learned_round: LearnedRound,
-        learned_round_utils: LearnedRoundModelUtils,
         *,
         optimizer_class: Optimizer = SignSGD,
         lr_scheduler_class: LRScheduler = LinearLR,
@@ -298,7 +306,8 @@ class LearnedRoundOptimizer:
         use_best_model: bool = True,
         use_amp: bool = True,
         amp_dtype: torch.dtype = torch.float16,
-        optimizer_kwargs: Dict = {},
+        loss_scaling_factor: float = 1000.,
+        optimizer_kwargs: Dict = None,
         lr_scheduler_kwargs: Dict = {
             "start_factor": 1.0,
             "end_factor": 0.0,
@@ -309,7 +318,6 @@ class LearnedRoundOptimizer:
                 "The number of iterations passed to the learned round optimiser is different "
                 "to that of the learned round method, which might lead to unexpected behaviour.")
         self.learned_round = learned_round
-        self.learned_round_utils = learned_round_utils
         self.optimizer_class = optimizer_class
         self.lr_scheduler_class = lr_scheduler_class
         self.optimizer_lr = optimizer_lr
@@ -318,6 +326,7 @@ class LearnedRoundOptimizer:
         self.use_best_model = use_best_model
         self.use_amp = use_amp
         self.amp_dtype = amp_dtype
+        self.loss_scaling_factor = loss_scaling_factor
         self.optimizer_kwargs = optimizer_kwargs
 
         self.lr_scheduler_kwargs = lr_scheduler_kwargs
@@ -338,7 +347,7 @@ class LearnedRoundOptimizer:
         return params
 
     def _scale_loss_and_backward(self, loss: torch.Tensor) -> torch.Tensor:
-        scaled_loss = self.learned_round_utils.loss_scaler(loss)
+        scaled_loss = loss * self.loss_scaling_factor
         scaled_loss.backward()
         return scaled_loss
 
@@ -348,16 +357,88 @@ class LearnedRoundOptimizer:
         if lr_scheduler:
             lr_scheduler.step()
 
+    def _save_inputs_output(
+            self,
+            model: nn.Module,
+            model_forward: Callable,
+            module: nn.Module,
+            dataloader: DataLoader,
+            cache: Cache,
+            store_inputs: bool = True,
+            store_output: bool = False,
+            keep_gpu: bool = True,
+            disable_quant: bool = False) -> None:
+        if disable_quant:
+            disable_quant_class = DisableEnableQuantization()
+            disable_quant_class.disable_act_quantization(model, False)
+            disable_quant_class.disable_param_quantization(model, False)
+            return_quant_tensor_state = disable_return_quant_tensor(model)
+
+        data_saver = DataSaverHook(
+            cache, store_inputs=store_inputs, store_output=store_output, keep_gpu=keep_gpu)
+        handle = module.register_forward_hook(data_saver, with_kwargs=True)
+        with torch.no_grad():
+            for inps in dataloader:
+                try:
+                    model_forward(model, inps)
+                except StopFwdException:
+                    pass
+        handle.remove()
+        if disable_quant:
+            disable_quant_class.enable_act_quantization(model, False)
+            disable_quant_class.enable_param_quantization(model, False)
+            restore_return_quant_tensor(model, return_quant_tensor_state)
+
+    def _populate_cache(
+        self,
+        cache: Cache,
+        model: nn.Module,
+        model_forward: nn.Module,
+        block: nn.Module,
+        data_loader: DataLoader,
+        keep_gpu: bool = True,
+        capture_quant_input: bool = True,
+        capture_quant_output: bool = False,
+    ) -> None:
+        # Populate the cache with new inputs and outputs
+        self._save_inputs_output(
+            model,
+            model_forward,
+            block,
+            data_loader,
+            cache,
+            store_inputs=True,
+            store_output=capture_quant_input == capture_quant_output,
+            keep_gpu=keep_gpu,
+            disable_quant=not capture_quant_input,
+        )
+        if capture_quant_input != capture_quant_output:
+            self._save_inputs_output(
+                model,
+                model_forward,
+                block,
+                data_loader,
+                cache,
+                store_inputs=False,
+                store_output=True,
+                keep_gpu=keep_gpu,
+                disable_quant=not capture_quant_output,
+            )
+
     def apply_learned_round(
             self,
             model: nn.Module,
+            model_forward: Callable,
+            block_forward: Callable,
             data_loader: DataLoader,
-            block_check_fn: Callable = None,
+            cache: Cache,
+            block_check_fn: Callable,
+            model_prepare_fn: Optional[Callable] = None,
+            model_finish_fn: Optional[Callable] = None,
             keep_gpu: bool = True) -> None:
-        # Prepare model for optimization
-        self.learned_round_utils.init_model_learned_round(model)
 
-        block_check_fn = block_check_fn if block_check_fn else self.learned_round_utils.default_block_check_fn
+        model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
+
         # Retrieve blocks using the appropiate function to check blocks
         blocks = get_blocks(model, block_check_fn)
 
@@ -365,7 +446,7 @@ class LearnedRoundOptimizer:
         print(f"Number of blocks {len(blocks)}")
 
         # Initialise cache to store partial inputs and outputs for each block
-        cache = self.learned_round_utils.init_cache()
+        cache.initialize_cache()
 
         # Loop across blocks to optimise rounding within each
         for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
@@ -390,15 +471,21 @@ class LearnedRoundOptimizer:
 
             optimal_rounding_params = {}
 
+            cache.clear_cache()
             torch.cuda.empty_cache()
             # Populate cache for the given block
-            n_samples = self.learned_round_utils.populate_cache(
+            self._populate_cache(
                 cache,
                 model,
+                model_forward,
                 block,
                 data_loader,
                 keep_gpu=keep_gpu,
+                capture_quant_input=True,
+                capture_quant_output=False,
             )
+            # Retrieve number of samples
+            n_samples = len(cache)
             # Enable training model in quantizer modules
             for learned_round_module in block_learned_round_modules:
                 learned_round_module.train()
@@ -407,10 +494,10 @@ class LearnedRoundOptimizer:
             for i in pbar:
                 # Sample mini-batch from cache
                 idxs = torch.randperm(n_samples)[:self.batch_size]
-                inputs, fp_outs = self.learned_round_utils.sample_cache(block, cache, idxs)
+                inputs, fp_outs = cache.sample_batch(idxs)
 
                 # Run block forward to obtain quant outputs
-                quant_outs = self.learned_round_utils.run_forward(block, inputs)
+                quant_outs = block_forward(block, inputs)
 
                 if self.use_amp:
                     with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
@@ -437,9 +524,10 @@ class LearnedRoundOptimizer:
                         block_idx + 1,
                         len(blocks),
                         block_loss.format_loss_components(*loss_components)))
-                pbar.update(1)
             # Make sure no updates are received in the progress bar
             pbar.close()
+            # Reset cache for other blocks
+            cache.reset_cache()
 
             # Set back quantizers to eval mode
             for learned_round_module in block_learned_round_modules:
@@ -456,6 +544,6 @@ class LearnedRoundOptimizer:
                 f"Quantized block {block_idx+1}/{len(blocks)}, "
                 f"initial loss: {init_loss:.6f}, best loss: {best_loss:.6f}, at iteration {last_best_iter}."
             )
-
         # Finish optimisation
-        self.learned_round_utils.finish_model_learned_round(model)
+        if model_finish_fn is not None:
+            model_finish_fn(model, model_dict)

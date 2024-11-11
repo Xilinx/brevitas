@@ -23,10 +23,6 @@ from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.learned_round.learned_round_builder import \
-    instantiate_learned_round_optimizer
-from brevitas_examples.common.learned_round.learned_round_method import AutoRound
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
@@ -38,7 +34,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
-from brevitas_examples.llm.llm_quant.learned_round_utils import LearnedRoundLLMUtils
+from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
@@ -374,11 +370,7 @@ def main(args):
 
     if args.learned_round:
         print("Applying learned round...")
-        learned_round_optimizer = instantiate_learned_round_optimizer(
-            utils_type="llm",
-            method_type=args.learned_round,
-        )
-        learned_round_optimizer.apply_learned_round(model, calibration_loader)
+        apply_learned_round(model, calibration_loader)
         print("Learned round applied.")
 
     if args.act_calibration:

@@ -27,7 +27,8 @@
 # SOFTWARE.
 
 import re
-from typing import Any, Tuple
+from typing import Any, Callable, Tuple, Union
+import warnings
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -35,313 +36,149 @@ from torch import nn
 from torch.utils.data.dataloader import DataLoader
 
 from brevitas import config
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
-from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_method import StopFwdException
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundModelUtils
+from brevitas_examples.common.learned_round.learned_round_method import AdaRound
+from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 
 config.IGNORE_MISSING_KEYS = True
 
 
-class LearnedRoundVisionUtils(LearnedRoundModelUtils):
+class CacheCNN(dict):
 
     def __init__(self) -> None:
-        pass
-
-    def init_model_learned_round(self, model: nn.Module) -> None:
-        pass
-
-    def finish_model_learned_round(self, model: nn.Module) -> None:
-        pass
-
-    def default_block_check_fn(self, module: nn.Module, module_name: str) -> bool:
-        return (re.search(r"layer\d+", module_name) is not None)
-
-    class _DataSaverHook:
-
-        def __init__(self, store_output: False):
-            self.store_output = store_output
-            self.input_store = None
-            self.output_store = None
-
-        def __call__(self, module, input_batch, output_batch):
-            input_batch = input_batch[0]
-            if isinstance(input_batch, QuantTensor):
-                input_batch = input_batch.value
-
-            if hasattr(input_batch, 'names') and 'N' in input_batch.names:
-                batch_dim = input_batch.names.index('N')
-
-                input_batch.rename_(None)
-                input_batch = input_batch.transpose(0, batch_dim)
-                if self.store_output:
-                    output_batch.rename_(None)
-                    output_batch = output_batch.transpose(0, batch_dim)
-
-            if self.store_output:
-                self.output_store = output_batch
-            self.input_store = input_batch
-            raise StopFwdException
-
-    def _save_inp_out_data(
-            self,
-            model: nn.Module,
-            module: nn.Module,
-            learned_round_modules: List[nn.Module],
-            weight: float = 0.01,
-            max_count: int = 1000,
-            b_range: Tuple = (20, 2),
-            warmup: float = 0.2,
-            decay_start: float = 0.0) -> None:
         super().__init__()
-        # AdaRound operates in a layer-wise manner, so integrity needs to be checked
-        assert isinstance(module, QuantWBIOL), "AdaRound can only accept a single QuantWBIOL layer."
-        assert len(learned_round_modules) == 1, "AdaRound can only accept a single learned round module."
+        self.batch_dim = 0
 
-        self.weight = weight
-        self.module = module
-        self.loss_start = max_count * warmup
-        self.temp_decay = LinearTempDecay(
-            max_count,
-            start_b=b_range[0],
-            end_b=b_range[1],
-            rel_start_decay=warmup + (1.0 - warmup) * decay_start)
-        self.iter = 0
-        self.learned_round_module = learned_round_modules[0]
+    def store_inputs(self, args, kwargs) -> None:
+        input_batch = args[0]
+        if isinstance(input_batch, QuantTensor):
+            input_batch = input_batch.value
 
-    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
-        self.iter += 1
+        if hasattr(input_batch, 'names') and 'N' in input_batch.names:
+            self.batch_dim = input_batch.names.index('N')
+            input_batch.rename_(None)
+            input_batch = input_batch.transpose(0, self.batch_dim)
 
-        rec_loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
+        self["inputs"].append(input_batch)
 
-        if self.iter < self.loss_start:
-            b = self.temp_decay(self.iter)
-            round_loss = 0
-        else:  # 1 - |(h-0.5)*2|**b
-            b = self.temp_decay(self.iter)
-            round_vals = self.learned_round_module.p_forward()
-            round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
+    def store_output(self, output) -> None:
+        if self.batch_dim is not None:
+            output.rename_(None)
+            output = output.transpose(0, self.batch_dim)
 
-        total_loss = rec_loss + round_loss
-        return total_loss, (total_loss, rec_loss, round_loss, b)
+        self["output"].append(output)
 
-    def format_loss_components(self, loss: float, rec_loss: float, round_loss: float, b) -> str:
-        return "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
-            loss, rec_loss, round_loss, b)
+    def initialize_cache(self) -> None:
+        self["inputs"] = []
+        self["output"] = []
 
+    def clear_cache(self) -> None:
+        del self["inputs"]
+        del self["output"]
+        self["inputs"] = []
+        self["output"] = []
 
-class AutoRoundLoss(LearnedRoundLoss):
+    def reset_cache(self) -> None:
+        del self["inputs"]
+        del self["output"]
+        self["inputs"] = []
+        self["output"] = []
 
-    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
-        loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
-        return loss, (loss,)
+    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
+        if isinstance(self["inputs"], list):
+            self["inputs"] = torch.cat(self["inputs"], dim=self.batch_dim)
+        if isinstance(self["output"], list):
+            self["output"] = torch.cat(self["output"], dim=self.batch_dim)
 
-    def format_loss_components(self, loss: float) -> str:
-        return "loss = {:.4f}".format(loss)
+        return self["inputs"][indices], self["output"][indices]
 
-
-class LearnedRound(ABC):
-
-    def __init__(self, iters: int = 100) -> None:
-        self.iters = iters
-
-    def _insert_learned_round_quantizer(self, block: nn.Module) -> None:
-        for module in block.modules():
-            if isinstance(module, QuantWBIOL) and len(
-                    self._find_learned_round_modules(module)) == 0:
-                self._insert_learned_round_quantizer_to_layer(module)
-                module.weight_quant.init_tensor_quant(preserve_state_dict=True)
-
-    @abstractmethod
-    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
-        pass
-
-    @abstractmethod
-    def _is_learned_round_module(self, module: nn.Module) -> bool:
-        pass
-
-    @abstractmethod
-    def _instantiate_loss(
-            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> LearnedRoundLoss:
-        pass
-
-    def _find_learned_round_modules(self, block: nn.Module) -> List[nn.Module]:
-        round_modules = []
-        for module in block.modules():
-            if self._is_learned_round_module(module):
-                round_modules.append(module)
-        return round_modules
-
-    def learned_round_iterator(
-            self,
-            blocks: List[nn.Module]) -> Generator[nn.Module, LearnedRoundLoss, List[nn.Module]]:
-        for block in blocks:
-            # Insert learned round quantizers into the appropiate submodules
-            self._insert_learned_round_quantizer(block)
-            # Freeze block parameters
-            for params in block.parameters():
-                params.requires_grad = False
-            # Retrieve learned round modules
-            learned_round_modules = self._find_learned_round_modules(block)
-            # Enable gradient tracking in learned round modules
-            for round_module in learned_round_modules:
-                for params in round_module.parameters():
-                    params.requires_grad = True
-            block_loss = self._instantiate_loss(block, learned_round_modules)
-            yield block, block_loss, learned_round_modules
-            block.eval()
+    def __len__(self):
+        return (
+            len(self["inputs"])
+            if isinstance(self["inputs"], list) else self["inputs"].shape[self.batch_dim])
 
 
-class AdaRound(LearnedRound):
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-
-    def _is_learned_round_module(self, module: nn.Module) -> bool:
-        return isinstance(module, LearnedRoundSte)
-
-    def _insert_learned_round_quantizer_to_layer(
-            self,
-            layer: nn.Module,
-            learned_round_zeta: float = 1.1,
-            learned_round_gamma: float = -0.1) -> None:
-        floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
-        delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
-        value = -torch.log((learned_round_zeta - learned_round_gamma) /
-                           (delta - learned_round_gamma) - 1)
-        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-            learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
-            learned_round_gamma=learned_round_gamma,
-            learned_round_zeta=learned_round_zeta,
-            learned_round_init=value)
-
-    def _instantiate_loss(
-            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> AdaRoundLoss:
-        return AdaRoundLoss(block, learned_round_modules, max_count=self.iters)
+def cnn_forward(model: nn.Module, inputs: Any) -> None:
+    device = next(model.parameters()).device
+    img, _ = inputs
+    img = send_to_device(img, device)
+    model(img)
 
 
-class AutoRound(LearnedRound):
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-
-    def _is_learned_round_module(self, module: nn.Module) -> bool:
-        return isinstance(module, AutoRoundSte)
-
-    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
-        value = torch.zeros_like(layer.weight.data)
-        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.AUTO_ROUND,
-            learned_round_init=value,
-        )
-
-    def _instantiate_loss(
-            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> AutoRoundLoss:
-        return AutoRoundLoss()
+def cnn_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
+    device = next(block.parameters()).device
+    inputs = send_to_device(inputs, device)
+    return block(inputs)
 
 
-    def _save_inp_out_data(
-            self,
-            model: nn.Module,
-            module: nn.Module,
-            dataloader: DataLoader,
-            store_inp: bool = False,
-            store_out: bool = False,
-            keep_gpu: bool = True,
-            disable_quant: bool = False):
-        if disable_quant:
-            disable_quant_class = DisableEnableQuantization()
-            disable_quant_class.disable_act_quantization(model, False)
-            disable_quant_class.disable_param_quantization(model, False)
-            return_quant_tensor_state = disable_return_quant_tensor(model)
+def is_resnet_block(module: nn.Module, module_name: str) -> bool:
+    return (re.search(r"layer\d+", module_name) is not None)
 
-        device = next(model.parameters()).device
-        data_saver = LearnedRoundVisionUtils._DataSaverHook(store_output=store_out)
-        handle = module.register_forward_hook(data_saver)
-        cached = [[], []]
-        with torch.no_grad():
-            for img, t in dataloader:
-                try:
-                    _ = model(img.to(device))
-                except StopFwdException:
-                    pass
-                if store_inp:
-                    if keep_gpu:
-                        cached[0].append(data_saver.input_store.detach())
-                    else:
-                        cached[0].append(data_saver.input_store.detach().cpu())
-                if store_out:
-                    if keep_gpu:
-                        cached[1].append(data_saver.output_store.detach())
-                    else:
-                        cached[1].append(data_saver.output_store.detach().cpu())
-        if store_inp:
-            cached[0] = torch.cat([x for x in cached[0]], dim=0)
-        if store_out:
-            cached[1] = torch.cat([x for x in cached[1]], dim=0)
-        handle.remove()
-        if disable_quant:
-            disable_quant_class.enable_act_quantization(model, False)
-            disable_quant_class.enable_param_quantization(model, False)
-            restore_return_quant_tensor(model, return_quant_tensor_state)
-        return cached
 
-    def init_cache(self) -> Any:
-        return [], []
+def is_layer(module: nn.Module, module_name: str) -> bool:
+    return isinstance(module, QuantWBIOL)
 
-    def populate_cache(
-        self,
-        cache: Any,
-        model: nn.Module,
-        block: nn.Module,
-        data_loader: DataLoader,
-        keep_gpu: bool = True,
-        **kwargs,
-    ) -> int:
-        cache_input, cache_output = cache
-        # Clear caches
-        cache_input.clear()
-        cache_output.clear()
 
-        _, all_fp_out = self._save_inp_out_data(model, block, data_loader, store_inp=False, store_out=True, keep_gpu=keep_gpu, disable_quant=True)
-        all_quant_inp, _ = self._save_inp_out_data(model, block, data_loader, store_inp=True, store_out=True, keep_gpu=keep_gpu, disable_quant=False)
+def apply_learned_round(
+    model: nn.Module,
+    calibration_loader: DataLoader,
+    learned_round_name: str = "ada_round",
+    optimizer: str = "adam",
+    learned_round_mode: str = "layerwise",
+    iters: int = 1000,
+    optimizer_lr: float = 1e-3,
+    batch_size: int = 1,
+) -> None:
+    optimizer_classes = {"adam": torch.optim.Adam, "sign_sgd": SignSGD}
+    if optimizer not in optimizer_classes:
+        raise ValueError(f"{optimizer} is not a valid optimizer.")
+    optimizer_class = optimizer_classes[optimizer]
 
-        # Add elements to the caches
-        cache_input.append(all_quant_inp)
-        cache_output.append(all_fp_out)
+    block_check_fns = {"layerwise": is_layer, "blockwise": is_resnet_block}
+    if learned_round_mode not in block_check_fns:
+        learned_round_mode = "layerwise"
+        warnings.warn(
+            f"{learned_round_mode} is not a valid learned round mode. Defaulting to layerwise.")
+    block_check_fn = block_check_fns[learned_round_mode]
 
-        # Number of samples
-        return all_fp_out.shape[0]
+    learned_round_methods = {"ada_round": AdaRound, "auto_round": AutoRound}
+    if learned_round_name not in learned_round_methods:
+        raise ValueError(f"Learned round method {learned_round_name} is not available.")
+    learned_round = learned_round_methods[learned_round_name](iters=iters)
 
-    def sample_cache(
-        self,
-        block: nn.Module,
-        cache: Any,
-        indices: torch.Tensor,
-        **kwargs,
-    ) -> Tuple[Any, torch.Tensor]:
-        cache_input, cache_output = cache
-        device = next(block.parameters()).device
-
-        input, output = cache_input[0][indices], cache_output[0][indices]
-        input = send_to_device(input, device)
-        output = send_to_device(output, device)
-
-        return input, output
-
-    def run_forward(
-        self,
-        block: nn.Module,
-        inputs: Any,
-    ) -> torch.Tensor:
-        return block(inputs)
-
-    def loss_scaler(
-        self,
-        loss: torch.Tensor,
-    ) -> torch.Tensor:
-        return loss
+    lr_scheduler_class = None if optimizer == "adam" else torch.optim.lr_scheduler.LinearLR
+    use_best_model = False if learned_round_name == "ada_round" else True
+    use_amp = True
+    amp_dtype = torch.float16
+    loss_scaling_factor = 1.
+    optimizer_kwargs = None
+    lr_scheduler_kwargs = {
+        "start_factor": 1.0,
+        "end_factor": 0.0,
+        "verbose": False,}
+    learned_round_optimizer = LearnedRoundOptimizer(
+        learned_round=learned_round,
+        optimizer_class=optimizer_class,
+        lr_scheduler_class=lr_scheduler_class,
+        optimizer_lr=optimizer_lr,
+        batch_size=batch_size,
+        iters=iters,
+        use_best_model=use_best_model,
+        use_amp=use_amp,
+        amp_dtype=amp_dtype,
+        loss_scaling_factor=loss_scaling_factor,
+        optimizer_kwargs={} if optimizer_kwargs is None else optimizer_kwargs,
+        lr_scheduler_kwargs=lr_scheduler_kwargs)
+    cache = CacheCNN()
+    learned_round_optimizer.apply_learned_round(
+        model=model,
+        model_forward=cnn_forward,
+        block_forward=cnn_block_forward,
+        data_loader=calibration_loader,
+        cache=cache,
+        block_check_fn=block_check_fn,
+        keep_gpu=True,
+    )

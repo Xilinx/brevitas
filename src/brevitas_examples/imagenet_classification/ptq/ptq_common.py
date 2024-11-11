@@ -2,17 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
-import itertools
 import math
-import re
-from typing import Callable, List
-from warnings import warn
 
 import torch
-from torch import nn
-import torch.backends.cudnn as cudnn
-from torch.optim.optimizer import Optimizer
-from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
@@ -20,23 +12,17 @@ from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScal
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import norm_correction_mode
-from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
-from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject import value
 import brevitas.nn as qnn
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -654,14 +640,6 @@ def apply_gpfq(
                     images = images.to(dtype)
                     gpfq_model(images)
                 gpfq.update()
-
-
-def _is_resnet_block(module: nn.Module, module_name: str) -> bool:
-    return (re.search(r"layer\d+", module_name) is not None)
-
-
-def _is_layer(module: nn.Module, module_name: str) -> bool:
-    return isinstance(module, QuantWBIOL)
 
 
 def check_positive_int(*args):
