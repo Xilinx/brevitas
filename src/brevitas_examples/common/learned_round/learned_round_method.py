@@ -3,13 +3,12 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Generator, List, Tuple
+from typing import Dict, Generator, List, Tuple, Type
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 
-from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
@@ -24,6 +23,10 @@ class StopFwdException(Exception):
 class LearnedRoundLoss(ABC):
 
     @abstractmethod
+    def __init__(self, block: nn.Module, learned_round_modules: List[nn.Module], **kwargs) -> None:
+        pass
+
+    @abstractmethod
     def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
         pass
 
@@ -34,8 +37,10 @@ class LearnedRoundLoss(ABC):
 
 class LearnedRound(ABC):
 
-    def __init__(self, iters: int = 200, **kwargs) -> None:
-        self.iters = iters
+    def __init__(
+            self, loss_cls: Type[LearnedRoundLoss], loss_params: Dict = None, **kwargs) -> None:
+        self.loss_cls = loss_cls
+        self.loss_params = loss_params if loss_params is not None else {}
 
     def _insert_and_return_learned_round_quantizers(self, block: nn.Module) -> List[nn.Module]:
         round_modules = []
@@ -53,11 +58,6 @@ class LearnedRound(ABC):
 
     @abstractmethod
     def _is_learned_round_module(self, module: nn.Module) -> bool:
-        pass
-
-    @abstractmethod
-    def _instantiate_loss(
-            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> LearnedRoundLoss:
         pass
 
     def _find_learned_round_modules(self, block: nn.Module) -> List[nn.Module]:
@@ -80,7 +80,7 @@ class LearnedRound(ABC):
             for round_module in learned_round_modules:
                 for params in round_module.parameters():
                     params.requires_grad = True
-            block_loss = self._instantiate_loss(block, learned_round_modules)
+            block_loss = self.loss_cls(block, learned_round_modules, **self.loss_params)
             # Block needs to be in eval mode while the rounding is optimised
             block.eval()
             yield block, block_loss, learned_round_modules
@@ -102,7 +102,7 @@ class LinearTempDecay:
             return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
 
-class AdaRoundLoss(LearnedRoundLoss):
+class RegularisedMSELoss(LearnedRoundLoss):
 
     def __init__(
             self,
@@ -112,8 +112,8 @@ class AdaRoundLoss(LearnedRoundLoss):
             max_count: int = 1000,
             b_range: Tuple = (20, 2),
             warmup: float = 0.2,
-            decay_start: float = 0.0) -> None:
-        super().__init__()
+            decay_start: float = 0.0,
+            **kwargs) -> None:
         # AdaRound operates in a layer-wise manner, so integrity needs to be checked
         assert isinstance(module, QuantWBIOL), "AdaRound can only accept a single QuantWBIOL layer."
         assert len(learned_round_modules) == 1, "AdaRound can only accept a single learned round module."
@@ -154,8 +154,9 @@ class AdaRound(LearnedRound):
 
     def __init__(
             self,
+            loss_cls: Type[LearnedRoundLoss] = RegularisedMSELoss,
+            loss_params: Dict = None,
             iters: int = 200,
-            *,
             learned_round_zeta: float = 1.1,
             learned_round_gamma: float = -0.1,
             learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
@@ -165,16 +166,17 @@ class AdaRound(LearnedRound):
             decay_start: float = 0.0,
             **kwargs,
     ) -> None:
-        super().__init__(iters, **kwargs)
+        loss_params = {
+            "max_count": iters,
+            "weight": weight,
+            "b_range": b_range,
+            "warmup": warmup,
+            "decay_start": decay_start} if loss_params is None else loss_params
+        super().__init__(loss_cls, loss_params, **kwargs)
         # Quantiser-related configuration
         self.learned_round_zeta = learned_round_zeta
         self.learned_round_gamma = learned_round_gamma
         self.learned_round_impl_type = learned_round_impl_type
-        # Loss-related configuration
-        self.weight = weight
-        self.b_range = b_range
-        self.warmup = warmup
-        self.decay_start = decay_start
 
     def _is_learned_round_module(self, module: nn.Module) -> bool:
         return isinstance(module, LearnedRoundSte)
@@ -191,19 +193,11 @@ class AdaRound(LearnedRound):
             learned_round_zeta=self.learned_round_zeta,
             learned_round_init=value)
 
-    def _instantiate_loss(
-            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> AdaRoundLoss:
-        return AdaRoundLoss(
-            block,
-            learned_round_modules,
-            max_count=self.iters,
-            weight=self.weight,
-            warmup=self.warmup,
-            decay_start=self.decay_start,
-        )
 
+class MSELoss(LearnedRoundLoss):
 
-class AutoRoundLoss(LearnedRoundLoss):
+    def __init__(self, block: nn.Module, learned_round_modules: List[nn.Module], **kwargs) -> None:
+        pass
 
     def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
         loss = F.mse_loss(pred, tgt)
@@ -215,19 +209,20 @@ class AutoRoundLoss(LearnedRoundLoss):
 
 class AutoRound(LearnedRound):
 
-    def __init__(self, iters: int = 200, **kwargs) -> None:
-        super().__init__(iters, **kwargs)
+    def __init__(
+            self,
+            loss_cls: Type[LearnedRoundLoss] = MSELoss,
+            loss_params: Dict = None,
+            **kwargs) -> None:
+        super().__init__(loss_cls, loss_params, **kwargs)
 
     def _is_learned_round_module(self, module: nn.Module) -> bool:
-        return isinstance(module, AutoRoundSte)
+        return isinstance(module, LearnedRoundSte)
 
     def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
         value = torch.zeros_like(layer.weight.data)
         layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.AUTO_ROUND,
+            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+            learned_round_impl_type=LearnedRoundImplType.IDENTITY,
             learned_round_init=value,
         )
-
-    def _instantiate_loss(
-            self, block: nn.Module, learned_round_modules: List[nn.Module]) -> AutoRoundLoss:
-        return AutoRoundLoss()

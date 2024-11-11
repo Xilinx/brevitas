@@ -25,11 +25,15 @@ class LearnedRoundHardSigmoid(brevitas.jit.ScriptModule):
 
     def __init__(self, learned_round_zeta: float = 1.1, learned_round_gamma: float = -0.1) -> None:
         super(LearnedRoundHardSigmoid, self).__init__()
+        self.float_to_int_ste = floor_ste
+        self.is_p_value = True
         self.learned_round_zeta = learned_round_zeta
         self.learned_round_gamma = learned_round_gamma
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
+        if training:
+            return x > 0
         p = torch.sigmoid(x)
         p = p * (self.learned_round_zeta - self.learned_round_gamma) + self.learned_round_gamma
         p = torch.clamp(p, 0.0, 1.0)
@@ -45,15 +49,34 @@ class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
     def __init__(self, learned_round_temperature: float = 1.) -> None:
         super(LearnedRoundSigmoid, self).__init__()
         assert learned_round_temperature != 0, 'Temperature should be different than 0'
+        self.float_to_int_ste = floor_ste
+        self.is_p_value = True
         self.learned_round_temperature = learned_round_temperature
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
+        if training:
+            return x > 0
         p = torch.sigmoid(x / self.learned_round_temperature)
         return p
 
 
-# TODO: Change name to AdaRoundSte for consistency
+class LearnedRoundIdentity(brevitas.jit.ScriptModule):
+    """
+    Implementation for LearnedRound learned parameter
+    Adapted from https://arxiv.org/abs/2309.05516
+    """
+
+    def __init__(self) -> None:
+        super(LearnedRoundIdentity, self).__init__()
+        self.float_to_int_ste = round_ste
+        self.is_p_value = False
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
+        return x
+
+
 class LearnedRoundSte(brevitas.jit.ScriptModule):
     """
     This Module implements LearnedRound representation, where each weight has a learnable parameter
@@ -74,55 +97,17 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        p = self.p_forward()
+        float_to_int_ste = self.learned_round_impl.float_to_int_ste
+        is_p_value = self.learned_round_impl.is_p_value
+        p = self.value
         p = self.tensor_slicer(p)
-        return floor_ste(x) + p.to(x.dtype)
-
-    def p_forward(self):
-        # In eval mode, performs true quantization, otherwise "soft" quantization
-        if not self.training:
-            p = (self.value > 0)
-        else:
-            p = self.learned_round_impl(self.value)
-        return p
+        p = (p.to(x.dtype)).view_as(x)
+        return float_to_int_ste(x) + p if is_p_value else float_to_int_ste(x + p)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
         super(LearnedRoundSte, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        value_key = prefix + 'value'
-        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
-            missing_keys.remove(value_key)
-
-
-class AutoRoundSte(brevitas.jit.ScriptModule):
-    """
-    This Module implements AutoRound representation, where each weight has a learnable parameter
-    that decides if "ceil" or "floor" rounding type has to be used.
-    """
-
-    def __init__(
-            self,
-            learned_round_init: torch.Tensor,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None) -> None:
-        super(AutoRoundSte, self).__init__()
-        learned_round_init = learned_round_init.to(device=device, dtype=dtype)
-        self.tensor_slicer = SliceTensor()
-        self.value = torch.nn.Parameter(learned_round_init)
-
-    @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # p should be between [-0.5, 0.5], so this learnable parameter decides whether to "ceil" or "floor"
-        p = self.value
-        p = self.tensor_slicer(p)
-        return round_ste(x + (p.to(x.dtype)).view_as(x))
-
-    def _load_from_state_dict(
-            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
-            error_msgs):
-        super(AutoRoundSte, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + 'value'
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:

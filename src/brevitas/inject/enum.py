@@ -46,7 +46,6 @@ class FloatToIntImplType(AutoName):
     DPU = auto()
     LEARNED_ROUND = auto()
     STOCHASTIC_ROUND = auto()
-    AUTO_ROUND = auto()
 
 
 class LearnedRoundImplType(AutoName):
@@ -54,6 +53,7 @@ class LearnedRoundImplType(AutoName):
     """
     HARD_SIGMOID = auto()
     SIGMOID = auto()
+    IDENTITY = auto()
 
 
 class ScalingImplType(AutoName):

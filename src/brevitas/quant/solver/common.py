@@ -3,8 +3,8 @@
 
 from brevitas.core.bit_width import *
 from brevitas.core.function_wrapper import *
-from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
+from brevitas.core.function_wrapper.learned_round import LearnedRoundIdentity
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.core.function_wrapper.stochastic_round import StochasticRoundSte
@@ -50,8 +50,6 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return LearnedRoundSte
     elif impl_type == FloatToIntImplType.STOCHASTIC_ROUND:
         return StochasticRoundSte
-    elif impl_type == FloatToIntImplType.AUTO_ROUND:
-        return AutoRoundSte
     else:
         raise Exception(f"{impl_type} not recognized.")
 
@@ -150,6 +148,8 @@ class SolveTensorQuantFloatToIntImplFromEnum(ExtendedInjector):
             return LearnedRoundSigmoid
         if learned_round_impl_type == LearnedRoundImplType.HARD_SIGMOID:
             return LearnedRoundHardSigmoid
+        if learned_round_impl_type == LearnedRoundImplType.IDENTITY:
+            return LearnedRoundIdentity
 
     @value
     def learned_round_init(tracked_parameter_list):

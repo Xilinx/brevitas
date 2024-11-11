@@ -186,7 +186,7 @@ from abc import ABC
 from abc import abstractmethod
 import copy
 import itertools
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import warnings
 
 from accelerate.utils.operations import send_to_device
@@ -298,8 +298,8 @@ class LearnedRoundOptimizer:
         self,
         learned_round: LearnedRound,
         *,
-        optimizer_class: Optimizer = SignSGD,
-        lr_scheduler_class: LRScheduler = LinearLR,
+        optimizer_class: Type[Optimizer] = SignSGD,
+        lr_scheduler_class: Optional[Type[LRScheduler]] = LinearLR,
         optimizer_lr: float = 5e-3,
         batch_size: float = 8,
         iters: int = 200,
@@ -313,10 +313,6 @@ class LearnedRoundOptimizer:
             "end_factor": 0.0,
             "verbose": False,}
     ) -> None:
-        if learned_round.iters != iters:
-            warnings.warn(
-                "The number of iterations passed to the learned round optimiser is different "
-                "to that of the learned round method, which might lead to unexpected behaviour.")
         self.learned_round = learned_round
         self.optimizer_class = optimizer_class
         self.lr_scheduler_class = lr_scheduler_class
