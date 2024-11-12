@@ -201,7 +201,7 @@ def main(args):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx and args.export_target == 'onnx_qcdq',
+        require_fx=require_fx and args.export_target is not None,
         device=None,
         fuse_sequences=args.fuse_sequences)
 
@@ -213,7 +213,7 @@ def main(args):
         seqlen=args.seqlen,
         split="validation",
         seed=args.seed,
-        require_fx=require_fx and args.export_target == 'onnx_qcdq',
+        require_fx=require_fx and args.export_target is not None,
         device=None,
         fuse_sequences=args.fuse_sequences)
 
@@ -234,7 +234,7 @@ def main(args):
 
     if require_fx:
         try:
-            model = get_fx(model)
+            model = get_fx(model, is_export=args.export_target is not None)
         except:
             print("HF symbolic trace not compatible, attempting with dynamo.")
             with torch.no_grad():
