@@ -10,6 +10,7 @@ import numpy as np
 from optimum.amd.brevitas.data_utils import compute_perplexity
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
+from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 from transformers.utils.fx import _SUPPORTED_MODELS
@@ -45,6 +46,25 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_wit
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
+
+
+def fused_rotation_no_fx(model, calibration_loader, args):
+    with torch.no_grad():
+        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+    apply_layernorm_affine_merge(new_model)
+    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model)
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+
+    for r in rewriters:
+        r.apply(model)
+    new_model = offload_model(new_model)
+    eq = GraphRotationEqualization(orphan_sink=True, full_rotation_method=args.graph_rotation_mode)
+    new_model, rewriters = eq.apply(new_model)
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+
+    for r in rewriters:
+        r.apply(model)
+    remove_hooks(new_model)
 
 
 def set_seed(seed):
