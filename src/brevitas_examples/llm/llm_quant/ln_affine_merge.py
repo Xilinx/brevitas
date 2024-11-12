@@ -107,7 +107,7 @@ def apply_layernorm_affine_merge(graph_model):
 
 
 @torch.no_grad()
-def replace_rmsnorm_with_torch(graph_model):
+def apply_layernorm_to_rmsnorm(graph_model):
     eq = LayerNormToRMS()
     graph_model = eq.apply(graph_model)
     return graph_model
