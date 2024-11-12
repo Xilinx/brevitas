@@ -32,11 +32,37 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
+from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
+from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
+
+
+def set_seed(seed):
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+
+
+def fused_rotation_no_fx(model, calibration_loader, args):
+    with torch.no_grad():
+        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+    apply_layernorm_affine_merge(new_model)
+    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model)
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+
+    for r in rewriters:
+        r.apply(model)
+    new_model = offload_model(new_model)
+    eq = GraphRotationEqualization(orphan_sink=True, full_rotation_method=args.graph_rotation_mode)
+    new_model, rewriters = eq.apply(new_model)
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+
+    for r in rewriters:
+        r.apply(model)
+    remove_hooks(new_model)
 
 
 def set_seed(seed):
@@ -72,6 +98,10 @@ def model_export(model, ref_input, args):
 
 
 def validate(args):
+    if args.graph_rotation:
+        assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
+        assert args.replace_rmsnorms, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
+        assert args.apply_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
     if not args.no_quantize:
         if args.gptq and args.gpfq:
             warn("Both GPTQ and GPFQ are enabled.")
@@ -160,7 +190,7 @@ def main(args):
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge else False
+    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge or args.apply_layernorm_to_rmsnorm else False
 
     # Load the data for calibration and evaluation.
     calibration_loader = get_dataset_for_model(
@@ -171,7 +201,7 @@ def main(args):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx,
+        require_fx=require_fx and args.export_target == 'onnx_qcdq',
         device=None,
         fuse_sequences=args.fuse_sequences)
 
@@ -183,7 +213,7 @@ def main(args):
         seqlen=args.seqlen,
         split="validation",
         seed=args.seed,
-        require_fx=require_fx,
+        require_fx=require_fx and args.export_target == 'onnx_qcdq',
         device=None,
         fuse_sequences=args.fuse_sequences)
 
@@ -203,8 +233,12 @@ def main(args):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-        with torch.no_grad():
-            model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+        try:
+            model = get_fx(model)
+        except:
+            print("HF symbolic trace not compatible, attempting with dynamo.")
+            with torch.no_grad():
+                model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
 
@@ -215,7 +249,12 @@ def main(args):
         apply_layernorm_affine_merge(model)
         print("LN affine merge applied.")
 
-    if args.graph_rotation:
+    if args.apply_layernorm_to_rmsnorm:
+        print("Convert LayerNorm to RMSNorm...")
+        apply_layernorm_to_rmsnorm(model)
+        print("Layernorm To RMSNorm applied.")
+
+    if args.graph_rotation == 'fx':
         assert args.ln_affine_merge
         assert args.replace_rmsnorm
         model = offload_model(model)
@@ -223,9 +262,11 @@ def main(args):
             orphan_sink=True, full_rotation_method=args.graph_rotation_mode)
         model = eq.apply(model)
         remove_hooks(model)
-    elif args.layerwise_rotation:
+    elif args.graph_rotation == 'layerwise':
         eq = LayerwiseActivationRotation()
         model = eq.apply(model)
+    elif args.graph_rotation == 'fused_no_fx':
+        fused_rotation_no_fx(model, calibration_loader, args)
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
@@ -532,7 +573,11 @@ def parse_args(args):
         action='store_true',
         help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
     parser.add_argument(
-        '--graph-rotation', action='store_true', help='Apply graph rotation equalization')
+        '--graph-rotation',
+        type=str,
+        default=None,
+        choices=['fx', 'layerwise', 'fused_no_fx'],
+        help='Apply graph rotation equalization')
     parser.add_argument(
         '--graph-rotation-mode',
         default='had',
@@ -540,8 +585,6 @@ def parse_args(args):
         help=
         'If GraphRotation is enabled, decide how to compute the random rotation matrix that is fully fused. Online or partial rotation will always be Hadamard'
     )
-    parser.add_argument(
-        '--layerwise-rotation', action='store_true', help='Apply layerwise rotation equalization')
     parser.add_argument(
         '--act-equalization',
         default=None,

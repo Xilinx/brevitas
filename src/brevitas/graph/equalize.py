@@ -19,9 +19,12 @@ import torch.nn as nn
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
+from brevitas.graph import ModuleToModuleByClass
+from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
@@ -36,8 +39,10 @@ from brevitas.utils.torch_utils import KwargsForwardHook
 
 # External optional dependency
 try:
+    # fast_hadamard_transform @ git+https://github.com/Dao-AILab/fast-hadamard-transform.git@main
     import fast_hadamard_transform
 except:
+    warnings.warn("fast_hadamard_transform package not found, using standard pytorch kernels")
     fast_hadamard_transform = None
 
 # RMSNorm was introduced with torch 2.4
@@ -52,6 +57,7 @@ __all__ = [
     'EqualizeGraph',
     'LayerwiseActivationRotation',
     'MergeLnAffine',
+    'LayerNormToRMS',
     'GraphRotationEqualization']
 
 EPSILON = 1e-9
@@ -151,6 +157,10 @@ class Region:
 
     @property
     def max_shape_srcs(self):
+        # Compute the number of output channel from the sources. If we are equalizing through cat,
+        # we need to add together the number of channels. Otherwise, all sources must have the same
+        # number of output channel.
+        # Furthermore, all output channels of all the sources are always fully equalized.
         max_shape_srcs = 0
         for name, indexes in self.srcs.items():
             max_shape_srcs = max(max_shape_srcs, indexes.end + indexes.offset)
@@ -158,6 +168,8 @@ class Region:
 
     @property
     def max_shape_sinks(self):
+        # Compute the number of input channel from the sinks. If we are equalizing through cat,
+        # we need to slice and potentially select only a subset of input channel from sinks.
         max_shape_sinks = 0
         for name, indexes in self.sinks.items():
             max_shape_sinks = max(max_shape_sinks, indexes.offset + (indexes.end - indexes.start))
@@ -165,6 +177,10 @@ class Region:
 
     @property
     def is_valid(self):
+        """
+        To perform equalization, we need that the number of output channel of the sources matches the
+        number of input channel of the sinks. If that's not the case, the region is considered invalid
+        """
         return self.max_shape_srcs == self.max_shape_sinks
 
 
@@ -458,6 +474,10 @@ def _cross_layer_equalization(
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     dtype = next(single_module.parameters()).dtype
 
+    # If region is not valid, don't equalize. If we are inserting a standalone mul, we don't need this check
+    if not region.is_valid and list_of_insert_mul_node_fn is None:
+        return _no_equalize()
+
     src_axes = {}
     for name, indexes in region.srcs.items():
         module = region.get_module_from_name(name)
@@ -560,12 +580,6 @@ def _cross_layer_equalization(
             srcs_range = .5 * srcs_range + .5 * srcs_range_act
         else:
             srcs_range = srcs_range_act
-
-    # If there is a mismatch between srcs and sinks values, exit
-    if srcs_range.shape != sinks_range.shape:
-        warnings.warn(
-            "Detected source and sink with non compatible shapes, equalization is skipped")
-        return _no_equalize()
 
     # Instead of clipping very low values, which would cause their reciprocal to be very large
     # thus hindering quantization, we set both sources and sinks to one,
@@ -1254,6 +1268,7 @@ def _apply_ort_device(tensor, ort, *args):
     return torch.matmul(tensor, ort)
 
 
+# Adapted from https://github.com/facebookresearch/SpinQuant/blob/main/eval_utils/rotation_utils.py#L26
 def random_orthogonal_matrix(size):
     """
     Generate a random orthogonal matrix of the specified size.
@@ -1275,6 +1290,7 @@ def random_orthogonal_matrix(size):
 
 
 def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method='had'):
+    rewriters = []
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
@@ -1344,7 +1360,10 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 # print(name, module.in_features, K)
                 rewriter = ModuleInstanceToModuleInstance(
                     module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
-                rewriter.apply(model)
+                rewriters.append(rewriter)
+    for r in rewriters:
+        model = r.apply(model)
+    return rewriters
 
 
 def _replace_bias(next_module, new_bias):
@@ -1402,17 +1421,22 @@ class GraphRotationEqualization(RotationEqualization):
             blacklist_layers: Optional[List[str]] = None,
             orphan_sink: bool = False,
             rotate_matmul: bool = False,
-            full_rotation_method: str = 'had') -> None:
+            full_rotation_method: str = 'had',
+            return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__()
 
         self.supported_srcs = (nn.Linear, nn.Embedding)
         self.supported_sinks = (nn.Linear)
-        self.scale_invariant_layers = (RMSNorm,)
+        common_scale_invariant = list(_scale_invariant_layers)
+        common_scale_invariant.remove(torch.nn.ReLU)
+        common_scale_invariant.remove(torch.nn.LeakyReLU)
+        self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
         self.scale_invariant_function = ()
         self.blacklist_layers = blacklist_layers
         self.orphan_sink = orphan_sink
         self.rotate_matmul = rotate_matmul
         self.full_rotation_method = full_rotation_method
+        self.return_rewriters = return_rewriters
 
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
@@ -1432,7 +1456,7 @@ class GraphRotationEqualization(RotationEqualization):
             graph_module.graph.lint()
 
     def apply(self,
-              graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
+              graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
 
         regions = _extract_regions(
             graph_model,
@@ -1456,9 +1480,53 @@ class GraphRotationEqualization(RotationEqualization):
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            _apply_rotate(graph_model, regions, self.full_rotation_method)
+            rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
+        if self.return_rewriters:
+            return graph_model, rewriters
+        else:
+            return graph_model
 
-        return graph_model
+
+class LayerNormToRMS(GraphTransform):
+
+    def __init__(self) -> None:
+        super(LayerNormToRMS, self).__init__()
+        self.supported_srcs = (nn.Linear, nn.Embedding)
+        self.supported_sinks = (nn.LayerNorm)
+        assert RMSNorm is not object, 'Update your Pytorch version to 2.4+'
+
+    def apply(self, graph_model: GraphModule) -> GraphModule:
+        regions = _extract_regions(
+            graph_model,
+            state_impl_kwargs={
+                'supported_srcs': self.supported_srcs, 'supported_sinks': self.supported_sinks})
+
+        if len(regions) > 0:
+            rewriters = []
+            for region in regions:
+                for src in region.srcs:
+                    linear = region.get_module_from_name(src)
+                    if isinstance(linear, torch.nn.Embedding):
+                        dim = -1
+                    else:
+                        dim = -2
+                    linear_dtype = linear.weight.data.dtype
+                    W_ = linear.weight.data.double()
+                    linear.weight.data = W_ - W_.mean(dim=dim, keepdim=True)
+                    linear.weight.data = linear.weight.data.to(linear_dtype)
+                    if hasattr(linear, 'bias') and linear.bias is not None:
+                        b_ = linear.bias.data.double()
+                        linear.bias.data = b_ - b_.mean()
+                        linear.bias.data = linear.bias.data.to(linear_dtype)
+                for sink in region.sinks:
+                    layer_norm = region.get_module_from_name(sink)
+                    del layer_norm.bias
+                    layer_norm_dtype = layer_norm.weight.data.dtype
+                    rewriters.append(
+                        ModuleToModuleByInstance(layer_norm, RMSNorm, dtype=layer_norm_dtype))
+            for r in rewriters:
+                graph_model = r.apply(graph_model)
+        return graph_model, rewriters
 
 
 class MergeLnAffine(GraphTransform):
