@@ -581,6 +581,12 @@ def _cross_layer_equalization(
         else:
             srcs_range = srcs_range_act
 
+    # If there is a mismatch between srcs and sinks values, exit
+    if srcs_range.shape != sinks_range.shape:
+        warnings.warn(
+            "Detected source and sink with non compatible shapes, equalization is skipped")
+        return _no_equalize()
+
     # Instead of clipping very low values, which would cause their reciprocal to be very large
     # thus hindering quantization, we set both sources and sinks to one,
     # which is the no-op equivalent for equalization.
