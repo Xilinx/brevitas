@@ -3,16 +3,20 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 SPDX-License-Identifier: MIT
 """
 
+from packaging import version
 import torch
 from torch import nn
 
+from brevitas import torch_version
 from brevitas.graph.base import ModuleToModuleByClass
 from brevitas.graph.equalize import _is_scale_invariant_module
+from brevitas.graph.equalize import LayerNormToRMS
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.utils import get_module
 
 
 def replace_rmsnorm_with_torch(model, config):
+    assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
     set_of_layers = set(type(x) for x in model.modules() if 'RMS' in type(x).__name__)
     rewriters = [
         ModuleToModuleByClass(
@@ -98,5 +102,12 @@ def merge_layernorm_affine_params(graph_model):
 @torch.no_grad()
 def apply_layernorm_affine_merge(graph_model):
     eq = MergeLnAffine()
+    graph_model = eq.apply(graph_model)
+    return graph_model
+
+
+@torch.no_grad()
+def replace_rmsnorm_with_torch(graph_model):
+    eq = LayerNormToRMS()
     graph_model = eq.apply(graph_model)
     return graph_model
