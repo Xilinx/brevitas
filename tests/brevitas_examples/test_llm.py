@@ -417,9 +417,8 @@ def test_small_models_quant_layer(caplog, layer_args):
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
-        if hasattr(
-                args,
-                'graph_rotation') and args.graph_rotation == 'fx' and platform.system() == 'win32':
+        if hasattr(args, 'graph_rotation') and args.graph_rotation == 'fx' and platform.system(
+        ) == 'Windows':
             pytest.skip("Skipping dynamo + windows")
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     assert_layer_types(model, exp_layer_types)
