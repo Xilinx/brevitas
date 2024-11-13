@@ -32,11 +32,13 @@ from transformers.utils.fx import symbolic_trace
 from brevitas.fx.value_tracer import ValueProxy
 
 
-def get_fx(model):
+def get_fx(model, is_export=True):
     forward_signature = inspect.signature(model.forward).parameters
     if all(input_name in forward_signature
            for input_name in ["input_ids", "attention_mask", "past_key_values"]):
         input_names = ["input_ids", "attention_mask", "past_key_values"]
+        if not is_export:
+            input_names.remove('past_key_values')
     else:
         raise ValueError(
             f"Quantization with an FX graph is currently only supported for models taking `input_ids`, `attention_mask` and `past_key_values` as inputs. The model only has the following inputs: {forward_signature}"
@@ -106,3 +108,17 @@ class CastFloat16ToFloat32(TorchDispatchMode):
         args, kwargs = tree_map(self.cast_cpu_float32, (args, kwargs))
         out = func(*args, **kwargs)
         return out
+
+
+# This functions remap rewriters so match modules in a potentially different model that shares the same underlying tensors
+# We rely on the fact that two versions of the same model (eager vs FX) might have different modules id (id(fx_module) != id (eager_module))
+# However, the underlying tensors are still shared, so we can recostruct the mapping between the two
+# modules.
+def fix_rewriter(rewriters, old_model_ref, tensor_name):
+    for r in rewriters:
+        tensor_id = id(r.old_module_instance.weight)
+        module = [
+            m for m in old_model_ref.modules()
+            if hasattr(m, tensor_name) and id(m.weight) == tensor_id]
+        r.old_module_instance = module[0]
+    return rewriters

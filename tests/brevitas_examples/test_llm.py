@@ -5,15 +5,18 @@ from argparse import Namespace
 from dataclasses import dataclass
 import logging
 import os
+import platform
 import shutil
 
 import numpy as np
 import onnx
+from packaging import version
 import pytest
 import pytest_cases
 import torch
 
 from brevitas import config
+from brevitas import torch_version
 # LLM example depends on optimum-amd, which requires PyTorch>=2.2
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
@@ -277,7 +280,9 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         "mistral-fp8_fnuz",
         "llama-mxfp8",
         "llama-int8-act_equalization=layerwise",
-        "mistral-int8-quant-last-layer",],
+        "mistral-int8-quant-last-layer",
+        "llama-rotation-mixed-fx",
+        "llama-rotation-full-fx",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -366,7 +371,35 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
             "exp_layer_types": {
-                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"}},])
+                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "ln_affine_merge": True,
+            "replace_rmsnorm": True,
+            "quantize_last_layer": True,
+            "no_quantize": True,
+            "rotation_orphan_sink": True,
+            "convert_layernorm_to_rmsnorm": True,
+            "graph_rotation": "fx",
+            "exp_layer_types": {
+                "L__self___model_layers_0_self_attn_k_proj":
+                    "<class 'torch.nn.modules.linear.Linear'>",
+                "L__self___model_layers_0_self_attn_o_proj":
+                    "<class 'brevitas.nn.equalized_layer.RotatedModule'>"}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "ln_affine_merge": True,
+            "replace_rmsnorm": True,
+            "quantize_last_layer": True,
+            "no_quantize": True,
+            "rotation_orphan_sink": False,
+            "convert_layernorm_to_rmsnorm": True,
+            "graph_rotation": "fx",
+            "exp_layer_types": {
+                "L__self___model_layers_0_self_attn_k_proj":
+                    "<class 'torch.nn.modules.linear.Linear'>",
+                "L__self___model_layers_0_self_attn_o_proj":
+                    "<class 'torch.nn.modules.linear.Linear'>"}},])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
@@ -381,6 +414,12 @@ def layer_args(default_run_args, request):
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
+    if args.replace_rmsnorm:
+        if torch_version < version.parse('2.4'):
+            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
+        if hasattr(args, 'graph_rotation') and args.graph_rotation == 'fx' and platform.system(
+        ) == 'Windows':
+            pytest.skip("Skipping dynamo + windows")
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     assert_layer_types(model, exp_layer_types)
 
