@@ -281,7 +281,8 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         "llama-mxfp8",
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
-        "llama-rotation-fx"],
+        "llama-rotation-mixed-fx",
+        "llama-rotation-full-fx",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
