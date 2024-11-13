@@ -49,7 +49,11 @@ except:
 if torch_version >= packaging.version.parse('2.4'):
     RMSNorm = nn.RMSNorm
 else:
-    RMSNorm = object
+
+    class PlaceholderRMSNorm:
+        pass
+
+    RMSNorm = PlaceholderRMSNorm
 
 __all__ = [
     'GraphActivationEqualization',
