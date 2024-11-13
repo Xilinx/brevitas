@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+from copy import deepcopy
 import sys
 from warnings import warn
 
@@ -18,6 +19,7 @@ from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.graph.utils import get_module
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
@@ -51,14 +53,16 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     apply_layernorm_affine_merge(new_model)
-    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model)
+    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
         r.apply(model)
     new_model = offload_model(new_model)
     eq = GraphRotationEqualization(
-        orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.graph_rotation_mode)
+        orphan_sink=args.rotation_orphan_sink,
+        full_rotation_method=args.graph_rotation_mode,
+        return_rewriters=True)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -100,7 +104,7 @@ def model_export(model, ref_input, args):
 
 
 def validate(args):
-    if args.graph_rotation:
+    if args.graph_rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
         assert args.convert_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
@@ -329,7 +333,20 @@ def main(args):
             input_quant_format=args.input_quant_format,
             quantize_embedding=False)
         if not args.quantize_last_layer:
-            name_blacklist += ["lm_head", "embed_out"]
+            if require_fx:
+                last_node = [node for node in model.graph.nodes if node.op == 'call_module'][-1]
+                last_module = get_module(model, last_node.target)
+                last_layer_kwargs = layer_map[type(last_module)][1]
+                prev_weight_quant = deepcopy(last_layer_kwargs['weight_quant'])
+                prev_input_quant = deepcopy(last_layer_kwargs['input_quant'])
+                weight_quant = lambda module: prev_weight_quant if id(module) != id(
+                    last_module) else None
+                input_quant = lambda module: prev_input_quant if id(module) != id(
+                    last_module) else None
+                last_layer_kwargs['weight_quant'] = weight_quant
+                last_layer_kwargs['input_quant'] = input_quant
+            else:
+                name_blacklist += ["lm_head", "embed_out"]
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Tie back first/last layer weights in case they got untied

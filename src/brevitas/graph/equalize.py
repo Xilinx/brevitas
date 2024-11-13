@@ -1499,10 +1499,11 @@ class GraphRotationEqualization(RotationEqualization):
 
 class LayerNormToRMS(GraphTransform):
 
-    def __init__(self) -> None:
+    def __init__(self, return_rewriters=False) -> None:
         super(LayerNormToRMS, self).__init__()
         self.supported_srcs = (nn.Linear, nn.Embedding)
         self.supported_sinks = (nn.LayerNorm)
+        self.return_rewriters = return_rewriters
         assert RMSNorm is not object, 'Update your Pytorch version to 2.4+'
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
@@ -1536,7 +1537,10 @@ class LayerNormToRMS(GraphTransform):
                         ModuleToModuleByInstance(layer_norm, RMSNorm, dtype=layer_norm_dtype))
             for r in rewriters:
                 graph_model = r.apply(graph_model)
-        return graph_model, rewriters
+        if self.return_rewriters:
+            return graph_model, rewriters
+        else:
+            return graph_model
 
 
 class MergeLnAffine(GraphTransform):
