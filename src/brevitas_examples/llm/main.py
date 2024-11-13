@@ -11,6 +11,7 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
+from transformers.utils.fx import _SUPPORTED_MODELS
 
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
@@ -56,7 +57,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     for r in rewriters:
         r.apply(model)
     new_model = offload_model(new_model)
-    eq = GraphRotationEqualization(orphan_sink=True, full_rotation_method=args.graph_rotation_mode)
+    eq = GraphRotationEqualization(
+        orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.graph_rotation_mode)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -100,7 +102,7 @@ def model_export(model, ref_input, args):
 def validate(args):
     if args.graph_rotation:
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
-        assert args.replace_rmsnorms, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
+        assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
         assert args.convert_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
     if not args.no_quantize:
         if args.gptq and args.gpfq:
@@ -233,10 +235,9 @@ def main(args):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-        try:
+        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
             model = get_fx(model, is_export=args.export_target is not None)
-        except:
-            print("HF symbolic trace not compatible, attempting with dynamo.")
+        else:
             with torch.no_grad():
                 model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
@@ -259,7 +260,7 @@ def main(args):
         assert args.replace_rmsnorm
         model = offload_model(model)
         eq = GraphRotationEqualization(
-            orphan_sink=True, full_rotation_method=args.graph_rotation_mode)
+            orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.graph_rotation_mode)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.graph_rotation == 'layerwise':
@@ -586,6 +587,12 @@ def parse_args(args):
         choices=['had', 'ort'],
         help=
         'If GraphRotation is enabled, decide how to compute the random rotation matrix that is fully fused. Online or partial rotation will always be Hadamard'
+    )
+    parser.add_argument(
+        '--rotation-orphan-sink',
+        action="store_true",
+        help=
+        'If GraphRotation is enabled, decide wheter to add standalone hadamard matrices for the unfused layers'
     )
     parser.add_argument(
         '--act-equalization',

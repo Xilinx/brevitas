@@ -18,10 +18,14 @@ from brevitas.graph.utils import get_module
 def replace_rmsnorm_with_torch(model, config):
     assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
     set_of_layers = set(type(x) for x in model.modules() if 'RMS' in type(x).__name__)
+    dtype = next(model.parameters()).dtype
     rewriters = [
         ModuleToModuleByClass(
-            rms_cls, torch.nn.RMSNorm, normalized_shape=config.hidden_size, eps=config.rms_norm_eps)
-        for rms_cls in set_of_layers]
+            rms_cls,
+            torch.nn.RMSNorm,
+            normalized_shape=config.hidden_size,
+            eps=config.rms_norm_eps,
+            dtype=dtype) for rms_cls in set_of_layers]
     dtype = next(iter(model.parameters())).dtype
     for r in rewriters:
         model = r.apply(model)

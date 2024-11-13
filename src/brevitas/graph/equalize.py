@@ -1507,8 +1507,8 @@ class LayerNormToRMS(GraphTransform):
             state_impl_kwargs={
                 'supported_srcs': self.supported_srcs, 'supported_sinks': self.supported_sinks})
 
+        rewriters = []
         if len(regions) > 0:
-            rewriters = []
             for region in regions:
                 for src in region.srcs:
                     linear = region.get_module_from_name(src)
