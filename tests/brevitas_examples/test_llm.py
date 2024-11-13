@@ -9,11 +9,13 @@ import shutil
 
 import numpy as np
 import onnx
+from packaging import version
 import pytest
 import pytest_cases
 import torch
 
 from brevitas import config
+from brevitas import torch_version
 # LLM example depends on optimum-amd, which requires PyTorch>=2.2
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
@@ -396,6 +398,9 @@ def layer_args(default_run_args, request):
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
+    if args.replace_rmsnorm:
+        if torch_version < version.parse('2.4'):
+            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     assert_layer_types(model, exp_layer_types)
 
