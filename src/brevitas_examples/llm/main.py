@@ -260,8 +260,6 @@ def main(args):
         print("Layernorm To RMSNorm applied.")
 
     if args.graph_rotation == 'fx':
-        assert args.ln_affine_merge
-        assert args.replace_rmsnorm
         model = offload_model(model)
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.graph_rotation_mode)
@@ -363,7 +361,8 @@ def main(args):
 
     model = offload_model(model)
 
-    model(**calibration_loader[0])
+    with torch.no_grad():
+        model(**calibration_loader[0])
 
     if args.act_calibration:
         print("Apply act calibration...")

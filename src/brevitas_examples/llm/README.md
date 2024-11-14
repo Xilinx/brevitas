@@ -23,6 +23,7 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--weight-quant-type {sym,asym}]
                [--weight-quant-format WEIGHT_QUANT_FORMAT]
                [--weight-quant-granularity {per_channel,per_tensor,per_group}]
+               [--scale-rounding-func-type {round,ceil,floor}]
                [--weight-group-dim {1,0}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--quantize-weight-zero-point]
@@ -35,12 +36,16 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--input-quant-granularity {per_tensor,per_row,per_group}]
                [--input-group-size INPUT_GROUP_SIZE]
                [--quantize-input-zero-point] [--quantize-last-layer] [--gptq]
-               [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations] [--gpxq-create-weight-orig]
+               [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations]
+               [--gpxq-create-weight-orig]
                [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH]
                [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
+               [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
                [--no-quantize] [--no-float16] [--replace-mha]
                [--weight-equalization]
+               [--graph-rotation {fx,layerwise,fused_no_fx}]
+               [--graph-rotation-mode {had,ort}] [--rotation-orphan-sink]
                [--act-equalization {None,layerwise,fx}] [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
@@ -54,7 +59,7 @@ options:
   --seqlen SEQLEN       Sequence length. Default: 2048.
   --eval                Eval model PPL on the chosen Dataset.
   --dataset {wikitext2,c4}
-                        Dataset to use for quantization (default: c4)
+                        Dataset to use for quantization (default: wikitext2)
   --gpxq-block-name GPXQ_BLOCK_NAME
                         Block name for faster GPxQ optimization. It works only
                         if FX is not needed (default: None)
@@ -74,6 +79,9 @@ options:
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
                         per_group.
+  --scale-rounding-func-type {round,ceil,floor}
+                        Rounding function to use with Po2 scale. Default:
+                        None.
   --weight-group-dim {1,0}
                         Override default group_dim for groupsize quantization.
                         Default: layer-dependant
@@ -125,6 +133,8 @@ options:
   --act-calibration     Apply activation calibration.
   --bias-corr           Apply bias correction.
   --ln-affine-merge     Merge LN affine params.
+  --convert-layernorm-to-rmsnorm
+                        Merge LN affine params.
   --replace-rmsnorm     Replace HF RMSNorms with Torch one.
   --no-quantize         Disable quantization.
   --no-float16          Disable float16 as base datatype and switch to
@@ -134,12 +144,15 @@ options:
   --weight-equalization
                         Apply weight equalization. Relevant to ReLU based
                         models (e.g. OPT).
-  --graph-rotation      Apply graph rotation equalization
+  --graph-rotation {fx,layerwise,fused_no_fx}
+                        Apply graph rotation equalization
   --graph-rotation-mode {had,ort}
                         If GraphRotation is enabled, decide how to compute the
                         random rotation matrix that is fully fused. Online or
                         partial rotation will always be Hadamard
-  --layerwise-rotation  Apply layerwise rotation equalization
+  --rotation-orphan-sink
+                        If GraphRotation is enabled, decide wheter to add
+                        standalone hadamard matrices for the unfused layers
   --act-equalization {None,layerwise,fx}
                         Apply activation equalization (SmoothQuant). Layerwise
                         introduces standalone mul nodes,while fx merges them
