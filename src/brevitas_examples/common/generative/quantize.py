@@ -299,8 +299,14 @@ def generate_quantizers(
     if weight_group_dim is not None:
         weight_quant = weight_quant.let(**{'group_dim': weight_group_dim})
 
-    if dtype == torch.float16:
-        weight_quant = weight_quant.let(**{'scaling_min_val': 1e-4})
+    if dtype != torch.float32:
+        weight_quant = weight_quant.let(**{'scaling_min_val': 1e-3})
+        input_quant = input_quant.let(
+            **{'scaling_min_val': 1e-3}) if input_quant is not None else None
+        linear_input_quant = linear_input_quant.let(
+            **{'scaling_min_val': 1e-3}) if linear_input_quant is not None else None
+        sym_input_quant = sym_input_quant.let(
+            **{'scaling_min_val': 1e-3}) if sym_input_quant is not None else None
     if weight_kwargs is not None:
         weight_quant = weight_quant.let(**weight_kwargs)
 
