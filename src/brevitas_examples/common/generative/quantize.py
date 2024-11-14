@@ -227,7 +227,8 @@ def generate_quantizers(
         scale_rounding_func_type=None,
         device=None,
         weight_kwargs=None,
-        input_kwargs=None):
+        input_kwargs=None,
+        scaling_min_val=1e-4):
     """
     Replace float layers with quant layers in the target model
     """
@@ -300,13 +301,13 @@ def generate_quantizers(
         weight_quant = weight_quant.let(**{'group_dim': weight_group_dim})
 
     if dtype != torch.float32:
-        weight_quant = weight_quant.let(**{'scaling_min_val': 1e-3})
+        weight_quant = weight_quant.let(**{'scaling_min_val': scaling_min_val})
         input_quant = input_quant.let(
-            **{'scaling_min_val': 1e-3}) if input_quant is not None else None
+            **{'scaling_min_val': scaling_min_val}) if input_quant is not None else None
         linear_input_quant = linear_input_quant.let(
-            **{'scaling_min_val': 1e-3}) if linear_input_quant is not None else None
+            **{'scaling_min_val': scaling_min_val}) if linear_input_quant is not None else None
         sym_input_quant = sym_input_quant.let(
-            **{'scaling_min_val': 1e-3}) if sym_input_quant is not None else None
+            **{'scaling_min_val': scaling_min_val}) if sym_input_quant is not None else None
     if weight_kwargs is not None:
         weight_quant = weight_quant.let(**weight_kwargs)
 
