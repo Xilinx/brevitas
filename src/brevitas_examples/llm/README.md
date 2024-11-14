@@ -42,7 +42,8 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
-               [--no-quantize] [--no-float16] [--replace-mha]
+               [--no-quantize] [--no-float16]
+               [--scaling-min-val SCALING_MIN_VAL] [--replace-mha]
                [--weight-equalization]
                [--graph-rotation {fx,layerwise,fused_no_fx}]
                [--graph-rotation-mode {had,ort}] [--rotation-orphan-sink]
@@ -139,6 +140,9 @@ options:
   --no-quantize         Disable quantization.
   --no-float16          Disable float16 as base datatype and switch to
                         float32.
+  --scaling-min-val SCALING_MIN_VAL
+                        Minimum value to clamp scale to when using bf16 or
+                        fp16 quantization.
   --replace-mha         Replace HuggingFace Attention with a quantizable
                         version
   --weight-equalization
