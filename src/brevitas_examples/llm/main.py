@@ -260,8 +260,6 @@ def main(args):
         print("Layernorm To RMSNorm applied.")
 
     if args.graph_rotation == 'fx':
-        assert args.ln_affine_merge
-        assert args.replace_rmsnorm
         model = offload_model(model)
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.graph_rotation_mode)
@@ -319,7 +317,8 @@ def main(args):
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
-            device=device)
+            device=device,
+            scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,
             weight_quant=weight_quant,
@@ -363,7 +362,8 @@ def main(args):
 
     model = offload_model(model)
 
-    model(**calibration_loader[0])
+    with torch.no_grad():
+        model(**calibration_loader[0])
 
     if args.act_calibration:
         print("Apply act calibration...")
@@ -586,6 +586,11 @@ def parse_args(args):
         '--no-float16',
         action='store_true',
         help='Disable float16 as base datatype and switch to float32.')
+    parser.add_argument(
+        '--scaling-min-val',
+        type=float,
+        default=1e-4,
+        help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
     parser.add_argument(
         '--replace-mha',
         action='store_true',
