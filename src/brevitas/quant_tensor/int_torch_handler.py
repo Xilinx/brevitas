@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.utils.torch_utils import compute_channel_view_shape
+from brevitas.utils.torch_utils import is_broadcastable
 
 INT_QUANT_TENSOR_FN_HANDLER = {}
 
@@ -198,6 +199,9 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
                                                        (quant_weight.zero_point != 0.0).any()):
             warnings.warn("Computing zero point of output accumulator not supported yet.")
             compute_output_quant_tensor = False
+        if output_scale is None:
+            warnings.warn("Could not compute output scale factor, returning Tensor")
+            compute_output_quant_tensor = False
 
     if compute_output_quant_tensor:
         if output_zero_point is None:
@@ -230,8 +234,9 @@ def quant_output_scale_impl(
     output_scale_shape = compute_channel_view_shape(inp, channel_dim=channel_dim)
 
     quant_weight_scale = quant_weight_scale.view(output_scale_shape)
-    if len(quant_input_scale.shape) == 0:
-        quant_input_scale = quant_input_scale.view(output_scale_shape)
+    quant_input_scale = quant_input_scale.view(output_scale_shape)
+    if not is_broadcastable(quant_weight_scale.shape, quant_input_scale.shape):
+        return None
 
     output_scale = quant_weight_scale * quant_input_scale
     return output_scale
