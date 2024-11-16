@@ -25,16 +25,51 @@ SOFTWARE.
 """
 
 import random
-from typing import Any, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 import numpy as np
-from optimum.amd.brevitas.data_utils import DatasetToDevice
-from optimum.amd.brevitas.data_utils import get_c4
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from transformers import AutoConfig
 
+from .data import get_c4
 from .data import get_wikitext2
+
+
+class DatasetToDevice(torch.utils.data.Dataset):
+
+    def __init__(self, data: List, device: Optional[Union[str, torch.device]]):
+        super().__init__()
+        self.data = data
+        self.device = device
+
+    def __getitem__(self, idx):
+        if self.device is not None:
+            return {
+                name: recursive_to_device(val, self.device) for name, val in self.data[idx].items()}
+        else:
+            return self.data[idx]
+
+    def __len__(self):
+        return len(self.data)
+
+
+@torch.no_grad()
+def recursive_to_device(tensor_or_iterable: Union[Iterable, torch.Tensor], device) -> None:
+    if isinstance(tensor_or_iterable, torch.Tensor):
+        return tensor_or_iterable.to(device)
+    elif isinstance(tensor_or_iterable,
+                    tuple):  # Special handling of tuples, since they are immutable
+        tmp_list = []
+        for i in tensor_or_iterable:
+            tmp_list.append(recursive_to_device(i, device))
+        return tuple(tmp_list)
+    elif isinstance(tensor_or_iterable, Iterable):
+        for i in tensor_or_iterable:
+            tensor_or_iterable[i] = recursive_to_device(i, device)
+        return tensor_or_iterable
+    else:
+        raise ValueError(f"Cannot move {type(tensor_or_iterable)} to {device}")
 
 
 def get_dataset_for_model(
