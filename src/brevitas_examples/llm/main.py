@@ -194,6 +194,7 @@ def validate(args):
 def main(args):
     validate(args)
     set_seed(args.seed)
+    print(args)
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
@@ -463,7 +464,7 @@ def parse_args(args):
     parser.add_argument(
         '--model',
         type=str,
-        default="facebook/opt-125m",
+        default="facebook/opt-125m.",
         help='HF model name. Default: facebook/opt-125m.')
     parser.add_argument(
         '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
