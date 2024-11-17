@@ -393,6 +393,7 @@ def main(args):
 
     if args.learned_round:
         print("Applying learned round...")
+        remove_hooks(model)
 
         learned_round_llm_utils = LearnedRoundLLMUtils()
         learned_round = AutoRound()
@@ -464,7 +465,7 @@ def parse_args(args):
     parser.add_argument(
         '--model',
         type=str,
-        default="facebook/opt-125m.",
+        default="EleutherAI/pythia-1b",
         help='HF model name. Default: facebook/opt-125m.')
     parser.add_argument(
         '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
@@ -484,7 +485,7 @@ def parse_args(args):
     parser.add_argument(
         '--gpxq-block-name',
         type=str,
-        default=None,
+        default='gpt_neox.layers',
         help=
         'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
     )

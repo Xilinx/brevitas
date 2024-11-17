@@ -406,7 +406,7 @@ def offload_model(
         offload_call_function(model, device_map)
     else:
         device_map = infer_auto_device_map(
-            model, memory_map, no_split_module_classes=model._no_split_modules)
+            model, memory_map, no_split_module_classes=model._no_split_modules if hasattr(model, '_no_split_modules') else None)
 
     model = dispatch_model(model, device_map)
 

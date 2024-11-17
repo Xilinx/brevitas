@@ -189,6 +189,7 @@ import itertools
 from typing import Any, Callable, Dict, List, Tuple
 import warnings
 
+from brevitas_examples.common.accelerate_utils.accelerate import offload_model, remove_hooks
 import torch
 from torch import autocast
 from torch import nn
@@ -362,6 +363,8 @@ class LearnedRoundOptimizer:
             data_loader: DataLoader,
             block_name: Callable = None,
             keep_gpu: bool = True) -> None:
+        self.learned_round._insert_learned_round_quantizer(model)
+
         # Prepare model for optimization
         self.learned_round_utils.init_model_learned_round(model)
 
@@ -378,11 +381,34 @@ class LearnedRoundOptimizer:
         # Loop across blocks to optimise rounding within each
         for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
                 self.learned_round.learned_round_iterator(blocks)):
+            # Populate cache for the given block
+            offload_model(model, gpu_device_map={0: "2GB"})
+
+            n_samples = self.learned_round_utils.populate_cache(
+                cache,
+                model,
+                block,
+                data_loader,
+                keep_gpu=keep_gpu,
+            )
+            remove_hooks(model)
+            print("----")
+            # offload_model(block)
+            block.cuda()
+            for params in block.parameters():
+                params.requires_grad = False
+            # Retrieve learned round modules
+            learned_round_modules = self.learned_round._find_learned_round_modules(block)
+            # Enable gradient tracking in learned round modules
+            for round_module in learned_round_modules:
+                round_module.train()
+                for params in round_module.parameters():
+                    params.requires_grad = True
             # Block needs to be in eval mode while the rounding is optimised
             block.eval()
             params = [
                 list(learned_round_module.parameters())
-                for learned_round_module in block_learned_round_modules]
+                for learned_round_module in learned_round_modules]
 
             if self.learn_scale:
                 p = []
@@ -425,16 +451,10 @@ class LearnedRoundOptimizer:
             optimal_rounding_params = {}
 
             torch.cuda.empty_cache()
-            # Populate cache for the given block
-            n_samples = self.learned_round_utils.populate_cache(
-                cache,
-                model,
-                block,
-                data_loader,
-                keep_gpu=keep_gpu,
-            )
+
 
             pbar = tqdm(range(self.iters), desc='')
+
             for i in pbar:
                 # Sample mini-batch from cache
                 idxs = torch.randperm(n_samples)[:self.batch_size]
@@ -487,7 +507,7 @@ class LearnedRoundOptimizer:
                 f"Quantized block {block_idx+1}/{len(blocks)}, "
                 f"initial loss: {init_loss:.6f}, best loss: {best_loss:.6f}, at iteration {last_best_iter}."
             )
-
+        remove_hooks(block)
         # Finish optimisation
         self.learned_round_utils.finish_model_learned_round(model)
         for pp in params:

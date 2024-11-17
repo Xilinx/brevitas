@@ -231,6 +231,7 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
             threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         if threshold is None:
             threshold = torch.ones(1).type_as(stats_input)
+
         stats_input_reshaped = self.input_view_impl(stats_input)
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
         out = self.scaling_stats_impl(stats_input_reshaped)

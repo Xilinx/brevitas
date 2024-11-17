@@ -68,17 +68,17 @@ class LearnedRound(ABC):
             self,
             blocks: List[nn.Module]) -> Generator[nn.Module, LearnedRoundLoss, List[nn.Module]]:
         for block in blocks:
-            # Insert learned round quantizers into the appropiate submodules
-            self._insert_learned_round_quantizer(block)
+            # # Insert learned round quantizers into the appropiate submodules
+            # self._insert_learned_round_quantizer(block)
             # Freeze block parameters
-            for params in block.parameters():
-                params.requires_grad = False
-            # Retrieve learned round modules
+            # for params in block.parameters():
+            #     params.requires_grad = False
+            # # Retrieve learned round modules
             learned_round_modules = self._find_learned_round_modules(block)
-            # Enable gradient tracking in learned round modules
-            for round_module in learned_round_modules:
-                for params in round_module.parameters():
-                    params.requires_grad = True
+            # # Enable gradient tracking in learned round modules
+            # for round_module in learned_round_modules:
+            #     for params in round_module.parameters():
+            #         params.requires_grad = True
             block_loss = self._instantiate_loss(block, learned_round_modules)
             yield block, block_loss, learned_round_modules
 

@@ -84,7 +84,7 @@ class LearnedRoundLLMUtils(LearnedRoundModelUtils):
             disable_quant_class.disable_param_quantization(model, False)
             return_quant_tensor_state = disable_return_quant_tensor(model)
 
-        device = next(module.parameters()).device
+        device = next(model.parameters()).device
         data_saver = LearnedRoundLLMUtils._DataSaverHookLLM(
             cache_args, cache_kwargs, cache_outs, store_args, store_kwargs, store_outs, keep_gpu)
         handle = module.register_forward_hook(data_saver, with_kwargs=True)
@@ -166,7 +166,7 @@ class LearnedRoundLLMUtils(LearnedRoundModelUtils):
         **kwargs_fn,
     ) -> Tuple[Any, torch.Tensor]:
         cache_args, cache_kwargs, cache_outs = cache
-        device = next(block.parameters()).device
+        device = 'cuda'
         # Positional arguments
         args = [cache_args[i] for i in indices]
         args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
