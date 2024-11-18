@@ -356,7 +356,7 @@ def main(args):
     # If any equalization has taken places, the embedding layer and the fully connected one are
     # not tied anymore, and they need to be treated as standalone, separate layers.
     # In all other cases we can tie them back so to preserve memory.
-    if args.act_equalization is None and not require_fx:
+    if args.act_equalization is None and not require_fx and args.rotation is None:
         model.tie_weights()
 
     if args.bias_corr:
