@@ -169,6 +169,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
+        self.clamp_scaling = _ClampValue(scaling_min_val)
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
@@ -249,7 +250,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            # Clamping avoids eventual log(0) with restrict_val
+            value = self.clamp_scaling(self.value)
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
             value = value / threshold
             return value
         else:
@@ -421,6 +424,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 out = self.restrict_scaling_pre(out)
             else:
                 out = self.value
+                # Clamping avoids eventual log(0) with restrict_val
+                out = self.clamp_scaling(out)
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
             out = out / threshold
