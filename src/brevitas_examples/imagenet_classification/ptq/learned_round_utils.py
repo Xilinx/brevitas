@@ -27,12 +27,13 @@
 # SOFTWARE.
 
 import re
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 import warnings
 
 from accelerate.utils.operations import send_to_device
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import LinearLR
 from torch.utils.data.dataloader import DataLoader
 
 from brevitas import config
@@ -41,9 +42,35 @@ from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.learned_round.learned_round_method import AdaRound
 from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_method import MSELoss
+from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 
 config.IGNORE_MISSING_KEYS = True
+
+
+def is_resnet_block(module: nn.Module, module_name: str) -> bool:
+    return (re.search(r"layer\d+", module_name) is not None)
+
+
+def is_layer(module: nn.Module, module_name: str) -> bool:
+    return isinstance(module, QuantWBIOL)
+
+
+LEARNED_ROUND_MAP = {
+    "auto_round": AutoRound,
+    "ada_round": AdaRound,}
+LEARNED_ROUND_LOSS_MAP = {
+    "mse": MSELoss,
+    "regularised_mse": RegularisedMSELoss,}
+OPTIMIZER_MAP = {
+    "adam": torch.optim.Adam,
+    "sign_sgd": SignSGD,}
+BLOCK_CHECK_MAP = {
+    "layerwise": is_layer,
+    "sign_sgd": is_resnet_block,}
+LR_SCHEDULER_MAP = {
+    "linear": LinearLR,}
 
 
 class CacheCNN(dict):
@@ -114,53 +141,58 @@ def cnn_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
     return block(inputs)
 
 
-def is_resnet_block(module: nn.Module, module_name: str) -> bool:
-    return (re.search(r"layer\d+", module_name) is not None)
-
-
-def is_layer(module: nn.Module, module_name: str) -> bool:
-    return isinstance(module, QuantWBIOL)
-
-
 def apply_learned_round(
     model: nn.Module,
     calibration_loader: DataLoader,
-    learned_round_name: str = "ada_round",
-    optimizer: str = "adam",
-    learned_round_mode: str = "layerwise",
     iters: int = 1000,
+    learned_round: str = "ada_round",
+    learned_round_loss: str = "regularised_mse",
+    optimizer: str = "adam",
+    lr_scheduler: Optional[str] = None,
     optimizer_lr: float = 1e-3,
     batch_size: int = 1,
+    use_best_model: bool = False,
+    use_amp: bool = True,
+    amp_dtype: torch.dtype = torch.float16,
+    loss_scaling_factor: float = 1.,
+    learned_round_loss_kwargs: Optional[Dict] = None,
+    optimizer_kwargs: Optional[Dict] = None,
+    lr_scheduler_kwargs: Optional[Dict] = None,
+    learned_round_mode: str = "layerwise",
 ) -> None:
+    if learned_round not in LEARNED_ROUND_MAP:
+        raise ValueError(f"Learned round method {learned_round} is not available.")
+    learned_round = LEARNED_ROUND_MAP[learned_round]()
+
+    if learned_round_loss not in LEARNED_ROUND_LOSS_MAP:
+        raise ValueError(f"Learned round loss {learned_round_loss} is not available.")
+    learned_round_loss_class = LEARNED_ROUND_LOSS_MAP[learned_round_loss]
+
+    if optimizer not in OPTIMIZER_MAP:
+        raise ValueError(f"Optimizer {optimizer} is not available.")
+    optimizer_class = OPTIMIZER_MAP[optimizer]
+
+    if lr_scheduler is not None and lr_scheduler not in LR_SCHEDULER_MAP:
+        raise ValueError(f"Learning rate scheduler {lr_scheduler} is not available.")
+    lr_scheduler_class = None if lr_scheduler is None else LR_SCHEDULER_MAP[lr_scheduler]
+
     optimizer_classes = {"adam": torch.optim.Adam, "sign_sgd": SignSGD}
     if optimizer not in optimizer_classes:
         raise ValueError(f"{optimizer} is not a valid optimizer.")
     optimizer_class = optimizer_classes[optimizer]
 
-    block_check_fns = {"layerwise": is_layer, "blockwise": is_resnet_block}
-    if learned_round_mode not in block_check_fns:
+    if learned_round_mode not in BLOCK_CHECK_MAP:
         learned_round_mode = "layerwise"
         warnings.warn(
             f"{learned_round_mode} is not a valid learned round mode. Defaulting to layerwise.")
-    block_check_fn = block_check_fns[learned_round_mode]
-
-    learned_round_methods = {"ada_round": AdaRound, "auto_round": AutoRound}
-    if learned_round_name not in learned_round_methods:
-        raise ValueError(f"Learned round method {learned_round_name} is not available.")
-    learned_round = learned_round_methods[learned_round_name](iters=iters)
-
-    lr_scheduler_class = None if optimizer == "adam" else torch.optim.lr_scheduler.LinearLR
-    use_best_model = False if learned_round_name == "ada_round" else True
-    use_amp = True
-    amp_dtype = torch.float16
-    loss_scaling_factor = 1.
-    optimizer_kwargs = None
+    block_check_fn = BLOCK_CHECK_MAP[learned_round_mode]
     lr_scheduler_kwargs = {
         "start_factor": 1.0,
         "end_factor": 0.0,
-        "verbose": False,}
+        "verbose": False,} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
     learned_round_optimizer = LearnedRoundOptimizer(
         learned_round=learned_round,
+        learned_round_loss_class=learned_round_loss_class,
         optimizer_class=optimizer_class,
         lr_scheduler_class=lr_scheduler_class,
         optimizer_lr=optimizer_lr,
@@ -170,7 +202,8 @@ def apply_learned_round(
         use_amp=use_amp,
         amp_dtype=amp_dtype,
         loss_scaling_factor=loss_scaling_factor,
-        optimizer_kwargs={} if optimizer_kwargs is None else optimizer_kwargs,
+        learned_round_loss_kwargs=learned_round_loss_kwargs,
+        optimizer_kwargs=optimizer_kwargs,
         lr_scheduler_kwargs=lr_scheduler_kwargs)
     cache = CacheCNN()
     learned_round_optimizer.apply_learned_round(

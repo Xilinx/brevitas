@@ -1,19 +1,33 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from accelerate.utils.operations import send_to_device
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import LinearLR
+from torch.optim.lr_scheduler import LRScheduler
+from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import DataLoader
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
 
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
+from brevitas_examples.common.learned_round.learned_round_method import MSELoss
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
+
+LEARNED_ROUND_MAP = {
+    "auto_round": AutoRound,}
+LEARNED_ROUND_LOSS_MAP = {
+    "mse": MSELoss,}
+OPTIMIZER_MAP = {
+    "sign_sgd": SignSGD,}
+LR_SCHEDULER_MAP = {
+    "linear": LinearLR,}
 
 
 class CacheLLM(dict):
@@ -44,6 +58,7 @@ class CacheLLM(dict):
         self["output"] = []
         self.store_kwargs = len(self["kwargs"]) == 0
 
+    # TODO: Rename to remove cache
     def reset_cache(self) -> None:
         del self["args"]
         del self["kwargs"]
@@ -93,7 +108,8 @@ def llm_learned_round_finish_fn(model: nn.Module, llm_cache_state: Dict) -> None
 
 def llm_forward(model: nn.Module, inputs: Any) -> None:
     device = next(model.parameters()).device
-    inputs = send_to_device(inputs, device)
+    if device != torch.device("meta"):
+        inputs = send_to_device(inputs, device)
     model(**inputs)
 
 
@@ -112,24 +128,47 @@ def llm_block_check_fn(module: nn.Module, module_name: str) -> bool:
     return isinstance(module, LlamaDecoderLayer) or isinstance(module, OPTDecoderLayer)
 
 
-def apply_learned_round(model: nn.Module, calibration_loader: DataLoader) -> None:
-    iters = 200
-    learned_round = AutoRound(iters=200)
-    optimizer_class = SignSGD
-    lr_scheduler_class = LinearLR
-    optimizer_lr = 5e-3
-    batch_size = 8
-    use_best_model = True
-    use_amp = True
-    amp_dtype = torch.float16
-    loss_scaling_factor = 1000.
-    optimizer_kwargs = None
+def apply_learned_round(
+    model: nn.Module,
+    calibration_loader: DataLoader,
+    iters: int = 200,
+    learned_round: str = "auto_round",
+    learned_round_loss: str = "mse",
+    optimizer: str = "sign_sgd",
+    lr_scheduler: Optional[str] = "linear",
+    optimizer_lr: float = 5e-3,
+    batch_size: int = 8,
+    use_best_model: bool = True,
+    use_amp: bool = True,
+    amp_dtype: torch.dtype = torch.float16,
+    loss_scaling_factor: float = 1000,
+    optimizer_kwargs: Optional[Dict] = None,
+    lr_scheduler_kwargs: Optional[Dict] = None,
+    learned_round_loss_kwargs: Optional[Dict] = None,
+) -> None:
+    if learned_round not in LEARNED_ROUND_MAP:
+        raise ValueError(f"Learned round method {learned_round} is not available.")
+    learned_round = LEARNED_ROUND_MAP[learned_round]()
+
+    if learned_round_loss not in LEARNED_ROUND_LOSS_MAP:
+        raise ValueError(f"Learned round loss {learned_round_loss} is not available.")
+    learned_round_loss_class = LEARNED_ROUND_LOSS_MAP[learned_round_loss]
+
+    if optimizer not in OPTIMIZER_MAP:
+        raise ValueError(f"Optimizer {optimizer} is not available.")
+    optimizer_class = OPTIMIZER_MAP[optimizer]
+
+    if lr_scheduler is not None and lr_scheduler not in LR_SCHEDULER_MAP:
+        raise ValueError(f"Learning rate scheduler {lr_scheduler} is not available.")
+    lr_scheduler_class = None if lr_scheduler is None else LR_SCHEDULER_MAP[lr_scheduler]
+
     lr_scheduler_kwargs = {
         "start_factor": 1.0,
         "end_factor": 0.0,
-        "verbose": False,}
+        "verbose": False,} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
     learned_round_optimizer = LearnedRoundOptimizer(
         learned_round=learned_round,
+        learned_round_loss_class=learned_round_loss_class,
         optimizer_class=optimizer_class,
         lr_scheduler_class=lr_scheduler_class,
         optimizer_lr=optimizer_lr,
@@ -139,7 +178,8 @@ def apply_learned_round(model: nn.Module, calibration_loader: DataLoader) -> Non
         use_amp=use_amp,
         amp_dtype=amp_dtype,
         loss_scaling_factor=loss_scaling_factor,
-        optimizer_kwargs={} if optimizer_kwargs is None else optimizer_kwargs,
+        learned_round_loss_kwargs=learned_round_loss_kwargs,
+        optimizer_kwargs=optimizer_kwargs,
         lr_scheduler_kwargs=lr_scheduler_kwargs)
     cache = CacheLLM()
     learned_round_optimizer.apply_learned_round(
@@ -151,5 +191,5 @@ def apply_learned_round(model: nn.Module, calibration_loader: DataLoader) -> Non
         block_check_fn=llm_block_check_fn,
         model_prepare_fn=llm_learned_round_prepare_fn,
         model_finish_fn=llm_learned_round_finish_fn,
-        keep_gpu=True,
+        keep_gpu=False,
     )

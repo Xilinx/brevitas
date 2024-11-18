@@ -370,8 +370,11 @@ def main(args):
 
     if args.learned_round:
         print("Applying learned round...")
+        remove_hooks(model)
         apply_learned_round(model, calibration_loader)
         print("Learned round applied.")
+
+    model = offload_model(model)
 
     if args.act_calibration:
         print("Apply act calibration...")

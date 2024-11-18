@@ -163,6 +163,12 @@ parser.add_argument(
     default=None,
     type=str,
     choices=[None, 'ada_round', 'auto_round'],
+    help='Learned round type (default: None)')
+parser.add_argument(
+    '--learned-round-loss',
+    default='regularised_mse',
+    type=str,
+    choices=['regularised_mse', 'mse'],
     help='Learned round type (default: none)')
 parser.add_argument(
     '--learned-round-mode',
@@ -174,6 +180,12 @@ parser.add_argument(
     default=1000,
     type=int,
     help='Numbers of iterations for learned round for each layer (default: 1000)')
+parser.add_argument(
+    '--learned-round-lr-scheduler',
+    default=None,
+    type=str,
+    choices=[None, 'linear'],
+    help='Learning rate scheduler for learned round (default: None)')
 parser.add_argument(
     '--learned-round-lr',
     default=1e-3,
@@ -501,12 +513,14 @@ def main():
         apply_learned_round(
             model=quant_model,
             calibration_loader=calib_loader,
-            learned_round_name=args.learned_round,
-            optimizer=args.optimizer,
-            learned_round_mode=args.learned_round_mode,
             iters=args.learned_round_iters,
+            learned_round=args.learned_round,
+            learned_round_loss=args.learned_round_loss,
+            optimizer=args.optimizer,
+            lr_scheduler=args.learned_round_lr_scheduler,
             optimizer_lr=args.learned_round_lr,
             batch_size=args.learned_round_batch_size,
+            learned_round_mode=args.learned_round_mode,
         )
 
     if args.calibrate_bn:

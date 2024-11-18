@@ -3,7 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Dict, Generator, List, Tuple, Type
+from typing import Dict, Generator, List, Optional, Tuple, Type
 
 import torch
 from torch import nn
@@ -37,53 +37,19 @@ class LearnedRoundLoss(ABC):
 
 class LearnedRound(ABC):
 
-    def __init__(
-            self, loss_cls: Type[LearnedRoundLoss], loss_params: Dict = None, **kwargs) -> None:
-        self.loss_cls = loss_cls
-        self.loss_params = loss_params if loss_params is not None else {}
-
-    def _insert_and_return_learned_round_quantizers(self, block: nn.Module) -> List[nn.Module]:
-        round_modules = []
-        for module in block.modules():
+    def insert_learned_round_quantizers(self, model: nn.Module) -> None:
+        for module in model.modules():
             if isinstance(module, QuantWBIOL) and len(
-                    self._find_learned_round_modules(module)) == 0:
+                    self.return_learned_round_quantizers(module)) == 0:
                 self._insert_learned_round_quantizer_to_layer(module)
                 module.weight_quant.init_tensor_quant(preserve_state_dict=True)
-                round_modules.append(module.weight_quant.tensor_quant.int_quant.float_to_int_impl)
-        return round_modules
 
     @abstractmethod
     def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
         pass
 
-    @abstractmethod
-    def _is_learned_round_module(self, module: nn.Module) -> bool:
-        pass
-
-    def _find_learned_round_modules(self, block: nn.Module) -> List[nn.Module]:
-        round_modules = []
-        for module in block.modules():
-            if self._is_learned_round_module(module):
-                round_modules.append(module)
-        return round_modules
-
-    def learned_round_iterator(
-            self,
-            blocks: List[nn.Module]) -> Generator[nn.Module, LearnedRoundLoss, List[nn.Module]]:
-        for block in blocks:
-            # Insert learned round quantizers into the appropiate submodules
-            learned_round_modules = self._insert_and_return_learned_round_quantizers(block)
-            # Freeze block parameters
-            for params in block.parameters():
-                params.requires_grad = False
-            # Enable gradient tracking in learned round modules
-            for round_module in learned_round_modules:
-                for params in round_module.parameters():
-                    params.requires_grad = True
-            block_loss = self.loss_cls(block, learned_round_modules, **self.loss_params)
-            # Block needs to be in eval mode while the rounding is optimised
-            block.eval()
-            yield block, block_loss, learned_round_modules
+    def return_learned_round_quantizers(self, block: nn.Module) -> List[nn.Module]:
+        return [module for module in block.modules() if isinstance(module, LearnedRoundSte)]
 
 
 class LinearTempDecay:
@@ -146,40 +112,26 @@ class RegularisedMSELoss(LearnedRoundLoss):
         return total_loss, (total_loss, rec_loss, round_loss, b)
 
     def format_loss_components(self, loss: float, rec_loss: float, round_loss: float, b) -> str:
-        return "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
-            loss, rec_loss, round_loss, b)
+        return "Loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
+            loss,
+            rec_loss.detach().cpu().item(),
+            round_loss if isinstance(round_loss, float) else round_loss.detach().cpu().item(),
+            b)
 
 
 class AdaRound(LearnedRound):
 
     def __init__(
-            self,
-            loss_cls: Type[LearnedRoundLoss] = RegularisedMSELoss,
-            loss_params: Dict = None,
-            iters: int = 200,
-            learned_round_zeta: float = 1.1,
-            learned_round_gamma: float = -0.1,
-            learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
-            weight: float = 0.01,
-            b_range: Tuple = (20, 2),
-            warmup: float = 0.2,
-            decay_start: float = 0.0,
-            **kwargs,
+        self,
+        learned_round_zeta: float = 1.1,
+        learned_round_gamma: float = -0.1,
+        learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
+        **kwargs,
     ) -> None:
-        loss_params = {
-            "max_count": iters,
-            "weight": weight,
-            "b_range": b_range,
-            "warmup": warmup,
-            "decay_start": decay_start} if loss_params is None else loss_params
-        super().__init__(loss_cls, loss_params, **kwargs)
         # Quantiser-related configuration
         self.learned_round_zeta = learned_round_zeta
         self.learned_round_gamma = learned_round_gamma
         self.learned_round_impl_type = learned_round_impl_type
-
-    def _is_learned_round_module(self, module: nn.Module) -> bool:
-        return isinstance(module, LearnedRoundSte)
 
     def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
         floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
@@ -201,23 +153,16 @@ class MSELoss(LearnedRoundLoss):
 
     def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
         loss = F.mse_loss(pred, tgt)
-        return loss, (loss,)
+        return loss, (loss.detach().cpu().item(),)
 
     def format_loss_components(self, loss: float) -> str:
-        return "loss = {:.4f}".format(loss)
+        return "Loss = {:.4f}".format(loss)
 
 
 class AutoRound(LearnedRound):
 
-    def __init__(
-            self,
-            loss_cls: Type[LearnedRoundLoss] = MSELoss,
-            loss_params: Dict = None,
-            **kwargs) -> None:
-        super().__init__(loss_cls, loss_params, **kwargs)
-
-    def _is_learned_round_module(self, module: nn.Module) -> bool:
-        return isinstance(module, LearnedRoundSte)
+    def __init__(self, **kwargs) -> None:
+        pass
 
     def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
         value = torch.zeros_like(layer.weight.data)
