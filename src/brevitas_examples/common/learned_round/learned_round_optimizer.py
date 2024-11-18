@@ -189,7 +189,6 @@ import itertools
 from typing import Any, Callable, Dict, List, Tuple
 import warnings
 
-from brevitas_examples.common.accelerate_utils.accelerate import offload_model, remove_hooks
 import torch
 from torch import autocast
 from torch import nn
@@ -203,6 +202,8 @@ from brevitas import config
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas.proxy import WeightQuantProxyFromInjectorBase
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 
 config.IGNORE_MISSING_KEYS = True
@@ -382,7 +383,7 @@ class LearnedRoundOptimizer:
         for block_idx, (block, block_loss, block_learned_round_modules) in enumerate(
                 self.learned_round.learned_round_iterator(blocks)):
             # Populate cache for the given block
-            offload_model(model, gpu_device_map={0: "2GB"})
+            offload_model(model)
 
             n_samples = self.learned_round_utils.populate_cache(
                 cache,
@@ -392,7 +393,7 @@ class LearnedRoundOptimizer:
                 keep_gpu=keep_gpu,
             )
             remove_hooks(model)
-            print("----")
+            # print("----")
             # offload_model(block)
             block.cuda()
             for params in block.parameters():
@@ -451,7 +452,6 @@ class LearnedRoundOptimizer:
             optimal_rounding_params = {}
 
             torch.cuda.empty_cache()
-
 
             pbar = tqdm(range(self.iters), desc='')
 
