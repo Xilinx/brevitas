@@ -1367,7 +1367,6 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 module.offload_params(module)
 
             if insert_rotation_module and len(region.srcs) == 0:
-                # print(name, module.in_features, K)
                 rewriter = ModuleInstanceToModuleInstance(
                     module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
                 rewriters.append(rewriter)
@@ -1467,7 +1466,7 @@ class GraphRotationEqualization(RotationEqualization):
 
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
-
+        rewriters = []
         regions = _extract_regions(
             graph_model,
             state_impl_kwargs={
