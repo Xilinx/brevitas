@@ -10,6 +10,7 @@ from torch.nn import Parameter
 import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
+from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.stats import _ParameterListStats
@@ -95,6 +96,7 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
+        self.clamp_scaling = _ClampValue(scaling_min_val)
 
     @brevitas.jit.script_method
     def forward(
@@ -103,6 +105,8 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             threshold = torch.ones(1).type_as(stats)
         threshold = self.restrict_threshold_pre(threshold)
         threshold = self.restrict_clamp_threshold(threshold)
+        # Clamping avoids eventual log(0) with restrict_val
+        stats = self.clamp_scaling(stats)
         stats = self.restrict_scaling_pre(stats)
         stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
@@ -218,6 +222,7 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         )
         self.restrict_threshold_pre = self.restrict_clamp_threshold.restrict_value_impl.restrict_init_module(
         )
+        self.clamp_scaling = _ClampValue(scaling_min_val)
 
     @brevitas.jit.script_method
     def forward(
@@ -229,8 +234,10 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         stats_input_reshaped = self.input_view_impl(stats_input)
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
         out = self.scaling_stats_impl(stats_input_reshaped)
-        # Apply log scaling
+        # Clamping avoids eventual log(0) with restrict_val
+        out = self.clamp_scaling(out)
+        # Apply restrict_value preprocess
         out = self.restrict_scaling_pre(out)
-        # Scaling min val
+        # Apply restrict_value and clamping
         out = self.restrict_clamp_scaling(out) / threshold
         return out
