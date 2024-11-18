@@ -11,9 +11,12 @@ from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantPro
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
+ZP_BIT_WIDTH = 6
+SCALE_BIT_WIDTH = 5
+
 
 class QuantScalingInt(Int8WeightPerTensorFloat):
-    bit_width = 8
+    bit_width = SCALE_BIT_WIDTH
     module = (this << 1).module
     tracked_parameter_list = (this << 1).tracked_parameter_list
     upstream_scaling = (this << 1).scaling_per_output_type
@@ -50,12 +53,11 @@ from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 
 
 class QuantZPInt(Int8WeightPerTensorFloat):
-    bit_width = 8
     module = (this << 1).module
     tracked_parameter_list = (this << 1).tracked_parameter_list
     upstream_scaling = (this << 1).scaling_per_output_type
     rescaling_int_quant = RescalingIntQuant
-    bit_width = 6
+    bit_width = ZP_BIT_WIDTH
     quantize_zero_point = True
     scaling_per_output_type = ScalingPerOutputType.CHANNEL
 
@@ -86,13 +88,13 @@ class QuantZPInt(Int8WeightPerTensorFloat):
         return scaling
 
 
-class QuantScaleInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat):
+class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat):
     proxy_class = GroupwiseWeightQuantProxyFromInjector
     scaling_int_quant = QuantScalingInt
     zp_int = QuantZPInt
     restrict_scaling_impl = QuantRestrictValue
     scaling_per_output_type = ScalingPerOutputType.GROUP
-    scale_shit_zero_point_impl = _ScaleShiftQuantZeroPoint
+    scale_shift_zero_point_impl = _ScaleShiftQuantZeroPoint
     group_size = 32
 
     @value
@@ -108,15 +110,17 @@ def test_quant_scale():
 
     def hook_scale(module, inp):
         inp = inp[0]
-        quant_scale, scale, *_ = module.float_to_int_impl(inp)
+        quant_scale, scale, zp, bit_width = module.float_to_int_impl(inp)
+        assert bit_width == SCALE_BIT_WIDTH
         assert torch.allclose(quant_scale / scale, torch.round(quant_scale / scale))
 
     def hook_zp(module, inp):
         inp = inp[0]
-        quant_scale, scale, *_ = module.zp_int_quant(inp)
+        quant_scale, scale, zp, bit_width = module.zp_int_quant(inp)
+        assert bit_width == ZP_BIT_WIDTH
         assert torch.allclose(quant_scale / scale, torch.round(quant_scale / scale))
 
-    linear = qnn.QuantLinear(64, 768, weight_quant=QuantScaleInt8WeightPerTensorFloat)
+    linear = qnn.QuantLinear(64, 768, weight_quant=QuantScaleQuantZPInt8WeightPerTensorFloat)
     for module in linear.modules():
         if isinstance(module, QuantRestrictValue):
             module.register_forward_pre_hook(hook_scale)
