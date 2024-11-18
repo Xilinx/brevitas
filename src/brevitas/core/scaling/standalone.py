@@ -250,9 +250,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            # Clamping avoids eventual log(0) with restrict_val
-            value = self.clamp_scaling(self.value)
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
             value = value / threshold
             return value
         else:
@@ -424,8 +422,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 out = self.restrict_scaling_pre(out)
             else:
                 out = self.value
-                # Clamping avoids eventual log(0) with restrict_val
-                out = self.clamp_scaling(out)
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
             out = out / threshold
