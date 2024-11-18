@@ -403,6 +403,7 @@ def main(args):
             learn_scale=args.learned_round_scale,
             iters=args.learned_round_iters)
         learned_round_optimiser.apply_learned_round(model, calibration_loader, args.gpxq_block_name)
+        model = offload_model(model)
 
         print("Learned round applied.")
 
