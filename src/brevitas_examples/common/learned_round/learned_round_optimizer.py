@@ -190,7 +190,11 @@ import itertools
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import warnings
 
+from accelerate import Accelerator
+from accelerate.utils import tqdm as tqdm_accelerate
+from accelerate.utils.dataclasses import PrecisionType
 from accelerate.utils.operations import send_to_device
+from datasets import Dataset
 import torch
 from torch import autocast
 from torch import nn
@@ -198,6 +202,7 @@ from torch.optim.lr_scheduler import LinearLR
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataloader import RandomSampler
 from tqdm import tqdm
 
 from brevitas import config
@@ -268,6 +273,14 @@ class Cache(ABC):
     def reset_cache(self) -> None:
         pass
 
+    @abstractmethod
+    def cache_to_dataset(self) -> Dataset:
+        pass
+
+    @abstractmethod
+    def collate_fn(self, batch: Any) -> Any:
+        pass
+
 
 class DataSaverHook:
 
@@ -313,6 +326,7 @@ class LearnedRoundOptimizer:
         use_amp: bool = True,
         amp_dtype: torch.dtype = torch.float16,
         loss_scaling_factor: float = 1000.,
+        use_accelerate: bool = False,
         learned_round_loss_kwargs: Optional[Dict] = None,
         optimizer_kwargs: Optional[Dict] = None,
         lr_scheduler_kwargs: Optional[Dict] = None,
@@ -334,6 +348,10 @@ class LearnedRoundOptimizer:
         learned_round_loss_kwargs = {} if learned_round_loss_kwargs is None else learned_round_loss_kwargs
         self.learned_round_loss_init = partial(
             learned_round_loss_class, **learned_round_loss_kwargs)
+
+        # TODO: Remove once validated and expose the flag
+        # self.use_accelerate = use_accelerate
+        self.use_accelerate = False
 
     # TODO: FIX
     @torch.no_grad()
@@ -433,7 +451,19 @@ class LearnedRoundOptimizer:
         block_loss: LearnedRoundLoss,
         block_forward: Callable,
     ) -> Tuple[float, float, int]:
-        # Initilalize optimizer and LR scheduler
+        # Move block to GPU if available
+        if torch.cuda.is_available():
+            try:
+                block.cuda()
+            except RuntimeError as exc:
+                if 'out of memory' in str(exc):
+                    warnings.warn(
+                        "Out of memory error was raised when moving the block to GPU. Defaulting to CPU."
+                    )
+                else:
+                    raise exc
+
+        # Initialize optimizer and LR scheduler
         optimizer = self.optimizer_class(
             itertools.chain(
                 *[
@@ -499,6 +529,125 @@ class LearnedRoundOptimizer:
             # Override if the model with the lowest training error is not used
             best_loss = curr_loss
             last_best_iter = self.iters
+
+        # Move the block back to CPU
+        block.cpu()
+
+        return init_loss, best_loss, last_best_iter
+
+    # TODO: Enable saving best parameters
+    def _accelerate_optimize_learned_round_block(
+        self,
+        block: nn.Module,
+        block_learned_round_modules: List[nn.Module],
+        cache: Cache,
+        block_loss: LearnedRoundLoss,
+        block_forward: Callable,
+    ) -> Tuple[float, float, int]:
+        # Enable running in mixed precision
+        TORCH_DTYPE_TO_PRECISION_TYPE_MAP = {
+            torch.float16: PrecisionType.FP16,
+            torch.bfloat16: PrecisionType.BF16,}
+        raise_warning_dtype = False
+        if not self.use_amp:
+            mixed_precision_type = None
+        else:
+            if self.amp_dtype not in TORCH_DTYPE_TO_PRECISION_TYPE_MAP:
+                raise_warning_dtype = True
+                mixed_precision_type = None
+            else:
+                mixed_precision_type = TORCH_DTYPE_TO_PRECISION_TYPE_MAP[self.amp_dtype]
+        # Instantiate accelerator to run in a multi-GPU setting
+        accelerator = Accelerator(mixed_precision=mixed_precision_type)
+
+        # Raise warning if the AMP dtype was defaulted to float32. This warning is raised after
+        # the instantiation of accelerator, to use its print functionality so the message is only
+        # printed once.
+        if raise_warning_dtype:
+            accelerator.print(
+                f"The dtype {self.amp_dtype} cannot be used for AMP training with accelerate. Defaulting to float32."
+            )
+
+        # Initilalize optimizer and LR scheduler
+        optimizer = self.optimizer_class(
+            itertools.chain(
+                *[
+                    block_learned_round_module.parameters()
+                    for block_learned_round_module in block_learned_round_modules]),
+            lr=self.optimizer_lr,
+            **self.optimizer_kwargs,
+        )
+        lr_scheduler = (
+            self.lr_scheduler_class(optimizer, **self.lr_scheduler_kwargs)
+            if self.lr_scheduler_class else None)
+
+        # Prepare dataset from cache
+        cache_dataset = cache.cache_to_dataset()
+        # NOTE: Intuitively, the total samples retrieved during optimization should
+        # be self.batch_size*self.iters. However, a StopIteration is raised mid-training
+        # signaling that this is not correct. Should check why this is the case.
+        random_sampler = RandomSampler(
+            cache_dataset, replacement=True, num_samples=2 * self.batch_size * self.iters)
+        cache_dataloader = DataLoader(
+            cache_dataset,
+            batch_size=self.batch_size,
+            sampler=random_sampler,
+            collate_fn=cache.collate_fn)
+
+        # Prepare elements for training
+        cache_dataloader, block, optimizer, lr_scheduler = accelerator.prepare(cache_dataloader, block, optimizer, lr_scheduler)
+
+        # Variables needed for printing
+        best_loss = torch.finfo(torch.float).max
+        init_loss = -1.0
+        last_best_iter = self.iters
+
+        # Initialize an iterator to extract elements from the cache dataloader
+        cache_iterator = iter(cache_dataloader)
+
+        pbar = tqdm_accelerate(range(self.iters), desc='')
+        for i in pbar:
+            # Sample mini-batch from cache
+            inputs, fp_outs = next(cache_iterator)
+
+            # Run block forward to obtain quant outputs
+            quant_outs = block_forward(block, inputs)
+            # Compute loss using the block loss function
+            loss, loss_components = block_loss(quant_outs, fp_outs)
+
+            # Save best parameters before taking gradient step
+            curr_loss = loss.detach().cpu().item()
+            init_loss = curr_loss if i == 0 else init_loss
+            if loss < best_loss:
+                best_loss = curr_loss
+                last_best_iter = i + 1
+
+            # Scale loss and perform gradient step
+            # loss = loss * self.loss_scaling_factor
+            accelerator.backward(loss)
+            self._step(optimizer, lr_scheduler)
+
+            # Update progress bar
+            pbar.set_description("{}".format(block_loss.format_loss_components(*loss_components)))
+
+        # Make sure no updates are received in the progress bar
+        pbar.close()
+
+        # TODO: Include support for saving the best configuration during training
+        if not self.use_best_model:
+            # Override if the model with the lowest training error is not used
+            best_loss = curr_loss
+            last_best_iter = self.iters
+
+        # TODO: Verify if this call is actually needed
+        # Wait for everyone before proceding to next block
+        accelerator.wait_for_everyone()
+        # Remove all the wrapper around the block
+        block = accelerator.unwrap_model(block)
+        # Clear memory
+        accelerator.free_memory()
+        # Move the block back to CPU
+        block.cpu()
 
         return init_loss, best_loss, last_best_iter
 
@@ -573,7 +722,11 @@ class LearnedRoundOptimizer:
             )
 
             # Optimize block rounding
-            init_loss, best_loss, last_best_iter = self._optimize_learned_round_block(
+            init_loss, best_loss, last_best_iter = (
+                self._optimize_learned_round_block
+                if not self.use_accelerate
+                else self._accelerate_optimize_learned_round_block
+            )(
                 block=block,
                 block_learned_round_modules=block_learned_round_modules,
                 cache=cache,

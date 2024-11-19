@@ -4,6 +4,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from accelerate.utils.operations import send_to_device
+from datasets import Dataset
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import LinearLR
@@ -58,7 +59,6 @@ class CacheLLM(dict):
         self["output"] = []
         self.store_kwargs = len(self["kwargs"]) == 0
 
-    # TODO: Rename to remove cache
     def reset_cache(self) -> None:
         del self["args"]
         del self["kwargs"]
@@ -91,6 +91,35 @@ class CacheLLM(dict):
         # FP outputs
         outs = torch.cat([cache_outs[i] for i in indices], dim=0)
         return (args, kwargs), outs
+
+    def cache_to_dataset(self) -> Dataset:
+        inputs_list = list(zip(self["args"], self["kwargs"]))
+        return list(zip(inputs_list, self["output"]))
+
+    def collate_fn(self, batch: Any) -> Any:
+        # Format of the dataset is ((args, kwargs), outs)
+        # See cache_to_dataset
+        inputs, outs = map(list, zip(*batch))
+        args, kwargs_dict = map(list, zip(*inputs))
+        # Positional arguments
+        args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
+        # Keyword arguments
+        kwargs = {}
+        for curr_dict in kwargs_dict:
+            for key, value in curr_dict.items():
+                if isinstance(value, torch.Tensor):
+                    if key not in kwargs:
+                        kwargs[key] = []
+                    kwargs[key].append(value)
+                else:
+                    if key not in kwargs:
+                        kwargs[key] = value
+        for key, value in kwargs.items():
+            if isinstance(value, list) and len(value) > 0:
+                kwargs[key] = torch.cat(kwargs[key], dim=0)
+        # FP outputs
+        outs = torch.cat(outs, dim=0)
+        return ((args, kwargs), outs)
 
     def __len__(self):
         return len(self["args"])
