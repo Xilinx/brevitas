@@ -22,7 +22,7 @@ def test_scaling_state_dict():
 
 @torch.no_grad()
 def test_scaling_min_val_runtime():
-    scaling_min_val = torch.tensor(1e-6)
+    scaling_min_val = 1e-6
     scaling_op = ParameterFromRuntimeStatsScaling(
         collect_stats_steps=1,
         scaling_stats_impl=AbsMax(),
@@ -38,7 +38,7 @@ def test_scaling_min_val_runtime():
 @torch.no_grad()
 def test_scaling_min_val_param():
     inp = torch.zeros(1, 5)
-    scaling_min_val = torch.tensor(1e-6)
+    scaling_min_val = 1e-6
     scaling_op = ParameterFromStatsFromParameterScaling(
         scaling_stats_impl=AbsMax(),
         scaling_min_val=scaling_min_val,
