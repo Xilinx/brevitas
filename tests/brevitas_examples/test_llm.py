@@ -380,7 +380,7 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
             "no_quantize": True,
             "rotation_orphan_sink": True,
             "convert_layernorm_to_rmsnorm": True,
-            "graph_rotation": "fx",
+            "rotation": "fx",
             "exp_layer_types": {
                 "L__self___model_layers_0_self_attn_k_proj":
                     "<class 'torch.nn.modules.linear.Linear'>",
@@ -394,7 +394,7 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
             "no_quantize": True,
             "rotation_orphan_sink": False,
             "convert_layernorm_to_rmsnorm": True,
-            "graph_rotation": "fx",
+            "rotation": "fx",
             "exp_layer_types": {
                 "L__self___model_layers_0_self_attn_k_proj":
                     "<class 'torch.nn.modules.linear.Linear'>",
@@ -417,8 +417,7 @@ def test_small_models_quant_layer(caplog, layer_args):
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
-        if hasattr(args, 'graph_rotation') and args.graph_rotation == 'fx' and platform.system(
-        ) == 'Windows':
+        if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     assert_layer_types(model, exp_layer_types)

@@ -1356,18 +1356,16 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
             weight = module.weight.data
 
             if axis == 1:
-                weight = rot_func(weight, rot_mat, K)
+                _update_weights(module, rot_func(weight, rot_mat, K), 'weight')
             elif axis == 0:
-                weight = rot_func(weight.t(), rot_mat, K).t()
+                _update_weights(module, rot_func(weight.t(), rot_mat, K).t(), 'weight')
             else:
                 raise RuntimeError("Not supported yet")
 
-            module.weight.data = weight
             if hasattr(module, 'offload_params'):
                 module.offload_params(module)
 
             if insert_rotation_module and len(region.srcs) == 0:
-                # print(name, module.in_features, K)
                 rewriter = ModuleInstanceToModuleInstance(
                     module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
                 rewriters.append(rewriter)
@@ -1467,7 +1465,7 @@ class GraphRotationEqualization(RotationEqualization):
 
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
-
+        rewriters = []
         regions = _extract_regions(
             graph_model,
             state_impl_kwargs={

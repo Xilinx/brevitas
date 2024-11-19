@@ -61,7 +61,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     new_model = offload_model(new_model)
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
-        full_rotation_method=args.graph_rotation_mode,
+        full_rotation_method=args.rotation_mode,
         return_rewriters=True)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
@@ -104,10 +104,12 @@ def model_export(model, ref_input, args):
 
 
 def validate(args):
-    if args.graph_rotation == 'fx':
+    if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
         assert args.convert_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
+    elif args.rotation == 'fused_no_fx':
+        assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
         if args.gptq and args.gpfq:
             warn("Both GPTQ and GPFQ are enabled.")
@@ -259,16 +261,16 @@ def main(args):
         apply_layernorm_to_rmsnorm(model)
         print("Layernorm To RMSNorm applied.")
 
-    if args.graph_rotation == 'fx':
+    if args.rotation == 'fx':
         model = offload_model(model)
         eq = GraphRotationEqualization(
-            orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.graph_rotation_mode)
+            orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.rotation_mode)
         model = eq.apply(model)
         remove_hooks(model)
-    elif args.graph_rotation == 'layerwise':
+    elif args.rotation == 'layerwise':
         eq = LayerwiseActivationRotation()
         model = eq.apply(model)
-    elif args.graph_rotation == 'fused_no_fx':
+    elif args.rotation == 'fused_no_fx':
         fused_rotation_no_fx(model, calibration_loader, args)
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
@@ -354,7 +356,7 @@ def main(args):
     # If any equalization has taken places, the embedding layer and the fully connected one are
     # not tied anymore, and they need to be treated as standalone, separate layers.
     # In all other cases we can tie them back so to preserve memory.
-    if args.act_equalization is None and not require_fx:
+    if args.act_equalization is None and not require_fx and args.rotation is None:
         model.tie_weights()
 
     if args.bias_corr:
@@ -600,13 +602,13 @@ def parse_args(args):
         action='store_true',
         help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
     parser.add_argument(
-        '--graph-rotation',
+        '--rotation',
         type=str,
         default=None,
         choices=['fx', 'layerwise', 'fused_no_fx'],
         help='Apply graph rotation equalization')
     parser.add_argument(
-        '--graph-rotation-mode',
+        '--rotation-mode',
         default='had',
         choices=['had', 'ort'],
         help=

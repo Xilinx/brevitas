@@ -44,9 +44,8 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
                [--no-quantize] [--no-float16]
                [--scaling-min-val SCALING_MIN_VAL] [--replace-mha]
-               [--weight-equalization]
-               [--graph-rotation {fx,layerwise,fused_no_fx}]
-               [--graph-rotation-mode {had,ort}] [--rotation-orphan-sink]
+               [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
+               [--rotation-mode {had,ort}] [--rotation-orphan-sink]
                [--act-equalization {None,layerwise,fx}] [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
@@ -148,9 +147,9 @@ options:
   --weight-equalization
                         Apply weight equalization. Relevant to ReLU based
                         models (e.g. OPT).
-  --graph-rotation {fx,layerwise,fused_no_fx}
+  --rotation {fx,layerwise,fused_no_fx}
                         Apply graph rotation equalization
-  --graph-rotation-mode {had,ort}
+  --rotation-mode {had,ort}
                         If GraphRotation is enabled, decide how to compute the
                         random rotation matrix that is fully fused. Online or
                         partial rotation will always be Hadamard
