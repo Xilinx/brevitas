@@ -177,6 +177,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         # We first apply any restriction to scaling
         # For IntQuant, this is no-op, retrocompatible.
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
+        # We can clamp after restrict val since the learned parameter is already in log-domain
         value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         return value / threshold
 
@@ -234,6 +235,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             device)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.restrict_inplace_scaling_pre = restrict_scaling_impl.restrict_init_inplace_module()
+        self.clamp_scaling = _ClampValue(scaling_min_val)
 
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
@@ -255,7 +257,10 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             if self.local_loss_mode:
+                # Scaling implementation before/after restrict_val is performed in stats_scaling_impl
                 return self.stats_scaling_impl(stats, threshold)
+            # Clamping avoids eventual log(0) with restrict_val
+            stats = self.clamp_scaling(stats)
             stats = self.restrict_inplace_scaling_pre(stats)
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
@@ -412,12 +417,14 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         else:
             if self.counter <= self.collect_stats_steps:
                 out = self.buffer
+                # No clamping is necessary since statistics are already clamped in training_forward
                 out = self.restrict_scaling_pre(out)
             else:
                 out = self.value
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
-            out = self.clamp_scaling(self.restrict_scaling(out))
+            out = self.restrict_scaling(out)
             out = out / threshold
+            # We can clamp after restrict val since the learned parameter is already in log-domain
             out = abs_binary_sign_grad(self.clamp_scaling(out))
         return out
 
