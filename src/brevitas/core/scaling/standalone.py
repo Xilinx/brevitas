@@ -169,7 +169,6 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
-        self.clamp_scaling = _ClampValue(scaling_min_val)
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
@@ -178,9 +177,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         # We first apply any restriction to scaling
         # For IntQuant, this is no-op, retrocompatible.
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
-        # Clamping avoids eventual log(0) with restrict_val
-        value = self.clamp_scaling(self.value)
-        value = abs_binary_sign_grad(self.restrict_clamp_scaling(value))
+        # We can clamp after restrict val since the learned parameter is already in log-domain
+        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         return value / threshold
 
     def _load_from_state_dict(
@@ -426,6 +424,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
             out = out / threshold
+            # We can clamp after restrict val since the learned parameter is already in log-domain
             out = abs_binary_sign_grad(self.clamp_scaling(out))
         return out
 
