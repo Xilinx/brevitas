@@ -353,14 +353,12 @@ class LearnedRoundOptimizer:
         # self.use_accelerate = use_accelerate
         self.use_accelerate = False
 
-    # TODO: FIX
     @torch.no_grad()
     def _load_round_params(self, block: nn.Module, round_params: Dict) -> None:
         for n, m in block.named_modules():
             if n in round_params:
                 m.load_state_dict(round_params[n])
 
-    # TODO: FIX
     @torch.no_grad()
     def _collect_round_params(self, block: nn.Module) -> Dict:
         params = {}
@@ -523,8 +521,7 @@ class LearnedRoundOptimizer:
         pbar.close()
 
         if self.use_best_model:
-            with torch.no_grad():
-                self._load_round_params(block, optimal_rounding_params)
+            self._load_round_params(block, optimal_rounding_params)
         else:
             # Override if the model with the lowest training error is not used
             best_loss = curr_loss
