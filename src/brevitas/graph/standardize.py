@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
-from brevitas.nn.quant_sdpa import ScaledDotProductAttention
+from brevitas.nn import ScaledDotProductAttention
 
 from .base import FnToModule
 from .base import GraphTransform
