@@ -1,3 +1,2 @@
-# optimum-amd[brevitas] @ git+https://github.com/huggingface/optimum-amd.git@main
 tqdm
 transformers[sentencepiece]==4.45.2

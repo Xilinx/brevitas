@@ -1,28 +1,38 @@
 """
-Adapted from https://github.com/IST-DASLab/gptq, released under the following LICENSE:
+Adapted from https://github.com/huggingface/optimum-amd, released under the following LICENSE:
 
-Copyright 2023 IST-DASLab
+MIT License
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Copyright (c) 2023 Hugging Face
 
-    http://www.apache.org/licenses/LICENSE-2.0
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 """
 
 import random
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
 from torch import nn
 from tqdm import tqdm
+
+from brevitas_examples.llm.llm_quant.data_utils import recursive_to_device
 
 
 def create_validation_dataloader(data, seqlen, device):
@@ -33,24 +43,6 @@ def create_validation_dataloader(data, seqlen, device):
         attention_mask = torch.ones_like(batch)
         val_dataloader.append({'input_ids': batch, 'attention_mask': attention_mask})
     return val_dataloader
-
-
-@torch.no_grad()
-def recursive_to_device(tensor_or_iterable: Union[Iterable, torch.Tensor], device) -> None:
-    if isinstance(tensor_or_iterable, torch.Tensor):
-        return tensor_or_iterable.to(device)
-    elif isinstance(tensor_or_iterable,
-                    tuple):  # Special handling of tuples, since they are immutable
-        tmp_list = []
-        for i in tensor_or_iterable:
-            tmp_list.append(recursive_to_device(i, device))
-        return tuple(tmp_list)
-    elif isinstance(tensor_or_iterable, Iterable):
-        for i in tensor_or_iterable:
-            tensor_or_iterable[i] = recursive_to_device(i, device)
-        return tensor_or_iterable
-    else:
-        raise ValueError(f"Cannot move {type(tensor_or_iterable)} to {device}")
 
 
 @torch.no_grad()
