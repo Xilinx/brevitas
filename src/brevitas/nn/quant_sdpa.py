@@ -40,6 +40,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
+import math
 from typing import Optional, Tuple, Union
 
 import torch
@@ -50,6 +51,8 @@ import torch.nn.functional as F
 
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
+
+from .quant_activation import QuantIdentity
 
 
 class ScaledDotProductAttention(Module):
@@ -171,25 +174,22 @@ class QuantScaledDotProductAttention(Module):
             - :math:`Hq: \text{Number of heads of query}`
             - :math:`H: \text{Number of heads of key and value}`
         """
-        query = self.query_quant(query)
-        key = self.key_quant(key)
-        value = self.value_quant(value)
         L, S = query.size(-2), key.size(-2)
         scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
-        attn_bias = torch.zeros(L, S, dtype=query.dtype)
+        attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
         if is_causal:
             assert attn_mask is None
-            temp_mask = torch.ones(L, S, dtype=torch.bool).tril(diagonal=0)
+            temp_mask = torch.ones(L, S, dtype=torch.bool, device=query.device).tril(diagonal=0)
             attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
-            attn_bias.to(query.dtype)
+            attn_bias.to(dtype=query.dtype, device=query.device)
 
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
             else:
-                attn_bias += attn_mask
+                attn_bias = attn_bias + attn_mask
         q_scaled = self.q_scaled_quant(query * scale_factor)
-        k_transpose = self.k_transpose_quant(key.transpose(-2, -1))
+        k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
         attn_weight = q_scaled @ k_transpose
         attn_weight += attn_bias
         attn_weight = self.softmax_input_quant(attn_weight)

@@ -28,6 +28,8 @@ from .quant_rnn import QuantLSTM
 from .quant_rnn import QuantRNN
 from .quant_scale_bias import QuantScaleBias
 from .quant_scale_bias import ScaleBias
+from .quant_sdpa import QuantScaledDotProductAttention
+from .quant_sdpa import ScaledDotProductAttention
 from .quant_upsample import QuantUpsample
 from .quant_upsample import QuantUpsamplingBilinear2d
 from .quant_upsample import QuantUpsamplingNearest2d
