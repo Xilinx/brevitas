@@ -463,13 +463,25 @@ def generate_quant_maps(
         'dtype': dtype,
         'device': device}
 
+    quant_sdpa_kwargs = {
+        'softmax_input_quant': None,
+        'attn_output_weights_quant': attn_output_weights_quant,
+        'attn_output_weights_signed': 'float' in input_quant_format,
+        'q_scaled_quant': q_scaled_quant,
+        'k_transposed_quant': k_transposed_quant,
+        'v_quant': v_quant,
+        'attn_output_quant': None,
+        'dtype': dtype,
+        'device': device}
+
     layer_map = {
         nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
         nn.Conv2d: (qnn.QuantConv2d, quant_conv_kwargs),
         'diffusers.models.lora.LoRACompatibleLinear':
             (LoRACompatibleQuantLinear, quant_linear_kwargs),
         'diffusers.models.lora.LoRACompatibleConv': (LoRACompatibleQuantConv2d, quant_conv_kwargs),
-        nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs)}
+        nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs),
+        qnn.ScaledDotProductAttention: (qnn.QuantScaledDotProductAttention, quant_sdpa_kwargs)}
 
     if quantize_embedding:
         quant_embedding_kwargs = {'weight_quant': weight_quant, 'dtype': dtype, 'device': device}
