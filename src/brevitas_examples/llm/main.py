@@ -40,6 +40,8 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_r
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
+    replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
@@ -180,13 +182,18 @@ def main(args):
     else:
         dtype = torch.float16
 
+    # Whether to quantize SDPA with FX
+    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
+
     kwargs = {"torch_dtype": dtype}
+    if quant_sdpa_fx:
+        kwargs["attn_implementation"] = "sdpa"
 
     if args.export_target == 'torch_qcdq':
         kwargs['torchscript'] = True
 
     print("Model loading...")
-    model = AutoModelForCausalLM.from_pretrained(args.model, attn_implementation="sdpa", **kwargs)
+    model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -199,7 +206,7 @@ def main(args):
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm else False
+    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
 
     # Load the data for calibration and evaluation.
     calibration_loader = get_dataset_for_model(
@@ -279,6 +286,10 @@ def main(args):
     if args.replace_mha:
         print("Replace HF MHA with quantizable variants...")
         model = replace_mha_with_quantizable_layers(model, dtype)
+        print("Replacing done.")
+    elif quant_sdpa_fx:
+        print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
+        model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
 
     if args.weight_equalization:
@@ -636,6 +647,10 @@ def parse_args(args):
         type=float,
         default=1e-4,
         help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
+    parser.add_argument(
+        '--quant-sdpa',
+        action='store_true',
+        help='Quantize `F.scaled_dot_product_attention` (default: %(default)s)')
     parser.add_argument(
         '--replace-mha',
         action='store_true',
