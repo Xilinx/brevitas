@@ -1,2 +1,8 @@
+accelerate
+datasets
+onnx
+onnx-tools
+onnxruntime
+optimum
 tqdm
 transformers[sentencepiece]==4.45.2
