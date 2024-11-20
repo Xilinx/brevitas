@@ -32,11 +32,11 @@ class LearnedRoundHardSigmoid(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
-        if training:
-            return x > 0
         p = torch.sigmoid(x)
         p = p * (self.learned_round_zeta - self.learned_round_gamma) + self.learned_round_gamma
         p = torch.clamp(p, 0.0, 1.0)
+        if not training:
+            return p > 0.5
         return p
 
 
@@ -55,7 +55,7 @@ class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
-        if training:
+        if not training:
             return x > 0
         p = torch.sigmoid(x / self.learned_round_temperature)
         return p
@@ -99,7 +99,7 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         float_to_int_ste = self.learned_round_impl.float_to_int_ste
         is_p_value = self.learned_round_impl.is_p_value
-        p = self.value
+        p = self.learned_round_impl(self.value, self.training)
         p = self.tensor_slicer(p)
         p = (p.to(x.dtype)).view_as(x)
         return float_to_int_ste(x) + p if is_p_value else float_to_int_ste(x + p)

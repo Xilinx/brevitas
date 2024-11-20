@@ -1,16 +1,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from hypothesis import given
+from hypothesis.strategies import floats
 import pytest
 import pytest_cases
 import torch
 
 from brevitas import config
-from brevitas.core.function_wrapper.learned_round import AutoRoundSte
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
+from brevitas.core.function_wrapper.learned_round import LearnedRoundIdentity
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 import brevitas.nn as qnn
+from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 
 OUT_CH = 16
 IN_CH = 8
@@ -19,10 +22,78 @@ LEARNEDROUND_IMPL = [
     LearnedRoundSigmoid(),  # Sigmoid Implementation
     LearnedRoundSigmoid(learned_round_temperature=2.),  # Sigmoid + Temperature
     LearnedRoundHardSigmoid(),  # Hard Sigmoid
+    LearnedRoundIdentity(),  # AutoRound Implement
 ]
 
 
 class TestLearnedRound():
+
+    def instantiate_learnedround_float_to_int_impl(self, impl, weights, value):
+        impl = LearnedRoundSte(impl, torch.full(weights.shape, 0.))
+        # For methods with p_value=False, it is required that value is within [-0.5, 0.5]
+        if not impl.learned_round_impl.is_p_value:
+            min_value, max_value = torch.min(value), torch.max(value)
+            # Prevent division by zero when all the elements of the tensor are the same
+            if max_value - min_value < 1e-8:
+                # Make sure that the division is safe
+                if torch.abs(max_value) > 1e-8:
+                    value = value / max_value - 0.5
+            else:
+                value = (value - min_value) / (max_value - min_value) - 0.5
+        # Simulate learned round
+        impl.value.data = value
+        return impl
+
+    # NOTE: The min/max values are set to the exactly representable float32
+    # closer to sys.maxsize for a given machine.
+    @pytest_cases.parametrize('impl', LEARNEDROUND_IMPL)
+    @pytest_cases.parametrize('training', [True, False])
+    @given(
+        weights_value=two_float_tensor_random_shape_st(
+            min_val=-9.223372036854776e+18, max_val=9.223372036854776e+18))
+    def test_learnedround(self, impl, training, weights_value):
+        # Unpack tuple of hypothesis generated tensors
+        weights, value = weights_value
+        # Instantiate LearnedRoundSte using fabric method
+        impl = self.instantiate_learnedround_float_to_int_impl(impl, weights, value)
+        impl.train(training)
+        print(impl.value)
+        out = impl(weights)
+        # The FP values and its quantized values must differ by at most +/- 1
+        assert torch.all(torch.abs(out - weights) <= 1)
+        # For is_p_value=True, the rounding can be soft while training=True
+        if impl.learned_round_impl.is_p_value:
+            if training:
+                # Soft quantization. All values are at most distant +/- 1 from the nearest integer
+                assert torch.all(torch.abs(out - torch.round(out)) <= 1)
+            else:
+                # Hard quantization. All values are integers
+                assert torch.allclose(out, torch.round(out))
+        else:
+            # All values should be integers when is_p_value=False
+            assert torch.allclose(out, torch.round(out))
+
+    @given(
+        learned_round_zeta=floats(min_value=0.0, max_value=3.0),
+        learned_round_gamma=floats(min_value=-3.0, max_value=-0.05),
+        value=floats(min_value=-5.0, max_value=5.0),
+    )
+    def test_learnedround_float_to_int_impl_hard_sigmoid(
+            self, learned_round_zeta, learned_round_gamma, value):
+        value = torch.tensor([value], dtype=torch.float32)
+        weight = torch.zeros_like(value)
+        # Initialise learned round script module
+        learned_round_hard_sigmoid = LearnedRoundHardSigmoid(
+            learned_round_zeta=learned_round_zeta,
+            learned_round_gamma=learned_round_gamma,
+        )
+        value_eval = learned_round_hard_sigmoid(value, training=False)
+        value_train = learned_round_hard_sigmoid(value, training=True)
+
+        out_eval = weight + value_eval
+        out_train = weight + (value_train > 0.5)
+
+        assert torch.allclose(out_eval, out_train)
 
     @pytest_cases.fixture()
     @pytest_cases.parametrize('impl', LEARNEDROUND_IMPL)
@@ -31,21 +102,9 @@ class TestLearnedRound():
         impl = LearnedRoundSte(impl, torch.full(sample_weight.shape, 0.))
 
         # Simulate learned parameter
-        impl.value.data = torch.randn_like(impl.value)
-        return impl, sample_weight
-
-    @pytest_cases.parametrize('training', [True, False])
-    def test_learnedround(self, learnedround_float_to_int_impl, training):
-        impl, sample_weight = learnedround_float_to_int_impl
-        impl.train(training)
-
-        out = impl(sample_weight)
-        if training:
-            # Soft quantization. All values are at most distant +/- 1 from the nearest integer
-            assert torch.all(torch.abs(out - torch.round(out)) < 1)
-        else:
-            # Hard quantization. All values are integers
-            assert torch.allclose(out, torch.round(out))
+        value = torch.randn_like(impl.value)
+        impl.value.data = value
+        return impl, sample_weight, value
 
     def test_learnedround_load_dict(self, learnedround_float_to_int_impl):
         config.IGNORE_MISSING_KEYS = True
@@ -58,43 +117,11 @@ class TestLearnedRound():
         except RuntimeError as e:
             pytest.fail(str(e))
 
+    def test_learnedround_state_dict(self, learnedround_float_to_int_impl):
+        impl, _, value = learnedround_float_to_int_impl
+        state_dict = impl.state_dict()
 
-class TestAutoRound():
-
-    @pytest_cases.fixture()
-    def autoround_float_to_int_impl(self):
-        sample_weight = torch.randn(OUT_CH, IN_CH, KERNEL_SIZE, KERNEL_SIZE)
-        impl = AutoRoundSte(torch.full(sample_weight.shape, 0.))
-
-        # Simulate learned parameter, values should be in the interval (-0.5, 0.5)
-        impl.value.data = torch.rand_like(impl.value) * 0.5
-        return impl, sample_weight
-
-    def test_autoround(self, autoround_float_to_int_impl):
-        impl, sample_weight = autoround_float_to_int_impl
-
-        out = impl(sample_weight)
-        # Check that all values are integers
-        assert torch.allclose(out, torch.round(out))
-        # Check that the values differ by at most 1 unit
-        assert torch.all(torch.abs(sample_weight - out) < 1)
-
-    def test_autoround_load_dict(self, autoround_float_to_int_impl):
-        config.IGNORE_MISSING_KEYS = True
-
-        impl, _ = autoround_float_to_int_impl
-        quant_conv = qnn.QuantConv2d(IN_CH, OUT_CH, KERNEL_SIZE, weight_float_to_int_impl=impl)
-        fp_conv = torch.nn.Conv2d(IN_CH, OUT_CH, KERNEL_SIZE)
-        try:
-            quant_conv.load_state_dict(fp_conv.state_dict())
-        except RuntimeError as e:
-            pytest.fail(str(e))
-
-    def test_autoround_edge_cases(self):
-        sample_weight = torch.tensor([-1.000, -0.500, 0.000, 0.500, 1.000])
-        impl_data = torch.tensor([-0.500, 0.500, 0.000, -0.500, 0.500])
-        impl = AutoRoundSte(impl_data)
-
-        out = impl(sample_weight)
-        # Check that all values are integers
-        assert torch.allclose(out, torch.tensor([-2.000, 0.000, 0.000, 0.000, 2.000]))
+        # Verify that the state dict contains the entry corresponding to the
+        # learnable round parameter.
+        assert len(state_dict.keys()) == 1
+        assert torch.allclose(state_dict["value"], value)

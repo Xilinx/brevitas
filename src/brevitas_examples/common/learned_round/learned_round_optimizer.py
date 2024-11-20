@@ -310,6 +310,38 @@ class DataSaverHook:
         raise StopFwdException
 
 
+def save_inputs_output(
+        model: nn.Module,
+        model_forward: Callable,
+        module: nn.Module,
+        dataloader: DataLoader,
+        cache: Cache,
+        store_inputs: bool = True,
+        store_output: bool = False,
+        keep_gpu: bool = True,
+        disable_quant: bool = False) -> None:
+    if disable_quant:
+        disable_quant_class = DisableEnableQuantization()
+        disable_quant_class.disable_act_quantization(model, False)
+        disable_quant_class.disable_param_quantization(model, False)
+        return_quant_tensor_state = disable_return_quant_tensor(model)
+
+    data_saver = DataSaverHook(
+        cache, store_inputs=store_inputs, store_output=store_output, keep_gpu=keep_gpu)
+    handle = module.register_forward_hook(data_saver, with_kwargs=True)
+    with torch.no_grad():
+        for inps in dataloader:
+            try:
+                model_forward(model, inps)
+            except StopFwdException:
+                pass
+    handle.remove()
+    if disable_quant:
+        disable_quant_class.enable_act_quantization(model, False)
+        disable_quant_class.enable_param_quantization(model, False)
+        restore_return_quant_tensor(model, return_quant_tensor_state)
+
+
 class LearnedRoundOptimizer:
 
     def __init__(
@@ -373,38 +405,6 @@ class LearnedRoundOptimizer:
         if lr_scheduler:
             lr_scheduler.step()
 
-    def _save_inputs_output(
-            self,
-            model: nn.Module,
-            model_forward: Callable,
-            module: nn.Module,
-            dataloader: DataLoader,
-            cache: Cache,
-            store_inputs: bool = True,
-            store_output: bool = False,
-            keep_gpu: bool = True,
-            disable_quant: bool = False) -> None:
-        if disable_quant:
-            disable_quant_class = DisableEnableQuantization()
-            disable_quant_class.disable_act_quantization(model, False)
-            disable_quant_class.disable_param_quantization(model, False)
-            return_quant_tensor_state = disable_return_quant_tensor(model)
-
-        data_saver = DataSaverHook(
-            cache, store_inputs=store_inputs, store_output=store_output, keep_gpu=keep_gpu)
-        handle = module.register_forward_hook(data_saver, with_kwargs=True)
-        with torch.no_grad():
-            for inps in dataloader:
-                try:
-                    model_forward(model, inps)
-                except StopFwdException:
-                    pass
-        handle.remove()
-        if disable_quant:
-            disable_quant_class.enable_act_quantization(model, False)
-            disable_quant_class.enable_param_quantization(model, False)
-            restore_return_quant_tensor(model, return_quant_tensor_state)
-
     def _populate_cache(
         self,
         cache: Cache,
@@ -417,7 +417,7 @@ class LearnedRoundOptimizer:
         capture_quant_output: bool = False,
     ) -> None:
         # Populate the cache with new inputs and outputs
-        self._save_inputs_output(
+        save_inputs_output(
             model,
             model_forward,
             block,
@@ -429,7 +429,7 @@ class LearnedRoundOptimizer:
             disable_quant=not capture_quant_input,
         )
         if capture_quant_input != capture_quant_output:
-            self._save_inputs_output(
+            save_inputs_output(
                 model,
                 model_forward,
                 block,
