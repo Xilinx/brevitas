@@ -371,7 +371,12 @@ def main(args):
     if args.learned_round:
         print("Applying learned round...")
         remove_hooks(model)
-        apply_learned_round(model, calibration_loader)
+        apply_learned_round(
+            model,
+            calibration_loader,
+            iters=args.learned_round_iters,
+            learn_scale=args.learned_round_scale,
+        )
         print("Learned round applied.")
 
     model = offload_model(model)
@@ -560,6 +565,15 @@ def parse_args(args):
         type=int,
         default=64,
         help='Group size for per_group input quantization. Default: 64.')
+    parser.add_argument(
+        '--learned-round-iters',
+        type=int,
+        default=200,
+        help='Number of iterations for learned round. Default: 200.')
+    parser.add_argument(
+        '--learned-round-scale',
+        action='store_true',
+        help='Learned scale factor together with round.')
     parser.add_argument(
         '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
     parser.add_argument(
