@@ -176,7 +176,10 @@ class QuantScaledDotProductAttention(Module):
         """
         L, S = query.size(-2), key.size(-2)
         scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
-        attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
+        if attn_mask is None:
+            attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
+        else:
+            attn_bias = torch.zeros(size=attn_mask.shape, dtype=query.dtype, device=query.device)
         if is_causal:
             assert attn_mask is None
             temp_mask = torch.ones(L, S, dtype=torch.bool, device=query.device).tril(diagonal=0)
@@ -187,7 +190,7 @@ class QuantScaledDotProductAttention(Module):
             if attn_mask.dtype == torch.bool:
                 attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
             else:
-                attn_bias = attn_bias + attn_mask
+                attn_bias += attn_mask
         q_scaled = self.q_scaled_quant(query * scale_factor)
         k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
         attn_weight = q_scaled @ k_transpose
