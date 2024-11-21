@@ -22,11 +22,8 @@ PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 EXAMPLES_LLM_PYTEST_PYTORCH_IDS = tuple([
     f'pytorch_{i}' for i in EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
-LSTM_EXPORT_MIN_PYTORCH = '1.10.1'
 
 TORCHVISION_VERSION_DICT = {
-    '1.9.1': '0.10.1',
-    '1.10.1': '0.11.2',
     '1.11.0': '0.12.0',
     '1.12.1': '0.13.1',
     '1.13.0': '0.14.0',
@@ -191,20 +188,16 @@ def tests_brevitas_notebook(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration, notebook]')
-    if version.parse(pytorch) >= version.parse(LSTM_EXPORT_MIN_PYTORCH):
-        session.run(
-            'pytest', '-n', 'logical', '-v', '--nbmake', '--nbmake-kernel=python3', 'notebooks')
-    else:
-        session.run(
-            'pytest',
-            '-n',
-            'logical',
-            '-v',
-            '--nbmake',
-            '--nbmake-kernel=python3',
-            'notebooks',
-            '--ignore',
-            'notebooks/quantized_recurrent.ipynb')
+    session.run(
+        'pytest',
+        '-n',
+        'logical',
+        '-v',
+        '--nbmake',
+        '--nbmake-kernel=python3',
+        'notebooks',
+        '--ignore',
+        'notebooks/quantized_recurrent.ipynb')
 
 
 @nox.session(python=PYTHON_VERSIONS)
