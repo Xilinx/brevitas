@@ -4,7 +4,7 @@
 from packaging import version
 import pytest
 import torch
-from torch.nn.functional import scaled_dot_product_attention
+import torch.nn.functional as F
 
 from brevitas import torch_version
 from brevitas.nn import QuantScaledDotProductAttention
@@ -50,7 +50,7 @@ class TestScaledDotProductAttention:
             attn_mask = None
         if dropout_p > 0.0:
             torch.manual_seed(DROPOUT_SEED)
-        ref_out = scaled_dot_product_attention(q, k, v, attn_mask, **extra_kwargs)
+        ref_out = F.scaled_dot_product_attention(q, k, v, attn_mask, **extra_kwargs)
         if dropout_p > 0.0:
             torch.manual_seed(DROPOUT_SEED)
         out = m(q, k, v, attn_mask, **extra_kwargs)
