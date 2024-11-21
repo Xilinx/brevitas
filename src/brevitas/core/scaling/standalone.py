@@ -416,6 +416,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         if threshold is None:
             threshold = torch.ones(1).type_as(stats_input)
         if self.training:
+            self.init_done = False
             # Threshold division handled inside the training_forward
             return self.training_forward(stats_input, threshold)
         else:
