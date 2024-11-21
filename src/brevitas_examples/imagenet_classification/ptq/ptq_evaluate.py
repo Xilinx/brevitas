@@ -162,7 +162,7 @@ parser.add_argument(
     '--learned-round',
     default=None,
     type=str,
-    choices=[None, 'ada_round', 'auto_round'],
+    choices=[None, 'linear_round', 'hard_sigmoid_round', 'sigmoid_round'],
     help='Learned round type (default: None)')
 parser.add_argument(
     '--learned-round-loss',
@@ -430,7 +430,7 @@ def main():
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
     elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
-        if args.learned_round != "auto_round":
+        if args.learned_round_mode != "blockwise":
             model = preprocess_for_quantize(
                 model,
                 equalize_iters=args.graph_eq_iterations,

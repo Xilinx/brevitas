@@ -112,7 +112,8 @@ OPTIONS_DEFAULT = {
     'export_prefix': [None],  # Path prefix to use for the various export flows.
     'checkpoint_name': [None],  # Filename to save checkpoint.
     'fuse_sequences': [False],  # Whether to merge the dataset sequences.
-    'learned_round': [None, "auto_round"],  # Whether to use learned round. If `None`, RTN is used.
+    'learned_round': [None,
+                      "linear_round"],  # Whether to use learned round. If `None`, RTN is used.
 }
 
 parser = argparse.ArgumentParser(description='PyTorch LLM PTQ Validation')

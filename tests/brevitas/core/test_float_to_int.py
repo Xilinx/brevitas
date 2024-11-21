@@ -22,16 +22,14 @@ LEARNEDROUND_IMPL = [
     LearnedRoundSigmoid(),  # Sigmoid Implementation
     LearnedRoundSigmoid(learned_round_temperature=2.),  # Sigmoid + Temperature
     LearnedRoundHardSigmoid(),  # Hard Sigmoid
-    LearnedRoundIdentity(),  # AutoRound Implement
-]
+    LearnedRoundIdentity(),]
 
 
 class TestLearnedRound():
 
     def instantiate_learnedround_float_to_int_impl(self, impl, weights, value):
         impl = LearnedRoundSte(impl, torch.full(weights.shape, 0.))
-        # For methods with p_value=False, it is required that value is within [-0.5, 0.5]
-        if not impl.learned_round_impl.is_p_value:
+        if isinstance(impl.learned_round_impl, LearnedRoundIdentity):
             min_value, max_value = torch.min(value), torch.max(value)
             # Prevent division by zero when all the elements of the tensor are the same
             if max_value - min_value < 1e-8:
@@ -61,8 +59,7 @@ class TestLearnedRound():
         out = impl(weights)
         # The FP values and its quantized values must differ by at most +/- 1
         assert torch.all(torch.abs(out - weights) <= 1)
-        # For is_p_value=True, the rounding can be soft while training=True
-        if impl.learned_round_impl.is_p_value:
+        if not isinstance(impl.learned_round_impl, LearnedRoundIdentity):
             if training:
                 # Soft quantization. All values are at most distant +/- 1 from the nearest integer
                 assert torch.all(torch.abs(out - torch.round(out)) <= 1)
@@ -70,7 +67,7 @@ class TestLearnedRound():
                 # Hard quantization. All values are integers
                 assert torch.allclose(out, torch.round(out))
         else:
-            # All values should be integers when is_p_value=False
+            # All values should be integers for LearnedRoundIdentity
             assert torch.allclose(out, torch.round(out))
 
     @given(
@@ -87,8 +84,10 @@ class TestLearnedRound():
             learned_round_zeta=learned_round_zeta,
             learned_round_gamma=learned_round_gamma,
         )
-        value_eval = learned_round_hard_sigmoid(value, training=False)
-        value_train = learned_round_hard_sigmoid(value, training=True)
+        learned_round_hard_sigmoid.train(False)
+        value_eval = learned_round_hard_sigmoid(value)
+        learned_round_hard_sigmoid.train(True)
+        value_train = learned_round_hard_sigmoid(value)
 
         out_eval = weight + value_eval
         out_train = weight + (value_train > 0.5)
@@ -109,7 +108,7 @@ class TestLearnedRound():
     def test_learnedround_load_dict(self, learnedround_float_to_int_impl):
         config.IGNORE_MISSING_KEYS = True
 
-        impl, _ = learnedround_float_to_int_impl
+        impl, _, _ = learnedround_float_to_int_impl
         quant_conv = qnn.QuantConv2d(IN_CH, OUT_CH, KERNEL_SIZE, weight_float_to_int_impl=impl)
         fp_conv = torch.nn.Conv2d(IN_CH, OUT_CH, KERNEL_SIZE)
         try:

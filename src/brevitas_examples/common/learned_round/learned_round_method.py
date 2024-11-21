@@ -3,7 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Dict, Generator, List, Optional, Tuple, Type
+from typing import Callable, Dict, Generator, List, Optional, Tuple, Type
 
 import torch
 from torch import nn
@@ -35,18 +35,72 @@ class LearnedRoundLoss(ABC):
         pass
 
 
+def learned_round_value_init_non_linear(
+    layer: nn.Module,
+    learned_round_zeta: float = 1.1,
+    learned_round_gamma: float = -0.1,
+    **learned_round_impl_kwargs,
+) -> torch.Tensor:
+    floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
+    delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
+    value = -torch.log((learned_round_zeta - learned_round_gamma) /
+                       (delta - learned_round_gamma) - 1)
+    return value
+
+
+def learned_round_value_init_linear(
+    layer: nn.Module,
+    **learned_round_impl_kwargs,
+) -> torch.Tensor:
+    value = torch.zeros_like(layer.weight.data)
+    return value
+
+
+LEARNED_ROUND_VALUE_INIT_MAP = {
+    LearnedRoundImplType.HARD_SIGMOID.value: learned_round_value_init_non_linear,
+    LearnedRoundImplType.SIGMOID.value: learned_round_value_init_non_linear,
+    LearnedRoundImplType.IDENTITY.value: learned_round_value_init_linear,}
+
+
 class LearnedRound(ABC):
+
+    def __init__(
+        self,
+        learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
+        learned_round_value_init_fn: Optional[Callable] = None,
+        **learned_round_impl_kwargs,
+    ) -> None:
+        self.learned_round_impl_type = learned_round_impl_type
+        self.learned_round_value_init_fn = learned_round_value_init_fn
+        self.learned_round_impl_kwargs = learned_round_impl_kwargs
+
+    def learned_round_value_init(
+        self,
+        layer: nn.Module,
+    ) -> torch.Tensor:
+        # A custom initialization function for the learned round parameter can be passed
+        if self.learned_round_value_init_fn is not None:
+            return self.learned_round_value_init_fn(layer, **self.learned_round_impl_kwargs)
+        # If not provided, the default function, as defined in LEARNED_ROUND_VALUE_INIT_MAP
+        # is leveraged
+        return LEARNED_ROUND_VALUE_INIT_MAP[self.learned_round_impl_type.value](
+            layer, **self.learned_round_impl_kwargs)
+
+    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
+        value = self.learned_round_value_init(layer)
+        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
+            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+            learned_round_impl_type=self.learned_round_impl_type,
+            learned_round_init=value,
+            **self.learned_round_impl_kwargs,
+        )
+        layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
     def insert_learned_round_quantizers(self, model: nn.Module) -> None:
         for module in model.modules():
             if isinstance(module, QuantWBIOL) and len(
                     self.return_learned_round_quantizers(module)) == 0:
                 self._insert_learned_round_quantizer_to_layer(module)
-                module.weight_quant.init_tensor_quant(preserve_state_dict=True)
-
-    @abstractmethod
-    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
-        pass
 
     def return_learned_round_quantizers(self, block: nn.Module) -> List[nn.Module]:
         return [module for module in block.modules() if isinstance(module, LearnedRoundSte)]
@@ -80,9 +134,9 @@ class RegularisedMSELoss(LearnedRoundLoss):
             warmup: float = 0.2,
             decay_start: float = 0.0,
             **kwargs) -> None:
-        # AdaRound operates in a layer-wise manner, so integrity needs to be checked
-        assert isinstance(module, QuantWBIOL), "AdaRound can only accept a single QuantWBIOL layer."
-        assert len(learned_round_modules) == 1, "AdaRound can only accept a single learned round module."
+        # This loss operates in a layer-wise manner, so integrity needs to be checked
+        assert isinstance(module, QuantWBIOL), "Regularised MSE loss can only accept a single QuantWBIOL layer."
+        assert len(learned_round_modules) == 1, "Regularised MSE loss can only accept a single learned round module."
 
         self.weight = weight
         self.module = module
@@ -119,33 +173,6 @@ class RegularisedMSELoss(LearnedRoundLoss):
             b)
 
 
-class AdaRound(LearnedRound):
-
-    def __init__(
-        self,
-        learned_round_zeta: float = 1.1,
-        learned_round_gamma: float = -0.1,
-        learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
-        **kwargs,
-    ) -> None:
-        # Quantiser-related configuration
-        self.learned_round_zeta = learned_round_zeta
-        self.learned_round_gamma = learned_round_gamma
-        self.learned_round_impl_type = learned_round_impl_type
-
-    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
-        floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
-        delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
-        value = -torch.log((self.learned_round_zeta - self.learned_round_gamma) /
-                           (delta - self.learned_round_gamma) - 1)
-        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-            learned_round_impl_type=self.learned_round_impl_type,
-            learned_round_gamma=self.learned_round_gamma,
-            learned_round_zeta=self.learned_round_zeta,
-            learned_round_init=value)
-
-
 class MSELoss(LearnedRoundLoss):
 
     def __init__(self, block: nn.Module, learned_round_modules: List[nn.Module], **kwargs) -> None:
@@ -157,17 +184,3 @@ class MSELoss(LearnedRoundLoss):
 
     def format_loss_components(self, loss: float) -> str:
         return "Loss = {:.4f}".format(loss)
-
-
-class AutoRound(LearnedRound):
-
-    def __init__(self, **kwargs) -> None:
-        pass
-
-    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
-        value = torch.zeros_like(layer.weight.data)
-        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-            learned_round_impl_type=LearnedRoundImplType.IDENTITY,
-            learned_round_init=value,
-        )

@@ -25,19 +25,20 @@ class LearnedRoundHardSigmoid(brevitas.jit.ScriptModule):
 
     def __init__(self, learned_round_zeta: float = 1.1, learned_round_gamma: float = -0.1) -> None:
         super(LearnedRoundHardSigmoid, self).__init__()
-        self.float_to_int_ste = floor_ste
-        self.is_p_value = True
         self.learned_round_zeta = learned_round_zeta
         self.learned_round_gamma = learned_round_gamma
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
-        p = torch.sigmoid(x)
+    def forward(self, p: torch.Tensor) -> torch.Tensor:
+        p = torch.sigmoid(p)
         p = p * (self.learned_round_zeta - self.learned_round_gamma) + self.learned_round_gamma
         p = torch.clamp(p, 0.0, 1.0)
-        if not training:
+        if not self.training:
             return p > 0.5
         return p
+
+    def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
+        return floor_ste(x) + p
 
 
 class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
@@ -49,16 +50,18 @@ class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
     def __init__(self, learned_round_temperature: float = 1.) -> None:
         super(LearnedRoundSigmoid, self).__init__()
         assert learned_round_temperature != 0, 'Temperature should be different than 0'
-        self.float_to_int_ste = floor_ste
-        self.is_p_value = True
         self.learned_round_temperature = learned_round_temperature
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
-        if not training:
-            return x > 0
-        p = torch.sigmoid(x / self.learned_round_temperature)
+    def forward(self, p: torch.Tensor) -> torch.Tensor:
+        if not self.training:
+            return p > 0
+        p = torch.sigmoid(p / self.learned_round_temperature)
         return p
+
+    @brevitas.jit.script_method
+    def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
+        return floor_ste(x) + p
 
 
 class LearnedRoundIdentity(brevitas.jit.ScriptModule):
@@ -69,12 +72,14 @@ class LearnedRoundIdentity(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(LearnedRoundIdentity, self).__init__()
-        self.float_to_int_ste = round_ste
-        self.is_p_value = False
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor, training: bool) -> torch.Tensor:
-        return x
+    def forward(self, p: torch.Tensor) -> torch.Tensor:
+        return p
+
+    @brevitas.jit.script_method
+    def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
+        return round_ste(x + p)
 
 
 class LearnedRoundSte(brevitas.jit.ScriptModule):
@@ -97,12 +102,10 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        float_to_int_ste = self.learned_round_impl.float_to_int_ste
-        is_p_value = self.learned_round_impl.is_p_value
-        p = self.learned_round_impl(self.value, self.training)
+        p = self.learned_round_impl(self.value)
         p = self.tensor_slicer(p)
         p = (p.to(x.dtype)).view_as(x)
-        return float_to_int_ste(x) + p if is_p_value else float_to_int_ste(x + p)
+        return self.learned_round_impl.round_forward(x, p)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

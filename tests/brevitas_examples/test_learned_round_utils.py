@@ -16,11 +16,11 @@ from torch.utils.data import Dataset
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas.inject.enum import LearnedRoundImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_method import AdaRound
-from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
 from brevitas_examples.common.learned_round.learned_round_optimizer import save_inputs_output
 
@@ -302,7 +302,11 @@ class TestLearnedRound:
         for cache_output, gt_output in zip(cache.output, fp_outs if disable_quant else quant_outs):
             _compare_tensors(cache_output, gt_output, disable_quant, keep_gpu)
 
-    @pytest.mark.parametrize("learned_round", [AutoRound(), AdaRound()])
+    @pytest.mark.parametrize(
+        "learned_round",
+        [
+            LearnedRound(learned_round_impl_type=LearnedRoundImplType.IDENTITY),
+            LearnedRound(learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID)])
     def test_insert_learned_round_quantizers(self, quant_model, learned_round):
         block = quant_model.in_proj_mlp
         learned_round.insert_learned_round_quantizers(block)
@@ -313,7 +317,11 @@ class TestLearnedRound:
                 assert isinstance(
                     module.weight_quant.tensor_quant.int_quant.float_to_int_impl, LearnedRoundSte)
 
-    @pytest.mark.parametrize("learned_round", [AutoRound(), AdaRound()])
+    @pytest.mark.parametrize(
+        "learned_round",
+        [
+            LearnedRound(learned_round_impl_type=LearnedRoundImplType.IDENTITY),
+            LearnedRound(learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID)])
     @pytest.mark.parametrize(
         "block_strs, num_round_modules", [([], 0), (["hidden_mlp"], 2),
                                           (["in_proj_mlp", "out_proj_mlp"], 4)])

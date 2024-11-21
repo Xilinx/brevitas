@@ -38,11 +38,11 @@ from torch.optim.lr_scheduler import LinearLR
 from torch.utils.data.dataloader import DataLoader
 
 from brevitas import config
+from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_method import AdaRound
-from brevitas_examples.common.learned_round.learned_round_method import AutoRound
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 from brevitas_examples.common.learned_round.learned_round_method import MSELoss
 from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
@@ -59,8 +59,9 @@ def is_layer(module: nn.Module, module_name: str) -> bool:
 
 
 LEARNED_ROUND_MAP = {
-    "auto_round": AutoRound,
-    "ada_round": AdaRound,}
+    "linear_round": LearnedRoundImplType.IDENTITY,
+    "hard_sigmoid_round": LearnedRoundImplType.HARD_SIGMOID,
+    "sigmoid_round": LearnedRoundImplType.SIGMOID,}
 LEARNED_ROUND_LOSS_MAP = {
     "mse": MSELoss,
     "regularised_mse": RegularisedMSELoss,}
@@ -152,7 +153,7 @@ def apply_learned_round(
     model: nn.Module,
     calibration_loader: DataLoader,
     iters: int = 1000,
-    learned_round: str = "ada_round",
+    learned_round: str = "hard_sigmoid_round",
     learned_round_loss: str = "regularised_mse",
     optimizer: str = "adam",
     lr_scheduler: Optional[str] = None,
@@ -169,7 +170,7 @@ def apply_learned_round(
 ) -> None:
     if learned_round not in LEARNED_ROUND_MAP:
         raise ValueError(f"Learned round method {learned_round} is not available.")
-    learned_round = LEARNED_ROUND_MAP[learned_round]()
+    learned_round = LearnedRound(learned_round_impl_type=LEARNED_ROUND_MAP[learned_round])
 
     if learned_round_loss not in LEARNED_ROUND_LOSS_MAP:
         raise ValueError(f"Learned round loss {learned_round_loss} is not available.")

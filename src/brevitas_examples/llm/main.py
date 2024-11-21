@@ -684,7 +684,7 @@ def parse_args(args):
     parser.add_argument(
         '--learned-round',
         default=None,
-        choices=[None, 'auto_round'],
+        choices=[None, 'linear_round'],
         help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     return parser.parse_args(args)
 

@@ -14,15 +14,15 @@ from torch.utils.data.dataloader import DataLoader
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
 
+from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.optim.sign_sgd import SignSGD
-from brevitas_examples.common.learned_round.learned_round_method import AutoRound
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 from brevitas_examples.common.learned_round.learned_round_method import MSELoss
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 
 LEARNED_ROUND_MAP = {
-    "auto_round": AutoRound,}
+    "linear_round": LearnedRoundImplType.IDENTITY,}
 LEARNED_ROUND_LOSS_MAP = {
     "mse": MSELoss,}
 OPTIMIZER_MAP = {
@@ -161,7 +161,7 @@ def apply_learned_round(
     model: nn.Module,
     calibration_loader: DataLoader,
     iters: int = 200,
-    learned_round: str = "auto_round",
+    learned_round: str = "linear_round",
     learned_round_loss: str = "mse",
     optimizer: str = "sign_sgd",
     lr_scheduler: Optional[str] = "linear",
@@ -178,7 +178,7 @@ def apply_learned_round(
 ) -> None:
     if learned_round not in LEARNED_ROUND_MAP:
         raise ValueError(f"Learned round method {learned_round} is not available.")
-    learned_round = LEARNED_ROUND_MAP[learned_round]()
+    learned_round = LearnedRound(learned_round_impl_type=LEARNED_ROUND_MAP[learned_round])
 
     if learned_round_loss not in LEARNED_ROUND_LOSS_MAP:
         raise ValueError(f"Learned round loss {learned_round_loss} is not available.")
