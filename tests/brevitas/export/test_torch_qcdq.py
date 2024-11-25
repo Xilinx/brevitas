@@ -13,6 +13,7 @@ from .quant_module_fixture import *
 
 @requires_pt_ge('1.9.1')
 @jit_disabled_for_export()
+@torch.no_grad()
 def test_torch_qcdq_wbiol_export(
         quant_module,
         quant_module_impl,
@@ -57,6 +58,7 @@ def test_torch_qcdq_wbiol_export(
 @requires_pt_ge('1.9.1')
 @jit_disabled_for_export()
 @parametrize('input_signed', [True, False])
+@torch.no_grad()
 def test_torch_qcdq_avgpool_export(input_signed, output_bit_width):
     in_size = (1, IN_CH, FEATURES, FEATURES)
     inp = torch.randn(in_size)
