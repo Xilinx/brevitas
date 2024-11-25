@@ -397,7 +397,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.counter = new_counter
             return abs_binary_sign_grad(clamped_stats / threshold)
         elif self.counter == self.collect_stats_steps:
-            self.init_done = True
             self.restrict_inplace_preprocess(self.buffer)
             inplace_tensor_mul(self.value.detach(), self.buffer)
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
@@ -415,8 +414,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     def forward(self, stats_input: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
         if threshold is None:
             threshold = torch.ones(1).type_as(stats_input)
-        if self.training:
-            self.init_done = False
+        if self.training and not self.init_done:
             # Threshold division handled inside the training_forward
             return self.training_forward(stats_input, threshold)
         else:
