@@ -1,7 +1,6 @@
 accelerate
 datasets
 onnx
-onnx-tools
 onnxruntime
 optimum
 tqdm
