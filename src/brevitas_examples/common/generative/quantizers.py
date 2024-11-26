@@ -130,7 +130,7 @@ class Fp8e4m3DynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3ActPerTensorFl
     scaling_stats_op = 'min_max'
 
 
-class FP8e4m3OCPDynamicActPerRowFloat(Fp8e4m3ActPerTensorFloat):
+class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3ActPerTensorFloat):
     """
     Symmetric quantizer with per row dynamic scale.
     """
