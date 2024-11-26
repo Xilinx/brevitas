@@ -81,6 +81,11 @@ class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     scaling_per_output_channel = True
 
 
+class Int8DynamicActPerRowFixedPoint(Int8DynamicActPerRowFloat):
+    restrict_scaling_type = RestrictValueType.POWER_OF_TWO
+    restrict_value_float_to_int_impl = FloorSte
+
+
 class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per group scale.
