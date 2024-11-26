@@ -201,7 +201,9 @@ INPUT_QUANT_MAP = {
                     'per_row': {
                         'sym': FP8e4m3OCPDynamicActPerRowFixedPoint},
                     'per_group': {
-                        'sym': MXFloat8e4m3Act}}}}},
+                        'sym': MXFloat8e4m3Act},
+                    'per_row': {
+                        'sym': FP8e4m3OCPDynamicActPerRowFloat}}}}},
     'float_fnuz': {
         'static': {
             'float_scale': {
