@@ -14,6 +14,7 @@ from gen_github_actions import EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import JIT_STATUSES
 from gen_github_actions import PYTHON_VERSIONS
 from gen_github_actions import PYTORCH_VERSIONS
+from gen_github_actions import TORCHVISION_VERSION_DICT
 
 IS_OSX = system() == 'Darwin'
 PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/cpu'
@@ -22,19 +23,6 @@ PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 EXAMPLES_LLM_PYTEST_PYTORCH_IDS = tuple([
     f'pytorch_{i}' for i in EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
-LSTM_EXPORT_MIN_PYTORCH = '1.10.1'
-
-TORCHVISION_VERSION_DICT = {
-    '1.9.1': '0.10.1',
-    '1.10.1': '0.11.2',
-    '1.11.0': '0.12.0',
-    '1.12.1': '0.13.1',
-    '1.13.0': '0.14.0',
-    '2.0.1': '0.15.2',
-    '2.1.0': '0.16.0',
-    '2.2.2': '0.17.2',
-    '2.3.1': '0.18.1',
-    '2.4.0': '0.19.0'}
 
 PARSED_TORCHVISION_VERSION_DICT = {version.parse(k): v for k, v in TORCHVISION_VERSION_DICT.items()}
 
@@ -191,20 +179,16 @@ def tests_brevitas_notebook(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration, notebook]')
-    if version.parse(pytorch) >= version.parse(LSTM_EXPORT_MIN_PYTORCH):
-        session.run(
-            'pytest', '-n', 'logical', '-v', '--nbmake', '--nbmake-kernel=python3', 'notebooks')
-    else:
-        session.run(
-            'pytest',
-            '-n',
-            'logical',
-            '-v',
-            '--nbmake',
-            '--nbmake-kernel=python3',
-            'notebooks',
-            '--ignore',
-            'notebooks/quantized_recurrent.ipynb')
+    session.run(
+        'pytest',
+        '-n',
+        'logical',
+        '-v',
+        '--nbmake',
+        '--nbmake-kernel=python3',
+        'notebooks',
+        '--ignore',
+        'notebooks/quantized_recurrent.ipynb')
 
 
 @nox.session(python=PYTHON_VERSIONS)

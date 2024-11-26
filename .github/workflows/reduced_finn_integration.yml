@@ -17,14 +17,10 @@ jobs:
 
 
       matrix:
-        python_version: ['3.8']
-        pytorch_version: ['1.9.1', '1.13.0', '2.1.0']
+        python_version: ['3.9']
+        pytorch_version: ['1.11.0', '2.0.1', '2.3.1']
         platform: ['ubuntu-latest']
 
-
-        exclude:
-          - pytorch_version: '1.9.1'
-            platform: 'macos-latest'
 
 
 

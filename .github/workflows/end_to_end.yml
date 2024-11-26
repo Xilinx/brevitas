@@ -15,15 +15,12 @@ jobs:
 
 
       matrix:
-        python_version: ['3.8', '3.9']
-        pytorch_version: ['1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0', '2.0.1', '2.1.0']
+        python_version: ['3.9', '3.10']
+        pytorch_version: ['1.11.0', '1.12.1', '1.13.0', '2.0.1', '2.1.0', '2.2.2', '2.3.1']
         platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
 
 
         exclude:
-          - pytorch_version: '1.9.1'
-            platform: 'macos-latest'
-
           - platform: 'windows-latest'
 
 
