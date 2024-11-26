@@ -5,6 +5,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 from torch import nn
 
+from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
@@ -16,7 +17,9 @@ from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
+from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingPerOutputType
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
@@ -120,3 +123,16 @@ class Fp8e4m3DynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3ActPerTensorFl
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = 'min_max'
+
+
+class FP8e4m3OCPDynamicActPerRowFloat(Fp8e4m3ActPerTensorFloat):
+    """
+    Symmetric quantizer with per row dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverOutputFeaturesView
+    scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
+    restrict_scaling_type = RestrictValueType.POWER_OF_TWO
+    restrict_value_float_to_int_impl = FloorSte
+    proxy_class = ActFloatQuantProxyFromInjector
