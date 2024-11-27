@@ -131,6 +131,7 @@ def default_run_args(request):
     args.weight_quant_granularity = "per_channel"  # "per_tensor", "per_channel", "per_group".
     args.input_bit_width = 8
     args.act_calibration = True
+    args.no_float16 = True
     return args
 
 
@@ -219,7 +220,7 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "act_equalization": "layerwise",
             "gptq": True,
             "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 31274.05078125,
-            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33139.23046875},])
+            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 31278.166015625},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
