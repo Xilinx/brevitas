@@ -52,30 +52,6 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     apply_layernorm_affine_merge(new_model)
-    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model)
-    rewriters = fix_rewriter(rewriters, model, 'weight')
-
-    for r in rewriters:
-        r.apply(model)
-    new_model = offload_model(new_model)
-    eq = GraphRotationEqualization(orphan_sink=True, full_rotation_method=args.graph_rotation_mode)
-    new_model, rewriters = eq.apply(new_model)
-    rewriters = fix_rewriter(rewriters, model, 'weight')
-
-    for r in rewriters:
-        r.apply(model)
-    remove_hooks(new_model)
-
-
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-
-
-def fused_rotation_no_fx(model, calibration_loader, args):
-    with torch.no_grad():
-        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
-    apply_layernorm_affine_merge(new_model)
     new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
