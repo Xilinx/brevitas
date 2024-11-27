@@ -58,8 +58,10 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
@@ -170,6 +172,8 @@ INPUT_QUANT_MAP = {
                         'sym': Int8DynamicActPerGroupFloat}}},
             'po2_scale': {
                 'stats': {
+                    'per_row': {
+                        'sym': Int8DynamicActPerRowFixedPoint,},
                     'per_group': {
                         'sym': MXInt8Act}}}}},
     'float': {
@@ -194,6 +198,8 @@ INPUT_QUANT_MAP = {
         'dynamic': {
             'po2_scale': {
                 'stats': {
+                    'per_row': {
+                        'sym': FP8e4m3OCPDynamicActPerRowFixedPoint},
                     'per_group': {
                         'sym': MXFloat8e4m3Act}}}}},
     'float_fnuz': {
