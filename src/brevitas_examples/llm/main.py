@@ -20,6 +20,8 @@ from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
+from brevitas_examples.common.accelerate_utils.accelerate import \
+    attach_update_state_dict_hook_on_modules
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.generative.quantize import generate_quant_maps
@@ -363,9 +365,13 @@ def main(args):
         model = add_zero_bias_to_linear(model)
 
     model = offload_model(model)
+    attach_update_state_dict_hook_on_modules(model)
 
     with torch.no_grad():
         model(**calibration_loader[0])
+
+    remove_hooks(model)
+    model = offload_model(model)
 
     if args.act_calibration:
         print("Apply act calibration...")
