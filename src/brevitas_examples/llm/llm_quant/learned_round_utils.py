@@ -1,6 +1,7 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import functools
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from accelerate.utils.operations import send_to_device
@@ -11,6 +12,8 @@ from torch.utils.data.dataloader import DataLoader
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
 
+from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
 from brevitas_examples.common.learned_round.learned_round_parser import \
@@ -19,16 +22,14 @@ from brevitas_examples.common.learned_round.learned_round_parser import parse_lr
 from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
 
 
-class CacheLLM(dict):
+class CacheLLM(Cache, dict):
 
     def __init__(self) -> None:
         super().__init__()
-        self.store_kwargs = True
 
     def store_inputs(self, args, kwargs) -> None:
         self["args"].append(args)
-        if self.store_kwargs:
-            self["kwargs"].append(kwargs)
+        self["kwargs"].append(kwargs)
 
     def store_output(self, output) -> None:
         if isinstance(output, (tuple, list)):
@@ -42,16 +43,8 @@ class CacheLLM(dict):
 
     def clear_cache(self) -> None:
         del self["args"]
-        del self["output"]
-        self["args"] = []
-        self["output"] = []
-        self.store_kwargs = len(self["kwargs"]) == 0
-
-    def reset_cache(self) -> None:
-        del self["args"]
         del self["kwargs"]
         del self["output"]
-        self.store_kwargs = True
         self["args"] = []
         self["kwargs"] = []
         self["output"] = []
@@ -141,8 +134,8 @@ def llm_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
     return out
 
 
-def llm_block_check_fn(module: nn.Module, module_name: str) -> bool:
-    return isinstance(module, LlamaDecoderLayer) or isinstance(module, OPTDecoderLayer)
+def get_blocks(model: nn.Module, block_name_attribute: str) -> List[nn.Module]:
+    return recurse_getattr(model, block_name_attribute)
 
 
 def apply_learned_round(
@@ -151,8 +144,8 @@ def apply_learned_round(
     iters: int = 200,
     learned_round: str = "linear_round",
     learned_round_loss: str = "mse",
+    block_name_attribute: str = "layers",
     optimizer: str = "sign_sgd",
-    lr_scheduler: Optional[str] = "linear",
     optimizer_lr: float = 5e-3,
     batch_size: int = 8,
     learn_scale: bool = False,
@@ -160,6 +153,7 @@ def apply_learned_round(
     use_amp: bool = True,
     amp_dtype: torch.dtype = torch.float16,
     loss_scaling_factor: float = 1000,
+    lr_scheduler: Optional[str] = "linear",
     optimizer_kwargs: Optional[Dict] = None,
     lr_scheduler_kwargs: Optional[Dict] = None,
     learned_round_loss_kwargs: Optional[Dict] = None,
@@ -169,6 +163,8 @@ def apply_learned_round(
     learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
     optimizer_class = parse_optimizer_class(optimizer)
     lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
+
+    llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=block_name_attribute)
 
     lr_scheduler_kwargs = {
         "start_factor": 1.0,
@@ -197,7 +193,7 @@ def apply_learned_round(
         block_forward=llm_block_forward,
         data_loader=calibration_loader,
         cache=cache,
-        block_check_fn=llm_block_check_fn,
+        get_blocks_fn=llm_block_check_fn,
         model_prepare_fn=llm_learned_round_prepare_fn,
         model_finish_fn=llm_learned_round_finish_fn,
         keep_gpu=False,

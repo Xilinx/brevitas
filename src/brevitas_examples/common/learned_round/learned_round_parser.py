@@ -80,7 +80,6 @@ def parse_lr_scheduler_class(lr_scheduler_str: str) -> Type[LRScheduler]:
                 torch.optim.lr_scheduler.__dict__[lr_scheduler_key] != LRScheduler and
                 isinstance(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], type) and
                 issubclass(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], LRScheduler))]
-        print(lr_scheduler_keys)
         if len(lr_scheduler_keys) == 0:
             warnings.warn(
                 f"There are no matches for LR scheduler {lr_scheduler_str}. "

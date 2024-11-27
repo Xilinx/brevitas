@@ -26,6 +26,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import functools
 import re
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 import warnings
@@ -39,6 +40,8 @@ from torch.utils.data.dataloader import DataLoader
 from brevitas import config
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
+from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
+from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
 from brevitas_examples.common.learned_round.learned_round_parser import \
@@ -62,7 +65,7 @@ BLOCK_CHECK_MAP = {
     "blockwise": is_resnet_block,}
 
 
-class CacheVision(dict):
+class CacheVision(Cache, dict):
 
     def __init__(self) -> None:
         super().__init__()
@@ -92,12 +95,6 @@ class CacheVision(dict):
         self["output"] = []
 
     def clear_cache(self) -> None:
-        del self["inputs"]
-        del self["output"]
-        self["inputs"] = []
-        self["output"] = []
-
-    def reset_cache(self) -> None:
         del self["inputs"]
         del self["output"]
         self["inputs"] = []
@@ -166,6 +163,7 @@ def apply_learned_round(
         warnings.warn(
             f"{learned_round_mode} is not a valid learned round mode. Defaulting to layerwise.")
     block_check_fn = BLOCK_CHECK_MAP[learned_round_mode]
+    get_blocks_fn = functools.partial(get_blocks, block_check_fn=block_check_fn)
     lr_scheduler_kwargs = {
         "start_factor": 1.0,
         "end_factor": 0.0,
@@ -192,6 +190,6 @@ def apply_learned_round(
         block_forward=cnn_block_forward,
         data_loader=calibration_loader,
         cache=cache,
-        block_check_fn=block_check_fn,
+        get_blocks_fn=get_blocks_fn,
         keep_gpu=True,
     )

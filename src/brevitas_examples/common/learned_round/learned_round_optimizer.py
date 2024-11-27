@@ -203,7 +203,6 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.optim.sgd import SGD
 from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.dataloader import RandomSampler
 from tqdm import tqdm
 
 from brevitas import config
@@ -283,10 +282,6 @@ class Cache(ABC):
 
     @abstractmethod
     def clear_cache(self) -> None:
-        pass
-
-    @abstractmethod
-    def reset_cache(self) -> None:
         pass
 
     @abstractmethod
@@ -699,7 +694,7 @@ class LearnedRoundOptimizer:
             block_forward: Callable,
             data_loader: DataLoader,
             cache: Cache,
-            block_check_fn: Callable,
+            get_blocks_fn: Callable,
             model_prepare_fn: Optional[Callable] = None,
             model_finish_fn: Optional[Callable] = None,
             keep_gpu: bool = True) -> None:
@@ -711,7 +706,7 @@ class LearnedRoundOptimizer:
         self.learned_round.insert_learned_round_quantizers(model)
 
         # Retrieve blocks using the appropiate function to check blocks
-        blocks = get_blocks(model, block_check_fn)
+        blocks = get_blocks_fn(model)
 
         print(f"Total Iterations per block {self.iters}")
         print(f"Number of blocks {len(blocks)}")
@@ -726,7 +721,6 @@ class LearnedRoundOptimizer:
             model = offload_model(model)
             # Cache needs to be cleared before populating it with the inputs and outputs
             # to the block under optimization.
-            cache.clear_cache()
             self._populate_cache(
                 cache,
                 model,
@@ -801,7 +795,7 @@ class LearnedRoundOptimizer:
 
             # TODO: This call might not be needed, check_clear and reset_cache methods
             # Reset cache after optimisation
-            cache.reset_cache()
+            cache.clear_cache()
 
         # The original configuration of the model is restored after finishing the optimization
         if model_finish_fn is not None:

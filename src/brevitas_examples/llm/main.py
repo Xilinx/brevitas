@@ -375,6 +375,7 @@ def main(args):
             model,
             calibration_loader,
             iters=args.learned_round_iters,
+            block_name_attribute=args.gpxq_block_name,
             learn_scale=args.learned_round_scale,
         )
         print("Learned round applied.")
