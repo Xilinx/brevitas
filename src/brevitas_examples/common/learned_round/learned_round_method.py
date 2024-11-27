@@ -15,11 +15,6 @@ from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 
-class StopFwdException(Exception):
-    """Used to throw and catch an exception to stop traversing the graph."""
-    pass
-
-
 class LearnedRoundLoss(ABC):
 
     @abstractmethod

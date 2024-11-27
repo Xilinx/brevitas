@@ -7,28 +7,16 @@ from accelerate.utils.operations import send_to_device
 from datasets import Dataset
 import torch
 from torch import nn
-from torch.optim.lr_scheduler import LinearLR
-from torch.optim.lr_scheduler import LRScheduler
-from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import DataLoader
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
 
-from brevitas.inject.enum import LearnedRoundImplType
-from brevitas.optim.sign_sgd import SignSGD
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
-from brevitas_examples.common.learned_round.learned_round_method import MSELoss
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
-
-LEARNED_ROUND_MAP = {
-    "linear_round": LearnedRoundImplType.IDENTITY,}
-LEARNED_ROUND_LOSS_MAP = {
-    "mse": MSELoss,}
-OPTIMIZER_MAP = {
-    "sign_sgd": SignSGD,}
-LR_SCHEDULER_MAP = {
-    "linear": LinearLR,}
+from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
+from brevitas_examples.common.learned_round.learned_round_parser import \
+    parse_learned_round_loss_class
+from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
+from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
 
 
 class CacheLLM(dict):
@@ -176,21 +164,11 @@ def apply_learned_round(
     lr_scheduler_kwargs: Optional[Dict] = None,
     learned_round_loss_kwargs: Optional[Dict] = None,
 ) -> None:
-    if learned_round not in LEARNED_ROUND_MAP:
-        raise ValueError(f"Learned round method {learned_round} is not available.")
-    learned_round = LearnedRound(learned_round_impl_type=LEARNED_ROUND_MAP[learned_round])
-
-    if learned_round_loss not in LEARNED_ROUND_LOSS_MAP:
-        raise ValueError(f"Learned round loss {learned_round_loss} is not available.")
-    learned_round_loss_class = LEARNED_ROUND_LOSS_MAP[learned_round_loss]
-
-    if optimizer not in OPTIMIZER_MAP:
-        raise ValueError(f"Optimizer {optimizer} is not available.")
-    optimizer_class = OPTIMIZER_MAP[optimizer]
-
-    if lr_scheduler is not None and lr_scheduler not in LR_SCHEDULER_MAP:
-        raise ValueError(f"Learning rate scheduler {lr_scheduler} is not available.")
-    lr_scheduler_class = None if lr_scheduler is None else LR_SCHEDULER_MAP[lr_scheduler]
+    # Parse strings to obtain the arguments for the optimizer
+    learned_round = parse_learned_round(learned_round)
+    learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
+    optimizer_class = parse_optimizer_class(optimizer)
+    lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
 
     lr_scheduler_kwargs = {
         "start_factor": 1.0,

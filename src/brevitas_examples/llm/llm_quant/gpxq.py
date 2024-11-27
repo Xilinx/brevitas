@@ -15,8 +15,8 @@ from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
-from brevitas.graph.gpxq import StopFwdException
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.axe import A2GPFQ
 from brevitas_examples.common.axe import A2GPTQ
 

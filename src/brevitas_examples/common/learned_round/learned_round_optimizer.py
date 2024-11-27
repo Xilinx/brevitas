@@ -213,6 +213,7 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
+from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
@@ -256,11 +257,6 @@ def return_scale_parameters(block: nn.Module) -> List[nn.Parameter]:
     # Run recursion from block
     _get_scale_parameters(block)
     return scale_parameters
-
-
-class StopFwdException(Exception):
-    """Used to throw and catch an exception to stop traversing the graph."""
-    pass
 
 
 class Cache(ABC):
@@ -636,16 +632,8 @@ class LearnedRoundOptimizer:
 
         # Prepare dataset from cache
         cache_dataset = cache.cache_to_dataset()
-        # NOTE: Intuitively, the total samples retrieved during optimization should
-        # be self.batch_size*self.iters. However, a StopIteration is raised mid-training
-        # signaling that this is not correct. Should check why this is the case.
-        random_sampler = RandomSampler(
-            cache_dataset, replacement=True, num_samples=2 * self.batch_size * self.iters)
         cache_dataloader = DataLoader(
-            cache_dataset,
-            batch_size=self.batch_size,
-            sampler=random_sampler,
-            collate_fn=cache.collate_fn)
+            cache_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=cache.collate_fn)
 
         # Prepare elements for training
         cache_dataloader, block, optimizer, lr_scheduler = accelerator.prepare(cache_dataloader, block, optimizer, lr_scheduler)

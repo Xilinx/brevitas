@@ -28,10 +28,6 @@ SUPPORTED_TCONV_OP = (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.Qu
 SUPPORTED_CONV_OP = (qnn.QuantConv1d, qnn.QuantConv2d, qnn.QuantConv3d, *SUPPORTED_TCONV_OP)
 
 
-class StopFwdException(Exception):
-    pass
-
-
 @dataclass
 class LayerHandler:
     layer_names: Set = field(default_factory=set)

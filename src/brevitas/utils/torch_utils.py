@@ -11,6 +11,11 @@ import brevitas
 from brevitas.function.ops_ste import floor_ste
 
 
+class StopFwdException(Exception):
+    """Used to throw and catch an exception to stop traversing the graph."""
+    pass
+
+
 class TupleSequential(Sequential):
 
     def output(self, mod, input):
