@@ -188,8 +188,6 @@ def main(args):
     kwargs = {"torch_dtype": dtype}
     if quant_sdpa_fx:
         kwargs["attn_implementation"] = "sdpa"
-    elif args.replace_mha:
-        kwargs["attn_implementation"] = "eager"
 
     if args.export_target == 'torch_qcdq':
         kwargs['torchscript'] = True
