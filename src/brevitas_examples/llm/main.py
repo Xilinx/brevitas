@@ -376,6 +376,8 @@ def main(args):
             calibration_loader,
             iters=args.learned_round_iters,
             block_name_attribute=args.gpxq_block_name,
+            optimizer_lr=args.learned_round_lr,
+            optimizer_scale_lr=args.learned_round_scale_lr,
             learn_scale=args.learned_round_scale,
         )
         print("Learned round applied.")
@@ -566,6 +568,16 @@ def parse_args(args):
         type=int,
         default=64,
         help='Group size for per_group input quantization. Default: 64.')
+    parser.add_argument(
+        '--learned-round-lr',
+        type=float,
+        default=5e-3,
+        help='Learning rate for learned round parameter optimization. Default: %(default)s')
+    parser.add_argument(
+        '--learned-round-scale-lr',
+        type=float,
+        default=5e-3,
+        help='Learning rate for scale optimization during round learning. Default: %(default)s')
     parser.add_argument(
         '--learned-round-iters',
         type=int,

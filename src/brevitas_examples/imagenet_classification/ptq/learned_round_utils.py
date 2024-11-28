@@ -120,14 +120,14 @@ class CacheVision(Cache, dict):
             if isinstance(self["inputs"], list) else self["inputs"].shape[self.batch_dim])
 
 
-def cnn_forward(model: nn.Module, inputs: Any) -> None:
+def vision_forward(model: nn.Module, inputs: Any) -> None:
     device = next(model.parameters()).device
     img, _ = inputs
     img = send_to_device(img, device)
     model(img)
 
 
-def cnn_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
+def vision_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
     device = next(block.parameters()).device
     inputs = send_to_device(inputs, device)
     return block(inputs)
@@ -186,8 +186,8 @@ def apply_learned_round(
     cache = CacheVision()
     learned_round_optimizer.apply_learned_round(
         model=model,
-        model_forward=cnn_forward,
-        block_forward=cnn_block_forward,
+        model_forward=vision_forward,
+        block_forward=vision_block_forward,
         data_loader=calibration_loader,
         cache=cache,
         get_blocks_fn=get_blocks_fn,
