@@ -14,6 +14,7 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
+import transformers
 
 from brevitas import config
 from brevitas import torch_version
@@ -38,6 +39,10 @@ def allveryclose(x, y):
 
 def allexact(x, y):
     return np.allclose(x, y, rtol=0.0, atol=0.0, equal_nan=False)
+
+
+def transformers_version_ge(required_version: str):
+    return version.parse(required_version) >= version.parse(transformers.__version__)
 
 
 # Check that all args in args are used
@@ -126,6 +131,7 @@ def default_run_args(request):
     args.weight_quant_granularity = "per_channel"  # "per_tensor", "per_channel", "per_group".
     args.input_bit_width = 8
     args.act_calibration = True
+    args.no_float16 = True
     return args
 
 
@@ -204,17 +210,17 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
         "mistral",],
     params=[
         {
-            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
-            "act_equalization": "layerwise",
-            "gptq": True,
-            "float_ppl": 31274.05078125,
-            "quant_ppl": 33139.23046875},
-        {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
             "bias_corr": True,
-            "float_ppl": 33239.5,
-            "quant_ppl": 33283.75390625},])
+            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 33239.5,
+            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33283.75390625},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_equalization": "layerwise",
+            "gptq": True,
+            "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 31274.05078125,
+            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33139.23046875},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param

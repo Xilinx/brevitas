@@ -152,6 +152,7 @@ class QuantizableOPTAttention(MultiheadAttentionWrapper):
         attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
+        position_ids: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         if key_value_states is None:
             key_value_states = hidden_states
@@ -164,14 +165,17 @@ class QuantizableOPTAttention(MultiheadAttentionWrapper):
             query_seq_length, batch_size = hidden_states.shape[:2]
             key_value_seq_length = key_value_states.shape[0]
         num_heads = self.num_heads
-        attention_mask = attention_mask_handler(
-            attention_mask, batch_size, num_heads, query_seq_length, key_value_seq_length)
+        attention_mask = (
+            attention_mask_handler(
+                attention_mask, batch_size, num_heads, query_seq_length, key_value_seq_length)
+            if attention_mask is not None else None)
         attn_output, attn_output_weights = self.mha(
             hidden_states,
             key_value_states,
             key_value_states,
             attn_mask=attention_mask,
             need_weights=output_attentions,
-            average_attn_weights=False)
+            average_attn_weights=False,
+        )
         past_key_value = None
         return attn_output, attn_output_weights, past_key_value
