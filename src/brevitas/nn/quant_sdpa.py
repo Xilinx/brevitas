@@ -97,6 +97,11 @@ class ScaledDotProductAttention(Module):
             - :math:`Hq: \text{Number of heads of query}`
             - :math:`H: \text{Number of heads of key and value}`
         """
+        kwargs = {}
+        if scale is not None:
+            kwargs["scale"] = scale
+        if not enable_gqa:
+            kwargs["enable_gqa"] = enable_gqa
         return F.scaled_dot_product_attention(
             query=query,
             key=key,
@@ -104,7 +109,7 @@ class ScaledDotProductAttention(Module):
             attn_mask=attn_mask,
             dropout_p=dropout_p,
             is_causal=is_causal,
-            scale=scale)
+            **kwargs)
 
 
 class QuantScaledDotProductAttention(Module):
