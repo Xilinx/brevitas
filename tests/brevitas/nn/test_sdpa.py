@@ -37,6 +37,8 @@ class TestScaledDotProductAttention:
             "enable_gqa": enable_gqa,}
         if torch_version < version.parse('2.5.0'):
             del extra_kwargs["enable_gqa"]
+        if torch_version < version.parse('2.1.0'):
+            del extra_kwargs["scale"]
 
         kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
         m = ScaledDotProductAttention()
