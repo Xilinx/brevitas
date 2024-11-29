@@ -100,7 +100,7 @@ class ScaledDotProductAttention(Module):
         kwargs = {}
         if scale is not None:
             kwargs["scale"] = scale
-        if not enable_gqa:
+        if enable_gqa:
             kwargs["enable_gqa"] = enable_gqa
         return F.scaled_dot_product_attention(
             query=query,
