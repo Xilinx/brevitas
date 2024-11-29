@@ -1,28 +1,19 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import re
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 import warnings
 
-from accelerate.utils.operations import send_to_device
-from datasets import Dataset
 import torch
-from torch import nn
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
-from torch.utils.data.dataloader import DataLoader
 
-from brevitas import config
 from brevitas.inject.enum import LearnedRoundImplType
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.optim.sign_sgd import SignSGD
-from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 from brevitas_examples.common.learned_round.learned_round_method import MSELoss
 from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 
 LEARNED_ROUND_MAP = {
     "linear_round": LearnedRoundImplType.IDENTITY,

@@ -190,11 +190,7 @@ import itertools
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import warnings
 
-from accelerate import Accelerator
-from accelerate.utils import tqdm as tqdm_accelerate
-from accelerate.utils.dataclasses import PrecisionType
 from accelerate.utils.operations import send_to_device
-from datasets import Dataset
 import torch
 from torch import autocast
 from torch import nn
@@ -282,14 +278,6 @@ class Cache(ABC):
 
     @abstractmethod
     def clear_cache(self) -> None:
-        pass
-
-    @abstractmethod
-    def cache_to_dataset(self) -> Dataset:
-        pass
-
-    @abstractmethod
-    def collate_fn(self, batch: Any) -> Any:
         pass
 
 

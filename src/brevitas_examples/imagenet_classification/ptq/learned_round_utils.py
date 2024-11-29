@@ -32,7 +32,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import warnings
 
 from accelerate.utils.operations import send_to_device
-from datasets import Dataset
 import torch
 from torch import nn
 from torch.utils.data.dataloader import DataLoader
@@ -107,12 +106,6 @@ class CacheVision(Cache, dict):
             self["output"] = torch.cat(self["output"], dim=self.batch_dim)
 
         return self["inputs"][indices], self["output"][indices]
-
-    def cache_to_dataset(self) -> Dataset:
-        raise NotImplementedError("This method is still not available for CNNs.")
-
-    def collate_fn(self, batch: Any) -> Any:
-        raise NotImplementedError("This method is still not available for CNNs.")
 
     def __len__(self):
         return (
