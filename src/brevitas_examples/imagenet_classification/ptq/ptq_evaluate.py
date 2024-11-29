@@ -165,6 +165,11 @@ parser.add_argument(
     choices=[None, 'linear_round', 'hard_sigmoid_round', 'sigmoid_round'],
     help='Learned round type (default: None)')
 parser.add_argument(
+    '--learned-round-block-name',
+    type=str,
+    default="layer\d+",
+    help='Block name for learned round. It works only if FX is not needed (default: %(default)s)')
+parser.add_argument(
     '--learned-round-loss',
     default='regularised_mse',
     type=str,
@@ -516,6 +521,7 @@ def main():
             iters=args.learned_round_iters,
             learned_round=args.learned_round,
             learned_round_loss=args.learned_round_loss,
+            block_name_attribute=args.learned_round_block_name,
             optimizer=args.optimizer,
             lr_scheduler=args.learned_round_lr_scheduler,
             optimizer_lr=args.learned_round_lr,

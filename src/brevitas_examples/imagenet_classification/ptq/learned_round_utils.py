@@ -52,8 +52,8 @@ from brevitas_examples.common.learned_round.learned_round_parser import parse_op
 config.IGNORE_MISSING_KEYS = True
 
 
-def is_resnet_block(module: nn.Module, module_name: str) -> bool:
-    return (re.search(r"layer\d+", module_name) is not None)
+def is_block(module: nn.Module, module_name: str, reg_exp: str = r"layer\d+") -> bool:
+    return (re.search(reg_exp, module_name) is not None)
 
 
 def is_layer(module: nn.Module, module_name: str) -> bool:
@@ -62,7 +62,7 @@ def is_layer(module: nn.Module, module_name: str) -> bool:
 
 BLOCK_CHECK_MAP = {
     "layerwise": is_layer,
-    "blockwise": is_resnet_block,}
+    "blockwise": is_block,}
 
 
 class CacheVision(Cache, dict):
@@ -139,6 +139,7 @@ def apply_learned_round(
     iters: int = 1000,
     learned_round: str = "hard_sigmoid_round",
     learned_round_loss: str = "regularised_mse",
+    block_name_attribute: str = r"layer\d+",
     optimizer: str = "adam",
     lr_scheduler: Optional[str] = None,
     optimizer_lr: float = 1e-3,
@@ -158,12 +159,17 @@ def apply_learned_round(
     optimizer_class = parse_optimizer_class(optimizer)
     lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
 
-    if learned_round_mode not in BLOCK_CHECK_MAP:
-        learned_round_mode = "layerwise"
+    # Parse method to retrieve de model blocks
+    if learned_round_mode == "layerwise":
+        block_check_fn = is_layer
+    elif learned_round_mode == "blockwise":
+        block_check_fn = functools.partial(is_block, reg_exp=block_name_attribute)
+    else:
+        block_check_fn = is_layer
         warnings.warn(
             f"{learned_round_mode} is not a valid learned round mode. Defaulting to layerwise.")
-    block_check_fn = BLOCK_CHECK_MAP[learned_round_mode]
     get_blocks_fn = functools.partial(get_blocks, block_check_fn=block_check_fn)
+
     lr_scheduler_kwargs = {
         "start_factor": 1.0,
         "end_factor": 0.0,
