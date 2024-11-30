@@ -45,10 +45,11 @@ from typing import List, Optional
 
 import torch
 from torch import Tensor
+
 try:
     from torch.optim.optimizer import _default_to_fused_or_foreach
 except:
-    _default_to_fused_or_foreach = None   
+    _default_to_fused_or_foreach = None
 from torch.optim.optimizer import _use_grad_for_differentiable
 from torch.optim.optimizer import Optimizer
 from torch.optim.sgd import SGD
