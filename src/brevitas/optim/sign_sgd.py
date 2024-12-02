@@ -48,10 +48,14 @@ from torch import Tensor
 
 try:
     from torch.optim.optimizer import _default_to_fused_or_foreach
-    from torch.optim.optimizer import _use_grad_for_differentiable
 except:
     _default_to_fused_or_foreach = None
-    _use_grad_for_differentiable = None
+try:
+    from torch.optim.optimizer import _use_grad_for_differentiable
+except:
+    # Ensure backward compatibility with PyTorch < 1.13.0
+    _use_grad_for_differentiable = torch.no_grad
+
 from torch.optim.optimizer import Optimizer
 from torch.optim.sgd import SGD
 
