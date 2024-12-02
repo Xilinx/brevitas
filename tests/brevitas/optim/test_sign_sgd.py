@@ -53,6 +53,7 @@ from torch.optim.lr_scheduler import LinearLR
 from brevitas import torch_version
 from brevitas.optim.sign_sgd import SignSGD
 from tests.conftest import SEED
+from tests.marker import requires_pt_ge
 
 torch.manual_seed(SEED)
 
@@ -77,6 +78,7 @@ device_dtype_parametrize = pytest_cases.parametrize("device, dtype", list(produc
 
 class TestOptimSignSGD:
 
+    @requires_pt_ge('2.1')
     @device_dtype_parametrize
     @pytest_cases.parametrize("lr", [0.1])
     def test_sign_sgd_single_update(self, device, dtype, lr):
@@ -96,6 +98,7 @@ class TestOptimSignSGD:
 
         assert torch.allclose(weights, initial_weights - lr * weight_sign_grad)
 
+    @requires_pt_ge('2.1')
     @device_dtype_parametrize
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
@@ -134,6 +137,7 @@ class TestOptimSignSGD:
             else:
                 assert closure().item() < initial_value
 
+    @requires_pt_ge('2.1')
     @pytest.mark.skipif(
         torch.cuda.device_count() <= 1, reason="At least two GPUs are required for this test.")
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
