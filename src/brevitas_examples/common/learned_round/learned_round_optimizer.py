@@ -194,9 +194,7 @@ from accelerate.utils.operations import send_to_device
 import torch
 from torch import autocast
 from torch import nn
-from torch.optim.lr_scheduler import LinearLR
 from torch.optim.optimizer import Optimizer
-from torch.optim.sgd import SGD
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -205,7 +203,6 @@ from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
-from brevitas.optim.sign_sgd import SignSGD
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -346,10 +343,10 @@ class LearnedRoundOptimizer:
         self,
         learned_round: LearnedRound,
         learned_round_loss_class: Type[LearnedRoundLoss],
+        optimizer_class: Type[Optimizer],
         *,
-        optimizer_class: Type[Optimizer] = SignSGD,
-        scale_optimizer_class: Type[Optimizer] = SGD,
-        lr_scheduler_class: Optional[Type] = LinearLR,
+        scale_optimizer_class: Optional[Type[Optimizer]] = None,
+        lr_scheduler_class: Optional[Type] = None,
         optimizer_lr: float = 5e-3,
         optimizer_scale_lr: float = 5e-3,
         batch_size: float = 8,
@@ -363,6 +360,9 @@ class LearnedRoundOptimizer:
         optimizer_kwargs: Optional[Dict] = None,
         lr_scheduler_kwargs: Optional[Dict] = None,
     ) -> None:
+        # Verify that an optimizer is passed for optimizing the scale if learn_scale=True
+        assert not (learn_scale and scale_optimizer_class is None), "An optimizer needs to be passed for the scale if learn_scale is set to True."
+
         self.learned_round = learned_round
         self.optimizer_class = optimizer_class
         self.scale_optimizer_class = scale_optimizer_class
