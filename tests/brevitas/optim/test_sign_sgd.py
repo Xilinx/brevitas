@@ -51,7 +51,6 @@ from torch.nn import Parameter
 from torch.optim.lr_scheduler import LinearLR
 
 from brevitas import torch_version
-from brevitas.optim.sign_sgd import SignSGD
 from tests.conftest import SEED
 from tests.marker import requires_pt_ge
 
@@ -80,8 +79,9 @@ class TestOptimSignSGD:
 
     @device_dtype_parametrize
     @pytest_cases.parametrize("lr", [0.1])
-    @requires_pt_ge('2.1')
+    @requires_pt_ge('2.1') # TODO: revisit this
     def test_sign_sgd_single_update(self, device, dtype, lr):
+        from brevitas.optim.sign_sgd import SignSGD
         # Initialize weights and grads
         weights = Parameter(REFERENCE_WEIGHTS.to(device=device, dtype=dtype))
         # Initialize tensors to compute expected result
@@ -103,6 +103,7 @@ class TestOptimSignSGD:
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
     @requires_pt_ge('2.1')
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
+        from brevitas.optim.sign_sgd import SignSGD
         # PyTorch version previous to 2.3.1. might no have mv (addmv_impl_cpu) implemented for Half
         if dtype == torch.float16 and device == "cpu" and torch_version < parse('2.3.1'):
             pytest.xfail(
@@ -145,6 +146,7 @@ class TestOptimSignSGD:
     @requires_pt_ge('2.1')
     def test_forloop_goes_right_direction_multigpu(
             self, dtype, optimizer_kwargs, lr_scheduler_args):
+        from brevitas.optim.sign_sgd import SignSGD
         optim_cls = SignSGD
         # Learnable parameters
         weight = Parameter(torch.randn((10, 5), device="cuda:0", dtype=dtype))
