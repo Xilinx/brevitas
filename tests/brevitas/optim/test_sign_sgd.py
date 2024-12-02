@@ -43,12 +43,14 @@ POSSIBILITY OF SUCH DAMAGE.
 from copy import deepcopy
 from itertools import product
 
+from packaging.version import parse
 import pytest
 import pytest_cases
 import torch
 from torch.nn import Parameter
 from torch.optim.lr_scheduler import LinearLR
 
+from brevitas import torch_version
 from brevitas.optim.sign_sgd import SignSGD
 from tests.conftest import SEED
 
@@ -94,12 +96,16 @@ class TestOptimSignSGD:
 
         assert torch.allclose(weights, initial_weights - lr * weight_sign_grad)
 
-        from torch.testing._internal.common_optimizers import optims
-
     @device_dtype_parametrize
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
+        # PyTorch version previous to 2.3.1. might no have mv (addmv_impl_cpu) implemented for Half
+        if dtype == torch.float16 and device == "cpu" and torch_version < parse('2.3.1'):
+            pytest.xfail(
+                "PyTorch versions previous to 2.3.1. might no have mv (addmv_impl_cpu) implemented for Half"
+            )
+
         optim_cls = SignSGD
         weight = Parameter(torch.randn((10, 5), device=device, dtype=dtype))
         bias = Parameter(torch.randn((10), device=device, dtype=dtype))
