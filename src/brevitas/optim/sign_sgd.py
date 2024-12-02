@@ -48,8 +48,10 @@ from torch import Tensor
 
 try:
     from torch.optim.optimizer import _default_to_fused_or_foreach
+    from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 except:
     _default_to_fused_or_foreach = None
+    _get_fused_kernels_supported_devices = None
 try:
     from torch.optim.optimizer import _use_grad_for_differentiable
 except:
@@ -57,12 +59,11 @@ except:
     _use_grad_for_differentiable = torch.no_grad
 
 from torch.optim.optimizer import Optimizer
-from torch.optim.sgd import SGD
 
 __all__ = ["SignSGD", "sign_sgd"]
 
 
-class SignSGD(SGD):
+class SignSGD(Optimizer):
     """Implements signed stochastic gradient descent (optionally with momentum).
 
     .. math::
@@ -126,8 +127,14 @@ class SignSGD(SGD):
         differentiable: bool = False,
         fused: Optional[bool] = None,
     ):
-        super().__init__(
-            params=params,
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if momentum < 0.0:
+            raise ValueError(f"Invalid momentum value: {momentum}")
+        if weight_decay < 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+
+        defaults = dict(
             lr=lr,
             momentum=momentum,
             dampening=dampening,
@@ -138,6 +145,49 @@ class SignSGD(SGD):
             differentiable=differentiable,
             fused=fused,
         )
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        super().__init__(params, defaults)
+
+        if fused:
+            self._step_supports_amp_scaling = True
+
+            fused_supported_devices = _get_fused_kernels_supported_devices()
+            if not all(p.device.type in fused_supported_devices and torch.is_floating_point(p)
+                       for pg in self.param_groups
+                       for p in pg["params"]):
+                raise RuntimeError(
+                    "`fused=True` requires all the params to be floating point Tensors of "
+                    f"supported devices: {fused_supported_devices}.")
+            if differentiable:
+                raise RuntimeError("`fused` does not support `differentiable`")
+            if foreach:
+                raise RuntimeError("`fused` and `foreach` cannot be `True` together.")
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault("nesterov", False)
+            group.setdefault("maximize", False)
+            group.setdefault("foreach", None)
+            group.setdefault("differentiable", False)
+            group.setdefault("fused", False)
+
+    def _init_group(self, group, params, grads, momentum_buffer_list):
+        has_sparse_grad = False
+
+        for p in group["params"]:
+            if p.grad is not None:
+                params.append(p)
+                grads.append(p.grad)
+                if p.grad.is_sparse:
+                    has_sparse_grad = True
+
+                if group["momentum"] != 0:
+                    state = self.state[p]
+                    momentum_buffer_list.append(state.get("momentum_buffer"))
+
+        return has_sparse_grad
 
     @_use_grad_for_differentiable
     def step(self, closure=None):
