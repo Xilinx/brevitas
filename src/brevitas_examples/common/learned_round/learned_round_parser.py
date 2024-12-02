@@ -5,7 +5,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 import warnings
 
 import torch
-from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 
 from brevitas.inject.enum import LearnedRoundImplType
@@ -44,11 +43,22 @@ def parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
         optimizer_class = OPTIMIZER_MAP[optimizer_str]
     else:
         optimizer_keys = [
-            optimizer_key for optimizer_key in torch.optim.__dict__.keys() if (
+            optimizer_key for optimizer_key in torch.optim.__dict__.keys()
+            # Check for making sure that only valid Optimizer implementations are
+            # retrived, when matching with the string passed by the user
+            if (
+                # Verify that the key stars with the one passed by the user
                 optimizer_key.lower().startswith(optimizer_str.lower()) and
-                torch.optim.__dict__[optimizer_key] != Optimizer and
+                # Verify that key corresponds to a class
                 isinstance(torch.optim.__dict__[optimizer_key], type) and
-                issubclass(torch.optim.__dict__[optimizer_key], Optimizer))]
+                # Make sure the abstract class is not used
+                optimizer_key != "Optimizer" and
+                # An optimizer implements zero_grad and step. Check that this
+                # is the case for the class retrieved from torch.optim
+                hasattr(torch.optim.__dict__[optimizer_key], 'step') and
+                callable(torch.optim.__dict__[optimizer_key].step) and
+                hasattr(torch.optim.__dict__[optimizer_key], 'zero_grad') and
+                callable(torch.optim.__dict__[optimizer_key].zero_grad))]
         if len(optimizer_keys) == 0:
             raise ValueError(f"{optimizer_str} is not a valid optimizer.")
         else:
@@ -61,16 +71,24 @@ def parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
     return optimizer_class
 
 
-def parse_lr_scheduler_class(lr_scheduler_str: str) -> Type[LRScheduler]:
+def parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
     if lr_scheduler_str in LR_SCHEDULER_MAP:
         lr_scheduler_class = LR_SCHEDULER_MAP[lr_scheduler_str]
     else:
         lr_scheduler_keys = [
-            lr_scheduler_key for lr_scheduler_key in torch.optim.lr_scheduler.__dict__.keys() if (
+            lr_scheduler_key for lr_scheduler_key in torch.optim.lr_scheduler.__dict__.keys()
+            # Check for making sure that only valid LRScheduler implementations are
+            # retrived, when matching with the string passed by the user
+            if (
                 lr_scheduler_key.lower().startswith(lr_scheduler_str.lower()) and
-                torch.optim.lr_scheduler.__dict__[lr_scheduler_key] != LRScheduler and
+                # Verify that key corresponds to a class
                 isinstance(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], type) and
-                issubclass(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], LRScheduler))]
+                # Make sure the abstract class is not retrieved
+                lr_scheduler_key != "LRScheduler" and
+                # A learning rate scheduler implements zero_grad and step. Check that this
+                # is the case for the class retrieved from torch.optim.lr_scheduler
+                hasattr(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], 'step') and
+                callable(torch.optim.lr_scheduler.__dict__[lr_scheduler_key].step))]
         if len(lr_scheduler_keys) == 0:
             warnings.warn(
                 f"There are no matches for LR scheduler {lr_scheduler_str}. "

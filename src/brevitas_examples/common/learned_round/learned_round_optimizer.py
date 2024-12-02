@@ -195,7 +195,6 @@ import torch
 from torch import autocast
 from torch import nn
 from torch.optim.lr_scheduler import LinearLR
-from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.optim.sgd import SGD
 from torch.utils.data.dataloader import DataLoader
@@ -350,7 +349,7 @@ class LearnedRoundOptimizer:
         *,
         optimizer_class: Type[Optimizer] = SignSGD,
         scale_optimizer_class: Type[Optimizer] = SGD,
-        lr_scheduler_class: Optional[Type[LRScheduler]] = LinearLR,
+        lr_scheduler_class: Optional[Type] = LinearLR,
         optimizer_lr: float = 5e-3,
         optimizer_scale_lr: float = 5e-3,
         batch_size: float = 8,
@@ -405,12 +404,12 @@ class LearnedRoundOptimizer:
                 optimizer.step()
                 optimizer.zero_grad()
 
-    def _lr_sched_step(self, *lr_schedulers: LRScheduler) -> None:
+    def _lr_sched_step(self, *lr_schedulers: Any) -> None:
         for lr_scheduler in lr_schedulers:
             if lr_scheduler:
                 lr_scheduler.step()
 
-    def _step(self, optimizers: List[Optimizer], lr_schedulers: List[LRScheduler]) -> None:
+    def _step(self, optimizers: List[Optimizer], lr_schedulers: List[Any]) -> None:
         for optimizer in optimizers:
             if optimizer:
                 optimizer.step()
