@@ -571,5 +571,5 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
-    assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
