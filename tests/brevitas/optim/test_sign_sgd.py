@@ -42,26 +42,17 @@ POSSIBILITY OF SUCH DAMAGE.
 
 from copy import deepcopy
 from itertools import product
-import math
-import sys
-from typing import List, Union
-import unittest
 
-from hypothesis import given
 import pytest
 import pytest_cases
-from pytest_cases import fixture
 import torch
 from torch.nn import Parameter
-import torch.nn as nn
 from torch.optim.lr_scheduler import LinearLR
 
 from brevitas.optim.sign_sgd import SignSGD
 from tests.conftest import SEED
 
 torch.manual_seed(SEED)
-
-from torch.testing._internal.common_optimizers import OptimizerInput
 
 REFERENCE_INP = torch.tensor([[-1.8645, -0.4071, 1.1971]])
 REFERENCE_WEIGHTS = torch.tensor([[1.0023, 0.0205, 1.4604], [-0.2918, -1.8218, -0.7010],

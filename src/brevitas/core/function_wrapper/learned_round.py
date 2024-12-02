@@ -11,6 +11,7 @@ import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper.ops_ste import TensorClampSte
 from brevitas.core.utils import SliceTensor
 from brevitas.function.ops_ste import floor_ste
 from brevitas.function.ops_ste import round_ste
@@ -72,10 +73,14 @@ class LearnedRoundIdentity(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(LearnedRoundIdentity, self).__init__()
+        self.tensor_clamp = TensorClampSte()
 
     @brevitas.jit.script_method
     def forward(self, p: torch.Tensor) -> torch.Tensor:
-        return p
+        return self.tensor_clamp(
+            p,
+            min_val=torch.tensor(-0.5, device=p.device),
+            max_val=torch.tensor(+0.5, device=p.device))
 
     @brevitas.jit.script_method
     def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
