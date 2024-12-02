@@ -76,12 +76,14 @@ class LearnedRoundIdentity(torch.nn.Module):
         super(LearnedRoundIdentity, self).__init__()
         self.tensor_clamp = TensorClampSte()
 
+    @brevitas.jit.ignore
     def forward(self, p: torch.Tensor) -> torch.Tensor:
         return self.tensor_clamp(
             p,
             min_val=torch.tensor(-0.5, device=p.device),
             max_val=torch.tensor(+0.5, device=p.device))
 
+    @brevitas.jit.ignore
     def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
         return round_ste(x + p)
 
