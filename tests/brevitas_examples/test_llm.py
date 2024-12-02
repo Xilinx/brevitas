@@ -18,7 +18,6 @@ import transformers
 
 from brevitas import config
 from brevitas import torch_version
-# LLM example depends on optimum-amd, which requires PyTorch>=2.2
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from tests.marker import jit_disabled_for_export

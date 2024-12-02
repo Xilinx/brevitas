@@ -6,7 +6,6 @@
 - datasets
 - torch_mlir (optional for torch-mlir based export)
 - optimum
-- optimum-amd (install from main)
 - accelerate
 
 ## Run

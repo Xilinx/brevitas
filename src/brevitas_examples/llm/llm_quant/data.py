@@ -1,19 +1,27 @@
 """
-Adapted from https://github.com/IST-DASLab/gptq, released under the following LICENSE:
+Adapted from https://github.com/huggingface/optimum-amd, released under the following LICENSE:
 
-Copyright 2023 IST-DASLab
+MIT License
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Copyright (c) 2023 Hugging Face
 
-    http://www.apache.org/licenses/LICENSE-2.0
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 """
 
 import random
@@ -24,50 +32,61 @@ import torch
 from tqdm import tqdm
 
 
-def get_c4(nsamples, seed, seqlen, tokenizer, split='train', nvalsamples=0):
-    if split == 'train':
-        data = load_dataset(
-            'allenai/c4',
-            'allenai--c4',
-            data_files={'train': 'en/c4-train.00000-of-01024.json.gz'},
-            split='train',
-            use_auth_token=False)
+def get_c4(
+        tokenizer: Any,
+        seqlen: int,
+        nsamples: int,
+        split: str = "train",
+        fuse_sequences: bool = True,
+        seed: int = 42):
+    random.seed(seed)
 
-        random.seed(seed)
-        dataloader = []
+    if split == "train":
+        data = load_dataset(
+            "allenai/c4", split="train", data_files={"train": "en/c4-train.00000-of-01024.json.gz"})
+    elif split == "validation":
+        data = load_dataset(
+            "allenai/c4",
+            split="validation",
+            data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
+        )
+
+    if fuse_sequences:
+        data = data.shuffle(seed=seed)[:10000]  # c4 is too big.
+        full_text = "\n\n".join(data["text"])
+        tokenized_data = tokenizer(full_text, return_tensors="pt")
+
+        dataset = []
         for _ in range(nsamples):
-            while True:
-                i = random.randint(0, len(data) - 1)
-                trainenc = tokenizer(data[i]['text'], return_tensors='pt')
-                if trainenc.input_ids.shape[1] >= seqlen:
-                    break
-            i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+            i = random.randint(0, tokenized_data.input_ids.shape[1] - seqlen - 1)
             j = i + seqlen
-            inp = trainenc.input_ids[:, i:j]
-            dataloader.append(inp)
-        return dataloader
-    elif split == 'validation':
-        data = load_dataset(
-            'allenai/c4',
-            'allenai--c4',
-            data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'},
-            split='validation',
-            use_auth_token=False)
+            inp = tokenized_data.input_ids[:, i:j]
+            attention_mask = torch.ones((1, seqlen), dtype=torch.int64)
+            dataset.append({"input_ids": inp, "attention_mask": attention_mask})
+    else:
+        dataset = []
+        with tqdm(total=nsamples) as pbar:
+            while len(dataset) < nsamples:
+                data_index = random.randint(0, len(data) - 1)
 
-        random.seed(0)  # hardcoded for validation reproducibility
-        valenc = []
-        for _ in range(nvalsamples):
-            while True:
-                i = random.randint(0, len(data) - 1)
-                tmp = tokenizer(data[i]['text'], return_tensors='pt')
-                if tmp.input_ids.shape[1] >= seqlen:
-                    break
-            i = random.randint(0, tmp.input_ids.shape[1] - seqlen - 1)
-            j = i + seqlen
-            valenc.append(tmp.input_ids[:, i:j])
+                enc = tokenizer(data[data_index]["text"], return_tensors="pt")
 
-        valenc = torch.hstack(valenc)
-        return valenc
+                if enc["input_ids"].shape[1] < seqlen:
+                    continue
+
+                start_idx = random.randint(0, enc["input_ids"].shape[1] - seqlen)
+                end_idx = start_idx + seqlen - 1
+                attention_mask = torch.ones((1, seqlen), dtype=torch.int64)
+                input_ids = enc["input_ids"][:, start_idx:end_idx + 1]
+
+                # Add BOS token.
+                if tokenizer.eos_token_id is not None:
+                    input_ids[:, 0] = tokenizer.eos_token_id
+
+                dataset.append({"input_ids": input_ids, "attention_mask": attention_mask})
+                pbar.update(1)
+
+    return dataset
 
 
 def get_wikitext2(

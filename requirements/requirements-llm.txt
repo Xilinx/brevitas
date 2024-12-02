@@ -1,3 +1,7 @@
-# optimum-amd[brevitas] @ git+https://github.com/huggingface/optimum-amd.git@main
+accelerate
+datasets
+onnx
+onnxruntime
+optimum
 tqdm
 transformers[sentencepiece]
