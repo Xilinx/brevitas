@@ -498,6 +498,7 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     type = (this << 1).type
     permute_dims = (this << 1).permute_dims
     inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
+    mse_search_method = 'grid'
 
 
 class MSEAsymmetricScaleSubInjector(ExtendedInjector):

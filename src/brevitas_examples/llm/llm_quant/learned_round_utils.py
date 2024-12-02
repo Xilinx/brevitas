@@ -210,4 +210,4 @@ class LearnedRoundLLMUtils(LearnedRoundModelUtils):
         self,
         loss: torch.Tensor,
     ) -> torch.Tensor:
-        return loss * 1000
+        return loss

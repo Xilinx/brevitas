@@ -10,12 +10,6 @@ from warnings import warn
 
 import torch
 from torch import nn
-<<<<<<< HEAD
-=======
-import torch.backends.cudnn as cudnn
-from torch.optim.optimizer import Optimizer
-from torch.utils.data.dataloader import DataLoader
->>>>>>> Remove legacy code
 from tqdm import tqdm
 
 from brevitas.core.function_wrapper.shape import OverBatchOverTensorView

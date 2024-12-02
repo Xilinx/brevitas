@@ -191,6 +191,7 @@ import warnings
 
 import torch
 from torch import autocast
+from torch import GradScaler
 from torch import nn
 from torch.optim.lr_scheduler import LinearLR
 from torch.optim.lr_scheduler import LRScheduler
@@ -344,19 +345,27 @@ class LearnedRoundOptimizer:
                 params[n] = copy.deepcopy(m.state_dict())
         return params
 
-    def _scale_loss_and_backward(self, loss: torch.Tensor) -> torch.Tensor:
+    def _scale_loss_and_backward(self, loss: torch.Tensor, scaler) -> torch.Tensor:
         scaled_loss = self.learned_round_utils.loss_scaler(loss)
-        scaled_loss.backward()
+        if scaler is not None:
+            scaler.scale(loss).backward()
+        else:
+            scaled_loss.backward()
         return scaled_loss
 
-    def _step(self, optimizer: List[Optimizer], lr_scheduler: List[LRScheduler]) -> None:
+    def _step(self, optimizer: List[Optimizer], lr_scheduler: List[LRScheduler], scaler) -> None:
         for opt in optimizer:
             if opt:
-                opt.step()
+                if scaler is not None:
+                    scaler.step(opt)
+                else:
+                    opt.step()
                 opt.zero_grad()
         for sched in lr_scheduler:
             if sched:
                 sched.step()
+        if scaler is not None:
+            scaler.update()
 
     def apply_learned_round(
             self,
@@ -422,7 +431,7 @@ class LearnedRoundOptimizer:
 
                 optimizer_scale = self.scale_optimizer_class(
                     p,
-                    lr=self.optimizer_lr,
+                    lr=1e-2,
                     momentum=0.9,
                     **self.optimizer_kwargs,
                 )
@@ -454,20 +463,21 @@ class LearnedRoundOptimizer:
             torch.cuda.empty_cache()
 
             pbar = tqdm(range(self.iters), desc='')
-
+            scaler = GradScaler()
             for i in pbar:
                 # Sample mini-batch from cache
                 idxs = torch.randperm(n_samples)[:self.batch_size]
                 inputs, fp_outs = self.learned_round_utils.sample_cache(block, cache, idxs)
 
                 # Run block forward to obtain quant outputs
-                quant_outs = self.learned_round_utils.run_forward(block, inputs)
 
                 if self.use_amp:
                     with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
                                   dtype=self.amp_dtype):
+                        quant_outs = self.learned_round_utils.run_forward(block, inputs)
                         loss, loss_components = block_loss(quant_outs, fp_outs)
                 else:
+                    quant_outs = self.learned_round_utils.run_forward(block, inputs)
                     loss, loss_components = block_loss(quant_outs.to(torch.float32), fp_outs.to(torch.float32))
 
                 init_loss = loss.item() if i == 0 else init_loss
@@ -479,8 +489,8 @@ class LearnedRoundOptimizer:
                         optimal_rounding_params = self._collect_round_params(block)
 
                 # Scale loss and perform gradient step
-                self._scale_loss_and_backward(loss)
-                self._step([optimizer, optimizer_scale], [lr_scheduler, lr_scheduler_scale])
+                self._scale_loss_and_backward(loss, scaler)
+                self._step([optimizer, optimizer_scale], [lr_scheduler, lr_scheduler_scale], scaler)
                 with torch.no_grad():
                     for pp in params:
                         pp[0].data = torch.clamp(
