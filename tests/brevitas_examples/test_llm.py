@@ -540,8 +540,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 33238.8984375 if transformers_version_ge('4.46.0') else 33238.8984375,
-            "quant_ppl": 33252.21484375 if transformers_version_ge('4.46.0') else 33252.21484375},
+            "float_ppl": 33238.8984375,
+            "quant_ppl": 33252.21484375},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
@@ -550,8 +550,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 31275.958984375 if transformers_version_ge('4.46.0') else 31274.05078125,
-            "quant_ppl": 31337.4921875 if transformers_version_ge('4.46.0') else 33139.23046875},])
+            "float_ppl": 31275.958984375,
+            "quant_ppl": 31337.4921875},])
 def learned_round_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
