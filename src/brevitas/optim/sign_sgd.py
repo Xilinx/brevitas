@@ -48,12 +48,12 @@ from torch import Tensor
 
 try:
     from torch.optim.optimizer import _default_to_fused_or_foreach
+    from torch.optim.optimizer import _use_grad_for_differentiable
 except:
     _default_to_fused_or_foreach = None
-from torch.optim.optimizer import _use_grad_for_differentiable
+    _use_grad_for_differentiable = None
 from torch.optim.optimizer import Optimizer
 from torch.optim.sgd import SGD
-from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 
 __all__ = ["SignSGD", "sign_sgd"]
 
