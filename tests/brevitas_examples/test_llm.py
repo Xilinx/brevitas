@@ -525,3 +525,51 @@ def test_small_models_torch_export(caplog, torch_export_args):
     filepath = args.export_prefix + ".pt"
     torchscript_model = torch.jit.load(filepath)
     os.remove(filepath)
+
+
+@pytest_cases.fixture(
+    ids=[
+        "llama",
+        "mistral",],
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "learned_round": "linear_round",
+            "learned_round_iters": 1,
+            "gpxq_block_name": "model.layers",
+            "float_ppl": 33238.8984375 if transformers_version_ge('4.46.0') else 33238.8984375,
+            "quant_ppl": 33252.21484375 if transformers_version_ge('4.46.0') else 33252.21484375},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "learned_round": "linear_round",
+            "learned_round_iters": 1,
+            "gpxq_block_name": "model.layers",
+            "float_ppl": 31275.958984375 if transformers_version_ge('4.46.0') else 31274.05078125,
+            "quant_ppl": 31337.4921875 if transformers_version_ge('4.46.0') else 33139.23046875},])
+def learned_round_ppl_args_and_ppl(default_run_args, request):
+    args = default_run_args
+    run_dict = request.param
+    float_ppl = run_dict["float_ppl"]
+    quant_ppl = run_dict["quant_ppl"]
+    del run_dict["float_ppl"]
+    del run_dict["quant_ppl"]
+    args.update(**run_dict)
+    yield args, float_ppl, quant_ppl
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.2')
+def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
+    caplog.set_level(logging.INFO)
+    args, exp_float_ppl, exp_quant_ppl = learned_round_ppl_args_and_ppl
+    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    float_ppl = float_ppl.detach().cpu().numpy()
+    quant_ppl = quant_ppl.detach().cpu().numpy()
+    assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
