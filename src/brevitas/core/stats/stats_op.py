@@ -201,6 +201,55 @@ class AbsMinMax(brevitas.jit.ScriptModule):
         return torch.abs(max_val - min_val)
 
 
+class OptimalIntSymmetricScale(brevitas.jit.ScriptModule):
+
+    def __init__(self, N: int) -> None:
+        super(OptimalIntSymmetricScale, self).__init__()
+        # Possible quantized values are {-N, ..., 0, ..., N}
+        self.N = N
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        # Number of elements in the vector
+        P = len(x)
+        # Sort absolute values in ascending order
+        abs_x_sorted, _ = torch.sort(torch.abs(x))
+
+        # Scales in which at least one element changes its optimal quantized value
+        transition_scales = 2 * abs_x_sorted.unsqueeze(0) / (
+            2 * torch.arange(start=0, end=self.N).unsqueeze(1) + 1)
+
+        # This operation can be optimised, considering that each row in transition_scales is sorted. due to the monotonicity
+        # # of the operation, so the computational cost could be reduced from (NP)log(NP) to (NP)log(N)
+        _, scales_sorting_indices = torch.sort(transition_scales.view(-1))
+
+        # Book-keeping values for determining the optimal scale
+        sum_w_q = 0
+        sum_q_squared = 0
+
+        optimal_scale = None
+        optimal_neg_error = float('-inf')
+
+        # Update the running scale every time a quantized assignment changes, keeping the value with the lowest loss
+        for j in reversed(range(P * self.N)):
+            # Retrieved the corresponding value in the transition table
+            k, i = scales_sorting_indices[j] // P, scales_sorting_indices[j] % P
+            # The running sums need to be updated to account for the change in the quantized assignment
+            sum_w_q -= abs_x_sorted[i] * k
+            sum_q_squared -= torch.square(k)
+            sum_w_q += abs_x_sorted[i] * (k + 1)
+            sum_q_squared += torch.square(k + 1)
+
+            neg_error = sum_w_q / torch.sqrt(sum_q_squared)
+
+            # Check if the current value maximized the negative error. If so, update the optimal scale
+            if neg_error > optimal_neg_error:
+                optimal_neg_error = neg_error
+                optimal_scale = sum_w_q / sum_q_squared
+
+        return optimal_scale
+
+
 class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
