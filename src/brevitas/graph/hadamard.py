@@ -19,7 +19,7 @@ def get_hadK(n, transpose=False):
     # hadamard matrices for had12, had36.pal2, had52,will,
     # # had60.pal, had108.pal, had140.pal, had156.will, had172.will:
     # http://www.neilsloane.com/hadamard/index.html
-    tensors = torch.load(str(parent) + '/hadamard_tensors.pt')
+    tensors = torch.load(str(parent) + '/hadamard_tensors.pt', weights_only=True)
     tensors = {k: v.to(torch.float) for k, v in tensors.items()}
     hadK, K = None, None
     if n % 172 == 0:  # llama-2-7b up
