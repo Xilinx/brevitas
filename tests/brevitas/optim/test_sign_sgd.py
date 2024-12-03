@@ -79,9 +79,10 @@ class TestOptimSignSGD:
 
     @device_dtype_parametrize
     @pytest_cases.parametrize("lr", [0.1])
-    @requires_pt_ge('2.1') # TODO: revisit this
+    @requires_pt_ge('2.1')  # TODO: revisit this
     def test_sign_sgd_single_update(self, device, dtype, lr):
         from brevitas.optim.sign_sgd import SignSGD
+
         # Initialize weights and grads
         weights = Parameter(REFERENCE_WEIGHTS.to(device=device, dtype=dtype))
         # Initialize tensors to compute expected result
@@ -104,6 +105,7 @@ class TestOptimSignSGD:
     @requires_pt_ge('2.1')
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
         from brevitas.optim.sign_sgd import SignSGD
+
         # PyTorch version previous to 2.3.1. might no have mv (addmv_impl_cpu) implemented for Half
         if dtype == torch.float16 and device == "cpu" and torch_version < parse('2.3.1'):
             pytest.xfail(

@@ -65,8 +65,7 @@ class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
         return floor_ste(x) + p
 
 
-# TODO: Restore JIT compatibility
-class LearnedRoundIdentity(torch.nn.Module):
+class LearnedRoundIdentity(brevitas.jit.ScriptModule):
     """
     Implementation for LearnedRound learned parameter
     Adapted from https://arxiv.org/abs/2309.05516
@@ -75,15 +74,14 @@ class LearnedRoundIdentity(torch.nn.Module):
     def __init__(self) -> None:
         super(LearnedRoundIdentity, self).__init__()
         self.tensor_clamp = TensorClampSte()
+        self.upper_lower_bound = brevitas.jit.Attribute(0.5, float)
 
-    @brevitas.jit.ignore
     def forward(self, p: torch.Tensor) -> torch.Tensor:
         return self.tensor_clamp(
             p,
-            min_val=torch.tensor(-0.5, device=p.device),
-            max_val=torch.tensor(+0.5, device=p.device))
+            min_val=torch.tensor(-self.upper_lower_bound).type_as(p),
+            max_val=torch.tensor(self.upper_lower_bound).type_as(p))
 
-    @brevitas.jit.ignore
     def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
         return round_ste(x + p)
 
