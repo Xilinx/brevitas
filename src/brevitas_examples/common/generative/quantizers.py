@@ -27,9 +27,12 @@ from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantPro
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.base import HQOWeightZeroPoint
+from brevitas.quant.base import MSESymmetricScale
+from brevitas.quant.base import PerChannelPoTScaling8bit
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
@@ -141,3 +144,9 @@ class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3ActPerTensorFloat):
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = FloorSte
     proxy_class = ActFloatQuantProxyFromInjector
+
+
+class Fp8e4m3OCPWeightPerChannelFixedPointMSE(MSESymmetricScale,
+                                              PerChannelPoTScaling8bit,
+                                              Fp8e4m3OCPWeightPerChannelFloat):
+    pass

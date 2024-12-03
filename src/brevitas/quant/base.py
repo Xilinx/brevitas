@@ -250,8 +250,9 @@ class PerChannelPoTScaling8bit(ExtendedInjector):
     """
     """
     scaling_per_output_type = ScalingPerOutputType.CHANNEL
-    restrict_scaling_type = RestrictValueType.FP
+    restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     bit_width = 8
+    restrict_value_float_to_int_impl = CeilSte
 
 
 class PerTensorPoTScaling8bit(ExtendedInjector):
