@@ -114,8 +114,6 @@ def apply_learned_round(
     learned_round_loss: str = "mse",
     block_name_attribute: str = "layers",
     optimizer: str = "sign_sgd",
-    optimizer_lr: float = 5e-3,
-    optimizer_scale_lr: float = 5e-3,
     batch_size: int = 8,
     learn_scale: bool = False,
     use_best_model: bool = True,
@@ -126,11 +124,14 @@ def apply_learned_round(
     optimizer_kwargs: Optional[Dict] = None,
     lr_scheduler_kwargs: Optional[Dict] = None,
     learned_round_loss_kwargs: Optional[Dict] = None,
+    scale_optimizer_class: Optional[str] = None,
+    scale_optimizer_kwargs: Optional[Dict] = None,
 ) -> None:
     # Parse strings to obtain the arguments for the optimizer
     learned_round = parse_learned_round(learned_round)
     learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
     optimizer_class = parse_optimizer_class(optimizer)
+    scale_optimizer_class = parse_optimizer_class(scale_optimizer_class)
     lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
 
     llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=block_name_attribute)
@@ -144,8 +145,6 @@ def apply_learned_round(
         learned_round_loss_class=learned_round_loss_class,
         optimizer_class=optimizer_class,
         lr_scheduler_class=lr_scheduler_class,
-        optimizer_lr=optimizer_lr,
-        optimizer_scale_lr=optimizer_scale_lr,
         batch_size=batch_size,
         iters=iters,
         learn_scale=learn_scale,
@@ -155,7 +154,9 @@ def apply_learned_round(
         loss_scaling_factor=loss_scaling_factor,
         learned_round_loss_kwargs=learned_round_loss_kwargs,
         optimizer_kwargs=optimizer_kwargs,
-        lr_scheduler_kwargs=lr_scheduler_kwargs)
+        lr_scheduler_kwargs=lr_scheduler_kwargs,
+        scale_optimizer_kwargs=scale_optimizer_kwargs,
+        scale_optimizer_class=scale_optimizer_class)
     cache = CacheLLM()
     learned_round_optimizer.apply_learned_round(
         model=model,
