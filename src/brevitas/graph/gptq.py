@@ -18,9 +18,9 @@ import unfoldNd
 from brevitas import torch_version
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
-from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
+from brevitas.utils.torch_utils import StopFwdException
 
 
 class GPTQ(GPxQ):

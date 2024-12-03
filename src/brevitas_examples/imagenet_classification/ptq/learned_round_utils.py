@@ -26,195 +26,169 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
+import functools
+import re
+from typing import Any, Callable, Dict, Optional, Tuple, Union
+import warnings
+
+from accelerate.utils.operations import send_to_device
 import torch
-import torch.nn.functional as F
+from torch import nn
+from torch.utils.data.dataloader import DataLoader
 
 from brevitas import config
-from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
-from brevitas.graph.calibrate import restore_return_quant_tensor
-from brevitas.inject.enum import FloatToIntImplType
-from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
+from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
+from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
+from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
+from brevitas_examples.common.learned_round.learned_round_parser import \
+    parse_learned_round_loss_class
+from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
+from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
 
 config.IGNORE_MISSING_KEYS = True
 
 
-class StopFwdException(Exception):
-    """Used to throw and catch an exception to stop traversing the graph."""
-    pass
+def is_block(module: nn.Module, module_name: str, reg_exp: str = r"layer\d+") -> bool:
+    return (re.search(reg_exp, module_name) is not None)
 
 
-class DataSaverHook:
+def is_layer(module: nn.Module, module_name: str) -> bool:
+    return isinstance(module, QuantWBIOL)
 
-    def __init__(self, store_output: False):
-        self.store_output = store_output
-        self.input_store = None
-        self.output_store = None
 
-    def __call__(self, module, input_batch, output_batch):
-        input_batch = input_batch[0]
+BLOCK_CHECK_MAP = {
+    "layerwise": is_layer,
+    "blockwise": is_block,}
+
+
+class CacheVision(Cache, dict):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.batch_dim = 0
+
+    def store_inputs(self, args, kwargs) -> None:
+        input_batch = args[0]
         if isinstance(input_batch, QuantTensor):
             input_batch = input_batch.value
 
         if hasattr(input_batch, 'names') and 'N' in input_batch.names:
-            batch_dim = input_batch.names.index('N')
-
+            self.batch_dim = input_batch.names.index('N')
             input_batch.rename_(None)
-            input_batch = input_batch.transpose(0, batch_dim)
-            if self.store_output:
-                output_batch.rename_(None)
-                output_batch = output_batch.transpose(0, batch_dim)
+            input_batch = input_batch.transpose(0, self.batch_dim)
 
-        if self.store_output:
-            self.output_store = output_batch
-        self.input_store = input_batch
-        raise StopFwdException
+        self["inputs"].append(input_batch)
 
+    def store_output(self, output) -> None:
+        if self.batch_dim is not None:
+            output.rename_(None)
+            output = output.transpose(0, self.batch_dim)
 
-class LinearTempDecay:
+        self["output"].append(output)
 
-    def __init__(self, t_max: int, rel_start_decay: float = 0.2, start_b: int = 10, end_b: int = 2):
-        self.t_max = t_max
-        self.start_decay = rel_start_decay * t_max
-        self.start_b = start_b
-        self.end_b = end_b
+    def initialize_cache(self) -> None:
+        self["inputs"] = []
+        self["output"] = []
 
-    def __call__(self, t):
-        if t < self.start_decay:
-            return self.start_b
-        else:
-            rel_t = (t - self.start_decay) / (self.t_max - self.start_decay)
-            return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
+    def clear_cache(self) -> None:
+        del self["inputs"]
+        del self["output"]
+        self["inputs"] = []
+        self["output"] = []
 
+    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
+        if isinstance(self["inputs"], list):
+            self["inputs"] = torch.cat(self["inputs"], dim=self.batch_dim)
+        if isinstance(self["output"], list):
+            self["output"] = torch.cat(self["output"], dim=self.batch_dim)
 
-class Loss:
+        return self["inputs"][indices], self["output"][indices]
 
-    def __init__(
-            self,
-            module,
-            learned_round_module,
-            weight=0.01,
-            max_count=1000,
-            b_range=(20, 2),
-            warmup=0.2,
-            decay_start=0.0):
-        self.weight = weight
-        self.module = module
-        self.loss_start = max_count * warmup
-        self.temp_decay = LinearTempDecay(
-            max_count,
-            start_b=b_range[0],
-            end_b=b_range[1],
-            rel_start_decay=warmup + (1.0 - warmup) * decay_start)
-        self.iter = 0
-        self.learned_round_module = learned_round_module
-
-    def __call__(self, pred, tgt):
-        self.iter += 1
-
-        rec_loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
-
-        if self.iter < self.loss_start:
-            b = self.temp_decay(self.iter)
-            round_loss = 0
-        else:  # 1 - |(h-0.5)*2|**b
-            b = self.temp_decay(self.iter)
-            round_vals = self.learned_round_module.p_forward()
-            round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
-
-        total_loss = rec_loss + round_loss
-        return total_loss, rec_loss, round_loss, b
+    def __len__(self):
+        return (
+            len(self["inputs"])
+            if isinstance(self["inputs"], list) else self["inputs"].shape[self.batch_dim])
 
 
-def find_learned_round_module(module):
-    for submodule in module.modules():
-        if isinstance(submodule, LearnedRoundSte):
-            return submodule
-    return False
-
-
-def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_gamma=-0.1):
-    if isinstance(layer, QuantWBIOL):
-        if not find_learned_round_module(layer):
-            floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
-            delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
-            value = -torch.log((learned_round_zeta - learned_round_gamma) /
-                               (delta - learned_round_gamma) - 1)
-            layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-                float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-                learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
-                learned_round_gamma=learned_round_gamma,
-                learned_round_zeta=learned_round_zeta,
-                learned_round_init=value)
-            layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
-
-
-def split_layers(model, layers):
-    for module in model.children():
-        if isinstance(module, QuantWBIOL):
-            layers.append(module)
-        else:
-            split_layers(module, layers)
-
-
-def learned_round_iterator(layers, iters=1000):
-    for layer in layers:
-        insert_learned_round_quantizer(layer)
-
-        for p in layer.parameters():
-            p.requires_grad = False
-
-        learned_round_module = find_learned_round_module(layer)
-        learned_round_module.value.requires_grad = True
-        layer_loss = Loss(module=layer, learned_round_module=learned_round_module, max_count=iters)
-        yield layer, layer_loss, learned_round_module
-        layer.eval()
-
-
-def save_inp_out_data(
-        model,
-        module,
-        dataloader: torch.utils.data.DataLoader,
-        store_inp=False,
-        store_out=False,
-        keep_gpu: bool = True,
-        disable_quant=False):
-    if disable_quant:
-        disable_quant_class = DisableEnableQuantization()
-        disable_quant_class.disable_act_quantization(model, False)
-        disable_quant_class.disable_param_quantization(model, False)
-        return_quant_tensor_state = disable_return_quant_tensor(model)
+def vision_forward(model: nn.Module, inputs: Any) -> None:
     device = next(model.parameters()).device
-    data_saver = DataSaverHook(store_output=store_out)
-    handle = module.register_forward_hook(data_saver)
-    cached = [[], []]
-    with torch.no_grad():
-        for img, t in dataloader:
-            try:
-                _ = model(img.to(device))
-            except StopFwdException:
-                pass
-            if store_inp:
-                if keep_gpu:
-                    cached[0].append(data_saver.input_store.detach())
-                else:
-                    cached[0].append(data_saver.input_store.detach().cpu())
-            if store_out:
-                if keep_gpu:
-                    cached[1].append(data_saver.output_store.detach())
-                else:
-                    cached[1].append(data_saver.output_store.detach().cpu())
-    if store_inp:
-        cached[0] = torch.cat([x for x in cached[0]])
-    if store_out:
-        cached[1] = torch.cat([x for x in cached[1]])
-    handle.remove()
-    if disable_quant:
-        disable_quant_class.enable_act_quantization(model, False)
-        disable_quant_class.enable_param_quantization(model, False)
-        restore_return_quant_tensor(model, return_quant_tensor_state)
-    return cached
+    img, _ = inputs
+    img = send_to_device(img, device)
+    model(img)
+
+
+def vision_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
+    device = next(block.parameters()).device
+    inputs = send_to_device(inputs, device)
+    return block(inputs)
+
+
+def apply_learned_round(
+    model: nn.Module,
+    calibration_loader: DataLoader,
+    iters: int = 1000,
+    learned_round: str = "hard_sigmoid_round",
+    learned_round_loss: str = "regularised_mse",
+    block_name_attribute: str = r"layer\d+",
+    optimizer: str = "adam",
+    lr_scheduler: Optional[str] = None,
+    optimizer_lr: float = 1e-3,
+    batch_size: int = 1,
+    use_best_model: bool = False,
+    use_amp: bool = True,
+    amp_dtype: torch.dtype = torch.float16,
+    loss_scaling_factor: float = 1.,
+    learned_round_loss_kwargs: Optional[Dict] = None,
+    optimizer_kwargs: Optional[Dict] = None,
+    lr_scheduler_kwargs: Optional[Dict] = None,
+    learned_round_mode: str = "layerwise",
+) -> None:
+    # Parse strings to obtain the arguments for the optimizer
+    learned_round = parse_learned_round(learned_round)
+    learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
+    optimizer_class = parse_optimizer_class(optimizer)
+    lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
+
+    # Parse method to retrieve de model blocks
+    if learned_round_mode == "layerwise":
+        block_check_fn = is_layer
+    elif learned_round_mode == "blockwise":
+        block_check_fn = functools.partial(is_block, reg_exp=block_name_attribute)
+    else:
+        block_check_fn = is_layer
+        warnings.warn(
+            f"{learned_round_mode} is not a valid learned round mode. Defaulting to layerwise.")
+    get_blocks_fn = functools.partial(get_blocks, block_check_fn=block_check_fn)
+
+    lr_scheduler_kwargs = {
+        "start_factor": 1.0,
+        "end_factor": 0.0,
+        "verbose": False,} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
+    learned_round_optimizer = LearnedRoundOptimizer(
+        learned_round=learned_round,
+        learned_round_loss_class=learned_round_loss_class,
+        optimizer_class=optimizer_class,
+        lr_scheduler_class=lr_scheduler_class,
+        optimizer_lr=optimizer_lr,
+        batch_size=batch_size,
+        iters=iters,
+        use_best_model=use_best_model,
+        use_amp=use_amp,
+        amp_dtype=amp_dtype,
+        loss_scaling_factor=loss_scaling_factor,
+        learned_round_loss_kwargs=learned_round_loss_kwargs,
+        optimizer_kwargs=optimizer_kwargs,
+        lr_scheduler_kwargs=lr_scheduler_kwargs)
+    cache = CacheVision()
+    learned_round_optimizer.apply_learned_round(
+        model=model,
+        model_forward=vision_forward,
+        block_forward=vision_block_forward,
+        data_loader=calibration_loader,
+        cache=cache,
+        get_blocks_fn=get_blocks_fn,
+        keep_gpu=True,
+    )

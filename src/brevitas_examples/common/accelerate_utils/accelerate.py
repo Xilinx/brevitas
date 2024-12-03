@@ -405,8 +405,13 @@ def offload_model(
         device_map = infer_fx_auto_device_map(model, memory_map)
         offload_call_function(model, device_map)
     else:
+        # Some models do no have the attribute _no_split_modules, so a check is needed to prevent
+        # this call to crash.
         device_map = infer_auto_device_map(
-            model, memory_map, no_split_module_classes=model._no_split_modules)
+            model,
+            memory_map,
+            no_split_module_classes=model._no_split_modules
+            if hasattr(model, "_no_split_modules") else None)
 
     model = dispatch_model(model, device_map)
 

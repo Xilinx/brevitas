@@ -34,6 +34,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
+from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
@@ -367,6 +368,22 @@ def main(args):
     with torch.no_grad():
         model(**calibration_loader[0])
 
+    if args.learned_round:
+        print("Applying learned round...")
+        remove_hooks(model)
+        apply_learned_round(
+            model,
+            calibration_loader,
+            iters=args.learned_round_iters,
+            block_name_attribute=args.gpxq_block_name,
+            optimizer_lr=args.learned_round_lr,
+            optimizer_scale_lr=args.learned_round_scale_lr,
+            learn_scale=args.learned_round_scale,
+        )
+        print("Learned round applied.")
+
+    model = offload_model(model)
+
     if args.act_calibration:
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
@@ -552,6 +569,25 @@ def parse_args(args):
         default=64,
         help='Group size for per_group input quantization. Default: 64.')
     parser.add_argument(
+        '--learned-round-lr',
+        type=float,
+        default=5e-3,
+        help='Learning rate for learned round parameter optimization. Default: %(default)s')
+    parser.add_argument(
+        '--learned-round-scale-lr',
+        type=float,
+        default=5e-3,
+        help='Learning rate for scale optimization during round learning. Default: %(default)s')
+    parser.add_argument(
+        '--learned-round-iters',
+        type=int,
+        default=200,
+        help='Number of iterations for learned round. Default: 200.')
+    parser.add_argument(
+        '--learned-round-scale',
+        action='store_true',
+        help='Learned scale factor together with round.')
+    parser.add_argument(
         '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
     parser.add_argument(
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
@@ -658,6 +694,11 @@ def parse_args(args):
         help=
         "Whether to merge the dataset sequences in case they are shorter than the requested number of samples per sequence. This is useful in case you would like to quantize or evaluate on long sequences (default: %(default)s).",
     )
+    parser.add_argument(
+        '--learned-round',
+        default=None,
+        choices=[None, 'linear_round'],
+        help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     return parser.parse_args(args)
 
 

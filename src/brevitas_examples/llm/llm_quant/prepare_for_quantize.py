@@ -1,17 +1,23 @@
+# Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import warnings
 
+from packaging import version
 import torch
+import transformers
 from transformers.models.opt.modeling_opt import OPTAttention
-from transformers.models.opt.modeling_opt import OPTSdpaAttention
 
 from brevitas.graph import ModuleToModuleByClass
 from brevitas_examples.llm.llm_quant.mha_layers import QuantizableOPTAttention
 
 QUANTIZABLE_MHA_MAP = {
     OPTAttention: (QuantizableOPTAttention, {
-        'batch_first': True}),
-    OPTSdpaAttention: (QuantizableOPTAttention, {
         'batch_first': True}),}
+
+if version.parse(transformers.__version__) >= version.parse('4.46.0'):
+    from transformers.models.opt.modeling_opt import OPTSdpaAttention
+    QUANTIZABLE_MHA_MAP[OPTSdpaAttention] = (QuantizableOPTAttention, {'batch_first': True})
 
 
 def replace_mha_with_quantizable_layers(model, dtype):

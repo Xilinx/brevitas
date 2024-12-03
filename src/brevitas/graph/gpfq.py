@@ -24,11 +24,11 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
-from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas.utils.torch_utils import StopFwdException
 
 
 class GPFQ(GPxQ):

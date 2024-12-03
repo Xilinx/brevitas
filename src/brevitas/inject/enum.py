@@ -53,6 +53,7 @@ class LearnedRoundImplType(AutoName):
     """
     HARD_SIGMOID = auto()
     SIGMOID = auto()
+    IDENTITY = auto()
 
 
 class ScalingImplType(AutoName):

@@ -11,8 +11,10 @@ import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper.ops_ste import TensorClampSte
 from brevitas.core.utils import SliceTensor
 from brevitas.function.ops_ste import floor_ste
+from brevitas.function.ops_ste import round_ste
 
 
 class LearnedRoundHardSigmoid(brevitas.jit.ScriptModule):
@@ -28,11 +30,16 @@ class LearnedRoundHardSigmoid(brevitas.jit.ScriptModule):
         self.learned_round_gamma = learned_round_gamma
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        p = torch.sigmoid(x)
+    def forward(self, p: torch.Tensor) -> torch.Tensor:
+        p = torch.sigmoid(p)
         p = p * (self.learned_round_zeta - self.learned_round_gamma) + self.learned_round_gamma
         p = torch.clamp(p, 0.0, 1.0)
+        if not self.training:
+            return p > 0.5
         return p
+
+    def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
+        return floor_ste(x) + p
 
 
 class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
@@ -47,9 +54,36 @@ class LearnedRoundSigmoid(brevitas.jit.ScriptModule):
         self.learned_round_temperature = learned_round_temperature
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        p = torch.sigmoid(x / self.learned_round_temperature)
+    def forward(self, p: torch.Tensor) -> torch.Tensor:
+        if not self.training:
+            return p > 0
+        p = torch.sigmoid(p / self.learned_round_temperature)
         return p
+
+    @brevitas.jit.script_method
+    def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
+        return floor_ste(x) + p
+
+
+class LearnedRoundIdentity(brevitas.jit.ScriptModule):
+    """
+    Implementation for LearnedRound learned parameter
+    Adapted from https://arxiv.org/abs/2309.05516
+    """
+
+    def __init__(self) -> None:
+        super(LearnedRoundIdentity, self).__init__()
+        self.tensor_clamp = TensorClampSte()
+        self.upper_lower_bound = brevitas.jit.Attribute(0.5, float)
+
+    def forward(self, p: torch.Tensor) -> torch.Tensor:
+        return self.tensor_clamp(
+            p,
+            min_val=torch.tensor(-self.upper_lower_bound).type_as(p),
+            max_val=torch.tensor(self.upper_lower_bound).type_as(p))
+
+    def round_forward(self, x: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
+        return round_ste(x + p)
 
 
 class LearnedRoundSte(brevitas.jit.ScriptModule):
@@ -72,17 +106,10 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        p = self.p_forward()
+        p = self.learned_round_impl(self.value)
         p = self.tensor_slicer(p)
-        return floor_ste(x) + p.to(x.dtype)
-
-    def p_forward(self):
-        # In eval mode, performs true quantization, otherwise "soft" quantization
-        if not self.training:
-            p = (self.value > 0)
-        else:
-            p = self.learned_round_impl(self.value)
-        return p
+        p = (p.to(x.dtype)).view_as(x)
+        return self.learned_round_impl.round_forward(x, p)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

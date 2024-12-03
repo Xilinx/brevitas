@@ -174,14 +174,18 @@ def float_tensor_random_size_st(
 
 @st.composite
 def two_float_tensor_random_shape_st(
-        draw, min_dims=1, max_dims=4, max_size=3, width=FP32_BIT_WIDTH):
+        draw, min_dims=1, max_dims=4, max_size=3, min_val=None, max_val=None, width=FP32_BIT_WIDTH):
     """
     Generate a tuple of float tensors of the same random shape.
     """
     shape = draw(random_tensor_shape_st(min_dims, max_dims, max_size))
     size = reduce(mul, shape, 1)
-    float_list1 = draw(st.lists(float_st(width=width), min_size=size, max_size=size))
-    float_list2 = draw(st.lists(float_st(width=width), min_size=size, max_size=size))
+    float_list1 = draw(
+        st.lists(
+            float_st(min_val=min_val, max_val=max_val, width=width), min_size=size, max_size=size))
+    float_list2 = draw(
+        st.lists(
+            float_st(min_val=min_val, max_val=max_val, width=width), min_size=size, max_size=size))
     tensor1 = torch.tensor(float_list1).view(shape)
     tensor2 = torch.tensor(float_list2).view(shape)
     return tensor1, tensor2
