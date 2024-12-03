@@ -347,8 +347,6 @@ class LearnedRoundOptimizer:
         *,
         scale_optimizer_class: Optional[Type[Optimizer]] = None,
         lr_scheduler_class: Optional[Type] = None,
-        optimizer_lr: float = 5e-3,
-        optimizer_scale_lr: float = 5e-3,
         batch_size: float = 8,
         iters: int = 200,
         learn_scale: bool = False,
@@ -358,6 +356,7 @@ class LearnedRoundOptimizer:
         loss_scaling_factor: float = 1000.,
         learned_round_loss_kwargs: Optional[Dict] = None,
         optimizer_kwargs: Optional[Dict] = None,
+        scale_optimizer_kwargs: Optional[Dict] = None,
         lr_scheduler_kwargs: Optional[Dict] = None,
     ) -> None:
         # Verify that an optimizer is passed for optimizing the scale if learn_scale=True
@@ -367,8 +366,6 @@ class LearnedRoundOptimizer:
         self.optimizer_class = optimizer_class
         self.scale_optimizer_class = scale_optimizer_class
         self.lr_scheduler_class = lr_scheduler_class
-        self.optimizer_lr = optimizer_lr
-        self.optimizer_scale_lr = optimizer_scale_lr
         self.batch_size = batch_size
         self.iters = iters
         self.learn_scale = learn_scale
@@ -377,6 +374,7 @@ class LearnedRoundOptimizer:
         self.amp_dtype = amp_dtype
         self.loss_scaling_factor = loss_scaling_factor
         self.optimizer_kwargs = {} if optimizer_kwargs is None else optimizer_kwargs
+        self.scale_optimizer_kwargs = {} if scale_optimizer_kwargs is None else scale_optimizer_kwargs
         self.lr_scheduler_kwargs = {} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
         self.lr_scheduler_kwargs["total_iters"] = self.iters
 
@@ -481,7 +479,6 @@ class LearnedRoundOptimizer:
                 *[
                     block_learned_round_module.parameters()
                     for block_learned_round_module in block_learned_round_modules]),
-            lr=self.optimizer_lr,
             **self.optimizer_kwargs,
         )
         lr_scheduler = (
@@ -492,12 +489,10 @@ class LearnedRoundOptimizer:
         if self.learn_scale and scale_params is not None:
             optimizer_scale = self.scale_optimizer_class(
                 scale_params,
-                lr=self.optimizer_scale_lr,
-                **self.optimizer_kwargs,
+                **self.scale_optimizer_kwargs,
             )
             lr_scheduler_scale = (
-                self.lr_scheduler_class(
-                    optimizer_scale, start_factor=1, end_factor=0, total_iters=600)
+                self.lr_scheduler_class(optimizer_scale, **self.lr_scheduler_kwargs)
                 if self.lr_scheduler_class else None)
         else:
             optimizer_scale = None

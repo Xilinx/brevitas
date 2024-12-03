@@ -368,6 +368,11 @@ def main(args):
     with torch.no_grad():
         model(**calibration_loader[0])
 
+    if args.act_calibration:
+        print("Apply act calibration...")
+        apply_calibration(model, calibration_loader)
+        print("Act calibration applied.")
+
     if args.learned_round:
         print("Applying learned round...")
         remove_hooks(model)
@@ -376,18 +381,14 @@ def main(args):
             calibration_loader,
             iters=args.learned_round_iters,
             block_name_attribute=args.gpxq_block_name,
-            optimizer_lr=args.learned_round_lr,
-            optimizer_scale_lr=args.learned_round_scale_lr,
             learn_scale=args.learned_round_scale,
-        )
+            scale_optimizer_class='sgd',
+            optimizer_kwargs={'lr': args.learned_round_lr},
+            scale_optimizer_kwargs={
+                'lr': 1e-2, 'momentum': 0.9})
         print("Learned round applied.")
 
-    model = offload_model(model)
-
-    if args.act_calibration:
-        print("Apply act calibration...")
-        apply_calibration(model, calibration_loader)
-        print("Act calibration applied.")
+        model = offload_model(model)
 
     if args.gptq:
         print("Applying GPTQ...")
