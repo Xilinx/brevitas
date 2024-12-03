@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import functools
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Union
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -117,7 +117,6 @@ def apply_learned_round(
     batch_size: int = 8,
     learn_scale: bool = False,
     use_best_model: bool = True,
-    use_amp: bool = True,
     amp_dtype: torch.dtype = torch.float16,
     loss_scaling_factor: float = 1000,
     lr_scheduler: Optional[str] = "linear",
@@ -149,7 +148,6 @@ def apply_learned_round(
         iters=iters,
         learn_scale=learn_scale,
         use_best_model=use_best_model,
-        use_amp=use_amp,
         amp_dtype=amp_dtype,
         loss_scaling_factor=loss_scaling_factor,
         learned_round_loss_kwargs=learned_round_loss_kwargs,
