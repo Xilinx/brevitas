@@ -59,6 +59,7 @@ from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
+from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
@@ -131,6 +132,8 @@ WEIGHT_QUANT_MAP = {
                 'per_group': {
                     'sym': MXFloat8e4m3Weight}},
             'mse': {
+                'per_channel': {
+                    'sym': Fp8e4m3OCPWeightPerChannelFixedPointMSE},
                 'per_group': {
                     'sym': MXFloat8e4m3WeightMSE}}}},
     'float_fnuz': {
