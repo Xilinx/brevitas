@@ -60,6 +60,18 @@ class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
         return out
 
 
+class _ScaleShiftQuantZeroPoint(brevitas.jit.ScriptModule):
+
+    def __init__(self, zp_int_quant: Module) -> None:
+        super(_ScaleShiftQuantZeroPoint, self).__init__()
+        self.zp_int_quant = zp_int_quant
+
+    @brevitas.jit.script_method
+    def forward(self, zero_point: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        quant_zp, *_ = self.zp_int_quant(zero_point)
+        return quant_zp
+
+
 class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
 
     def __init__(
@@ -70,7 +82,8 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_concat_dim: int,
             zero_point_stats_impl: Module,
             zero_point_shape: Tuple[int, ...],
-            tracked_parameter_list: List[torch.nn.Parameter]) -> None:
+            tracked_parameter_list: List[torch.nn.Parameter],
+            scale_shift_zero_point_impl: Optional[Module] = None) -> None:
         super(StatsFromParameterZeroPoint, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             zero_point_stats_impl,
@@ -78,7 +91,12 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_view_shape_impl,
             zero_point_stats_input_concat_dim,
             tracked_parameter_list)
-        self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        # This is for backward compatibility. Having int_quant/quantize_zero_point required for this
+        # interface but not for the else seems a bit off and might require some clean-up.
+        if scale_shift_zero_point_impl is None:
+            self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        else:
+            self.scale_shift_zero_point = scale_shift_zero_point_impl
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
