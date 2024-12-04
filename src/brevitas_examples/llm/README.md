@@ -10,7 +10,7 @@
 
 ## Run
 
-Set the env variable BREVITAS_JIT=1 to speed up the quantization process. Currently unsupported whenever export is also toggled or with MSE based scales/zero-points.
+Set the env variable `BREVITAS_JIT=1` to speed up the quantization process. Currently unsupported whenever export is also toggled or with MSE based scales/zero-points.
 
 ```bash
 usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
@@ -46,8 +46,9 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
                [--no-quantize] [--no-float16]
-               [--scaling-min-val SCALING_MIN_VAL] [--replace-mha]
-               [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
+               [--scaling-min-val SCALING_MIN_VAL] [--quant-sdpa]
+               [--replace-mha] [--weight-equalization]
+               [--rotation {fx,layerwise,fused_no_fx}]
                [--rotation-mode {had,ort}] [--rotation-orphan-sink]
                [--act-equalization {None,layerwise,fx}] [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
@@ -160,6 +161,8 @@ options:
   --scaling-min-val SCALING_MIN_VAL
                         Minimum value to clamp scale to when using bf16 or
                         fp16 quantization.
+  --quant-sdpa          Quantize `F.scaled_dot_product_attention` (default:
+                        False)
   --replace-mha         Replace HuggingFace Attention with a quantizable
                         version
   --weight-equalization
@@ -200,5 +203,4 @@ options:
   --learned-round-fast-update
                         Whether to use fast update with learned round.
                         Prototype (default: False)
-
 ```
