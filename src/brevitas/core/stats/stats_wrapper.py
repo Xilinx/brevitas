@@ -93,11 +93,12 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
             stats_input_concat_dim: int,
-            tracked_parameter_list: List[torch.nn.Parameter]) -> None:
+            tracked_parameter_list: List[torch.nn.Parameter],
+            force_parameter: bool = False) -> None:
         super(_ParameterListStats, self).__init__()
 
         self.stats_input_concat_dim = stats_input_concat_dim
-        if len(tracked_parameter_list) >= 1:
+        if len(tracked_parameter_list) > 1 or force_parameter:
             self.first_tracked_param = _ViewParameterWrapper(
                 tracked_parameter_list[0], stats_input_view_shape_impl)
         else:
