@@ -34,9 +34,13 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--input-quant-type {sym,asym}]
                [--input-quant-granularity {per_tensor,per_row,per_group}]
                [--input-group-size INPUT_GROUP_SIZE]
-               [--quantize-input-zero-point] [--quantize-last-layer] [--gptq]
-               [--gpfq] [--gpxq-act-order] [--gpxq-use-quant-activations]
-               [--gpxq-create-weight-orig]
+               [--learned-round-lr LEARNED_ROUND_LR]
+               [--learned-round-scale-lr LEARNED_ROUND_SCALE_LR]
+               [--learned-round-scale-momentum LEARNED_ROUND_SCALE_MOMENTUM]
+               [--learned-round-iters LEARNED_ROUND_ITERS]
+               [--learned-round-scale] [--quantize-input-zero-point]
+               [--quantize-last-layer] [--gptq] [--gpfq] [--gpxq-act-order]
+               [--gpxq-use-quant-activations] [--gpxq-create-weight-orig]
                [--gpxq-max-accumulator-bit-width GPXQ_MAX_ACCUMULATOR_BIT_WIDTH]
                [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
@@ -49,6 +53,7 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME] [--fuse-sequences]
+               [--learned-round {None,linear_round}]
 
 options:
   -h, --help            show this help message and exit
@@ -114,6 +119,19 @@ options:
   --input-group-size INPUT_GROUP_SIZE
                         Group size for per_group input quantization. Default:
                         64.
+  --learned-round-lr LEARNED_ROUND_LR
+                        Learning rate for learned round parameter
+                        optimization. Default: 0.005
+  --learned-round-scale-lr LEARNED_ROUND_SCALE_LR
+                        Learning rate for scale optimization during round
+                        learning. Default: 0.01
+  --learned-round-scale-momentum LEARNED_ROUND_SCALE_MOMENTUM
+                        Learning rate for scale optimization during round
+                        learning. Default: 0.9
+  --learned-round-iters LEARNED_ROUND_ITERS
+                        Number of iterations for learned round. Default: 200.
+  --learned-round-scale
+                        Learned scale factor together with round.
   --quantize-input-zero-point
                         Quantize input zero-point.
   --quantize-last-layer
@@ -175,5 +193,8 @@ options:
                         sequence. This is useful in case you would like to
                         quantize or evaluate on long sequences (default:
                         False).
+  --learned-round {None,linear_round}
+                        Whether to use learned round. If `None`, RTN is used
+                        (default: None)
 
 ```
