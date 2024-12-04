@@ -587,7 +587,7 @@ class LearnedRoundOptimizer:
             model_prepare_fn: Optional[Callable] = None,
             model_finish_fn: Optional[Callable] = None,
             keep_gpu: bool = True,
-            partial_update: bool = False) -> None:
+            fast_update: bool = False) -> None:
 
         # Perform any needed preprocessing before rounding optimisation, e.g. disabling caching in LLMs
         model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
@@ -607,8 +607,8 @@ class LearnedRoundOptimizer:
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
             # Distribute the model across devices to run a forward pass to capture
-            # inputs/outputs to the given block#
-            if block_idx == 0 and partial_update:
+            # inputs/outputs to the given block
+            if block_idx == 0 or not fast_update:
                 cache.clear_cache()
                 model = offload_model(model)
                 # Cache needs to be cleared before populating it with the inputs and outputs
@@ -681,7 +681,7 @@ class LearnedRoundOptimizer:
             # Move the block back to CPU
             block.cpu()
 
-            if block_idx + 1 < len(blocks) and partial_update:
+            if block_idx + 1 < len(blocks) and fast_update:
                 cache, floating_point_datasets = self.skip_full_execution(block, blocks[block_idx+1], floating_point_datasets, block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
@@ -707,32 +707,21 @@ class LearnedRoundOptimizer:
                 (args, kwargs), _ = cache.sample_batch([i])
                 floating_point_datasets.append((args, kwargs))
 
-        # Then, we compute the floating point output of the current block
-        next_float_input = []
-        block.cuda()
-        pbar = tqdm(floating_point_datasets, desc='', leave=False)
-        with torch.no_grad():
-            for args, kwargs in pbar:
-                out = block_forward(block, (args, kwargs))
-                out = send_to_device(out, 'cpu')
-                next_float_input.append((out,))
-        pbar.close()
-        block.cpu()
         # We use this new output to generate a new temporary dataloder for the next block
         # and to update our floating_point_dataset
         new_data_loader = []
         for i in range(len(cache)):
-            (args, kwargs), _ = cache.sample_batch([i])
-            new_data_loader.append((next_float_input[i], kwargs))
+            (args, kwargs), output = cache.sample_batch([i])
+            new_data_loader.append(((output,), kwargs))
 
-            _, fp_dataset_kwargs = floating_point_datasets[i]
-            floating_point_datasets[i] = (next_float_input[i], fp_dataset_kwargs)
+            floating_point_datasets[i] = ((output,), kwargs)
 
         # Temporary cache
         tmp_cache = type(cache)()
 
         # We compute the floating point output of the upcoming block
-        next_block.cuda()
+        if torch.cuda.is_available():
+            next_block.cuda()
         save_inputs_output(
             next_block,
             block_forward,

@@ -110,25 +110,25 @@ def get_blocks(model: nn.Module, block_name_attribute: str) -> List[nn.Module]:
 
 
 def apply_learned_round(
-    model: nn.Module,
-    calibration_loader: DataLoader,
-    iters: int = 200,
-    learned_round: str = "linear_round",
-    learned_round_loss: str = "mse",
-    block_name_attribute: str = "layers",
-    optimizer: str = "sign_sgd",
-    batch_size: int = 8,
-    learn_scale: bool = False,
-    use_best_model: bool = True,
-    amp_dtype: torch.dtype = torch.float16,
-    loss_scaling_factor: float = 1000,
-    lr_scheduler: Optional[str] = "linear",
-    optimizer_kwargs: Optional[Dict] = None,
-    lr_scheduler_kwargs: Optional[Dict] = None,
-    learned_round_loss_kwargs: Optional[Dict] = None,
-    scale_optimizer_class: Optional[str] = None,
-    scale_optimizer_kwargs: Optional[Dict] = None,
-) -> None:
+        model: nn.Module,
+        calibration_loader: DataLoader,
+        iters: int = 200,
+        learned_round: str = "linear_round",
+        learned_round_loss: str = "mse",
+        block_name_attribute: str = "layers",
+        optimizer: str = "sign_sgd",
+        batch_size: int = 8,
+        learn_scale: bool = False,
+        use_best_model: bool = True,
+        amp_dtype: torch.dtype = torch.float16,
+        loss_scaling_factor: float = 1000,
+        lr_scheduler: Optional[str] = "linear",
+        optimizer_kwargs: Optional[Dict] = None,
+        lr_scheduler_kwargs: Optional[Dict] = None,
+        learned_round_loss_kwargs: Optional[Dict] = None,
+        scale_optimizer_class: Optional[str] = None,
+        scale_optimizer_kwargs: Optional[Dict] = None,
+        fast_update: bool = False) -> None:
     # Parse strings to obtain the arguments for the optimizer
     learned_round = parse_learned_round(learned_round)
     learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
@@ -169,4 +169,4 @@ def apply_learned_round(
         model_prepare_fn=llm_learned_round_prepare_fn,
         model_finish_fn=llm_learned_round_finish_fn,
         keep_gpu=False,
-        partial_update=True)
+        partial_update=fast_update)

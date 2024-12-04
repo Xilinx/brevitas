@@ -385,7 +385,8 @@ def main(args):
             scale_optimizer_class='sgd',
             optimizer_kwargs={'lr': args.learned_round_lr},
             scale_optimizer_kwargs={
-                'lr': args.learned_round_scale_lr, 'momentum': args.learned_round_scale_momentum})
+                'lr': args.learned_round_scale_lr, 'momentum': args.learned_round_scale_momentum},
+            fast_update=args.learned_round_fast_update)
         print("Learned round applied.")
 
         model = offload_model(model)
@@ -705,6 +706,11 @@ def parse_args(args):
         default=None,
         choices=[None, 'linear_round'],
         help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
+    parser.add_argument(
+        '--learned-round-fast-update',
+        default=False,
+        type=bool,
+        help='Whether to use fast update with learned round. Prototype (default: %(default)s)')
     return parser.parse_args(args)
 
 
