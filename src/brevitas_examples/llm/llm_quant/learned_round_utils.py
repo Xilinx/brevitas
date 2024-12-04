@@ -169,4 +169,4 @@ def apply_learned_round(
         model_prepare_fn=llm_learned_round_prepare_fn,
         model_finish_fn=llm_learned_round_finish_fn,
         keep_gpu=False,
-        partial_update=fast_update)
+        fast_update=fast_update)
