@@ -218,7 +218,6 @@ class GPFQv2(GPFQ):
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
         inp = self.process_input(input)
-        inp = _unpack_quant_tensor(inp)
 
         # Preprocess the input to compute the Hessian
         if isinstance(self.layer, qnn.QuantLinear):
