@@ -385,7 +385,7 @@ def main(args):
             scale_optimizer_class='sgd',
             optimizer_kwargs={'lr': args.learned_round_lr},
             scale_optimizer_kwargs={
-                'lr': 1e-2, 'momentum': 0.9})
+                'lr': args.learned_round_scale_lr, 'momentum': args.learned_round_scale_momentum})
         print("Learned round applied.")
 
         model = offload_model(model)
@@ -577,7 +577,12 @@ def parse_args(args):
     parser.add_argument(
         '--learned-round-scale-lr',
         type=float,
-        default=5e-3,
+        default=1e-2,
+        help='Learning rate for scale optimization during round learning. Default: %(default)s')
+    parser.add_argument(
+        '--learned-round-scale-momentum',
+        type=float,
+        default=0.9,
         help='Learning rate for scale optimization during round learning. Default: %(default)s')
     parser.add_argument(
         '--learned-round-iters',
