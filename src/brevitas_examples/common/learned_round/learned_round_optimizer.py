@@ -586,7 +586,8 @@ class LearnedRoundOptimizer:
             get_blocks_fn: Callable,
             model_prepare_fn: Optional[Callable] = None,
             model_finish_fn: Optional[Callable] = None,
-            keep_gpu: bool = True) -> None:
+            keep_gpu: bool = True,
+            partial_update: bool = False) -> None:
 
         # Perform any needed preprocessing before rounding optimisation, e.g. disabling caching in LLMs
         model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
@@ -602,26 +603,28 @@ class LearnedRoundOptimizer:
 
         # Initialize cache to store partial inputs and outputs for each block
         cache.initialize_cache()
-
+        floating_point_datasets = []
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
             # Distribute the model across devices to run a forward pass to capture
-            # inputs/outputs to the given block
-            model = offload_model(model)
-            # Cache needs to be cleared before populating it with the inputs and outputs
-            # to the block under optimization.
-            self._populate_cache(
-                cache,
-                model,
-                model_forward,
-                block,
-                data_loader,
-                keep_gpu=keep_gpu,
-                capture_quant_input=True,
-                capture_quant_output=False,
-            )
-            # Remove hooks needed to offload the model blocks to cpu
-            remove_hooks(model)
+            # inputs/outputs to the given block#
+            if block_idx == 0 and partial_update:
+                cache.clear_cache()
+                model = offload_model(model)
+                # Cache needs to be cleared before populating it with the inputs and outputs
+                # to the block under optimization.
+                self._populate_cache(
+                    cache,
+                    model,
+                    model_forward,
+                    block,
+                    data_loader,
+                    keep_gpu=keep_gpu,
+                    capture_quant_input=True,
+                    capture_quant_output=False,
+                )
+                # Remove hooks needed to offload the model blocks to cpu
+                remove_hooks(model)
 
             # Retrieve scales
             scale_params = return_scale_parameters(block)
@@ -678,9 +681,86 @@ class LearnedRoundOptimizer:
             # Move the block back to CPU
             block.cpu()
 
-            # Reset cache after optimisation
-            cache.clear_cache()
+            if block_idx + 1 < len(blocks) and partial_update:
+                cache, floating_point_datasets = self.skip_full_execution(block, blocks[block_idx+1], floating_point_datasets, block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
         if model_finish_fn is not None:
             model_finish_fn(model, model_dict)
+
+    def skip_full_execution(self, block, next_block, floating_point_datasets, block_forward, cache):
+
+        # We need to propagate two datasets, one is a floating point dataset to compute float out
+        # The second is a quantized dataset to create the quantized input of the next blocks
+
+        # First, we disable quantization
+        disable_quant_class = DisableEnableQuantization()
+        disable_quant_class.disable_act_quantization(block, False)
+        disable_quant_class.disable_param_quantization(block, False)
+        return_quant_tensor_state = disable_return_quant_tensor(block)
+
+        # If we don't have a floating_point_dataset, we retrieve it from the cache
+        # The idea is that the cache contains the input to the very first block, and there is nothing
+        # quantized before that. This is a moderately strong assumption
+        if len(floating_point_datasets) <= 0:
+            for i in range(len(cache)):
+                (args, kwargs), _ = cache.sample_batch([i])
+                floating_point_datasets.append((args, kwargs))
+
+        # Then, we compute the floating point output of the current block
+        next_float_input = []
+        with torch.no_grad():
+            for args, kwargs in floating_point_datasets:
+                out = block_forward(block, (args, kwargs))
+                out = send_to_device(out, 'cpu')
+                next_float_input.append((out,))
+        # We use this new output to generate a new temporary dataloder for the next block
+        # and to update our floating_point_dataset
+        new_data_loader = []
+        for i in range(len(cache)):
+            (args, kwargs), _ = cache.sample_batch([i])
+            new_data_loader.append((next_float_input[i], kwargs))
+
+            _, fp_dataset_kwargs = floating_point_datasets[i]
+            floating_point_datasets[i] = (next_float_input[i], fp_dataset_kwargs)
+
+        # Temporary cache
+        tmp_cache = copy.deepcopy(cache)
+        tmp_cache.clear_cache()
+
+        # We compute the floating point output of the upcoming block
+        next_block.cuda()
+        save_inputs_output(
+            next_block,
+            block_forward,
+            next_block,
+            new_data_loader,
+            tmp_cache,
+            store_inputs=False,
+            store_output=True,
+            keep_gpu=False,
+            disable_quant=True,
+        )
+        next_block.cpu()
+
+        cache['output'] = tmp_cache['output']
+
+        # Re-enable quantization
+        disable_quant_class.enable_act_quantization(block, False)
+        disable_quant_class.enable_param_quantization(block, False)
+        restore_return_quant_tensor(block, return_quant_tensor_state)
+
+        # Finally (!), we compute the quantized input of the next block
+        block.eval()
+        block.cuda()
+        next_quant_input = []
+        with torch.no_grad():
+            for i in range(len(cache)):
+                (args, kwargs), _ = cache.sample_batch([i])
+                out = block_forward(block, (args, kwargs))
+                out = send_to_device(out, 'cpu')
+                next_quant_input.append((out,))
+        cache['args'] = copy.deepcopy(next_quant_input)
+        block.cpu()
+
+        return cache, floating_point_datasets
