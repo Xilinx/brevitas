@@ -23,6 +23,9 @@ class CacheLLM(Cache, dict):
 
     def __init__(self) -> None:
         super().__init__()
+        self["args"] = []
+        self["kwargs"] = []
+        self["output"] = []
 
     def store_inputs(self, args, kwargs) -> None:
         self["args"].append(args)

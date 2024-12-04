@@ -709,11 +709,15 @@ class LearnedRoundOptimizer:
 
         # Then, we compute the floating point output of the current block
         next_float_input = []
+        block.cuda()
+        pbar = tqdm(floating_point_datasets, desc='', leave=False)
         with torch.no_grad():
-            for args, kwargs in floating_point_datasets:
+            for args, kwargs in pbar:
                 out = block_forward(block, (args, kwargs))
                 out = send_to_device(out, 'cpu')
                 next_float_input.append((out,))
+        pbar.close()
+        block.cpu()
         # We use this new output to generate a new temporary dataloder for the next block
         # and to update our floating_point_dataset
         new_data_loader = []
@@ -725,8 +729,7 @@ class LearnedRoundOptimizer:
             floating_point_datasets[i] = (next_float_input[i], fp_dataset_kwargs)
 
         # Temporary cache
-        tmp_cache = copy.deepcopy(cache)
-        tmp_cache.clear_cache()
+        tmp_cache = type(cache)()
 
         # We compute the floating point output of the upcoming block
         next_block.cuda()
@@ -754,13 +757,15 @@ class LearnedRoundOptimizer:
         block.eval()
         block.cuda()
         next_quant_input = []
+        pbar = tqdm(range(len(cache)), desc='', leave=False)
         with torch.no_grad():
-            for i in range(len(cache)):
+            for i in pbar:
                 (args, kwargs), _ = cache.sample_batch([i])
                 out = block_forward(block, (args, kwargs))
                 out = send_to_device(out, 'cpu')
                 next_quant_input.append((out,))
-        cache['args'] = copy.deepcopy(next_quant_input)
+        cache['args'] = next_quant_input
         block.cpu()
+        pbar.close()
 
         return cache, floating_point_datasets
