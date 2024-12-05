@@ -707,13 +707,13 @@ class LearnedRoundOptimizer:
                 (args, kwargs), _ = cache.sample_batch([i])
                 floating_point_datasets.append((args, kwargs))
 
-        # We use this new output to generate a new temporary dataloder for the next block
+        # We use the cache output to generate a new temporary dataloder for the next block
         # and to update our floating_point_dataset
         new_data_loader = []
         for i in range(len(cache)):
             (args, kwargs), output = cache.sample_batch([i])
-            new_data_loader.append(((output,), kwargs))
 
+            new_data_loader.append(((output,), kwargs))
             floating_point_datasets[i] = ((output,), kwargs)
 
         # Temporary cache
