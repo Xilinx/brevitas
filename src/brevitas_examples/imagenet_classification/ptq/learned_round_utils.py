@@ -69,6 +69,7 @@ class CacheVision(Cache, dict):
     def __init__(self) -> None:
         super().__init__()
         self.batch_dim = 0
+        self.initialize_cache()
 
     def store_inputs(self, args, kwargs) -> None:
         input_batch = args[0]
