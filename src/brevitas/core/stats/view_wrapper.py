@@ -52,7 +52,7 @@ class _ViewParameter(brevitas.jit.ScriptModule):
         self.view_shape_impl = view_shape_impl
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Optional[Tensor]) -> Tensor:
         return self.view_shape_impl(x)
 
 
