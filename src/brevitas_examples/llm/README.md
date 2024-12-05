@@ -13,9 +13,9 @@
 Set the env variable `BREVITAS_JIT=1` to speed up the quantization process. Currently unsupported whenever export is also toggled or with MSE based scales/zero-points.
 
 ```bash
-usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
-               [--seqlen SEQLEN] [--eval] [--dataset {wikitext2,c4}]
-               [--gpxq-block-name GPXQ_BLOCK_NAME]
+usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
+               [--nsamples NSAMPLES] [--seqlen SEQLEN] [--eval]
+               [--dataset {wikitext2,c4}] [--gpxq-block-name GPXQ_BLOCK_NAME]
                [--weight-bit-width WEIGHT_BIT_WIDTH]
                [--weight-param-method {stats,mse,hqo}]
                [--weight-scale-precision {float_scale,po2_scale}]
@@ -61,6 +61,8 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
 
 options:
   -h, --help            show this help message and exit
+  --config CONFIG       Specify alternative default commandline args (e.g.,
+                        config/default_template.yml). Default: None.
   --model MODEL         HF model name. Default: facebook/opt-125m.
   --seed SEED           Seed for sampling the calibration data. Default: 0.
   --nsamples NSAMPLES   Number of calibration data samples. Default: 128.
