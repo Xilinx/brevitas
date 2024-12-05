@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from brevitas import torch_version
 from brevitas.nn import QuantScaledDotProductAttention
 from brevitas.nn import ScaledDotProductAttention
+from brevitas.quant import Int8ActPerTensorFloat
+from brevitas.quant import Uint8ActPerTensorFloat
 from tests.marker import requires_pt_ge
 
 ATOL = 1e-6
@@ -21,6 +23,51 @@ DROPOUT_SEED = 42
 
 
 class TestScaledDotProductAttention:
+
+    @requires_pt_ge('2.0')
+    # Check what kwargs are properly filtered and override defaults
+    def test_sdpa_init(self):
+        extra_kwargs = {
+            'softmax_input_bit_width': 2,
+            'attn_output_weights_bit_width': 3,
+            'q_scaled_bit_width': 4,
+            'k_transposed_bit_width': 5,
+            'v_bit_width': 6,
+            'attn_output_bit_width': 7,}
+        qm = QuantScaledDotProductAttention(
+            softmax_input_quant=Int8ActPerTensorFloat,
+            attn_output_weights_quant=Uint8ActPerTensorFloat,
+            q_scaled_quant=Int8ActPerTensorFloat,
+            k_transposed_quant=Int8ActPerTensorFloat,
+            v_quant=Int8ActPerTensorFloat,
+            attn_output_quant=Int8ActPerTensorFloat,
+            **extra_kwargs,
+        )
+
+        # Check that the `kwargs` have been applied correctly
+        prefixes = ["softmax_input", "attn_output", "q_scaled", "v", "attn_output"]
+        for k in extra_kwargs.keys():
+            checked = False
+            if "softmax_input_" in k:
+                assert int(qm.softmax_input_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+                checked = True
+            elif "attn_output_weights_" in k:
+                assert int(
+                    qm.attn_output_weights_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+                checked = True
+            elif "q_scaled_" in k:
+                assert int(qm.q_scaled_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+                checked = True
+            elif "k_transposed_" in k:
+                assert int(qm.k_transposed_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+                checked = True
+            elif "v_" in k:
+                assert int(qm.v_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+                checked = True
+            elif "attn_output_" in k:
+                assert int(qm.attn_output_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+                checked = True
+            assert checked, f"Unmatched kwarg: {k}"
 
     @requires_pt_ge('2.0')
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
