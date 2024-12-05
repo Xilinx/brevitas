@@ -146,7 +146,16 @@ class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3ActPerTensorFloat):
     proxy_class = ActFloatQuantProxyFromInjector
 
 
+class FP8e4m3OCPDynamicActPerRowFloat(FP8e4m3OCPDynamicActPerRowFixedPoint):
+    restrict_scaling_type = RestrictValueType.FP
+
+
 class Fp8e4m3OCPWeightPerChannelFixedPointMSE(MSESymmetricScale,
                                               PerChannelPoTScaling8bit,
                                               Fp8e4m3OCPWeightPerChannelFloat):
+    pass
+
+
+class Fp8e4m3OCPWeightPerChannelFloatMSE(MSESymmetricScale,
+                                         Fp8e4m3OCPWeightPerChannelFloat):
     pass
