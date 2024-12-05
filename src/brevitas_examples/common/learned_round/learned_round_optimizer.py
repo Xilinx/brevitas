@@ -603,7 +603,6 @@ class LearnedRoundOptimizer:
 
         # Initialize cache to store partial inputs and outputs for each block
         cache.initialize_cache()
-        floating_point_datasets = []
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
             # Distribute the model across devices to run a forward pass to capture
@@ -682,33 +681,24 @@ class LearnedRoundOptimizer:
             block.cpu()
 
             if block_idx + 1 < len(blocks) and fast_update:
-                cache, floating_point_datasets = self.skip_full_execution(block, blocks[block_idx+1], floating_point_datasets, block_forward, cache)
+                cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
         if model_finish_fn is not None:
             model_finish_fn(model, model_dict)
 
-    def skip_full_execution(self, block, next_block, floating_point_datasets, block_forward, cache):
+    def skip_full_execution(self, block, next_block, block_forward, cache):
 
         # We need to compute two inputs, one is a floating point one to compute float out
         # The second is a quantized one to create the quantized input of the next blocks
 
-        # If we don't have a floating_point_dataset, we retrieve it from the cache
-        # The idea is that the cache contains the input to the very first block, and there is nothing
-        # quantized before that. This is a moderately strong assumption
-        if len(floating_point_datasets) <= 0:
-            for i in range(len(cache)):
-                (args, kwargs), _ = cache.sample_batch([i])
-                floating_point_datasets.append((args, kwargs))
-
         # We use the cache output to generate a new temporary dataloder for the next block
         # and to update our floating_point_dataset
-        new_data_loader = []
+        tmp_data_loader = []
         for i in range(len(cache)):
             (args, kwargs), output = cache.sample_batch([i])
 
-            new_data_loader.append(((output,), kwargs))
-            floating_point_datasets[i] = ((output,), kwargs)
+            tmp_data_loader.append(((output,), kwargs))
 
         # Temporary cache
         tmp_cache = type(cache)()
@@ -720,7 +710,7 @@ class LearnedRoundOptimizer:
             next_block,
             block_forward,
             next_block,
-            new_data_loader,
+            tmp_data_loader,
             tmp_cache,
             store_inputs=False,
             store_output=True,
@@ -746,4 +736,4 @@ class LearnedRoundOptimizer:
         block.cpu()
         pbar.close()
 
-        return cache, floating_point_datasets
+        return cache
