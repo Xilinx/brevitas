@@ -121,7 +121,7 @@ class QuantScaledDotProductAttention(Module):
             q_scaled_quant=Int8ActPerTensorFloat,
             k_transposed_quant=Int8ActPerTensorFloat,
             v_quant=Int8ActPerTensorFloat,
-            attn_output_quant=None,
+            sdpa_output_quant=None,
             **kwargs) -> None:
         super(QuantScaledDotProductAttention, self).__init__()
 
@@ -136,8 +136,8 @@ class QuantScaledDotProductAttention(Module):
             act_quant=softmax_input_quant, **filter_kwargs('softmax_input_'))
         self.attn_output_weights_quant = QuantIdentity(
             act_quant=attn_output_weights_quant, **filter_kwargs('attn_output_weights_'))
-        self.attn_output_quant = QuantIdentity(
-            act_quant=attn_output_quant, **filter_kwargs('attn_output_'))
+        self.sdpa_output_quant = QuantIdentity(
+            act_quant=sdpa_output_quant, **filter_kwargs('sdpa_output_'))
 
     def forward(
             self,
@@ -205,5 +205,5 @@ class QuantScaledDotProductAttention(Module):
         attn_weight = torch.dropout(attn_weight, dropout_p, train=True)
         attn_weight = self.attn_output_weights_quant(attn_weight)
         attn_output = attn_weight @ self.v_quant(value)
-        attn_output = self.attn_output_quant(attn_output)
+        attn_output = self.sdpa_output_quant(attn_output)
         return attn_output

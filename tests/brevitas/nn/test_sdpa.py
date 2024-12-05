@@ -33,19 +33,19 @@ class TestScaledDotProductAttention:
             'q_scaled_bit_width': 4,
             'k_transposed_bit_width': 5,
             'v_bit_width': 6,
-            'attn_output_bit_width': 7,}
+            'sdpa_output_bit_width': 7,}
         qm = QuantScaledDotProductAttention(
             softmax_input_quant=Int8ActPerTensorFloat,
             attn_output_weights_quant=Uint8ActPerTensorFloat,
             q_scaled_quant=Int8ActPerTensorFloat,
             k_transposed_quant=Int8ActPerTensorFloat,
             v_quant=Int8ActPerTensorFloat,
-            attn_output_quant=Int8ActPerTensorFloat,
+            sdpa_output_quant=Int8ActPerTensorFloat,
             **extra_kwargs,
         )
 
         # Check that the `kwargs` have been applied correctly
-        prefixes = ["softmax_input", "attn_output", "q_scaled", "v", "attn_output"]
+        prefixes = ["softmax_input", "attn_output_weights", "q_scaled", "v", "sdpa_output"]
         for k in extra_kwargs.keys():
             checked = False
             if "softmax_input_" in k:
@@ -64,8 +64,8 @@ class TestScaledDotProductAttention:
             elif "v_" in k:
                 assert int(qm.v_quant.act_quant.bit_width().item()) == extra_kwargs[k]
                 checked = True
-            elif "attn_output_" in k:
-                assert int(qm.attn_output_quant.act_quant.bit_width().item()) == extra_kwargs[k]
+            elif "sdpa_output_" in k:
+                assert int(qm.sdpa_output_quant.act_quant.bit_width().item()) == extra_kwargs[k]
                 checked = True
             assert checked, f"Unmatched kwarg: {k}"
 
@@ -131,7 +131,7 @@ class TestScaledDotProductAttention:
             q_scaled_quant=None,
             k_transposed_quant=None,
             v_quant=None,
-            attn_output_quant=None,
+            sdpa_output_quant=None,
         )
         q = torch.randn(BATCH_SIZE, HEAD_DIM, SEQUENCE_LENGTH, EMBED_DIM)
         k = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM)
