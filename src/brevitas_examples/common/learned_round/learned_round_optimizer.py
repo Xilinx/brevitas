@@ -690,14 +690,8 @@ class LearnedRoundOptimizer:
 
     def skip_full_execution(self, block, next_block, floating_point_datasets, block_forward, cache):
 
-        # We need to propagate two datasets, one is a floating point dataset to compute float out
-        # The second is a quantized dataset to create the quantized input of the next blocks
-
-        # First, we disable quantization
-        disable_quant_class = DisableEnableQuantization()
-        disable_quant_class.disable_act_quantization(block, False)
-        disable_quant_class.disable_param_quantization(block, False)
-        return_quant_tensor_state = disable_return_quant_tensor(block)
+        # We need to compute two inputs, one is a floating point one to compute float out
+        # The second is a quantized one to create the quantized input of the next blocks
 
         # If we don't have a floating_point_dataset, we retrieve it from the cache
         # The idea is that the cache contains the input to the very first block, and there is nothing
@@ -736,11 +730,6 @@ class LearnedRoundOptimizer:
         next_block.cpu()
 
         cache['output'] = tmp_cache['output']
-
-        # Re-enable quantization
-        disable_quant_class.enable_act_quantization(block, False)
-        disable_quant_class.enable_param_quantization(block, False)
-        restore_return_quant_tensor(block, return_quant_tensor_state)
 
         # Finally (!), we compute the quantized input of the next block
         block.eval()

@@ -709,7 +709,7 @@ def parse_args(args):
     parser.add_argument(
         '--learned-round-fast-update',
         default=False,
-        type=bool,
+        action="store_true",
         help='Whether to use fast update with learned round. Prototype (default: %(default)s)')
     return parser.parse_args(args)
 
