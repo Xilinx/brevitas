@@ -723,7 +723,7 @@ class LearnedRoundOptimizer:
         # Finally (!), we compute the quantized input of the next block
         block.eval()
         if torch.cuda.is_available():
-          block.cuda()
+            block.cuda()
         next_quant_input = []
         pbar = tqdm(range(len(cache)), desc='', leave=False)
         with torch.no_grad():
