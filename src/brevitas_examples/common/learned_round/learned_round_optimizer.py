@@ -586,7 +586,8 @@ class LearnedRoundOptimizer:
             get_blocks_fn: Callable,
             model_prepare_fn: Optional[Callable] = None,
             model_finish_fn: Optional[Callable] = None,
-            keep_gpu: bool = True) -> None:
+            keep_gpu: bool = True,
+            fast_update: bool = False) -> None:
 
         # Perform any needed preprocessing before rounding optimisation, e.g. disabling caching in LLMs
         model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
@@ -602,26 +603,27 @@ class LearnedRoundOptimizer:
 
         # Initialize cache to store partial inputs and outputs for each block
         cache.initialize_cache()
-
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
             # Distribute the model across devices to run a forward pass to capture
             # inputs/outputs to the given block
-            model = offload_model(model)
-            # Cache needs to be cleared before populating it with the inputs and outputs
-            # to the block under optimization.
-            self._populate_cache(
-                cache,
-                model,
-                model_forward,
-                block,
-                data_loader,
-                keep_gpu=keep_gpu,
-                capture_quant_input=True,
-                capture_quant_output=False,
-            )
-            # Remove hooks needed to offload the model blocks to cpu
-            remove_hooks(model)
+            if block_idx == 0 or not fast_update:
+                cache.clear_cache()
+                model = offload_model(model)
+                # Cache needs to be cleared before populating it with the inputs and outputs
+                # to the block under optimization.
+                self._populate_cache(
+                    cache,
+                    model,
+                    model_forward,
+                    block,
+                    data_loader,
+                    keep_gpu=keep_gpu,
+                    capture_quant_input=True,
+                    capture_quant_output=False,
+                )
+                # Remove hooks needed to offload the model blocks to cpu
+                remove_hooks(model)
 
             # Retrieve scales
             scale_params = return_scale_parameters(block)
@@ -678,9 +680,60 @@ class LearnedRoundOptimizer:
             # Move the block back to CPU
             block.cpu()
 
-            # Reset cache after optimisation
-            cache.clear_cache()
+            if block_idx + 1 < len(blocks) and fast_update:
+                cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
         if model_finish_fn is not None:
             model_finish_fn(model, model_dict)
+
+    def skip_full_execution(self, block, next_block, block_forward, cache):
+
+        # We need to compute two inputs, one is a floating point one to compute float out
+        # The second is a quantized one to create the quantized input of the next blocks
+
+        # We use the cache output to generate a new temporary dataloder for the next block
+        tmp_data_loader = []
+        for i in range(len(cache)):
+            (args, kwargs), output = cache.sample_batch([i])
+
+            tmp_data_loader.append(((output,), kwargs))
+
+        # Temporary cache
+        tmp_cache = type(cache)()
+
+        # We compute the floating point output of the upcoming block
+        if torch.cuda.is_available():
+            next_block.cuda()
+        save_inputs_output(
+            next_block,
+            block_forward,
+            next_block,
+            tmp_data_loader,
+            tmp_cache,
+            store_inputs=False,
+            store_output=True,
+            keep_gpu=False,
+            disable_quant=True,
+        )
+        next_block.cpu()
+
+        cache['output'] = tmp_cache['output']
+
+        # Finally (!), we compute the quantized input of the next block
+        block.eval()
+        if torch.cuda.is_available():
+            block.cuda()
+        next_quant_input = []
+        pbar = tqdm(range(len(cache)), desc='', leave=False)
+        with torch.no_grad():
+            for i in pbar:
+                (args, kwargs), _ = cache.sample_batch([i])
+                out = block_forward(block, (args, kwargs))
+                out = send_to_device(out, 'cpu')
+                next_quant_input.append((out,))
+        pbar.close()
+        cache['args'] = next_quant_input
+        block.cpu()
+
+        return cache

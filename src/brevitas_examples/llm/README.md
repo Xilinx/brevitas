@@ -54,6 +54,7 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME] [--fuse-sequences]
                [--learned-round {None,linear_round}]
+               [--learned-round-fast-update]
 
 options:
   -h, --help            show this help message and exit
@@ -196,5 +197,8 @@ options:
   --learned-round {None,linear_round}
                         Whether to use learned round. If `None`, RTN is used
                         (default: None)
+  --learned-round-fast-update
+                        Whether to use fast update with learned round.
+                        Prototype (default: False)
 
 ```
