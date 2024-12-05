@@ -64,7 +64,7 @@ __all__ = ["SignSGD", "sign_sgd"]
 
 
 class SignSGD(Optimizer):
-    """Implements signed stochastic gradient descent (optionally with momentum).
+    r"""Implements signed stochastic gradient descent (optionally with momentum).
 
     .. math::
        \begin{aligned}
