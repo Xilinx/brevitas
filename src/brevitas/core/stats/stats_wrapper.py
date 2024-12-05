@@ -120,9 +120,7 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
             stats_input = self.first_tracked_param(None)
             for extra_tracked_param in self.extra_tracked_params_list:
                 stats_input = extra_tracked_param(stats_input)
-        elif x is not None:
-            stats_input = self.first_tracked_param(x)
         else:
-            raise RuntimeError("An input is needed to compute the statistics")
+            stats_input = self.first_tracked_param(x)
         out = self.stats(stats_input)
         return out
