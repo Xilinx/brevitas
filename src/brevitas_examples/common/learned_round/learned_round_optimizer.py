@@ -693,7 +693,6 @@ class LearnedRoundOptimizer:
         # The second is a quantized one to create the quantized input of the next blocks
 
         # We use the cache output to generate a new temporary dataloder for the next block
-        # and to update our floating_point_dataset
         tmp_data_loader = []
         for i in range(len(cache)):
             (args, kwargs), output = cache.sample_batch([i])
