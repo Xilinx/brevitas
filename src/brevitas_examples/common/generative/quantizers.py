@@ -156,6 +156,5 @@ class Fp8e4m3OCPWeightPerChannelFixedPointMSE(MSESymmetricScale,
     pass
 
 
-class Fp8e4m3OCPWeightPerChannelFloatMSE(MSESymmetricScale,
-                                         Fp8e4m3OCPWeightPerChannelFloat):
+class Fp8e4m3OCPWeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3OCPWeightPerChannelFloat):
     pass
