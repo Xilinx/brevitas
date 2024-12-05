@@ -30,6 +30,7 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter],
             scaling_shape: Tuple[int, ...],
+            force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
             affine_rescaling: bool = False,
@@ -48,7 +49,8 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_shape,
             scaling_stats_input_view_shape_impl,
             scaling_stats_input_concat_dim,
-            tracked_parameter_list)
+            tracked_parameter_list,
+            force_parameter)
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,
             restrict_threshold_impl,

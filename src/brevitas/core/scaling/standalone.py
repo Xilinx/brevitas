@@ -207,6 +207,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter],
             scaling_shape: Tuple[int, ...],
+            force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
             scaling_min_val: Optional[float] = None,
@@ -218,7 +219,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_shape,
             scaling_stats_input_view_shape_impl,
             scaling_stats_input_concat_dim,
-            tracked_parameter_list)
+            tracked_parameter_list,
+            force_parameter)
 
         # Ensure retro-compatibility with shared threshold/scaling restrict
         if restrict_threshold_impl is None:
