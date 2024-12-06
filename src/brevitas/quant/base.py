@@ -418,7 +418,9 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
         return scales
 
     per_channel_pre_norm = PerChannelPreNorm
-
+    # Even if we have a single parameter per quantizer,
+    # we want to force the use of tracker_parameter_list for the scale computation because of the initialization
+    force_parameter = True
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant

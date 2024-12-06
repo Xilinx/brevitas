@@ -52,8 +52,11 @@ class _ViewParameter(brevitas.jit.ScriptModule):
         self.view_shape_impl = view_shape_impl
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tensor:
-        return self.view_shape_impl(x)
+    def forward(self, x: Optional[Tensor]) -> Tensor:
+        if x is not None:
+            return self.view_shape_impl(x)
+        else:
+            raise RuntimeError("Input cannot be None")
 
 
 class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
