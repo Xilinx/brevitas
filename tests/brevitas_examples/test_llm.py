@@ -299,15 +299,6 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
     assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
-def llama_module_type_count(num_hidden_layers: int):
-    return {
-        "<class 'torch.nn.modules.linear.Linear'>": 1 + num_hidden_layers *
-                                                    (4 + 3),  # lm_head + (k/q/v/o_proj + MLP)
-        "<class 'torch.nn.modules.normalization.RMSNorm'>":
-            1 + num_hidden_layers * 2,  # input + post_attention
-    }
-
-
 @pytest_cases.fixture(
     ids=[
         "mistral-int8",
