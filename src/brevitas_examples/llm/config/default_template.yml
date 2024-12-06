@@ -2,7 +2,6 @@ act_calibration: false
 act_equalization: null
 bias_corr: false
 checkpoint_name: null
-config: null
 convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
 eval: false
@@ -38,6 +37,7 @@ model: facebook/opt-125m
 no_float16: false
 no_quantize: false
 nsamples: 128
+quant_sdpa: false
 quantize_input_zero_point: false
 quantize_last_layer: false
 quantize_weight_zero_point: false
