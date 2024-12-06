@@ -1380,6 +1380,40 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
     return rewriters
 
 
+def _fuse_rotations(model: nn.Module):
+    rewriters = []
+
+    def _fuse_rotations_aux(module: nn.Module):
+        if isinstance(module, UnfusedRotatedModule):
+            unrotated_module = module.unrotated_module
+            rot_weight = module.weight.data
+
+            # Fuse rotations with weights
+            unrotated_module.weight.data = rot_weight
+            # Fuse rotations with bias if existent
+            if module.bias is not None:
+                rot_bias = module.bias.data
+                unrotated_module.bias.data = rot_bias
+
+            # Use rotated module if orphan
+            if module.is_orphan:
+                rewriter = ModuleInstanceToModuleInstance(
+                    module, RotatedModule(had_mat=module.rot_mat, k=None, layer=unrotated_module))
+            else:
+                rewriter = ModuleInstanceToModuleInstance(module, unrotated_module)
+            # Save rewriter
+            rewriters.append(rewriter)
+        else:
+            for child_module in module.children():
+                _fuse_rotations_aux(child_module)
+
+    # Populate rewriters
+    _fuse_rotations_aux(model)
+    # Apply rewriter to fuse the weights
+    for r in rewriters:
+        model = r.apply(model)
+
+
 @dataclass
 class UnfusedRotation:
     rot_mat: torch.Tensor

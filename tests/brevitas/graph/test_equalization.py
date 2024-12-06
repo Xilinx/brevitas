@@ -16,6 +16,7 @@ from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _apply_ort_device
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
+from brevitas.graph.equalize import _fuse_rotations
 from brevitas.graph.equalize import _get_input_axis
 from brevitas.graph.equalize import _get_output_axis
 from brevitas.graph.equalize import _is_supported_module
@@ -413,8 +414,6 @@ def test_models_unfused_rotations(rotation_fixtures, partial_had):
 
     model.eval()
     inp = torch.rand(in_shape)
-    with torch.no_grad():
-        expected_out = model(inp)
 
     model = symbolic_trace(model)
     merge = MergeLnAffine()
@@ -446,7 +445,8 @@ def test_models_unfused_rotations(rotation_fixtures, partial_had):
         out = model_copy(inp)
 
     # Verify that the output of the model does not change after incorporating the rotations
-    assert torch.allclose(expected_out, out)
+    with torch.no_grad():
+        expected_out = model(inp)
 
     # Verify that weight matrices
     for model_node, model_copy_node in zip(model.graph.nodes, model_copy.graph.nodes):
@@ -472,3 +472,76 @@ def test_models_unfused_rotations(rotation_fixtures, partial_had):
                         rotated_module = rotated_module.module
                     # Verify that the rotation matrices match
                     assert torch.allclose(module.had_mat, module_copy.rot_mat)
+
+
+# This test verifies that the weights returned by the unfused rotate modules
+# match those when fusing
+@requires_pt_ge('2.4')
+@pytest_cases.parametrize('partial_had', [False, True])
+def test_models_fused_rotations(rotation_fixtures, partial_had):
+
+    in_shape = IN_SIZE_LINEAR
+
+    model_class = rotation_fixtures
+    model = model_class()
+
+    model.eval()
+    inp = torch.rand(in_shape)
+
+    model = symbolic_trace(model)
+    merge = MergeLnAffine()
+    model = merge.apply(model)
+    eq = GraphRotationEqualization(orphan_sink=partial_had, full_rotation_method='ort')
+
+    # Save a copy to apply graph rotation equalization on
+    model_copy = copy.deepcopy(model)
+
+    # We need to make sure that the same random matrices are being generated
+    generator = torch.Generator()
+    generator.manual_seed(SEED)
+    # Clone generator to make sure we can use the same rotation matrices
+    generator_clone = generator.clone_state()
+
+    # We pass the generator to make sure that we can reproduce the random orthogonal matrices that are generated
+    with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+               partial(_random_orthogonal_matrix, generator=generator)) as mock_ort_generator:
+        # Apply rotation equalization while controlling the random matrices that are generated
+        model = eq.apply(model)
+
+    with torch.no_grad():
+        expected_out = model(inp)
+
+    # Now rotate but without fusing the rotation matrices
+    with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+               partial(_random_orthogonal_matrix, generator=generator_clone)) as mock_ort_generator:
+        # Apply rotation equalization while controlling the random matrices that are generated
+        model_copy = eq.apply(model_copy, fuse_rotations=False)
+
+    # Fuse the rotations and make sure the behaviour is the same
+    _fuse_rotations(model_copy)
+
+    with torch.no_grad():
+        out = model_copy(inp)
+
+    # Verify that the output of the model does not change after incorporating the rotations
+    assert torch.allclose(expected_out, out)
+
+    # Verify that weight matrices
+    for model_node, model_copy_node in zip(model.graph.nodes, model_copy.graph.nodes):
+        if model_node.op == 'call_module':
+            module = get_module(model, model_node.target)
+            module_copy = get_module(model_copy, model_copy_node.target)
+            if isinstance(module, (nn.Linear, RotatedModule)):
+                weight = module.weight if isinstance(module, nn.Linear) else module.layer.weight
+                bias = module.bias if isinstance(module, nn.Linear) else module.layer.bias
+                weight_copy = module_copy.weight if isinstance(
+                    module_copy, nn.Linear) else module_copy.layer.weight
+                bias_copy = module_copy.bias if isinstance(
+                    module_copy, nn.Linear) else module_copy.layer.bias
+                assert torch.allclose(weight, weight_copy, atol=ATOL)
+                if bias is not None:
+                    assert torch.allclose(bias, bias_copy, atol=ATOL)
+                # For a RotatedModule, corresponding to an orphan node, additional checks need to be done
+                if isinstance(module, RotatedModule):
+                    # Verify that the rotation matrices match
+                    assert torch.allclose(module.had_mat, module_copy.had_mat)

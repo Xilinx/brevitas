@@ -52,6 +52,11 @@ class EqualizedModule(torch.nn.Module):
         return out
 
 
+def _apply_ort_device(tensor, ort, *args):
+    ort = ort.type_as(tensor)
+    return torch.matmul(tensor, ort)
+
+
 class RotatedModule(torch.nn.Module):
 
     def __init__(self, layer, had_mat=None, k=None) -> None:
@@ -65,15 +70,19 @@ class RotatedModule(torch.nn.Module):
 
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
-        if is_cuda and fast_hadamard_transform is not None:
-            if self.had_mat is None or self.k is None:
-                had_K, K = get_hadK(inp.shape[-1])
-            else:
-                had_K = self.had_mat
-                K = self.k
-            inp = matmul_hadU_cuda(inp, had_K, K)
+        # If k is None, we assume that an orthogonal matrix is used
+        if self.k is None:
+            inp = _apply_ort_device(inp, self.had_mat)
         else:
-            inp = matmul_hadU(inp)
+            if is_cuda and fast_hadamard_transform is not None:
+                if self.had_mat is None or self.k is None:
+                    had_K, K = get_hadK(inp.shape[-1])
+                else:
+                    had_K = self.had_mat
+                    K = self.k
+                inp = matmul_hadU_cuda(inp, had_K, K)
+            else:
+                inp = matmul_hadU(inp)
         o = self.layer(inp)
 
         return o
@@ -140,6 +149,11 @@ class UnfusedRotatedModule(torch.nn.Module):
                 bias = self.rot_func(bias, self.rot_mat)
 
         return bias
+
+    @property
+    def unrotated_module(self) -> torch.nn.Module:
+        return self.module.unrotated_module if isinstance(
+            self.module, UnfusedRotatedModule) else self.module
 
     def forward(self, inp, **kwargs):
         # Rotated matrices

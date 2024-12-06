@@ -47,6 +47,7 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_r
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
@@ -195,7 +196,7 @@ def validate(args):
                 "or decreasing the sequence length (seqlen)")
 
 
-def quantize_llm(args):
+def quantize_llm(args, unknown_args=None):
     validate(args)
     set_seed(args.seed)
     if args.export_prefix is None:
@@ -297,7 +298,7 @@ def quantize_llm(args):
         model = offload_model(model)
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.rotation_mode)
-        model = eq.apply(model)
+        model = eq.apply(model, fuse_rotations=not args.rotation_optimize)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
         eq = LayerwiseActivationRotation()
@@ -372,6 +373,7 @@ def quantize_llm(args):
             quantize_embedding=False)
         if not args.quantize_last_layer:
             if require_fx:
+                # TODO: Fix when using UnfusedRotation, layer_map[type(last_module)][1] crashes
                 last_node = [node for node in model.graph.nodes if node.op == 'call_module'][-1]
                 last_module = get_module(model, last_node.target)
                 last_layer_kwargs = layer_map[type(last_module)][1]
@@ -766,6 +768,11 @@ def parse_args(args, override_defaults={}):
         help=
         'If GraphRotation is enabled, decide how to compute the random rotation matrix that is fully fused. Online or partial rotation will always be Hadamard'
     )
+    # TODO: Make sure in argument validator that
+    parser.add_argument(
+        '--rotation-optimize',
+        action='store_true',
+        help='Whether to optimize the rotation matrices.')
     parser.add_argument(
         '--rotation-orphan-sink',
         action="store_true",
@@ -847,13 +854,13 @@ def parse_args(args, override_defaults={}):
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
     parser.set_defaults(**override_defaults)
 
-    return parser.parse_args(args)
+    return parser.parse_known_args(args)
 
 
 def main():
     overrides = override_defaults(sys.argv[1:])
-    args = parse_args(sys.argv[1:], override_defaults=overrides)
-    quantize_llm(args)
+    args, unknown_args = parse_args(sys.argv[1:], override_defaults=overrides)
+    quantize_llm(args, unknown_args)
 
 
 if __name__ == '__main__':
