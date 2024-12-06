@@ -35,6 +35,8 @@ IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
 IN_SIZE_CONV_SMALL = (1, 3, 32, 32)
 
+IN_FEATURES_LINEAR = 5
+
 
 def equalize_test(regions, merge_bias, bias_shrinkage, scale_computation_type):
     scale_factors_regions = []
@@ -352,6 +354,24 @@ def convtranspose_model():
     return ConvTransposeModel
 
 
+@pytest_cases.fixture
+def linear_model():
+
+    class LinearModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear_0 = nn.Linear(in_features=5, out_features=5)
+            self.linear_1 = nn.Linear(in_features=5, out_features=5)
+
+        def forward(self, x):
+            x = self.linear_0(x)
+            x = self.linear_1(x)
+            return x
+
+    return LinearModel
+
+
 list_of_fixtures = [
     'residual_model',
     'srcsinkconflict_model',
@@ -528,3 +548,10 @@ list_of_rotation_mixtures = ['linear_rms']
 
 rotation_fixtures = fixture_union(
     'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)
+
+list_of_rotation_unfused_mixtures = ['linear_model']
+
+rotation_unfused_fixtures = fixture_union(
+    'rotation_unfused_fixtures',
+    list_of_rotation_unfused_mixtures,
+    ids=list_of_rotation_unfused_mixtures)

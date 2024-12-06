@@ -3,6 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -34,6 +35,7 @@ from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.nn.equalized_layer import UnfusedRotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.utils.torch_utils import KwargsForwardHook
 
@@ -339,6 +341,8 @@ def _get_input_axis(module: nn.Module) -> Optional[int]:
             return 0
         else:
             return None
+    elif isinstance(module, (UnfusedRotatedModule)):
+        return _get_input_axis(module.module)
     else:
         return None
 
@@ -367,6 +371,8 @@ def _get_output_axis(module: nn.Module) -> Optional[int]:
             return 0
         else:
             return None
+    elif isinstance(module, (UnfusedRotatedModule)):
+        return _get_output_axis(module.module)
     else:
         return None
 
@@ -1307,7 +1313,7 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
         if not insert_rotation_module and not region.is_valid:
             continue
         hidden_dim = region.max_shape_sinks
-        if not insert_rotation_module and full_rotation_method == 'ort':
+        if full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
             K = None
             rot_func = _apply_ort_device
@@ -1369,6 +1375,82 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 rewriter = ModuleInstanceToModuleInstance(
                     module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
                 rewriters.append(rewriter)
+    for r in rewriters:
+        model = r.apply(model)
+    return rewriters
+
+
+@dataclass
+class UnfusedRotation:
+    rot_mat: torch.Tensor
+    is_sink: bool
+    is_source: bool
+    is_orphan: bool
+
+
+def _apply_unfused_rotate(model: nn.Module, regions: List[Region], full_rotation_method='ort'):
+    rewriters = []
+    fused_rotated_modules = defaultdict(list)
+    rot_func = _apply_ort_device
+
+    for region in regions:
+        insert_rotation_module = len(region.srcs) == 0
+
+        if not insert_rotation_module and not region.is_valid:
+            continue
+        hidden_dim = region.max_shape_sinks
+
+        rot_mat = random_orthogonal_matrix(hidden_dim)
+
+        for name, indexes in region.srcs.items():
+            module = region.get_module_from_name(name)
+
+            fused_rotated_modules[module].append(
+                UnfusedRotation(
+                    rot_mat=rot_mat,
+                    is_sink=False,
+                    is_source=True,
+                    is_orphan=False,
+                ))
+
+        for name, indexes in region.sinks.items():
+            module = region.get_module_from_name(name)
+
+            if insert_rotation_module and len(region.srcs) == 0:
+                fused_rotated_modules[module].append(
+                    UnfusedRotation(
+                        rot_mat=rot_mat,
+                        is_sink=False,
+                        is_source=False,
+                        is_orphan=True,
+                    ))
+            else:
+                fused_rotated_modules[module].append(
+                    UnfusedRotation(
+                        rot_mat=rot_mat,
+                        is_sink=True,
+                        is_source=False,
+                        is_orphan=False,
+                    ))
+
+    for module, rotation_modules in fused_rotated_modules.items():
+        rotation_module = module
+        for rotation_module_dataclass in rotation_modules:
+            rotation_module = UnfusedRotatedModule(
+                module=rotation_module,
+                rot_func=rot_func,
+                rot_mat=rotation_module_dataclass.rot_mat,
+                _get_input_axis=_get_input_axis,
+                _get_output_axis=_get_output_axis,
+                is_source=rotation_module_dataclass.is_source,
+                is_sink=rotation_module_dataclass.is_sink,
+                is_orphan=rotation_module_dataclass.is_orphan,
+            )
+        rewriter = ModuleInstanceToModuleInstance(
+            module,
+            rotation_module,
+        )
+        rewriters.append(rewriter)
     for r in rewriters:
         model = r.apply(model)
     return rewriters
@@ -1463,8 +1545,10 @@ class GraphRotationEqualization(RotationEqualization):
             graph_module.recompile()
             graph_module.graph.lint()
 
-    def apply(self,
-              graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
+    def apply(
+            self,
+            graph_model: GraphModule,
+            fuse_rotations: bool = True) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
         regions = _extract_regions(
             graph_model,
@@ -1488,7 +1572,10 @@ class GraphRotationEqualization(RotationEqualization):
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
+            if fuse_rotations:
+                rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
+            else:
+                rewriters = _apply_unfused_rotate(graph_model, regions, self.full_rotation_method)
         if self.return_rewriters:
             return graph_model, rewriters
         else:
