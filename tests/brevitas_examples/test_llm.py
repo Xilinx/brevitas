@@ -245,13 +245,21 @@ def test_small_models_acc(caplog, acc_args_and_acc):
 
 @pytest_cases.fixture(
     ids=[
-        "opt-replace-mha",],
+        "opt-replace-mha",
+        "opt-quant-sdpa",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
+            "float_ppl": 50016.0,
+            "quant_ppl": 50016.0},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            "weight_equalization": True,
+            "ln_affine_merge": True,
+            "quant_sdpa": True,
             "float_ppl": 50016.0,
             "quant_ppl": 50016.0},])
 def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
@@ -430,7 +438,8 @@ def test_small_models_quant_layer(caplog, layer_args):
 
 @pytest_cases.fixture(
     ids=[
-        "opt-replace-mha",],
+        "opt-replace-mha",
+        "opt-quant-sdpa",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
@@ -439,7 +448,13 @@ def test_small_models_quant_layer(caplog, layer_args):
                 "model.decoder.layers.0.self_attn":
                     "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
                 "model.decoder.layers.0.self_attn.mha":
-                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},])
+                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            "quant_sdpa": True,
+            "exp_layer_types": {
+                "scaled_dot_product_attention":
+                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},])
 def layer_args_pt_ge_2_4(default_run_args, request):
     args = default_run_args
     layer_dict = request.param

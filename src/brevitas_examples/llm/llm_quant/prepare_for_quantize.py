@@ -5,10 +5,14 @@ import warnings
 
 from packaging import version
 import torch
+import torch.nn.functional as F
 import transformers
 from transformers.models.opt.modeling_opt import OPTAttention
 
 from brevitas.graph import ModuleToModuleByClass
+from brevitas.graph import TorchFunctionalToModule
+from brevitas.nn import QuantScaledDotProductAttention
+from brevitas.nn import ScaledDotProductAttention
 from brevitas_examples.llm.llm_quant.mha_layers import QuantizableOPTAttention
 
 QUANTIZABLE_MHA_MAP = {
@@ -33,6 +37,12 @@ def replace_mha_with_quantizable_layers(model, dtype):
     for rewriter in rewriters:
         model = rewriter.apply(model)
     return model
+
+
+def replace_sdpa_with_quantizable_layers(graph_model):
+    fn_to_module_map = ((F.scaled_dot_product_attention, ScaledDotProductAttention),)
+    graph_model = TorchFunctionalToModule(fn_to_module_map=fn_to_module_map).apply(graph_model)
+    return graph_model
 
 
 @torch.no_grad()
