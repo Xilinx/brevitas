@@ -302,8 +302,9 @@ def main(args):
 
     if args.act_equalization is not None:
         offload_model(model)
-        print("Apply act equalization (SmoothQuant)...")
-        apply_act_equalization(model, args.act_equalization, calibration_loader)
+        print(f"Apply act equalization (SmoothQuant) with alpha {args.act_equalization_alpha}")
+        apply_act_equalization(
+            model, args.act_equalization, calibration_loader, alpha=args.act_equalization_alpha)
         print("Act equalization applied.")
         remove_hooks(model)
 
@@ -685,6 +686,11 @@ def parse_args(args):
         help='Apply activation equalization (SmoothQuant). Layerwise introduces standalone mul nodes,'
         'while fx merges them whenever possible into previous tensors, which is possible on ReLU based models (e.g. OPT).'
     )
+    parser.add_argument(
+        '--act-equalization-alpha',
+        default=0.5,
+        type=float,
+        help='If activation equalization is enabled, decide what alpha to use')
     parser.add_argument('--load-awq', type=str, default=None, help="Load the awq search results.")
     parser.add_argument(
         '--export-target',
