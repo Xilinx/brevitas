@@ -302,7 +302,7 @@ def main(args):
 
     if args.act_equalization is not None:
         offload_model(model)
-        print("Apply act equalization (SmoothQuant)...")
+        print(f"Apply act equalization (SmoothQuant) with alpha {args.act_equalization_alpha}")
         apply_act_equalization(
             model, args.act_equalization, calibration_loader, alpha=args.act_equalization_alpha)
         print("Act equalization applied.")
