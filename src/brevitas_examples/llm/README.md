@@ -50,7 +50,9 @@ usage: main.py [-h] [--model MODEL] [--seed SEED] [--nsamples NSAMPLES]
                [--replace-mha] [--weight-equalization]
                [--rotation {fx,layerwise,fused_no_fx}]
                [--rotation-mode {had,ort}] [--rotation-orphan-sink]
-               [--act-equalization {None,layerwise,fx}] [--load-awq LOAD_AWQ]
+               [--act-equalization {None,layerwise,fx}]
+               [--act-equalization-alpha ACT_EQUALIZATION_ALPHA]
+               [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME] [--fuse-sequences]
@@ -182,6 +184,9 @@ options:
                         introduces standalone mul nodes,while fx merges them
                         whenever possible into previous tensors, which is
                         possible on ReLU based models (e.g. OPT).
+  --act-equalization-alpha ACT_EQUALIZATION_ALPHA
+                        If activation equalization is enabled, decide what
+                        alpha to use
   --load-awq LOAD_AWQ   Load the awq search results.
   --export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}
                         Model export.
@@ -203,4 +208,5 @@ options:
   --learned-round-fast-update
                         Whether to use fast update with learned round.
                         Prototype (default: False)
+
 ```
