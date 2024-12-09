@@ -54,3 +54,13 @@ def recurse_getattr(obj, attr: str):
         return getattr(obj, attr)
 
     return functools.reduce(_getattr, [obj] + attr.split("."))
+
+
+def hooked_on_a_function(function, prefunction):
+
+    @functools.wraps(function)
+    def run(*args, **kwargs):
+        prefunction()
+        return function(*args, **kwargs)
+
+    return run
