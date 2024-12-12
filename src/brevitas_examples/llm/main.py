@@ -20,7 +20,9 @@ import yaml
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.graph.equalize import find_missing_rotation_regions
 from brevitas.graph.equalize import GraphRotationEqualization
+from brevitas.graph.equalize import GraphRotationEqualizationOptimization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
@@ -77,7 +79,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def fused_rotation_no_fx(model, calibration_loader, args):
+def fused_rotation_no_fx(model, calibration_loader, args, fuse_rotations: bool = False):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     apply_layernorm_affine_merge(new_model)
@@ -91,12 +93,42 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
         return_rewriters=True)
-    new_model, rewriters = eq.apply(new_model)
+    new_model, rewriters = eq.apply(new_model, fuse_rotations=fuse_rotations)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
         r.apply(model)
     remove_hooks(new_model)
+
+
+def fused_optimized_rotation_no_fx(
+        model,
+        calibration_loader,
+        args,
+        fuse_rotations: bool = False,
+        add_additional_regions: bool = False):
+    with torch.no_grad():
+        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+    apply_layernorm_affine_merge(new_model)
+    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+
+    for r in rewriters:
+        r.apply(model)
+    #new_model = offload_model(new_model)
+    additional_regions = find_missing_rotation_regions(
+        new_model, model.config.hidden_size //
+        model.config.num_attention_heads) if add_additional_regions else None
+    eq = GraphRotationEqualizationOptimization(
+        orphan_sink=args.rotation_orphan_sink,
+        full_rotation_method=args.rotation_mode,
+    )
+    new_model, rewriters, rotation_matrices = eq.apply(new_model, fuse_rotations=fuse_rotations, additional_regions=additional_regions)
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+
+    for r in rewriters:
+        r.apply(model)
+    #remove_hooks(new_model)
 
 
 def set_seed(seed):
@@ -273,6 +305,15 @@ def quantize_llm(args, unknown_args=None):
     if args.replace_rmsnorm:
         model = replace_rmsnorm_with_torch(model, model.config)
 
+    # TODO: Refactor
+    if args.rotation == 'fused_no_fx_optimize':
+        for i in range(len(calibration_loader)):
+            del calibration_loader[i]["attention_mask"]
+            calibration_loader[i]["labels"] = calibration_loader[i]["input_ids"]
+
+        model.config.use_cache = False
+        model.config.loss_type = "ForCausalLM"
+
     if require_fx:
         if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
             model = get_fx(model, is_export=args.export_target is not None)
@@ -298,13 +339,16 @@ def quantize_llm(args, unknown_args=None):
         model = offload_model(model)
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink, full_rotation_method=args.rotation_mode)
-        model = eq.apply(model, fuse_rotations=not args.rotation_optimize)
+        model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
         eq = LayerwiseActivationRotation()
         model = eq.apply(model)
     elif args.rotation == 'fused_no_fx':
         fused_rotation_no_fx(model, calibration_loader, args)
+    elif args.rotation == 'fused_no_fx_optimize':
+        fused_optimized_rotation_no_fx(
+            model, calibration_loader, args, fuse_rotations=False, add_additional_regions=True)
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
@@ -424,6 +468,17 @@ def quantize_llm(args, unknown_args=None):
     # We restore the original behaviour of the post-forward.
     for k, v in dict_hooks.items():
         k._hf_hook.post_forward = v
+
+    # TODO: Refactor
+    remove_hooks(model)
+
+    if args.rotation == 'fused_no_fx_optimize':
+        apply_rotation_optimization(
+            graph_model=model,
+            tokenizer=tokenizer,
+            train_dataset=calibration_loader,
+            unknown_args=unknown_args,
+        )
 
     if args.act_calibration:
         print("Apply act calibration...")
@@ -759,7 +814,7 @@ def parse_args(args, override_defaults={}):
         '--rotation',
         type=str,
         default=None,
-        choices=['fx', 'layerwise', 'fused_no_fx'],
+        choices=['fx', 'layerwise', 'fused_no_fx', 'fused_no_fx_optimize'],
         help='Apply graph rotation equalization')
     parser.add_argument(
         '--rotation-mode',
@@ -768,11 +823,6 @@ def parse_args(args, override_defaults={}):
         help=
         'If GraphRotation is enabled, decide how to compute the random rotation matrix that is fully fused. Online or partial rotation will always be Hadamard'
     )
-    # TODO: Make sure in argument validator that
-    parser.add_argument(
-        '--rotation-optimize',
-        action='store_true',
-        help='Whether to optimize the rotation matrices.')
     parser.add_argument(
         '--rotation-orphan-sink',
         action="store_true",

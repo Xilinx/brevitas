@@ -29,6 +29,7 @@ from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
+from brevitas.graph.hadamard import random_hadamard_matrix
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn.equalized_layer import EqualizedModule
@@ -341,8 +342,11 @@ def _get_input_axis(module: nn.Module) -> Optional[int]:
             return 0
         else:
             return None
+    # TODO: Remove with parametrizations
     elif isinstance(module, (UnfusedRotatedModule)):
         return _get_input_axis(module.module)
+    elif isinstance(module, (RotatedModule,)):
+        return _get_input_axis(module.layer)
     else:
         return None
 
@@ -371,8 +375,11 @@ def _get_output_axis(module: nn.Module) -> Optional[int]:
             return 0
         else:
             return None
+    # TODO: Remove with parametrizations
     elif isinstance(module, (UnfusedRotatedModule)):
         return _get_output_axis(module.module)
+    elif isinstance(module, (RotatedModule,)):
+        return _get_output_axis(module.layer)
     else:
         return None
 
@@ -1281,6 +1288,10 @@ def _apply_had_device(tensor, had_K, K):
 
 def _apply_ort_device(tensor, ort, *args):
     ort = ort.type_as(tensor)
+    if tensor.shape[-1] != ort.shape[0]:
+        tensor_shape = tensor.shape
+        return torch.matmul(tensor.view(-1, tensor_shape[-1] // ort.shape[0], ort.shape[0]),
+                            ort).view(tensor_shape)
     return torch.matmul(tensor, ort)
 
 
@@ -1313,6 +1324,7 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
         if not insert_rotation_module and not region.is_valid:
             continue
         hidden_dim = region.max_shape_sinks
+        # TODO: Include again not insert_rotation_module
         if full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
             K = None
@@ -1606,10 +1618,8 @@ class GraphRotationEqualization(RotationEqualization):
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            if fuse_rotations:
-                rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
-            else:
-                rewriters = _apply_unfused_rotate(graph_model, regions, self.full_rotation_method)
+            _apply_rotate_fn = _apply_rotate if fuse_rotations else _apply_unfused_rotate
+            rewriters = _apply_rotate_fn(graph_model, regions, self.full_rotation_method)
         if self.return_rewriters:
             return graph_model, rewriters
         else:
@@ -1702,9 +1712,253 @@ class LayerwiseActivationRotation(RotationEqualization):
         self.supported_sinks = (nn.Linear)
         self.blacklist_layers = blacklist_layer
 
-    def apply(self, model: nn.Module) -> nn.Module:
+    def apply(self, model: nn.Module, fuse_rotations: bool = True) -> nn.Module:
         regions: List[Region] = []
         self.find_module(model, regions)
         if len(regions) > 0:
-            _apply_rotate(model, regions)
+            _apply_rotate_fn = _apply_rotate if fuse_rotations else _apply_unfused_rotate
+            _apply_rotate_fn(model, regions)
         return model
+
+
+def find_missing_rotation_regions(graph_model: GraphModule,
+                                  head_dim: int,
+                                  state_impl_kwargs=None) -> List[Region]:
+    import re
+
+    regions = []
+    # Add R2 regions, this should be innermost
+    for src_name, src_module in graph_model.named_modules():
+        if "attn_v_proj" in src_name:
+            if state_impl_kwargs is not None:
+                state = WalkRegionState(**state_impl_kwargs)
+            else:
+                state = WalkRegionState()
+
+            block_number_matches_src = re.findall(r'\d+', src_name)
+            assert len(block_number_matches_src) == 2, "Could not identify block"
+            block_number_src = int(block_number_matches_src[1])
+
+            eq_indexes = EqualizationIndexes(0, head_dim, 0)
+            state.add_srcs(src_name, src_module, eq_indexes)
+
+            # Now the corresponding sink
+            for sink_name, sink_module in graph_model.named_modules():
+                if "attn_o_proj" in sink_name:
+                    block_number_matches_sink = re.findall(r'\d+', sink_name)
+                    assert len(block_number_matches_sink) == 2, "Could not identify block"
+                    block_number_sink = int(block_number_matches_sink[1])
+                    # If the blocks match, we identified the region
+                    if block_number_src == block_number_sink:
+                        eq_indexes = EqualizationIndexes(0, head_dim, state.offset)
+                        state.add_sinks(sink_name, sink_module, eq_indexes)
+            # Instantiate region and add to list
+            region = Region(
+                srcs=dict(sorted(state.srcs.items())),
+                sinks=dict(sorted(state.sinks.items())),
+                name_to_module=state.name_to_module,
+            )
+            if region not in regions:
+                regions.append(region)
+
+    return regions
+
+
+def _apply_rotate_fused_rotations(
+        model: nn.Module,
+        regions: List[Region],
+        full_rotation_method: str = 'had',
+        fuse_rotations: bool = True):
+    rewriters = []
+    # Dictionary to append the unfused rotated modules for optimization
+    unfused_rotated_modules = defaultdict(list)
+    # Dictionary to keep track of the modules that are assigned to a RotatedModule
+    fused_rotated_modules = {}
+    # List to keep track of the rotation matrices added to the
+    rotation_matrices = []
+
+    for region in regions:
+        insert_rotation_module = len(region.srcs) == 0
+
+        if not insert_rotation_module and not region.is_valid:
+            continue
+        hidden_dim = region.max_shape_sinks
+        if not insert_rotation_module and full_rotation_method == 'ort':
+            rot_mat = random_orthogonal_matrix(
+                hidden_dim) if fuse_rotations else torch.nn.Parameter(
+                    random_orthogonal_matrix(hidden_dim))
+            K = None
+            rot_func = _apply_ort_device
+            # Store rotation matrix for optimization
+            rotation_matrices.append(rot_mat)
+        elif not insert_rotation_module and not fuse_rotations:
+            # TODO: Make it more general
+            rot_mat = torch.nn.Parameter(random_hadamard_matrix(hidden_dim, torch.device('cpu')))
+            K = None
+            rot_func = _apply_ort_device
+            # Store rotation matrix for optimization
+            rotation_matrices.append(rot_mat)
+        else:
+            try:
+                # Build hadamard rotation matrix
+                rot_mat, K = get_hadK(hidden_dim)
+                rot_func = _apply_had_device
+            except AssertionError as e:
+                print(f"Incomptible shapes {hidden_dim}")
+                if not insert_rotation_module:
+                    print("Falling back to orthogonal matrices")
+                    rot_mat = random_orthogonal_matrix(hidden_dim)
+                    K = None
+                    rot_func = _apply_ort_device
+                print("Skipping layers")
+                continue
+
+        for name, indexes in region.srcs.items():
+            module = region.get_module_from_name(name)
+
+            if not insert_rotation_module and fuse_rotations:
+                if hasattr(module, 'allocate_params'):
+                    module.allocate_params(module)
+
+                axis = _get_output_axis(module)
+                weight = module.weight.data
+
+                if axis == 0:
+                    weight = rot_func(weight.t(), rot_mat, K).t()
+                elif axis == 1:
+                    weight = rot_func(weight, rot_mat, K)
+                else:
+                    raise RuntimeError("Not supported yet")
+                module.weight.data = weight
+
+                if getattr(module, 'bias', None) is not None:
+                    bias = module.bias.data
+                    bias = rot_func(bias, rot_mat, K)
+                    module.bias.data = bias
+
+                if hasattr(module, 'offload_params'):
+                    module.offload_params(module)
+            else:
+                unfused_rotated_modules[module].append(
+                    UnfusedRotation(
+                        rot_mat=rot_mat,
+                        is_sink=False,
+                        is_source=True,
+                        is_orphan=False,
+                    ))
+
+        for name, indexes in region.sinks.items():
+            module = region.get_module_from_name(name)
+
+            if not insert_rotation_module and not fuse_rotations:
+                unfused_rotated_modules[module].append(
+                    UnfusedRotation(
+                        rot_mat=rot_mat,
+                        is_sink=True,
+                        is_source=False,
+                        is_orphan=False,
+                    ))
+            else:
+                if hasattr(module, 'allocate_params'):
+                    module.allocate_params(module)
+
+                axis = _get_input_axis(module)
+                weight = module.weight.data
+
+                if axis == 1:
+                    _update_weights(module, rot_func(weight, rot_mat, K), 'weight')
+                elif axis == 0:
+                    _update_weights(module, rot_func(weight.t(), rot_mat, K).t(), 'weight')
+                else:
+                    raise RuntimeError("Not supported yet")
+
+                if hasattr(module, 'offload_params'):
+                    module.offload_params(module)
+
+            if insert_rotation_module:
+                if module not in fused_rotated_modules:
+                    fused_rotated_modules[module] = RotatedModule(
+                        had_mat=rot_mat, k=K, layer=module)
+                else:
+                    raise RuntimeError(
+                        "Only one RotatedModule at most can be assigned to a module.")
+    # For this to work, we need to have the following hierarchy UnfusedRotatedModule -> (RotatedModule) -> Linear
+    for module, rotation_modules in unfused_rotated_modules.items():
+        # Verify that at most one RotatedModule is available
+        rotation_module = module if module not in fused_rotated_modules else fused_rotated_modules[
+            module]
+        for rotation_module_dataclass in rotation_modules:
+            rotation_module = UnfusedRotatedModule(
+                module=rotation_module,
+                rot_func=rot_func,
+                rot_mat=rotation_module_dataclass.rot_mat,
+                _get_input_axis=_get_input_axis,
+                _get_output_axis=_get_output_axis,
+                is_source=rotation_module_dataclass.is_source,
+                is_sink=rotation_module_dataclass.is_sink,
+                is_orphan=rotation_module_dataclass.is_orphan,
+            )
+        # Instantiate rewriters
+        rewriter = ModuleInstanceToModuleInstance(module, rotation_module)
+        rewriters.append(rewriter)
+    # Add missing RotatedModules, in case there are any
+    for module, rotation_module in fused_rotated_modules.items():
+        if module not in unfused_rotated_modules:
+            rewriter = ModuleInstanceToModuleInstance(module, rotation_module)
+            rewriters.append(rewriter)
+    for r in rewriters:
+        model = r.apply(model)
+    return rewriters, rotation_matrices
+
+
+class GraphRotationEqualizationOptimization(GraphRotationEqualization):
+
+    def __init__(
+        self,
+        blacklist_layers: Optional[List[str]] = None,
+        orphan_sink: bool = False,
+        rotate_matmul: bool = False,
+        full_rotation_method: str = 'had',
+    ) -> None:
+        super(GraphRotationEqualizationOptimization, self).__init__(
+            blacklist_layers=blacklist_layers,
+            orphan_sink=orphan_sink,
+            rotate_matmul=rotate_matmul,
+            full_rotation_method=full_rotation_method,
+            return_rewriters=True,
+        )
+
+    def apply(
+        self,
+        graph_model: GraphModule,
+        fuse_rotations: bool = True,
+        additional_regions: Optional[List] = None
+    ) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
+        rewriters = []
+        regions = _extract_regions(
+            graph_model,
+            state_impl_kwargs={
+                'supported_srcs': self.supported_srcs,
+                'supported_sinks': self.supported_sinks,
+                'scale_invariant_layers': self.scale_invariant_layers,
+                'scale_invariant_function': self.scale_invariant_function})
+        if additional_regions is not None:
+            regions.extend(additional_regions)
+        eq_layers = set()
+        orphan_regions = []
+        self.find_module(graph_model, orphan_regions)
+        for r in regions:
+            id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
+            eq_layers.update(id_list)
+        if self.orphan_sink:
+            for o_r in orphan_regions:
+                # Layerwise have only a single sink named 'sinks0'
+                id_sink = id(o_r.get_module_from_name('sinks0'))
+                if id_sink not in eq_layers:
+                    # TODO: Change data structure to insert in the beginning with O(1)
+                    regions = [o_r] + regions
+        if self.rotate_matmul:
+            self.rotate_matmuls(graph_model)
+        if len(regions) > 0:
+            rewriters, rotation_matrices = _apply_rotate_fused_rotations(graph_model, regions, self.full_rotation_method, fuse_rotations)
+        return graph_model, rewriters, rotation_matrices

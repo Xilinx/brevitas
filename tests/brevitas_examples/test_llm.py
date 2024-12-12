@@ -131,7 +131,7 @@ def small_models_with_ppl(request):
 
 @pytest_cases.fixture()
 def default_run_args(request):
-    args = UpdatableNamespace(**vars(parse_args([])))
+    args = UpdatableNamespace(**vars(parse_args([])[0]))
     args.nsamples = 2
     args.seqlen = 2
     args.model = "hf-internal-testing/tiny-random-MistralForCausalLM"

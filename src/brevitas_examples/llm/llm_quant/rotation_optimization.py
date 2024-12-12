@@ -38,6 +38,7 @@ class ModelArguments:
 class TrainingArguments(transformers.TrainingArguments):
     cache_dir: Optional[str] = field(default=None)
     output_dir: Optional[str] = field(default="/tmp/output/")
+    use_cpu: Optional[bool] = field(default="False")
     model_max_length: Optional[int] = field(
         default=2048,
         metadata={
@@ -55,6 +56,25 @@ def parse_optimization_rotation_args(unknown_args=None) -> None:
     return training_args
 
 
+def collate_fn(kwargs_list, return_tensors="pt"):
+    # Keyword arguments
+    kwargs = {}
+    for curr_dict in kwargs_list:
+        for key, value in curr_dict.items():
+            if isinstance(value, torch.Tensor):
+                if key not in kwargs:
+                    kwargs[key] = []
+                kwargs[key].append(value)
+            else:
+                if key not in kwargs:
+                    kwargs[key] = value
+    for key, value in kwargs.items():
+        if isinstance(value, list) and len(value) > 0:
+            kwargs[key] = torch.cat(kwargs[key], dim=0)
+    # FP outputs
+    return kwargs
+
+
 def apply_rotation_optimization(
         graph_model: torch.fx.GraphModule,
         tokenizer: PreTrainedTokenizerBase,
@@ -62,12 +82,20 @@ def apply_rotation_optimization(
         unknown_args=None) -> None:
     # Get training arguments
     training_args = parse_optimization_rotation_args(unknown_args)
+    # Set to False the model parameters
+    for param in graph_model.parameters():
+        param.requires_grad = False
     # Collect trainable matrices
     trainable_parameters = []
+    ids_rot = set()
     for module in graph_model.modules():
         if isinstance(module, UnfusedRotatedModule):
-            if not module.is_sink:
+            if id(module.rot_mat) not in ids_rot:
+                ids_rot.add(id(module.rot_mat))
                 trainable_parameters.append(module.rot_mat)
+    # Collect parameters for the rotation matrices
+    for rot_mat in trainable_parameters:
+        rot_mat.requires_grad = True
     # Initialize optimizer
     optimizer = SGDG(trainable_parameters, lr=training_args.learning_rate, stiefel=True)
     trainer = Trainer(
@@ -76,6 +104,6 @@ def apply_rotation_optimization(
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
-        data_collator=default_data_collator,
+        data_collator=collate_fn,
         optimizers=(optimizer, None))
     trainer.train()
