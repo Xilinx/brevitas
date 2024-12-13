@@ -6,6 +6,8 @@ import torch.nn as nn
 
 from brevitas.export.inference.handler import FloatInferencetHandler
 from brevitas.export.inference.handler import FloatWeightInferencetHandler
+from brevitas.export.inference.handler import GroupwiseIntInferenceHandler
+from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
 from brevitas.export.inference.handler import IntInferencetHandler
 from brevitas.export.inference.handler import IntWeightInferencetHandler
 from brevitas.export.manager import _set_proxy_export_handler
@@ -93,7 +95,9 @@ class InferenceManager(BaseManager):
         IntInferencetHandler,
         FloatInferencetHandler,
         IntWeightInferencetHandler,
-        FloatWeightInferencetHandler]
+        FloatWeightInferencetHandler,
+        GroupwiseIntInferenceHandler,
+        GroupwiseIntWeightInferenceHandler]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):

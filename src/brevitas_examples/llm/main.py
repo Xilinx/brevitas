@@ -14,6 +14,7 @@ from transformers import AutoTokenizer
 from transformers.utils.fx import _SUPPORTED_MODELS
 
 from brevitas.export import export_torch_qcdq
+from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
@@ -421,8 +422,10 @@ def main(args):
 
     if args.eval and not args.no_quantize:
         print("Model eval...")
-        quant_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        with torch.no_grad(), quant_inference_mode(model):
+            model(**calibration_loader[0])
+            quant_ppl = compute_perplexity(
+                model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
     remove_hooks(model)
 
