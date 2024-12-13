@@ -87,7 +87,6 @@ def apply_rotation_optimization(
     trainable_rotations = extract_trainable_rotation_matrices(graph_model)
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
-    # Initialize optimizer
     optimizer = SGDG(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
     trainer = Trainer(
         model=graph_model,

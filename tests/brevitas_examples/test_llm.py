@@ -34,7 +34,7 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.rotation_utils import extract_trainable_rotation_matrices
 from brevitas_examples.llm.llm_quant.rotation_utils import fuse_rotations
-from brevitas_examples.llm.main import fused_optimized_rotation_no_fx
+from brevitas_examples.llm.main import fused_rotation_no_fx
 
 from tests.conftest import SEED
 from tests.marker import jit_disabled_for_export
@@ -853,37 +853,41 @@ def test_small_models_rotations(
     # Save a copy to apply graph rotation equalization on
     model_copy = copy.deepcopy(model)
 
-    with patch('brevitas.graph.equalize.random_orthogonal_matrix',
-               partial(_random_orthogonal_matrix, generator=generator)):
-        fused_optimized_rotation_no_fx(
-            model,
-            calibration_loader,
-            args,
-            fuse_rotations=True,
-            add_additional_regions=add_additional_regions)
+    # offload_model is patched to behave as an identity, thus making sure that the operations
+    # are deterministic, enabling to test that the tensors match exactly.
+    with patch('brevitas_examples.llm.main.offload_model', lambda m: m):
+        with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+                   partial(_random_orthogonal_matrix, generator=generator)):
+            fused_rotation_no_fx(
+                model,
+                calibration_loader,
+                args,
+                fuse_rotations=True,
+                add_self_attention_regions=add_additional_regions)
 
     # Run model and save outputs
     with torch.no_grad():
         expected_logits = model(**calibration_loader[0]).logits
 
     # Instead of random orthogonal matrices, we want to use the same ones as when the activations are not fused.
-    if rotation_mode == 'had':
-        with patch('brevitas.graph.equalize._apply_ort_device', _apply_had_device):
-            fused_optimized_rotation_no_fx(
-                model_copy,
-                calibration_loader,
-                args,
-                fuse_rotations=False,
-                add_additional_regions=add_additional_regions)
-    else:
-        with patch('brevitas.graph.equalize.random_orthogonal_matrix',
-                   partial(_random_orthogonal_matrix, generator=generator_clone)):
-            fused_optimized_rotation_no_fx(
-                model_copy,
-                calibration_loader,
-                args,
-                fuse_rotations=False,
-                add_additional_regions=add_additional_regions)
+    with patch('brevitas_examples.llm.main.offload_model', lambda m: m):
+        if rotation_mode == 'had':
+            with patch('brevitas.graph.equalize._apply_ort_device', _apply_had_device):
+                fused_rotation_no_fx(
+                    model_copy,
+                    calibration_loader,
+                    args,
+                    fuse_rotations=False,
+                    add_self_attention_regions=add_additional_regions)
+        else:
+            with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+                       partial(_random_orthogonal_matrix, generator=generator_clone)):
+                fused_rotation_no_fx(
+                    model_copy,
+                    calibration_loader,
+                    args,
+                    fuse_rotations=False,
+                    add_self_attention_regions=add_additional_regions)
 
     # Fuse matrices with module weights
     if fused_rotations:
