@@ -118,7 +118,7 @@ def fused_optimized_rotation_no_fx(
         r.apply(model)
     #new_model = offload_model(new_model)
 
-    # Regions with source o_proj and sink down_proj
+    # Regions with source v_proj and sink o_proj
     self_attention_regions = find_self_attention_rotation_regions(
         new_model, model.config.hidden_size //
         model.config.num_attention_heads) if add_additional_regions else None
