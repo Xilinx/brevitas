@@ -374,6 +374,7 @@ def main(args):
 
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
+
     model = offload_model(model)
 
     with torch.no_grad():
