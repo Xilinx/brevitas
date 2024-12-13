@@ -538,7 +538,6 @@ class MSEAsymmetricScale(ExtendedInjector):
 
     mse_scale = MSEAsymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
-    scaling_stats_input_view_shape_impl = nn.Identity()
 
     @value
     def inner_stats_input_view_shape_impl(scaling_per_output):
@@ -561,7 +560,6 @@ class MSESymmetricScale(ExtendedInjector):
 
     mse_scale = MSESymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
-    scaling_stats_input_view_shape_impl = nn.Identity()
 
     @value
     def inner_stats_input_view_shape_impl(scaling_per_output):
@@ -583,7 +581,6 @@ class MSEZeroPoint(ExtendedInjector):
     """
 
     mse_zero_point = MSEZeroPointSubInjector
-    zero_point_stats_input_view_shape_impl = nn.Identity()
 
     @value
     def inner_stats_input_view_shape_impl(scaling_per_output):

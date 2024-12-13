@@ -13,6 +13,7 @@ from brevitas.function.ops import min_int
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBase
+from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector

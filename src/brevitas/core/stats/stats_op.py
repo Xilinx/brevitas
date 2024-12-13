@@ -501,6 +501,7 @@ class MSE(torch.nn.Module):
         self.set_observer_mode(False)
         quant_value = self.proxy_forward(x)
         quant_value = _unpack_quant_tensor(quant_value)
+        quant_value = quant_value.view(x.shape)
         loss = self.mse_loss_fn(x, quant_value)
         self.set_local_loss_mode(False)
         self.restore_observer_mode()
