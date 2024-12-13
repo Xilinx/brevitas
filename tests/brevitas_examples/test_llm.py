@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
+import copy
 from dataclasses import dataclass
+from functools import partial
+from itertools import product
 import logging
 import os
 import platform
 import shutil
+from unittest.mock import patch
 
 import numpy as np
 import onnx
@@ -14,14 +18,29 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
-import transformers
+from torch import nn
+from transformers import AutoModelForCausalLM
+from transformers import AutoTokenizer
 
 from brevitas import config
 from brevitas import torch_version
-from brevitas_examples.llm.main import parse_args
+# LLM example depends on optimum-amd, which requires PyTorch>=2.2
 from brevitas_examples.llm.main import quantize_llm
+from brevitas_examples.llm.main import parse_args
+
+from brevitas.graph.equalize import _apply_had_device
+from brevitas.nn.equalized_layer import RotatedModule
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
+from brevitas_examples.llm.llm_quant.rotation_utils import extract_trainable_rotation_matrices
+from brevitas_examples.llm.llm_quant.rotation_utils import fuse_rotations
+from brevitas_examples.llm.main import fused_optimized_rotation_no_fx
+
+from tests.conftest import SEED
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
+
+ATOL = 1e-3
 
 
 def ptid2pathname(string):
@@ -723,3 +742,187 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     quant_ppl = quant_ppl.detach().cpu().numpy()
     assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+
+
+# Adapted from https://github.com/facebookresearch/SpinQuant/blob/main/eval_utils/rotation_utils.py#L26
+# This functions needs to be patches to enable passing the generator and ensuring that the orthogonal
+# matrices generated are the same.
+def _random_orthogonal_matrix(size, generator):
+    """
+    Generate a random orthogonal matrix of the specified size.
+    First, we generate a random matrix with entries from a standard distribution.
+    Then, we use QR decomposition to obtain an orthogonal matrix.
+    Finally, we multiply by a diagonal matrix with diag r to adjust the signs.
+
+    Args:
+    size (int): The size of the matrix (size x size).
+
+    Returns:
+    torch.Tensor: An orthogonal matrix of the specified size.
+    """
+    torch.cuda.empty_cache()
+    random_matrix = torch.randn(size, size, dtype=torch.float64, generator=generator)
+    q, r = torch.linalg.qr(random_matrix)
+    q *= torch.sign(torch.diag(r)).unsqueeze(0).float()
+    return q
+
+
+@pytest_cases.fixture(
+    ids=[
+        "llama",],
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "input_bit_width": None,
+            "fuse_sequences": False,
+            "act_calibration": False,},])
+def equalize_args(default_run_args, request):
+    args = default_run_args
+    export_dict = request.param
+    args.update(**export_dict)
+    yield args
+
+
+# Auxiliar method to compare the weights in rotated modules.
+def _compare_fused_unfused_rotation_modules(module_name, fused_rot_module, unfused_rot_module):
+    fused_weight = fused_rot_module.weight if isinstance(
+        fused_rot_module, nn.Linear) else fused_rot_module.layer.weight
+    fused_bias = fused_rot_module.bias if isinstance(
+        fused_rot_module, nn.Linear) else fused_rot_module.layer.bias
+    unfused_weight = unfused_rot_module.weight if isinstance(
+        unfused_rot_module, nn.Linear) else unfused_rot_module.layer.weight
+    unfused_bias = unfused_rot_module.bias if isinstance(
+        unfused_rot_module, nn.Linear) else unfused_rot_module.layer.bias
+    assert torch.allclose(fused_weight, unfused_weight, rtol=0.0, atol=0.0), f"The weights after rotation do not match for module {module_name}."
+    if fused_bias is not None:
+        assert torch.allclose(fused_bias, unfused_bias, rtol=0.0, atol=0.0), f"The bias after rotation do not match for module {module_name}."
+        # In case a RotatedModule is found, additional checks need to be done.
+        if isinstance(fused_rot_module, RotatedModule):
+            assert isinstance(unfused_rot_module, RotatedModule), f"Expected an instance of RotatedModule for module {module_name}."
+            assert torch.allclose(fused_rot_module.had_mat, unfused_rot_module.had_mat, rtol=0.0, atol=0.0), f"The rotation matrices of RotatedModule {module_name} do not match."
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.4')
+@pytest_cases.parametrize(
+    'partial_had, fused_rotations, add_additional_regions',
+    list(product([False, True], repeat=3)),
+    ids=[("fused-R1" if fused_rotations else "R1") + ("-R2" if add_additional_regions else "") +
+         ("-R3" if partial_had else "") for partial_had,
+         fused_rotations,
+         add_additional_regions in list(product([False, True], repeat=3))],
+)
+@pytest_cases.parametrize('rotation_mode', ['ort', 'had'])
+def test_small_models_rotations(
+        caplog, partial_had, fused_rotations, add_additional_regions, rotation_mode, equalize_args):
+    caplog.set_level(logging.INFO)
+    args = equalize_args
+    args.rotation_orphan_sink = partial_had
+    args.rotation_mode = rotation_mode
+
+    kwargs = {"torch_dtype": torch.float16}
+    model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
+    model = replace_rmsnorm_with_torch(model, model.config)
+    model.config.use_cache = False
+    print("Model loaded.")
+    model.eval()
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    # Load the data for calibration and evaluation.
+    calibration_loader = get_dataset_for_model(
+        args.model,
+        dataset_name=args.dataset,
+        tokenizer=tokenizer,
+        nsamples=args.nsamples,
+        seqlen=args.seqlen,
+        split="train",
+        seed=args.seed,
+        require_fx=False,
+        device=None,
+        fuse_sequences=args.fuse_sequences)
+
+    # We need to make sure that the same random matrices are being generated
+    generator = torch.Generator()
+    generator.manual_seed(SEED)
+    # Clone generator to make sure we can use the same rotation matrices
+    generator_clone = generator.clone_state()
+
+    # Run model and save outputs
+    with torch.no_grad():
+        original_logits = model(**calibration_loader[0]).logits
+
+    # Save a copy to apply graph rotation equalization on
+    model_copy = copy.deepcopy(model)
+
+    with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+               partial(_random_orthogonal_matrix, generator=generator)):
+        fused_optimized_rotation_no_fx(
+            model,
+            calibration_loader,
+            args,
+            fuse_rotations=True,
+            add_additional_regions=add_additional_regions)
+
+    # Run model and save outputs
+    with torch.no_grad():
+        expected_logits = model(**calibration_loader[0]).logits
+
+    # Instead of random orthogonal matrices, we want to use the same ones as when the activations are not fused.
+    if rotation_mode == 'had':
+        with patch('brevitas.graph.equalize._apply_ort_device', _apply_had_device):
+            fused_optimized_rotation_no_fx(
+                model_copy,
+                calibration_loader,
+                args,
+                fuse_rotations=False,
+                add_additional_regions=add_additional_regions)
+    else:
+        with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+                   partial(_random_orthogonal_matrix, generator=generator_clone)):
+            fused_optimized_rotation_no_fx(
+                model_copy,
+                calibration_loader,
+                args,
+                fuse_rotations=False,
+                add_additional_regions=add_additional_regions)
+
+    # Fuse matrices with module weights
+    if fused_rotations:
+        fuse_rotations(model_copy)
+
+    # Run model and save outputs
+    with torch.no_grad():
+        logits = model_copy(**calibration_loader[0]).logits
+
+    # Verify that the rotated module output is similar to the original FP
+    assert torch.allclose(original_logits, logits, atol=ATOL), "Output of rotated network does not approximately match that of the original network."
+    # Verify that the output is the same
+    assert torch.allclose(expected_logits, logits, atol=0.0, rtol=0.0), "Outputs of fused/unfused rotated networks do not match exactly."
+
+    num_rotation_matrices = len(extract_trainable_rotation_matrices(model_copy))
+
+    num_rotated_modules = 0
+    # Count the number of RotatedModules
+    for module in model_copy.modules():
+        if isinstance(module, RotatedModule):
+            num_rotated_modules += 1
+
+    # Verify that the number of learnable rotation matrices is the expected (R1 + one R2 per block)
+    expected_number_rotation_matrices = 0 if fused_rotations else (
+        1 + (model.config.num_hidden_layers if add_additional_regions else 0))
+    assert num_rotation_matrices == expected_number_rotation_matrices, f"Expected {expected_number_rotation_matrices} learnable rotations, found {num_rotation_matrices}."
+
+    # Verify that the number of rotated modules is correct
+    expected_number_rotated_modules = 0 if not partial_had else (
+        model.config.num_hidden_layers if add_additional_regions else 2 *
+        model.config.num_hidden_layers)
+    assert num_rotated_modules == expected_number_rotated_modules, f"Expected {expected_number_rotated_modules} RotatedModules found {num_rotated_modules}."
+
+    # Verify that the weights after fusing match
+    for name_fused_module, fused_module in model.named_modules():
+        # For linear modules verify that the weights match
+        if isinstance(fused_module, (nn.Linear, RotatedModule)):
+            for name_unfused_Module, unfused_module in model_copy.named_modules():
+                if name_fused_module == name_unfused_Module:
+                    # Verify that everything matches between the fused and unfused rotation modules
+                    _compare_fused_unfused_rotation_modules(
+                        name_fused_module, fused_module, unfused_module)

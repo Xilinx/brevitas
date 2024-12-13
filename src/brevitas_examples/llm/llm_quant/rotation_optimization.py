@@ -9,14 +9,12 @@ from typing import Optional, Tuple
 
 import torch
 from torch.utils.data import Dataset
-from tqdm import tqdm
 import transformers
-from transformers import default_data_collator
 from transformers import Trainer
 from transformers.tokenization_utils import PreTrainedTokenizerBase
 
-from brevitas.nn.equalized_layer import UnfusedRotatedModule
 from brevitas.optim.sgdg import SGDG
+from brevitas_examples.llm.llm_quant.rotation_utils import extract_trainable_rotation_matrices
 
 
 @dataclass
@@ -86,18 +84,11 @@ def apply_rotation_optimization(
     for param in graph_model.parameters():
         param.requires_grad = False
     # Collect trainable matrices
-    trainable_parameters = []
-    ids_rot = set()
-    for module in graph_model.modules():
-        if isinstance(module, UnfusedRotatedModule):
-            if id(module.rot_mat) not in ids_rot:
-                ids_rot.add(id(module.rot_mat))
-                trainable_parameters.append(module.rot_mat)
-    # Collect parameters for the rotation matrices
-    for rot_mat in trainable_parameters:
+    trainable_rotations = extract_trainable_rotation_matrices(graph_model)
+    for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
     # Initialize optimizer
-    optimizer = SGDG(trainable_parameters, lr=training_args.learning_rate, stiefel=True)
+    optimizer = SGDG(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
     trainer = Trainer(
         model=graph_model,
         tokenizer=tokenizer,

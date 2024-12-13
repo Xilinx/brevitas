@@ -16,6 +16,7 @@ import packaging.version
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+import torch.nn.utils.parametrize as parametrize
 
 from brevitas import torch_version
 from brevitas.fx import GraphModule
@@ -36,7 +37,8 @@ from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
-from brevitas.nn.equalized_layer import UnfusedRotatedModule
+from brevitas.nn.equalized_layer import RotationBiasParametrization
+from brevitas.nn.equalized_layer import RotationWeightParametrization
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.utils.torch_utils import KwargsForwardHook
 
@@ -342,9 +344,6 @@ def _get_input_axis(module: nn.Module) -> Optional[int]:
             return 0
         else:
             return None
-    # TODO: Remove with parametrizations
-    elif isinstance(module, (UnfusedRotatedModule)):
-        return _get_input_axis(module.module)
     elif isinstance(module, (RotatedModule,)):
         return _get_input_axis(module.layer)
     else:
@@ -375,9 +374,6 @@ def _get_output_axis(module: nn.Module) -> Optional[int]:
             return 0
         else:
             return None
-    # TODO: Remove with parametrizations
-    elif isinstance(module, (UnfusedRotatedModule)):
-        return _get_output_axis(module.module)
     elif isinstance(module, (RotatedModule,)):
         return _get_output_axis(module.layer)
     else:
@@ -1324,8 +1320,7 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
         if not insert_rotation_module and not region.is_valid:
             continue
         hidden_dim = region.max_shape_sinks
-        # TODO: Include again not insert_rotation_module
-        if full_rotation_method == 'ort':
+        if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
             K = None
             rot_func = _apply_ort_device
@@ -1387,116 +1382,6 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 rewriter = ModuleInstanceToModuleInstance(
                     module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
                 rewriters.append(rewriter)
-    for r in rewriters:
-        model = r.apply(model)
-    return rewriters
-
-
-def _fuse_rotations(model: nn.Module):
-    rewriters = []
-
-    def _fuse_rotations_aux(module: nn.Module):
-        if isinstance(module, UnfusedRotatedModule):
-            unrotated_module = module.unrotated_module
-            rot_weight = module.weight.data
-
-            # Fuse rotations with weights
-            unrotated_module.weight.data = rot_weight
-            # Fuse rotations with bias if existent
-            if module.bias is not None:
-                rot_bias = module.bias.data
-                unrotated_module.bias.data = rot_bias
-
-            # Use rotated module if orphan
-            if module.is_orphan:
-                rewriter = ModuleInstanceToModuleInstance(
-                    module, RotatedModule(had_mat=module.rot_mat, k=None, layer=unrotated_module))
-            else:
-                rewriter = ModuleInstanceToModuleInstance(module, unrotated_module)
-            # Save rewriter
-            rewriters.append(rewriter)
-        else:
-            for child_module in module.children():
-                _fuse_rotations_aux(child_module)
-
-    # Populate rewriters
-    _fuse_rotations_aux(model)
-    # Apply rewriter to fuse the weights
-    for r in rewriters:
-        model = r.apply(model)
-
-
-@dataclass
-class UnfusedRotation:
-    rot_mat: torch.Tensor
-    is_sink: bool
-    is_source: bool
-    is_orphan: bool
-
-
-def _apply_unfused_rotate(model: nn.Module, regions: List[Region], full_rotation_method='ort'):
-    rewriters = []
-    fused_rotated_modules = defaultdict(list)
-    rot_func = _apply_ort_device
-
-    for region in regions:
-        insert_rotation_module = len(region.srcs) == 0
-
-        if not insert_rotation_module and not region.is_valid:
-            continue
-        hidden_dim = region.max_shape_sinks
-
-        rot_mat = random_orthogonal_matrix(hidden_dim)
-
-        for name, indexes in region.srcs.items():
-            module = region.get_module_from_name(name)
-
-            fused_rotated_modules[module].append(
-                UnfusedRotation(
-                    rot_mat=rot_mat,
-                    is_sink=False,
-                    is_source=True,
-                    is_orphan=False,
-                ))
-
-        for name, indexes in region.sinks.items():
-            module = region.get_module_from_name(name)
-
-            if insert_rotation_module and len(region.srcs) == 0:
-                fused_rotated_modules[module].append(
-                    UnfusedRotation(
-                        rot_mat=rot_mat,
-                        is_sink=False,
-                        is_source=False,
-                        is_orphan=True,
-                    ))
-            else:
-                fused_rotated_modules[module].append(
-                    UnfusedRotation(
-                        rot_mat=rot_mat,
-                        is_sink=True,
-                        is_source=False,
-                        is_orphan=False,
-                    ))
-
-    for module, rotation_modules in fused_rotated_modules.items():
-        rotation_module = module
-        for rotation_module_dataclass in rotation_modules:
-            rotation_module = UnfusedRotatedModule(
-                module=rotation_module,
-                rot_func=rot_func,
-                rot_mat=rotation_module_dataclass.rot_mat,
-                _get_input_axis=_get_input_axis,
-                _get_output_axis=_get_output_axis,
-                is_source=rotation_module_dataclass.is_source,
-                is_sink=rotation_module_dataclass.is_sink,
-                is_orphan=rotation_module_dataclass.is_orphan,
-            )
-        rewriter = ModuleInstanceToModuleInstance(
-            module,
-            rotation_module,
-        )
-        rewriters.append(rewriter)
     for r in rewriters:
         model = r.apply(model)
     return rewriters
@@ -1591,10 +1476,8 @@ class GraphRotationEqualization(RotationEqualization):
             graph_module.recompile()
             graph_module.graph.lint()
 
-    def apply(
-            self,
-            graph_model: GraphModule,
-            fuse_rotations: bool = True) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
+    def apply(self,
+              graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
         regions = _extract_regions(
             graph_model,
@@ -1618,8 +1501,7 @@ class GraphRotationEqualization(RotationEqualization):
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            _apply_rotate_fn = _apply_rotate if fuse_rotations else _apply_unfused_rotate
-            rewriters = _apply_rotate_fn(graph_model, regions, self.full_rotation_method)
+            rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
         if self.return_rewriters:
             return graph_model, rewriters
         else:
@@ -1716,67 +1598,16 @@ class LayerwiseActivationRotation(RotationEqualization):
         regions: List[Region] = []
         self.find_module(model, regions)
         if len(regions) > 0:
-            _apply_rotate_fn = _apply_rotate if fuse_rotations else _apply_unfused_rotate
-            _apply_rotate_fn(model, regions)
+            _apply_rotate(model, regions)
         return model
-
-
-def find_missing_rotation_regions(graph_model: GraphModule,
-                                  head_dim: int,
-                                  state_impl_kwargs=None) -> List[Region]:
-    import re
-
-    regions = []
-    # Add R2 regions, this should be innermost
-    for src_name, src_module in graph_model.named_modules():
-        if "attn_v_proj" in src_name:
-            if state_impl_kwargs is not None:
-                state = WalkRegionState(**state_impl_kwargs)
-            else:
-                state = WalkRegionState()
-
-            block_number_matches_src = re.findall(r'\d+', src_name)
-            assert len(block_number_matches_src) == 2, "Could not identify block"
-            block_number_src = int(block_number_matches_src[1])
-
-            eq_indexes = EqualizationIndexes(0, head_dim, 0)
-            state.add_srcs(src_name, src_module, eq_indexes)
-
-            # Now the corresponding sink
-            for sink_name, sink_module in graph_model.named_modules():
-                if "attn_o_proj" in sink_name:
-                    block_number_matches_sink = re.findall(r'\d+', sink_name)
-                    assert len(block_number_matches_sink) == 2, "Could not identify block"
-                    block_number_sink = int(block_number_matches_sink[1])
-                    # If the blocks match, we identified the region
-                    if block_number_src == block_number_sink:
-                        eq_indexes = EqualizationIndexes(0, head_dim, state.offset)
-                        state.add_sinks(sink_name, sink_module, eq_indexes)
-            # Instantiate region and add to list
-            region = Region(
-                srcs=dict(sorted(state.srcs.items())),
-                sinks=dict(sorted(state.sinks.items())),
-                name_to_module=state.name_to_module,
-            )
-            if region not in regions:
-                regions.append(region)
-
-    return regions
 
 
 def _apply_rotate_fused_rotations(
         model: nn.Module,
         regions: List[Region],
-        full_rotation_method: str = 'had',
+        full_rotation_method='had',
         fuse_rotations: bool = True):
     rewriters = []
-    # Dictionary to append the unfused rotated modules for optimization
-    unfused_rotated_modules = defaultdict(list)
-    # Dictionary to keep track of the modules that are assigned to a RotatedModule
-    fused_rotated_modules = {}
-    # List to keep track of the rotation matrices added to the
-    rotation_matrices = []
-
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
@@ -1784,20 +1615,18 @@ def _apply_rotate_fused_rotations(
             continue
         hidden_dim = region.max_shape_sinks
         if not insert_rotation_module and full_rotation_method == 'ort':
-            rot_mat = random_orthogonal_matrix(
-                hidden_dim) if fuse_rotations else torch.nn.Parameter(
-                    random_orthogonal_matrix(hidden_dim))
+            rot_mat = random_orthogonal_matrix(hidden_dim)
+            # If the rotations are not fused, redefine as parameter
+            if not fuse_rotations:
+                rot_mat = torch.nn.Parameter(rot_mat)
             K = None
             rot_func = _apply_ort_device
-            # Store rotation matrix for optimization
-            rotation_matrices.append(rot_mat)
         elif not insert_rotation_module and not fuse_rotations:
-            # TODO: Make it more general
-            rot_mat = torch.nn.Parameter(random_hadamard_matrix(hidden_dim, torch.device('cpu')))
+            # TODO: Generalize
+            device = next(model.parameters()).device
+            rot_mat = torch.nn.Parameter(random_hadamard_matrix(hidden_dim, device))
             K = None
             rot_func = _apply_ort_device
-            # Store rotation matrix for optimization
-            rotation_matrices.append(rot_mat)
         else:
             try:
                 # Build hadamard rotation matrix
@@ -1815,12 +1644,17 @@ def _apply_rotate_fused_rotations(
 
         for name, indexes in region.srcs.items():
             module = region.get_module_from_name(name)
+            axis = _get_output_axis(module)
+
+            assert not insert_rotation_module, "Orphan regions must not have sources."
 
             if not insert_rotation_module and fuse_rotations:
+                # Verify that there are no parametrizations, as otherwise the underlying data will not be updated
+                assert not hasattr(module, "parametrizations"), "Fused rotations need to be incorporated before the parametrized rotations."
+
                 if hasattr(module, 'allocate_params'):
                     module.allocate_params(module)
 
-                axis = _get_output_axis(module)
                 weight = module.weight.data
 
                 if axis == 0:
@@ -1838,31 +1672,48 @@ def _apply_rotate_fused_rotations(
 
                 if hasattr(module, 'offload_params'):
                     module.offload_params(module)
-            else:
-                unfused_rotated_modules[module].append(
-                    UnfusedRotation(
+            elif not insert_rotation_module and not fuse_rotations:
+                # Parametrize weights and possibly bias with unfused rotations
+                parametrize.register_parametrization(
+                    module,
+                    "weight",
+                    RotationWeightParametrization(
                         rot_mat=rot_mat,
-                        is_sink=False,
+                        rot_func=rot_func,
+                        output_axis=axis,
                         is_source=True,
-                        is_orphan=False,
                     ))
+                if getattr(module, 'bias', None) is not None:
+                    parametrize.register_parametrization(
+                        module,
+                        "bias",
+                        RotationBiasParametrization(
+                            rot_mat=rot_mat,
+                            rot_func=rot_func,
+                            output_axis=axis,
+                            is_source=True,
+                        ))
 
         for name, indexes in region.sinks.items():
             module = region.get_module_from_name(name)
+            axis = _get_input_axis(module)
 
             if not insert_rotation_module and not fuse_rotations:
-                unfused_rotated_modules[module].append(
-                    UnfusedRotation(
+                parametrize.register_parametrization(
+                    module,
+                    "weight",
+                    RotationWeightParametrization(
                         rot_mat=rot_mat,
+                        rot_func=rot_func,
+                        input_axis=axis,
                         is_sink=True,
-                        is_source=False,
-                        is_orphan=False,
                     ))
             else:
+                # Verify that there are no parametrizations, as otherwise the underlying data will not be updated
+                assert not hasattr(module, "parametrizations"), "Fused rotations need to be incorporated before the parametrized rotations."
+
                 if hasattr(module, 'allocate_params'):
                     module.allocate_params(module)
-
-                axis = _get_input_axis(module)
                 weight = module.weight.data
 
                 if axis == 1:
@@ -1875,42 +1726,16 @@ def _apply_rotate_fused_rotations(
                 if hasattr(module, 'offload_params'):
                     module.offload_params(module)
 
-            if insert_rotation_module:
-                if module not in fused_rotated_modules:
-                    fused_rotated_modules[module] = RotatedModule(
-                        had_mat=rot_mat, k=K, layer=module)
-                else:
-                    raise RuntimeError(
-                        "Only one RotatedModule at most can be assigned to a module.")
-    # For this to work, we need to have the following hierarchy UnfusedRotatedModule -> (RotatedModule) -> Linear
-    for module, rotation_modules in unfused_rotated_modules.items():
-        # Verify that at most one RotatedModule is available
-        rotation_module = module if module not in fused_rotated_modules else fused_rotated_modules[
-            module]
-        for rotation_module_dataclass in rotation_modules:
-            rotation_module = UnfusedRotatedModule(
-                module=rotation_module,
-                rot_func=rot_func,
-                rot_mat=rotation_module_dataclass.rot_mat,
-                _get_input_axis=_get_input_axis,
-                _get_output_axis=_get_output_axis,
-                is_source=rotation_module_dataclass.is_source,
-                is_sink=rotation_module_dataclass.is_sink,
-                is_orphan=rotation_module_dataclass.is_orphan,
-            )
-        # Instantiate rewriters
-        rewriter = ModuleInstanceToModuleInstance(module, rotation_module)
-        rewriters.append(rewriter)
-    # Add missing RotatedModules, in case there are any
-    for module, rotation_module in fused_rotated_modules.items():
-        if module not in unfused_rotated_modules:
-            rewriter = ModuleInstanceToModuleInstance(module, rotation_module)
-            rewriters.append(rewriter)
+            if insert_rotation_module and len(region.srcs) == 0:
+                rewriter = ModuleInstanceToModuleInstance(
+                    module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
+                rewriters.append(rewriter)
     for r in rewriters:
         model = r.apply(model)
-    return rewriters, rotation_matrices
+    return rewriters
 
 
+# TODO: Consolidate with GraphRotationEqualization
 class GraphRotationEqualizationOptimization(GraphRotationEqualization):
 
     def __init__(
@@ -1955,10 +1780,13 @@ class GraphRotationEqualizationOptimization(GraphRotationEqualization):
                 # Layerwise have only a single sink named 'sinks0'
                 id_sink = id(o_r.get_module_from_name('sinks0'))
                 if id_sink not in eq_layers:
-                    # TODO: Change data structure to insert in the beginning with O(1)
                     regions = [o_r] + regions
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            rewriters, rotation_matrices = _apply_rotate_fused_rotations(graph_model, regions, self.full_rotation_method, fuse_rotations)
-        return graph_model, rewriters, rotation_matrices
+            rewriters = _apply_rotate_fused_rotations(
+                graph_model, regions, self.full_rotation_method, fuse_rotations)
+        if self.return_rewriters:
+            return graph_model, rewriters
+        else:
+            return graph_model

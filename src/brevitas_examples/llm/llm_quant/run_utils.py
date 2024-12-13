@@ -110,15 +110,24 @@ class CastFloat16ToFloat32(TorchDispatchMode):
         return out
 
 
+def _get_tensor_weight_id(module, tensor_name):
+    if hasattr(module, "parametrizations") and tensor_name in module.parametrizations:
+        return id(module.parametrizations[tensor_name].original)
+    elif hasattr(module, tensor_name):
+        return id(getattr(module, tensor_name))
+    return None
+
+
 # This functions remap rewriters so match modules in a potentially different model that shares the same underlying tensors
 # We rely on the fact that two versions of the same model (eager vs FX) might have different modules id (id(fx_module) != id (eager_module))
 # However, the underlying tensors are still shared, so we can recostruct the mapping between the two
 # modules.
 def fix_rewriter(rewriters, old_model_ref, tensor_name):
+    # We need to account for reparametrizations, to make sure the underlying tensors are accessed
     for r in rewriters:
-        tensor_id = id(r.old_module_instance.weight)
+        tensor_id = _get_tensor_weight_id(r.old_module_instance, tensor_name)
         module = [
-            m for m in old_model_ref.modules()
-            if hasattr(m, tensor_name) and id(m.weight) == tensor_id]
+            m for m in old_model_ref.modules() if _get_tensor_weight_id(m, tensor_name) == tensor_id
+        ]
         r.old_module_instance = module[0]
     return rewriters

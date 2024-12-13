@@ -20,7 +20,6 @@ import yaml
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas.graph.equalize import find_missing_rotation_regions
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import GraphRotationEqualizationOptimization
 from brevitas.graph.equalize import LayerwiseActivationRotation
@@ -50,6 +49,8 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
+from brevitas_examples.llm.llm_quant.rotation_utils import extract_rewriters_unfused_rotations
+from brevitas_examples.llm.llm_quant.rotation_utils import find_self_attention_rotation_regions
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
@@ -116,14 +117,21 @@ def fused_optimized_rotation_no_fx(
     for r in rewriters:
         r.apply(model)
     #new_model = offload_model(new_model)
-    additional_regions = find_missing_rotation_regions(
+
+    # Regions with source o_proj and sink down_proj
+    self_attention_regions = find_self_attention_rotation_regions(
         new_model, model.config.hidden_size //
         model.config.num_attention_heads) if add_additional_regions else None
     eq = GraphRotationEqualizationOptimization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
     )
-    new_model, rewriters, rotation_matrices = eq.apply(new_model, fuse_rotations=fuse_rotations, additional_regions=additional_regions)
+    new_model, rewriters = eq.apply(new_model, fuse_rotations=fuse_rotations, additional_regions=self_attention_regions)
+
+    # Retrieve additional rewriters for unfused rotations
+    rewriters_unfused_rotations = extract_rewriters_unfused_rotations(new_model, rewriters)
+    rewriters.extend(rewriters_unfused_rotations)
+
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
