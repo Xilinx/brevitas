@@ -99,7 +99,6 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
     def prepare_for_export(self, module):
-        super().prepare_for_export(module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy
             self.group_dim = module.group_dim
@@ -214,7 +213,6 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
     def prepare_for_export(self, module):
-        super().prepare_for_export(module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy
             self.group_dim = module.group_dim
