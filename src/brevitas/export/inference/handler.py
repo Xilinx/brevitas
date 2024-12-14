@@ -179,7 +179,8 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
         if is_dynamo_compiling:
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
-        return x, *other
+        output_args = tuple([x] + list(other))
+        return output_args
 
 
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
