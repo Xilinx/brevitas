@@ -12,11 +12,10 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOGroupwiseInt
-        self.group_dim = self.quant_injector.group_dim
 
-    # @property
-    # def group_dim(self):
-    #     return self.quant_injector.group_dim
+    @property
+    def group_dim(self):
+        return self.quant_injector.group_dim
 
     @property
     def group_size(self):

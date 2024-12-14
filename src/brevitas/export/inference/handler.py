@@ -66,7 +66,7 @@ class IntInferencetHandler(InferenceHandler):
         return (x - zero_point) * scale
 
     def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:
-        return self.dequantize(self.quantize(x)), self.scale, self.zero_point, self.bit_width
+        return self.dequantize(self.quantize(x, self.scale, self.zero_point), self.scale, self.zero_point), self.scale, self.zero_point, self.bit_width
 
 
 class IntWeightInferencetHandler(IntInferencetHandler):
