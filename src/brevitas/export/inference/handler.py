@@ -105,7 +105,7 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
 
     def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:
         x, *other = self.module_forward(x)
-        if is_dynamo_compiling:
+        if is_dynamo_compiling():
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
         output_args = tuple([x] + list(other))
@@ -131,7 +131,7 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         else:
             zero_point = self.zero_point
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-        if is_dynamo_compiling:
+        if is_dynamo_compiling():
             out = self.flattened_view(out)
         return out, scale, zero_point, self.bit_width
 
@@ -219,7 +219,7 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 
     def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:
         x, *other = self.module_forward(x)
-        if is_dynamo_compiling:
+        if is_dynamo_compiling():
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
         output_args = tuple([x] + list(other))
@@ -245,6 +245,6 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
         else:
             zero_point = self.zero_point
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-        if is_dynamo_compiling:
+        if is_dynamo_compiling():
             out = self.flattened_view(out)
-        return out, scale, zero_point, self.bit_width
+        return out, scale, zero_point,  self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values

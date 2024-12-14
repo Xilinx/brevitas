@@ -92,7 +92,6 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
         curr_shape = self.value_.shape
         start_dim = self.group_dim if self.group_dim != -1 else -2
         new_value = self.value_.flatten(start_dim, start_dim + 1)
-        new_value = self.value_.flatten(start_dim, start_dim + 1)
         if self.scale_.shape != ():
             new_scale = self.scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
         else:
