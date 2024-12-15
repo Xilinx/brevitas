@@ -60,3 +60,10 @@ weight_quant_format: int
 weight_quant_granularity: per_group
 weight_quant_type: sym
 weight_scale_precision: float_scale
+zero_shot_compile: false
+zero_shot_eval: false
+zero_shot_tasks:
+- arc_challenge
+- arc_easy
+- winogrande
+- piqa
