@@ -21,6 +21,7 @@ from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantPro
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
 from brevitas.utils.torch_utils import float_internal_scale
 
@@ -95,6 +96,17 @@ class IntWeightInferencetHandler(IntInferencetHandler):
         return x, self.scale, self.zero_point, self.bit_width
 
 
+class DynamicIntInferenceHandler(IntInferencetHandler):
+    handled_layer = DynamicActQuantProxyFromInjector
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.module_forward = module.fused_activation_quant_proxy
+
+    def forward(self, x, ununsed_scale=None):
+        return self.module_forward(x)
+
+
 class GroupwiseIntInferenceHandler(IntInferencetHandler):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
@@ -119,9 +131,10 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         super().prepare_for_export(module)
         self.input_view = module.input_view_impl
         self.flattened_view = module.apply_input_view
+        if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
+            self.cached_weight = module._cached_weight.quant_tensor.value_
 
     def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:
-        x = self.input_view(x)
         if self.scale.shape != ():
             scale = self.input_view(self.scale)
         else:
@@ -130,9 +143,13 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
             zero_point = self.input_view(self.zero_point)
         else:
             zero_point = self.zero_point
-        out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-        if is_dynamo_compiling():
-            out = self.flattened_view(out)
+        if self.cached_weight is not None:
+            out = self.cached_weight
+        else:
+            x = self.input_view(x)
+            out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
+            if is_dynamo_compiling():
+                out = self.flattened_view(out)
         return out, scale, zero_point, self.bit_width
 
 
