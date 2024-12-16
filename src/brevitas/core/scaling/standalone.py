@@ -376,6 +376,11 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
 
+    def init_scale(self):
+        self.restrict_inplace_preprocess(self.buffer)
+        inplace_tensor_mul(self.value.detach(), self.buffer)
+        self.counter = self.counter + 1
+
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor, threshold: Tensor) -> Tensor:
         if self.counter < self.collect_stats_steps:
@@ -397,12 +402,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.counter = new_counter
             return abs_binary_sign_grad(clamped_stats / threshold)
         elif self.counter == self.collect_stats_steps:
-            self.restrict_inplace_preprocess(self.buffer)
-            inplace_tensor_mul(self.value.detach(), self.buffer)
-            threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
+            self.init_scale()
             value = self.clamp_scaling(self.restrict_scaling(self.value))
+            threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = value / threshold
-            self.counter = self.counter + 1
             return abs_binary_sign_grad(value)
         else:
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
@@ -414,22 +417,22 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     def forward(self, stats_input: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
         if threshold is None:
             threshold = torch.ones(1).type_as(stats_input)
-        if self.training and not self.init_done:
+        if self.training:
             # Threshold division handled inside the training_forward
             return self.training_forward(stats_input, threshold)
         else:
-            if not self.init_done:
-                self.init_done = True
+            if self.counter <= self.collect_stats_steps:
+                out = self.buffer
                 # No clamping is necessary since statistics are already clamped in training_forward
-                self.restrict_inplace_preprocess(self.buffer)
-                inplace_tensor_mul(self.value.detach(), self.buffer)
-            out = self.value
+                out = self.restrict_scaling_pre(out)
+            else:
+                out = self.value
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
             out = out / threshold
             # We can clamp after restrict val since the learned parameter is already in log-domain
             out = abs_binary_sign_grad(self.clamp_scaling(out))
-            return out
+        return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromRuntimeStatsScaling, self).state_dict(
