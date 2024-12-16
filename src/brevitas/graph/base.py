@@ -3,11 +3,13 @@
 
 from abc import ABC
 from abc import abstractmethod
+from collections import OrderedDict
 import inspect
 from inspect import getcallargs
 
 import torch
 from torch.nn import Module
+import torch.nn.utils.parametrize as parametrize
 from torch.overrides import get_testing_overrides
 
 from brevitas.fx import GraphModule
@@ -154,7 +156,18 @@ class ModuleToModule(GraphTransform, ABC):
     def _replace_old_module(self, model, old_module, new_module, load_state_dict=True):
         replace_module(model, old_module, new_module)
         if load_state_dict:
-            new_module.load_state_dict(old_module.state_dict())
+            # The dictionary entries relative to parametrizations need to be ignored, as these are passed
+            # when invoking transfer_parametrizations_and_params.
+            old_module_state_dict = OrderedDict({
+                k: v for k,
+                v in old_module.state_dict().items() if not k.startswith("parametrizations")})
+            # If the old module is parametrized, these need to be transferred to the new module. Strict needs to be set to False,
+            # as there will be missing keys for those parameters which have any parametrizations attached.
+            if parametrize.is_parametrized(old_module):
+                new_module.load_state_dict(old_module_state_dict, strict=False)
+                parametrize.transfer_parametrizations_and_params(old_module, new_module)
+            else:
+                new_module.load_state_dict(old_module_state_dict)
 
 
 class InsertModuleCallAfter(GraphTransform):
