@@ -3,6 +3,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
+import warnings
 
 from brevitas import config
 
@@ -29,8 +30,8 @@ class ExportMixin(object):
     @export_mode.setter
     def export_mode(self, value):
         if value and config.JIT_ENABLED:
-            raise RuntimeError(
-                "Export mode with BREVITAS_JIT is currently not supported. Save the model' "
+            warnings.warn(
+                "Export mode with BREVITAS_JIT might fail. If so, save the model' "
                 "state_dict to a .pth, load it back with BREVITAS_JIT=0, and call export.")
         if value and self.training:
             raise RuntimeError("Can't enter export mode during training, only during inference")
