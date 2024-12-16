@@ -152,7 +152,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
         # Compute masks
         inf_mask = x.isinf()
         p_max_val_mask = x > max_value
-        n_max_val_mask = -x > max_value
+        n_max_val_mask = x < min_value
 
         # first clamp everything to +- max_value, basically the saturating case
         x = self.saturating_clamp(x, max_value, min_value)
