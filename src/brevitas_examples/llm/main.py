@@ -399,7 +399,7 @@ def main(args):
     with torch.no_grad():
         model(**calibration_loader[0])
 
-    # We restore the original behaviour of the post-forward. 
+    # We restore the original behaviour of the post-forward.
     for k, v in dict_hooks.items():
         k._hf_hook.post_forward = v
 
