@@ -44,9 +44,9 @@ def _override_weight_caching_mode(m: nn.Module, enabled: bool, metadata_only: bo
     _override_caching_mode(m, 'weight', enabled, metadata_only)
 
 
-def _override_quant_tensor_return_state(m: nn.Module, state: bool):
-    if hasattr(m, 'return_quant_tensor'):
-        m.return_quant_tensor = state
+def _override_create_quant_tensor(m: nn.Module, state: bool):
+    if hasattr(m, 'skip_create_quant_tensor'):
+        m.skip_create_quant_tensor = state
 
 
 class quant_inference_mode:
@@ -86,7 +86,7 @@ class quant_inference_mode:
             self.model.apply(
                 lambda m: _override_weight_caching_mode(m, enabled=False, metadata_only=False))
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
-        enable_quant_tensor = partial(_override_quant_tensor_return_state, state=True)
+        enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
         self.model.apply(enable_quant_tensor)
 
     def hook(self, module, inp, out):
@@ -99,7 +99,7 @@ class quant_inference_mode:
         self.model.apply(InferenceManager.set_export_handler)
         InferenceManager.set_export_mode(self.model, enabled=True)
         self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
-        disable_quant_tensor = partial(_override_quant_tensor_return_state, state=False)
+        disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
         self.model.apply(disable_quant_tensor)
 
 
