@@ -127,6 +127,10 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
     handled_layer = GroupwiseWeightQuantProxyFromInjector
 
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
+
     def prepare_for_export(self, module):
         super().prepare_for_export(module)
         if module.is_quant_enabled:
@@ -151,7 +155,9 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         else:
             x = self.input_view(x)
             out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-            if is_dynamo_compiling():
+
+            # If we skip quant tensor, we return the flattened version of the groupwise tensor
+            if self.skip_create_quant_tensor:
                 out = self.flattened_view(out)
         return out, scale, zero_point, self.bit_width
 
@@ -259,6 +265,10 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
+
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
         if module.is_quant_enabled:
@@ -283,6 +293,9 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
         else:
             x = self.input_view(x)
             out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-            if is_dynamo_compiling():
+
+            # If we skip quant tensor, we return the flattened version of the groupwise tensor
+            if self.skip_create_quant_tensor:
                 out = self.flattened_view(out)
+
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
