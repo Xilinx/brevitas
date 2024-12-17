@@ -360,7 +360,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            if self.skip_create_quant_tensor:
+            if not self.skip_create_quant_tensor:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
                 if not self.training and self.cache_inference_quant_bias:
