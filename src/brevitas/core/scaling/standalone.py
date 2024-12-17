@@ -374,7 +374,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
-        self.init_done: bool = brevitas.jit.Attribute(False, bool)
 
     def init_scale(self):
         self.restrict_inplace_preprocess(self.buffer)
