@@ -3,6 +3,7 @@
 
 import argparse
 from copy import deepcopy
+import functools
 import sys
 from warnings import warn
 
@@ -20,8 +21,10 @@ from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
+from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import quant_format_validator
@@ -378,8 +381,27 @@ def main(args):
 
     model = offload_model(model)
 
+    dict_hooks = dict()
+
+    # When offloading to CPU + GPU, the CPU scale factors must be updated
+    # before we move them back to the meta device.
+    # If we don't, we lose the new value but the internal flag "init_done" is True, thus we will use the wrong scale.
+    # To do this, we attach a "hook" to the post_forward function, called before the post_forward
+    # The function will update the dict with the initialized scales
+    for m in model.modules():
+        if hasattr(m, '_hf_hook'):
+            if m._hf_hook.weights_map is not None:
+                # We store the original function to be restored later
+                dict_hooks[m] = m._hf_hook.post_forward
+                new_funct = functools.partial(update_internal_dict, m)
+                m._hf_hook.post_forward = hooked_on_a_function(m._hf_hook.post_forward, new_funct)
+
     with torch.no_grad():
         model(**calibration_loader[0])
+
+    # We restore the original behaviour of the post-forward.
+    for k, v in dict_hooks.items():
+        k._hf_hook.post_forward = v
 
     if args.act_calibration:
         print("Apply act calibration...")
