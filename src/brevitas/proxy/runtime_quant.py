@@ -60,10 +60,6 @@ class ActQuantProxyProtocol(QuantProxyProtocol, Protocol):
 @runtime_checkable
 class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
 
-    def __init__(self):
-        super().__init__()
-        self.skip_create_quant_tensor = False
-
     def forward(self, x: QuantTensor) -> QuantTensor:
         ...
 
@@ -251,6 +247,10 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
+
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
@@ -263,6 +263,10 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
 
 class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skip_create_quant_tensor = False
 
     def bit_width(self):
         if not self.is_quant_enabled:

@@ -160,7 +160,7 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
         self.cache_inference_quant_bias = False
         self.cache_inference_quant_bias_metadata_only = False
         self.requires_input_scale = self.quant_injector.requires_input_scale
-        self.skip_create_quant_tensor = True
+        self.skip_create_quant_tensor = False
 
     @property
     def tracked_parameter_list(self):
