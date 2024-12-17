@@ -160,6 +160,7 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
         self.cache_inference_quant_bias = False
         self.cache_inference_quant_bias_metadata_only = False
         self.requires_input_scale = self.quant_injector.requires_input_scale
+        self.return_quant_tensor = True
 
     @property
     def tracked_parameter_list(self):
@@ -275,7 +276,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
 
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
-            if torch._C._get_tracing_state() is not None:
+            if not self.return_quant_tensor:
                 return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
@@ -359,7 +360,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            if not is_dynamo_compiling() or torch._C._get_tracing_state() is not None:
+            if self.return_quant_tensor:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
                 if not self.training and self.cache_inference_quant_bias:
