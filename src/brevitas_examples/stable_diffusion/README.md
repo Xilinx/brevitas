@@ -70,6 +70,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--gptq | --no-gptq] [--bias-correction | --no-bias-correction]
                [--dtype {float32,float16,bfloat16}]
                [--attention-slicing | --no-attention-slicing]
+               [--compile | --no-compile]
                [--export-target {,onnx,params_only}]
                [--export-weight-q-node | --no-export-weight-q-node]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
@@ -77,7 +78,6 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--conv-input-bit-width CONV_INPUT_BIT_WIDTH]
                [--act-eq-alpha ACT_EQ_ALPHA]
                [--linear-input-bit-width LINEAR_INPUT_BIT_WIDTH]
-               [--linear-output-bit-width LINEAR_OUTPUT_BIT_WIDTH]
                [--weight-param-method {stats,mse}]
                [--input-param-method {stats,mse}]
                [--input-scale-stats-op {minmax,percentile}]
@@ -92,13 +92,24 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--input-quant-granularity {per_tensor}]
                [--input-scale-type {static,dynamic}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
+               [--sdpa-bit-width SDPA_BIT_WIDTH]
+               [--sdpa-param-method {stats,mse}]
+               [--sdpa-scale-stats-op {minmax,percentile}]
+               [--sdpa-zp-stats-op {minmax,percentile}]
+               [--sdpa-scale-precision {float_scale,po2_scale}]
+               [--sdpa-quant-type {sym,asym}]
+               [--sdpa-quant-format SDPA_QUANT_FORMAT]
+               [--sdpa-quant-granularity {per_tensor}]
+               [--sdpa-scale-type {static,dynamic}]
+               [--quant-blacklist [NAME ...]]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
                [--exclude-blacklist-act-eq | --no-exclude-blacklist-act-eq]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
+               [--quantize-sdpa-zero-point | --no-quantize-sdpa-zero-point]
                [--export-cpu-float32 | --no-export-cpu-float32]
                [--use-mlperf-inference | --no-use-mlperf-inference]
                [--use-negative-prompts | --no-use-negative-prompts]
-               [--dry-run | --no-dry-run] [--quantize-sdp | --no-quantize-sdp]
+               [--dry-run | --no-dry-run]
                [--override-conv-quant-config | --no-override-conv-quant-config]
                [--vae-fp16-fix | --no-vae-fp16-fix]
                [--share-qkv-quant | --no-share-qkv-quant]
@@ -159,6 +170,8 @@ options:
   --attention-slicing   Enable Enable attention slicing. Default: Disabled
   --no-attention-slicing
                         Disable Enable attention slicing. Default: Disabled
+  --compile             Enable Compile during inference. Default: Disabled
+  --no-compile          Disable Compile during inference. Default: Disabled
   --export-target {,onnx,params_only}
                         Target export flow.
   --export-weight-q-node
@@ -176,8 +189,6 @@ options:
   --act-eq-alpha ACT_EQ_ALPHA
                         Alpha for activation equalization. Default: 0.9
   --linear-input-bit-width LINEAR_INPUT_BIT_WIDTH
-                        Input bit width. Default: 0 (not quantized).
-  --linear-output-bit-width LINEAR_OUTPUT_BIT_WIDTH
                         Input bit width. Default: 0 (not quantized).
   --weight-param-method {stats,mse}
                         How scales/zero-point are determined. Default: stats.
@@ -221,6 +232,38 @@ options:
   --weight-group-size WEIGHT_GROUP_SIZE
                         Group size for per_group weight quantization. Default:
                         16.
+  --sdpa-bit-width SDPA_BIT_WIDTH
+                        Scaled dot product attention bit width. Default: 0
+                        (not quantized).
+  --sdpa-param-method {stats,mse}
+                        How scales/zero-point are determined for scaled dot
+                        product attention. Default: stats.
+  --sdpa-scale-stats-op {minmax,percentile}
+                        Define what statistics op to use for scaled dot
+                        product attention scale. Default: minmax.
+  --sdpa-zp-stats-op {minmax,percentile}
+                        Define what statistics op to use for scaled dot
+                        product attention zero point. Default: minmax.
+  --sdpa-scale-precision {float_scale,po2_scale}
+                        Whether the scaled dot product attention scale is a
+                        float value or a po2. Default: float_scale.
+  --sdpa-quant-type {sym,asym}
+                        Scaled dot product attention quantization type.
+                        Default: sym.
+  --sdpa-quant-format SDPA_QUANT_FORMAT
+                        Scaled dot product attention quantization format.
+                        Either int or eXmY, with X+Y==input_bit_width-1. It's
+                        possible to add float_ocp_ or float_fnuz_ before the
+                        exponent/mantissa bitwidth. Default: int.
+  --sdpa-quant-granularity {per_tensor}
+                        Granularity for scales/zero-point of scaled dot
+                        product attention. Default: per_tensor.
+  --sdpa-scale-type {static,dynamic}
+                        Whether to do static or dynamic scaled dot product
+                        attention quantization. Default: static.
+  --quant-blacklist [NAME ...]
+                        A list of module names to exclude from quantization.
+                        Default: ['time_emb']
   --quantize-weight-zero-point
                         Enable Quantize weight zero-point. Default: Enabled
   --no-quantize-weight-zero-point
@@ -235,6 +278,12 @@ options:
                         Enable Quantize input zero-point. Default: Enabled
   --no-quantize-input-zero-point
                         Disable Quantize input zero-point. Default: Enabled
+  --quantize-sdpa-zero-point
+                        Enable Quantize scaled dot product attention zero-
+                        point. Default: False
+  --no-quantize-sdpa-zero-point
+                        Disable Quantize scaled dot product attention zero-
+                        point. Default: False
   --export-cpu-float32  Enable Export FP32 on CPU. Default: Disabled
   --no-export-cpu-float32
                         Disable Export FP32 on CPU. Default: Disabled
@@ -254,8 +303,6 @@ options:
                         calibration. Default: Disabled
   --no-dry-run          Disable Generate a quantized model without any
                         calibration. Default: Disabled
-  --quantize-sdp        Enable Quantize SDP. Default: Disabled
-  --no-quantize-sdp     Disable Quantize SDP. Default: Disabled
   --override-conv-quant-config
                         Enable Quantize Convolutions in the same way as SDP
                         (i.e., FP8). Default: Disabled
