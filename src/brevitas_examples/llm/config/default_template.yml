@@ -1,5 +1,6 @@
 act_calibration: false
 act_equalization: null
+act_equalization_alpha: 0.5
 bias_corr: false
 checkpoint_name: null
 convert_layernorm_to_rmsnorm: false
