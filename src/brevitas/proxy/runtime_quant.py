@@ -102,7 +102,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
-        self.return_quant_tensor = False
+        self.return_quant_tensor = True
 
     @property
     def input_view_impl(self):
