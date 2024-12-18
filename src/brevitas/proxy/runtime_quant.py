@@ -157,9 +157,8 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
 
     @abstractmethod
     def create_quant_tensor(
-            self,
-            qt_args: Union[torch.Tensor, Tuple[Any]],
-            x: Optional[QuantTensor] = None) -> QuantTensor:
+            self, qt_args: Union[torch.Tensor, Tuple[Any]], x: Union[Tensor,
+                                                                     QuantTensor]) -> QuantTensor:
         # Supports the following:
         # - qt_args as tuple of Tensors and bools = standard quant activations
         # - qt_args as Tensor and x as QuantTensor = passthrough activation
@@ -194,7 +193,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         else:
             # If the second value (i.e., scale) is None, then quant is disabled
             if y[1] is not None:
-                out = self.create_quant_tensor(y)
+                out = self.create_quant_tensor(y, x=x)
             elif self.is_passthrough_act and isinstance(x, QuantTensor):
                 # preserve scale/zp/bit/sign even without output quant
                 y = y[0]

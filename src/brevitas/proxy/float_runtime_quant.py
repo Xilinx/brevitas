@@ -77,7 +77,7 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
             self,
             qt_args: Union[torch.Tensor, Tuple[Any]],
             x: Optional[FloatQuantTensor] = None) -> FloatQuantTensor:
-        if x is None:
+        if isinstance(qt_args, tuple):
             out = FloatQuantTensor(*qt_args, signed=self.is_signed, training=self.training)
         else:
             out = FloatQuantTensor(
