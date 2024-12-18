@@ -109,7 +109,7 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
         # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
         # Finally, we stack the remaining tensors
         unpadding_shape = final_shape[self.group_dim]
-        residual = curr_shape[self.group_dim] - unpadding_shape
+        residual = new_value.shape[self.group_dim] - unpadding_shape
 
         if residual > 0:
             new_value = torch.stack(
