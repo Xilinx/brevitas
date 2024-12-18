@@ -31,7 +31,8 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             inf_values,
             nan_values,
             signed,
-            training):
+            training,
+            dequant_shape=None):
 
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
@@ -63,7 +64,8 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             inf_values,
             nan_values,
             signed,
-            training)
+            training,
+            dequant_shape)
         return quant_tensor
 
     @property
@@ -89,6 +91,7 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             return func(*args, **kwargs)
 
     def expand(self):
+        final_shape = self.dequant_shape
         curr_shape = self.value_.shape
         start_dim = self.group_dim if self.group_dim != -1 else -2
         new_value = self.value_.flatten(start_dim, start_dim + 1)
@@ -100,6 +103,21 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             new_zp = self.zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
         else:
             new_zp = self.zero_point_
+
+        # If we padded during quantization, we unpad here:
+        # First, we compute how much we padded along the group_dim shape
+        # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
+        # Finally, we stack the remaining tensors
+        unpadding_shape = final_shape[self.group_dim]
+        residual = curr_shape[self.group_dim] - unpadding_shape
+
+        if residual > 0:
+            new_value = torch.stack(
+                torch.unbind(new_value, dim=self.group_dim)[residual:], dim=self.group_dim)
+            new_scale = torch.stack(
+                torch.unbind(new_scale, dim=self.group_dim)[residual:], dim=self.group_dim)
+            new_zp = torch.stack(
+                torch.unbind(new_zp, dim=self.group_dim)[residual:], dim=self.group_dim)
 
         return new_value, new_scale, new_zp
 

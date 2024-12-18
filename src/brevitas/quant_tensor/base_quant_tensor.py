@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, Tuple
 
 from torch import Tensor
 
@@ -129,6 +129,7 @@ class GroupwiseFloatQuantTensorBase(NamedTuple):
     nan_values: List[str]
     signed_t: Tensor
     training_t: Tensor
+    dequant_shape: Optional[Tuple] = None
 
 
 class GroupwisIntQuantTensorBase(NamedTuple):
@@ -140,6 +141,7 @@ class GroupwisIntQuantTensorBase(NamedTuple):
     bit_width: Tensor
     signed_t: Tensor
     training_t: Tensor
+    dequant_shape: Optional[Tuple] = None
 
 
 def _unpack_quant_tensor(input_data):

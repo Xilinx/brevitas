@@ -34,6 +34,7 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
         return x.flatten(start_dim, start_dim + 1)
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> GroupwiseFloatQuantTensor:
+        shape = self.tracked_parameter_list[0].shape
         out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
         return GroupwiseFloatQuantTensor(
             out,
@@ -48,4 +49,5 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
             inf_values,
             nan_values,
             self.is_signed,
-            self.training)
+            self.training,
+            shape)
