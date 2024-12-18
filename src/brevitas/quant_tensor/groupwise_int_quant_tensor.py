@@ -102,8 +102,9 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
                 torch.unbind(new_value, dim=self.group_dim)[residual:], dim=self.group_dim)
             new_scale = torch.stack(
                 torch.unbind(new_scale, dim=self.group_dim)[residual:], dim=self.group_dim)
-            new_zp = torch.stack(
-                torch.unbind(new_zp, dim=self.group_dim)[residual:], dim=self.group_dim)
+            if self.zero_point_.shape != ():
+                new_zp = torch.stack(
+                    torch.unbind(new_zp, dim=self.group_dim)[residual:], dim=self.group_dim)
 
         return new_value, new_scale, new_zp
 
