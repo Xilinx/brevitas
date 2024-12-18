@@ -227,7 +227,7 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
             qt_args: Union[Tensor, Tuple[Any]],
             x: Optional[IntQuantTensor] = None) -> IntQuantTensor:
 
-        if x is None:
+        if isinstance(qt_args, tuple):
             out = IntQuantTensor(*qt_args, self.is_signed, self.training)
         else:
             out = IntQuantTensor(
