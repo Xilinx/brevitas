@@ -95,6 +95,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_inference_quant_weight_metadata_only = False
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
+        self.skip_create_quant_tensor = False
 
     @property
     def input_view_impl(self):
@@ -132,13 +133,13 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             # - quantization flow
             if self.export_mode:
                 out = self.export_handler(x)
-                if is_dynamo_compiling():
+                if self.skip_create_quant_tensor:
                     out = out[0]
                 else:
                     out = self.create_quant_tensor(out)
             else:
                 out = self.tensor_quant(x)
-                if is_dynamo_compiling():
+                if self.skip_create_quant_tensor:
                     out = out[0]
                 else:
                     out = self.create_quant_tensor(out)
@@ -159,6 +160,7 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
         self.cache_inference_quant_bias = False
         self.cache_inference_quant_bias_metadata_only = False
         self.requires_input_scale = self.quant_injector.requires_input_scale
+        self.skip_create_quant_tensor = False
 
     @property
     def tracked_parameter_list(self):
@@ -263,7 +265,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             self._cached_act = cached_inp
 
         if self.is_quant_enabled:
-            if quant_input is None:
+            if quant_input is None or isinstance(quant_input, Tensor):
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:
@@ -274,6 +276,8 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
 
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
+            if self.skip_create_quant_tensor:
+                return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
@@ -356,7 +360,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            if not is_dynamo_compiling():
+            if not self.skip_create_quant_tensor:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
                 if not self.training and self.cache_inference_quant_bias:

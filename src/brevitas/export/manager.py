@@ -3,10 +3,8 @@
 
 from abc import ABC
 from abc import abstractmethod
-from contextlib import ExitStack
-from functools import partial
 from io import BytesIO
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import torch
 from torch import nn
@@ -20,7 +18,6 @@ from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
 from brevitas.utils.python_utils import patch
-from brevitas.utils.quant_utils import _CachedIO
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -219,6 +216,7 @@ class BaseManager(ABC):
             # wrapping with a lambda forces inlining during tracing,
             # converts everything to const and removes unused params/buffers
             traced_model = torch.jit.trace(_JitTraceExportWrapper(module), args)
+
             # Hack to clone the function, otherwise restoring requires_grad
             # on module will break traced_model
             with BytesIO() as tmp:

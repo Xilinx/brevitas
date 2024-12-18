@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from functools import partial
+
 from torch.nn import Module
 import torch.nn as nn
 
@@ -42,6 +44,11 @@ def _override_weight_caching_mode(m: nn.Module, enabled: bool, metadata_only: bo
     _override_caching_mode(m, 'weight', enabled, metadata_only)
 
 
+def _override_create_quant_tensor(m: nn.Module, state: bool):
+    if hasattr(m, 'skip_create_quant_tensor'):
+        m.skip_create_quant_tensor = state
+
+
 class quant_inference_mode:
 
     def __init__(self, model, cache_quant_weight=False, enabled=True):
@@ -79,6 +86,8 @@ class quant_inference_mode:
             self.model.apply(
                 lambda m: _override_weight_caching_mode(m, enabled=False, metadata_only=False))
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+        enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
+        self.model.apply(enable_quant_tensor)
 
     def hook(self, module, inp, out):
         # After one forward pass with caching enabled, we can:
@@ -90,6 +99,8 @@ class quant_inference_mode:
         self.model.apply(InferenceManager.set_export_handler)
         InferenceManager.set_export_mode(self.model, enabled=True)
         self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+        disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
+        self.model.apply(disable_quant_tensor)
 
 
 # Inheritance from BaseManager is not techincally needed

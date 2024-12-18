@@ -9,7 +9,6 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 
-from brevitas import is_dynamo_compiling
 from brevitas.function.ops import max_float
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
@@ -110,6 +109,10 @@ class DynamicIntInferenceHandler(IntInferencetHandler):
 class GroupwiseIntInferenceHandler(IntInferencetHandler):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
+
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy
@@ -117,7 +120,9 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         x, *other = self.module_forward(x)
-        if is_dynamo_compiling():
+
+        # If we skip quant tensor, we return the flattened version of the groupwise tensor
+        if self.skip_create_quant_tensor:
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
         output_args = tuple([x] + list(other))
@@ -126,6 +131,10 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
 
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
     handled_layer = GroupwiseWeightQuantProxyFromInjector
+
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
 
     def prepare_for_export(self, module):
         super().prepare_for_export(module)
@@ -151,7 +160,9 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         else:
             x = self.input_view(x)
             out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-            if is_dynamo_compiling():
+
+            # If we skip quant tensor, we return the flattened version of the groupwise tensor
+            if self.skip_create_quant_tensor:
                 out = self.flattened_view(out)
         return out, scale, zero_point, self.bit_width
 
@@ -242,6 +253,10 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
 class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
+
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy
@@ -249,7 +264,9 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         x, *other = self.module_forward(x)
-        if is_dynamo_compiling():
+
+        # If we skip quant tensor, we return the flattened version of the groupwise tensor
+        if self.skip_create_quant_tensor:
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
         output_args = tuple([x] + list(other))
@@ -258,6 +275,10 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 
 class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
+
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = False
 
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
@@ -283,6 +304,9 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
         else:
             x = self.input_view(x)
             out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
-            if is_dynamo_compiling():
+
+            # If we skip quant tensor, we return the flattened version of the groupwise tensor
+            if self.skip_create_quant_tensor:
                 out = self.flattened_view(out)
+
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
