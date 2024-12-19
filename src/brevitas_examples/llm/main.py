@@ -13,6 +13,7 @@ import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 from transformers.utils.fx import _SUPPORTED_MODELS
+import yaml
 
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
@@ -477,8 +478,33 @@ def main(args):
     return float_ppl, quant_ppl, model
 
 
-def parse_args(args):
+def override_defaults(args):
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        '--config',
+        type=str,
+        default=None,
+        help=
+        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
+    )
+    known_args = parser.parse_known_args()[0]  # Returns a tuple
+    if known_args.config is not None:
+        with open(known_args.config, 'r') as f:
+            defaults = yaml.safe_load(f)
+    else:
+        defaults = {}
+    return defaults
+
+
+def parse_args(args, override_defaults={}):
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config',
+        type=str,
+        default=None,
+        help=
+        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
+    )
     parser.add_argument(
         '--model',
         type=str,
@@ -757,9 +783,11 @@ def parse_args(args):
         default=False,
         action="store_true",
         help='Whether to use fast update with learned round. Prototype (default: %(default)s)')
+    parser.set_defaults(**override_defaults)
     return parser.parse_args(args)
 
 
 if __name__ == '__main__':
-    args = parse_args(sys.argv[1:])
+    overrides = override_defaults(sys.argv[1:])
+    args = parse_args(sys.argv[1:], override_defaults=overrides)
     main(args)
