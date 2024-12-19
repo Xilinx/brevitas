@@ -240,6 +240,7 @@ def test_inner_scale(inp, minifloat_format, scale):
 @jit_disabled_for_mock()
 @torch.no_grad()
 def test_valid_float_values(minifloat_format_and_value):
+    torch.set_default_dtype(torch.float64)
     minifloat_value, exponent, mantissa, sign, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format_and_value
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.0)
     float_scaling = FloatScaling(None, None, True)

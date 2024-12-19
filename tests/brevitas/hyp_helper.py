@@ -261,7 +261,7 @@ def random_valid_minifloat(draw, bit_width, exponent_bit_width, mantissa_bit_wid
     mantissa = draw(st.integers(min_value=0, max_value=int(2**mantissa_bit_width-1)))
     exponent = draw(st.integers(min_value=0, max_value=int(2**exponent_bit_width-1)))
     # Scale mantissa between 0-1
-    mantissa_fixed = mantissa / 2**mantissa
+    mantissa_fixed = mantissa / 2**mantissa_bit_width
     # Add 1 unless denormalised
     mantissa_fixed += 0. if exponent == 0 else 1.
     # Adjust exponent if denormalised, otherwise leave it unchanged
