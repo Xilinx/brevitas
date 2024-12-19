@@ -296,6 +296,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
         if module.is_quant_enabled:
             self.input_view = module.input_view_impl
             self.flattened_view = module.apply_input_view
+            self.group_dim = module.group_dim
             if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
                 self.cached_weight = module._cached_weight.quant_tensor.value_
             else:
