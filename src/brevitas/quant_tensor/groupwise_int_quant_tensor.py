@@ -77,8 +77,8 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
             return func(*args, **kwargs)
 
     def expand(self):
-        from brevitas.utils.quant_utils import groupwise_dequant
-        return groupwise_dequant(
+        from brevitas.utils.quant_utils import groupwise_dequant_expand
+        return groupwise_dequant_expand(
             self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
 
     @staticmethod

@@ -24,6 +24,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
+from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import float_internal_scale
 
 
@@ -146,8 +147,8 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
     def prepare_for_export(self, module):
         super().prepare_for_export(module)
         if module.is_quant_enabled:
+            self.group_dim = module.group_dim
             self.input_view = module.input_view_impl
-            self.flattened_view = module.apply_input_view
             if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
                 self.cached_weight = module._cached_weight.quant_tensor.value_
             else:
@@ -165,12 +166,13 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         if self.cached_weight is not None:
             out = self.cached_weight
         else:
+            inp_shape = x.shape
             x = self.input_view(x)
             out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
             # If we skip quant tensor, we return the flattened version of the groupwise tensor
             if self.skip_create_quant_tensor:
-                out = self.flattened_view(out)
+                out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
         return out, scale, zero_point, self.bit_width
 
 
@@ -311,11 +313,12 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
         if self.cached_weight is not None:
             out = self.cached_weight
         else:
+            inp_shape = x.shape
             x = self.input_view(x)
             out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
             # If we skip quant tensor, we return the flattened version of the groupwise tensor
             if self.skip_create_quant_tensor:
-                out = self.flattened_view(out)
+                out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
 
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values

@@ -219,7 +219,7 @@ def float_to_int_impl_to_enum(module):
         return None
 
 
-def groupwise_dequant(value_, scale_, zero_point_, group_dim, dequant_shape):
+def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
     final_shape = dequant_shape
     curr_shape = value_.shape
     start_dim = group_dim if group_dim != -1 else -2
