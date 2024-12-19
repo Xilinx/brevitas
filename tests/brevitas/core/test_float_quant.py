@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from hypothesis import given
+from hypothesis import settings
 import mock
 import pytest
 import torch
@@ -237,6 +238,7 @@ def test_inner_scale(inp, minifloat_format, scale):
 
 
 @given(minifloat_format_and_value=random_minifloat_format_and_value(min_bit_width=4, max_bit_with=10, rand_exp_bias=True))
+@settings(max_examples=10000)
 @jit_disabled_for_mock()
 @torch.no_grad()
 def test_valid_float_values(minifloat_format_and_value):
