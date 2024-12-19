@@ -77,36 +77,9 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
             return func(*args, **kwargs)
 
     def expand(self):
-        final_shape = self.dequant_shape
-        curr_shape = self.value_.shape
-        start_dim = self.group_dim if self.group_dim != -1 else -2
-        new_value = self.value_.flatten(start_dim, start_dim + 1)
-        if self.scale_.shape != ():
-            new_scale = self.scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
-        else:
-            new_scale = self.scale_
-        if self.zero_point_.shape != ():
-            new_zp = self.zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
-        else:
-            new_zp = self.zero_point_
-
-        # If we padded during quantization, we unpad here:
-        # First, we compute how much we padded along the group_dim shape
-        # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
-        # Finally, we stack the remaining tensors
-        unpadding_shape = final_shape[self.group_dim]
-        residual = new_value.shape[self.group_dim] - unpadding_shape
-
-        if residual > 0:
-            new_value = torch.stack(
-                torch.unbind(new_value, dim=self.group_dim)[:unpadding_shape], dim=self.group_dim)
-            new_scale = torch.stack(
-                torch.unbind(new_scale, dim=self.group_dim)[:unpadding_shape], dim=self.group_dim)
-            if self.zero_point_.shape != ():
-                new_zp = torch.stack(
-                    torch.unbind(new_zp, dim=self.group_dim)[:unpadding_shape], dim=self.group_dim)
-
-        return new_value, new_scale, new_zp
+        from brevitas.utils.quant_utils import groupwise_dequant
+        return groupwise_dequant(
+            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):

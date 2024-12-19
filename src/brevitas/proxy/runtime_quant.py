@@ -180,8 +180,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif not self.is_quant_enabled:
             # A tuple helps later with control flows
             # The second None value is used later
-            # If quant is not enabled, we still apply input_view in the case of groupwise + padding
-            y = self.apply_input_view(self.fused_activation_quant_proxy.activation_impl(y))
+            y = self.fused_activation_quant_proxy.activation_impl(y)
             y = (y, None)
         else:
             y = self.fused_activation_quant_proxy(y)
