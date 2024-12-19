@@ -99,12 +99,12 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
 
         if residual > 0:
             new_value = torch.stack(
-                torch.unbind(new_value, dim=self.group_dim)[residual:], dim=self.group_dim)
+                torch.unbind(new_value, dim=self.group_dim)[:unpadding_shape], dim=self.group_dim)
             new_scale = torch.stack(
-                torch.unbind(new_scale, dim=self.group_dim)[residual:], dim=self.group_dim)
+                torch.unbind(new_scale, dim=self.group_dim)[:unpadding_shape], dim=self.group_dim)
             if self.zero_point_.shape != ():
                 new_zp = torch.stack(
-                    torch.unbind(new_zp, dim=self.group_dim)[residual:], dim=self.group_dim)
+                    torch.unbind(new_zp, dim=self.group_dim)[:unpadding_shape], dim=self.group_dim)
 
         return new_value, new_scale, new_zp
 
