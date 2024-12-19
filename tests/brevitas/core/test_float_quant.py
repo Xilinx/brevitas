@@ -16,6 +16,7 @@ from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
 from brevitas.function.ops import max_float
 from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.utils.torch_utils import torch_dtype
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import random_minifloat_format
@@ -242,9 +243,9 @@ def test_inner_scale(inp, minifloat_format, scale):
         min_bit_width=4, max_bit_with=10, rand_exp_bias=True))
 @settings(max_examples=10000)
 @jit_disabled_for_mock()
+@torch_dtype(torch.float64)
 @torch.no_grad()
 def test_valid_float_values(minifloat_format_and_value):
-    torch.set_default_dtype(torch.float64)
     minifloat_value, exponent, mantissa, sign, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format_and_value
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.0)
     float_scaling = FloatScaling(None, None, True)

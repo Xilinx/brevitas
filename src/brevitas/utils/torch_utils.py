@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from functools import wraps
 from typing import List, Optional, Tuple
 
 import torch
@@ -127,3 +128,21 @@ def is_broadcastable(tensor, other):
         else:
             return False
     return True
+
+
+def torch_dtype(dtype):
+
+    def decorator(fn):
+
+        @wraps(fn)
+        def wrapped_fn(*args, **kwargs):
+            cur_dtype = torch.get_default_dtype()
+            try:
+                torch.set_default_dtype(dtype)
+                fn(*args, **kwargs)
+            finally:
+                torch.set_default_dtype(cur_dtype)
+
+        return wrapped_fn
+
+    return decorator
