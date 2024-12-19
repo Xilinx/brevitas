@@ -254,7 +254,7 @@ def random_minifloat_format(
 def random_valid_minifloat(
         draw, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias):
     """"
-    Generate a valid minifloat value, from the given format. Returns a valid minifloat value
+    Generate a random floating-point value that can be represented in the specified minifloat format.
     """
     # Sanity-check that the format is valid
     assert bit_width == exponent_bit_width + mantissa_bit_width + int(signed)
