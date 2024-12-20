@@ -1,5 +1,6 @@
 accelerate
 datasets
+lm_eval
 onnx
 onnxruntime
 optimum

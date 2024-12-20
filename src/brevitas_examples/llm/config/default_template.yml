@@ -8,6 +8,15 @@ dataset: wikitext2
 eval: false
 export_prefix: null
 export_target: null
+few_shot_compile: false
+few_shot_eval: false
+few_shot_limit: null
+few_shot_tasks:
+- arc_challenge
+- arc_easy
+- winogrande
+- piqa
+few_shot_zeroshot: false
 fuse_sequences: false
 gpfq: false
 gptq: false
