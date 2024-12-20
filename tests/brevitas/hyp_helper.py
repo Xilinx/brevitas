@@ -228,7 +228,11 @@ def min_max_tensor_random_shape_st(draw, min_dims=1, max_dims=4, max_size=3, wid
 
 @st.composite
 def random_minifloat_format(
-        draw, min_bit_width=MIN_INT_BIT_WIDTH, max_bit_with=MAX_INT_BIT_WIDTH, rand_exp_bias=False, valid_only=False):
+        draw,
+        min_bit_width=MIN_INT_BIT_WIDTH,
+        max_bit_with=MAX_INT_BIT_WIDTH,
+        rand_exp_bias=False,
+        valid_only=False):
     """"
     Generate a minifloat format. Returns bit_width, exponent, mantissa, and signed.
     """
@@ -281,7 +285,11 @@ def random_valid_minifloat(
 
 @st.composite
 def random_minifloat_format_and_value(
-        draw, min_bit_width=MIN_INT_BIT_WIDTH, max_bit_with=MAX_INT_BIT_WIDTH, rand_exp_bias=False, valid_format_only=True):
+        draw,
+        min_bit_width=MIN_INT_BIT_WIDTH,
+        max_bit_with=MAX_INT_BIT_WIDTH,
+        rand_exp_bias=False,
+        valid_format_only=True):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = draw(random_minifloat_format(min_bit_width=min_bit_width, max_bit_with=max_bit_with, rand_exp_bias=rand_exp_bias, valid_only=valid_format_only))
     valid_minifloat, exponent, mantissa, sign = draw(random_valid_minifloat(bit_width=bit_width, exponent_bit_width=exponent_bit_width, mantissa_bit_width=mantissa_bit_width, signed=signed, exponent_bias=exponent_bias))
     return valid_minifloat, exponent, mantissa, sign, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias
