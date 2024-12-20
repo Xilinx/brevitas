@@ -234,8 +234,8 @@ def random_minifloat_format(
     """
     # TODO: add support for new minifloat format that comes with FloatQuantTensor
     bit_width = draw(st.integers(min_value=min_bit_width, max_value=max_bit_with))
+    exponent_bit_width = draw(st.integers(min_value=0, max_value=bit_width))
     signed = draw(st.booleans())
-    exponent_bit_width = draw(st.integers(min_value=1, max_value=bit_width - 1 - int(signed)))
 
     if rand_exp_bias:
         exponent_bias = draw(st.integers(min_value=-127, max_value=127))
@@ -243,7 +243,9 @@ def random_minifloat_format(
         exponent_bias = 2 ** (exponent_bit_width - 1) - 1
 
     # if no budget is left, return
-    if bit_width == (exponent_bit_width + int(signed)):
+    if bit_width == exponent_bit_width:
+        return bit_width, exponent_bit_width, 0, False, exponent_bias
+    elif bit_width == (exponent_bit_width + int(signed)):
         return bit_width, exponent_bit_width, 0, signed, exponent_bias
     mantissa_bit_width = bit_width - exponent_bit_width - int(signed)
 

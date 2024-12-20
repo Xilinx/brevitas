@@ -249,22 +249,35 @@ def test_valid_float_values(minifloat_format_and_value):
     minifloat_value, exponent, mantissa, sign, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format_and_value
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.0)
     float_scaling = FloatScaling(None, None, True)
-    float_clamp = FloatClamp(
-        tensor_clamp_impl=TensorClamp(),
-        signed=signed,
-        inf_values=None,
-        nan_values=None,
-        saturating=True)
-    float_quant = FloatQuant(
-        bit_width=bit_width,
-        exponent_bit_width=exponent_bit_width,
-        mantissa_bit_width=mantissa_bit_width,
-        exponent_bias=exponent_bias,
-        signed=signed,
-        input_view_impl=Identity(),
-        scaling_impl=scaling_impl,
-        float_scaling_impl=float_scaling,
-        float_clamp_impl=float_clamp)
-    inp = torch.tensor(minifloat_value)
-    quant_value, *_ = float_quant(inp)
-    assert torch.equal(inp, quant_value)
+    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+        with pytest.raises(RuntimeError):
+            float_quant = FloatQuant(
+                bit_width=bit_width,
+                exponent_bit_width=exponent_bit_width,
+                mantissa_bit_width=mantissa_bit_width,
+                exponent_bias=exponent_bias,
+                signed=signed,
+                input_view_impl=Identity(),
+                scaling_impl=scaling_impl,
+                float_scaling_impl=float_scaling,
+                float_clamp_impl=None)
+    else:
+        float_clamp = FloatClamp(
+            tensor_clamp_impl=TensorClamp(),
+            signed=signed,
+            inf_values=None,
+            nan_values=None,
+            saturating=True)
+        float_quant = FloatQuant(
+            bit_width=bit_width,
+            exponent_bit_width=exponent_bit_width,
+            mantissa_bit_width=mantissa_bit_width,
+            exponent_bias=exponent_bias,
+            signed=signed,
+            input_view_impl=Identity(),
+            scaling_impl=scaling_impl,
+            float_scaling_impl=float_scaling,
+            float_clamp_impl=float_clamp)
+        inp = torch.tensor(minifloat_value)
+        quant_value, *_ = float_quant(inp)
+        assert torch.equal(inp, quant_value)
