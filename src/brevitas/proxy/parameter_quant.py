@@ -118,6 +118,15 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
     def tracked_parameter_list(self):
         return [m.weight for m in self.tracked_module_list if m.weight is not None]
 
+    def retrieve_attribute(self, attribute: str):
+        if not self.is_quant_enabled:
+            return None
+        elif self._cached_weight is not None:
+            return getattr(self._cached_weight, attribute)
+        else:
+            out = self.__call__(self.tracked_parameter_list[0])
+            return getattr(out, attribute)
+
     @property
     def requires_quant_input(self):
         return False
@@ -193,31 +202,13 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         return False
 
     def scale(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            scale = self._cached_weight.scale
-        else:
-            scale = self.__call__(self.tracked_parameter_list[0]).scale
-        return scale
+        self.retrieve_attribute('scale')
 
     def zero_point(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            zero_point = self._cached_weight.zero_point
-        else:
-            zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
-        return zero_point
+        self.retrieve_attribute('zero_point')
 
     def bit_width(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            bit_width = self._cached_weight.bit_width
-        else:
-            bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
-        return bit_width
+        self.retrieve_attribute('bit_width')
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
         return IntQuantTensor(*qt_args, self.is_signed, self.training)

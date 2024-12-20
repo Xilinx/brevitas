@@ -22,76 +22,28 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, AB
         return bit_width
 
     def scale(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            scale = self._cached_weight.scale
-        else:
-            scale = self.__call__(self.tracked_parameter_list[0]).scale
-        return scale
+        self.retrieve_attribute('scale')
 
     def zero_point(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            zero_point = self._cached_weight.zero_point
-        else:
-            zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
-        return zero_point
+        self.retrieve_attribute('zero_point')
 
     def exponent_bit_width(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            exponent_bit_width = self._cached_weight.exponent_bit_width
-        else:
-            exponent_bit_width = self.__call__(self.tracked_parameter_list[0]).exponent_bit_width
-        return exponent_bit_width
+        self.retrieve_attribute('exponent_bit_width')
 
     def mantissa_bit_width(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            mantissa_bit_width = self._cached_weight.mantissa_bit_width
-        else:
-            mantissa_bit_width = self.__call__(self.tracked_parameter_list[0]).mantissa_bit_width
-        return mantissa_bit_width
+        self.retrieve_attribute('mantissa_bit_width')
 
     def exponent_bias(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            exponent_bias = self._cached_weight.exponent_bias
-        else:
-            exponent_bias = self.__call__(self.tracked_parameter_list[0]).exponent_bias
-        return exponent_bias
+        self.retrieve_attribute('exponent_bias')
 
     def is_saturating(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            saturating = self._cached_weight.saturating
-        else:
-            saturating = self.__call__(self.tracked_parameter_list[0]).saturating
-        return saturating
+        self.retrieve_attribute('is_saturating')
 
     def inf_values(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            inf_values = self._cached_weight.inf_values
-        else:
-            inf_values = self.__call__(self.tracked_parameter_list[0]).inf_values
-        return inf_values
+        self.retrieve_attribute('inf_values')
 
     def nan_values(self):
-        if not self.is_quant_enabled:
-            return None
-        elif self._cached_weight:
-            nan_values = self._cached_weight.nan_values
-        else:
-            nan_values = self.__call__(self.tracked_parameter_list[0]).nan_values
-        return nan_values
+        self.retrieve_attribute('nan_values')
 
     @property
     def is_ocp(self):
