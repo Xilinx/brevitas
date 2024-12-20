@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from hypothesis import given
+from hypothesis import settings
 import mock
 import pytest
 import torch
@@ -15,9 +16,11 @@ from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
 from brevitas.function.ops import max_float
 from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.utils.torch_utils import torch_dtype
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import random_minifloat_format
+from tests.brevitas.hyp_helper import random_minifloat_format_and_value
 from tests.marker import jit_disabled_for_mock
 
 
@@ -233,3 +236,35 @@ def test_inner_scale(inp, minifloat_format, scale):
             out_nans = out.isnan()
             expected_out_nans = expected_out.isnan()
             assert torch.equal(out[~out_nans], expected_out[~expected_out_nans])
+
+
+@given(
+    minifloat_format_and_value=random_minifloat_format_and_value(
+        min_bit_width=4, max_bit_with=10, rand_exp_bias=True))
+@settings(max_examples=1000)
+@jit_disabled_for_mock()
+@torch_dtype(torch.float64)
+@torch.no_grad()
+def test_valid_float_values(minifloat_format_and_value):
+    minifloat_value, exponent, mantissa, sign, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format_and_value
+    scaling_impl = mock.Mock(side_effect=lambda x, y: 1.0)
+    float_scaling = FloatScaling(None, None, True)
+    float_clamp = FloatClamp(
+        tensor_clamp_impl=TensorClamp(),
+        signed=signed,
+        inf_values=None,
+        nan_values=None,
+        saturating=True)
+    float_quant = FloatQuant(
+        bit_width=bit_width,
+        exponent_bit_width=exponent_bit_width,
+        mantissa_bit_width=mantissa_bit_width,
+        exponent_bias=exponent_bias,
+        signed=signed,
+        input_view_impl=Identity(),
+        scaling_impl=scaling_impl,
+        float_scaling_impl=float_scaling,
+        float_clamp_impl=float_clamp)
+    inp = torch.tensor(minifloat_value)
+    quant_value, *_ = float_quant(inp)
+    assert torch.equal(inp, quant_value)
