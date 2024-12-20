@@ -57,7 +57,10 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
                [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME] [--fuse-sequences]
                [--learned-round {None,linear_round}]
-               [--learned-round-fast-update]
+               [--learned-round-fast-update] [--few-shot-eval]
+               [--few-shot-compile] [--few-shot-zeroshot]
+               [--few-shot-limit FEW_SHOT_LIMIT]
+               [--few-shot-tasks [FEW_SHOT_TASKS ...]]
 
 options:
   -h, --help            show this help message and exit
@@ -210,5 +213,15 @@ options:
   --learned-round-fast-update
                         Whether to use fast update with learned round.
                         Prototype (default: False)
+  --few-shot-eval       Perform zero_shot evaluation with lm_eval. Default
+                        False)
+  --few-shot-compile    Compile during zero_shot evaluation with lm_eval.
+                        Default False)
+  --few-shot-zeroshot   Whether to do zero or few shot eval. Default False)
+  --few-shot-limit FEW_SHOT_LIMIT
+                        Few shot limit. Default None)
+  --few-shot-tasks [FEW_SHOT_TASKS ...]
+                        A list of tasks for zero_shot evaluation. Default:
+                        ['arc_challenge', 'arc_easy', 'winogrande', 'piqa']
 
 ```

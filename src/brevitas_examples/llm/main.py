@@ -483,10 +483,10 @@ def main(args):
                 model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
 
-    if args.zero_shot_eval:
+    if args.few_shot_eval:
         with torch.no_grad(), quant_inference_mode(model):
             model(**calibration_loader[0])
-            if args.zero_shot_compile:
+            if args.few_shot_compile:
                 remove_hooks(model)
                 model.cuda()
                 model = torch.compile(model)
@@ -495,14 +495,15 @@ def main(args):
             results = evaluator.simple_evaluate(
                 model=wrapped_model,
                 model_args=None,
-                tasks=list(args.zero_shot_tasks),
+                tasks=list(args.few_shot_tasks),
                 device='cuda:0',
-                limit=None,
-                num_fewshot=0,
+                limit=args.few_shot_limit,
+                num_fewshot=0 if args.few_shot_zeroshot else None,
                 log_samples=False,
-                batch_size="auto:3",
+                batch_size=None,
                 verbosity="ERROR")
-        results = filter_results(results, args.zero_shot_tasks)
+        results = filter_results(results, args.few_shot_tasks)
+        print("Few shot eval results")
         print(results)
     remove_hooks(model)
 
@@ -825,15 +826,21 @@ def parse_args(args, override_defaults={}):
         action="store_true",
         help='Whether to use fast update with learned round. Prototype (default: %(default)s)')
     parser.add_argument(
-        '--zero-shot-eval',
+        '--few-shot-eval',
         action="store_true",
         help='Perform zero_shot evaluation with lm_eval. Default %(default)s)')
     parser.add_argument(
-        '--zero-shot-compile',
+        '--few-shot-compile',
         action="store_true",
         help='Compile during zero_shot evaluation with lm_eval. Default %(default)s)')
     parser.add_argument(
-        '--zero-shot-tasks',
+        '--few-shot-zeroshot',
+        action="store_true",
+        help='Whether to do zero or few shot eval. Default %(default)s)')
+    parser.add_argument(
+        '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
+    parser.add_argument(
+        '--few-shot-tasks',
         default=['arc_challenge', 'arc_easy', 'winogrande', 'piqa'],
         type=str,
         nargs='*',
