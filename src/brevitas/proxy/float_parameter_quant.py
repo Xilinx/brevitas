@@ -22,28 +22,28 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, AB
         return bit_width
 
     def scale(self):
-        self.retrieve_attribute('scale')
+        return self.retrieve_attribute('scale')
 
     def zero_point(self):
-        self.retrieve_attribute('zero_point')
+        return self.retrieve_attribute('zero_point')
 
     def exponent_bit_width(self):
-        self.retrieve_attribute('exponent_bit_width')
+        return self.retrieve_attribute('exponent_bit_width')
 
     def mantissa_bit_width(self):
-        self.retrieve_attribute('mantissa_bit_width')
+        return self.retrieve_attribute('mantissa_bit_width')
 
     def exponent_bias(self):
-        self.retrieve_attribute('exponent_bias')
+        return self.retrieve_attribute('exponent_bias')
 
     def is_saturating(self):
-        self.retrieve_attribute('is_saturating')
+        return self.retrieve_attribute('saturating')
 
     def inf_values(self):
-        self.retrieve_attribute('inf_values')
+        return self.retrieve_attribute('inf_values')
 
     def nan_values(self):
-        self.retrieve_attribute('nan_values')
+        return self.retrieve_attribute('nan_values')
 
     @property
     def is_ocp(self):

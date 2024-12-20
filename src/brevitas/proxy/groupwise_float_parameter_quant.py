@@ -15,10 +15,10 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
         self.cache_class = _CachedIOGroupwiseFloat
 
     def scale_(self):
-        self.retrieve_attribute('scale_')
+        return self.retrieve_attribute('scale_')
 
     def zero_point_(self):
-        self.retrieve_attribute('zero_point_')
+        return self.retrieve_attribute('zero_point_')
 
     @property
     def group_dim(self):

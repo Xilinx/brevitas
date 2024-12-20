@@ -202,13 +202,13 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         return False
 
     def scale(self):
-        self.retrieve_attribute('scale')
+        return self.retrieve_attribute('scale')
 
     def zero_point(self):
-        self.retrieve_attribute('zero_point')
+        return self.retrieve_attribute('zero_point')
 
     def bit_width(self):
-        self.retrieve_attribute('bit_width')
+        return self.retrieve_attribute('bit_width')
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
         return IntQuantTensor(*qt_args, self.is_signed, self.training)
