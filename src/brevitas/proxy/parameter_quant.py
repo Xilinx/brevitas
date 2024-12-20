@@ -195,19 +195,28 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
     def scale(self):
         if not self.is_quant_enabled:
             return None
-        scale = self.__call__(self.tracked_parameter_list[0]).scale
+        elif self._cached_weight:
+            scale = self._cached_weight.scale
+        else:
+            scale = self.__call__(self.tracked_parameter_list[0]).scale
         return scale
 
     def zero_point(self):
         if not self.is_quant_enabled:
             return None
-        zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
+        elif self._cached_weight:
+            zero_point = self._cached_weight.zero_point
+        else:
+            zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
         return zero_point
 
     def bit_width(self):
         if not self.is_quant_enabled:
             return None
-        bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
+        elif self._cached_weight:
+            bit_width = self._cached_weight.bit_width
+        else:
+            bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
