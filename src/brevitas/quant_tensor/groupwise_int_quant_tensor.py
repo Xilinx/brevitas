@@ -26,21 +26,9 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
         if not isinstance(bit_width, torch.Tensor):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(
             cls, value, scale, zero_point, group_size, group_dim, bit_width, signed, training)
         return quant_tensor
-
-    @property
-    def signed(self):
-        return self.signed_t.item()
-
-    @property
-    def training(self):
-        return self.training_t.item()
 
     @property
     def saturating(self):

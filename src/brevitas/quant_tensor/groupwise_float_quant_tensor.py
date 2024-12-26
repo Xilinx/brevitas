@@ -43,12 +43,7 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             mantissa_bit_width = torch.tensor(mantissa_bit_width, dtype=torch.float)
         if not isinstance(exponent_bias, torch.Tensor):
             exponent_bias = torch.tensor(exponent_bias, dtype=torch.float)
-        if not isinstance(saturating, torch.Tensor):
-            saturating = torch.tensor(saturating, dtype=torch.bool)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
+
         quant_tensor = super().__new__(
             cls,
             value,
@@ -65,18 +60,6 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             signed,
             training)
         return quant_tensor
-
-    @property
-    def signed(self):
-        return self.signed_t.item()
-
-    @property
-    def training(self):
-        return self.training_t.item()
-
-    @property
-    def saturating(self):
-        return self.saturating_t.item()
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
