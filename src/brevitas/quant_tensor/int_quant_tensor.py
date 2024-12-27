@@ -106,9 +106,9 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                 else:
                     return int_value.type(torch.float32)
             else:
-                if self.bit_width <= 8. and self.signed():
+                if self.bit_width <= 8. and self.signed:
                     return int_value.to(torch.int8)
-                elif self.bit_width <= 8. and not self.signed():
+                elif self.bit_width <= 8. and not self.signed:
                     return int_value.to(torch.uint8)
                 else:
                     return int_value.to(torch.int32)
