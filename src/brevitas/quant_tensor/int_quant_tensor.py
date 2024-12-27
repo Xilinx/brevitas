@@ -106,9 +106,9 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                 else:
                     return int_value.type(torch.float32)
             else:
-                if self.bit_width <= 8. and self.signed_t.item():
+                if self.bit_width <= 8. and self.signed.item():
                     return int_value.to(torch.int8)
-                elif self.bit_width <= 8. and not self.signed_t.item():
+                elif self.bit_width <= 8. and not self.signed.item():
                     return int_value.to(torch.uint8)
                 else:
                     return int_value.to(torch.int32)
@@ -309,7 +309,7 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
         return output
 
     def __str__(self):
-        return f"IntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"IntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed={self.signed}, training={self.training})"
 
     def __truediv__(self, other):
         if isinstance(other, IntQuantTensor):
