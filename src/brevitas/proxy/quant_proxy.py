@@ -113,7 +113,7 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     def rounding_mode(self):
         return _rounding_mode(self.quant_injector)
 
-    def dequantize(self, quant_args):
+    def dequantize(self, *quant_args):
         x, scale, zero_point, *_ = quant_args
         out = x - zero_point
         out = out * scale
