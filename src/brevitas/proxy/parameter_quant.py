@@ -142,6 +142,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             else:
                 quant_value, *quant_args = self.tensor_quant(x)
                 quant_args = tuple(quant_args)
+                quant_value = self.dequantize((quant_value,) + quant_args)
                 quant_value = self.delay_wrapper(x, quant_value)
                 if self.skip_create_quant_tensor:
                     out = quant_value
@@ -278,8 +279,12 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
 
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
+            if self.export_mode:
+                out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.export_handler(x, input_bit_width, input_is_signed)
+            else:
+                out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.tensor_quant(x, input_bit_width, input_is_signed)
+                out = self.dequantize(out, scale, zero_point)
+
             if self.skip_create_quant_tensor:
                 return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
@@ -364,6 +369,8 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
+            if not self.export_mode:
+                out = self.dequantize(out, out_scale, out_zp)
             if not self.skip_create_quant_tensor:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)

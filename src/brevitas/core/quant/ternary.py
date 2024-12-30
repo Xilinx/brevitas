@@ -62,5 +62,4 @@ class TernaryQuant(brevitas.jit.ScriptModule):
         scale = self.scaling_impl(x)
         mask = x.abs().gt(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
-        y = y * scale
         return y, scale, self.zero_point(), self.bit_width()

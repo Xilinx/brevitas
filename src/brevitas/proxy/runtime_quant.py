@@ -189,23 +189,25 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             out = (out, None)
         else:
             out = self.fused_activation_quant_proxy(y)
+            quant_value, *quant_args = out
+            quant_args = tuple(quant_args)
+            quant_value = self.dequantize((quant_value,) + quant_args)
+            quant_value = self.delay_wrapper(y, quant_value)
+            out = (quant_value,) + quant_args
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
-        quant_value, *quant_args = out
-        quant_args = tuple(quant_args)
-        quant_value = self.delay_wrapper(y, quant_value)
         if self.skip_create_quant_tensor:
-            out = quant_value
+            out = out[0]
         else:
             # If the second value (i.e., scale) is None, then quant is disabled
             if out[1] is not None:
-                out = self.create_quant_tensor((quant_value,) + quant_args)
+                out = self.create_quant_tensor(out)
             elif self.is_passthrough_act and isinstance(x, QuantTensor):
                 # preserve scale/zp/bit/sign even without output quant
-                out = quant_value
+                out = out[0]
                 out = self.create_quant_tensor(out, x=x)
             else:
-                out = quant_value
+                out = out[0]
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
@@ -260,6 +262,7 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
+            out_value = self.dequantize(out_value, out_scale, out_zp)
             if self.skip_create_quant_tensor:
                 return out_value
             return IntQuantTensor(
@@ -291,8 +294,10 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
                     x.value, x.scale, x.zero_point, x.bit_width, x.signed)
             else:
                 out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
-            out_value, out_scale, out_zp, out_bit_width = out_tuple
-            out_value = self.delay_wrapper(x, out_value)
+                out_value, out_scale, out_zp, out_bit_width = out_tuple
+                out_value = self.dequantize(out_value, out_scale, out_zp)
+                out_value = self.delay_wrapper(x, out_value)
+
             if self.skip_create_quant_tensor:
                 return out_value
             return IntQuantTensor(

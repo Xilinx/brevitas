@@ -81,9 +81,7 @@ class IntQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, scale: Tensor, zero_point: Tensor, bit_width: Tensor, x: Tensor) -> Tensor:
         y_int = self.to_int(scale, zero_point, bit_width, x)
-        y = y_int - zero_point
-        y = y * scale
-        return y
+        return y_int
 
 
 class DecoupledIntQuant(brevitas.jit.ScriptModule):
@@ -161,7 +159,5 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
             zero_point: Tensor,
             bit_width: Tensor,
             x: Tensor) -> Tensor:
-        y_int = self.to_int(pre_scale, pre_zero_point, bit_width, x)
-        y = y_int - zero_point
-        y = y * scale
+        y = self.to_int(pre_scale, pre_zero_point, bit_width, x)
         return y
