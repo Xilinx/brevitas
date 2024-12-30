@@ -191,7 +191,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             out = self.fused_activation_quant_proxy(y)
             quant_value, *quant_args = out
             quant_args = tuple(quant_args)
-            quant_value = self.dequantize((quant_value,) + quant_args)
+            quant_value = self.dequantize(*((quant_value,) + quant_args))
             quant_value = self.delay_wrapper(y, quant_value)
             out = (quant_value,) + quant_args
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,

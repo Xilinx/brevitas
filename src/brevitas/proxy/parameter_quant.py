@@ -142,7 +142,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             else:
                 quant_value, *quant_args = self.tensor_quant(x)
                 quant_args = tuple(quant_args)
-                quant_value = self.dequantize((quant_value,) + quant_args)
+                quant_value = self.dequantize(*((quant_value,) + quant_args))
                 quant_value = self.delay_wrapper(x, quant_value)
                 if self.skip_create_quant_tensor:
                     out = quant_value
