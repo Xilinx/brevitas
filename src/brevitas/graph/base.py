@@ -5,6 +5,7 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
+from typing import Any, Dict, Type
 
 import torch
 from torch.nn import Module
@@ -185,6 +186,31 @@ class ModuleInstanceToModuleInstance(Transform):
             if old_module is self.old_module_instance:
                 # init the new module based on the old one
                 replace_module(model, old_module, self.new_module_instance)
+                break
+        return model
+
+
+class ModuleInstanceWrapModule(Transform):
+
+    def __init__(
+            self,
+            old_module_instance: Module,
+            wrapper_class: Type[Module],
+            module_attribute: str,
+            kwargs_wrapper: Dict[str, Any]):
+        self.old_module_instance = old_module_instance
+        self.wrapper_class = wrapper_class
+        self.module_attribute = module_attribute
+        self.kwargs_wrapper = kwargs_wrapper
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                kwargs = {self.module_attribute: self.old_module_instance}
+                kwargs.update(self.kwargs_wrapper)
+                new_module_instance = self.wrapper_class(**kwargs)
+                # init the new module based on the old one
+                replace_module(model, old_module, new_module_instance)
                 break
         return model
 

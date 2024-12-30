@@ -24,6 +24,7 @@ from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
@@ -1366,8 +1367,9 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 module.offload_params(module)
 
             if insert_rotation_module and len(region.srcs) == 0:
-                rewriter = ModuleInstanceToModuleInstance(
-                    module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
+                rewriter = ModuleInstanceWrapModule(
+                    module, RotatedModule, "layer", {
+                        "had_mat": rot_mat, "k": K})
                 rewriters.append(rewriter)
     for r in rewriters:
         model = r.apply(model)
