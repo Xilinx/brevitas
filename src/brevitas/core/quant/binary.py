@@ -56,7 +56,7 @@ class BinaryQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
-        y = binary_sign_ste(x) * scale
+        y = binary_sign_ste(x)
         return y, scale, self.zero_point(), self.bit_width()
 
 
