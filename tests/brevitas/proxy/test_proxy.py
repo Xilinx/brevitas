@@ -1,4 +1,5 @@
 import pytest
+import torch
 
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_activation import QuantReLU
@@ -80,3 +81,11 @@ class TestProxy:
 
         model.act_quant.disable_quant = True
         assert model.act_quant.bit_width() is None
+
+    def test_delay_act_proxy(self):
+        model = QuantReLU(quant_delay_steps=1)
+        inp = torch.randn(1, 5)
+        o = model(inp)
+        assert torch.allclose(inp, o)
+        o = model(inp)
+        assert not torch.allclose(inp, o)

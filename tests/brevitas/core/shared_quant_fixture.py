@@ -9,22 +9,12 @@ from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import ParameterScaling
 
 __all__ = [
-    'quant_delay_steps',
     'const_scaling_impl',
     'parameter_scaling_impl',
     'standalone_scaling_init',
     'randn_inp',
     'scaling_impl_all'  # noqa
 ]
-
-
-@pytest_cases.fixture()
-@pytest_cases.parametrize('steps', [1, 10])
-def quant_delay_steps(steps):
-    """
-    Non-zero steps to delay quantization
-    """
-    return steps
 
 
 @pytest_cases.fixture()

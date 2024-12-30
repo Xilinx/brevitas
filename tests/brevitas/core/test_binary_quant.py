@@ -57,17 +57,6 @@ class TestBinaryIntegration:
         output, scale, _, _ = binary_quant_all(inp)
         assert is_binary_output_value_correct(scale, output)
 
-    def test_delayed_output_value(self, delayed_binary_quant_all, quant_delay_steps, randn_inp):
-        """
-        Test delayed quantization by a certain number of steps. Because delayed quantization is
-        stateful, we can't use Hypothesis to generate the input, so we resort to a basic fixture.
-        """
-        for i in range(quant_delay_steps):
-            output, _, _, _ = delayed_binary_quant_all(randn_inp)
-            assert (output == randn_inp).all()
-        output, scale, _, _ = delayed_binary_quant_all(randn_inp)
-        assert is_binary_output_value_correct(scale, output)
-
     @given(inp=float_tensor_random_shape_st())
     def test_output_bit_width(self, binary_quant_all, inp):
         _, _, _, bit_width = binary_quant_all(inp)

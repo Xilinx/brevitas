@@ -16,9 +16,9 @@ from typing_extensions import runtime_checkable
 from brevitas import config
 from brevitas import is_dynamo_compiling
 from brevitas.core.function_wrapper.misc import Identity
+from brevitas.core.quant.delay import DelayWrapper
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -96,6 +96,8 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
         self.skip_create_quant_tensor = False
+        quant_delay_steps = quant_injector.quant_delay_steps if 'quant_delay_steps' in quant_injector else None
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @property
     def input_view_impl(self):
@@ -138,11 +140,13 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                 else:
                     out = self.create_quant_tensor(out)
             else:
-                out = self.tensor_quant(x)
+                quant_value, *quant_args = self.tensor_quant(x)
+                quant_args = tuple(quant_args)
+                quant_value = self.delay_wrapper(x, quant_value)
                 if self.skip_create_quant_tensor:
-                    out = out[0]
+                    out = quant_value
                 else:
-                    out = self.create_quant_tensor(out)
+                    out = self.create_quant_tensor((quant_value,) + quant_args)
                     if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
                         self._cached_weight = self.cache_class(
                             out.detach(),
