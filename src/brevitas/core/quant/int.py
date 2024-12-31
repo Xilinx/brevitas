@@ -216,8 +216,6 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         trunc_scale = 2.0 ** trunc_bit_width
         y = y / trunc_scale
         y = self.float_to_int_impl(y)
-        y = y - zero_point
-        y = y * scale
         return y, scale, zero_point, output_bit_width
 
 
