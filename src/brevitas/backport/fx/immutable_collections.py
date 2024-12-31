@@ -43,7 +43,7 @@ Forked as-is from PyTorch 2.0.1
 
 from typing import Any, Dict, List, Tuple
 
-from torch.utils._pytree import _register_pytree_node
+from torch.utils._pytree import register_pytree_node
 from torch.utils._pytree import Context
 
 from ._compatibility import compatibility
@@ -111,5 +111,5 @@ def _immutable_list_unflatten(values: List[Any], context: Context) -> List[Any]:
     return immutable_list(values)
 
 
-_register_pytree_node(immutable_dict, _immutable_dict_flatten, _immutable_dict_unflatten)
-_register_pytree_node(immutable_list, _immutable_list_flatten, _immutable_list_unflatten)
+register_pytree_node(immutable_dict, _immutable_dict_flatten, _immutable_dict_unflatten)
+register_pytree_node(immutable_list, _immutable_list_flatten, _immutable_list_unflatten)
