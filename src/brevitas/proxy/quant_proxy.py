@@ -116,7 +116,6 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     def dequantize(self, *quant_args):
         x, scale, zero_point, *_ = quant_args
         out = x - zero_point
-        print(out, scale)
         out = out * scale
         return out
 
