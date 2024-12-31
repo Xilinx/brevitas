@@ -18,8 +18,8 @@ import transformers
 
 from brevitas import config
 from brevitas import torch_version
-from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
+from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
 
@@ -49,12 +49,12 @@ def validate_args(args):
     a = vars(args)
     da = vars(parse_args([]))
     for k in a.keys():
-        assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `main`"
+        assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
 
 
 def validate_args_and_run_main(args):
     validate_args(args)
-    float_ppl, quant_ppl, model = main(args)
+    float_ppl, quant_ppl, model = quantize_llm(args)
     return float_ppl, quant_ppl, model
 
 
