@@ -195,7 +195,7 @@ def validate(args):
                 "or decreasing the sequence length (seqlen)")
 
 
-def main(args):
+def quantize_llm(args):
     validate(args)
     set_seed(args.seed)
     if args.export_prefix is None:
@@ -850,7 +850,10 @@ def parse_args(args, override_defaults={}):
     return parser.parse_args(args)
 
 
-if __name__ == '__main__':
+def main():
     overrides = override_defaults(sys.argv[1:])
     args = parse_args(sys.argv[1:], override_defaults=overrides)
-    main(args)
+    quantize_llm(args)
+
+if __name__ == '__main__':
+    main()
