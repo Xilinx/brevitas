@@ -21,11 +21,13 @@ import torch.nn.utils.parametrize as parametrize
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
-from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
+from brevitas.graph.base import ModuleInstanceFuseRotationWeights
+from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
@@ -1316,7 +1318,8 @@ def _apply_rotate(
         model: nn.Module,
         regions: List[Region],
         full_rotation_method: str = 'had',
-        fuse_rotations: bool = True):
+        fuse_rotations: bool = True,
+        apply_inplace_rotations: bool = True):
     rewriters = []
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
@@ -1351,7 +1354,7 @@ def _apply_rotate(
                 continue
 
         # If the rotation is not fused, redefine as a Parameter, to enable its optimization
-        if not fuse_rotations:
+        if not insert_rotation_module and not fuse_rotations:
             rot_mat = torch.nn.Parameter(rot_mat)
 
         for name, indexes in region.srcs.items():
@@ -1359,36 +1362,44 @@ def _apply_rotate(
             axis = _get_output_axis(module)
 
             if fuse_rotations:
-                if hasattr(module, 'allocate_params'):
-                    module.allocate_params(module)
-                weight = module.weight.data
-
-                if axis == 0:
-                    weight = rot_func(weight.t(), rot_mat, K).t()
-                elif axis == 1:
-                    weight = rot_func(weight, rot_mat, K)
-                else:
-                    raise RuntimeError("Not supported yet")
-                module.weight.data = weight
+                rewriter = ModuleInstanceFuseRotationWeights(
+                    old_module_instance=module,
+                    rot_mat=rot_mat,
+                    rot_func=rot_func,
+                    K=K,
+                    tensor_name="weight",
+                    axis=axis,
+                    is_source=True,
+                )
+                rewriters.append(rewriter)
 
                 if getattr(module, 'bias', None) is not None:
-                    bias = module.bias.data
-                    bias = rot_func(bias, rot_mat, K)
-                    module.bias.data = bias
-                if hasattr(module, 'offload_params'):
-                    module.offload_params(module)
+                    rewriter = ModuleInstanceFuseRotationWeights(
+                        old_module_instance=module,
+                        rot_mat=rot_mat,
+                        rot_func=rot_func,
+                        K=K,
+                        tensor_name="bias",
+                        axis=1,
+                        is_source=True,
+                    )
+                    rewriters.append(rewriter)
             else:
-                parametrize.register_parametrization(
+                rewriter = ModuleInstanceRegisterParametrization(
                     module,
                     "weight",
                     RotationWeightParametrization(
                         rot_mat=rot_mat,
                         rot_func=rot_func,
-                        output_axis=axis,
+                        axis=axis,
                         is_source=True,
                     ))
+                rewriters.append(rewriter)
                 if getattr(module, 'bias', None) is not None:
-                    parametrize.register_parametrization(
+                    # TODO: Consolidate RotationBiasParametrization into a single
+                    # class, by setting output_axis = 1. Also, could use a single
+                    # axis, as input_axis and output_axis are not used simultaneously
+                    rewriter = ModuleInstanceRegisterParametrization(
                         module,
                         "bias",
                         RotationBiasParametrization(
@@ -1397,45 +1408,49 @@ def _apply_rotate(
                             output_axis=axis,
                             is_source=True,
                         ))
+                    rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
             module = region.get_module_from_name(name)
             axis = _get_input_axis(module)
 
             if not insert_rotation_module and not fuse_rotations:
-                parametrize.register_parametrization(
+                rewriter = ModuleInstanceRegisterParametrization(
                     module,
                     "weight",
                     RotationWeightParametrization(
                         rot_mat=rot_mat,
                         rot_func=rot_func,
-                        input_axis=axis,
+                        axis=axis,
                         is_sink=True,
                     ))
+                rewriters.append(rewriter)
             else:
                 # Verify that there are no parametrizations, as otherwise the underlying weights will not be updated
                 assert not hasattr(module, "parametrizations"), "Fused rotations need to be incorporated before the parametrized rotations."
 
-                if hasattr(module, 'allocate_params'):
-                    module.allocate_params(module)
-                weight = module.weight.data
-
-                if axis == 1:
-                    _update_weights(module, rot_func(weight, rot_mat, K), 'weight')
-                elif axis == 0:
-                    _update_weights(module, rot_func(weight.t(), rot_mat, K).t(), 'weight')
-                else:
-                    raise RuntimeError("Not supported yet")
-
-                if hasattr(module, 'offload_params'):
-                    module.offload_params(module)
+                rewriter = ModuleInstanceFuseRotationWeights(
+                    old_module_instance=module,
+                    rot_mat=rot_mat,
+                    rot_func=rot_func,
+                    K=K,
+                    tensor_name="weight",
+                    axis=axis,
+                    is_source=False,
+                )
+                rewriters.append(rewriter)
 
             if insert_rotation_module and len(region.srcs) == 0:
-                rewriter = ModuleInstanceToModuleInstance(
-                    module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
+                rewriter = ModuleInstanceWrapModule(
+                    module, RotatedModule, "layer", {
+                        "had_mat": rot_mat, "k": K})
                 rewriters.append(rewriter)
     for r in rewriters:
-        model = r.apply(model)
+        # The parametrizations need to be registered after the potential HF hooks have been
+        # removed, as otherwise the device maps will not match the structure of the
+        # model's state_dict after the registration of the parametrizations.
+        if apply_inplace_rotations and not isinstance(r, ModuleInstanceRegisterParametrization):
+            model = r.apply(model)
     return rewriters
 
 
@@ -1532,7 +1547,8 @@ class GraphRotationEqualization(RotationEqualization):
         self,
         graph_model: GraphModule,
         fuse_rotations: bool = True,
-        additional_regions: Optional[List[Region]] = None
+        additional_regions: Optional[List[Region]] = None,
+        apply_inplace_rotations: bool = True,
     ) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
         regions = _extract_regions(
@@ -1566,7 +1582,11 @@ class GraphRotationEqualization(RotationEqualization):
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
             rewriters = _apply_rotate(
-                graph_model, regions, self.full_rotation_method, fuse_rotations)
+                graph_model,
+                regions,
+                self.full_rotation_method,
+                fuse_rotations,
+                apply_inplace_rotations)
         if self.return_rewriters:
             return graph_model, rewriters
         else:

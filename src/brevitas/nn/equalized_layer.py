@@ -69,14 +69,6 @@ class RotatedModule(torch.nn.Module):
         self.layer = layer
         self.k = k
 
-    @property
-    def weight(self) -> Optional[torch.Tensor]:
-        return getattr(self.layer, 'weight', None)
-
-    @property
-    def bias(self) -> Optional[torch.Tensor]:
-        return getattr(self.layer, 'bias', None)
-
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
         # If k is None, we assume that an orthogonal matrix is used
@@ -110,8 +102,7 @@ class RotationWeightParametrization(torch.nn.Module):
         self,
         rot_mat: torch.nn.Parameter,
         rot_func: Callable,
-        input_axis: Optional[int] = None,
-        output_axis: Optional[int] = None,
+        axis: int,
         is_source: bool = False,
         is_sink: bool = False,
         is_orphan: bool = False,
@@ -119,8 +110,7 @@ class RotationWeightParametrization(torch.nn.Module):
         super().__init__()
         self.rot_mat = rot_mat
         self.rot_func = rot_func
-        self.input_axis = input_axis
-        self.output_axis = output_axis
+        self.axis = axis
         self.is_source = is_source
         self.is_sink = is_sink
         self.is_orphan = is_orphan
@@ -128,17 +118,17 @@ class RotationWeightParametrization(torch.nn.Module):
 
     def forward(self, weight: torch.Tensor) -> torch.Tensor:
         if self.is_sink or self.is_orphan:
-            if self.input_axis == 1:
+            if self.axis == 1:
                 weight = self.rot_func(weight, self.rot_mat, self.K)
-            elif self.input_axis == 0:
+            elif self.axis == 0:
                 weight = self.rot_func(weight.t(), self.rot_mat, self.K).t()
             else:
                 raise RuntimeError("Not supported yet")
 
         if self.is_source:
-            if self.output_axis == 0:
+            if self.axis == 0:
                 weight = self.rot_func(weight.t(), self.rot_mat, self.K).t()
-            elif self.output_axis == 1:
+            elif self.axis == 1:
                 weight = self.rot_func(weight, self.rot_mat, self.K)
             else:
                 raise RuntimeError("Not supported yet")

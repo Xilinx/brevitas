@@ -66,13 +66,15 @@ def fuse_rotations(model: nn.Module) -> None:
                 parametrize.remove_parametrizations(module, "bias", leave_parametrized=True)
 
 
+# TODO: Remove? We rely on ModuleInstanceRegisterParametrization
 def extract_rewriters_unfused_rotations(model: nn.Module,
                                         rewriters: List[Transform]) -> List[Transform]:
     extra_rewriters = []
     for module in model.modules():
         if hasattr(module, "parametrizations"):
             # Verify that the current module does not have already associated a RotatedModule
-            if len([r for r in rewriters if r.old_module_instance is module]) == 0:
+            if len([r for r in rewriters if r.old_module_instance is module and
+                    isinstance(r, ModuleInstanceToModuleInstance)]) == 0:
                 # Identity rewriter, only useful externaly
                 rewriter = ModuleInstanceToModuleInstance(module, module)
                 extra_rewriters.append(rewriter)

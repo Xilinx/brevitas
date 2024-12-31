@@ -361,8 +361,7 @@ def test_composition_unfused_rotations(N):
                 RotationWeightParametrization(
                     rot_mat=rot_mat,
                     rot_func=_apply_ort_device,
-                    input_axis=_get_input_axis(rot_module),
-                    output_axis=_get_output_axis(rot_module),
+                    axis=_get_output_axis(rot_module) if is_source else _get_input_axis(rot_module),
                     is_source=is_source,
                     is_sink=is_sink,
                     is_orphan=is_orphan,

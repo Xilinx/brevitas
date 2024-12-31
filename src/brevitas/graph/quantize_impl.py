@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 import torch
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
+from tqdm import tqdm
 
 import brevitas
 from brevitas.graph.base import InsertModuleCallAfter
@@ -538,6 +539,6 @@ def layerwise_layer_handler(
             quant_module_class, quant_module_kwargs = layer_map[_module_class_name(parametrize.type_before_parametrizations(module))]
             rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
             rewriters.append(rewriter)
-    for rewriter in rewriters:
+    for rewriter in tqdm(rewriters, leave=False):
         model = rewriter.apply(model)
     return model

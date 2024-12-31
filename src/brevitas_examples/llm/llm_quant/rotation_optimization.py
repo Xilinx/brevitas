@@ -20,8 +20,7 @@ from brevitas_examples.llm.llm_quant.rotation_utils import extract_trainable_rot
 @dataclass
 class ModelArguments:
     input_model: Optional[str] = field(
-        default="hf-internal-testing/tiny-random-LlamaForCausalLM",
-        metadata={"help": "Input model"})
+        default="meta-llama/Llama-3.2-1B", metadata={"help": "Input model"})
     output_rotation_path: Optional[str] = field(
         default="test-output", metadata={"help": "Output rotation checkpoint path"})
     optimized_rotation_path: Optional[str] = field(

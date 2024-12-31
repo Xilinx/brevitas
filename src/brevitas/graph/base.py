@@ -6,9 +6,12 @@ from abc import abstractmethod
 from collections import OrderedDict
 import inspect
 from inspect import getcallargs
+from typing import Any, Callable, Dict, Type, Union
 
 import torch
+from torch import Tensor
 from torch.nn import Module
+from torch.nn import Parameter
 import torch.nn.utils.parametrize as parametrize
 from torch.overrides import get_testing_overrides
 
@@ -187,6 +190,76 @@ class InsertModuleCallAfter(GraphTransform):
         return graph_model
 
 
+class ModuleInstanceRegisterParametrization(Transform):
+
+    def __init__(
+            self, old_module_instance: Module, tensor_name: str,
+            parametrization_module: Module) -> None:
+        self.old_module_instance = old_module_instance
+        self.tensor_name = tensor_name
+        self.parametrization_module = parametrization_module
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                # register the parametrization in the old_module
+                parametrize.register_parametrization(
+                    old_module, self.tensor_name, self.parametrization_module)
+                break
+        return model
+
+
+class ModuleInstanceFuseRotationWeights(Transform):
+
+    def __init__(
+        self,
+        old_module_instance: Module,
+        rot_mat: Union[Parameter, Tensor],
+        rot_func: Callable,
+        K: int,
+        tensor_name: str,
+        axis: int,
+        is_source: bool,
+    ):
+        self.old_module_instance = old_module_instance
+        self.rot_mat = rot_mat
+        self.rot_func = rot_func
+        self.K = K
+        self.tensor_name = tensor_name
+        self.axis = axis
+        self.is_source = is_source
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                if hasattr(old_module, 'allocate_params'):
+                    old_module.allocate_params(old_module)
+                weight = getattr(old_module, self.tensor_name).data
+
+                if self.is_source:
+                    if self.axis == 0:
+                        weight = self.rot_func(weight.t(), self.rot_mat, self.K).t()
+                    elif self.axis == 1:
+                        weight = self.rot_func(weight, self.rot_mat, self.K)
+                    else:
+                        raise RuntimeError("Not supported yet")
+                # If not a source, the module is either a sink or an orphan
+                else:
+                    if self.axis == 1:
+                        weight = self.rot_func(weight, self.rot_mat, self.K)
+                    elif self.axis == 0:
+                        weight = self.rot_func(weight.t(), self.rot_mat, self.K).t()
+                    else:
+                        raise RuntimeError("Not supported yet")
+                # Modify the weights in-place
+                getattr(old_module, self.tensor_name).data = weight
+
+                if hasattr(old_module, 'offload_params'):
+                    old_module.offload_params(old_module)
+                break
+        return model
+
+
 class ModuleInstanceToModuleInstance(Transform):
 
     def __init__(self, old_module_instance, new_module_instance):
@@ -198,6 +271,31 @@ class ModuleInstanceToModuleInstance(Transform):
             if old_module is self.old_module_instance:
                 # init the new module based on the old one
                 replace_module(model, old_module, self.new_module_instance)
+                break
+        return model
+
+
+class ModuleInstanceWrapModule(Transform):
+
+    def __init__(
+            self,
+            old_module_instance: Module,
+            wrapper_class: Type[Module],
+            module_attribute: str,
+            kwargs_wrapper: Dict[str, Any]):
+        self.old_module_instance = old_module_instance
+        self.wrapper_class = wrapper_class
+        self.module_attribute = module_attribute
+        self.kwargs_wrapper = kwargs_wrapper
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                kwargs = {self.module_attribute: self.old_module_instance}
+                kwargs.update(self.kwargs_wrapper)
+                new_module_instance = self.wrapper_class(**kwargs)
+                # init the new module based on the old one
+                replace_module(model, old_module, new_module_instance)
                 break
         return model
 

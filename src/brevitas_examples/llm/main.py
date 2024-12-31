@@ -4,7 +4,9 @@
 import argparse
 from copy import deepcopy
 import functools
+import os
 import sys
+from typing import Callable, List
 from warnings import warn
 
 from lm_eval import evaluator
@@ -20,6 +22,7 @@ import yaml
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.graph.base import ModuleInstanceFuseRotationWeights
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import layerwise_quantize
@@ -79,6 +82,37 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
+def on_process(process_index: int):
+
+    def decorator(func: Callable):
+
+        @functools.wraps(func)
+        def _wrapper(model, *args, **kwargs):
+            curr_process_index = int(os.environ.get('LOCAL_RANK', -1))
+
+            if curr_process_index == -1 or (process_index == curr_process_index):
+                print(f"Applying {func.__name__} on process index {curr_process_index}")
+                return func(model, *args, **kwargs)
+            else:
+                print(f"Skipping function {func.__name__} on process index {curr_process_index}")
+                return model
+
+        return _wrapper
+
+    return decorator
+
+
+def apply_fused_rotations(model: torch.nn.Module, rewriters: List) -> torch.nn.Module:
+    model = offload_model(model)
+    for r in rewriters:
+        if isinstance(r, ModuleInstanceFuseRotationWeights):
+            model = r.apply(model)
+    remove_hooks(model)
+    return model
+
+
+# TODO: Use no_grad? The result of fusing the rotations would yield tensor with requires_grad set to False,
+# which might no be a problem, as that flag is set in the appropiate QAT/PTQ algorithms.
 def fused_rotation_no_fx(
         model,
         calibration_loader,
@@ -93,7 +127,6 @@ def fused_rotation_no_fx(
 
     for r in rewriters:
         r.apply(model)
-    new_model = offload_model(new_model)
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
@@ -103,17 +136,17 @@ def fused_rotation_no_fx(
         find_self_attention_rotation_regions(
             new_model, model.config.hidden_size //
             model.config.num_attention_heads) if add_self_attention_regions else None)
-    new_model, rewriters = eq.apply(new_model, fuse_rotations=fuse_rotations, additional_regions=self_attention_regions)
-    # Additional rewriters need to be added if rotations are not fused
-    if not fuse_rotations:
-        rewriters_unfused_rotations = extract_rewriters_unfused_rotations(new_model, rewriters)
-        rewriters.extend(rewriters_unfused_rotations)
-
+    new_model, rewriters = eq.apply(new_model, fuse_rotations=fuse_rotations, additional_regions=self_attention_regions, apply_inplace_rotations=False)
+    # Rewriters need to be fixed to point to the module instances of the original model
     rewriters = fix_rewriter(rewriters, model, 'weight')
-
+    # The weights of the FX model and the original model are tied, so the rotation fusing has already been applied.
+    # Note that the parametrization registration cannot be done in a model that has been offloaded using
+    # offload_model, as the change in the state dictionary when registering the parametrization causes the removal
+    # of the hooks to crash. This is due to the fact that the device_map in the AlignDevicesHook is no longer valid.
+    model = apply_fused_rotations(model, rewriters)
     for r in rewriters:
-        r.apply(model)
-    remove_hooks(new_model)
+        if not isinstance(r, ModuleInstanceFuseRotationWeights):
+            model = r.apply(model)
 
 
 def set_seed(seed):
@@ -296,6 +329,14 @@ def quantize_llm(args, unknown_args=None):
             del calibration_loader[i]["attention_mask"]
             calibration_loader[i]["labels"] = calibration_loader[i]["input_ids"]
 
+        def mock_save_pretrained_fn(*args, **kwargs):
+            pass
+
+        # For a PretrainedModel, the Trainer in accelerate calls save_pretrained after
+        # finishing the optimization. However, this method no longer works after
+        # registering parametrizations/quantizing, so this method is mocked to prevent
+        # a crash.
+        model.save_pretrained = mock_save_pretrained_fn
         model.config.use_cache = False
         model.config.loss_type = "ForCausalLM"
 
@@ -405,7 +446,6 @@ def quantize_llm(args, unknown_args=None):
             quantize_embedding=False)
         if not args.quantize_last_layer:
             if require_fx:
-                # TODO: Fix when using UnfusedRotation, layer_map[type(last_module)][1] crashes
                 last_node = [node for node in model.graph.nodes if node.op == 'call_module'][-1]
                 last_module = get_module(model, last_node.target)
                 last_layer_kwargs = layer_map[type(last_module)][1]
@@ -467,6 +507,8 @@ def quantize_llm(args, unknown_args=None):
             train_dataset=calibration_loader,
             unknown_args=unknown_args,
         )
+
+    remove_hooks(model)
 
     if args.act_calibration:
         print("Apply act calibration...")
