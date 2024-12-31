@@ -255,11 +255,14 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def __init__(self):
         super().__init__()
         self.skip_create_quant_tensor = False
+        quant_delay_steps = self.quant_injector.quant_delay_steps if 'quant_delay_steps' in self.quant_injector else None
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
+            out_value = self.delay_wrapper(x, out_value)
             if self.skip_create_quant_tensor:
                 return out_value
             return IntQuantTensor(
