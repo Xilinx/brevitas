@@ -43,7 +43,12 @@ Forked as-is from PyTorch 2.0.1
 
 from typing import Any, Dict, List, Tuple
 
-from torch.utils._pytree import register_pytree_node
+try:
+    from torch.utils._pytree import register_pytree_node
+except:
+    # Deprecated as of 2.3, but keeping for backportability
+    from torch.utils._pytree import _register_pytree_node
+    register_pytree_node = _register_pytree_node
 from torch.utils._pytree import Context
 
 from ._compatibility import compatibility
