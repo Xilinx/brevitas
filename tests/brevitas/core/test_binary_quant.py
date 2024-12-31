@@ -31,6 +31,7 @@ class TestBinaryUnit:
         scaling_impl = mock.Mock(return_value=scale_init)
         binary_quant = binary_quant_impl_all(scaling_impl)
         output, scale, zp, bit_width = binary_quant(inp)
+        output = (output - zp) * scale
         scaling_impl.assert_called_once_with(inp)
         assert is_binary_output_value_correct(scale, output)
         assert is_binary_output_sign_correct(inp, output)
@@ -54,7 +55,8 @@ class TestBinaryIntegration:
 
     @given(inp=float_tensor_random_shape_st())
     def test_output_value(self, binary_quant_all, inp):
-        output, scale, _, _ = binary_quant_all(inp)
+        output, scale, zp, _ = binary_quant_all(inp)
+        output = (output - zp) * scale
         assert is_binary_output_value_correct(scale, output)
 
     @given(inp=float_tensor_random_shape_st())

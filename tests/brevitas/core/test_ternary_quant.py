@@ -37,6 +37,7 @@ class TestTernaryUnit:
         scaling_impl = mock.Mock(return_value=scale_init)
         ternary_quant = TernaryQuant(scaling_impl, threshold)
         output, scale, zp, bit_width = ternary_quant(inp)
+        output = (output - zp) * scale
         scaling_impl.assert_called_once_with(inp)
         assert is_ternary_output_value_correct(scale, output)
         assert is_ternary_output_sign_correct(inp, scale * threshold, output)
@@ -64,7 +65,8 @@ class TestTernaryIntegration:
 
     @given(inp=float_tensor_random_shape_st())
     def test_output_value(self, ternary_quant, inp):
-        output, scale, _, _ = ternary_quant(inp)
+        output, scale, zp, _ = ternary_quant(inp)
+        output = (output - zp) * scale
         assert is_ternary_output_value_correct(scale, output)
 
     @given(inp=float_tensor_random_shape_st())

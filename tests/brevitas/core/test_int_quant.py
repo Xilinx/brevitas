@@ -60,4 +60,5 @@ class TestIntQuantUnit:
         # apply scale and zero point to the input distribution
         inp = scale * (arange_int_tensor - zero_point).float()
         output = int_quant(scale, zero_point, bit_width, inp)
+        output = (output - zero_point) * scale
         assert torch.isclose(inp, output).all()
