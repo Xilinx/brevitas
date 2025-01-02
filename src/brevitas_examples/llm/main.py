@@ -23,6 +23,7 @@ from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.base import ModuleInstanceFuseRotationWeights
+from brevitas.graph.base import Transform
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import layerwise_quantize
@@ -82,33 +83,45 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def on_process(process_index: int):
-
-    def decorator(func: Callable):
-
-        @functools.wraps(func)
-        def _wrapper(model, *args, **kwargs):
-            curr_process_index = int(os.environ.get('LOCAL_RANK', -1))
-
-            if curr_process_index == -1 or (process_index == curr_process_index):
-                print(f"Applying {func.__name__} on process index {curr_process_index}")
-                return func(model, *args, **kwargs)
-            else:
-                print(f"Skipping function {func.__name__} on process index {curr_process_index}")
-                return model
-
-        return _wrapper
-
-    return decorator
+def is_main_process():
+    return int(os.environ.get('LOCAL_RANK', -1)) in [-1, 0]
 
 
-def apply_fused_rotations(model: torch.nn.Module, rewriters: List) -> torch.nn.Module:
+
+def on_process(func: Callable, process_index: int):
+
+    @functools.wraps(func)
+    def _wrapper(model, *args, **kwargs):
+        curr_process_index = int(os.environ.get('LOCAL_RANK', -1))
+
+        if curr_process_index == -1 or (process_index == curr_process_index):
+            print(f"Applying {func.__name__} on process index {curr_process_index}")
+            return func(model, *args, **kwargs)
+        else:
+            print(f"Skipping function {func.__name__} on process index {curr_process_index}")
+            return model
+
+    return _wrapper
+on_main_process = functools.partial(on_process, process_index=0)
+
+
+@on_main_process
+def apply_fused_rotations(model: torch.nn.Module, rewriters: List[Transform]) -> torch.nn.Module:
     model = offload_model(model)
     for r in rewriters:
         if isinstance(r, ModuleInstanceFuseRotationWeights):
             model = r.apply(model)
     remove_hooks(model)
     return model
+
+
+@on_main_process
+def evaluate_model(model: torch.nn.Module, validation_loader, args, tokenizer):
+    model = offload_model(model)
+    quant_ppl = compute_perplexity(
+        model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+    print(f"Perplexity ({args.dataset}): {quant_ppl:.3f}")
+    remove_hooks(model)
 
 
 # TODO: Use no_grad? The result of fusing the rotations would yield tensor with requires_grad set to False,
@@ -313,12 +326,9 @@ def quantize_llm(args, unknown_args=None):
 
     if args.eval:
         assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
-        print("Float model eval...")
-        model = offload_model(model)
-        float_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-        remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
+        print("Evaluating float model...")
+        evaluate_model(model, validation_loader, args, tokenizer)
+        print("Float evaluation done.")
 
     if args.replace_rmsnorm:
         model = replace_rmsnorm_with_torch(model, model.config)
@@ -473,32 +483,43 @@ def quantize_llm(args, unknown_args=None):
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
 
-    model = offload_model(model)
+    # We need to run a calibration forward pass to initialize quantization-related parameters,
+    # e.g. scales. In DDP, as parameters are synchronized across replicas before optimization,
+    # it is not needed to run this pass for every process, as the parameters of the main
+    # process will be broadcasted to each replica.
+    if is_main_process():
+        model = offload_model(model)
 
-    dict_hooks = dict()
+        dict_hooks = dict()
 
-    # When offloading to CPU + GPU, the CPU scale factors must be updated
-    # before we move them back to the meta device.
-    # If we don't, we lose the new value but the internal flag "init_done" is True, thus we will use the wrong scale.
-    # To do this, we attach a "hook" to the post_forward function, called before the post_forward
-    # The function will update the dict with the initialized scales
-    for m in model.modules():
-        if hasattr(m, '_hf_hook'):
-            if m._hf_hook.weights_map is not None:
-                # We store the original function to be restored later
-                dict_hooks[m] = m._hf_hook.post_forward
-                new_funct = functools.partial(update_internal_dict, m)
-                m._hf_hook.post_forward = hooked_on_a_function(m._hf_hook.post_forward, new_funct)
+        # When offloading to CPU + GPU, the CPU scale factors must be updated
+        # before we move them back to the meta device.
+        # If we don't, we lose the new value but the internal flag "init_done" is True, thus we will use the wrong scale.
+        # To do this, we attach a "hook" to the post_forward function, called before the post_forward
+        # The function will update the dict with the initialized scales
+        for m in model.modules():
+            if hasattr(m, '_hf_hook'):
+                if m._hf_hook.weights_map is not None:
+                    # We store the original function to be restored later
+                    dict_hooks[m] = m._hf_hook.post_forward
+                    new_funct = functools.partial(update_internal_dict, m)
+                    m._hf_hook.post_forward = hooked_on_a_function(m._hf_hook.post_forward, new_funct)
 
-    with torch.no_grad():
-        model(**calibration_loader[0])
+        with torch.no_grad():
+            model(**calibration_loader[0])
 
-    # We restore the original behaviour of the post-forward.
-    for k, v in dict_hooks.items():
-        k._hf_hook.post_forward = v
+        # We restore the original behaviour of the post-forward.
+        for k, v in dict_hooks.items():
+            k._hf_hook.post_forward = v
 
-    # TODO: Refactor
-    remove_hooks(model)
+        # TODO: Refactor
+        remove_hooks(model)
+    else:
+        # TODO: Generalize this logic. Currently, only ParameterFromStatsFromParameterZeroPoint
+        # and ParameterFromStatsFromParameterScaling have the attribute init_done
+        for module in model.modules():
+            if hasattr(module, "init_done"):
+                module.init_done = True
 
     if args.rotation in ['fused_no_fx_optimize', 'fused_no_fx_optimize_self_attn_region']:
         apply_rotation_optimization(
@@ -509,6 +530,7 @@ def quantize_llm(args, unknown_args=None):
         )
 
     remove_hooks(model)
+    torch.cuda.empty_cache()
 
     if args.act_calibration:
         print("Apply act calibration...")
@@ -562,7 +584,7 @@ def quantize_llm(args, unknown_args=None):
         apply_bias_correction(model, calibration_loader)
         print("Bias correction applied.")
 
-    if args.eval and not args.no_quantize:
+    if args.eval and not args.no_quantize and is_main_process():
         print("Model eval...")
         with torch.no_grad(), quant_inference_mode(model):
             model(**calibration_loader[0])
