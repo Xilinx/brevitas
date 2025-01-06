@@ -103,7 +103,11 @@ class DynamicIntInferenceHandler(IntInferencetHandler):
             self.module_forward = module.fused_activation_quant_proxy
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
-        return self.module_forward(x)
+        x, scale, zp, *quant_args = self.module_forward(x)
+        x = self.dequantize(x, scale, zp)
+        quant_args = tuple(quant_args)
+        out = (x, scale, zp) + quant_args
+        return out
 
 
 class GroupwiseIntInferenceHandler(IntInferencetHandler):
@@ -119,14 +123,16 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
             self.group_dim = module.group_dim
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
-        x, *other = self.module_forward(x)
+        x, scale, zp, *quant_args = self.module_forward(x)
+        x = self.dequantize(x, scale, zp)
+        quant_args = tuple(quant_args)
 
         # If we skip quant tensor, we return the flattened version of the groupwise tensor
         if self.skip_create_quant_tensor:
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
-        output_args = tuple([x] + list(other))
-        return output_args
+        out = (x, scale, zp) + quant_args
+        return out
 
 
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
@@ -263,14 +269,15 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
             self.group_dim = module.group_dim
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        x, *other = self.module_forward(x)
-
+        x, scale, zp, *quant_args = self.module_forward(x)
+        x = self.dequantize(x, scale, zp)
+        quant_args = tuple(quant_args)
         # If we skip quant tensor, we return the flattened version of the groupwise tensor
         if self.skip_create_quant_tensor:
             start_dim = self.group_dim if self.group_dim != -1 else -2
             x = x.flatten(start_dim, start_dim + 1)
-        output_args = tuple([x] + list(other))
-        return output_args
+        out = (x, scale, zp) + quant_args
+        return out
 
 
 class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):

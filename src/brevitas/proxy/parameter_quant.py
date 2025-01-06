@@ -16,9 +16,9 @@ from typing_extensions import runtime_checkable
 from brevitas import config
 from brevitas import is_dynamo_compiling
 from brevitas.core.function_wrapper.misc import Identity
+from brevitas.core.quant.delay import DelayWrapper
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -96,6 +96,8 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
         self.skip_create_quant_tensor = False
+        quant_delay_steps = quant_injector.quant_delay_steps if 'quant_delay_steps' in quant_injector else None
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @property
     def input_view_impl(self):
@@ -138,11 +140,14 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                 else:
                     out = self.create_quant_tensor(out)
             else:
-                out = self.tensor_quant(x)
+                quant_value, *quant_args = self.tensor_quant(x)
+                quant_args = tuple(quant_args)
+                quant_value = self.dequantize(*((quant_value,) + quant_args))
+                quant_value = self.delay_wrapper(x, quant_value)
                 if self.skip_create_quant_tensor:
-                    out = out[0]
+                    out = quant_value
                 else:
-                    out = self.create_quant_tensor(out)
+                    out = self.create_quant_tensor((quant_value,) + quant_args)
                     if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
                         self._cached_weight = self.cache_class(
                             out.detach(),
@@ -274,8 +279,12 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
 
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
+            if self.export_mode:
+                out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.export_handler(x, input_bit_width, input_is_signed)
+            else:
+                out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.tensor_quant(x, input_bit_width, input_is_signed)
+                out = self.dequantize(out, scale, zero_point)
+
             if self.skip_create_quant_tensor:
                 return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
@@ -360,6 +369,8 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
+            if not self.export_mode:
+                out = self.dequantize(out, out_scale, out_zp)
             if not self.skip_create_quant_tensor:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)

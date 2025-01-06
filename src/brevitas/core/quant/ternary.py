@@ -9,7 +9,6 @@ from torch.nn import Module
 
 import brevitas
 from brevitas.core.bit_width import BitWidthConst
-from brevitas.core.quant.delay import DelayWrapper
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops_ste import ternary_sign_ste
 
@@ -57,13 +56,10 @@ class TernaryQuant(brevitas.jit.ScriptModule):
         self.threshold = threshold
         self.bit_width = BitWidthConst(2)
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         mask = x.abs().gt(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
-        y = y * scale
-        y = self.delay_wrapper(x, y)
         return y, scale, self.zero_point(), self.bit_width()

@@ -113,6 +113,12 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     def rounding_mode(self):
         return _rounding_mode(self.quant_injector)
 
+    def dequantize(self, *quant_args):
+        x, scale, zero_point, *_ = quant_args
+        out = x - zero_point
+        out = out * scale
+        return out
+
     def add_tracked_module(self, module: nn.Module) -> None:
         if module is not None:
             self.tracked_module_list.append(module)

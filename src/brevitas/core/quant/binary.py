@@ -10,7 +10,6 @@ from torch.nn import Module
 import brevitas
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.function_wrapper import TensorClamp
-from brevitas.core.quant.delay import DelayWrapper
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops_ste import binary_sign_ste
 
@@ -22,7 +21,6 @@ class BinaryQuant(brevitas.jit.ScriptModule):
 
     Args:
         scaling_impl (Module): Module that returns a scale factor.
-        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
 
     Returns:
         Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale, zero-point, bit_width.
@@ -48,19 +46,17 @@ class BinaryQuant(brevitas.jit.ScriptModule):
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
-    def __init__(self, scaling_impl: Module, signed: bool = True, quant_delay_steps: int = 0):
+    def __init__(self, scaling_impl: Module, signed: bool = True):
         super(BinaryQuant, self).__init__()
         assert signed, "Unsigned binary quant not supported"
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
-        y = binary_sign_ste(x) * scale
-        y = self.delay_wrapper(x, y)
+        y = binary_sign_ste(x)
         return y, scale, self.zero_point(), self.bit_width()
 
 
@@ -74,7 +70,6 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     Args:
         scaling_impl (Module): Module that returns a scale factor.
         tensor_clamp_impl (Module): Module that performs tensor-wise clamping. Default TensorClamp()
-        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
 
     Returns:
         Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale, zero-point, bit_width.
@@ -104,22 +99,16 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
-    def __init__(
-            self,
-            scaling_impl: Module,
-            tensor_clamp_impl: Module = TensorClamp(),
-            quant_delay_steps: int = 0):
+    def __init__(self, scaling_impl: Module, tensor_clamp_impl: Module = TensorClamp()):
         super(ClampedBinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
         self.tensor_clamp_impl = tensor_clamp_impl
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = self.tensor_clamp_impl(x, -scale, scale)
-        y = binary_sign_ste(y) * scale
-        y = self.delay_wrapper(x, y)
+        y = binary_sign_ste(y)
         return y, scale, self.zero_point(), self.bit_width()

@@ -8,7 +8,6 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.core.quant.delay import DelayWrapper
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops_ste import round_ste
 
@@ -201,12 +200,10 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
     """
     """
 
-    def __init__(
-            self, float_to_int_impl: Module, bit_width_impl: Module, quant_delay_steps: int = 0):
+    def __init__(self, float_to_int_impl: Module, bit_width_impl: Module):
         super(TruncIntQuant, self).__init__()
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
-        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, zero_point: Tensor,
@@ -219,9 +216,6 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         trunc_scale = 2.0 ** trunc_bit_width
         y = y / trunc_scale
         y = self.float_to_int_impl(y)
-        y = y - zero_point
-        y = y * scale
-        y = self.delay_wrapper(x, y)
         return y, scale, zero_point, output_bit_width
 
 

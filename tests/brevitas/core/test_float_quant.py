@@ -221,6 +221,7 @@ def test_inner_scale(inp, minifloat_format, scale):
         out = val_fp_quant * scale
 
         expected_out, expected_scale, *_ = float_quant(inp)
+        expected_out = expected_out * expected_scale
 
         assert scale == expected_scale
         if scale == 0.0:
