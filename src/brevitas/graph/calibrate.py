@@ -75,11 +75,6 @@ def set_collect_stats_to_average(module):
 
 
 def finalize_collect_stats(module):
-    if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
-        # If the counter has already reached collect_stats_steps, we do not want to reset it
-        # otherwise the restrict_preprocess might be applied twice: during calibration
-        # (that happens in training mode) and then when the model is evaluated
-        module.counter = max(module.collect_stats_steps, module.counter)
     if hasattr(module, 'init_scale'):
         module.init_scale()
 
