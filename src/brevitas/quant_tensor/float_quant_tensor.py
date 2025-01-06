@@ -43,10 +43,6 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             exponent_bias = torch.tensor(exponent_bias, dtype=torch.float)
         if not isinstance(saturating, torch.Tensor):
             saturating = torch.tensor(saturating, dtype=torch.bool)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(
             cls,
             value,
@@ -61,18 +57,6 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             signed,
             training)
         return quant_tensor
-
-    @property
-    def signed(self):
-        return self.signed_t.item()
-
-    @property
-    def training(self):
-        return self.training_t.item()
-
-    @property
-    def saturating(self):
-        return self.saturating_t.item()
 
     @property
     def eps(self):
@@ -315,7 +299,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         return output
 
     def __str__(self):
-        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed={self.signed}, training={self.training})"
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor):

@@ -97,8 +97,8 @@ class IntQuantTensorBase(NamedTuple):
     scale: Tensor
     zero_point: Tensor
     bit_width: Tensor
-    signed_t: Tensor
-    training_t: Tensor
+    signed: bool
+    training: bool
 
 
 class FloatQuantTensorBase(NamedTuple):
@@ -108,11 +108,11 @@ class FloatQuantTensorBase(NamedTuple):
     exponent_bit_width: Tensor
     mantissa_bit_width: Tensor
     exponent_bias: Tensor
-    saturating_t: Tensor
+    saturating: bool
     inf_values: List[str]
     nan_values: List[str]
-    signed_t: Tensor
-    training_t: Tensor
+    signed: bool
+    training: bool
 
 
 class GroupwiseFloatQuantTensorBase(NamedTuple):
@@ -124,11 +124,11 @@ class GroupwiseFloatQuantTensorBase(NamedTuple):
     exponent_bit_width: Tensor
     mantissa_bit_width: Tensor
     exponent_bias: Tensor
-    saturating_t: Tensor
+    saturating: bool
     inf_values: List[str]
     nan_values: List[str]
-    signed_t: Tensor
-    training_t: Tensor
+    signed: bool
+    training: bool
 
 
 class GroupwisIntQuantTensorBase(NamedTuple):
@@ -138,8 +138,8 @@ class GroupwisIntQuantTensorBase(NamedTuple):
     group_size: Tensor
     group_dim: Tensor
     bit_width: Tensor
-    signed_t: Tensor
-    training_t: Tensor
+    signed: bool
+    training: bool
 
 
 def _unpack_quant_tensor(input_data):

@@ -26,21 +26,9 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
         if not isinstance(bit_width, torch.Tensor):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor):
-            signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
-            training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(
             cls, value, scale, zero_point, group_size, group_dim, bit_width, signed, training)
         return quant_tensor
-
-    @property
-    def signed(self):
-        return self.signed_t.item()
-
-    @property
-    def training(self):
-        return self.training_t.item()
 
     @property
     def saturating(self):
@@ -166,9 +154,9 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
                 else:
                     return int_value.type(torch.float32)
             else:
-                if self.bit_width <= 8. and self.signed_t.item():
+                if self.bit_width <= 8. and self.signed:
                     return int_value.to(torch.int8)
-                elif self.bit_width <= 8. and not self.signed_t.item():
+                elif self.bit_width <= 8. and not self.signed:
                     return int_value.to(torch.uint8)
                 else:
                     return int_value.to(torch.int32)
@@ -278,7 +266,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
         return output
 
     def __str__(self):
-        return f"GroupwiseIntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, group_size={self.group_size}, group_dim={self.group_dim}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"GroupwiseIntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, group_size={self.group_size}, group_dim={self.group_dim}, bit_width={self.bit_width}, signed={self.signed}, training={self.training})"
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor):
