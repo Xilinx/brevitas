@@ -5,7 +5,7 @@ Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 
 from dataclasses import dataclass
 from dataclasses import field
-from typing import Optional, Tuple
+from typing import Optional, override, Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -20,7 +20,7 @@ from brevitas_examples.llm.llm_quant.rotation_utils import extract_trainable_rot
 @dataclass
 class ModelArguments:
     input_model: Optional[str] = field(
-        default="meta-llama/Llama-3.2-1B", metadata={"help": "Input model"})
+        default="meta-llama/Llama-3.2-3B", metadata={"help": "Input model"})
     output_rotation_path: Optional[str] = field(
         default="test-output", metadata={"help": "Output rotation checkpoint path"})
     optimized_rotation_path: Optional[str] = field(
@@ -72,6 +72,30 @@ def collate_fn(kwargs_list, return_tensors="pt"):
     return kwargs
 
 
+class FSDPTrainer(Trainer):
+
+    def __init__(self, optimizers, **kwargs):
+        super().__init__(**kwargs)
+        self.optimizer, self.lr_scheduler = optimizers
+
+    @override
+    def create_optimizer_and_scheduler(self, num_training_steps: int):
+        """
+        Setup the optimizer and the learning rate scheduler.
+
+        We provide a reasonable default that works well. If you want to use something else, you can pass a tuple in the
+        Trainer's init through `optimizers`, or subclass and override this method (or `create_optimizer` and/or
+        `create_scheduler`) in a subclass.
+        """
+
+        # Overwrite optimizer creation because optimizer is already created
+        optimizer = self.optimizer
+        self.create_scheduler(
+            num_training_steps=num_training_steps,
+            optimizer=optimizer,
+        )
+
+
 def apply_rotation_optimization(
         graph_model: torch.fx.GraphModule,
         tokenizer: PreTrainedTokenizerBase,
@@ -87,6 +111,9 @@ def apply_rotation_optimization(
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
     optimizer = SGDG(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
+    # TODO: Enable for multiprocess
+    # torch.distributed.barrier()
+    torch.cuda.empty_cache()
     trainer = Trainer(
         model=graph_model,
         tokenizer=tokenizer,

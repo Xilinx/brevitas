@@ -1443,7 +1443,7 @@ def _apply_rotate(
             if insert_rotation_module and len(region.srcs) == 0:
                 rewriter = ModuleInstanceWrapModule(
                     module, RotatedModule, "layer", {
-                        "had_mat": rot_mat, "k": K})
+                        "had_mat": None, "k": K})
                 rewriters.append(rewriter)
     for r in rewriters:
         # The parametrizations need to be registered after the potential HF hooks have been

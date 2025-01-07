@@ -14,6 +14,7 @@ from lm_eval.models.huggingface import HFLM
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
+import torch.distributed as dist
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 from transformers.utils.fx import _SUPPORTED_MODELS
@@ -56,6 +57,7 @@ from brevitas_examples.llm.llm_quant.rotation_utils import extract_rewriters_unf
 from brevitas_examples.llm.llm_quant.rotation_utils import find_self_attention_rotation_regions
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.rotation_utils import fuse_rotations
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
@@ -86,6 +88,9 @@ def set_seed(seed):
 def is_main_process():
     return int(os.environ.get('LOCAL_RANK', -1)) in [-1, 0]
 
+
+def is_multi_process():
+    return int(os.environ.get('LOCAL_RANK', -1)) != -1
 
 
 def on_process(func: Callable, process_index: int):
@@ -135,6 +140,7 @@ def fused_rotation_no_fx(
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     apply_layernorm_affine_merge(new_model)
+    # NOTE: This call breaks ties between the the lm_head and the embedding layer
     new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -262,6 +268,10 @@ def validate(args):
 def quantize_llm(args, unknown_args=None):
     validate(args)
     set_seed(args.seed)
+    # TODO: Validate
+    if is_multi_process():
+        dist.init_process_group(backend="nccl")
+
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
@@ -389,6 +399,9 @@ def quantize_llm(args, unknown_args=None):
         fused_rotation_no_fx(
             model, calibration_loader, args, fuse_rotations=False, add_self_attention_regions=True)
 
+    # TODO: Validate
+    if is_multi_process():
+        torch.distributed.barrier()
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
     if args.replace_mha:
@@ -528,9 +541,16 @@ def quantize_llm(args, unknown_args=None):
             train_dataset=calibration_loader,
             unknown_args=unknown_args,
         )
-
-    remove_hooks(model)
-    torch.cuda.empty_cache()
+        remove_hooks(model)
+        # In the main process, rotations can be fused for evaluation
+        # TODO: Validate
+        if is_main_process():
+            # Offload model before fusing the rotations
+            model = offload_model(model)
+            # TODO: Make sure that ties are kept
+            # Fuse rotations with weights
+            fuse_rotations(model)
+            remove_hooks(model)
 
     if args.act_calibration:
         print("Apply act calibration...")
