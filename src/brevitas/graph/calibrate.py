@@ -65,7 +65,7 @@ def restore_return_quant_tensor(model, previous_state):
 def extend_collect_stats_steps(module):
     if hasattr(module, 'collect_stats_steps'):
         # We extend the collect steps in PTQ to match potentially long calibrations
-        module.collect_stats_steps = sys.maxsize
+        module.collect_stats_steps = sys.maxsize - 1
 
 
 def set_collect_stats_to_average(module):
@@ -75,11 +75,8 @@ def set_collect_stats_to_average(module):
 
 
 def finalize_collect_stats(module):
-    if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
-        # If the counter has already reached collect_stats_steps, we do not want to reset it
-        # otherwise the restrict_preprocess might be applied twice: during calibration
-        # (that happens in training mode) and then when the model is evaluated
-        module.counter = max(module.collect_stats_steps, module.counter)
+    if hasattr(module, 'init_scale'):
+        module.init_scale()
 
 
 class calibration_mode:

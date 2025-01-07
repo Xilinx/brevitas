@@ -375,6 +375,12 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
 
+    def init_scale(self):
+        if self.counter <= self.collect_stats_steps:
+            self.restrict_inplace_preprocess(self.buffer)
+            inplace_tensor_mul(self.value.detach(), self.buffer)
+            self.counter = self.collect_stats_steps + 1
+
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor, threshold: Tensor) -> Tensor:
         if self.counter < self.collect_stats_steps:
@@ -396,12 +402,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.counter = new_counter
             return abs_binary_sign_grad(clamped_stats / threshold)
         elif self.counter == self.collect_stats_steps:
-            self.restrict_inplace_preprocess(self.buffer)
-            inplace_tensor_mul(self.value.detach(), self.buffer)
-            threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
+            self.init_scale()
             value = self.clamp_scaling(self.restrict_scaling(self.value))
+            threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = value / threshold
-            self.counter = self.counter + 1
             return abs_binary_sign_grad(value)
         else:
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
