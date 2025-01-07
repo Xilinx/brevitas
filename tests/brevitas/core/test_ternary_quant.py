@@ -67,17 +67,6 @@ class TestTernaryIntegration:
         output, scale, _, _ = ternary_quant(inp)
         assert is_ternary_output_value_correct(scale, output)
 
-    def test_delayed_output_value(self, delayed_ternary_quant, quant_delay_steps, randn_inp):
-        """
-        Test delayed quantization by a certain number of steps. Because delayed quantization is
-        stateful, we can't use Hypothesis to generate the input, so we resort to a basic fixture.
-        """
-        for i in range(quant_delay_steps):
-            output, _, _, _ = delayed_ternary_quant(randn_inp)
-            assert (output == randn_inp).all()
-        output, scale, _, _ = delayed_ternary_quant(randn_inp)
-        assert is_ternary_output_value_correct(scale, output)
-
     @given(inp=float_tensor_random_shape_st())
     def test_output_bit_width(self, ternary_quant, inp):
         _, _, _, bit_width = ternary_quant(inp)

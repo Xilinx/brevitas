@@ -14,6 +14,7 @@ from typing_extensions import runtime_checkable
 
 import brevitas
 from brevitas import is_dynamo_compiling
+from brevitas.core.quant.delay import DelayWrapper
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -99,6 +100,8 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
         self.skip_create_quant_tensor = False
+        quant_delay_steps = quant_injector.quant_delay_steps if 'quant_delay_steps' in quant_injector else None
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @property
     def input_view_impl(self):
@@ -176,31 +179,33 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             y = y.value
 
         if self.export_mode:
-            y = self.fused_activation_quant_proxy.activation_impl(y)
-            y = self.export_handler(y)
+            out = self.fused_activation_quant_proxy.activation_impl(y)
+            out = self.export_handler(out)
         elif not self.is_quant_enabled:
             # A tuple helps later with control flows
             # The second None value is used later
             # If quant is not enabled, we still apply input_view in the case of groupwise + padding
-            y = self.apply_input_view(self.fused_activation_quant_proxy.activation_impl(y))
-            y = (y, None)
+            out = self.apply_input_view(self.fused_activation_quant_proxy.activation_impl(y))
+            out = (out, None)
         else:
-            y = self.fused_activation_quant_proxy(y)
+            out = self.fused_activation_quant_proxy(y)
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
-
+        quant_value, *quant_args = out
+        quant_args = tuple(quant_args)
+        quant_value = self.delay_wrapper(y, quant_value)
         if self.skip_create_quant_tensor:
-            out = y[0]
+            out = quant_value
         else:
             # If the second value (i.e., scale) is None, then quant is disabled
-            if y[1] is not None:
-                out = self.create_quant_tensor(y)
+            if out[1] is not None:
+                out = self.create_quant_tensor((quant_value,) + quant_args)
             elif self.is_passthrough_act and isinstance(x, QuantTensor):
                 # preserve scale/zp/bit/sign even without output quant
-                y = y[0]
-                out = self.create_quant_tensor(y, x=x)
+                out = quant_value
+                out = self.create_quant_tensor(out, x=x)
             else:
-                out = y[0]
+                out = quant_value
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
@@ -250,11 +255,14 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def __init__(self):
         super().__init__()
         self.skip_create_quant_tensor = False
+        quant_delay_steps = self.quant_injector.quant_delay_steps if 'quant_delay_steps' in self.quant_injector else None
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
+            out_value = self.delay_wrapper(x, out_value)
             if self.skip_create_quant_tensor:
                 return out_value
             return IntQuantTensor(
@@ -267,6 +275,8 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.skip_create_quant_tensor = False
+        quant_delay_steps = self.quant_injector.quant_delay_steps if 'quant_delay_steps' in self.quant_injector else None
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     def bit_width(self):
         if not self.is_quant_enabled:
@@ -285,6 +295,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             else:
                 out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
+            out_value = self.delay_wrapper(x, out_value)
             if self.skip_create_quant_tensor:
                 return out_value
             return IntQuantTensor(
