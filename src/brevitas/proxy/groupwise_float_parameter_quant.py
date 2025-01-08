@@ -14,6 +14,12 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOGroupwiseFloat
 
+    def scale_(self):
+        return self.retrieve_attribute('scale_')
+
+    def zero_point_(self):
+        return self.retrieve_attribute('zero_point_')
+
     @property
     def group_dim(self):
         return self.quant_injector.group_dim
