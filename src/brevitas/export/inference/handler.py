@@ -60,10 +60,10 @@ class IntInferencetHandler(InferenceHandler):
             self.bit_width = module.bit_width()
             self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
             self.max_clamp = max_int(module.is_signed, module.is_narrow_range, self.bit_width)
-            if hasattr(module.tensor_quant.int_quant, 'float_to_int_impl'):
+            if hasattr(module.tensor_quant, 'int_quant'):
                 self.float_to_int_impl = module.tensor_quant.int_quant.float_to_int_impl
             elif hasattr(module, 'fused_activation_quant_proxy'):
-                self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
+                self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.int_quant.float_to_int_impl
 
     def quantize(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         return torch.clamp(
