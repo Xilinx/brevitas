@@ -5,6 +5,7 @@ import operator
 
 from packaging import version
 import pytest
+import pytest_cases
 import torch
 from torch import nn
 from torchvision import models
@@ -17,9 +18,14 @@ from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
 from brevitas.graph import MethodToModule
 from brevitas.graph.base import ModuleToModuleByInstance
+from brevitas.graph.base import ModuleInstanceRegisterParametrization
+from brevitas.graph.base import ModuleInstanceFuseRotationWeights
+from brevitas.graph.base import RotationWeightParametrization
+from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
+from brevitas.nn.equalized_layer import RotatedModule
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
@@ -290,3 +296,63 @@ def test_lambda_kwargs():
     kwargs = {'stride': lambda module, name: 2 if module.in_channels == 3 else 1}
     model = ModuleToModuleByInstance(model.conv, nn.Conv2d, **kwargs).apply(model)
     assert model.conv.stride == (2, 2)
+
+
+def test_module_instance_register_parametrization():
+
+    class TestModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear = nn.Linear(2,2, bias=False)
+
+        def forward(self, x):
+            return self.linear(x)
+        
+    class ZeroParametrization(nn.Module):
+        def forward(self, x):
+            return torch.zeros_like(x)
+        
+    model = TestModel()
+    model = ModuleInstanceRegisterParametrization(model.linear, "weight", ZeroParametrization()).apply(model)
+    assert torch.all(model.linear.weight == 0.)
+
+
+def test_module_instance_wrap_module():
+    class TestModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear = nn.Linear(2,2, bias=False)
+
+        def forward(self, x):
+            return self.linear(x)
+        
+    model = TestModel()
+    model = ModuleInstanceWrapModule(model.linear, RotatedModule, "layer", {"had_mat": None, "k": None}).apply(model)
+    assert isinstance(model.linear, RotatedModule)
+
+
+@pytest_cases.parametrize("axis", [0, 1], ids=lambda axis:f"axis={axis}")
+def test_fuse_rotation_weights(axis):
+    
+    def rot_func(weight, ort, K):
+        return torch.matmul(weight, ort)
+    
+    class TestModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear = nn.Linear(2,2, bias=False)
+
+        def forward(self, x):
+            return self.linear(x)
+    
+    rot_mat = torch.rand(2,2)
+    model_fused = TestModel()
+    model_unfused = TestModel()
+    model_unfused.linear.weight.data = model_fused.linear.weight.data
+
+    model_fused = ModuleInstanceFuseRotationWeights(model_fused.linear, rot_mat, rot_func, None, "weight", axis).apply(model_fused)
+    model_unfused = ModuleInstanceRegisterParametrization(model_unfused.linear, "weight", RotationWeightParametrization(rot_mat, rot_func, axis, None)).apply(model_unfused)
+    assert torch.all(model_fused.linear.weight == model_unfused.linear.weight)

@@ -5,10 +5,14 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
+from typing import Any, Callable, Dict, Type, Union, Optional
 
 import torch
 from torch.nn import Module
+from torch.nn import Parameter
+from torch import Tensor
 from torch.overrides import get_testing_overrides
+import torch.nn.utils.parametrize as parametrize
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
@@ -173,6 +177,106 @@ class InsertModuleCallAfter(GraphTransform):
         graph_model.graph.lint()
         return graph_model
 
+class ModuleInstanceRegisterParametrization(Transform):
+
+    def __init__(
+            self, old_module_instance: Module, tensor_name: str,
+            parametrization_module: Module) -> None:
+        self.old_module_instance = old_module_instance
+        self.tensor_name = tensor_name
+        self.parametrization_module = parametrization_module
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                # register the parametrization in the old_module
+                parametrize.register_parametrization(
+                    old_module, self.tensor_name, self.parametrization_module, unsafe=True)
+                break
+        return model
+
+class RotationWeightParametrization(torch.nn.Module):
+
+    def __init__(
+        self,
+        rot_mat: torch.nn.Parameter,
+        rot_func: Callable,
+        axis: int,
+        K: Optional[int],
+    ) -> None:
+        super().__init__()
+        self.rot_mat = rot_mat
+        self.rot_func = rot_func
+        self.axis = axis
+        self.K = K
+
+    def forward(self, weight: torch.Tensor) -> torch.Tensor:
+
+        if self.axis == 0:
+            weight = self.rot_func(weight.t(), self.rot_mat, self.K).t()
+        elif self.axis == 1:
+            weight = self.rot_func(weight, self.rot_mat, self.K)
+        else:
+            raise RuntimeError("Not supported yet")
+
+        return weight
+
+class ModuleInstanceFuseRotationWeights(Transform):
+
+    def __init__(
+        self,
+        old_module_instance: Module,
+        rot_mat: Union[Parameter, Tensor],
+        rot_func: Callable,
+        K: Optional[int],
+        tensor_name: str,
+        axis: int,
+    ):
+        self.old_module_instance = old_module_instance
+        self.rot_mat = rot_mat
+        self.rot_func = rot_func
+        self.K = K
+        self.tensor_name = tensor_name
+        self.axis = axis
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                if hasattr(old_module, 'allocate_params'):
+                    old_module.allocate_params(old_module)
+                weight = getattr(old_module, self.tensor_name).data
+                weight = RotationWeightParametrization(self.rot_mat, self.rot_func, self.axis, self.K)(weight)
+                # Modify the weights in-place
+                getattr(old_module, self.tensor_name).data = weight
+
+                if hasattr(old_module, 'offload_params'):
+                    old_module.offload_params(old_module)
+                break
+        return model
+    
+class ModuleInstanceWrapModule(Transform):
+
+    def __init__(
+            self,
+            old_module_instance: Module,
+            wrapper_class: Type[Module],
+            module_attribute: str,
+            kwargs_wrapper: Dict[str, Any]):
+        self.old_module_instance = old_module_instance
+        self.wrapper_class = wrapper_class
+        self.module_attribute = module_attribute
+        self.kwargs_wrapper = kwargs_wrapper
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                kwargs = {self.module_attribute: self.old_module_instance}
+                kwargs.update(self.kwargs_wrapper)
+                new_module_instance = self.wrapper_class(**kwargs)
+                # init the new module based on the old one
+                replace_module(model, old_module, new_module_instance)
+                break
+        return model
 
 class ModuleInstanceToModuleInstance(Transform):
 

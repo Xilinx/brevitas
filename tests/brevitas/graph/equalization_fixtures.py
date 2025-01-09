@@ -528,3 +528,49 @@ list_of_rotation_mixtures = ['linear_rms']
 
 rotation_fixtures = fixture_union(
     'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)
+
+IN_FEATURES = 12
+RESIDUAL_MODEL_REGION_DICTS = [
+    {
+        "srcs": ["embedding", "block1_linear2", "block2_linear2"],
+        "sinks": ["block1_linear1", "block2_linear1", "head"],
+    },
+    {
+        "srcs": ["block1_linear1"],
+        "sinks": ["block1_linear2"]     
+    },
+    {
+        "srcs": [],
+        "sinks": ["block2_linear2"]
+    },
+]
+@pytest_cases.fixture
+def block_residual_model():
+    class BlockResidualModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.embedding = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+
+            self.block1_linear1 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=True)
+            self.block1_linear2 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+
+            self.block2_linear1 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+            self.act = nn.SiLU()
+            self.block2_linear2 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=True)
+
+            self.head = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+
+        def forward(self, x):
+            x = self.embedding(x)
+            r = x
+            x = self.block1_linear1(x)
+            x = self.block1_linear2(x) + r
+            r = x
+            x = self.block2_linear1(x)
+            x = self.act(x)
+            x = self.block2_linear2(x) + r
+            x = self.head(x)
+            return x
+        
+    return BlockResidualModel

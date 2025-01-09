@@ -15,19 +15,24 @@ import packaging.version
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+import torch.nn.utils.parametrize as parametrize
 
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
-from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.graph.base import ModuleInstanceFuseRotationWeights
+from brevitas.graph.base import ModuleInstanceRegisterParametrization
+from brevitas.graph.base import ModuleInstanceWrapModule
+from brevitas.graph.base import RotationWeightParametrization
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
+from brevitas.graph.hadamard import random_hadamard_matrix
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn.equalized_layer import EqualizedModule
@@ -1299,7 +1304,7 @@ def random_orthogonal_matrix(size):
     return q
 
 
-def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method='had'):
+def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method='had', fuse_rotations: bool = True, apply_inplace_rotations: bool = True):
     rewriters = []
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
@@ -1309,6 +1314,14 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
         hidden_dim = region.max_shape_sinks
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
+            K = None
+            rot_func = _apply_ort_device
+        elif not insert_rotation_module and not fuse_rotations:
+            # If the model is distributed across GPUs, the device will be
+            # not be the same for all of the parameters, so explicit moves
+            # to the same device as the weights need to be added
+            device = next(model.parameters()).device
+            rot_mat = random_hadamard_matrix(hidden_dim, device)
             K = None
             rot_func = _apply_ort_device
         else:
@@ -1326,55 +1339,107 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 print("Skipping layers")
                 continue
 
+        # If the rotation is not fused, redefine as a Parameter, to enable its optimization
+        if not insert_rotation_module and not fuse_rotations:
+            rot_mat = torch.nn.Parameter(rot_mat)
+
         for name, indexes in region.srcs.items():
             module = region.get_module_from_name(name)
-            if hasattr(module, 'allocate_params'):
-                module.allocate_params(module)
             axis = _get_output_axis(module)
-            weight = module.weight.data
 
-            if axis == 0:
-                rotated_weight = rot_func(weight.t(), rot_mat, K).t()
-                _update_weights(module, rotated_weight, 'weight')
-            elif axis == 1:
-                rotated_weight = rot_func(weight, rot_mat, K)
-                _update_weights(module, rotated_weight, 'weight')
+            if fuse_rotations:
+                rewriter = ModuleInstanceFuseRotationWeights(
+                    old_module_instance=module,
+                    rot_mat=rot_mat,
+                    rot_func=rot_func,
+                    K=K,
+                    tensor_name="weight",
+                    axis=axis,
+                )
+                rewriters.append(rewriter)
+
+                if getattr(module, 'bias', None) is not None:
+                    rewriter = ModuleInstanceFuseRotationWeights(
+                        old_module_instance=module,
+                        rot_mat=rot_mat,
+                        rot_func=rot_func,
+                        K=K,
+                        tensor_name="bias",
+                        axis=1,
+                    )
+                    rewriters.append(rewriter)
             else:
-                raise RuntimeError("Not supported yet")
-
-            if getattr(module, 'bias', None) is not None:
-                bias = module.bias.data
-                bias = rot_func(bias, rot_mat, K)
-                module.bias.data = bias
-            if hasattr(module, 'offload_params'):
-                module.offload_params(module)
+                rewriter = ModuleInstanceRegisterParametrization(
+                    module,
+                    "weight",
+                    RotationWeightParametrization(
+                        rot_mat=rot_mat,
+                        rot_func=rot_func,
+                        axis=axis,
+                        K=K,
+                    ))
+                rewriters.append(rewriter)
+                if getattr(module, 'bias', None) is not None:
+                    rewriter = ModuleInstanceRegisterParametrization(
+                        module,
+                        "bias",
+                        RotationWeightParametrization(
+                            rot_mat=rot_mat,
+                            rot_func=rot_func,
+                            axis=1,
+                            K=K,
+                        ))
+                    rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
             module = region.get_module_from_name(name)
-            if hasattr(module, 'allocate_params'):
-                module.allocate_params(module)
             axis = _get_input_axis(module)
-            weight = module.weight.data
 
-            if axis == 1:
-                rotated_weight = rot_func(weight, rot_mat, K)
-                _update_weights(module, rotated_weight, 'weight')
-            elif axis == 0:
-                rotated_weight = rot_func(weight.t(), rot_mat, K).t()
-                _update_weights(module, rotated_weight, 'weight')
+            if not insert_rotation_module and not fuse_rotations:
+                rewriter = ModuleInstanceRegisterParametrization(
+                    module,
+                    "weight",
+                    RotationWeightParametrization(
+                        rot_mat=rot_mat,
+                        rot_func=rot_func,
+                        axis=axis,
+                        K=K,
+                    ))
+                rewriters.append(rewriter)
             else:
-                raise RuntimeError("Not supported yet")
-
-            if hasattr(module, 'offload_params'):
-                module.offload_params(module)
+                rewriter = ModuleInstanceFuseRotationWeights(
+                    old_module_instance=module,
+                    rot_mat=rot_mat,
+                    rot_func=rot_func,
+                    K=K,
+                    tensor_name="weight",
+                    axis=axis,
+                )
+                rewriters.append(rewriter)
 
             if insert_rotation_module and len(region.srcs) == 0:
-                rewriter = ModuleInstanceToModuleInstance(
-                    module, RotatedModule(had_mat=rot_mat, k=K, layer=module))
+                rewriter = ModuleInstanceWrapModule(
+                    module, RotatedModule, "layer", {
+                        "had_mat": None, "k": K})
                 rewriters.append(rewriter)
-    for r in rewriters:
-        model = r.apply(model)
+    if apply_inplace_rotations:
+        for r in rewriters:
+            # The parametrizations need to be registered after the potential HF hooks have been
+            # removed, as otherwise the device maps will not match the structure of the
+            # model's state_dict after the registration of the parametrizations.
+            if not isinstance(r, ModuleInstanceRegisterParametrization):
+                model = r.apply(model)
     return rewriters
+
+def _fuse_rotations(model: nn.Module) -> nn.Module:
+    for module in model.modules():
+        # Names of the tensors that can potentially be parametrized
+        tensor_names = ["weight", "bias"]
+        # Remove parametrizations from each tensor
+        for tensor_name in tensor_names:
+            if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
+                parametrize.remove_parametrizations(module, tensor_name, leave_parametrized=True)
+    return model
 
 
 def _replace_bias(next_module, new_bias):
