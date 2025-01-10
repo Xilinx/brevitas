@@ -90,7 +90,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
-        sdpa_regions=args.sdpa_regions)
+        sdpa_regions=args.rotation_sdpa_regions)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -299,7 +299,7 @@ def quantize_llm(args):
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink,
             full_rotation_method=args.rotation_mode,
-            sdpa_regions=args.sdpa_regions)
+            sdpa_regions=args.rotation_sdpa_regions)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':

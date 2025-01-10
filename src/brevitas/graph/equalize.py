@@ -1525,13 +1525,13 @@ class GraphRotationEqualization(RotationEqualization):
         eq_layers = set()
         orphan_regions = []
         self.find_module(graph_model, orphan_regions)
+        if self.rotate_sdpa:
+            sdpa_regions = self.rotate_sdpa(graph_model)
+            regions.extend(sdpa_regions)
         for r in regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
-        if self.rotate_sdpa:
-            sdpa_regions = self.rotate_sdpa(graph_model)
-            regions.extend(sdpa_regions)
         if self.orphan_sink:
             for o_r in orphan_regions:
                 # Layerwise have only a single sink named 'sinks0'
