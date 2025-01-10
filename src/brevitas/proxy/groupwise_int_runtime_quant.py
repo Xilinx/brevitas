@@ -29,7 +29,7 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
     def create_quant_tensor(
             self,
             qt_args: Union[torch.Tensor, Tuple[Any]],
-            x: Optional[GroupwiseIntQuantTensor] = None) -> GroupwiseIntQuantTensor:
+            x: Union[torch.Tensor, GroupwiseIntQuantTensor]) -> GroupwiseIntQuantTensor:
         if isinstance(qt_args, tuple):
             value, scale, zero_point, bit_width = qt_args
             out = GroupwiseIntQuantTensor(
