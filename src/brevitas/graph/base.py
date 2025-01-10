@@ -251,7 +251,7 @@ class ModuleInstanceFuseRotationWeights(Transform):
                 weight = RotationWeightParametrization(
                     self.rot_mat, self.rot_func, self.axis, self.K)(weight)
                 # Modify the weights in-place
-                getattr(old_module, self.tensor_name).data = weight
+                setattr(old_module, self.tensor_name, torch.nn.Parameter(weight))
 
                 if hasattr(old_module, 'offload_params'):
                     old_module.offload_params(old_module)
