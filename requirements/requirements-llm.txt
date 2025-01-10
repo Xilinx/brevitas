@@ -5,4 +5,4 @@ onnx
 onnxruntime
 optimum
 tqdm
-transformers[sentencepiece]
+transformers[sentencepiece]==4.47.1
