@@ -741,6 +741,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
+
 @pytest_cases.fixture(
     ids=[
         "llama_fused_rotation_ort",
@@ -793,7 +794,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_mode": "had",
             "float_ppl": 33238.8984375,
             "quant_ppl": 33204.80859375},
-       {
+        {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
             "weight_bit_width": 4,
@@ -811,6 +812,7 @@ def rotation_ppl_args_and_ppl(default_run_args, request):
     del run_dict["quant_ppl"]
     args.update(**run_dict)
     yield args, float_ppl, quant_ppl
+
 
 @requires_pt_ge('2.4')
 def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):

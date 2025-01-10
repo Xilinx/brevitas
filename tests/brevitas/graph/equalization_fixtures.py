@@ -533,19 +533,16 @@ IN_FEATURES = 12
 RESIDUAL_MODEL_REGION_DICTS = [
     {
         "srcs": ["embedding", "block1_linear2", "block2_linear2"],
-        "sinks": ["block1_linear1", "block2_linear1", "head"],
-    },
+        "sinks": ["block1_linear1", "block2_linear1", "head"],},
     {
-        "srcs": ["block1_linear1"],
-        "sinks": ["block1_linear2"]     
-    },
+        "srcs": ["block1_linear1"], "sinks": ["block1_linear2"]},
     {
-        "srcs": [],
-        "sinks": ["block2_linear2"]
-    },
-]
+        "srcs": [], "sinks": ["block2_linear2"]},]
+
+
 @pytest_cases.fixture
 def block_residual_model():
+
     class BlockResidualModel(nn.Module):
 
         def __init__(self) -> None:
@@ -572,5 +569,5 @@ def block_residual_model():
             x = self.block2_linear2(x) + r
             x = self.head(x)
             return x
-        
+
     return BlockResidualModel

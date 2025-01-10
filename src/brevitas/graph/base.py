@@ -5,14 +5,14 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
-from typing import Any, Callable, Dict, Type, Union, Optional
+from typing import Any, Callable, Dict, Optional, Type, Union
 
 import torch
+from torch import Tensor
 from torch.nn import Module
 from torch.nn import Parameter
-from torch import Tensor
-from torch.overrides import get_testing_overrides
 import torch.nn.utils.parametrize as parametrize
+from torch.overrides import get_testing_overrides
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
@@ -177,6 +177,7 @@ class InsertModuleCallAfter(GraphTransform):
         graph_model.graph.lint()
         return graph_model
 
+
 class ModuleInstanceRegisterParametrization(Transform):
 
     def __init__(
@@ -194,6 +195,7 @@ class ModuleInstanceRegisterParametrization(Transform):
                     old_module, self.tensor_name, self.parametrization_module, unsafe=True)
                 break
         return model
+
 
 class RotationWeightParametrization(torch.nn.Module):
 
@@ -221,6 +223,7 @@ class RotationWeightParametrization(torch.nn.Module):
 
         return weight
 
+
 class ModuleInstanceFuseRotationWeights(Transform):
 
     def __init__(
@@ -245,7 +248,8 @@ class ModuleInstanceFuseRotationWeights(Transform):
                 if hasattr(old_module, 'allocate_params'):
                     old_module.allocate_params(old_module)
                 weight = getattr(old_module, self.tensor_name).data
-                weight = RotationWeightParametrization(self.rot_mat, self.rot_func, self.axis, self.K)(weight)
+                weight = RotationWeightParametrization(
+                    self.rot_mat, self.rot_func, self.axis, self.K)(weight)
                 # Modify the weights in-place
                 getattr(old_module, self.tensor_name).data = weight
 
@@ -253,7 +257,8 @@ class ModuleInstanceFuseRotationWeights(Transform):
                     old_module.offload_params(old_module)
                 break
         return model
-    
+
+
 class ModuleInstanceWrapModule(Transform):
 
     def __init__(
@@ -277,6 +282,7 @@ class ModuleInstanceWrapModule(Transform):
                 replace_module(model, old_module, new_module_instance)
                 break
         return model
+
 
 class ModuleInstanceToModuleInstance(Transform):
 

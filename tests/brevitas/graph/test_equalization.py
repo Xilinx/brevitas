@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from functools import partial
+from functools import reduce
 import itertools
-from functools import partial, reduce
 from unittest.mock import patch
 
 import pytest
@@ -14,27 +15,27 @@ from torchvision import models
 from brevitas.fx import symbolic_trace
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import RotationWeightParametrization
-from brevitas.graph.equalize import Region
-from brevitas.graph.equalize import EqualizationIndexes
+from brevitas.graph.equalize import _apply_had_device
+from brevitas.graph.equalize import _apply_ort_device
+from brevitas.graph.equalize import _apply_rotate
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
+from brevitas.graph.equalize import _fuse_rotations
+from brevitas.graph.equalize import _get_input_axis
+from brevitas.graph.equalize import _get_output_axis
 from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
-from brevitas.graph.equalize import _apply_rotate
-from brevitas.graph.equalize import _apply_had_device
-from brevitas.graph.equalize import _fuse_rotations
-from brevitas.graph.equalize import _apply_ort_device
-from brevitas.graph.equalize import _get_input_axis
-from brevitas.graph.equalize import _get_output_axis
+from brevitas.graph.equalize import Region
 from brevitas.graph.hadamard import get_hadK
-from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
+from brevitas.nn.equalized_layer import RotatedModule
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
@@ -294,7 +295,7 @@ def test_models(rotation_fixtures, partial_had):
     if partial_had:
         last_weight_new = model.linear_2.layer.weight.data
         assert not torch.allclose(last_weight, last_weight_new)
-        
+
 
 @pytest_cases.parametrize('N', [1, 2, 3], ids=lambda x: f"N={x}")
 def test_composition_unfused_rotations(N):
@@ -372,21 +373,25 @@ def _random_orthogonal_matrix(size, generator):
     q *= torch.sign(torch.diag(r)).unsqueeze(0).float()
     return q
 
+
 # Auxiliar method to convert a dictionary of sources/sinks into a valid region
 def _instantiate_region(region_dict, model) -> Region:
     if len(region_dict["srcs"]) > 0:
-        sorted_srcs = dict(sorted({ src: EqualizationIndexes(0, IN_FEATURES, 0) for src in region_dict["srcs"]}.items()))
-        sorted_sinks = dict(sorted({ sink: EqualizationIndexes(0, IN_FEATURES, 0) for sink in region_dict["sinks"]}.items()))
+        sorted_srcs = dict(
+            sorted({src: EqualizationIndexes(0, IN_FEATURES, 0) for src in region_dict["srcs"]
+                   }.items()))
+        sorted_sinks = dict(
+            sorted({sink: EqualizationIndexes(0, IN_FEATURES, 0) for sink in region_dict["sinks"]
+                   }.items()))
     else:
         sorted_srcs = dict()
-        sorted_sinks = dict(sorted({ sink: EqualizationIndexes(0, IN_FEATURES, 0) for sink in region_dict["sinks"]}.items()))
+        sorted_sinks = dict(
+            sorted({sink: EqualizationIndexes(0, IN_FEATURES, 0) for sink in region_dict["sinks"]
+                   }.items()))
     sorted_acts = tuple()
     return Region(
-        srcs=sorted_srcs,
-        sinks=sorted_sinks,
-        acts=sorted_acts,
-        name_to_module=model._modules
-    )
+        srcs=sorted_srcs, sinks=sorted_sinks, acts=sorted_acts, name_to_module=model._modules)
+
 
 # Auxiliar function to compare the weights of module instances belonging to classes_to_compare
 def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Linear,)):
@@ -395,33 +400,31 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
         if isinstance(module_fused, classes_to_compare):
             module_unfused = reduce(getattr, [model_unfused] + name_module_fused.split("."))
             for tensor_name in tensor_names:
-                if hasattr(module_fused, tensor_name) and getattr(module_fused, tensor_name) is not None:
+                if hasattr(module_fused, tensor_name) and getattr(module_fused,
+                                                                  tensor_name) is not None:
                     assert torch.allclose(getattr(module_fused, tensor_name), getattr(module_unfused, tensor_name), atol=0.0, rtol=0.0), f"Tensor {tensor_name} does not match for module {name_module_fused}"
 
 
 @pytest_cases.parametrize(
     'mask',
     itertools.product([False, True], repeat=3),
-    ids=lambda mask: "-".join([rot for mask_el, rot in zip(mask, ["R1", "R2", "R3"]) if mask_el])
-)
+    ids=lambda mask: "-".join([rot for mask_el, rot in zip(mask, ["R1", "R2", "R3"]) if mask_el]))
 @pytest_cases.parametrize('full_rotation_method', ['ort', 'had'])
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 @pytest_cases.parametrize('fuse_rotations', [False, True], ids=["fused", "unfused"])
 @pytest_cases.parametrize('use_fx', [True, False], ids=["fx", "no-fx"])
-def test_apply_rotate(block_residual_model, mask, full_rotation_method, device, fuse_rotations, use_fx):
+def test_apply_rotate(
+        block_residual_model, mask, full_rotation_method, device, fuse_rotations, use_fx):
     # Instantiate a residual model for which a collection of regions is available
     model = block_residual_model()
-    device = torch.device("cuda") if device == 'cuda' else torch.device("cpu") 
+    device = torch.device("cuda") if device == 'cuda' else torch.device("cpu")
     model.to(device)
     # Sample input to pass through the models
     sample_inputs = torch.rand(size=(5, IN_FEATURES)).to(device)
     # Collect only a subset of regions to be applied
     regions_dicts = [
-        region_dict 
-        for mask_element, region_dict 
-        in zip(mask, RESIDUAL_MODEL_REGION_DICTS)
-        if mask_element
-    ]
+        region_dict for mask_element,
+        region_dict in zip(mask, RESIDUAL_MODEL_REGION_DICTS) if mask_element]
     # Use FX model if requested
     if use_fx:
         graph_model, _ = torch._dynamo.export(model)(sample_inputs)
@@ -434,16 +437,17 @@ def test_apply_rotate(block_residual_model, mask, full_rotation_method, device, 
                     if hasattr(module, "weight") and graph_module.weight is module.weight:
                         map_model_graph[name] = graph_module_name
         # Replace the names of the modules in sources/sinks by the names of the modules in the FX model
-        regions_dicts = [
-            {k: list(map(lambda x: map_model_graph[x], v)) for k, v in region_dict.items()} for region_dict in regions_dicts
-        ]
+        regions_dicts = [{
+            k: list(map(lambda x: map_model_graph[x], v))
+            for k, v in region_dict.items()}
+                         for region_dict in regions_dicts]
         # Rotation will be applied on the FX model
         model = graph_model
 
     # Deepcopy the models as parameters are going to be modified in-place
     rotated_model_unfused = copy.deepcopy(model)
     rotated_model_fused = copy.deepcopy(model)
-    
+
     # Generator to control the random orthogonal matrices generated
     generator = torch.Generator()
     generator.manual_seed(SEED)
@@ -451,24 +455,44 @@ def test_apply_rotate(block_residual_model, mask, full_rotation_method, device, 
     generator_clone = generator.clone_state()
 
     # Apply rotations on the model with unfused rotations
-    regions_unfused = list(map(lambda x: _instantiate_region(x, rotated_model_unfused), regions_dicts))
+    regions_unfused = list(
+        map(lambda x: _instantiate_region(x, rotated_model_unfused), regions_dicts))
     if full_rotation_method == 'had':
         # _apply_ort_device is patched to ensure that the hadamard matrices in hadamard.pt are used, instead of
         # the random ones generated by random_hadamard_matrices
-        with patch('brevitas.graph.equalize._apply_ort_device', lambda tensor, had_K, K: _apply_had_device(tensor, get_hadK(had_K.shape[0])[0], get_hadK(had_K.shape[0])[1])):
-            rewriters = _apply_rotate(rotated_model_unfused, regions_unfused, full_rotation_method=full_rotation_method, fuse_rotations=False)
-    elif full_rotation_method == 'ort': 
-        with patch('brevitas.graph.equalize.random_orthogonal_matrix', partial(_random_orthogonal_matrix, generator=generator)):
-            rewriters = _apply_rotate(rotated_model_unfused, regions_unfused, full_rotation_method=full_rotation_method, fuse_rotations=False)
+        with patch('brevitas.graph.equalize._apply_ort_device',
+                   lambda tensor,
+                   had_K,
+                   K: _apply_had_device(
+                       tensor, get_hadK(had_K.shape[0])[0], get_hadK(had_K.shape[0])[1])):
+            rewriters = _apply_rotate(
+                rotated_model_unfused,
+                regions_unfused,
+                full_rotation_method=full_rotation_method,
+                fuse_rotations=False)
+    elif full_rotation_method == 'ort':
+        with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+                   partial(_random_orthogonal_matrix, generator=generator)):
+            rewriters = _apply_rotate(
+                rotated_model_unfused,
+                regions_unfused,
+                full_rotation_method=full_rotation_method,
+                fuse_rotations=False)
     # Register parametrizations after calling _apply_rotate, as these are not inmediately registered since they alter the structure of the
     # model, thus potentially causing a crash if the model is offloaded
     for r in rewriters:
         if isinstance(r, ModuleInstanceRegisterParametrization):
             rotated_model_unfused = r.apply(rotated_model_unfused)
     # Apply rotations on the model with fused rotations
-    with patch('brevitas.graph.equalize.random_orthogonal_matrix', partial(_random_orthogonal_matrix, generator=generator_clone)):
-        regions_fused = list(map(lambda x: _instantiate_region(x, rotated_model_fused), regions_dicts))
-        _apply_rotate(rotated_model_fused, regions_fused, full_rotation_method=full_rotation_method, fuse_rotations=True)
+    with patch('brevitas.graph.equalize.random_orthogonal_matrix',
+               partial(_random_orthogonal_matrix, generator=generator_clone)):
+        regions_fused = list(
+            map(lambda x: _instantiate_region(x, rotated_model_fused), regions_dicts))
+        _apply_rotate(
+            rotated_model_fused,
+            regions_fused,
+            full_rotation_method=full_rotation_method,
+            fuse_rotations=True)
 
     # Compute outputs for each model
     model_output = model(sample_inputs)
@@ -477,10 +501,13 @@ def test_apply_rotate(block_residual_model, mask, full_rotation_method, device, 
 
     # Verify that the correct number of unique rotation matrices were included. Orphan sinks (len(region_dict["srcs"]) == 0) do not
     # an attached parametrization
-    assert sum([len(region_dict["srcs"]) > 0 for region_dict in regions_dicts]) == sum(["rot_mat" in name for name, _ in rotated_model_unfused.named_parameters(remove_duplicate=True)])
+    assert sum([len(region_dict["srcs"]) > 0 for region_dict in regions_dicts]) == sum([
+        "rot_mat" in name for name,
+        _ in rotated_model_unfused.named_parameters(remove_duplicate=True)])
     # Verify that RotatedModules were added appropiately
     for rotated_model in [rotated_model_fused, rotated_model_unfused]:
-        assert sum([len(region_dict["srcs"]) == 0 for region_dict in regions_dicts]) == sum([isinstance(module, RotatedModule) for module in rotated_model.modules()])
+        assert sum([len(region_dict["srcs"]) == 0 for region_dict in regions_dicts]) == sum([
+            isinstance(module, RotatedModule) for module in rotated_model.modules()])
     # Optionally fuse the rotations
     if fuse_rotations:
         rotated_model_unfused = _fuse_rotations(rotated_model_unfused)
@@ -489,7 +516,8 @@ def test_apply_rotate(block_residual_model, mask, full_rotation_method, device, 
             assert not parametrize.is_parametrized(module)
     # Outputs should match for rotated and unrotated models
     assert torch.allclose(model_output, rotated_model_fused_output, atol=ATOL)
-    assert torch.allclose(rotated_model_unfused_output, rotated_model_fused_output, atol=0.0, rtol=0.0)
+    assert torch.allclose(
+        rotated_model_unfused_output, rotated_model_fused_output, atol=0.0, rtol=0.0)
     # Verify that the weights have changed with respect to the unrotated module for the modules that have received parametrizations
     # Verify that weights match between the fused and unfused model
     compare_model_weights(rotated_model_fused, rotated_model_unfused)

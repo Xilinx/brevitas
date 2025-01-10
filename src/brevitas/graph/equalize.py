@@ -23,9 +23,9 @@ from brevitas.fx import Node
 from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
-from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleInstanceFuseRotationWeights
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
+from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import RotationWeightParametrization
 from brevitas.graph.base import Transform
@@ -1304,13 +1304,19 @@ def random_orthogonal_matrix(size):
     return q
 
 
-def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method='had', fuse_rotations: bool = True, apply_inplace_rotations: bool = True):
+def _apply_rotate(
+        model: nn.Module,
+        regions: List[Region],
+        full_rotation_method='had',
+        fuse_rotations: bool = True,
+        apply_inplace_rotations: bool = True):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
     # the fact that parametrizations need to be registered, once all the in-place
     # operations have taken place
-    regions = [region for region in regions if len(region.srcs) == 0] + [region for region in regions if len(region.srcs) > 0]
+    regions = [region for region in regions if len(region.srcs) == 0] + [
+        region for region in regions if len(region.srcs) > 0]
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
@@ -1435,6 +1441,7 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
             if not isinstance(r, ModuleInstanceRegisterParametrization):
                 model = r.apply(model)
     return rewriters
+
 
 def _fuse_rotations(model: nn.Module) -> nn.Module:
     for module in model.modules():
