@@ -1306,6 +1306,11 @@ def random_orthogonal_matrix(size):
 
 def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method='had', fuse_rotations: bool = True, apply_inplace_rotations: bool = True):
     rewriters = []
+    # First, rotations on orphan sinks are applied so the order in which rotations are
+    # applied is consistent, irrespective of the value of fuse_rotations. This is due to
+    # the fact that parametrizations need to be registered, once all the in-place
+    # operations have taken place
+    regions = [region for region in regions if len(region.srcs) == 0] + [region for region in regions if len(region.srcs) > 0]
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
@@ -1420,7 +1425,7 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
             if insert_rotation_module and len(region.srcs) == 0:
                 rewriter = ModuleInstanceWrapModule(
                     module, RotatedModule, "layer", {
-                        "had_mat": None, "k": K})
+                        "had_mat": rot_mat, "k": K})
                 rewriters.append(rewriter)
     if apply_inplace_rotations:
         for r in rewriters:
