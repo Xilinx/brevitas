@@ -405,6 +405,7 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
                     assert torch.allclose(getattr(module_fused, tensor_name), getattr(module_unfused, tensor_name), atol=0.0, rtol=0.0), f"Tensor {tensor_name} does not match for module {name_module_fused}"
 
 
+@requires_pt_ge('2.4')
 @pytest_cases.parametrize(
     'mask',
     itertools.product([False, True], repeat=3),
