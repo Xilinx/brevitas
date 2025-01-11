@@ -454,7 +454,8 @@ def test_apply_rotate(
     generator = torch.Generator()
     generator.manual_seed(SEED)
     # Clone generator to make sure we can use the same rotation matrices
-    generator_clone = generator.clone_state()
+    generator_clone = torch.Generator()
+    generator_clone.set_state(generator.get_state())
 
     # Apply rotations on the model with unfused rotations
     regions_unfused = list(
