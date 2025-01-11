@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import torch
+
 from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
@@ -215,3 +217,36 @@ def float_to_int_impl_to_enum(module):
             return FloatToIntImplType.STOCHASTIC_ROUND
     else:
         return None
+
+
+def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
+    final_shape = dequant_shape
+    curr_shape = value_.shape
+    start_dim = group_dim if group_dim != -1 else -2
+    new_value = value_.flatten(start_dim, start_dim + 1)
+    if scale_.shape != ():
+        new_scale = scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
+    else:
+        new_scale = scale_
+    if zero_point_.shape != ():
+        new_zp = zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
+    else:
+        new_zp = zero_point_
+
+    # If we padded during quantization, we unpad here:
+    # First, we compute how much we padded along the group_dim shape
+    # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
+    # Finally, we stack the remaining tensors
+    unpadding_shape = final_shape[group_dim]
+    residual = new_value.shape[group_dim] - unpadding_shape
+
+    if residual > 0:
+        new_value = torch.stack(
+            torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
+        new_scale = torch.stack(
+            torch.unbind(new_scale, dim=group_dim)[:unpadding_shape], dim=group_dim)
+        if zero_point_.shape != ():
+            new_zp = torch.stack(
+                torch.unbind(new_zp, dim=group_dim)[:unpadding_shape], dim=group_dim)
+
+    return new_value, new_scale, new_zp

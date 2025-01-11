@@ -29,8 +29,8 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
     def create_quant_tensor(
             self,
             qt_args: Union[torch.Tensor, Tuple[Any]],
-            x: Optional[GroupwiseFloatQuantTensor] = None) -> GroupwiseFloatQuantTensor:
-        if x is None:
+            x: Union[torch.Tensor, GroupwiseFloatQuantTensor]) -> GroupwiseFloatQuantTensor:
+        if isinstance(qt_args, tuple):
             value, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
             out = GroupwiseFloatQuantTensor(
                 value,
@@ -45,7 +45,8 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
                 inf_values,
                 nan_values,
                 self.is_signed,
-                self.training)
+                self.training,
+                dequant_shape=x.shape)
         else:
             out = GroupwiseFloatQuantTensor(
                 qt_args,
@@ -60,5 +61,6 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
                 x.inf_values,
                 x.nan_values,
                 x.signed,
-                self.training)
+                self.training,
+                x.shape)
         return out

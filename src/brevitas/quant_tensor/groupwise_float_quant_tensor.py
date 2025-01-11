@@ -31,7 +31,8 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             inf_values,
             nan_values,
             signed,
-            training):
+            training,
+            dequant_shape=None):
 
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
@@ -63,7 +64,8 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             inf_values,
             nan_values,
             signed,
-            training)
+            training,
+            dequant_shape)
         return quant_tensor
 
     @property
@@ -89,19 +91,9 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
             return func(*args, **kwargs)
 
     def expand(self):
-        curr_shape = self.value_.shape
-        start_dim = self.group_dim if self.group_dim != -1 else -2
-        new_value = self.value_.flatten(start_dim, start_dim + 1)
-        if self.scale_.shape != ():
-            new_scale = self.scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
-        else:
-            new_scale = self.scale_
-        if self.zero_point_.shape != ():
-            new_zp = self.zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
-        else:
-            new_zp = self.zero_point_
-
-        return new_value, new_scale, new_zp
+        from brevitas.utils.quant_utils import groupwise_dequant_expand
+        return groupwise_dequant_expand(
+            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):

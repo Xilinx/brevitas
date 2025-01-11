@@ -157,9 +157,8 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
 
     @abstractmethod
     def create_quant_tensor(
-            self,
-            qt_args: Union[torch.Tensor, Tuple[Any]],
-            x: Optional[QuantTensor] = None) -> QuantTensor:
+            self, qt_args: Union[torch.Tensor, Tuple[Any]], x: Union[Tensor,
+                                                                     QuantTensor]) -> QuantTensor:
         # Supports the following:
         # - qt_args as tuple of Tensors and bools = standard quant activations
         # - qt_args as Tensor and x as QuantTensor = passthrough activation
@@ -181,8 +180,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif not self.is_quant_enabled:
             # A tuple helps later with control flows
             # The second None value is used later
-            # If quant is not enabled, we still apply input_view in the case of groupwise + padding
-            y = self.apply_input_view(self.fused_activation_quant_proxy.activation_impl(y))
+            y = self.fused_activation_quant_proxy.activation_impl(y)
             y = (y, None)
         else:
             y = self.fused_activation_quant_proxy(y)
@@ -194,7 +192,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         else:
             # If the second value (i.e., scale) is None, then quant is disabled
             if y[1] is not None:
-                out = self.create_quant_tensor(y)
+                out = self.create_quant_tensor(y, x=x)
             elif self.is_passthrough_act and isinstance(x, QuantTensor):
                 # preserve scale/zp/bit/sign even without output quant
                 y = y[0]
@@ -224,11 +222,9 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
         return self.retrieve_attribute('bit_width', force_eval)
 
     def create_quant_tensor(
-            self,
-            qt_args: Union[Tensor, Tuple[Any]],
-            x: Optional[IntQuantTensor] = None) -> IntQuantTensor:
-
-        if x is None:
+            self, qt_args: Union[torch.Tensor, Tuple[Any]],
+            x: Union[Tensor, IntQuantTensor]) -> IntQuantTensor:
+        if isinstance(qt_args, tuple):
             out = IntQuantTensor(*qt_args, self.is_signed, self.training)
         else:
             out = IntQuantTensor(
