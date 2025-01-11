@@ -204,7 +204,7 @@ class RotationWeightParametrization(torch.nn.Module):
         rot_mat: torch.nn.Parameter,
         rot_func: Callable,
         axis: int,
-        K: Optional[int],
+        K: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.rot_mat = rot_mat
