@@ -434,7 +434,8 @@ def test_small_models_quant_layer(caplog, layer_args):
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
         "llama-rotation-mixed-fx",
-        "llama-rotation-full-fx",],
+        "llama-rotation-full-fx",
+        "llama-rotation-full-fx-sdpa"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -547,6 +548,22 @@ def test_small_models_quant_layer(caplog, layer_args):
                 "<class 'torch.nn.modules.linear.Linear'>":
                     15,  # LM Head + Q/K/V projs + Up/Gate/Down projs
                 "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,  # Input + Post attention
+                "<class 'torch.nn.modules.normalization.LayerNorm'>": 0,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "ln_affine_merge": True,
+            "replace_rmsnorm": True,
+            "quantize_last_layer": True,
+            "no_quantize": True,
+            "rotation_orphan_sink": True,
+            "convert_layernorm_to_rmsnorm": True,
+            "rotation_sdpa_regions": True,
+            "rotation": "fx",
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,  # Sinks: Only Down proj
+                "<class 'torch.nn.modules.linear.Linear'>":
+                    15,  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
+                "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,
                 "<class 'torch.nn.modules.normalization.LayerNorm'>": 0,}},])
 def layer_args_types_count(default_run_args, request):
     args = default_run_args
