@@ -39,6 +39,7 @@ from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
+from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
 
@@ -1445,9 +1446,6 @@ def _apply_rotate(
             if not isinstance(r, ModuleInstanceRegisterParametrization):
                 model = r.apply(model)
     return rewriters
-
-
-from brevitas.utils.python_utils import recurse_getattr
 
 
 def _untie_parameters_with_parametrizations(model: torch.nn.Module):
