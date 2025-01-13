@@ -1360,7 +1360,7 @@ def _apply_rotate(
 
             if fuse_rotations:
                 rewriter = ModuleInstanceFuseRotationWeights(
-                    old_module_instance=module,
+                    module=module,
                     rot_mat=rot_mat,
                     rot_func=rot_func,
                     K=K,
@@ -1371,7 +1371,7 @@ def _apply_rotate(
 
                 if getattr(module, 'bias', None) is not None:
                     rewriter = ModuleInstanceFuseRotationWeights(
-                        old_module_instance=module,
+                        module=module,
                         rot_mat=rot_mat,
                         rot_func=rot_func,
                         K=K,
@@ -1381,9 +1381,9 @@ def _apply_rotate(
                     rewriters.append(rewriter)
             else:
                 rewriter = ModuleInstanceRegisterParametrization(
-                    module,
-                    "weight",
-                    RotationWeightParametrization(
+                    module=module,
+                    tensor_name="weight",
+                    parametrization_module=RotationWeightParametrization(
                         rot_mat=rot_mat,
                         rot_func=rot_func,
                         axis=axis,
@@ -1392,9 +1392,9 @@ def _apply_rotate(
                 rewriters.append(rewriter)
                 if getattr(module, 'bias', None) is not None:
                     rewriter = ModuleInstanceRegisterParametrization(
-                        module,
-                        "bias",
-                        RotationWeightParametrization(
+                        module=module,
+                        tensor_name="bias",
+                        parametrization_module=RotationWeightParametrization(
                             rot_mat=rot_mat,
                             rot_func=rot_func,
                             axis=1,
@@ -1408,9 +1408,9 @@ def _apply_rotate(
 
             if not insert_rotation_module and not fuse_rotations:
                 rewriter = ModuleInstanceRegisterParametrization(
-                    module,
-                    "weight",
-                    RotationWeightParametrization(
+                    module=module,
+                    tensor_name="weight",
+                    parametrization_module=RotationWeightParametrization(
                         rot_mat=rot_mat,
                         rot_func=rot_func,
                         axis=axis,
@@ -1419,7 +1419,7 @@ def _apply_rotate(
                 rewriters.append(rewriter)
             else:
                 rewriter = ModuleInstanceFuseRotationWeights(
-                    old_module_instance=module,
+                    module=module,
                     rot_mat=rot_mat,
                     rot_func=rot_func,
                     K=K,

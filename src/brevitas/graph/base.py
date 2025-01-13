@@ -179,29 +179,53 @@ class InsertModuleCallAfter(GraphTransform):
 
 
 class ModuleInstanceRegisterParametrization(Transform):
+    r"""Transform to register a parametrization to a given parameter of a
+    module.
 
-    def __init__(
-            self, old_module_instance: Module, tensor_name: str,
-            parametrization_module: Module) -> None:
-        self.old_module_instance = old_module_instance
+    Args:
+        module (nn.Module): module on which to register the
+            parametrization
+        tensor_name: (str): name of the :class:`torch.nn.Parameter` of
+            module which is to be parametrized
+        parametrization_module (nn.Module): the parametrization to
+            register
+    """
+
+    def __init__(self, module: Module, tensor_name: str, parametrization_module: Module) -> None:
+        self.module = module
         self.tensor_name = tensor_name
         self.parametrization_module = parametrization_module
 
     def apply(self, model: GraphModule) -> GraphModule:
-        for old_module in model.modules():
-            if old_module is self.old_module_instance:
-                # register the parametrization in the old_module
+        for module in model.modules():
+            if module is self.module:
+                # register the parametrization to module
                 parametrize.register_parametrization(
-                    old_module, self.tensor_name, self.parametrization_module, unsafe=True)
+                    module, self.tensor_name, self.parametrization_module, unsafe=True)
                 break
         return model
 
 
 class RotationWeightParametrization(torch.nn.Module):
+    r"""Rotates a tensor by a specified axis
+
+    Args:
+        rot_mat (Tensor): orthogonal matrix by which to rotate the tensor
+        rot_func (Callable): function to apply the rotation. The first
+            argument corresponds to the tensor to be rotated, while the
+            second specifies the rotation matrix. The third argument (K) is
+            useful when rotating by an Hadamard matrix and it corresponds
+            to the dimensionality of the matrix up to a power of two,
+            i.e. dim=(2**p)*K. See get_hadK for details
+        axis (int): axis by which to rotate the tensor
+        K (int, optional): if rot_mat is an Hadamard matrix, K is the highest
+            divisor of the dimensionality of the matrix, such that K, itself,
+            is not divisible by 2
+    """
 
     def __init__(
         self,
-        rot_mat: torch.nn.Parameter,
+        rot_mat: Callable[[Tensor, Tensor, Optional[int]], Tensor],
         rot_func: Callable,
         axis: int,
         K: Optional[int] = None,
@@ -212,30 +236,49 @@ class RotationWeightParametrization(torch.nn.Module):
         self.axis = axis
         self.K = K
 
-    def forward(self, weight: torch.Tensor) -> torch.Tensor:
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
 
         if self.axis == 0:
-            weight = self.rot_func(weight.t(), self.rot_mat, self.K).t()
+            tensor = self.rot_func(tensor.t(), self.rot_mat, self.K).t()
         elif self.axis == 1:
-            weight = self.rot_func(weight, self.rot_mat, self.K)
+            tensor = self.rot_func(tensor, self.rot_mat, self.K)
         else:
             raise RuntimeError("Not supported yet")
 
-        return weight
+        return tensor
 
 
 class ModuleInstanceFuseRotationWeights(Transform):
+    r"""Transform to rotate in-place a given parameter of a module by a
+        specified axis
+
+    Args:
+        module (nn.Module): parent module of the parameter to be rotated
+        rot_mat (Tensor): orthogonal matrix by which to rotate the tensor
+        rot_func (Callable): function to apply the rotation. The first
+            argument corresponds to the tensor to be rotated, while the
+            second specifies the rotation matrix. The third argument (K) is
+            useful when rotating by an Hadamard matrix and it corresponds
+            to the dimensionality of the matrix up to a power of two,
+            i.e. dim=(2**p)*K. See get_hadK for details
+        K (int, optional): if rot_mat is an Hadamard matrix, K is the highest
+            divisor of the dimensionality of the matrix, such that K, itself,
+            is not divisible by 2
+        axis (int): axis by which to rotate the tensor
+        tensor_name: (str): name of the :class:`torch.nn.Parameter` of
+            module which is to be rotated
+    """
 
     def __init__(
         self,
-        old_module_instance: Module,
-        rot_mat: Union[Parameter, Tensor],
-        rot_func: Callable,
+        module: Module,
+        rot_mat: Tensor,
+        rot_func: Callable[[Tensor, Tensor, Optional[int]], Tensor],
         K: Optional[int],
         tensor_name: str,
         axis: int,
     ):
-        self.old_module_instance = old_module_instance
+        self.module = module
         self.rot_mat = rot_mat
         self.rot_func = rot_func
         self.K = K
@@ -243,23 +286,37 @@ class ModuleInstanceFuseRotationWeights(Transform):
         self.axis = axis
 
     def apply(self, model: GraphModule) -> GraphModule:
-        for old_module in model.modules():
-            if old_module is self.old_module_instance:
-                if hasattr(old_module, 'allocate_params'):
-                    old_module.allocate_params(old_module)
-                weight = getattr(old_module, self.tensor_name).data
-                weight = RotationWeightParametrization(
-                    self.rot_mat, self.rot_func, self.axis, self.K)(weight)
+        for module in model.modules():
+            if module is self.module:
+                # This check is needed to apply the change in the parameters
+                # when the model is offloaded
+                # TODO: Move outside the apply function
+                if hasattr(module, 'allocate_params'):
+                    module.allocate_params(module)
+                tensor = getattr(module, self.tensor_name).data
+                tensor = RotationWeightParametrization(
+                    self.rot_mat, self.rot_func, self.axis, self.K)(tensor)
                 # Modify the weights in-place
-                setattr(old_module, self.tensor_name, torch.nn.Parameter(weight))
+                setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
 
-                if hasattr(old_module, 'offload_params'):
-                    old_module.offload_params(old_module)
+                if hasattr(module, 'offload_params'):
+                    module.offload_params(module)
                 break
         return model
 
 
 class ModuleInstanceWrapModule(Transform):
+    r"""Transform to replace a module by a wrapper module which has the original
+        one as a submodule
+
+    Args:
+        old_module_instance (nn.Module): module to be wrapped
+        wrapper_class (type): class of the wrapper for old_module_instance
+        module_attribute (str): name of the parameter to pass the original
+            module to the constructor of wrapper_class
+        kwargs_wrapper (dict, optional): dictionary with the constructor
+            arguments for wrapper_class
+    """
 
     def __init__(
             self,
