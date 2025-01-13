@@ -1339,6 +1339,7 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
                 weight = rot_func(weight, rot_mat, K)
             else:
                 raise RuntimeError("Not supported yet")
+            module.weight.data = weight
 
             if getattr(module, 'bias', None) is not None:
                 bias = module.bias.data
