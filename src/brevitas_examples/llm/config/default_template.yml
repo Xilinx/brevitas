@@ -17,6 +17,7 @@ few_shot_tasks:
 - winogrande
 - piqa
 few_shot_zeroshot: false
+functional_sdpa_quant: false
 fuse_sequences: false
 gpfq: false
 gptq: false
