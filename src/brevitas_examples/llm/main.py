@@ -470,13 +470,11 @@ def quantize_llm(args):
                 scale_optimizer_class='sgd',
                 optimizer_kwargs={'lr': args.learned_round_lr},
                 scale_optimizer_kwargs={
-                    'lr': args.learned_round_scale_lr, 'momentum': args.learned_round_scale_momentum},
+                    'lr': args.learned_round_scale_lr,
+                    'momentum': args.learned_round_scale_momentum},
                 fast_update=args.learned_round_fast_update)
             print("Learned round applied.")
-
-            # We restore the original behaviour of the post-forward.
-            for k, v in dict_hooks.items():
-                k._hf_hook.post_forward = v
+            model = offload_model(model)
 
         if args.load_checkpoint:
             remove_hooks(model)
