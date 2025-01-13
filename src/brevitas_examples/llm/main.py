@@ -515,6 +515,14 @@ def quantize_llm(args):
                 print(f"Saving checkpoint to {args.checkpoint_name}")
                 torch.save(model.state_dict(), args.checkpoint_name)
 
+        if args.eval and not args.no_quantize:
+            print("Model eval...")
+            with torch.no_grad(), quant_inference_mode(model):
+                model(**calibration_loader[0])
+                quant_ppl = compute_perplexity(
+                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
+
         if args.few_shot_eval:
             with torch.no_grad(), quant_inference_mode(model):
                 model(**calibration_loader[0])
