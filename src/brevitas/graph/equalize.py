@@ -1334,12 +1334,13 @@ def _apply_rotate(model: nn.Module, regions: List[Region], full_rotation_method=
             weight = module.weight.data
 
             if axis == 0:
-                weight = rot_func(weight.t(), rot_mat, K).t()
+                rotated_weight = rot_func(weight.t(), rot_mat, K).t()
+                _update_weights(module, rotated_weight, 'weight')
             elif axis == 1:
-                weight = rot_func(weight, rot_mat, K)
+                rotated_weight = rot_func(weight, rot_mat, K)
+                _update_weights(module, rotated_weight, 'weight')
             else:
                 raise RuntimeError("Not supported yet")
-            module.weight.data = weight
 
             if getattr(module, 'bias', None) is not None:
                 bias = module.bias.data
@@ -1518,7 +1519,7 @@ class GraphRotationEqualization(RotationEqualization):
         eq_layers = set()
         orphan_regions = []
         self.find_module(graph_model, orphan_regions)
-        if self.rotate_sdpa:
+        if self.sdpa_regions:
             sdpa_regions = self.rotate_sdpa(graph_model)
             regions.extend(sdpa_regions)
         for r in regions:
