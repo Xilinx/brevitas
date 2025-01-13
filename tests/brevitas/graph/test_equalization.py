@@ -15,7 +15,6 @@ from torchvision import models
 from brevitas import torch_version
 from brevitas.fx import symbolic_trace
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
-from brevitas.graph.base import RotationWeightParametrization
 from brevitas.graph.equalize import _apply_had_device
 from brevitas.graph.equalize import _apply_ort_device
 from brevitas.graph.equalize import _apply_rotate
@@ -37,6 +36,7 @@ from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.rotation_utils import RotationWeightParametrization
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *

@@ -27,7 +27,6 @@ from brevitas.graph.base import ModuleInstanceFuseRotationWeights
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleInstanceWrapModule
-from brevitas.graph.base import RotationWeightParametrization
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
@@ -40,6 +39,7 @@ from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
+from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
 
 # External optional dependency

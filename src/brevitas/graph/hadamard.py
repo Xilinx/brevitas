@@ -106,7 +106,8 @@ def random_hadamard_matrix(size, device):
     Q = torch.randint(low=0, high=2, size=(size,)).to(torch.float64)
     Q = Q * 2 - 1
     Q = torch.diag(Q)
-    return matmul_hadU(Q).to(device)
+    # Set to float32 for consistency with random_orthogonal_matrix and get_hadK
+    return matmul_hadU(Q).to(device).float()
 
 
 def matmul_hadU_cuda(X, hadK, K):

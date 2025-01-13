@@ -19,6 +19,7 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+from brevitas.utils.rotation_utils import RotationWeightParametrization
 
 __all__ = [
     'Transform',
@@ -196,7 +197,8 @@ class ModuleInstanceRegisterParametrization(Transform):
         self.tensor_name = tensor_name
         self.parametrization_module = parametrization_module
 
-    # Property to have a common interface with ModuleInstanceToModuleInstance
+    # TODO: Unify inferfaces with ModuleInstanceToModuleInstance for
+    # compatibility with fix_rewriter
     @property
     def old_module_instance(self):
         return self.module
@@ -210,51 +212,9 @@ class ModuleInstanceRegisterParametrization(Transform):
             if module is self.module:
                 # register the parametrization to module
                 parametrize.register_parametrization(
-                    module, self.tensor_name, self.parametrization_module, unsafe=True)
+                    module, self.tensor_name, self.parametrization_module)
                 break
         return model
-
-
-class RotationWeightParametrization(torch.nn.Module):
-    r"""Rotates a tensor by a specified axis
-
-    Args:
-        rot_mat (Tensor): orthogonal matrix by which to rotate the tensor
-        rot_func (Callable): function to apply the rotation. The first
-            argument corresponds to the tensor to be rotated, while the
-            second specifies the rotation matrix. The third argument (K) is
-            useful when rotating by an Hadamard matrix and it corresponds
-            to the dimensionality of the matrix up to a power of two,
-            i.e. dim=(2**p)*K. See get_hadK for details
-        axis (int): axis by which to rotate the tensor
-        K (int, optional): if rot_mat is an Hadamard matrix, K is the highest
-            divisor of the dimensionality of the matrix, such that K, itself,
-            is not divisible by 2
-    """
-
-    def __init__(
-        self,
-        rot_mat: Callable[[Tensor, Tensor, Optional[int]], Tensor],
-        rot_func: Callable,
-        axis: int,
-        K: Optional[int] = None,
-    ) -> None:
-        super().__init__()
-        self.rot_mat = rot_mat
-        self.rot_func = rot_func
-        self.axis = axis
-        self.K = K
-
-    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-
-        if self.axis == 0:
-            tensor = self.rot_func(tensor.t(), self.rot_mat, self.K).t()
-        elif self.axis == 1:
-            tensor = self.rot_func(tensor, self.rot_mat, self.K)
-        else:
-            raise RuntimeError("Not supported yet")
-
-        return tensor
 
 
 class ModuleInstanceFuseRotationWeights(Transform):
@@ -294,7 +254,8 @@ class ModuleInstanceFuseRotationWeights(Transform):
         self.tensor_name = tensor_name
         self.axis = axis
 
-    # Property to have a common interface with ModuleInstanceToModuleInstance
+    # TODO: Unify inferfaces with ModuleInstanceToModuleInstance for
+    # compatibility with fix_rewriter
     @property
     def old_module_instance(self):
         return self.module

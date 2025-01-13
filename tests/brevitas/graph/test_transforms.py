@@ -21,11 +21,11 @@ from brevitas.graph.base import ModuleInstanceFuseRotationWeights
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import ModuleToModuleByInstance
-from brevitas.graph.base import RotationWeightParametrization
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.rotation_utils import RotationWeightParametrization
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
