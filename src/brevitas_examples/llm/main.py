@@ -21,8 +21,8 @@ import yaml
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph import load_quant_model_mode
+from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import functional_quantization_mode

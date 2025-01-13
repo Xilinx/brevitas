@@ -196,6 +196,15 @@ class ModuleInstanceRegisterParametrization(Transform):
         self.tensor_name = tensor_name
         self.parametrization_module = parametrization_module
 
+    # Property to have a common interface with ModuleInstanceToModuleInstance
+    @property
+    def old_module_instance(self):
+        return self.module
+
+    @old_module_instance.setter
+    def old_module_instance(self, old_module_instance):
+        self.module = old_module_instance
+
     def apply(self, model: GraphModule) -> GraphModule:
         for module in model.modules():
             if module is self.module:
@@ -284,6 +293,15 @@ class ModuleInstanceFuseRotationWeights(Transform):
         self.K = K
         self.tensor_name = tensor_name
         self.axis = axis
+
+    # Property to have a common interface with ModuleInstanceToModuleInstance
+    @property
+    def old_module_instance(self):
+        return self.module
+
+    @old_module_instance.setter
+    def old_module_instance(self, old_module_instance):
+        self.module = old_module_instance
 
     def apply(self, model: GraphModule) -> GraphModule:
         for module in model.modules():
