@@ -55,8 +55,8 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
                [--load-awq LOAD_AWQ]
                [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
-               [--checkpoint-name CHECKPOINT_NAME] [--fuse-sequences]
-               [--learned-round {None,linear_round}]
+               [--checkpoint-name CHECKPOINT_NAME] [--load-checkpoint]
+               [--fuse-sequences] [--learned-round {None,linear_round}]
                [--learned-round-fast-update] [--few-shot-eval]
                [--few-shot-compile] [--few-shot-zeroshot]
                [--few-shot-limit FEW_SHOT_LIMIT]
@@ -202,6 +202,8 @@ options:
   --checkpoint-name CHECKPOINT_NAME
                         Filename to save checkpoint. If `None`, no checkpoint
                         is saved (default: None)
+  --load-checkpoint     Boolean flag to load_checkpoint, uses checkpoint_name.
+                        Default False)
   --fuse-sequences      Whether to merge the dataset sequences in case they
                         are shorter than the requested number of samples per
                         sequence. This is useful in case you would like to

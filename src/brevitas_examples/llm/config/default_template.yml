@@ -43,6 +43,7 @@ learned_round_scale_lr: 0.01
 learned_round_scale_momentum: 0.9
 ln_affine_merge: false
 load_awq: null
+load_checkpoint: false
 model: facebook/opt-125m
 no_float16: false
 no_quantize: false
