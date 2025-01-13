@@ -1443,7 +1443,39 @@ def _apply_rotate(
     return rewriters
 
 
+from brevitas.utils.python_utils import recurse_getattr
+
+
+def _untie_parameters_with_parametrizations(model: torch.nn.Module):
+    # get ALL model parameters and their names
+    all_named_parameters = {
+        name: param for name, param in model.named_parameters(remove_duplicate=False)}
+
+    # get ONLY unique named parameters,
+    # if parameter is tied and have multiple names, it will be included only once
+    no_duplicate_named_parameters = {
+        name: param for name, param in model.named_parameters(remove_duplicate=True)}
+
+    # the difference of the two sets will give us the tied parameters
+    tied_param_names = set(all_named_parameters.keys()) - set(no_duplicate_named_parameters.keys())
+
+    for tied_param_name in tied_param_names:
+        tied_param_name_split = tied_param_name.split(".")
+        # Check if the tied parameter is the original parameter in the module
+        if len(tied_param_name_split) >= 3 and tied_param_name_split[
+                -3] == "parametrizations" and tied_param_name_split[-1] == "original":
+            # If that is the case, retrieve the parent module
+            parent_module = recurse_getattr(model, ".".join(tied_param_name_split[:-1]))
+            # And set to a new parameter, thus breaking the tie
+            setattr(parent_module, "original", nn.Parameter(all_named_parameters[tied_param_name]))
+
+    return model
+
+
 def _fuse_rotations(model: nn.Module) -> nn.Module:
+    # First of all, parameters that have parametrizations need to be untied
+    model = _untie_parameters_with_parametrizations(model)
+    # Then, parametrizations can be safely removed
     for module in model.modules():
         # Names of the tensors that can potentially be parametrized
         tensor_names = ["weight", "bias"]

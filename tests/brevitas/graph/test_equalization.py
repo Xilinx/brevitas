@@ -413,12 +413,11 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
     ids=lambda mask: "-".join([rot for mask_el, rot in zip(mask, ["R1", "R2", "R3"]) if mask_el]))
 @pytest_cases.parametrize('full_rotation_method', ['ort', 'had'])
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
-@pytest_cases.parametrize('fuse_rotations', [False, True], ids=["fused", "unfused"])
+@pytest_cases.parametrize('fuse_rotations', [False, True], ids=["unfused", "fused"])
 @pytest_cases.parametrize('use_fx', [True, False], ids=["fx", "no-fx"])
-def test_apply_rotate(
-        block_residual_model, mask, full_rotation_method, device, fuse_rotations, use_fx):
+def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_rotations, use_fx):
     # Instantiate a residual model for which a collection of regions is available
-    model = block_residual_model()
+    model = rotation_model()
     device = torch.device("cuda") if device == 'cuda' else torch.device("cpu")
     model.to(device)
     # Sample input to pass through the models
@@ -433,11 +432,16 @@ def test_apply_rotate(
         # The module names in the original model need to be mapped to the ones
         # in graph_model
         map_model_graph = {}
+        assigned_graph_modules = set()
         for graph_module_name, graph_module in graph_model.named_modules():
             if hasattr(graph_module, "weight"):
                 for name, module in model.named_modules():
-                    if hasattr(module, "weight") and graph_module.weight is module.weight:
+                    # The check name not in map_model_graph prevents the assignment to the same module
+                    # when tied parameters are present
+                    if name not in map_model_graph and graph_module_name not in assigned_graph_modules and hasattr(
+                            module, "weight") and graph_module.weight is module.weight:
                         map_model_graph[name] = graph_module_name
+                        assigned_graph_modules.add(graph_module_name)
         # Replace the names of the modules in sources/sinks by the names of the modules in the FX model
         regions_dicts = [{
             k: list(map(lambda x: map_model_graph[x], v))
