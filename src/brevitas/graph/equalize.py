@@ -1351,8 +1351,9 @@ def _apply_rotate(
                 continue
 
         # Cast rotation matrix to the weight dtype
-        dtype = next(model.parameters()).dtype
-        rot_mat = rot_mat.to(dtype=dtype)
+        if rot_mat is not None:
+            dtype = next(model.parameters()).dtype
+            rot_mat = rot_mat.to(dtype=dtype)
         # If the rotation is not fused, redefine as a Parameter, to enable its optimization
         if not insert_rotation_module and not fuse_rotations:
             rot_mat = torch.nn.Parameter(rot_mat)
