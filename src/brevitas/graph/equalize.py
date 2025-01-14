@@ -1413,6 +1413,7 @@ def _apply_rotate(
     return rewriters
 
 
+# This function is adapted from https://github.com/huggingface/accelerate/blob/main/src/accelerate/utils/modeling.py
 def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     # get ALL model parameters and their names
     all_named_parameters = {
@@ -1428,7 +1429,10 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
 
     for tied_param_name in tied_param_names:
         tied_param_name_split = tied_param_name.split(".")
-        # Check if the tied parameter is the original parameter in the module
+        # The names of the original parameters after registering the parametrization
+        # have the format "prefix.parametrizations.tensor_name.original", e.g.
+        # "model.layer.parametrizations.weight.original". This allows to identify
+        # which subset of tied parameters are original tied parameters of the module
         if len(tied_param_name_split) >= 3 and tied_param_name_split[
                 -3] == "parametrizations" and tied_param_name_split[-1] == "original":
             # If that is the case, retrieve the parent module
