@@ -12,7 +12,8 @@ TORCHVISION_VERSION_DICT = {
     '2.1.0': '0.16.0',
     '2.2.2': '0.17.2',
     '2.3.1': '0.18.1',
-    '2.4.0': '0.19.0'}
+    '2.4.0': '0.19.0',
+    '2.4.1': '0.19.1'}
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 BASE_YML_REDUCED_TEMPLATE = 'base_reduced.yml.template'
@@ -38,7 +39,7 @@ MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
 
 EXAMPLES_LLM_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                                          ('pytorch_version', list(
-                                             ('2.4.0',))), ('platform', PLATFORM_LIST_REDUCED)])
+                                             ('2.4.1`',))), ('platform', PLATFORM_LIST_REDUCED)])
 
 FINN_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                           ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
