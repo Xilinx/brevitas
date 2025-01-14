@@ -1384,7 +1384,7 @@ def _apply_rotate(
             # Only "weight" is rotated
             tensor_names_axis = [("weight", _get_input_axis(module))]
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
-            rewriter_class = ModuleInstanceRegisterParametrization if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
+            rewriter_class = ModuleInstanceTransformTensor if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
             # Obtain rewriters for applying the rotations
             for tensor_name, axis in tensor_names_axis:
                 rewriter = rewriter_class(

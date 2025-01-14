@@ -359,7 +359,8 @@ def test_fuse_rotation_weights(axis):
     model_unfused.linear.weight.data = model_fused.linear.weight.data
 
     model_fused = ModuleInstanceTransformTensor(
-        model_fused.linear, "weight", rot_mat, rot_func, None, axis).apply(model_fused)
+        model_fused.linear, "weight", RotationWeightParametrization(rot_mat, rot_func, axis,
+                                                                    None)).apply(model_fused)
     model_unfused = ModuleInstanceRegisterParametrization(
         model_unfused.linear,
         "weight",
