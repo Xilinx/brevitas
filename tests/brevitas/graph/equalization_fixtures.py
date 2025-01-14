@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import functools
+
 from packaging import version
 import pytest
 import pytest_cases
@@ -528,3 +530,61 @@ list_of_rotation_mixtures = ['linear_rms']
 
 rotation_fixtures = fixture_union(
     'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)
+
+IN_FEATURES = 12
+RESIDUAL_MODEL_REGION_DICTS = [
+    {
+        "srcs": ["embedding", "block1_linear2", "block2_linear2"],
+        "sinks": ["block1_linear1", "block2_linear1", "head"],},
+    {
+        "srcs": ["block1_linear1"], "sinks": ["block1_linear2"]},
+    {
+        "srcs": [], "sinks": ["block2_linear2"]},]
+
+
+class BlockResidualModel(nn.Module):
+
+    def __init__(self, is_tied: bool = False) -> None:
+        super().__init__()
+        self.embedding = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+
+        self.block1_linear1 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=True)
+        self.block1_linear2 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+
+        self.block2_linear1 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+        self.act = nn.SiLU()
+        self.block2_linear2 = nn.Linear(IN_FEATURES, IN_FEATURES, bias=True)
+
+        self.head = nn.Linear(IN_FEATURES, IN_FEATURES, bias=False)
+        if is_tied:
+            self.head.weight = self.embedding.weight
+
+    def forward(self, x):
+        x = self.embedding(x)
+        r = x
+        x = self.block1_linear1(x)
+        x = self.block1_linear2(x) + r
+        r = x
+        x = self.block2_linear1(x)
+        x = self.act(x)
+        x = self.block2_linear2(x) + r
+        x = self.head(x)
+        return x
+
+
+@pytest_cases.fixture
+def block_residual_model():
+    return functools.partial(BlockResidualModel, is_tied=False)
+
+
+@pytest_cases.fixture
+def block_residual_model_tied():
+    return functools.partial(BlockResidualModel, is_tied=True)
+
+
+list_of_rotation_fixtures = [
+    "block_residual_model",
+    "block_residual_model_tied",]
+
+rotation_model = fixture_union(
+    'rotation_model', list_of_rotation_fixtures, ids=list_of_rotation_fixtures)

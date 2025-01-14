@@ -22,6 +22,7 @@ from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
+from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import functional_quantization_mode
@@ -97,9 +98,11 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         sdpa_regions=args.rotation_sdpa_regions)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
-
     for r in rewriters:
-        r.apply(model)
+        # The weights between model and new_model are tied, so this check prevents
+        # rotating the weights twice
+        if isinstance(r, ModuleInstanceWrapModule):
+            r.apply(model)
     remove_hooks(new_model)
 
 

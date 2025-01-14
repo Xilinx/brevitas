@@ -5,9 +5,13 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
+from typing import Any, Callable, Dict, Optional, Type, Union
 
 import torch
+from torch import Tensor
 from torch.nn import Module
+from torch.nn import Parameter
+import torch.nn.utils.parametrize as parametrize
 from torch.overrides import get_testing_overrides
 
 from brevitas.fx import GraphModule
@@ -15,6 +19,7 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+from brevitas.utils.rotation_utils import RotationWeightParametrization
 
 __all__ = [
     'Transform',
@@ -172,6 +177,130 @@ class InsertModuleCallAfter(GraphTransform):
         graph_model.recompile()
         graph_model.graph.lint()
         return graph_model
+
+
+class ModuleInstanceRegisterParametrization(Transform):
+    r"""Transform to register a parametrization to a given parameter of a
+    module.
+
+    Args:
+        module (nn.Module): module on which to register the
+            parametrization
+        tensor_name: (str): name of the :class:`torch.nn.Parameter` of
+            module which is to be parametrized
+        transform_module (nn.Module): the parametrization to
+            register
+    """
+
+    def __init__(self, module: Module, tensor_name: str, transform_module: Module) -> None:
+        self.module = module
+        self.tensor_name = tensor_name
+        self.transform_module = transform_module
+
+    # TODO: Unify inferfaces with ModuleInstanceToModuleInstance for
+    # compatibility with fix_rewriter
+    @property
+    def old_module_instance(self):
+        return self.module
+
+    @old_module_instance.setter
+    def old_module_instance(self, old_module_instance):
+        self.module = old_module_instance
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for module in model.modules():
+            if module is self.module:
+                # register the parametrization to module
+                parametrize.register_parametrization(
+                    module, self.tensor_name, self.transform_module)
+                break
+        return model
+
+
+class ModuleInstanceTransformTensor(Transform):
+    r"""Transform to transform in-place a given parameter of a module
+
+    Args:
+        module (nn.Module): parent module of the parameter to be transformed
+        tensor_name (str): name of the :class:`torch.nn.Parameter` of
+            module which is to be transformed
+        transform_module (nn.Module): module defining the transformation to apply
+            to the tensor
+    """
+
+    def __init__(
+        self,
+        module: Module,
+        tensor_name: str,
+        transform_module: Module,
+    ):
+        self.module = module
+        self.tensor_name = tensor_name
+        self.transform_module = transform_module
+
+    # TODO: Unify inferfaces with ModuleInstanceToModuleInstance for
+    # compatibility with fix_rewriter
+    @property
+    def old_module_instance(self):
+        return self.module
+
+    @old_module_instance.setter
+    def old_module_instance(self, old_module_instance):
+        self.module = old_module_instance
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for module in model.modules():
+            if module is self.module:
+                # This check is needed to apply the change in the parameters
+                # when the model is offloaded
+                # TODO: Move outside the apply function
+                if hasattr(module, 'allocate_params'):
+                    module.allocate_params(module)
+                tensor = getattr(module, self.tensor_name).data
+                tensor = self.transform_module(tensor)
+                # Modify the weights in-place
+                setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
+
+                if hasattr(module, 'offload_params'):
+                    module.offload_params(module)
+                break
+        return model
+
+
+class ModuleInstanceWrapModule(Transform):
+    r"""Transform to replace a module by a wrapper module which has the original
+        one as a submodule
+
+    Args:
+        old_module_instance (nn.Module): module to be wrapped
+        wrapper_class (type): class of the wrapper for old_module_instance
+        module_attribute (str): name of the parameter to pass the original
+            module to the constructor of wrapper_class
+        kwargs_wrapper (dict, optional): dictionary with the constructor
+            arguments for wrapper_class
+    """
+
+    def __init__(
+            self,
+            old_module_instance: Module,
+            wrapper_class: Type[Module],
+            module_attribute: str,
+            kwargs_wrapper: Dict[str, Any]):
+        self.old_module_instance = old_module_instance
+        self.wrapper_class = wrapper_class
+        self.module_attribute = module_attribute
+        self.kwargs_wrapper = kwargs_wrapper
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        for old_module in model.modules():
+            if old_module is self.old_module_instance:
+                kwargs = {self.module_attribute: self.old_module_instance}
+                kwargs.update(self.kwargs_wrapper)
+                new_module_instance = self.wrapper_class(**kwargs)
+                # init the new module based on the old one
+                replace_module(model, old_module, new_module_instance)
+                break
+        return model
 
 
 class ModuleInstanceToModuleInstance(Transform):
