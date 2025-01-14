@@ -1,9 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 import torch
+from torch import nn
 from torch import Tensor
 
 
@@ -47,3 +48,16 @@ class RotationWeightParametrization(torch.nn.Module):
             raise RuntimeError("Not supported yet")
 
         return tensor
+
+
+def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
+    trainable_rotations = []
+    # IDs of the rotation matrices are tracked, as several modules can share
+    # the same parametrized rotation
+    ids_rot = set()
+    for module in model.modules():
+        if isinstance(module, RotationWeightParametrization):
+            if id(module.rot_mat) not in ids_rot:
+                ids_rot.add(id(module.rot_mat))
+                trainable_rotations.append(module.rot_mat)
+    return trainable_rotations

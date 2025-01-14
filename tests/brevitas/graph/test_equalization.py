@@ -20,13 +20,13 @@ from brevitas.graph.equalize import _apply_ort_device
 from brevitas.graph.equalize import _apply_rotate
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
-from brevitas.graph.equalize import _fuse_rotations
 from brevitas.graph.equalize import _get_input_axis
 from brevitas.graph.equalize import _get_output_axis
 from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.equalize import EqualizationIndexes
+from brevitas.graph.equalize import fuse_parametrized_rotations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
@@ -517,7 +517,7 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
             isinstance(module, RotatedModule) for module in rotated_model.modules()])
     # Optionally fuse the rotations
     if fuse_rotations:
-        rotated_model_unfused = _fuse_rotations(rotated_model_unfused)
+        rotated_model_unfused = fuse_parametrized_rotations(rotated_model_unfused)
         # Verify that no parametrizations remain after fusing
         for module in rotated_model_unfused.modules():
             assert not parametrize.is_parametrized(module)

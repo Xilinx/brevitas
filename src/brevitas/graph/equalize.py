@@ -1444,7 +1444,7 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
-def _fuse_rotations(model: nn.Module) -> nn.Module:
+def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
     # Then, parametrizations can be safely removed
@@ -1591,8 +1591,10 @@ class GraphRotationEqualization(RotationEqualization):
                     m.pre_process_k = functional_rotate_input
         return regions
 
-    def apply(self,
-              graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
+    def apply(
+            self,
+            graph_model: GraphModule,
+            fuse_rotations: bool = True) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
         regions = _extract_regions(
             graph_model,
@@ -1620,7 +1622,8 @@ class GraphRotationEqualization(RotationEqualization):
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
+            rewriters = _apply_rotate(
+                graph_model, regions, self.full_rotation_method, fuse_rotations=fuse_rotations)
         if self.return_rewriters:
             return graph_model, rewriters
         else:
