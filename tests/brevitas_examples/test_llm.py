@@ -816,6 +816,8 @@ def rotation_ppl_args_and_ppl(default_run_args, request):
 
 @requires_pt_ge('2.4')
 def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
+    if platform.system() == "Windows":
+        pytest.skip("Skipping dynamo + windows")
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = rotation_ppl_args_and_ppl
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
