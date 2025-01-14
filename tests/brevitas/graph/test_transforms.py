@@ -17,8 +17,8 @@ from brevitas.graph import FnToModule
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
 from brevitas.graph import MethodToModule
-from brevitas.graph.base import ModuleInstanceFuseRotationWeights
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
+from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import ModuleToModuleByInstance
 from brevitas.nn import QuantConv1d
@@ -358,8 +358,8 @@ def test_fuse_rotation_weights(axis):
     model_unfused = TestModel()
     model_unfused.linear.weight.data = model_fused.linear.weight.data
 
-    model_fused = ModuleInstanceFuseRotationWeights(
-        model_fused.linear, rot_mat, rot_func, None, "weight", axis).apply(model_fused)
+    model_fused = ModuleInstanceTransformTensor(
+        model_fused.linear, "weight", rot_mat, rot_func, None, axis).apply(model_fused)
     model_unfused = ModuleInstanceRegisterParametrization(
         model_unfused.linear,
         "weight",

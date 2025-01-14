@@ -188,14 +188,14 @@ class ModuleInstanceRegisterParametrization(Transform):
             parametrization
         tensor_name: (str): name of the :class:`torch.nn.Parameter` of
             module which is to be parametrized
-        parametrization_module (nn.Module): the parametrization to
+        transform_module (nn.Module): the parametrization to
             register
     """
 
-    def __init__(self, module: Module, tensor_name: str, parametrization_module: Module) -> None:
+    def __init__(self, module: Module, tensor_name: str, transform_module: Module) -> None:
         self.module = module
         self.tensor_name = tensor_name
-        self.parametrization_module = parametrization_module
+        self.transform_module = transform_module
 
     # TODO: Unify inferfaces with ModuleInstanceToModuleInstance for
     # compatibility with fix_rewriter
@@ -212,47 +212,31 @@ class ModuleInstanceRegisterParametrization(Transform):
             if module is self.module:
                 # register the parametrization to module
                 parametrize.register_parametrization(
-                    module, self.tensor_name, self.parametrization_module)
+                    module, self.tensor_name, self.transform_module)
                 break
         return model
 
 
-class ModuleInstanceFuseRotationWeights(Transform):
-    r"""Transform to rotate in-place a given parameter of a module by a
-        specified axis
+class ModuleInstanceTransformTensor(Transform):
+    r"""Transform to transform in-place a given parameter of a module
 
     Args:
-        module (nn.Module): parent module of the parameter to be rotated
-        rot_mat (Tensor): orthogonal matrix by which to rotate the tensor
-        rot_func (Callable): function to apply the rotation. The first
-            argument corresponds to the tensor to be rotated, while the
-            second specifies the rotation matrix. The third argument (K) is
-            useful when rotating by an Hadamard matrix and it corresponds
-            to the dimensionality of the matrix up to a power of two,
-            i.e. dim=(2**p)*K. See get_hadK for details
-        K (int, optional): if rot_mat is an Hadamard matrix, K is the highest
-            divisor of the dimensionality of the matrix, such that K, itself,
-            is not divisible by 2
-        axis (int): axis by which to rotate the tensor
-        tensor_name: (str): name of the :class:`torch.nn.Parameter` of
-            module which is to be rotated
+        module (nn.Module): parent module of the parameter to be transformed
+        tensor_name (str): name of the :class:`torch.nn.Parameter` of
+            module which is to be transformed
+        transform_module (nn.Module): module defining the transformation to apply
+            to the tensor
     """
 
     def __init__(
         self,
         module: Module,
-        rot_mat: Tensor,
-        rot_func: Callable[[Tensor, Tensor, Optional[int]], Tensor],
-        K: Optional[int],
         tensor_name: str,
-        axis: int,
+        transform_module: Module,
     ):
         self.module = module
-        self.rot_mat = rot_mat
-        self.rot_func = rot_func
-        self.K = K
         self.tensor_name = tensor_name
-        self.axis = axis
+        self.transform_module = transform_module
 
     # TODO: Unify inferfaces with ModuleInstanceToModuleInstance for
     # compatibility with fix_rewriter
@@ -273,8 +257,7 @@ class ModuleInstanceFuseRotationWeights(Transform):
                 if hasattr(module, 'allocate_params'):
                     module.allocate_params(module)
                 tensor = getattr(module, self.tensor_name).data
-                tensor = RotationWeightParametrization(
-                    self.rot_mat, self.rot_func, self.axis, self.K)(tensor)
+                tensor = self.transform_module(tensor)
                 # Modify the weights in-place
                 setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
 

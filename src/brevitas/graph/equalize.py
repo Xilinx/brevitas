@@ -23,9 +23,9 @@ from brevitas.fx import Node
 from brevitas.graph import ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
-from brevitas.graph.base import ModuleInstanceFuseRotationWeights
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import get_hadK
@@ -1361,78 +1361,43 @@ def _apply_rotate(
 
         for name, indexes in region.srcs.items():
             module = region.get_module_from_name(name)
-            axis = _get_output_axis(module)
-
-            if fuse_rotations:
-                rewriter = ModuleInstanceFuseRotationWeights(
+            # Rotate "bias" if present
+            tensor_names_axis = [("weight", _get_output_axis(module))] + ([
+                ("bias", 1)] if getattr(module, 'bias', None) is not None else [])
+            # If rotations are fused, transform is applied directly onto the tensor
+            rewriter_class = ModuleInstanceTransformTensor if fuse_rotations else ModuleInstanceRegisterParametrization
+            # Obtain rewriters for applying the rotations
+            for tensor_name, axis in tensor_names_axis:
+                rewriter = rewriter_class(
                     module=module,
-                    rot_mat=rot_mat,
-                    rot_func=rot_func,
-                    K=K,
-                    tensor_name="weight",
-                    axis=axis,
-                )
-                rewriters.append(rewriter)
-
-                if getattr(module, 'bias', None) is not None:
-                    rewriter = ModuleInstanceFuseRotationWeights(
-                        module=module,
-                        rot_mat=rot_mat,
-                        rot_func=rot_func,
-                        K=K,
-                        tensor_name="bias",
-                        axis=1,
-                    )
-                    rewriters.append(rewriter)
-            else:
-                rewriter = ModuleInstanceRegisterParametrization(
-                    module=module,
-                    tensor_name="weight",
-                    parametrization_module=RotationWeightParametrization(
+                    tensor_name=tensor_name,
+                    transform_module=RotationWeightParametrization(
                         rot_mat=rot_mat,
                         rot_func=rot_func,
                         axis=axis,
                         K=K,
                     ))
                 rewriters.append(rewriter)
-                if getattr(module, 'bias', None) is not None:
-                    rewriter = ModuleInstanceRegisterParametrization(
-                        module=module,
-                        tensor_name="bias",
-                        parametrization_module=RotationWeightParametrization(
-                            rot_mat=rot_mat,
-                            rot_func=rot_func,
-                            axis=1,
-                            K=K,
-                        ))
-                    rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
             module = region.get_module_from_name(name)
-            axis = _get_input_axis(module)
-
-            if not insert_rotation_module and not fuse_rotations:
-                rewriter = ModuleInstanceRegisterParametrization(
+            # Only "weight" is rotated
+            tensor_names_axis = [("weight", _get_input_axis(module))]
+            # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
+            rewriter_class = ModuleInstanceRegisterParametrization if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
+            # Obtain rewriters for applying the rotations
+            for tensor_name, axis in tensor_names_axis:
+                rewriter = rewriter_class(
                     module=module,
-                    tensor_name="weight",
-                    parametrization_module=RotationWeightParametrization(
+                    tensor_name=tensor_name,
+                    transform_module=RotationWeightParametrization(
                         rot_mat=rot_mat,
                         rot_func=rot_func,
                         axis=axis,
                         K=K,
                     ))
                 rewriters.append(rewriter)
-            else:
-                rewriter = ModuleInstanceFuseRotationWeights(
-                    module=module,
-                    rot_mat=rot_mat,
-                    rot_func=rot_func,
-                    K=K,
-                    tensor_name="weight",
-                    axis=axis,
-                )
-                rewriters.append(rewriter)
-
+            # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
                 rewriter = ModuleInstanceWrapModule(
                     module, RotatedModule, "layer", {
