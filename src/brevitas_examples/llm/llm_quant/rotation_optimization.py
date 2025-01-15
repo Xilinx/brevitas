@@ -80,11 +80,14 @@ def apply_rotation_optimization(
     # Prepare dataset and model for training
     train_dataset = _prepare_train_dataset(train_dataset)
     model = _prepare_model(model)
+    # Get training arguments
+    training_args = parse_optimization_rotation_args(unknown_args)
+    # Enable skipping optimization
+    if training_args.max_steps <= 0:
+        return
     # Remove hooks and empty cache before starting optimization
     remove_hooks(model)
     torch.cuda.empty_cache()
-    # Get training arguments
-    training_args = parse_optimization_rotation_args(unknown_args)
     # Set to False the model parameters
     for param in model.parameters():
         param.requires_grad = False

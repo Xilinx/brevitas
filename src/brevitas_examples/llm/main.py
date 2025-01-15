@@ -274,6 +274,20 @@ def quantize_llm(args, unknown_args=None):
         device=None,
         fuse_sequences=args.fuse_sequences)
 
+    if args.rotation in ["fused_no_fx_optimize"]:
+        # Load the data for rotation optimization
+        rot_calibration_loader = get_dataset_for_model(
+            args.model,
+            dataset_name=args.dataset,
+            tokenizer=tokenizer,
+            nsamples=args.nsamples_rot_calibration,
+            seqlen=args.seqlen,
+            split="train",
+            seed=args.seed,
+            require_fx=require_fx and args.export_target is not None,
+            device=None,
+            fuse_sequences=args.fuse_sequences)
+
     device = next(iter(model.parameters())).device
     print("Data loaded.")
 
@@ -471,7 +485,7 @@ def quantize_llm(args, unknown_args=None):
             apply_rotation_optimization(
                 model=model,
                 tokenizer=tokenizer,
-                train_dataset=calibration_loader,
+                train_dataset=rot_calibration_loader,
                 unknown_args=unknown_args,
             )
             # Remove hooks from optimization
@@ -629,6 +643,11 @@ def parse_args(args, override_defaults={}):
         type=int,
         default=128,
         help='Number of calibration data samples. Default: 128.')
+    parser.add_argument(
+        '--nsamples-rot-calibration',
+        type=int,
+        default=800,
+        help='Number of calibration data samples for rotation. Default: %(default)d.')
     parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
     parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
     parser.add_argument(
