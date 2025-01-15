@@ -220,9 +220,8 @@ def float_to_int_impl_to_enum(module):
 
 
 def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
-    final_shape = dequant_shape
     curr_shape = value_.shape
-    start_dim = group_dim if group_dim != -1 else -2
+    start_dim = group_dim if group_dim > 0 else group_dim - 1
     new_value = value_.flatten(start_dim, start_dim + 1)
     if scale_.shape != ():
         new_scale = scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
@@ -237,7 +236,7 @@ def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_sha
     # First, we compute how much we padded along the group_dim shape
     # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
     # Finally, we stack the remaining tensors
-    unpadding_shape = final_shape[group_dim]
+    unpadding_shape = dequant_shape[group_dim]
     residual = new_value.shape[group_dim] - unpadding_shape
 
     if residual > 0:
