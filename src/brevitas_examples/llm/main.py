@@ -517,10 +517,6 @@ def quantize_llm(args):
             apply_bias_correction(model, calibration_loader)
             print("Bias correction applied.")
 
-            if args.checkpoint_name is not None:
-                print(f"Saving checkpoint to {args.checkpoint_name}")
-                torch.save(model.state_dict(), args.checkpoint_name)
-
         if args.eval and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model):
