@@ -354,7 +354,7 @@ class RuntimeDynamicGroupZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_impl: Module,
             int_quant: Module,
             quantize_zero_point: bool) -> None:
-        super(RuntimeDynamicGroupZeroScaling, self).__init__()
+        super(RuntimeDynamicGroupZeroPoint, self).__init__()
 
         self.zero_point_stats_impl = zero_point_stats_impl
         self.input_view_impl = input_view_impl
