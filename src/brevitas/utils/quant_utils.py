@@ -221,7 +221,7 @@ def float_to_int_impl_to_enum(module):
 
 def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
     curr_shape = value_.shape
-    start_dim = group_dim if group_dim > 0 else group_dim - 1
+    start_dim = group_dim if group_dim >= 0 else group_dim - 1
     new_value = value_.flatten(start_dim, start_dim + 1)
     if scale_.shape != ():
         new_scale = scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)

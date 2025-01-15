@@ -131,7 +131,7 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
 
         # If we skip quant tensor, we return the flattened version of the groupwise tensor
         if self.skip_create_quant_tensor:
-            start_dim = self.group_dim if self.group_dim > 0 else self.group_dim - 1
+            start_dim = self.group_dim if self.group_dim >= 0 else self.group_dim - 1
             x = x.flatten(start_dim, start_dim + 1)
         output_args = tuple([x] + list(other))
         return output_args
@@ -278,7 +278,7 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 
         # If we skip quant tensor, we return the flattened version of the groupwise tensor
         if self.skip_create_quant_tensor:
-            start_dim = self.group_dim if self.group_dim > 0 else self.group_dim - 1
+            start_dim = self.group_dim if self.group_dim >= 0 else self.group_dim - 1
             x = x.flatten(start_dim, start_dim + 1)
         output_args = tuple([x] + list(other))
         return output_args
