@@ -43,14 +43,14 @@ POSSIBILITY OF SUCH DAMAGE.
 import math
 from typing import Optional, Tuple, Union
 
-from brevitas.core.function_wrapper.misc import Identity
-from brevitas.function import identity
 import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.nn import Parameter
 import torch.nn.functional as F
 
+from brevitas.core.function_wrapper.misc import Identity
+from brevitas.function import identity
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 
@@ -59,7 +59,7 @@ from .quant_activation import QuantIdentity
 
 class ScaledDotProductAttention(Module):
 
-    def __init__(self, pre_process_q = identity, pre_process_k = identity, pre_process_v = identity):
+    def __init__(self, pre_process_q=identity, pre_process_k=identity, pre_process_v=identity):
         super().__init__()
         self.pre_process_q = pre_process_q
         self.pre_process_k = pre_process_k
@@ -113,7 +113,7 @@ class ScaledDotProductAttention(Module):
         return F.scaled_dot_product_attention(
             query=self.pre_process_q(query),
             key=self.pre_process_k(key),
-            value=value,#self.pre_process_v(value),
+            value=self.pre_process_v(value),
             attn_mask=attn_mask,
             dropout_p=dropout_p,
             is_causal=is_causal,
@@ -124,7 +124,9 @@ class QuantScaledDotProductAttention(Module):
 
     def __init__(
             self,
-            pre_process_q = Identity(), pre_process_k = Identity(), pre_process_v = Identity(),
+            pre_process_q=identity,
+            pre_process_k=identity,
+            pre_process_v=identity,
             softmax_input_quant=None,
             attn_output_weights_quant=Uint8ActPerTensorFloat,
             q_scaled_quant=Int8ActPerTensorFloat,
@@ -211,15 +213,14 @@ class QuantScaledDotProductAttention(Module):
             else:
                 attn_bias += attn_mask
         query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
-        q_scaled = query * scale_factor#self.q_scaled_quant(query * scale_factor)
+        q_scaled = self.q_scaled_quant(query * scale_factor)
         k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
         attn_weight = q_scaled @ k_transpose
         attn_weight += attn_bias
         attn_weight = self.softmax_input_quant(attn_weight)
         attn_weight = torch.softmax(attn_weight, dim=-1)
         attn_weight = torch.dropout(attn_weight, dropout_p, train=True)
-        # attn_weight = self.pre_process_q(attn_weight)
-        # attn_weight = self.attn_output_weights_quant(attn_weight)
+        attn_weight = self.attn_output_weights_quant(attn_weight)
         attn_output = attn_weight @ self.v_quant(value)
         attn_output = self.sdpa_output_quant(attn_output)
         return attn_output

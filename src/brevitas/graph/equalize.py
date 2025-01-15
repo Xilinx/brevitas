@@ -10,7 +10,6 @@ import operator
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 import warnings
 
-from brevitas.nn import ScaledDotProductAttention
 import packaging
 import packaging.version
 import torch
@@ -35,6 +34,7 @@ from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
+from brevitas.nn import ScaledDotProductAttention
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
@@ -1589,7 +1589,6 @@ class GraphRotationEqualization(RotationEqualization):
                 if isinstance(m, ScaledDotProductAttention):
                     m.pre_process_q = functional_rotate_input
                     m.pre_process_k = functional_rotate_input
-                    # m.pre_process_v = partial(functional_rotate_input, transpose=True)
         return regions
 
     def apply(self,
