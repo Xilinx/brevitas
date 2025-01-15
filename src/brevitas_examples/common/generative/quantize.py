@@ -4,8 +4,6 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 import re
 
-from brevitas.core.stats import NegativeMinOrZero
-from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from dependencies import this
 import torch
 from torch import nn
@@ -14,8 +12,11 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
-from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint, RuntimeDynamicGroupZeroScaling
+from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
+from brevitas.core.zero_point import RuntimeDynamicGroupZeroScaling
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -60,7 +61,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQ
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
-from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat, RuntimeDynamicStatsZeroPoint
+from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
@@ -71,6 +72,7 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowF
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
@@ -152,15 +154,6 @@ WEIGHT_QUANT_MAP = {
                 'per_channel': {
                     'sym': Fp8e4m3FNUZWeightPerChannelFloat}}}}}
 
-class Test(Int8DynamicActPerGroupFloat):
-    # zero_point_impl = RuntimeDynamicStatsZeroPoint
-    zero_point_impl = RuntimeDynamicGroupZeroScaling
-    zero_point_stats_impl = NegativeMinOrZero
-    scaling_stats_op = 'min_max'
-    signed = False
-    # zero_point_shape = this.scaling_shape
-    # zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
-
 INPUT_QUANT_MAP = {
     'int': {
         'static': {
@@ -189,8 +182,7 @@ INPUT_QUANT_MAP = {
                         'sym': Int8DynamicActPerRowFloat,
                         'asym': ShiftedUint8DynamicActPerRowFloat},
                     'per_group': {
-                        'sym': Int8DynamicActPerGroupFloat,
-                        'asym': Test}}},
+                        'sym': Int8DynamicActPerGroupFloat}}},
             'po2_scale': {
                 'stats': {
                     'per_row': {
