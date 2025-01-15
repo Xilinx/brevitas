@@ -7,6 +7,7 @@ import inspect
 from inspect import getcallargs
 from typing import Any, Callable, Dict, Optional, Type, Union
 
+from brevitas.nn import ScaledDotProductAttention
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -121,6 +122,9 @@ class ModuleToModule(GraphTransform, ABC):
 
     def _module_attributes(self, module):
         attrs = vars(module)
+        if isinstance(module, ScaledDotProductAttention):
+            print(attrs)
+
         # workaround since bias doesn't show up on vars of Linear
         if hasattr(module, 'bias'):
             attrs['bias'] = module.bias
@@ -147,6 +151,8 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = self._module_attributes(old_module)
         # transforms attribute of original module, e.g. bias Parameter -> bool
         new_kwargs = self._map_origin_vars(new_kwargs)
+        if isinstance(old_module, ScaledDotProductAttention):
+            print(new_kwargs)
         # restrict to only values that are in the init of the new module
         new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}

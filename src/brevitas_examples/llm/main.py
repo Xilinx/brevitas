@@ -82,8 +82,17 @@ def set_seed(seed):
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
+    print("Here")
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+    print(getattr(model, str(torch.nn.functional.scaled_dot_product_attention)))
+    if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
+        m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
+        new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
+    # for m in new_model.modules():
+    #     print(type(m))
+        # if hasattr(m, 'pre_process_q'):
+        #     raise
     apply_layernorm_affine_merge(new_model)
     new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
@@ -303,19 +312,7 @@ def quantize_llm(args):
         apply_layernorm_to_rmsnorm(model)
         print("Layernorm To RMSNorm applied.")
 
-    if args.rotation == 'fx':
-        model = offload_model(model)
-        eq = GraphRotationEqualization(
-            orphan_sink=args.rotation_orphan_sink,
-            full_rotation_method=args.rotation_mode,
-            sdpa_regions=args.rotation_sdpa_regions)
-        model = eq.apply(model)
-        remove_hooks(model)
-    elif args.rotation == 'layerwise':
-        eq = LayerwiseActivationRotation()
-        model = eq.apply(model)
-    elif args.rotation == 'fused_no_fx':
-        fused_rotation_no_fx(model, calibration_loader, args)
+
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
@@ -333,6 +330,21 @@ def quantize_llm(args):
         with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
             model(**calibration_loader[0])
         remove_hooks(model)
+
+    if args.rotation == 'fx':
+        model = offload_model(model)
+        eq = GraphRotationEqualization(
+            orphan_sink=args.rotation_orphan_sink,
+            full_rotation_method=args.rotation_mode,
+            sdpa_regions=args.rotation_sdpa_regions)
+        model = eq.apply(model)
+        remove_hooks(model)
+    elif args.rotation == 'layerwise':
+        eq = LayerwiseActivationRotation()
+        model = eq.apply(model)
+    elif args.rotation == 'fused_no_fx':
+        fused_rotation_no_fx(model, calibration_loader, args)
+
     if args.weight_equalization:
         print("Apply weight equalization...")
         # In case of float16 model, we need to offload to account for missing ops
@@ -521,7 +533,7 @@ def quantize_llm(args):
                 print(f"Saving checkpoint to {args.checkpoint_name}")
                 torch.save(model.state_dict(), args.checkpoint_name)
 
-        if args.eval and not args.no_quantize:
+        if args.eval:# and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model):
                 model(**calibration_loader[0])

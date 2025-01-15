@@ -10,6 +10,7 @@ import operator
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 import warnings
 
+from brevitas.nn import ScaledDotProductAttention
 import packaging
 import packaging.version
 import torch
@@ -1584,6 +1585,11 @@ class GraphRotationEqualization(RotationEqualization):
                 name_to_module={
                     'src0': src_module, 'sink0': sink_module})
             regions.append(region)
+            for m in graph_module.modules():
+                if isinstance(m, ScaledDotProductAttention):
+                    m.pre_process_q = functional_rotate_input
+                    m.pre_process_k = functional_rotate_input
+                    # m.pre_process_v = partial(functional_rotate_input, transpose=True)
         return regions
 
     def apply(self,
