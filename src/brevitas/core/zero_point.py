@@ -346,7 +346,7 @@ class PreZeroCenterZeroPoint(brevitas.jit.ScriptModule):
         return z
 
 
-class RuntimeDynamicGroupZeroScaling(brevitas.jit.ScriptModule):
+class RuntimeDynamicGroupZeroPoint(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
