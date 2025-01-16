@@ -7,8 +7,10 @@ import torch.nn.utils.parametrize as parametrize
 
 from brevitas.graph.base import _remove_parametrization_entries_state_dict
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.graph.quantize import quantize
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
+from tests.marker import requires_pt_ge
 
 
 @pytest_cases.parametrize(
@@ -142,3 +144,50 @@ def test_remove_parametrization_entries_state_dict(kwargs):
         assert key in expected_state_dict_keys, f"Unexpected key {key} in state_dict"
         # Compare tensor values
         assert torch.allclose(value, old_state_dict[key], rtol=0.0, atol=0.0), f"Value of tensor {value} does not match with that in the original state_dict"
+
+
+@requires_pt_ge('2.3.1')
+@pytest_cases.parametrize(
+    'kwargs',
+    [
+        {
+            'model': nn.Sequential(nn.Linear(2, 3)),
+            'sample_input': torch.tensor([[0.8, -0.6]]),
+            'rot_mat': torch.tensor([[1., -1.], [1., 1.]]) / torch.sqrt(torch.tensor(2.)),
+            'rot_func': lambda tensor,
+                        rot_mat,
+                        K: torch.matmul(tensor, rot_mat),
+            'key': '0',
+            'expected': "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>"},])
+def test_quantize_parametrized_modules(kwargs):
+    key = kwargs['key']
+    exp = kwargs['expected']
+    rot_mat = kwargs['rot_mat']
+    rot_func = kwargs['rot_func']
+    sample_input = kwargs['sample_input']
+    model = kwargs["model"]
+
+    graph_model, _ = torch._dynamo.export(model)(sample_input)
+    orig_module = recurse_getattr(model, key)
+    # Use tied weights to identify equivalent model
+    key, module = [(key, module) for key, module in graph_model.named_modules() if hasattr(module, "weight") and module.weight is orig_module.weight][0]
+    # Register rotation parametrization to module
+    parametrize.register_parametrization(
+        module=module,
+        tensor_name="weight",
+        parametrization=RotationWeightParametrization(
+            rot_mat=nn.Parameter(rot_mat),
+            rot_func=rot_func,
+            axis=1,
+            K=None,
+        ))
+    qmodel = quantize(graph_model)
+    checked = False
+    found_names = []
+    for n, m in qmodel.named_modules():
+        found_names.append(n)
+        if n == key:
+            mt = str(type(m))
+            assert mt == exp, f"Expect module {n} to be type: {exp}, found type {mt}"
+            checked = True
+    assert checked, f"Layer named {key} not found. Layer names are: {found_names}"

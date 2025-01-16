@@ -408,8 +408,8 @@ def act_handler(model, layer_map):
         if node.op == 'call_module':
             module = get_module(model, node.target)
             if isinstance(module, tuple(layer_map.keys())):
-                if layer_map[type(module)] is not None:
-                    quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                if layer_map[type_before_parametrizations(module)] is not None:
+                    quant_module_class, quant_module_kwargs = layer_map[type_before_parametrizations(module)]
                     quant_module = quant_module_class(**quant_module_kwargs)
                     # Check for activation equalization mul nodes
                     if len(node.users) == 1:
@@ -470,8 +470,8 @@ def layer_handler(
                             quant_identity_map=quant_identity_map,
                             quant_act_map=quant_act_map,
                             unsigned_act_tuple=unsigned_act_tuple)
-                if layer_map[type(module)] is not None:
-                    quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                if layer_map[type_before_parametrizations(module)] is not None:
+                    quant_module_class, quant_module_kwargs = layer_map[type_before_parametrizations(module)]
                     # Quantize the input if is not quantized, input_quant is not specified,
                     # and the quant_identity_map is provided.
                     if not are_inputs_quantized_and_aligned(
