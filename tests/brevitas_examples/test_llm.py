@@ -853,7 +853,9 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1"],
+                "1",
+                "--save_strategy",
+                "no"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33232.65234375},
         {
@@ -875,7 +877,9 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1"],
+                "1",
+                "--save_strategy",
+                "no"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33420.65234375},
         {
@@ -897,7 +901,9 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1"],
+                "1",
+                "--save_strategy",
+                "no"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33290.48046875},
         {
@@ -918,8 +924,10 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "2",
                 "--per_device_train_batch_size",
                 "1",
-                "--gradient_accumulation_steps",
-                "1"],
+                "--,gradient_accumulation_steps",
+                "1",
+                "--save_strategy",
+                "no"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33204.80859375},])
 def rotation_optimization_args_and_ppl(default_run_args, request):

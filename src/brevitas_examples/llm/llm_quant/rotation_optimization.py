@@ -3,6 +3,7 @@ from dataclasses import field
 import os
 from typing import List, Optional
 
+from accelerate.utils import DistributedType
 from datasets import Dataset
 import torch
 import transformers
@@ -24,6 +25,14 @@ class TrainingArguments(transformers.TrainingArguments):
 def parse_optimization_rotation_args(unknown_args=None) -> None:
     parser = transformers.HfArgumentParser(TrainingArguments)
     training_args = parser.parse_args_into_dataclasses(args=unknown_args)
+    # If a single-process is running, only one GPU should be available
+    # for Trainer, to prevent using DataParallel, which was causing an
+    # error due to tensors in different devices being operated.
+    # Therefore, DistributedDataParallel should be used to run in
+    # multiple GPUs
+    if training_args[0].distributed_state.distributed_type == DistributedType.NO and training_args[
+            0]._n_gpu > 1:
+        training_args[0]._n_gpu = 1
     return training_args[0]
 
 
