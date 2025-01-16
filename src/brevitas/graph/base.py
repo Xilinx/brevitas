@@ -11,7 +11,7 @@ import torch
 from torch.nn import Module
 from torch.overrides import get_testing_overrides
 
-# TODO: Deprecate PyTorch 1.1
+# TODO: Deprecate PyTorch 1.11
 try:
     from torch.nn.utils.parametrize import is_parametrized
     from torch.nn.utils.parametrize import register_parametrization
@@ -191,21 +191,22 @@ class ModuleToModule(GraphTransform, ABC):
     def _replace_old_module(self, model, old_module, new_module, load_state_dict=True):
         replace_module(model, old_module, new_module)
         if load_state_dict:
-            old_module_state_dict = old_module.state_dict()
-            # If parametrizations are present in old_module, the state_dict needs
-            # to be processed beforehand
-            if is_parametrized(old_module):
+            if not is_parametrized(old_module):
+                new_module.load_state_dict(old_module.state_dict())
+            else:
+                old_module_state_dict = old_module.state_dict()
+                # If parametrizations are present in old_module, the state_dict needs
+                # to be processed beforehand
                 old_module_state_dict = _remove_parametrization_entries_state_dict(
                     old_module_state_dict)
-            # Strict can be set to True, since potential parametrizations were
-            # accounted for
-            new_module.load_state_dict(old_module_state_dict)
-            # If the old module is parametrized, these need to be transferred to the new module.
-            # The method transfer_parametrizations_and_params as it can result in parameter ties
-            # being broken
-            # NOTE: unsafe is set to True for efficiency, as the checks should have been done
-            # when first registering the parametrization to old_module
-            if is_parametrized(old_module):
+                # Strict can be set to True, since potential parametrizations were
+                # accounted for
+                new_module.load_state_dict(old_module_state_dict)
+                # If the old module is parametrized, these need to be transferred to the new module.
+                # The method transfer_parametrizations_and_params as it can result in parameter ties
+                # being broken
+                # NOTE: unsafe is set to True for efficiency, as the checks should have been done
+                # when first registering the parametrization to old_module
                 for tensor_name in old_module.parametrizations:
                     for param_func in old_module.parametrizations[tensor_name]:
                         register_parametrization(new_module, tensor_name, param_func, unsafe=True)

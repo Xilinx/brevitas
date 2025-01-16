@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import torch
 import torch.nn as nn
 
-# TODO: Deprecate PyTorch 1.1
+# TODO: Deprecate PyTorch 1.11
 try:
     from torch.nn.utils.parametrize import type_before_parametrizations
 except ImportError:
