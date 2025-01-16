@@ -156,11 +156,6 @@ def run_test_models_run_args(args, model_with_ppl):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def set_env():
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
-
 # yapf: disable
 @pytest_cases.fixture(
     ids=[
@@ -851,6 +846,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "nsamples_rot_calibration": 2,
             "no_float16": True,
             "unknown_args": [
+                "--learning_rate",
+                "1.5",
                 "--max_steps",
                 "2",
                 "--per_device_train_batch_size",
@@ -869,11 +866,10 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
             "nsamples_rot_calibration": 2,
-            "max_steps": 2,
-            "per_device_train_batch_size": 1,
-            "gradient_accumulation_steps": 1,
             "no_float16": True,
             "unknown_args": [
+                "--learning_rate",
+                "1.5",
                 "--max_steps",
                 "2",
                 "--per_device_train_batch_size",
@@ -892,11 +888,10 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
             "nsamples_rot_calibration": 2,
-            "max_steps": 2,
-            "per_device_train_batch_size": 1,
-            "gradient_accumulation_steps": 1,
             "no_float16": True,
             "unknown_args": [
+                "--learning_rate",
+                "1.5",
                 "--max_steps",
                 "2",
                 "--per_device_train_batch_size",
@@ -915,11 +910,10 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "nsamples_rot_calibration": 2,
-            "max_steps": 2,
-            "per_device_train_batch_size": 1,
-            "gradient_accumulation_steps": 1,
             "no_float16": True,
             "unknown_args": [
+                "--learning_rate",
+                "1.5",
                 "--max_steps",
                 "2",
                 "--per_device_train_batch_size",
