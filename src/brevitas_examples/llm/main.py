@@ -563,7 +563,7 @@ def quantize_llm(args, extra_args=None):
             )
             model_config = TransformersModelConfig(
                 pretrained=args.model,
-                dtype="float16",
+                dtype=args.dtype,
                 use_chat_template=True,
                 model_parallel=True,
                 accelerator=accelerator,
