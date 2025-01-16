@@ -6,9 +6,13 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.utils.parametrize as parametrize
 
-import brevitas
+# TODO: Deprecate PyTorch 1.1
+try:
+    from torch.nn.utils.parametrize import type_before_parametrizations
+except ImportError:
+    from brevitas.utils.torch_utils import type_before_parametrizations
+
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance

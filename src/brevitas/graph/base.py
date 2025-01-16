@@ -5,21 +5,25 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Dict, Type
 
 import torch
-from torch import Tensor
 from torch.nn import Module
-from torch.nn import Parameter
-import torch.nn.utils.parametrize as parametrize
 from torch.overrides import get_testing_overrides
+
+# TODO: Deprecate PyTorch 1.1
+try:
+    from torch.nn.utils.parametrize import is_parametrized
+    from torch.nn.utils.parametrize import register_parametrization
+except ImportError:
+    from brevitas.utils.torch_utils import is_parametrized
+    register_parametrization = None
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
-from brevitas.utils.rotation_utils import RotationWeightParametrization
 
 __all__ = [
     'Transform',
@@ -190,7 +194,7 @@ class ModuleToModule(GraphTransform, ABC):
             old_module_state_dict = old_module.state_dict()
             # If parametrizations are present in old_module, the state_dict needs
             # to be processed beforehand
-            if parametrize.is_parametrized(old_module):
+            if is_parametrized(old_module):
                 old_module_state_dict = _remove_parametrization_entries_state_dict(
                     old_module_state_dict)
             # Strict can be set to True, since potential parametrizations were
@@ -201,11 +205,10 @@ class ModuleToModule(GraphTransform, ABC):
             # being broken
             # NOTE: unsafe is set to True for efficiency, as the checks should have been done
             # when first registering the parametrization to old_module
-            if parametrize.is_parametrized(old_module):
+            if is_parametrized(old_module):
                 for tensor_name in old_module.parametrizations:
                     for param_func in old_module.parametrizations[tensor_name]:
-                        parametrize.register_parametrization(
-                            new_module, tensor_name, param_func, unsafe=True)
+                        register_parametrization(new_module, tensor_name, param_func, unsafe=True)
 
 
 class InsertModuleCallAfter(GraphTransform):
@@ -257,8 +260,7 @@ class ModuleInstanceRegisterParametrization(Transform):
         for module in model.modules():
             if module is self.module:
                 # register the parametrization to module
-                parametrize.register_parametrization(
-                    module, self.tensor_name, self.transform_module)
+                register_parametrization(module, self.tensor_name, self.transform_module)
                 break
         return model
 
