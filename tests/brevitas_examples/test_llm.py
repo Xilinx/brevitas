@@ -924,7 +924,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "2",
                 "--per_device_train_batch_size",
                 "1",
-                "--,gradient_accumulation_steps",
+                "--gradient_accumulation_steps",
                 "1",
                 "--save_strategy",
                 "no"],
