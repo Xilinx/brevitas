@@ -50,7 +50,7 @@ if torch_version >= version.parse('1.12'):
             self.enabled = enabled
             for stateless_function, stateless_module in quant_map.items():
                 if not hasattr(model, str(stateless_function)):
-                    setattr(model, str(stateless_function), stateless_module())
+                    model.add_module(str(stateless_function), stateless_module())
 
         def __torch_function__(self, func, types, args=(), kwargs=None):
             if kwargs is None:

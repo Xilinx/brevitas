@@ -84,6 +84,10 @@ def set_seed(seed):
 def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+    if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
+        m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
+        new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
+
     apply_layernorm_affine_merge(new_model)
     new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
@@ -303,20 +307,6 @@ def quantize_llm(args):
         apply_layernorm_to_rmsnorm(model)
         print("Layernorm To RMSNorm applied.")
 
-    if args.rotation == 'fx':
-        model = offload_model(model)
-        eq = GraphRotationEqualization(
-            orphan_sink=args.rotation_orphan_sink,
-            full_rotation_method=args.rotation_mode,
-            sdpa_regions=args.rotation_sdpa_regions)
-        model = eq.apply(model)
-        remove_hooks(model)
-    elif args.rotation == 'layerwise':
-        eq = LayerwiseActivationRotation()
-        model = eq.apply(model)
-    elif args.rotation == 'fused_no_fx':
-        fused_rotation_no_fx(model, calibration_loader, args)
-
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
     if args.replace_mha:
@@ -333,6 +323,21 @@ def quantize_llm(args):
         with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
             model(**calibration_loader[0])
         remove_hooks(model)
+
+    if args.rotation == 'fx':
+        model = offload_model(model)
+        eq = GraphRotationEqualization(
+            orphan_sink=args.rotation_orphan_sink,
+            full_rotation_method=args.rotation_mode,
+            sdpa_regions=args.rotation_sdpa_regions)
+        model = eq.apply(model)
+        remove_hooks(model)
+    elif args.rotation == 'layerwise':
+        eq = LayerwiseActivationRotation()
+        model = eq.apply(model)
+    elif args.rotation == 'fused_no_fx':
+        fused_rotation_no_fx(model, calibration_loader, args)
+
     if args.weight_equalization:
         print("Apply weight equalization...")
         # In case of float16 model, we need to offload to account for missing ops

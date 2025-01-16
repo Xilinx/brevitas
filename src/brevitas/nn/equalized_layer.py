@@ -81,7 +81,7 @@ class RotatedModule(torch.nn.Module):
 def functional_rotate_input(inp, transpose=False):
     is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
     if transpose:
-        inp = inp.t()
+        inp = inp.transpose(-2, -1)
     if is_cuda and fast_hadamard_transform is not None:
         had_K, K = get_hadK(inp.shape[-1])
         inp = matmul_hadU_cuda(inp, had_K, K)
@@ -89,5 +89,5 @@ def functional_rotate_input(inp, transpose=False):
         inp = matmul_hadU(inp)
 
     if transpose:
-        inp = inp.t()
+        inp = inp.transpose(-2, -1)
     return inp

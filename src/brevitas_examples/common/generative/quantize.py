@@ -4,6 +4,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 import re
 
+from dependencies import this
 import torch
 from torch import nn
 
@@ -11,8 +12,10 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
+from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -68,6 +71,7 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowF
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
@@ -388,10 +392,10 @@ def generate_quantizers(
             elif input_quant_granularity == 'per_group':
                 q_scaled_quant = sym_input_quant.let(
                     **{
-                        'group_dim': 2, 'group_size': input_group_size})
+                        'group_dim': -1, 'group_size': input_group_size})
                 k_transposed_quant = sym_input_quant.let(
                     **{
-                        'group_dim': 1, 'group_size': input_group_size})
+                        'group_dim': -1, 'group_size': input_group_size})
             v_quant = q_scaled_quant
             attn_output_weights_quant = q_scaled_quant
         else:
