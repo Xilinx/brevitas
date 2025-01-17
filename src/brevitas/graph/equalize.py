@@ -17,6 +17,7 @@ from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
+from brevitas import config
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
@@ -1444,17 +1445,33 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
+def _retrieve_quant_state_dict(module: nn.Module) -> Dict[str, torch.Tensor]:
+    # Retrieve state dict components related to Brevitas quantizers
+    config._FULL_STATE_DICT = True
+    quant_state_dict = {k: v for k, v in module.state_dict().items() if "_quant" in k}
+    config._FULL_STATE_DICT = False
+    return quant_state_dict
+
+
 def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
     # Then, parametrizations can be safely removed
     for module in model.modules():
-        # Names of the tensors that can potentially be parametrized
-        tensor_names = ["weight", "bias"]
-        # Remove parametrizations from each tensor
-        for tensor_name in tensor_names:
-            if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
-                parametrize.remove_parametrizations(module, tensor_name, leave_parametrized=True)
+        if parametrize.is_parametrized(module):
+            # Names of the tensors that can potentially be parametrized
+            tensor_names = ["weight", "bias"]
+            # Get the quantization-related entries of the module state_dict
+            quant_state_dict = _retrieve_quant_state_dict(module)
+            # Remove parametrizations from each tensor
+            for tensor_name in tensor_names:
+                if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
+                    parametrize.remove_parametrizations(
+                        module, tensor_name, leave_parametrized=True)
+            # Restore the state of quantization-related tensors, strict needs to be set to False
+            # as there will be missing keys
+            if len(quant_state_dict) > 0:
+                module.load_state_dict(quant_state_dict, strict=False)
     return model
 
 

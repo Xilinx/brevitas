@@ -162,7 +162,7 @@ def model_export(model, ref_input, args):
 
 def validate(args, extra_args: Optional[List[str]] = None):
     if args.rotation != "fused_no_fx_optimize":
-        assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith("--")]}"
+        assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
     if args.functional_sdpa_quant:
         assert args.input_scale_type == 'dynamic' or args.input_bit_width is None, "Functional SDPA Quant requires dynamic activation quantization"
     if args.rotation == 'fx':
@@ -230,7 +230,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
 
 
 def quantize_llm(args, extra_args=None):
-    validate(args)
+    validate(args, extra_args)
     set_seed(args.seed)
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
