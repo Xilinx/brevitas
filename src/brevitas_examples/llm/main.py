@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 import functools
 import sys
+from typing import List, Optional
 from warnings import warn
 
 from lm_eval import evaluator
@@ -56,6 +57,7 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_wit
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
+from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
@@ -158,7 +160,9 @@ def model_export(model, ref_input, args):
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
 
-def validate(args):
+def validate(args, extra_args: Optional[List[str]] = None):
+    if args.rotation != "fused_no_fx_optimize":
+        assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith("--")]}"
     if args.functional_sdpa_quant:
         assert args.input_scale_type == 'dynamic' or args.input_bit_width is None, "Functional SDPA Quant requires dynamic activation quantization"
     if args.rotation == 'fx':
@@ -225,7 +229,7 @@ def validate(args):
                 "or decreasing the sequence length (seqlen)")
 
 
-def quantize_llm(args, unknown_args=None):
+def quantize_llm(args, extra_args=None):
     validate(args)
     set_seed(args.seed)
     if args.export_prefix is None:
@@ -288,6 +292,8 @@ def quantize_llm(args, unknown_args=None):
         fuse_sequences=args.fuse_sequences)
 
     if args.rotation in ["fused_no_fx_optimize"]:
+        # Extra arguments should be used as training arguments for rotation optimization
+        rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
         # Load the data for rotation optimization
         rot_calibration_loader = get_dataset_for_model(
             args.model,
@@ -499,7 +505,7 @@ def quantize_llm(args, unknown_args=None):
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=rot_calibration_loader,
-                unknown_args=unknown_args,
+                training_args=rot_optimization_args,
             )
             # Remove hooks from optimization
             remove_hooks(model)
@@ -968,8 +974,8 @@ def parse_args(args, override_defaults={}):
 
 def main():
     overrides = override_defaults(sys.argv[1:])
-    args, unknown_args = parse_args(sys.argv[1:], override_defaults=overrides)
-    quantize_llm(args, unknown_args)
+    args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
+    quantize_llm(args, extra_args)
 
 
 if __name__ == '__main__':

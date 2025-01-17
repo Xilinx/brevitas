@@ -20,11 +20,14 @@ from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 class TrainingArguments(transformers.TrainingArguments):
     # By default, arguments are saved in the current working directory
     output_dir: Optional[str] = field(default=os.getcwd())
+    # NOTE: Currently, there is no infrastructure to resume training
+    # from a checkpoint, so related files are not save by default
+    save_strategy: Optional[str] = field(default="no")
 
 
-def parse_optimization_rotation_args(unknown_args=None) -> None:
+def parse_rotation_optimization_args(extra_args: Optional[List[str]] = None) -> TrainingArguments:
     parser = transformers.HfArgumentParser(TrainingArguments)
-    training_args = parser.parse_args_into_dataclasses(args=unknown_args)
+    training_args = parser.parse_args_into_dataclasses(args=extra_args)
     # If a single-process is running, only one GPU should be available
     # for Trainer, to prevent using DataParallel, which was causing an
     # error due to tensors in different devices being operated.
@@ -83,14 +86,12 @@ def apply_rotation_optimization(
     model: torch.nn.Module,
     tokenizer: PreTrainedTokenizerBase,
     train_dataset: DatasetToDevice,
-    unknown_args: List[str] = None,
+    training_args: TrainingArguments,
 ) -> None:
 
     # Prepare dataset and model for training
     train_dataset = _prepare_train_dataset(train_dataset)
     model = _prepare_model(model)
-    # Get training arguments
-    training_args = parse_optimization_rotation_args(unknown_args)
     # Enable skipping optimization
     if training_args.max_steps <= 0:
         return

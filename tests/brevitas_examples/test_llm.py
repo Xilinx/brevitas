@@ -48,9 +48,9 @@ def validate_args(args):
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
 
 
-def validate_args_and_run_main(args, unknown_args=None):
+def validate_args_and_run_main(args, extra_args=None):
     validate_args(args)
-    float_ppl, quant_ppl, model = quantize_llm(args, unknown_args=unknown_args)
+    float_ppl, quant_ppl, model = quantize_llm(args, extra_args=extra_args)
     return float_ppl, quant_ppl, model
 
 
@@ -841,7 +841,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_mode": "ort",
             "nsamples_rot_calibration": 2,
             "no_float16": True,
-            "unknown_args": [
+            "extra_args": [
                 "--learning_rate",
                 "1.5",
                 "--max_steps",
@@ -849,9 +849,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1",
-                "--save_strategy",
-                "no"],
+                "1"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33278.98828125,
             "exp_layer_types_count": {
@@ -870,7 +868,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_mode": "ort",
             "nsamples_rot_calibration": 2,
             "no_float16": True,
-            "unknown_args": [
+            "extra_args": [
                 "--learning_rate",
                 "1.5",
                 "--max_steps",
@@ -878,9 +876,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1",
-                "--save_strategy",
-                "no"],
+                "1"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33424.73046875,
             "exp_layer_types_count": {
@@ -899,7 +895,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_mode": "had",
             "nsamples_rot_calibration": 2,
             "no_float16": True,
-            "unknown_args": [
+            "extra_args": [
                 "--learning_rate",
                 "1.5",
                 "--max_steps",
@@ -907,9 +903,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1",
-                "--save_strategy",
-                "no"],
+                "1"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33339.21875,
             "exp_layer_types_count": {
@@ -928,7 +922,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_mode": "had",
             "nsamples_rot_calibration": 2,
             "no_float16": True,
-            "unknown_args": [
+            "extra_args": [
                 "--learning_rate",
                 "1.5",
                 "--max_steps",
@@ -936,9 +930,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--per_device_train_batch_size",
                 "1",
                 "--gradient_accumulation_steps",
-                "1",
-                "--save_strategy",
-                "no"],
+                "1"],
             "float_ppl": 33238.8984375,
             "quant_ppl": 33219.08984375,
             "exp_layer_types_count": {
@@ -949,16 +941,16 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
 def rotation_optimization_args_layer_count_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
-    unknown_args = run_dict["unknown_args"]
+    extra_args = run_dict["extra_args"]
     float_ppl = run_dict["float_ppl"]
     quant_ppl = run_dict["quant_ppl"]
     exp_layer_types_count = run_dict["exp_layer_types_count"]
     del run_dict["float_ppl"]
     del run_dict["quant_ppl"]
-    del run_dict["unknown_args"]
+    del run_dict["extra_args"]
     del run_dict["exp_layer_types_count"]
     args.update(**run_dict)
-    yield args, unknown_args, float_ppl, quant_ppl, exp_layer_types_count
+    yield args, extra_args, float_ppl, quant_ppl, exp_layer_types_count
 
 
 @requires_pt_ge('2.4')
@@ -970,8 +962,8 @@ def test_small_models_rotation_optimization_ppl(
     # with non-optimized quantized perplexities
     RTOL_ROT, ATOL_ROT = 1e-05, 2.
     caplog.set_level(logging.INFO)
-    args, unknown_args, exp_float_ppl, exp_quant_ppl, _ = rotation_optimization_args_layer_count_and_ppl
-    float_ppl, quant_ppl, _ = validate_args_and_run_main(args, unknown_args)
+    args, extra_args, exp_float_ppl, exp_quant_ppl, _ = rotation_optimization_args_layer_count_and_ppl
+    float_ppl, quant_ppl, _ = validate_args_and_run_main(args, extra_args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
     assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
@@ -986,7 +978,7 @@ def test_small_models_rotation_optimization_layer_count(
     # Tolerances are stricter for this test, to ensure that it does not pass
     # with non-optimized quantized perplexities
     caplog.set_level(logging.INFO)
-    args, unknown_args, _, _, exp_layer_types_count = rotation_optimization_args_layer_count_and_ppl
+    args, extra_args, _, _, exp_layer_types_count = rotation_optimization_args_layer_count_and_ppl
     with patch('brevitas_examples.llm.main.fuse_parametrized_rotations', lambda model: model):
-        _, _, model = validate_args_and_run_main(args, unknown_args)
+        _, _, model = validate_args_and_run_main(args, extra_args)
     assert_layer_types_count(model, exp_layer_types_count)
