@@ -32,10 +32,13 @@ from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
 from brevitas.graph.equalize import Region
 from brevitas.graph.hadamard import get_hadK
+from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
+from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from tests.marker import requires_pt_ge
 
@@ -528,3 +531,56 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
     # Verify that the weights have changed with respect to the unrotated module for the modules that have received parametrizations
     # Verify that weights match between the fused and unfused model
     compare_model_weights(rotated_model_fused, rotated_model_unfused)
+
+
+@pytest_cases.parametrize(
+    'kwargs',
+    [
+        {
+            'model': nn.Sequential(nn.Linear(2, 3)),
+            'sample_input': torch.tensor([[0.8, -0.6]]),
+            'rot_mat': torch.tensor([[1., -1.], [1., 1.]]) / torch.sqrt(torch.tensor(2.)),
+            'rot_func': lambda tensor,
+                        rot_mat,
+                        K: torch.matmul(tensor, rot_mat),
+            'key': '0',
+            'expected': "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>"},])
+def test_fuse_parametrized_modules(kwargs):
+    key = kwargs['key']
+    exp = kwargs['expected']
+    rot_mat = kwargs['rot_mat']
+    rot_func = kwargs['rot_func']
+    model = kwargs["model"]
+    sample_input = kwargs["sample_input"]
+    module = recurse_getattr(model, key)
+    # Register rotation parametrization to module
+    parametrize.register_parametrization(
+        module=module,
+        tensor_name="weight",
+        parametrization=RotationWeightParametrization(
+            rot_mat=nn.Parameter(rot_mat),
+            rot_func=rot_func,
+            axis=1,
+            K=None,
+        ))
+    compute_layer_map = copy.deepcopy(LAYERWISE_COMPUTE_LAYER_MAP)
+    module = recurse_getattr(model, key)
+    type_quant_module = parametrize.type_before_parametrizations(module)
+    compute_layer_map[type_quant_module][1]["weight_quant"] = compute_layer_map[type_quant_module][
+        1]["weight_quant"].let(scaling_impl_type='parameter_from_stats')
+    qmodel = layerwise_quantize(model, compute_layer_map=compute_layer_map)
+    # Calibration pass to initialize scales
+    with torch.no_grad():
+        output = qmodel(sample_input)
+    # Fuse parametrizations
+    qmodel = fuse_parametrized_rotations(qmodel)
+    # Verify that scales were not lost
+    module = recurse_getattr(model, key)
+    assert module.weight_quant.tensor_quant.scaling_impl.init_done
+    assert not torch.allclose(
+        module.weight_quant.tensor_quant.scaling_impl.value,
+        torch.ones_like(module.weight_quant.tensor_quant.scaling_impl.value))
+    # Compute output after fusing and check that it matches
+    with torch.no_grad():
+        output_fused = qmodel(sample_input)
+    assert torch.allclose(output, output_fused, rtol=0.0, atol=0.0)

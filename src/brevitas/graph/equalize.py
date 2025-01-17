@@ -41,6 +41,8 @@ from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
@@ -1445,14 +1447,6 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
-def _retrieve_quant_state_dict(module: nn.Module) -> Dict[str, torch.Tensor]:
-    # Retrieve state dict components related to Brevitas quantizers
-    config._FULL_STATE_DICT = True
-    quant_state_dict = {k: v for k, v in module.state_dict().items() if "_quant" in k}
-    config._FULL_STATE_DICT = False
-    return quant_state_dict
-
-
 def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
@@ -1461,17 +1455,23 @@ def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
         if parametrize.is_parametrized(module):
             # Names of the tensors that can potentially be parametrized
             tensor_names = ["weight", "bias"]
-            # Get the quantization-related entries of the module state_dict
-            quant_state_dict = _retrieve_quant_state_dict(module)
             # Remove parametrizations from each tensor
             for tensor_name in tensor_names:
                 if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
+                    # Check if the module has any quantization-related children
+                    state_dict = None
+                    for submodule in module.modules():
+                        if isinstance(submodule,
+                                      (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)):
+                            state_dict = submodule.state_dict()
+                            break
+                    # The rotated tensor is saved by setting leave_parametrized=True
                     parametrize.remove_parametrizations(
                         module, tensor_name, leave_parametrized=True)
-            # Restore the state of quantization-related tensors, strict needs to be set to False
-            # as there will be missing keys
-            if len(quant_state_dict) > 0:
-                module.load_state_dict(quant_state_dict, strict=False)
+                    # Restore the state of the quantization modules, as these might have been reset
+                    # when registering the parametrized parameter
+                    if state_dict is not None:
+                        submodule.load_state_dict(state_dict)
     return model
 
 

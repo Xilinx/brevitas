@@ -105,19 +105,23 @@ def fused_rotation_no_fx(model, calibration_loader, args, fuse_rotations: bool =
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
         sdpa_regions=args.rotation_sdpa_regions)
-    # NOTE: When fuse_rotations=False, parametrized rotations are applied, i.e. the weights of
-    # selected modules stop being attributes but, instead, properties, and their value is
-    # computed by passing the original value of the tensor through the forward passes of the
-    # parametrization modules. Parametrizations are registered using
-    # torch.nn.utils.parametrize.register_parametrization, which modifies the __class__
-    # attribute of the parametrized module, e.g. "<class 'torch.nn.modules.linear.Linear'>"
-    # changes to "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>". Therefore,
-    # algorithms that do type checking might need to use type_before_parametrizations(module),
-    # instead of only type(module) (see layerwise_layer_handler). Moreover, if, for instance,
-    # the "weight" attribute is parametrized, it will be removed from the attributes
-    # of the class. Consequently, quantization algorithms that rely on in-place modifications
-    # of the weights should not operate on parametrized modules. In this situation, parametrizations
-    # need to be removed beforehand by invoking fuse_parametrized_rotations
+    if not fuse_rotations:
+        # NOTE: When fuse_rotations=False, parametrized rotations are applied, i.e. the weights of
+        # selected modules stop being attributes but, instead, properties, and their value is
+        # computed by passing the original value of the tensor through the forward passes of the
+        # parametrization modules. Parametrizations are registered using
+        # torch.nn.utils.parametrize.register_parametrization, which modifies the __class__
+        # attribute of the parametrized module, e.g. "<class 'torch.nn.modules.linear.Linear'>"
+        # changes to "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>". Therefore,
+        # algorithms that do type checking might need to use type_before_parametrizations(module),
+        # instead of only type(module) (see layerwise_layer_handler). Moreover, if, for instance,
+        # the "weight" attribute is parametrized, it will be removed from the attributes
+        # of the class. Consequently, quantization algorithms that rely on in-place modifications
+        # of the weights should not operate on parametrized modules. In this situation, parametrizations
+        # need to be removed beforehand by invoking fuse_parametrized_rotations
+        warn(
+            "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
+        )
     new_model, rewriters = eq.apply(new_model, fuse_rotations=fuse_rotations)
     rewriters = fix_rewriter(rewriters, model, 'weight')
     for r in rewriters:
