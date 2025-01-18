@@ -533,6 +533,7 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
     compare_model_weights(rotated_model_fused, rotated_model_unfused)
 
 
+@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize(
     'kwargs',
     [
