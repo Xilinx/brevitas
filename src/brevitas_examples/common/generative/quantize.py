@@ -318,8 +318,9 @@ def generate_quantizers(
         linear_input_quant = linear_input_quant.let(**input_kwargs)
         v_quant = v_quant.let(**input_kwargs)
         k_transposed_quant = k_transposed_quant.let(**input_kwargs)
-        q_scaled_quant = q_scaled_quant.let(**input_kwargs)
-        attn_output_weights_quant = attn_output_weights_quant.let(**input_kwargs)
+        q_scaled_quant = q_scaled_quant.let(**input_kwargs) if q_scaled_quant is not None else None
+        attn_output_weights_quant = attn_output_weights_quant.let(
+            **input_kwargs) if attn_output_weights_quant is not None else None
 
     else:
         input_quant = None
