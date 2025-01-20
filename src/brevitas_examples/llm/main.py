@@ -405,6 +405,7 @@ def quantize_llm(args, extra_args=None):
             input_scale_type=args.input_scale_type,
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
+            kv_quant_type=args.kv_quant_type,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
@@ -761,6 +762,14 @@ def parse_args(args, override_defaults={}):
         default='asym',
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
+    parser.add_argument(
+        '--kv-quant-type',
+        type=str,
+        default=None,
+        choices=['sym', 'asym'],
+        help=
+        'KV quantization type. If None, it will follow input quant type. If set, will perform only KV cache quantization. Default: None'
+    )
     parser.add_argument(
         '--input-quant-granularity',
         type=str,
