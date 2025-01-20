@@ -20,6 +20,7 @@ import transformers
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_export
@@ -983,3 +984,34 @@ def test_small_models_rotation_optimization_layer_count(
     with patch('brevitas_examples.llm.main.fuse_parametrized_rotations', lambda model: model):
         _, _, model = validate_args_and_run_main(args, extra_args)
     assert_layer_types_count(model, exp_layer_types_count)
+
+
+@pytest_cases.parametrize(
+    "kwargs",
+    [
+        {
+            "yaml_file_path":
+                "./llm_test_template.yml",
+            "expected_extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--lr_scheduler_type",
+                "cosine",
+                "--save_safetensors",
+                "False"],},],
+    ids=lambda kwargs: kwargs["yaml_file_path"])
+def test_parse_yaml_trainer_arguments(caplog, kwargs):
+    caplog.set_level(logging.INFO)
+    yaml_file_path = kwargs["yaml_file_path"]
+    expected_extra_args = kwargs["expected_extra_args"]
+    extra_args_keys = [expected_extra_args[i][2:] for i in range(0, len(expected_extra_args), 2)]
+
+    def quantize_llm_assert_args(args, extra_args=None):
+        for key in extra_args_keys:
+            assert key not in args, f"Key {key} should not be known by the parser"
+        assert extra_args == expected_extra_args, f"Expected extra arguments {expected_extra_args} but got {extra_args}"
+
+    # Run the argument parsing logic of the LLM entrypoint
+    with patch("brevitas_examples.llm.main.quantize_llm", quantize_llm_assert_args):
+        with patch("brevitas_examples.llm.main.sys.argv", ["main.py", "--config", yaml_file_path]):
+            main()
