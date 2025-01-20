@@ -1,0 +1,170 @@
+act_calibration:
+- false
+act_equalization:
+- null
+- layerwise
+- fx
+act_equalization_alpha:
+- 0.5
+bias_corr:
+- false
+checkpoint_name:
+- null
+convert_layernorm_to_rmsnorm:
+- false
+dataset:
+- wikitext2
+- c4
+eval:
+- false
+export_prefix:
+- null
+export_target:
+- null
+- onnx_qcdq
+- torch_qcdq
+- sharded_torchmlir_group_weight
+- sharded_packed_torchmlir_group_weight
+few_shot_compile:
+- false
+few_shot_eval:
+- false
+few_shot_limit:
+- null
+few_shot_tasks:
+- - arc_challenge
+  - arc_easy
+  - winogrande
+  - piqa
+few_shot_zeroshot:
+- false
+functional_sdpa_quant:
+- false
+fuse_sequences:
+- false
+gpfq:
+- false
+gptq:
+- false
+gpxq_act_order:
+- false
+gpxq_block_name:
+- null
+gpxq_create_weight_orig:
+- false
+gpxq_max_accumulator_bit_width:
+- null
+gpxq_max_accumulator_tile_size:
+- null
+gpxq_use_quant_activations:
+- false
+input_bit_width:
+- null
+input_group_size:
+- 64
+input_param_method:
+- stats
+- mse
+input_quant_format:
+- int
+input_quant_granularity:
+- per_tensor
+- per_row
+- per_group
+input_quant_type:
+- sym
+- asym
+input_scale_precision:
+- float_scale
+- po2_scale
+input_scale_type:
+- static
+- dynamic
+- no_scale
+learned_round:
+- null
+- linear_round
+learned_round_fast_update:
+- false
+learned_round_iters:
+- 200
+learned_round_lr:
+- 0.005
+learned_round_scale:
+- false
+learned_round_scale_lr:
+- 0.01
+learned_round_scale_momentum:
+- 0.9
+ln_affine_merge:
+- false
+load_awq:
+- null
+load_checkpoint:
+- false
+model:
+- facebook/opt-125m
+no_float16:
+- false
+no_quantize:
+- false
+nsamples:
+- 128
+quant_sdpa:
+- false
+quantize_input_zero_point:
+- false
+quantize_last_layer:
+- false
+quantize_weight_zero_point:
+- false
+replace_mha:
+- false
+replace_rmsnorm:
+- false
+rotation:
+- fx
+- layerwise
+- fused_no_fx
+rotation_mode:
+- had
+- ort
+rotation_orphan_sink:
+- false
+rotation_sdpa_regions:
+- false
+scale_rounding_func_type:
+- round
+- ceil
+- floor
+scaling_min_val:
+- 0.0001
+seed:
+- 0
+seqlen:
+- 2048
+weight_bit_width:
+- 8
+weight_equalization:
+- false
+weight_group_dim:
+- 1
+- 0
+weight_group_size:
+- 128
+weight_param_method:
+- stats
+- mse
+- hqo
+weight_quant_format:
+- int
+weight_quant_granularity:
+- per_channel
+- per_tensor
+- per_group
+weight_quant_type:
+- sym
+- asym
+weight_scale_precision:
+- float_scale
+- po2_scale
