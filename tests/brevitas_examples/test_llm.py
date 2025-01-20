@@ -991,7 +991,7 @@ def test_small_models_rotation_optimization_layer_count(
     [
         {
             "yaml_file_path":
-                "./llm_test_template.yml",
+                "./tests/brevitas_examples/llm_test_template.yml",
             "expected_extra_args": [
                 "--learning_rate",
                 "1.5",
