@@ -397,9 +397,13 @@ def quantize_llm(args):
             input_quant_format=args.input_quant_format,
             quantize_embedding=False)
         if not args.quantize_last_layer:
+            # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
+            # up the last module.
             if require_fx:
                 last_node = [node for node in model.graph.nodes if node.op == 'call_module'][-1]
                 last_module = get_module(model, last_node.target)
+                # In case we have layerwise rotation/equalization, we need to pick the wrapped module
+                last_module = last_module.layer if hasattr(last_module, 'layer') else last_module
                 last_layer_kwargs = layer_map[type(last_module)][1]
                 prev_weight_quant = deepcopy(last_layer_kwargs['weight_quant'])
                 prev_input_quant = deepcopy(last_layer_kwargs['input_quant'])
