@@ -971,13 +971,16 @@ def parse_args(args, override_defaults={}):
         type=str,
         nargs='*',
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
-    if override_defaults:
+    if len(override_defaults) > 0:
         # Retrieve keys that are known to the parser
         parser_keys = set(map(lambda action: action.dest, parser._actions))
         # Extract the entries in override_defaults that correspond to keys not known to the parser
         extra_args_keys = [key for key in override_defaults.keys() if key not in parser_keys]
-        # Remove those entries from override_defaults, to prevent new keys being added to the argument
-        # parser and add them to args, to mimic as if they were passed by command line
+        # Remove all the keys in override_defaults that are unknown to the parser and, instead,
+        # include them in args, as if they were passed as arguments to the command line.
+        # This prevents the keys of HF TrainingArguments from being added as arguments to the parser.
+        # Consequently, they will be part of the second value returned by parse_known_args (thus being
+        # used as extra_args in quantize_llm)
         for key in extra_args_keys:
             args += [f"--{key}", str(override_defaults[key])]
             del override_defaults[key]
