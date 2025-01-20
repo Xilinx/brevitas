@@ -1531,6 +1531,7 @@ class GraphRotationEqualization(RotationEqualization):
             orphan_sink: bool = False,
             sdpa_regions: bool = False,
             rotate_matmul: bool = False,
+            fuse_rotations: bool = True,
             full_rotation_method: str = 'had',
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__()
@@ -1548,6 +1549,17 @@ class GraphRotationEqualization(RotationEqualization):
         self.full_rotation_method = full_rotation_method
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
+        if not fuse_rotations:
+            # NOTE: When fuse_rotations=False, parametrized rotations are applied. This changes the attribute __class__
+            # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
+            # Therefore, algorithms that do type checking might need to use type_before_parametrizations(module),
+            # instead of only type(module) (see layerwise_layer_handler). Algorithms that rely on in-place modifications
+            # of the weights should not operate on parametrized modules. In this situation, parametrizations
+            # need to be removed beforehand by invoking fuse_parametrized_rotations
+            warnings.warn(
+                "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
+            )
+        self.fuse_rotations = fuse_rotations
 
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
@@ -1608,10 +1620,8 @@ class GraphRotationEqualization(RotationEqualization):
                     m.pre_process_k = functional_rotate_input
         return regions
 
-    def apply(
-            self,
-            graph_model: GraphModule,
-            fuse_rotations: bool = True) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
+    def apply(self,
+              graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
         regions = _extract_regions(
             graph_model,
@@ -1640,7 +1650,7 @@ class GraphRotationEqualization(RotationEqualization):
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
             rewriters = _apply_rotate(
-                graph_model, regions, self.full_rotation_method, fuse_rotations=fuse_rotations)
+                graph_model, regions, self.full_rotation_method, fuse_rotations=self.fuse_rotations)
         if self.return_rewriters:
             return graph_model, rewriters
         else:
