@@ -509,7 +509,7 @@ def quantize_model(
         input_quant_format='',
         input_scale_precision=None,
         input_scale_type=None,
-        input_param_method=N
+        input_param_method=None,
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
