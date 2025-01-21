@@ -646,7 +646,7 @@ def override_defaults(args):
     return defaults
 
 
-def parse_args(args, override_defaults={}):
+def create_llm_args_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--config',
@@ -1000,6 +1000,11 @@ def parse_args(args, override_defaults={}):
         default=[],
         nargs='*',
         help='A list of module names to expand with hadamard rotation. Default: %(default)s')
+    return parser
+
+
+def parse_args(args, override_defaults={}):
+    parser = create_llm_args_parser()
     if len(override_defaults) > 0:
         # Retrieve keys that are known to the parser
         parser_keys = set(map(lambda action: action.dest, parser._actions))
@@ -1014,8 +1019,7 @@ def parse_args(args, override_defaults={}):
             args += [f"--{key}", str(override_defaults[key])]
             del override_defaults[key]
     parser.set_defaults(**override_defaults)
-
-    return parser.parse_known_args(args)
+    return parser.parse_args(args)
 
 
 def main():

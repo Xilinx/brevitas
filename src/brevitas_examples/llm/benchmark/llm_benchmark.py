@@ -13,7 +13,7 @@ import pandas as pd
 import randomname as rn
 import yaml
 
-from brevitas_examples.llm.main import instantiate_llm_parser
+from brevitas_examples.llm.main import create_llm_args_parser
 from brevitas_examples.llm.main import validate
 
 # Set appropiately for your system
@@ -22,15 +22,21 @@ LLM_ENTRYPOINT = "BREVITAS_DIR/brevitas/src/brevitas_examples/llm/main.py"
 RESULTS_FOLDER = "RESULTS_DIR"
 CUDA_AVAILABLE_DEVICES = [0, 1]
 NUM_GPUS_PER_PROCESS = 1
+NUM_RETRIES = 1
 
 
-def run_args_bucket(id: int, args_dicts_bucket: List[Dict]):
+def run_args_bucket(id: int, args_dicts_queue: List[Dict]):
     # Visible devices for the thread
     thread_cuda_visible_devices = ",".join(
         map(str, CUDA_AVAILABLE_DEVICES[id:id + NUM_GPUS_PER_PROCESS]))
     # Iterate over the combinations launching the LLM entrypoint
-    for i in range(len(args_dicts_bucket)):
-        print(f"Thread {id}, starting process {i+1}/{len(args_dicts_bucket)}")
+    while True:
+        try:
+            # .pop is an atomic operation
+            args_dict = args_dicts_queue.pop()
+        except IndexError:
+            break
+        print(f"Thread {id}, remaining combinations {len(args_dicts_queue)}")
         # Generate name for the experiment
         job_name = rn.get_name()
         job_folder = f"{RESULTS_FOLDER}/{job_name}"
@@ -38,20 +44,24 @@ def run_args_bucket(id: int, args_dicts_bucket: List[Dict]):
         os.mkdir(job_folder)
         # Save yaml file for reproducibility
         with open(f"{job_folder}/config.yaml", 'w') as f:
-            yaml.dump(args_dicts_bucket[0], f)
-        # Run process
-        stdout_file = open(f"{job_folder}/stdout.out", 'w')
-        stderr_file = open(f"{job_folder}/stderr.out", 'w')
-        process = subprocess.Popen(
-            [PYTHON_BIN, LLM_ENTRYPOINT, "--config", f"{job_folder}/config.yaml"],
-            env={"CUDA_VISIBLE_DEVICES": thread_cuda_visible_devices},
-            stdout=stdout_file,
-            stderr=stderr_file,
-        )
-        # Wait before starting a new process to prevent using the same GPUs
-        process.wait()
-        stdout_file.close()
-        stderr_file.close()
+            yaml.dump(args_dict, f)
+        # Enable reruning the process there was a crash
+        num_retries = 0
+        while num_retries < NUM_RETRIES:
+            stdout_file = open(f"{job_folder}/stdout.out", 'w')
+            stderr_file = open(f"{job_folder}/stderr.out", 'w')
+            process = subprocess.Popen(
+                [PYTHON_BIN, LLM_ENTRYPOINT, "--config", f"{job_folder}/config.yaml"],
+                env={"CUDA_VISIBLE_DEVICES": thread_cuda_visible_devices},
+                stdout=stdout_file,
+                stderr=stderr_file,
+            )
+            # Wait before starting a new process to prevent using the same GPUs
+            return_code = process.wait()
+            stdout_file.close()
+            stderr_file.close()
+            if return_code is not None and return_code == 0:
+                break
 
 
 def parse_config_args(args: List[str]) -> Namespace:
@@ -102,7 +112,7 @@ if __name__ == "__main__":
             args_dict = yaml.safe_load(f)
     else:
         # Generate a YAML benchmark from default arguments
-        llm_parser = instantiate_llm_parser()
+        llm_parser = create_llm_args_parser()
         args_dict = {
             action.dest: [action.default] if action.choices is None else action.choices
             for action in llm_parser._actions}
@@ -126,20 +136,14 @@ if __name__ == "__main__":
             # Invalid configuration
             pass
     # Number of argument combinations
-    num_combinations = len(args_combinations)
-    num_buckets = len(CUDA_AVAILABLE_DEVICES) // NUM_GPUS_PER_PROCESS
-    bucket_size = num_combinations // num_buckets
-    # Split the combinations in differet buckets each belonging to a different thread
-    args_combinations_buckets = [
-        args_combinations[i * bucket_size:(i + 1) * bucket_size] for i in range(num_buckets)]
-
+    num_threads = len(CUDA_AVAILABLE_DEVICES) // NUM_GPUS_PER_PROCESS
     # Instantiate threads to run the arguments in each bucket
     threads = []
-    for i in range(num_buckets):
+    for i in range(num_threads):
         thread = threading.Thread(
             target=run_args_bucket, args=(
                 i,
-                args_combinations_buckets[i],
+                args_combinations[i],
             ))
         thread.start()
         threads.append(thread)
