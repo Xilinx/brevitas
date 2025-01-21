@@ -85,7 +85,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def fused_rotation_no_fx(model, calibration_loader, args, fuse_rotations: bool = True):
+def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
@@ -105,7 +105,7 @@ def fused_rotation_no_fx(model, calibration_loader, args, fuse_rotations: bool =
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
         sdpa_regions=args.rotation_sdpa_regions,
-        fuse_rotations=fuse_rotations)
+        use_parametrized_rotations=args.optimize_rotations)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
     for r in rewriters:
@@ -149,7 +149,9 @@ def model_export(model, ref_input, args):
 
 
 def validate(args, extra_args: Optional[List[str]] = None):
-    if args.rotation != "fused_no_fx_optimize":
+    if args.optimize_rotations:
+        assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
+    else:
         assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
     if args.functional_sdpa_quant:
         assert args.input_scale_type == 'dynamic' or args.input_bit_width is None, "Functional SDPA Quant requires dynamic activation quantization"
@@ -279,7 +281,7 @@ def quantize_llm(args, extra_args=None):
         device=None,
         fuse_sequences=args.fuse_sequences)
 
-    if args.rotation in ["fused_no_fx_optimize"]:
+    if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
         rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
         # Load the data for rotation optimization
@@ -353,7 +355,8 @@ def quantize_llm(args, extra_args=None):
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink,
             full_rotation_method=args.rotation_mode,
-            sdpa_regions=args.rotation_sdpa_regions)
+            sdpa_regions=args.rotation_sdpa_regions,
+            use_parametrized_rotations=args.optimize_rotations)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
@@ -361,8 +364,6 @@ def quantize_llm(args, extra_args=None):
         model = eq.apply(model)
     elif args.rotation == 'fused_no_fx':
         fused_rotation_no_fx(model, calibration_loader, args)
-    elif args.rotation == 'fused_no_fx_optimize':
-        fused_rotation_no_fx(model, calibration_loader, args, fuse_rotations=False)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
@@ -488,7 +489,7 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
-        if args.rotation in ['fused_no_fx_optimize']:
+        if args.optimize_rotations:
             apply_rotation_optimization(
                 model=model,
                 tokenizer=tokenizer,
@@ -859,8 +860,14 @@ def parse_args(args, override_defaults={}):
         '--rotation',
         type=str,
         default=None,
-        choices=['fx', 'layerwise', 'fused_no_fx', 'fused_no_fx_optimize'],
+        choices=['fx', 'layerwise', 'fused_no_fx'],
         help='Apply graph rotation equalization')
+    parser.add_argument(
+        "--optimize-rotations",
+        action="store_true",
+        default=False,
+        help="Whether to optimize the rotations (default: %(default)s).",
+    )
     parser.add_argument(
         '--rotation-mode',
         default='had',

@@ -1531,7 +1531,7 @@ class GraphRotationEqualization(RotationEqualization):
             orphan_sink: bool = False,
             sdpa_regions: bool = False,
             rotate_matmul: bool = False,
-            fuse_rotations: bool = True,
+            use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__()
@@ -1549,8 +1549,8 @@ class GraphRotationEqualization(RotationEqualization):
         self.full_rotation_method = full_rotation_method
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
-        if not fuse_rotations:
-            # NOTE: When fuse_rotations=False, parametrized rotations are applied. This changes the attribute __class__
+        if use_parametrized_rotations:
+            # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
             # Therefore, algorithms that do type checking might need to use type_before_parametrizations(module),
             # instead of only type(module) (see layerwise_layer_handler). Algorithms that rely on in-place modifications
@@ -1559,7 +1559,7 @@ class GraphRotationEqualization(RotationEqualization):
             warnings.warn(
                 "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
             )
-        self.fuse_rotations = fuse_rotations
+        self.use_parametrized_rotations = use_parametrized_rotations
 
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
@@ -1650,7 +1650,10 @@ class GraphRotationEqualization(RotationEqualization):
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
             rewriters = _apply_rotate(
-                graph_model, regions, self.full_rotation_method, fuse_rotations=self.fuse_rotations)
+                graph_model,
+                regions,
+                self.full_rotation_method,
+                fuse_rotations=not self.use_parametrized_rotations)
         if self.return_rewriters:
             return graph_model, rewriters
         else:
