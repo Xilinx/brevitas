@@ -49,6 +49,7 @@ model: facebook/opt-125m
 no_float16: false
 no_quantize: false
 nsamples: 128
+optimize_rotations: false
 quant_sdpa: false
 quantize_input_zero_point: false
 quantize_last_layer: false

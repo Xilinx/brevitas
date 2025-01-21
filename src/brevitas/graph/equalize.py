@@ -17,7 +17,6 @@ from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas import config
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
