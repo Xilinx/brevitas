@@ -44,6 +44,7 @@ from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
+from brevitas.utils.rotation_utils import ScaleWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
 
 # External optional dependency
@@ -266,24 +267,30 @@ def _select_scale_computation_fn(
 class activation_equalization_mode:
 
     def __init__(
-            self,
-            model,
-            alpha,
-            add_mul_node=True,
-            layerwise=True,
-            enabled=True,
-            blacklist_layers=None,
-            co_optimize_act_weights=False) -> None:
+        self,
+        model,
+        alpha,
+        add_mul_node=True,
+        layerwise=True,
+        enabled=True,
+        blacklist_layers=None,
+        co_optimize_act_weights=False,
+        use_parametrized_scaling=False,
+    ) -> None:
         self.model = model
         self.alpha = alpha
         self.enabled = enabled
         self.add_mul_node = add_mul_node
         self.co_optimize_act_weights = co_optimize_act_weights
+        self.use_parametrized_scaling = True
+        self.rewriters = None
         if layerwise:
             if not self.add_mul_node:
                 raise ValueError("Layerwise activation equalization requires add_mul_node")
             self.graph_act_eq = LayerwiseActivationEqualization(
-                self.model, blacklist_layers=blacklist_layers)
+                self.model,
+                blacklist_layers=blacklist_layers,
+                use_parametrized_scaling=self.use_parametrized_scaling)
         else:
             if not isinstance(self.model, (TorchGraphModule, GraphModule)):
                 raise TypeError(
@@ -300,7 +307,18 @@ class activation_equalization_mode:
 
     def __exit__(self, type, value, traceback):
         if self.enabled:
-            self.scale_factors = self.graph_act_eq.apply(self.alpha)
+            self.scale_factors, self.rewriters = self.graph_act_eq.apply(self.alpha)
+            if len(self.rewriters) > 0:
+                for r in self.rewriters:
+                    self.model = r.apply(self.model)
+                for module in self.model.modules():
+                    import torch.nn.utils.parametrize as parametrize
+                    tensor_names = ["weight", "bias"]
+                    for tensor_name in tensor_names:
+                        if parametrize.is_parametrized(
+                                module) and tensor_name in module.parametrizations:
+                            parametrize.remove_parametrizations(
+                                module, tensor_name, leave_parametrized=True)
         return True  # To propagate exceptions
 
 
@@ -463,12 +481,15 @@ def _cross_layer_equalization(
         list_of_act_val: Optional[torch.Tensor] = None,
         list_of_insert_mul_node_fn: Optional[List[Callable]] = None,
         alpha: float = 0.5,
-        co_optimize_act_weights: bool = False) -> torch.Tensor:
+        co_optimize_act_weights: bool = False,
+        fuse_scaling: bool = True) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
     ranges of the second tensors' input channel
     """
+    # Rewriters to be used when scaling is not fused
+    rewriters = []
 
     # If equalization criteria are not met, we return a scalar one to indicate that no equalization
     # has been performed
@@ -628,15 +649,33 @@ def _cross_layer_equalization(
             partial_inverse_scale = inverse_scaling_factors[channel_start:channel_end].to(
                 device=module_device, dtype=dtype)
             if hasattr(module, 'bias') and module.bias is not None:
-                _update_weights(
-                    module, module.bias * partial_inverse_scale.view_as(module.bias), attr='bias')
+                if fuse_scaling:
+                    _update_weights(
+                        module,
+                        module.bias * partial_inverse_scale.view_as(module.bias),
+                        attr='bias')
+                else:
+                    rewriters.append(
+                        ModuleInstanceRegisterParametrization(
+                            module=module,
+                            tensor_name="bias",
+                            transform_module=ScaleWeightParametrization(
+                                scaling_factor=partial_inverse_scale.view_as(module.bias),)))
             src_broadcast_size = [1] * module.weight.ndim
             src_broadcast_size[axis] = module.weight.size(axis)
-
-            _update_weights(
-                module,
-                module.weight * torch.reshape(partial_inverse_scale, src_broadcast_size),
-                attr='weight')
+            if fuse_scaling:
+                _update_weights(
+                    module,
+                    module.weight * torch.reshape(partial_inverse_scale, src_broadcast_size),
+                    attr='weight')
+            else:
+                rewriters.append(
+                    ModuleInstanceRegisterParametrization(
+                        module=module,
+                        tensor_name="weight",
+                        transform_module=ScaleWeightParametrization(
+                            scaling_factor=torch.reshape(partial_inverse_scale,
+                                                         src_broadcast_size),)))
     for name, (module, axis) in sink_axes.items():
         module_device = module.weight.device
         sink_broadcast_size = [1] * module.weight.ndim
@@ -649,10 +688,18 @@ def _cross_layer_equalization(
         partial_scaling[indexes.start:indexes.end] = scaling_factors[indexes.offset:indexes.offset +
                                                                      channel_range]
         partial_scaling = partial_scaling.to(device=module_device, dtype=dtype)
-        _update_weights(
-            module,
-            module.weight * torch.reshape(partial_scaling, sink_broadcast_size),
-            attr='weight')
+        if fuse_scaling:
+            _update_weights(
+                module,
+                module.weight * torch.reshape(partial_scaling, sink_broadcast_size),
+                attr='weight')
+        else:
+            rewriters.append(
+                ModuleInstanceRegisterParametrization(
+                    module=module,
+                    tensor_name="weight",
+                    transform_module=ScaleWeightParametrization(
+                        scaling_factor=torch.reshape(partial_scaling, sink_broadcast_size),)))
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
@@ -660,7 +707,10 @@ def _cross_layer_equalization(
         if hasattr(module, 'offload_params'):
             module.offload_params(module)
 
-    return scaling_factors
+    if fuse_scaling:
+        return scaling_factors
+    else:
+        return scaling_factors, rewriters
 
 
 def _update_weights(original_module, new_value, attr='weight'):
@@ -1087,13 +1137,15 @@ class LayerwiseActivationEqualization(ActivationEqualization):
             self,
             model,
             scale_computation_type: str = 'maxabs',
-            blacklist_layers: Optional[List[str]] = None):
+            blacklist_layers: Optional[List[str]] = None,
+            use_parametrized_scaling: bool = False):
         super(LayerwiseActivationEqualization, self).__init__(model, scale_computation_type)
         self.float_act_map = {}
         self.batch_dim_act_map = {}
         self.hooks = []
         self.add_mul_node = True
         self.blacklist_layers = blacklist_layers
+        self.use_parametrized_scaling = use_parametrized_scaling
 
         regions: List[Region] = []
         self.find_module(model, regions)
@@ -1137,6 +1189,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
 
     def apply(self, alpha):
         scale_factors = []
+        rewriters = []
         self.remove_hooks()
         for region in self.regions:
             module = region.get_module_from_name('sinks0')
@@ -1144,15 +1197,21 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 continue
             insert_mul_fn = partial(
                 self.insert_mul_node, region=module, batch_dim=self.batch_dim_act_map[module])
-            scale_factors.append(
-                _cross_layer_equalization(
-                    region,
-                    False,
-                    scale_computation_type=self.scale_computation_type,
-                    list_of_act_val=[self.float_act_map[module]],
-                    list_of_insert_mul_node_fn=[insert_mul_fn],
-                    alpha=alpha))
-        return scale_factors
+            output = _cross_layer_equalization(
+                region,
+                False,
+                scale_computation_type=self.scale_computation_type,
+                list_of_act_val=[self.float_act_map[module]],
+                list_of_insert_mul_node_fn=[insert_mul_fn],
+                alpha=alpha,
+                fuse_scaling=not self.use_parametrized_scaling)
+            if self.use_parametrized_scaling:
+                scale_factor, layer_rewriters = output
+            else:
+                scale_factor, layer_rewriters = output, []
+            scale_factors.append(scale_factor)
+            rewriters.extend(layer_rewriters)
+        return scale_factors, rewriters
 
     def insert_mul_node(self, scale, shape, axis, region, batch_dim=0):
         mul_factor = self.create_mul_node(scale, shape, axis, batch_dim)

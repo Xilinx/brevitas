@@ -61,3 +61,22 @@ def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
                 ids_rot.add(id(module.rot_mat))
                 trainable_rotations.append(module.rot_mat)
     return trainable_rotations
+
+
+class ScaleWeightParametrization(torch.nn.Module):
+    r"""Scales a tensor by a specified scaling factor
+
+    Args:
+        scaling_factor (Tensor): scaling factor by which to multiply
+            the tensor
+    """
+
+    def __init__(
+        self,
+        scaling_factor: Tensor,
+    ) -> None:
+        super().__init__()
+        self.scaling_factor = scaling_factor
+
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        return tensor * self.scaling_factor
