@@ -34,6 +34,7 @@ from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
+from brevitas.nn import ScaledDotProductAttention
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
@@ -1584,6 +1585,10 @@ class GraphRotationEqualization(RotationEqualization):
                 name_to_module={
                     'src0': src_module, 'sink0': sink_module})
             regions.append(region)
+            for m in graph_module.modules():
+                if isinstance(m, ScaledDotProductAttention):
+                    m.pre_process_q = functional_rotate_input
+                    m.pre_process_k = functional_rotate_input
         return regions
 
     def apply(self,

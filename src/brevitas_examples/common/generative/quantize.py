@@ -4,6 +4,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 import re
 
+from dependencies import this
 import torch
 from torch import nn
 
@@ -11,9 +12,11 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
+from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
-from brevitas.quant.experimental.float import Fp8e4m3Act
+from brevitas.quant.base import ParameterFromRuntimeZeroPoint
+from brevitas.quant.experimental.float i
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
@@ -68,6 +71,7 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowF
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
@@ -505,7 +509,7 @@ def quantize_model(
         input_quant_format='',
         input_scale_precision=None,
         input_scale_type=None,
-        input_param_method=None,
+        input_param_method=N
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
