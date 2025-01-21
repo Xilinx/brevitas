@@ -30,7 +30,7 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
 
     def apply_input_view(self, x):
         x = super().apply_input_view(x)
-        start_dim = self.group_dim if self.group_dim != -1 else -2
+        start_dim = self.group_dim if self.group_dim >= 0 else self.group_dim - 1
         return x.flatten(start_dim, start_dim + 1)
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> GroupwiseIntQuantTensor:

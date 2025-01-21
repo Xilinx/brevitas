@@ -83,7 +83,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):
-        group_dim = group_dim if group_dim != -1 else -2
+        group_dim = group_dim if group_dim >= 0 else group_dim - 1
         size = list(value.shape)
         assert size[group_dim] % group_size == 0, 'Input channel is not divisible by group size'
         if compress:

@@ -181,7 +181,7 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
         elif scaling_per_output == ScalingPerOutputType.TENSOR:
             return None
         elif scaling_per_output == ScalingPerOutputType.GROUP:
-            reduce_dim = group_dim + 1 if group_dim != -1 else -1
+            reduce_dim = group_dim + 1 if group_dim >= 0 else group_dim
             return reduce_dim
 
     @value
