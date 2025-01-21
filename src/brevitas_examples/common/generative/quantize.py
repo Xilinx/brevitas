@@ -396,7 +396,7 @@ def generate_quantizers(
                 k_transposed_quant = sym_input_quant.let(
                     **{
                         'group_dim': -2, 'group_size': input_group_size})
-            v_quant = q_scaled_quant
+            v_quant = k_transposed_quant
             attn_output_weights_quant = q_scaled_quant
         else:
             q_scaled_quant = v_quant = k_transposed_quant = attn_output_weights_quant = sym_input_quant
