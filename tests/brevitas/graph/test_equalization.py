@@ -192,7 +192,18 @@ def test_act_equalization_models(toy_model, layerwise, request):
 
     model.eval()
     expected_out = model(inp)
+    model_copy = copy.deepcopy(model)
     model = symbolic_trace(model)
+    model_copy = symbolic_trace(model_copy)
+    with torch.no_grad():
+        with activation_equalization_mode(model_copy,
+                                          0.5,
+                                          True,
+                                          layerwise=layerwise,
+                                          use_parametrized_scaling=True) as aem:
+            regions = aem.graph_act_eq.regions
+            model_copy(inp)
+    rewriters = aem.rewriters
     with torch.no_grad():
         with activation_equalization_mode(model, 0.5, True, layerwise=layerwise) as aem:
             regions = aem.graph_act_eq.regions
