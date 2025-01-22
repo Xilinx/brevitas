@@ -208,10 +208,10 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            narrow_range: bool,
-            signed: bool,
             float_to_int_impl: Module,
             bit_width_impl: Module,
+            narrow_range: bool = False,
+            signed: bool = True,
             tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = 0):
         super(TruncIntQuant, self).__init__()
