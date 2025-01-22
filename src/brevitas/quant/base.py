@@ -485,6 +485,7 @@ class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
     (2) a more relaxed l1-norm bound that is derived in the referenced paper
     """
     per_channel_pre_norm = AccumulatorAwareZeroCenterPerChannelPreNorm
+    pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
 
     @value
     def pre_zero_point_impl():
