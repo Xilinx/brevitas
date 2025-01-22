@@ -373,6 +373,7 @@ class AccumulatorAwareZeroCenterPerChannelPreNorm(AccumulatorAwarePerChannelPreN
     pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_shape = (this << 1).scaling_shape
+    restrict_pre_scaling_impl = (this << 1).restrict_pre_scaling_impl
 
 
 class SolvePostScaleGranularity(ExtendedInjector):
@@ -485,7 +486,6 @@ class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
     (2) a more relaxed l1-norm bound that is derived in the referenced paper
     """
     per_channel_pre_norm = AccumulatorAwareZeroCenterPerChannelPreNorm
-    pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
 
     @value
     def pre_zero_point_impl():
