@@ -802,9 +802,9 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
             signed=signed, narrow=False, bit_width=output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
-        x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))
+        x = self.dequantize_fn(x, flat_pre_scale, zp, self.quant_axis(scale))
         # After dequantization, cast both output and scale to the correct dtype
         if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, scale_dtype)
-            scale = self.cast_fn(scale, scale_dtype)
-        return x, scale, zero_point, output_bit_width
+            flat_pre_scale = self.cast_fn(flat_pre_scale, scale_dtype)
+        return x, flat_pre_scale, zero_point, output_bit_width

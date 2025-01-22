@@ -64,7 +64,8 @@ def test_torch_qcdq_avgpool_export(input_signed, output_bit_width):
     inp = torch.randn(in_size)
     quant_module = nn.Sequential(
         QuantIdentity(signed=input_signed, return_quant_tensor=True),
-        TruncAvgPool2d(kernel_size=3, stride=2, float_to_int_impl_type='round'))
+        TruncAvgPool2d(
+            kernel_size=3, stride=2, signed=input_signed, float_to_int_impl_type='round'))
     quant_module(inp)  # Collect scale factors
     quant_module.eval()
     inp = torch.randn(in_size) * IN_SCALE + IN_MEAN  # redefine inp for testing
