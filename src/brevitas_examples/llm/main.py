@@ -410,6 +410,7 @@ def quantize_llm(args, extra_args=None):
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
+            quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
             device=device,
             scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(

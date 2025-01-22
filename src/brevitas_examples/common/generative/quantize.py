@@ -251,6 +251,7 @@ def generate_quantizers(
         device=None,
         weight_kwargs=None,
         input_kwargs=None,
+        quant_attn_mode=None,
         scaling_min_val=1e-4):
     """
     Replace float layers with quant layers in the target model
@@ -361,6 +362,13 @@ def generate_quantizers(
     if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
+    if quant_attn_mode == 'sdpa':
+        k_permute_dims = (0, 1, 3, 2)
+        k_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-2], shape[-1])
+    elif quant_attn_mode == 'mha':
+        k_permute_dims = (0, 2, 1)
+        k_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-1])
+
     # Modify the input quantizers based on the arguments passed in
     if input_quant is not None:
         if input_scale_type == 'dynamic':
@@ -369,6 +377,7 @@ def generate_quantizers(
                     **{
                         'dynamic_scaling_broadcastable_fn': lambda x,
                                                             shape: x.view(*shape[:-1], 1),
+                        'permute_dims': None,
                         'stats_reduce_dim': 1})
             elif input_quant_granularity == 'per_group':
                 input_quant = input_quant.let(**{'group_dim': 2, 'group_size': input_group_size})
@@ -389,12 +398,9 @@ def generate_quantizers(
                         'stats_reduce_dim': 1})
                 k_transposed_quant = k_transposed_quant.let(
                     **{
-                        'dynamic_scaling_broadcastable_fn':
-                            lambda x,
-                            shape: x.view(shape[0], 1, shape[-1]),
-                        'permute_dims': (0, 2, 1),
-                        'stats_reduce_dim':
-                            1})
+                        'dynamic_scaling_broadcastable_fn': k_broadcastable_shape_lambda,
+                        'permute_dims': k_permute_dims,
+                        'stats_reduce_dim': 1})
             elif input_quant_granularity == 'per_group':
                 q_scaled_quant = q_scaled_quant.let(
                     **{
