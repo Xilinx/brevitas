@@ -72,6 +72,7 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowF
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
@@ -181,7 +182,8 @@ INPUT_QUANT_MAP = {
                         'sym': Int8DynamicActPerRowFloat,
                         'asym': ShiftedUint8DynamicActPerRowFloat},
                     'per_group': {
-                        'sym': Int8DynamicActPerGroupFloat}}},
+                        'sym': Int8DynamicActPerGroupFloat,
+                        'asym': ShiftedUint8DynamicActPerGroupFloat}}},
             'po2_scale': {
                 'stats': {
                     'per_row': {
@@ -300,17 +302,18 @@ def generate_quantizers(
         linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
-        kv_quant_type = kv_quant_type if kv_quant_type is not None else input_quant_type
-        kv_quant_granularity = kv_quant_granularity if kv_quant_granularity is not None else input_quant_granularity
-
-        v_quant = k_transposed_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][kv_quant_granularity][kv_quant_type]
-
         if kv_quant_type is not None:
             q_scaled_quant = attn_output_weights_quant = None
 
         else:
             q_scaled_quant = attn_output_weights_quant = sym_input_quant
+
+        kv_quant_type = kv_quant_type if kv_quant_type is not None else input_quant_type
+        kv_quant_granularity = kv_quant_granularity if kv_quant_granularity is not None else input_quant_granularity
+        print(kv_quant_granularity)
+
+        v_quant = k_transposed_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+            input_scale_precision][input_param_method][kv_quant_granularity][kv_quant_type]
 
         extra_kwargs = {
             'bit_width': input_bit_width,
@@ -375,60 +378,60 @@ def generate_quantizers(
         kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-1])
 
     # Modify the input quantizers based on the arguments passed in
-    if input_quant is not None:
-        if input_scale_type == 'dynamic':
-            if input_quant_granularity == 'per_row':
-                input_quant = input_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_fn': lambda x,
-                                                            shape: x.view(*shape[:-1], 1),
-                        'permute_dims': None,
-                        'stats_reduce_dim': 1})
-            elif input_quant_granularity == 'per_group':
-                input_quant = input_quant.let(**{'group_dim': 2, 'group_size': input_group_size})
-    if sym_input_quant is not None:
-        if input_scale_type == 'dynamic':
-            if input_quant_granularity == 'per_row':
-                q_scaled_quant = q_scaled_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_fn': lambda x,
-                                                            shape: x.view(*shape[:-1], 1),
-                        'permute_dims': None,
-                        'stats_reduce_dim': 1})
-                v_quant = v_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
-                        'permute_dims': kv_permute_dims,
-                        'stats_reduce_dim': 1})
-                k_transposed_quant = k_transposed_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
-                        'permute_dims': kv_permute_dims,
-                        'stats_reduce_dim': 1})
-            elif input_quant_granularity == 'per_group':
-                q_scaled_quant = q_scaled_quant.let(
-                    **{
-                        'group_dim': -1, 'group_size': input_group_size})
-                v_quant = v_quant.let(**{'group_dim': -1, 'group_size': input_group_size})
-                k_transposed_quant = k_transposed_quant.let(
-                    **{
-                        'group_dim': -2, 'group_size': input_group_size})
-            v_quant = k_transposed_quant
-            attn_output_weights_quant = q_scaled_quant
+    if input_bit_width is not None:
+        # Input Quant
+        if input_quant_granularity == 'per_row':
+            input_quant = input_quant.let(
+                **{
+                    'dynamic_scaling_broadcastable_fn': lambda x,
+                                                        shape: x.view(*shape[:-1], 1),
+                    'permute_dims': None,
+                    'stats_reduce_dim': 1})
+        elif input_quant_granularity == 'per_group':
+            input_quant = input_quant.let(**{'group_dim': 2, 'group_size': input_group_size})
 
-    if linear_input_quant is not None:
-        if input_scale_type == 'dynamic':
-            if input_quant_granularity == 'per_row':
-                linear_input_quant = linear_input_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_fn': lambda x,
-                                                            shape: x.view(*shape[:-1], 1),
-                        'permute_dims': None,
-                        'stats_reduce_dim': 1})
-            elif input_quant_granularity == 'per_group':
-                linear_input_quant = linear_input_quant.let(
-                    **{
-                        'group_dim': -1, 'group_size': input_group_size})
+        # QKV/Softmax Quant
+        if kv_quant_granularity == 'per_row':
+            q_scaled_quant = q_scaled_quant.let(
+                **{
+                    'dynamic_scaling_broadcastable_fn': lambda x,
+                                                        shape: x.view(*shape[:-1], 1),
+                    'permute_dims': None,
+                    'stats_reduce_dim': 1}) if q_scaled_quant is not None else None
+            v_quant = v_quant.let(
+                **{
+                    'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
+                    'permute_dims': kv_permute_dims,
+                    'stats_reduce_dim': 1})
+            k_transposed_quant = k_transposed_quant.let(
+                **{
+                    'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
+                    'permute_dims': kv_permute_dims,
+                    'stats_reduce_dim': 1})
+        elif kv_quant_granularity == 'per_group':
+            q_scaled_quant = q_scaled_quant.let(
+                **{
+                    'group_dim': -1, 'group_size': input_group_size
+                }) if q_scaled_quant is not None else None
+            v_quant = v_quant.let(**{'group_dim': -1, 'group_size': input_group_size})
+            k_transposed_quant = k_transposed_quant.let(
+                **{
+                    'group_dim': -2, 'group_size': input_group_size})
+        v_quant = k_transposed_quant
+        attn_output_weights_quant = q_scaled_quant
+
+        # Input to Linear Layer Quant
+        if input_quant_granularity == 'per_row':
+            linear_input_quant = linear_input_quant.let(
+                **{
+                    'dynamic_scaling_broadcastable_fn': lambda x,
+                                                        shape: x.view(*shape[:-1], 1),
+                    'permute_dims': None,
+                    'stats_reduce_dim': 1})
+        elif input_quant_granularity == 'per_group':
+            linear_input_quant = linear_input_quant.let(
+                **{
+                    'group_dim': -1, 'group_size': input_group_size})
     return linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant
 
 
