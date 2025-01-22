@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
 import functools
+import pprint
 import sys
 
 import numpy as np
@@ -62,14 +63,10 @@ from brevitas_examples.llm.llm_quant.run_utils import get_fx
 
 
 def filter_results(results, tasks):
-    # filter out what we actually want to track in azureml
+    # filter out what we actually want to track
     eval_results = dict()
     for task_name in tasks:
-        # first, log n_shots for each task
-        # for subtask, n_shots in results["n-shot"].items():
-        #     name = f"{subtask}_n_shot"
-        #     eval_results[name] = float(n_shots)
-        # then log all result metrics we have for this task
+        # log all result metrics we have for this task
         for key, val in results["results"][task_name].items():
             if not isinstance(val, str):
                 # for mmlu, we don't log results per subtask, but simply overall results
@@ -563,7 +560,7 @@ def quantize_llm(args, extra_args=None):
             )
             model_config = TransformersModelConfig(
                 pretrained=args.model,
-                dtype=args.dtype,
+                dtype=dtype,
                 use_chat_template=True,
                 model_parallel=True,
                 accelerator=accelerator,
@@ -583,7 +580,9 @@ def quantize_llm(args, extra_args=None):
                     config=model_config)
 
             pipeline.evaluate()
-            pipeline.show_results()
+            results = pipeline.get_results()
+            results = filter_results(results, list(results["results"].keys()))
+            pprint.pprint(results)
         remove_hooks(model)
 
         if args.checkpoint_name is not None and not args.load_checkpoint:
