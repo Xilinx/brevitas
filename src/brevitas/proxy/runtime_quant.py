@@ -288,7 +288,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
                 out_tuple = self.export_handler(
                     x.value, x.scale, x.zero_point, x.bit_width, x.signed)
             else:
-                out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
+                out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
             if self.skip_create_quant_tensor:
                 return out_value

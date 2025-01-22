@@ -19,4 +19,3 @@ class TestTruncIntQuantUnit:
             bit_width_impl=bit_width_const, float_to_int_impl=RoundSte())
         assert isinstance(trunc_int_quant.tensor_clamp_impl, TensorClamp)
         assert trunc_int_quant.narrow_range == False
-        assert trunc_int_quant.signed == True

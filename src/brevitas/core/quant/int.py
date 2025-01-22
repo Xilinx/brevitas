@@ -204,18 +204,16 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
     """
     """
 
-    __constants__ = ['signed', 'narrow_range']
+    __constants__ = ['narrow_range']
 
     def __init__(
             self,
             float_to_int_impl: Module,
             bit_width_impl: Module,
             narrow_range: bool = False,
-            signed: bool = True,
             tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = 0):
         super(TruncIntQuant, self).__init__()
-        self.signed = signed
         self.narrow_range = narrow_range
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
@@ -223,16 +221,17 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
-    def min_int(self, bit_width):
-        return min_int(self.signed, self.narrow_range, bit_width)
+    def min_int(self, bit_width, signed):
+        return min_int(signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
-    def max_int(self, bit_width):
-        return max_int(self.signed, self.narrow_range, bit_width)
+    def max_int(self, bit_width, signed):
+        return max_int(signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor, scale: Tensor, zero_point: Tensor,
-                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def forward(
+            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
+            signed: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         y = x / scale
         y = y + zero_point
         y = round_ste(y)  # clean up floating point error
@@ -241,8 +240,8 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         trunc_scale = 2.0 ** trunc_bit_width
         output_scale = scale * trunc_scale
         y = y / trunc_scale
-        min_int_val = self.min_int(output_bit_width)
-        max_int_val = self.max_int(output_bit_width)
+        min_int_val = self.min_int(output_bit_width, signed)
+        max_int_val = self.max_int(output_bit_width, signed)
         y = self.float_to_int_impl(y)
         y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         y = y - zero_point
