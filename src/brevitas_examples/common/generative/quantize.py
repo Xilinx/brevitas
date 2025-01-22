@@ -246,6 +246,7 @@ def generate_quantizers(
         input_quant_granularity=None,
         input_group_size=None,
         kv_quant_type=None,
+        kv_quant_granularity=None,
         quantize_input_zero_point=False,
         scale_rounding_func_type=None,
         device=None,
@@ -299,13 +300,17 @@ def generate_quantizers(
         linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
+        kv_quant_type = kv_quant_type if kv_quant_type is not None else input_quant_type
+        kv_quant_granularity = kv_quant_granularity if kv_quant_granularity is not None else input_quant_granularity
+
+        v_quant = k_transposed_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+            input_scale_precision][input_param_method][kv_quant_granularity][kv_quant_type]
+
         if kv_quant_type is not None:
-            v_quant = k_transposed_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                input_scale_precision][input_param_method][input_quant_granularity][kv_quant_type]
             q_scaled_quant = attn_output_weights_quant = None
 
         else:
-            v_quant = k_transposed_quant = q_scaled_quant = attn_output_weights_quant = sym_input_quant
+            q_scaled_quant = attn_output_weights_quant = sym_input_quant
 
         extra_kwargs = {
             'bit_width': input_bit_width,
@@ -363,11 +368,11 @@ def generate_quantizers(
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
     if quant_attn_mode == 'sdpa':
-        k_permute_dims = (0, 1, 3, 2)
-        k_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-2], shape[-1])
+        kv_permute_dims = (0, 1, 3, 2)
+        kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-2], shape[-1])
     elif quant_attn_mode == 'mha':
-        k_permute_dims = (0, 2, 1)
-        k_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-1])
+        kv_permute_dims = (0, 2, 1)
+        kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-1])
 
     # Modify the input quantizers based on the arguments passed in
     if input_quant is not None:
@@ -392,14 +397,13 @@ def generate_quantizers(
                         'stats_reduce_dim': 1})
                 v_quant = v_quant.let(
                     **{
-                        'dynamic_scaling_broadcastable_fn': lambda x,
-                                                            shape: x.view(*shape[:-1], 1),
-                        'permute_dims': None,
+                        'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
+                        'permute_dims': kv_permute_dims,
                         'stats_reduce_dim': 1})
                 k_transposed_quant = k_transposed_quant.let(
                     **{
-                        'dynamic_scaling_broadcastable_fn': k_broadcastable_shape_lambda,
-                        'permute_dims': k_permute_dims,
+                        'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
+                        'permute_dims': kv_permute_dims,
                         'stats_reduce_dim': 1})
             elif input_quant_granularity == 'per_group':
                 q_scaled_quant = q_scaled_quant.let(

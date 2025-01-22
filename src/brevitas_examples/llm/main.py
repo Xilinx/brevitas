@@ -406,6 +406,7 @@ def quantize_llm(args, extra_args=None):
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
             kv_quant_type=args.kv_quant_type,
+            kv_quant_granularity=args.kv_quant_granularity,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
@@ -775,6 +776,12 @@ def parse_args(args, override_defaults={}):
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
+        choices=['per_tensor', 'per_row', 'per_group'],
+        help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
+    parser.add_argument(
+        '--kv-quant-granularity',
+        type=str,
+        default=None,
         choices=['per_tensor', 'per_row', 'per_group'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
     parser.add_argument(
