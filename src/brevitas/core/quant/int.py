@@ -11,6 +11,9 @@ import brevitas
 from brevitas.core.quant.delay import DelayWrapper
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops_ste import round_ste
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
 
 
 class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
@@ -201,12 +204,31 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
     """
     """
 
+    __constants__ = ['signed', 'narrow_range']
+
     def __init__(
-            self, float_to_int_impl: Module, bit_width_impl: Module, quant_delay_steps: int = 0):
+            self,
+            narrow_range: bool,
+            signed: bool,
+            float_to_int_impl: Module,
+            bit_width_impl: Module,
+            tensor_clamp_impl: Module = TensorClamp(),
+            quant_delay_steps: int = 0):
         super(TruncIntQuant, self).__init__()
+        self.signed = signed
+        self.narrow_range = narrow_range
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
+        self.tensor_clamp_impl = tensor_clamp_impl
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
+
+    @brevitas.jit.script_method
+    def min_int(self, bit_width):
+        return min_int(self.signed, self.narrow_range, bit_width)
+
+    @brevitas.jit.script_method
+    def max_int(self, bit_width):
+        return max_int(self.signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, zero_point: Tensor,
@@ -219,7 +241,10 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         trunc_scale = 2.0 ** trunc_bit_width
         output_scale = scale * trunc_scale
         y = y / trunc_scale
+        min_int_val = self.min_int(output_bit_width)
+        max_int_val = self.max_int(output_bit_width)
         y = self.float_to_int_impl(y)
+        y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         y = y - zero_point
         y = y * output_scale
         y = self.delay_wrapper(x, y)
