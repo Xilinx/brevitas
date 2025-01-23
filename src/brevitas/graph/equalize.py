@@ -649,7 +649,7 @@ def _cross_layer_equalization(
                         module=module,
                         tensor_name="bias",
                         transform_module=ScaleWeightParametrization(
-                            scaling_factor=partial_scale.view_as(module.bias),)))
+                            scaling_factor=partial_scale.view_as(module.bias),is_sink=False)))
             src_broadcast_size = [1] * module.weight.ndim
             src_broadcast_size[axis] = module.weight.size(axis)
             if fuse_scaling:
