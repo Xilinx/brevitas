@@ -1302,6 +1302,8 @@ class GraphActivationEqualization(ActivationEqualization):
                     co_optimize_act_weights=self.co_optimize_act_weights)
             scale_factors.append(scale_factor_region)
             rewriters.append(rewriters_region)
+            for r in rewriters_region:
+                r.apply(self.model)
         return scale_factors, rewriters_region
 
     def insert_mul_node(self, scale, shape, axis, act_node, batch_dim=0):
