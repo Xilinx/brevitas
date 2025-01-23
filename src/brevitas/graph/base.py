@@ -7,7 +7,6 @@ import inspect
 from inspect import getcallargs
 from typing import Any, Dict, Type
 
-from brevitas.utils.torch_utils import WeightBiasWrapper
 import torch
 from torch.nn import Module
 from torch.overrides import get_testing_overrides
@@ -25,6 +24,8 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+from brevitas.utils.rotation_utils import RotationWeightParametrization
+from brevitas.utils.torch_utils import WeightBiasWrapper
 
 __all__ = [
     'Transform',
