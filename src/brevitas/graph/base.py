@@ -260,10 +260,10 @@ class ModuleInstanceTransformTensor(Transform):
                 tensor = getattr(module, self.tensor_name).data
                 tensor = self.transform_module(tensor)
                 # Modify the weights in-place
-                if isinstance(self.original_module, WeightBiasWrapper):
-                    setattr(getattr(self.original_module, self.tensor_name), 'data', tensor)
+                if isinstance(module, WeightBiasWrapper):
+                    setattr(getattr(module, self.tensor_name), 'data', tensor)
                 else:
-                    setattr(self.original_module, self.tensor_name, torch.nn.Parameter(tensor))
+                    setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
 
                 if hasattr(module, 'offload_params'):
                     module.offload_params(module)

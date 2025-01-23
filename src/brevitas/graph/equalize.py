@@ -687,10 +687,7 @@ def _cross_layer_equalization(
         if hasattr(module, 'offload_params'):
             module.offload_params(module)
 
-    if fuse_scaling:
-        return inverse_scaling_factors
-    else:
-        return inverse_scaling_factors, rewriters
+    return inverse_scaling_factors, rewriters
 
 
 def _update_weights(original_module, new_value, attr='weight'):
