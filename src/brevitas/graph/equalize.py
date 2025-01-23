@@ -300,17 +300,17 @@ class activation_equalization_mode:
     def __exit__(self, type, value, traceback):
         if self.enabled:
             self.scale_factors, self.rewriters = self.graph_act_eq.apply(self.alpha)
-            if len(self.rewriters) > 0:
-                for r in self.rewriters:
-                    self.model = r.apply(self.model)
-                for module in self.model.modules():
-                    import torch.nn.utils.parametrize as parametrize
-                    tensor_names = ["weight", "bias"]
-                    for tensor_name in tensor_names:
-                        if parametrize.is_parametrized(
-                                module) and tensor_name in module.parametrizations:
-                            parametrize.remove_parametrizations(
-                                module, tensor_name, leave_parametrized=True)
+            # if len(self.rewriters) > 0:
+            #     for r in self.rewriters:
+            #         self.model = r.apply(self.model)
+            for module in self.model.modules():
+                import torch.nn.utils.parametrize as parametrize
+                tensor_names = ["weight", "bias"]
+                for tensor_name in tensor_names:
+                    if parametrize.is_parametrized(
+                            module) and tensor_name in module.parametrizations:
+                        parametrize.remove_parametrizations(
+                            module, tensor_name, leave_parametrized=True)
         return True  # To propagate exceptions
 
 
@@ -1302,7 +1302,7 @@ class GraphActivationEqualization(ActivationEqualization):
             rewriters.append(rewriters_region)
             for r in rewriters_region:
                 r.apply(self.model)
-        return scale_factors, rewriters_region
+        return scale_factors, rewriters
 
     def insert_mul_node(self, scale, shape, axis, act_node, batch_dim=0):
         mul_factor = self.create_mul_node(scale, shape, axis, batch_dim)
