@@ -57,11 +57,7 @@ class ScaleWeightParametrization(torch.nn.Module):
             the tensor
     """
 
-    def __init__(
-        self,
-        scaling_factor: Tensor,
-        is_sink : bool
-    ) -> None:
+    def __init__(self, scaling_factor: Tensor, is_sink: bool) -> None:
         super().__init__()
         self.scaling_factor = scaling_factor
         self.is_sink = is_sink

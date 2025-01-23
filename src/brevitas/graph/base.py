@@ -7,7 +7,6 @@ import inspect
 from inspect import getcallargs
 from typing import Any, Callable, Dict, Optional, Type, Union
 
-from brevitas.utils.torch_utils import WeightBiasWrapper
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -21,6 +20,7 @@ from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
 from brevitas.utils.rotation_utils import RotationWeightParametrization
+from brevitas.utils.torch_utils import WeightBiasWrapper
 
 __all__ = [
     'Transform',

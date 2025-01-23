@@ -17,11 +17,13 @@ class StopFwdException(Exception):
     """Used to throw and catch an exception to stop traversing the graph."""
     pass
 
+
 # Required for being hashable
 @dataclass(eq=True, frozen=True)
 class WeightBiasWrapper:
     weight: torch.Tensor = None
     bias: torch.Tensor = None
+
 
 class TupleSequential(Sequential):
 

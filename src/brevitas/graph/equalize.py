@@ -43,7 +43,8 @@ from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.rotation_utils import ScaleWeightParametrization
-from brevitas.utils.torch_utils import KwargsForwardHook, WeightBiasWrapper
+from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas.utils.torch_utils import WeightBiasWrapper
 
 # External optional dependency
 try:
@@ -647,7 +648,7 @@ def _cross_layer_equalization(
                         module=module,
                         tensor_name="bias",
                         transform_module=ScaleWeightParametrization(
-                            scaling_factor=partial_scale.view_as(module.bias),is_sink=False)))
+                            scaling_factor=partial_scale.view_as(module.bias), is_sink=False)))
             src_broadcast_size = [1] * module.weight.ndim
             src_broadcast_size[axis] = module.weight.size(axis)
             if fuse_scaling:
@@ -656,8 +657,8 @@ def _cross_layer_equalization(
                         module=module,
                         tensor_name="weight",
                         transform_module=ScaleWeightParametrization(
-                            scaling_factor=torch.reshape(partial_scale,
-                                                         src_broadcast_size),is_sink=False)))
+                            scaling_factor=torch.reshape(partial_scale, src_broadcast_size),
+                            is_sink=False)))
     for name, (module, axis) in sink_axes.items():
         module_device = module.weight.device
         sink_broadcast_size = [1] * module.weight.ndim
@@ -677,7 +678,8 @@ def _cross_layer_equalization(
                 module=module,
                 tensor_name="weight",
                 transform_module=ScaleWeightParametrization(
-                    scaling_factor=torch.reshape(partial_scaling, sink_broadcast_size), is_sink=True)))
+                    scaling_factor=torch.reshape(partial_scaling, sink_broadcast_size),
+                    is_sink=True)))
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
@@ -722,7 +724,7 @@ def _equalize(
                 scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
             else:
                 scale_factor_max = scale_factor_region_max
-            
+
             for r in rewriters:
                 r.apply(model)
         if threshold is not None and scale_factor_max < threshold:
