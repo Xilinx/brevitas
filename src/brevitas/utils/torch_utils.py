@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from dataclasses import dataclass
 from functools import wraps
 from typing import List, Optional, Tuple
 
@@ -16,6 +17,11 @@ class StopFwdException(Exception):
     """Used to throw and catch an exception to stop traversing the graph."""
     pass
 
+# Required for being hashable
+@dataclass(eq=True, frozen=True)
+class WeightBiasWrapper:
+    weight: torch.Tensor = None
+    bias: torch.Tensor = None
 
 class TupleSequential(Sequential):
 
