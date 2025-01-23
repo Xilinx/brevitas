@@ -273,6 +273,11 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         super().__init__(*args, **kwargs)
         self.skip_create_quant_tensor = False
 
+    @property
+    def is_narrow_range(self):
+        narrow_range = super(TruncQuantProxyFromInjector, self).is_narrow_range
+        return narrow_range if narrow_range is not None else False
+
     def bit_width(self):
         if not self.is_quant_enabled:
             return None

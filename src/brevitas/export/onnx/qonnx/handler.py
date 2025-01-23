@@ -229,13 +229,15 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
         self.symbolic_kwargs = {
-            'output_bit_width': module.bit_width(), 'rounding_mode': module.rounding_mode}
+            'narrow_range': module.is_narrow_range,
+            'output_bit_width': module.bit_width(),
+            'rounding_mode': module.rounding_mode}
 
     def symbolic_execution(
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
             signed: Tensor):
         y = BrevitasTruncFn.apply(
-            x, scale, zero_point, input_bit_width, *self.symbolic_kwargs.values())
+            x, scale, zero_point, input_bit_width, signed, *self.symbolic_kwargs.values())
         return y, scale, zero_point, self.symbolic_kwargs['output_bit_width']
 
 

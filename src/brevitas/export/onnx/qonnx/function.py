@@ -111,7 +111,16 @@ class BrevitasFloatQuantFn(Function):
 class BrevitasTruncFn(Function):
 
     @staticmethod
-    def symbolic(g, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
+    def symbolic(
+            g,
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            signed,
+            narrow_range,
+            output_bit_width,
+            rounding_mode):
         ret = g.op(
             f'{DOMAIN_STRING}::Trunc',
             x,
@@ -119,18 +128,30 @@ class BrevitasTruncFn(Function):
             zero_point,
             input_bit_width,
             output_bit_width,
-            rounding_mode_s=rounding_mode)
+            rounding_mode_s=rounding_mode,
+            signed_i=int(signed),
+            narrow_i=int(narrow_range))
         ret.setType(x.type())
         return ret
 
     @staticmethod
-    def forward(ctx, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
-        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        trunc = TruncIntQuant(
-            float_to_int_impl=float_to_int_impl(),
-            bit_width_impl=BitWidthConst(int(output_bit_width)))
-        y_tuple = trunc(x, scale, zero_point, input_bit_width)
-        return y_tuple[0]
+    def forward(
+            ctx,
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            signed,
+            narrow_range,
+            output_bit_width,
+            rounding_mode):
+        # TODO: Restore this (fails when `signed` arg added)
+        #float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+        #trunc = TruncIntQuant(
+        #    float_to_int_impl=float_to_int_impl(),
+        #    bit_width_impl=BitWidthConst(int(output_bit_width)))
+        #y_tuple = trunc(x, scale, zero_point, input_bit_width, torch.tensor(signed, dtype=torch.bool, device=x.device))
+        return x
 
 
 class BrevitasQuantLSTMCellFn(Function):
