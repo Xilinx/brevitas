@@ -32,7 +32,12 @@ class TestTruncIntQuantUnit:
     @pytest_cases.fixture(
         ids=[
             "defaults_uint_overflow",
-            "defaults_int_overflow",
+            "defaults_int+_overflow",
+            "defaults_int-_overflow",
+            "defaults_uint_underflow",
+            "defaults_int_underflow",
+            "defaults_uint_ulp",
+            "defaults_int_ulp",
         ],
         params=[
             {
@@ -81,6 +86,131 @@ class TestTruncIntQuantUnit:
                 },
                 "result": { # Result needs to match the order of the output tuple
                     "y": torch.tensor([112.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, {
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([-128.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([-128.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([-128.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, {
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([8.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([8.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([0.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, {
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([-8.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([-8.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([0.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, {
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([9.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([9.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([16.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, {
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([-9.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([-9.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([-16.]),
                     "scale": torch.tensor([16.]),
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
