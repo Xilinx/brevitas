@@ -6,6 +6,8 @@ Implementation of various core operations often performed as part of quantizatio
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
 
+from typing import Union
+
 import torch
 from torch import Tensor
 
@@ -128,7 +130,7 @@ def identity(x: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
-def max_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
+def max_int(signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor], bit_width: Tensor) -> Tensor:
     """ Compute the maximum integer representable by a given number of bits.
 
     Args:
@@ -159,7 +161,7 @@ def max_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
-def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
+def min_int(signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor], bit_width: Tensor) -> Tensor:
     """ Compute the minimum integer representable by a given number of bits.
 
     Args:

@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Union
+
 from torch import Tensor
 
 import brevitas
@@ -34,3 +36,13 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor) -> Tensor:
         return max_int(self.signed, False, bit_width) + 1
+
+
+class TruncPowerOfTwoIntScaling(brevitas.jit.ScriptModule):
+
+    def __init__(self):
+        super(TruncPowerOfTwoIntScaling, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, bit_width: Tensor, signed: Union[bool, Tensor]) -> Tensor:
+        return max_int(signed, False, bit_width) + 1

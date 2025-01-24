@@ -8,6 +8,7 @@ import torch
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import TruncIntQuant
+from brevitas.core.scaling import TruncMsbScaling
 from tests.brevitas.core.bit_width_fixture import *  # noqa
 from tests.brevitas.core.int_quant_fixture import *  # noqa
 
@@ -18,4 +19,5 @@ class TestTruncIntQuantUnit:
         trunc_int_quant = TruncIntQuant(
             bit_width_impl=bit_width_const, float_to_int_impl=RoundSte())
         assert isinstance(trunc_int_quant.tensor_clamp_impl, TensorClamp)
+        assert isinstance(trunc_int_quant.trunc_scaling_impl, TruncMsbScaling)
         assert trunc_int_quant.narrow_range == False

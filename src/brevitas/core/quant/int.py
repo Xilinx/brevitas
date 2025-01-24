@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -10,6 +10,7 @@ from torch.nn import Module
 import brevitas
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.delay import DelayWrapper
+from brevitas.core.scaling import TruncMsbScaling
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
@@ -210,40 +211,41 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
             self,
             float_to_int_impl: Module,
             bit_width_impl: Module,
+            trunc_scaling_impl: Module = TruncMsbScaling(),
             narrow_range: bool = False,
             tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = 0):
         super(TruncIntQuant, self).__init__()
         self.narrow_range = narrow_range
         self.msb_clamp_bit_width_impl = bit_width_impl
+        self.trunc_scaling_impl = trunc_scaling_impl
         self.float_to_int_impl = float_to_int_impl
         self.tensor_clamp_impl = tensor_clamp_impl
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
-    def min_int(self, bit_width, signed):
+    def min_int(self, bit_width: Tensor, signed: Union[bool, Tensor]):
         return min_int(signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
-    def max_int(self, bit_width, signed):
+    def max_int(self, bit_width: Tensor, signed: Union[bool, Tensor]):
         return max_int(signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
     def forward(
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
-            signed: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+            signed: Union[bool, Tensor]) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         y = x / scale
         y = y + zero_point
         y = round_ste(y)  # clean up floating point error
         output_bit_width = self.msb_clamp_bit_width_impl()
-        trunc_bit_width = input_bit_width - output_bit_width
-        trunc_scale = 2.0 ** trunc_bit_width
-        output_scale = scale * trunc_scale
+        trunc_scale = self.trunc_scaling_impl(y, input_bit_width, output_bit_width, signed)
         y = y / trunc_scale
         min_int_val = self.min_int(output_bit_width, signed)
         max_int_val = self.max_int(output_bit_width, signed)
         y = self.float_to_int_impl(y)
         y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
+        output_scale = scale * trunc_scale
         y = y - zero_point
         y = y * output_scale
         y = self.delay_wrapper(x, y)
