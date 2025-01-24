@@ -233,7 +233,11 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(
-            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
+            self,
+            x: Tensor,
+            scale: Tensor,
+            zero_point: Tensor,
+            input_bit_width: Tensor,
             signed: Union[bool, Tensor]) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         y = x / scale
         y = y + zero_point

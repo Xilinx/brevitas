@@ -480,8 +480,13 @@ class TruncMsbScaling(brevitas.jit.ScriptModule):
         super(TruncMsbScaling, self).__init__()
 
     @brevitas.jit.script_method
-    def forward(self, scaling_input: Tensor, input_bitwidth: Tensor, output_bitwidth: Tensor, signed: Union[bool, Tensor]) -> Tensor:
-        return 2**(input_bitwidth - output_bitwidth)
+    def forward(
+            self,
+            scaling_input: Tensor,
+            input_bitwidth: Tensor,
+            output_bitwidth: Tensor,
+            signed: Union[bool, Tensor]) -> Tensor:
+        return 2 ** (input_bitwidth - output_bitwidth)
 
 
 class TruncScalingWrapper(brevitas.jit.ScriptModule):
@@ -489,20 +494,25 @@ class TruncScalingWrapper(brevitas.jit.ScriptModule):
     """
 
     def __init__(
-            self,
-            trunc_int_scaling_impl: Module,
-            scaling_impl: Module,
-            tensor_clamp_impl: Module = TensorClamp()) -> None:
+        self,
+        trunc_int_scaling_impl: Module,
+        scaling_impl: Module,
+        tensor_clamp_impl: Module = TensorClamp()) -> None:
         super(TruncScalingWrapper, self).__init__()
         self.trunc_int_scaling_impl = trunc_int_scaling_impl
         self.scaling_impl = scaling_impl
         self.tensor_clamp_impl = tensor_clamp_impl
 
     @brevitas.jit.script_method
-    def forward(self, scaling_input: Tensor, input_bitwidth: Tensor, output_bitwidth: Tensor, signed: Union[bool, Tensor]) -> Tensor:
+    def forward(
+            self,
+            scaling_input: Tensor,
+            input_bitwidth: Tensor,
+            output_bitwidth: Tensor,
+            signed: Union[bool, Tensor]) -> Tensor:
         threshold = self.trunc_int_scaling_impl(output_bit_width, signed)
         scale = self.scaling_impl(scaling_input, threshold)
-        msb_scale = 2**(input_bitwidth - output_bitwidth)
+        msb_scale = 2 ** (input_bitwidth - output_bitwidth)
         unit_scale = torch.ones_like(msb_scale)
         max_scale = torch.where(msb_scale > unit_scale, msb_scale, unit_scale)
         min_scale = torch.where(msb_scale < unit_scale, msb_scale, unit_scale)

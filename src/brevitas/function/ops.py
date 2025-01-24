@@ -130,7 +130,9 @@ def identity(x: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
-def max_int(signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor], bit_width: Tensor) -> Tensor:
+def max_int(
+        signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor],
+        bit_width: Tensor) -> Tensor:
     """ Compute the maximum integer representable by a given number of bits.
 
     Args:
@@ -161,7 +163,9 @@ def max_int(signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor], bit_
 
 
 @brevitas.jit.script
-def min_int(signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor], bit_width: Tensor) -> Tensor:
+def min_int(
+        signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor],
+        bit_width: Tensor) -> Tensor:
     """ Compute the minimum integer representable by a given number of bits.
 
     Args:
