@@ -7,10 +7,16 @@ import pytest_cases
 import torch
 
 from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import TruncIntQuant
 from brevitas.core.scaling import TruncMsbScaling
+from brevitas.core.scaling import TruncPowerOfTwoIntScaling
+from brevitas.core.scaling import TruncScalingWrapper
+from brevitas.core.scaling import RuntimeStatsScaling
+from brevitas.core.stats import AbsMax
+from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from tests.brevitas.core.bit_width_fixture import *  # noqa
 from tests.brevitas.core.int_quant_fixture import *  # noqa
 
@@ -33,14 +39,21 @@ class TestTruncIntQuantUnit:
         ids=[
             "defaults_uint_overflow",
             "defaults_int+_overflow",
-            "defaults_int-_overflow",
+            "defaults_int-_max",
             "defaults_uint_underflow",
             "defaults_int_underflow",
             "defaults_uint_ulp",
             "defaults_int_ulp",
+            "abxmax_uint_overflow",
+            "abxmax_int+_overflow",
+            "abxmax_int-_overflow",
+            "abxmax_uint_underflow",
+            "abxmax_int_underflow",
+            "abxmax_uint_ulp",
+            "abxmax_int_ulp",
         ],
         params=[
-            {
+            { # defaults_uint_overflow
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -65,7 +78,7 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
-            }, {
+            }, { # defaults_int+_overflow
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -90,7 +103,7 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
-            }, {
+            }, { # defaults_int-_max
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -115,7 +128,7 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
-            }, {
+            }, { # defaults_uint_underflow
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -125,14 +138,14 @@ class TestTruncIntQuantUnit:
                     "scale": torch.tensor([1.]),
                     "zero_point": torch.tensor([0.]),
                     "input_bit_width": torch.tensor([8.]),
-                    "signed": True,
+                    "signed": False,
                 },
                 "eval_args": {
                     "x": torch.tensor([8.]),
                     "scale": torch.tensor([1.]),
                     "zero_point": torch.tensor([0.]),
                     "input_bit_width": torch.tensor([8.]),
-                    "signed": True,
+                    "signed": False,
                 },
                 "result": { # Result needs to match the order of the output tuple
                     "y": torch.tensor([0.]),
@@ -140,7 +153,7 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
-            }, {
+            }, { # defaults_int_underflow
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -165,7 +178,7 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
-            }, {
+            }, { # defaults_uint_ulp
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -175,14 +188,14 @@ class TestTruncIntQuantUnit:
                     "scale": torch.tensor([1.]),
                     "zero_point": torch.tensor([0.]),
                     "input_bit_width": torch.tensor([8.]),
-                    "signed": True,
+                    "signed": False,
                 },
                 "eval_args": {
                     "x": torch.tensor([9.]),
                     "scale": torch.tensor([1.]),
                     "zero_point": torch.tensor([0.]),
                     "input_bit_width": torch.tensor([8.]),
-                    "signed": True,
+                    "signed": False,
                 },
                 "result": { # Result needs to match the order of the output tuple
                     "y": torch.tensor([16.]),
@@ -190,7 +203,7 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
-            }, {
+            }, { # defaults_int_ulp
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
@@ -215,7 +228,253 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
+            }, { # abxmax_uint_overflow
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([128.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": False,
+                },
+                "eval_args": {
+                    "x": torch.tensor([255.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": False,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([120.]),
+                    "scale": torch.tensor([8.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, { # abxmax_int+_overflow
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([32.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([64.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([28.]),
+                    "scale": torch.tensor([4.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, { # abxmax_int-_overflow
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([-16.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([-32.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([-16.]),
+                    "scale": torch.tensor([2.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, { # abxmax_uint_underflow
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([15.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": False,
+                },
+                "eval_args": {
+                    "x": torch.tensor([.5]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": False,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([0.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, { # abxmax_int_underflow
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([-8.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([-.5]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([0.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, { # abxmax_uint_ulp
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([31.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": False,
+                },
+                "eval_args": {
+                    "x": torch.tensor([2.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": False,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([2.]),
+                    "scale": torch.tensor([2.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
+            }, { # abxmax_int_ulp
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                    "trunc_scaling_impl": TruncScalingWrapper(
+                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        scaling_impl=RuntimeStatsScaling(
+                            scaling_stats_impl=AbsMax(),
+                            scaling_stats_input_view_shape_impl=Identity(),
+                            scaling_shape=(1,),
+                            scaling_stats_momentum=1.0,
+                            restrict_scaling_impl=PowerOfTwoRestrictValue(),
+                        )
+                    ),
+                },
+                "train_args": {
+                    "x": torch.tensor([-64.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([-5.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([-8.]),
+                    "scale": torch.tensor([8.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
             },
+
         ],)
     # yapf: enable
     def trunc_int_quant_io_fixture(self, request):
@@ -235,4 +494,4 @@ class TestTruncIntQuantUnit:
         with torch.no_grad():
             y = trunc_int_quant(**eval_args)
             for i, k in enumerate(expected_result.keys()):
-                assert torch.allclose(expected_result[k], y[i], rtol=0.0, atol=0.0, equal_nan=False), "Expected result[{k}]: {expected_result[k]}, result: {y[i]}"
+                assert torch.allclose(expected_result[k], y[i], rtol=0.0, atol=0.0, equal_nan=False), f"Expected result[{k}]: {expected_result[k]}, result: {y[i]}"

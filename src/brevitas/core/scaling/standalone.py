@@ -483,10 +483,10 @@ class TruncMsbScaling(brevitas.jit.ScriptModule):
     def forward(
             self,
             scaling_input: Tensor,
-            input_bitwidth: Tensor,
-            output_bitwidth: Tensor,
+            input_bit_width: Tensor,
+            output_bit_width: Tensor,
             signed: Union[bool, Tensor]) -> Tensor:
-        return 2 ** (input_bitwidth - output_bitwidth)
+        return 2 ** (input_bit_width - output_bit_width)
 
 
 class TruncScalingWrapper(brevitas.jit.ScriptModule):
@@ -507,12 +507,12 @@ class TruncScalingWrapper(brevitas.jit.ScriptModule):
     def forward(
             self,
             scaling_input: Tensor,
-            input_bitwidth: Tensor,
-            output_bitwidth: Tensor,
+            input_bit_width: Tensor,
+            output_bit_width: Tensor,
             signed: Union[bool, Tensor]) -> Tensor:
         threshold = self.trunc_int_scaling_impl(output_bit_width, signed)
         scale = self.scaling_impl(scaling_input, threshold)
-        msb_scale = 2 ** (input_bitwidth - output_bitwidth)
+        msb_scale = 2 ** (input_bit_width - output_bit_width)
         unit_scale = torch.ones_like(msb_scale)
         max_scale = torch.where(msb_scale > unit_scale, msb_scale, unit_scale)
         min_scale = torch.where(msb_scale < unit_scale, msb_scale, unit_scale)
