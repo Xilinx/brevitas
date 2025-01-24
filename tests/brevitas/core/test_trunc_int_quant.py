@@ -31,7 +31,8 @@ class TestTruncIntQuantUnit:
     # yapf: disable
     @pytest_cases.fixture(
         ids=[
-            "defaults_overflow",
+            "defaults_uint_overflow",
+            "defaults_int_overflow",
         ],
         params=[
             {
@@ -58,7 +59,32 @@ class TestTruncIntQuantUnit:
                     "scale": torch.tensor([16.]),
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
-                }
+                },
+            }, {
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([127.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([127.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([0.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([112.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([0.]),
+                    "bit_width": torch.tensor([4.]),
+                },
             },
         ],)
     # yapf: enable
