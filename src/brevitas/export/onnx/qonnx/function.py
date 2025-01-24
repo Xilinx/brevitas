@@ -150,7 +150,7 @@ class BrevitasTruncFn(Function):
         #trunc = TruncIntQuant(
         #    float_to_int_impl=float_to_int_impl(),
         #    bit_width_impl=BitWidthConst(int(output_bit_width)))
-        #y_tuple = trunc(x, scale, zero_point, input_bit_width, torch.tensor(signed, dtype=torch.bool, device=x.device))
+        #y_tuple = trunc(x, scale, zero_point, input_bit_width, signed)
         return x
 
 
