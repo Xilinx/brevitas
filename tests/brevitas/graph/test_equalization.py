@@ -57,7 +57,7 @@ def test_resnet18_equalization():
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     _ = equalize_test(
-        regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     out = model(inp)
 
     regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
@@ -105,7 +105,11 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     scale_factor_regions = equalize_test(
-        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
@@ -161,7 +165,11 @@ def test_models(toy_model, merge_bias, request):
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     scale_factor_regions = equalize_test(
-        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     with torch.no_grad():
@@ -178,7 +186,8 @@ def test_models(toy_model, merge_bias, request):
 
 
 @pytest_cases.parametrize("layerwise", [True, False])
-def test_act_equalization_models(toy_model, layerwise, request):
+@pytest_cases.parametrize("use_parametrized_scaling", [True, False])
+def test_act_equalization_models(toy_model, layerwise, use_parametrized_scaling, request):
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
@@ -200,7 +209,7 @@ def test_act_equalization_models(toy_model, layerwise, request):
                                           0.5,
                                           True,
                                           layerwise=layerwise,
-                                          use_parametrized_scaling=True) as aem:
+                                          use_parametrized_scaling=use_parametrized_scaling) as aem:
             regions = aem.graph_act_eq.regions
             model_copy(inp)
     rewriters = aem.rewriters

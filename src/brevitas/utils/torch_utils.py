@@ -23,6 +23,7 @@ class StopFwdException(Exception):
 class WeightBiasWrapper:
     weight: torch.Tensor = None
     bias: torch.Tensor = None
+    orig_module: torch.nn.Module = None
 
 
 class TupleSequential(Sequential):
