@@ -979,8 +979,8 @@ def test_small_models_rotation_optimization_ppl(
 @requires_pt_ge('2.4')
 def test_small_models_rotation_optimization_layer_count(
         caplog, rotation_optimization_args_layer_count_and_ppl):
-    if platform.system() == "Windows":
-        pytest.skip("Skipping dynamo + windows")
+    if platform.system() != "Linux":
+        pytest.skip("Skipping dynamo + windows/macos")
     # Tolerances are stricter for this test, to ensure that it does not pass
     # with non-optimized quantized perplexities
     caplog.set_level(logging.INFO)

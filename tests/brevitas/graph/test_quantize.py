@@ -65,7 +65,6 @@ def test_layerwise_quantize_blacklist(kwargs):
                         K: torch.matmul(tensor, rot_mat),
             'key': '0',
             'expected': "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>"},])
-@requires_pt_lt('2.2.2', 'Windows')
 def test_layerwise_quantize_parametrized_modules(kwargs):
     key = kwargs['key']
     exp = kwargs['expected']
@@ -162,6 +161,8 @@ def test_remove_parametrization_entries_state_dict(kwargs):
             'key': '0',
             'expected': "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>"},])
 def test_quantize_parametrized_modules(kwargs):
+    if platform.system() == "Windows":
+        pytest.skip("Skipping dynamo + windows")
     key = kwargs['key']
     exp = kwargs['expected']
     rot_mat = kwargs['rot_mat']
