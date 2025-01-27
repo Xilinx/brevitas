@@ -109,7 +109,9 @@ def avg_pool2d_handler(
 
     max_acc_bit_width = FN_ACC_BITWIDTH_MAPPING[F.avg_pool2d]
     # remove avg scaling
-    if isinstance(kernel_size, tuple):
+    if divisor_override is not None:
+        avg_scaling = divisor_override
+    elif isinstance(kernel_size, tuple):
         avg_scaling = kernel_size[0] * kernel_size[1]
     else:
         avg_scaling = kernel_size * kernel_size

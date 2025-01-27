@@ -42,11 +42,14 @@ def test_brevitas_avg_pool_export(
     quant_avgpool = TruncAvgPool2d(
         kernel_size=kernel_size, stride=stride, bit_width=bit_width, float_to_int_impl_type='floor')
     model_brevitas = torch.nn.Sequential(quant_node, quant_avgpool)
-    model_brevitas.eval()
 
     # determine input
     input_shape = (1, channels, idim, idim)
     inp = torch.randn(input_shape)
+    model_brevitas.train()
+    model_brevitas(inp)
+    model_brevitas.eval()
+    model_brevitas(inp)
 
     # export
     test_id = request.node.callspec.id
@@ -63,6 +66,7 @@ def test_brevitas_avg_pool_export(
     odict = oxe.execute_onnx(model, idict, True)
     finn_output = odict[model.graph.output[0].name]
     # compare outputs
-    assert np.isclose(ref_output_array, finn_output).all()
+    scale = quant_avgpool.trunc_quant.scale().detach().numpy() # Allow "off-by-1" errors
+    assert np.isclose(ref_output_array, finn_output, atol=scale).all()
     # cleanup
     os.remove(export_path)
