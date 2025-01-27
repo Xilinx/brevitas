@@ -93,3 +93,11 @@ class StatsOp(AutoName):
     # Typically adopted for asymmetric quantization
     MIN_MAX = auto()
     PERCENTILE_INTERVAL = auto()
+
+
+class TruncScalingImplType(AutoName):
+    """
+
+    """
+    MSB = auto()
+    WRAPPER = auto()
