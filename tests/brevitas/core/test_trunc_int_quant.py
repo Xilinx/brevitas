@@ -11,12 +11,12 @@ from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import TruncIntQuant
+from brevitas.core.restrict_val import PowerOfTwoRestrictValue
+from brevitas.core.scaling import RuntimeStatsScaling
 from brevitas.core.scaling import TruncMsbScaling
 from brevitas.core.scaling import TruncPowerOfTwoIntScaling
 from brevitas.core.scaling import TruncScalingWrapper
-from brevitas.core.scaling import RuntimeStatsScaling
 from brevitas.core.stats import AbsMax
-from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from tests.brevitas.core.bit_width_fixture import *  # noqa
 from tests.brevitas.core.int_quant_fixture import *  # noqa
 
