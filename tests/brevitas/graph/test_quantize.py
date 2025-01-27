@@ -11,6 +11,7 @@ from brevitas.graph.quantize import quantize
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from tests.marker import requires_pt_ge
+from tests.marker import requires_pt_lt
 
 
 @pytest_cases.parametrize(
@@ -64,6 +65,7 @@ def test_layerwise_quantize_blacklist(kwargs):
                         K: torch.matmul(tensor, rot_mat),
             'key': '0',
             'expected': "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>"},])
+@requires_pt_lt('2.2.2', 'Windows')
 def test_layerwise_quantize_parametrized_modules(kwargs):
     key = kwargs['key']
     exp = kwargs['expected']
