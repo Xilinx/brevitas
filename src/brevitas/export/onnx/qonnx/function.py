@@ -119,14 +119,14 @@ class BrevitasTruncFn(Function):
             input_bit_width,
             signed,
             narrow_range,
+            output_scale,
             output_bit_width,
             rounding_mode):
         ret = g.op(
-            f'{DOMAIN_STRING}::Trunc',
+            f'{DOMAIN_STRING}::Quant',
             x,
-            scale,
+            output_scale,
             zero_point,
-            input_bit_width,
             output_bit_width,
             rounding_mode_s=rounding_mode,
             signed_i=int(signed),
@@ -143,6 +143,7 @@ class BrevitasTruncFn(Function):
             input_bit_width,
             signed,
             narrow_range,
+            output_scale,
             output_bit_width,
             rounding_mode):
         # TODO: Restore this (fails when `signed` arg added)

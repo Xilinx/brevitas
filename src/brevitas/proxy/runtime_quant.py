@@ -60,7 +60,7 @@ class ActQuantProxyProtocol(QuantProxyProtocol, Protocol):
 @runtime_checkable
 class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
 
-    def forward(self, x: QuantTensor) -> QuantTensor:
+    def forward(self, x: Union[Tensor, IntQuantTensor]) -> Union[Tensor, IntQuantTensor]:
         ...
 
 
@@ -271,12 +271,25 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._cached_act = None
+        self.cache_inference_quant_act = True
+        self.cache_quant_io_metadata_only = True
+        self.cache_class = _CachedIO
         self.skip_create_quant_tensor = False
+
+    def retrieve_attribute(self, attribute):
+        if self._cached_act is not None:
+            return getattr(self._cached_act, attribute)
+        elif self._cached_act is None:
+            return None
 
     @property
     def is_narrow_range(self):
         narrow_range = super(TruncQuantProxyFromInjector, self).is_narrow_range
         return narrow_range if narrow_range is not None else False
+
+    def scale(self):
+        return self.retrieve_attribute('scale')
 
     def bit_width(self):
         if not self.is_quant_enabled:
@@ -297,8 +310,12 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
             if self.skip_create_quant_tensor:
                 return out_value
-            return IntQuantTensor(
+            out = IntQuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
+            if not self.training and self.cache_inference_quant_act:
+                cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
+                self._cached_act = cached_out
+            return out
         else:
             return x
 
