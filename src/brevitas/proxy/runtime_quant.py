@@ -295,13 +295,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         return self.retrieve_attribute('zero_point')
 
     def bit_width(self):
-        if not self.is_quant_enabled:
-            return None
-        zhs = self._zero_hw_sentinel()
-        # Signed might or might not be defined. We just care about retrieving the bitwidth
-        empty_imp = IntQuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
-        bit_width = self.__call__(empty_imp).bit_width
-        return bit_width
+        return self.retrieve_attribute('bit_width')
 
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
