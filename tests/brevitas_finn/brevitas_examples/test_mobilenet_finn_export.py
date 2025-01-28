@@ -24,7 +24,8 @@ ort_mac_fail = pytest.mark.skipif(
     reason='Issue with ORT and MobileNet export on MacOS on PyTorch >= 1.5.0')
 
 INPUT_SIZE = (1, 3, 224, 224)
-ATOL = 1e-3
+ATOL = 7  # How many bitflips to tolerate in the 32-bit output
+RTOL = 1e-2
 SEED = 0
 
 
@@ -42,6 +43,7 @@ def test_mobilenet_v1_4b(pretrained):
     # do forward pass in PyTorch/Brevitas
     expected = mobilenet(torch_tensor).detach().numpy()
     export_qonnx(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
+    output_scale = mobilenet.output.bias_quant.scale()  # Scale at the output
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -53,4 +55,4 @@ def test_mobilenet_v1_4b(pretrained):
     input_dict = {inp_name: numpy_tensor}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
-    assert np.isclose(produced, expected, atol=ATOL).all()
+    assert np.isclose(produced, expected, rtol=RTOL, atol=ATOL * output_scale).all()
