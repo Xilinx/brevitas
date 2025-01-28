@@ -39,7 +39,13 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             trunc_quant: Optional[AccQuantType] = RoundTo8bit,
             return_quant_tensor: bool = True,
             **kwargs):
-        AvgPool2d.__init__(self, kernel_size=kernel_size, stride=stride, ceil_mode=ceil_mode, count_include_pad=count_include_pad, divisor_override=divisor_override)
+        AvgPool2d.__init__(
+            self,
+            kernel_size=kernel_size,
+            stride=stride,
+            ceil_mode=ceil_mode,
+            count_include_pad=count_include_pad,
+            divisor_override=divisor_override)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
         self.cache_inference_quant_act = False

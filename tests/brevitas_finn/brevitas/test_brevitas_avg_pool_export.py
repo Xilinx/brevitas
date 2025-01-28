@@ -26,16 +26,27 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 @pytest.mark.parametrize("input_bit_width", [4, 8, 16])
 @pytest.mark.parametrize("channels", [2, 4])
 @pytest.mark.parametrize("idim", [7, 8])
+@pytest.mark.parametrize("restrict_scaling_type", ["log_fp", "power_of_two"])
 def test_brevitas_avg_pool_export(
-        kernel_size, stride, signed, bit_width, input_bit_width, channels, idim, request):
+        kernel_size,
+        stride,
+        signed,
+        bit_width,
+        input_bit_width,
+        channels,
+        idim,
+        restrict_scaling_type,
+        request):
     if signed:
         quant_node = QuantIdentity(
             bit_width=input_bit_width,
+            restrict_scaling_type=restrict_scaling_type,
             return_quant_tensor=True,
         )
     else:
         quant_node = QuantReLU(
             bit_width=input_bit_width,
+            restrict_scaling_type=restrict_scaling_type,
             return_quant_tensor=True,
         )
 
@@ -66,7 +77,10 @@ def test_brevitas_avg_pool_export(
     odict = oxe.execute_onnx(model, idict, True)
     finn_output = odict[model.graph.output[0].name]
     # compare outputs
-    scale = quant_avgpool.trunc_quant.scale().detach().numpy() # Allow "off-by-1" errors
-    assert np.isclose(ref_output_array, finn_output, atol=scale).all()
+    if restrict_scaling_type == "power_of_two" and kernel_size == 2:
+        atol = 1e-8
+    else:
+        atol = quant_avgpool.trunc_quant.scale().detach().numpy()  # Allow "off-by-1" errors
+    assert np.isclose(ref_output_array, finn_output, atol=atol).all()
     # cleanup
     os.remove(export_path)
