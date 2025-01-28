@@ -35,24 +35,10 @@ class TestTruncIntQuantUnit:
         assert trunc_int_quant.narrow_range == False
 
     # yapf: disable
-    @pytest_cases.fixture(
-        ids=[
-            "defaults_uint_overflow",
-            "defaults_int+_overflow",
-            "defaults_int-_max",
-            "defaults_uint_underflow",
-            "defaults_int_underflow",
-            "defaults_uint_ulp",
-            "defaults_int_ulp",
-            "abxmax_uint_overflow",
-            "abxmax_int+_overflow",
-            "abxmax_int-_overflow",
-            "abxmax_uint_underflow",
-            "abxmax_int_underflow",
-            "abxmax_uint_ulp",
-            "abxmax_int_ulp",
-        ],
-        params=[
+    @pytest_cases.fixture
+    @pytest_cases.parametrize(
+        "test_cfg",
+        [
             { # defaults_uint_overflow
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
@@ -474,10 +460,26 @@ class TestTruncIntQuantUnit:
                     "bit_width": torch.tensor([4.]),
                 },
             },
+        ],
+        ids=[
+            "defaults_uint_overflow",
+            "defaults_int+_overflow",
+            "defaults_int-_max",
+            "defaults_uint_underflow",
+            "defaults_int_underflow",
+            "defaults_uint_ulp",
+            "defaults_int_ulp",
+            "abxmax_uint_overflow",
+            "abxmax_int+_overflow",
+            "abxmax_int-_overflow",
+            "abxmax_uint_underflow",
+            "abxmax_int_underflow",
+            "abxmax_uint_ulp",
+            "abxmax_int_ulp",
         ],)
     # yapf: enable
-    def trunc_int_quant_io_fixture(self, request):
-        yield request.param
+    def trunc_int_quant_io_fixture(self, test_cfg):
+        yield test_cfg
 
     def test_trunc_int_quant_io(self, caplog, trunc_int_quant_io_fixture):
         caplog.set_level(logging.INFO)
