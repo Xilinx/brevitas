@@ -773,18 +773,26 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
                                           ABC):
     handled_layer = TruncQuantProxyFromInjector
 
+    def validate(self, module):
+        assert module.zero_point() == 0, "Zero-point export not supported for TruncQuant."
+        super(QCDQCastTruncQuantProxyHandlerMixin, self).validate(module)
+
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
         if module.is_quant_enabled:
             self.validate(module)
-            self.symbolic_kwargs = {'output_bit_width': module.bit_width()}
+            self.symbolic_kwargs = {
+                'narrow_range': module.is_narrow_range,
+                'output_scale': module.scale(),
+                'output_bit_width': module.bit_width()}
 
     def symbolic_execution(
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
             signed: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
+        narrow_range = self.symbolic_kwargs['narrow_range']
         dtype = self.int8_dtype() if signed else self.uint8_dtype()
-        trunc_scale = 2.0 ** (input_bit_width - output_bit_width)
+        scale = self.symbolic_kwargs['output_scale'] # Input scale is ignored now
         # If original dtype of scale is (b)float16, store the original scale dtype
         # and cast the scale and the input to float32
         scale_dtype = scale.dtype
@@ -792,19 +800,17 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
             scale = self.cast_fn(scale, torch.float32)
         if x.dtype == torch.bfloat16 or x.dtype == torch.float16:
             x = self.cast_fn(x, torch.float32)
-        pre_scale = scale * trunc_scale
-        flat_pre_scale = to_0dim_if_scalar(pre_scale.flatten())
         flat_scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
         zp = self.zero_point_with_dtype(signed, output_bit_width, zp)
-        x = self.quantize_fn(x, flat_pre_scale, zp, dtype, self.quant_axis(pre_scale))
+        x = self.quantize_fn(x, flat_scale, zp, dtype, self.quant_axis(scale))
         clip_symbolic_kwargs = self.int_clip_symbolic_kwargs(
-            signed=signed, narrow=False, bit_width=output_bit_width)
+            signed=signed, narrow=self.symbolic_kwargs['narrow_range'], bit_width=output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
-        x = self.dequantize_fn(x, flat_pre_scale, zp, self.quant_axis(scale))
+        x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))
         # After dequantization, cast both output and scale to the correct dtype
         if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, scale_dtype)
-            flat_pre_scale = self.cast_fn(flat_pre_scale, scale_dtype)
-        return x, flat_pre_scale, zero_point, output_bit_width
+            flat_scale = self.cast_fn(flat_scale, scale_dtype)
+        return x, flat_scale, zero_point, output_bit_width
