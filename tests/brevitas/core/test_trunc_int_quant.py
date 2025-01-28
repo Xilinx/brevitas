@@ -89,6 +89,31 @@ class TestTruncIntQuantUnit:
                     "zero_point": torch.tensor([0.]),
                     "bit_width": torch.tensor([4.]),
                 },
+            }, { # defaults_int+_overflow_zp
+                "init_args": {
+                    "bit_width_impl": BitWidthConst(4),
+                    "float_to_int_impl": RoundSte(),
+                },
+                "train_args": {
+                    "x": torch.tensor([1727.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([-1600.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "eval_args": {
+                    "x": torch.tensor([1727.]),
+                    "scale": torch.tensor([1.]),
+                    "zero_point": torch.tensor([-1600.]),
+                    "input_bit_width": torch.tensor([8.]),
+                    "signed": True,
+                },
+                "result": { # Result needs to match the order of the output tuple
+                    "y": torch.tensor([1712.]),
+                    "scale": torch.tensor([16.]),
+                    "zero_point": torch.tensor([-100.]),
+                    "bit_width": torch.tensor([4.]),
+                },
             }, { # defaults_int-_max
                 "init_args": {
                     "bit_width_impl": BitWidthConst(4),
@@ -464,6 +489,7 @@ class TestTruncIntQuantUnit:
         ids=[
             "defaults_uint_overflow",
             "defaults_int+_overflow",
+            "defaults_int+_overflow_zp",
             "defaults_int-_max",
             "defaults_uint_underflow",
             "defaults_int_underflow",

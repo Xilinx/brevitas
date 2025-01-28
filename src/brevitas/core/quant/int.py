@@ -250,10 +250,11 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         y = self.float_to_int_impl(y)
         y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         output_scale = scale * trunc_scale
-        y = y - zero_point
+        output_zero_point = zero_point / trunc_scale
+        y = y - output_zero_point
         y = y * output_scale
         y = self.delay_wrapper(x, y)
-        return y, output_scale, zero_point, output_bit_width
+        return y, output_scale, output_zero_point, output_bit_width
 
 
 class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
