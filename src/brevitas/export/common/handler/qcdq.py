@@ -792,7 +792,7 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         narrow_range = self.symbolic_kwargs['narrow_range']
         dtype = self.int8_dtype() if signed else self.uint8_dtype()
-        scale = self.symbolic_kwargs['output_scale'] # Input scale is ignored now
+        scale = self.symbolic_kwargs['output_scale']  # Input scale is ignored now
         # If original dtype of scale is (b)float16, store the original scale dtype
         # and cast the scale and the input to float32
         scale_dtype = scale.dtype
