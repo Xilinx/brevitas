@@ -227,7 +227,11 @@ class BrevitasBiasQuantProxyHandler(BrevitasQuantProxyHandler):
 class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
     handled_layer = TruncQuantProxyFromInjector
 
+    def validate(self, module):
+        assert module.zero_point() == 0, "Zero-point export not supported for TruncQuant."
+
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
+        self.validate(module)
         self.symbolic_kwargs = {
             'narrow_range': module.is_narrow_range,
             'output_scale': module.scale(),

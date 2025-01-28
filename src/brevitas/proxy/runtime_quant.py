@@ -291,6 +291,9 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
     def scale(self):
         return self.retrieve_attribute('scale')
 
+    def zero_point(self):
+        return self.retrieve_attribute('zero_point')
+
     def bit_width(self):
         if not self.is_quant_enabled:
             return None
