@@ -40,6 +40,8 @@ from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
@@ -1444,17 +1446,31 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
-def _fuse_rotations(model: nn.Module) -> nn.Module:
+def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
     # Then, parametrizations can be safely removed
     for module in model.modules():
-        # Names of the tensors that can potentially be parametrized
-        tensor_names = ["weight", "bias"]
-        # Remove parametrizations from each tensor
-        for tensor_name in tensor_names:
-            if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
-                parametrize.remove_parametrizations(module, tensor_name, leave_parametrized=True)
+        if parametrize.is_parametrized(module):
+            # Names of the tensors that can potentially be parametrized
+            tensor_names = ["weight", "bias"]
+            # Remove parametrizations from each tensor
+            for tensor_name in tensor_names:
+                if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
+                    # Check if the module has any quantization-related children
+                    state_dict = None
+                    for submodule in module.modules():
+                        if isinstance(submodule,
+                                      (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)):
+                            state_dict = submodule.state_dict()
+                            break
+                    # The rotated tensor is saved by setting leave_parametrized=True
+                    parametrize.remove_parametrizations(
+                        module, tensor_name, leave_parametrized=True)
+                    # Restore the state of the quantization modules, as these might have been reset
+                    # when registering the parametrized parameter
+                    if state_dict is not None:
+                        submodule.load_state_dict(state_dict)
     return model
 
 
@@ -1514,6 +1530,7 @@ class GraphRotationEqualization(RotationEqualization):
             orphan_sink: bool = False,
             sdpa_regions: bool = False,
             rotate_matmul: bool = False,
+            use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__()
@@ -1531,6 +1548,17 @@ class GraphRotationEqualization(RotationEqualization):
         self.full_rotation_method = full_rotation_method
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
+        if use_parametrized_rotations:
+            # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
+            # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
+            # Therefore, algorithms that do type checking might need to use type_before_parametrizations(module),
+            # instead of only type(module) (see layerwise_layer_handler). Algorithms that rely on in-place modifications
+            # of the weights should not operate on parametrized modules. In this situation, parametrizations
+            # need to be removed beforehand by invoking fuse_parametrized_rotations
+            warnings.warn(
+                "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
+            )
+        self.use_parametrized_rotations = use_parametrized_rotations
 
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
@@ -1620,7 +1648,11 @@ class GraphRotationEqualization(RotationEqualization):
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            rewriters = _apply_rotate(graph_model, regions, self.full_rotation_method)
+            rewriters = _apply_rotate(
+                graph_model,
+                regions,
+                self.full_rotation_method,
+                fuse_rotations=not self.use_parametrized_rotations)
         if self.return_rewriters:
             return graph_model, rewriters
         else:

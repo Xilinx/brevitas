@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
+import copy
 from dataclasses import dataclass
 import logging
 import os
 import platform
 import shutil
+from unittest.mock import patch
 
 import numpy as np
 import onnx
@@ -18,26 +20,22 @@ import transformers
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
+
+ATOL_PPL = 2e+02
+RTOL_PPL = 1e-04
 
 
 def ptid2pathname(string):
     return string.replace("/", "-").replace(":", "-")
 
 
-def allclose(x, y):
-    return np.allclose(x, y, rtol=1e-03, atol=1e+01, equal_nan=False)
-
-
-def allveryclose(x, y):
-    return np.allclose(x, y, rtol=1e-04, atol=2e+02, equal_nan=False)
-
-
-def allexact(x, y):
-    return np.allclose(x, y, rtol=0.0, atol=0.0, equal_nan=False)
+def allclose(x, y, rtol=RTOL_PPL, atol=ATOL_PPL):
+    return np.allclose(x, y, rtol=rtol, atol=atol, equal_nan=False)
 
 
 def transformers_version_ge(required_version: str):
@@ -47,14 +45,14 @@ def transformers_version_ge(required_version: str):
 # Check that all args in args are used
 def validate_args(args):
     a = vars(args)
-    da = vars(parse_args([]))
+    da = vars(parse_args([])[0])
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
 
 
-def validate_args_and_run_main(args):
+def validate_args_and_run_main(args, extra_args=None):
     validate_args(args)
-    float_ppl, quant_ppl, model = quantize_llm(args)
+    float_ppl, quant_ppl, model = quantize_llm(args, extra_args=extra_args)
     return float_ppl, quant_ppl, model
 
 
@@ -131,7 +129,7 @@ def small_models_with_ppl(request):
 
 @pytest_cases.fixture()
 def default_run_args(request):
-    args = UpdatableNamespace(**vars(parse_args([])))
+    args = UpdatableNamespace(**vars(parse_args([])[0]))
     args.nsamples = 2
     args.seqlen = 2
     args.model = "hf-internal-testing/tiny-random-MistralForCausalLM"
@@ -252,8 +250,8 @@ def test_small_models_acc(caplog, acc_args_and_acc):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
-    assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
 @pytest_cases.fixture(
@@ -294,8 +292,8 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
-    assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
 @pytest_cases.fixture(
@@ -738,8 +736,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
-    assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
 @pytest_cases.fixture(
@@ -760,7 +758,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": True,
             "rotation_mode": "ort",
             "float_ppl": 33238.8984375,
-            "quant_ppl": 33232.65234375},
+            "quant_ppl": 33232.65234375,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -771,7 +769,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
             "float_ppl": 33238.8984375,
-            "quant_ppl": 33420.65234375},
+            "quant_ppl": 33420.65234375,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -782,7 +780,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
             "float_ppl": 33238.8984375,
-            "quant_ppl": 33290.48046875},
+            "quant_ppl": 33290.48046875,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -793,7 +791,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "float_ppl": 33238.8984375,
-            "quant_ppl": 33204.80859375},
+            "quant_ppl": 33204.80859375,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -802,7 +800,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "replace_rmsnorm": True,
             "rotation": "layerwise",
             "float_ppl": 33238.8984375,
-            "quant_ppl": 33446.734375},])
+            "quant_ppl": 33446.734375,},])
 def rotation_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -823,5 +821,201 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
-    assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+
+
+@pytest_cases.fixture(
+    ids=[
+        "llama_rotation_optimization_ort",
+        "llama_rotation_optimization_ort_no_orphan",
+        "llama_rotation_optimization_had",
+        "llama_rotation_optimization_had_no_orphan",],
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "optimize_rotations": True,
+            "rotation_orphan_sink": True,
+            "rotation_mode": "ort",
+            "nsamples_rot_calibration": 2,
+            "no_float16": True,
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 33238.8984375,
+            "quant_ppl": 33239.33984375,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "optimize_rotations": True,
+            "rotation_orphan_sink": False,
+            "rotation_mode": "ort",
+            "nsamples_rot_calibration": 2,
+            "no_float16": True,
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 33238.8984375,
+            "quant_ppl": 33423.0390625,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "optimize_rotations": True,
+            "rotation_orphan_sink": True,
+            "rotation_mode": "had",
+            "nsamples_rot_calibration": 2,
+            "no_float16": True,
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 33238.8984375,
+            "quant_ppl": 33286.98828125,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "optimize_rotations": True,
+            "rotation_orphan_sink": False,
+            "rotation_mode": "had",
+            "nsamples_rot_calibration": 2,
+            "no_float16": True,
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 33238.8984375,
+            "quant_ppl": 33175.3046875,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},])
+def rotation_optimization_args_layer_count_and_ppl(default_run_args, request):
+    args = default_run_args
+    run_dict = copy.deepcopy(request.param)
+    extra_args = run_dict["extra_args"]
+    float_ppl = run_dict["float_ppl"]
+    quant_ppl = run_dict["quant_ppl"]
+    exp_layer_types_count = run_dict["exp_layer_types_count"]
+    del run_dict["float_ppl"]
+    del run_dict["quant_ppl"]
+    del run_dict["extra_args"]
+    del run_dict["exp_layer_types_count"]
+    args.update(**run_dict)
+    yield args, extra_args, float_ppl, quant_ppl, exp_layer_types_count
+
+
+@requires_pt_ge('2.4')
+def test_small_models_rotation_optimization_ppl(
+        caplog, rotation_optimization_args_layer_count_and_ppl):
+    if platform.system() != "Linux":
+        pytest.skip("Skipping dynamo + windows/macos")
+    # Tolerances are stricter for this test, to ensure that it does not pass
+    # with non-optimized quantized perplexities
+    RTOL_ROT, ATOL_ROT = 1e-05, 2.
+    caplog.set_level(logging.INFO)
+    args, extra_args, exp_float_ppl, exp_quant_ppl, _ = rotation_optimization_args_layer_count_and_ppl
+    float_ppl, quant_ppl, _ = validate_args_and_run_main(args, extra_args)
+    float_ppl = float_ppl.detach().cpu().numpy()
+    quant_ppl = quant_ppl.detach().cpu().numpy()
+    assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allclose(exp_quant_ppl, quant_ppl, rtol=RTOL_ROT, atol=ATOL_ROT), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+
+
+@requires_pt_ge('2.4')
+def test_small_models_rotation_optimization_layer_count(
+        caplog, rotation_optimization_args_layer_count_and_ppl):
+    if platform.system() != "Linux":
+        pytest.skip("Skipping dynamo + windows/macos")
+    # Tolerances are stricter for this test, to ensure that it does not pass
+    # with non-optimized quantized perplexities
+    caplog.set_level(logging.INFO)
+    args, extra_args, _, _, exp_layer_types_count = rotation_optimization_args_layer_count_and_ppl
+    with patch('brevitas_examples.llm.main.fuse_parametrized_rotations', lambda model: model):
+        _, _, model = validate_args_and_run_main(args, extra_args)
+    assert_layer_types_count(model, exp_layer_types_count)
+
+
+@pytest_cases.parametrize(
+    "kwargs",
+    [
+        {
+            "yaml_file_path":
+                "./tests/brevitas_examples/llm_test_template.yml",
+            "expected_extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--lr_scheduler_type",
+                "cosine",
+                "--save_safetensors",
+                "False"],},],
+    ids=lambda kwargs: kwargs["yaml_file_path"])
+def test_parse_yaml_trainer_arguments(caplog, kwargs):
+    caplog.set_level(logging.INFO)
+    yaml_file_path = kwargs["yaml_file_path"]
+    expected_extra_args = kwargs["expected_extra_args"]
+    extra_args_keys = [expected_extra_args[i][2:] for i in range(0, len(expected_extra_args), 2)]
+
+    def quantize_llm_assert_args(args, extra_args=None):
+        for key in extra_args_keys:
+            assert key not in args, f"Key {key} should not be known by the parser"
+        assert extra_args == expected_extra_args, f"Expected extra arguments {expected_extra_args} but got {extra_args}"
+
+    # Run the argument parsing logic of the LLM entrypoint
+    with patch("brevitas_examples.llm.main.quantize_llm", quantize_llm_assert_args):
+        with patch("brevitas_examples.llm.main.sys.argv", ["main.py", "--config", yaml_file_path]):
+            main()

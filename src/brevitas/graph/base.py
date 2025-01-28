@@ -5,21 +5,25 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Dict, Type
 
 import torch
-from torch import Tensor
 from torch.nn import Module
-from torch.nn import Parameter
-import torch.nn.utils.parametrize as parametrize
 from torch.overrides import get_testing_overrides
+
+# TODO: Deprecate PyTorch 1.11
+try:
+    from torch.nn.utils.parametrize import is_parametrized
+    from torch.nn.utils.parametrize import register_parametrization
+except ImportError:
+    from brevitas.utils.torch_utils import is_parametrized
+    register_parametrization = None
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
-from brevitas.utils.rotation_utils import RotationWeightParametrization
 
 __all__ = [
     'Transform',
@@ -109,6 +113,34 @@ class PerInputModuleToModuleByHook(PerInputTransform, ABC):
         return model
 
 
+def _remove_parametrization_entries_state_dict(state_dict: Dict[str, Any]) -> Dict[str, Any]:
+    # Keys for values related to parametrizations
+    keys_to_remove = []
+    # Keys/values corresponding to the original tensors before parametrizations
+    keys_values_to_add = []
+    # Iterate over state_dict identifying the keys related to parametrizations
+    for key, value in state_dict.items():
+        split_key = key.split(".")
+        # Keys for values before parametrizations have the format "prefix.parametrizations.tensor_name.original"
+        if len(split_key
+              ) >= 3 and split_key[-3] == "parametrizations" and split_key[-1] == "original":
+            tensor_name = split_key[-2]
+            # Name of dictionary entry is "prefix.tensro_name"
+            keys_values_to_add.append((".".join(split_key[:-3] + [tensor_name]), value))
+        # Keys corresponding to the parametrizations attached to the model need to be removed
+        # to make sure the dictionary can be loaded with no missing/unused keys
+        # NOTE: For safety, an additional check could be added as this logic would not work if a model
+        # without parametrizations has any key containing "parametrizations"
+        if "parametrizations" in split_key:
+            keys_to_remove.append(key)
+    # Apply changes in-place to the state_dict
+    for key in keys_to_remove:
+        del state_dict[key]
+    for key, value in keys_values_to_add:
+        state_dict[key] = value
+    return state_dict
+
+
 class ModuleToModule(GraphTransform, ABC):
 
     def __init__(self, new_module_class, **kwargs):
@@ -159,7 +191,25 @@ class ModuleToModule(GraphTransform, ABC):
     def _replace_old_module(self, model, old_module, new_module, load_state_dict=True):
         replace_module(model, old_module, new_module)
         if load_state_dict:
-            new_module.load_state_dict(old_module.state_dict())
+            if not is_parametrized(old_module):
+                new_module.load_state_dict(old_module.state_dict())
+            else:
+                old_module_state_dict = old_module.state_dict()
+                # If parametrizations are present in old_module, the state_dict needs
+                # to be processed beforehand
+                old_module_state_dict = _remove_parametrization_entries_state_dict(
+                    old_module_state_dict)
+                # Strict can be set to True, since potential parametrizations were
+                # accounted for
+                new_module.load_state_dict(old_module_state_dict)
+                # If the old module is parametrized, these need to be transferred to the new module.
+                # The method transfer_parametrizations_and_params as it can result in parameter ties
+                # being broken
+                # NOTE: unsafe is set to True for efficiency, as the checks should have been done
+                # when first registering the parametrization to old_module
+                for tensor_name in old_module.parametrizations:
+                    for param_func in old_module.parametrizations[tensor_name]:
+                        register_parametrization(new_module, tensor_name, param_func, unsafe=True)
 
 
 class InsertModuleCallAfter(GraphTransform):
@@ -211,8 +261,7 @@ class ModuleInstanceRegisterParametrization(Transform):
         for module in model.modules():
             if module is self.module:
                 # register the parametrization to module
-                parametrize.register_parametrization(
-                    module, self.tensor_name, self.transform_module)
+                register_parametrization(module, self.tensor_name, self.transform_module)
                 break
         return model
 

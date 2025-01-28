@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 import functools
 import sys
+from typing import List, Optional
 from warnings import warn
 
 from lm_eval import evaluator
@@ -22,7 +23,8 @@ from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
-from brevitas.graph.base import ModuleInstanceWrapModule
+from brevitas.graph.base import ModuleInstanceTransformTensor
+from brevitas.graph.equalize import fuse_parametrized_rotations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import functional_quantization_mode
@@ -54,6 +56,8 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_t
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
+from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
@@ -89,6 +93,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
 
     apply_layernorm_affine_merge(new_model)
+    # NOTE: This call breaks ties between the the lm_head and the embedding layer
     new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
@@ -99,14 +104,15 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
-        sdpa_regions=args.rotation_sdpa_regions)
+        sdpa_regions=args.rotation_sdpa_regions,
+        use_parametrized_rotations=args.optimize_rotations)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
     for r in rewriters:
         # The weights between model and new_model are tied, so this check prevents
         # rotating the weights twice
-        if isinstance(r, ModuleInstanceWrapModule):
-            r.apply(model)
+        if not isinstance(r, ModuleInstanceTransformTensor):
+            model = r.apply(model)
     remove_hooks(new_model)
 
 
@@ -142,7 +148,11 @@ def model_export(model, ref_input, args):
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
 
-def validate(args):
+def validate(args, extra_args: Optional[List[str]] = None):
+    if args.optimize_rotations:
+        assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
+    else:
+        assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
     if args.functional_sdpa_quant:
         assert args.input_scale_type == 'dynamic' or args.input_bit_width is None, "Functional SDPA Quant requires dynamic activation quantization"
     if args.rotation == 'fx':
@@ -209,8 +219,8 @@ def validate(args):
                 "or decreasing the sequence length (seqlen)")
 
 
-def quantize_llm(args):
-    validate(args)
+def quantize_llm(args, extra_args=None):
+    validate(args, extra_args)
     set_seed(args.seed)
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
@@ -271,6 +281,22 @@ def quantize_llm(args):
         device=None,
         fuse_sequences=args.fuse_sequences)
 
+    if args.optimize_rotations:
+        # Extra arguments should be used as training arguments for rotation optimization
+        rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
+        # Load the data for rotation optimization
+        rot_calibration_loader = get_dataset_for_model(
+            args.model,
+            dataset_name=args.dataset,
+            tokenizer=tokenizer,
+            nsamples=args.nsamples_rot_calibration,
+            seqlen=args.seqlen,
+            split="train",
+            seed=args.seed,
+            require_fx=require_fx and args.export_target is not None,
+            device=None,
+            fuse_sequences=args.fuse_sequences)
+
     device = next(iter(model.parameters())).device
     print("Data loaded.")
 
@@ -329,7 +355,8 @@ def quantize_llm(args):
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink,
             full_rotation_method=args.rotation_mode,
-            sdpa_regions=args.rotation_sdpa_regions)
+            sdpa_regions=args.rotation_sdpa_regions,
+            use_parametrized_rotations=args.optimize_rotations)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
@@ -461,6 +488,20 @@ def quantize_llm(args):
         # We restore the original behaviour of the post-forward.
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
+
+        if args.optimize_rotations:
+            apply_rotation_optimization(
+                model=model,
+                tokenizer=tokenizer,
+                train_dataset=rot_calibration_loader,
+                training_args=rot_optimization_args,
+            )
+            # Remove hooks from optimization
+            remove_hooks(model)
+            # Offload model before fusing the rotations
+            model = offload_model(model)
+            # Fuse rotations with weights
+            model = fuse_parametrized_rotations(model)
 
         if args.act_calibration and not args.load_checkpoint:
             print("Apply act calibration...")
@@ -610,6 +651,11 @@ def parse_args(args, override_defaults={}):
         type=int,
         default=128,
         help='Number of calibration data samples. Default: 128.')
+    parser.add_argument(
+        '--nsamples-rot-calibration',
+        type=int,
+        default=800,
+        help='Number of calibration data samples for rotation. Default: %(default)d.')
     parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
     parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
     parser.add_argument(
@@ -817,6 +863,12 @@ def parse_args(args, override_defaults={}):
         choices=['fx', 'layerwise', 'fused_no_fx'],
         help='Apply graph rotation equalization')
     parser.add_argument(
+        "--optimize-rotations",
+        action="store_true",
+        default=False,
+        help="Whether to optimize the rotations (default: %(default)s).",
+    )
+    parser.add_argument(
         '--rotation-mode',
         default='had',
         choices=['had', 'ort'],
@@ -910,15 +962,28 @@ def parse_args(args, override_defaults={}):
         type=str,
         nargs='*',
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
+    if len(override_defaults) > 0:
+        # Retrieve keys that are known to the parser
+        parser_keys = set(map(lambda action: action.dest, parser._actions))
+        # Extract the entries in override_defaults that correspond to keys not known to the parser
+        extra_args_keys = [key for key in override_defaults.keys() if key not in parser_keys]
+        # Remove all the keys in override_defaults that are unknown to the parser and, instead,
+        # include them in args, as if they were passed as arguments to the command line.
+        # This prevents the keys of HF TrainingArguments from being added as arguments to the parser.
+        # Consequently, they will be part of the second value returned by parse_known_args (thus being
+        # used as extra_args in quantize_llm)
+        for key in extra_args_keys:
+            args += [f"--{key}", str(override_defaults[key])]
+            del override_defaults[key]
     parser.set_defaults(**override_defaults)
 
-    return parser.parse_args(args)
+    return parser.parse_known_args(args)
 
 
 def main():
     overrides = override_defaults(sys.argv[1:])
-    args = parse_args(sys.argv[1:], override_defaults=overrides)
-    quantize_llm(args)
+    args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
+    quantize_llm(args, extra_args)
 
 
 if __name__ == '__main__':

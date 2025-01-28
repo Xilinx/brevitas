@@ -7,7 +7,12 @@ from typing import Dict, List, Optional
 import torch
 import torch.nn as nn
 
-import brevitas
+# TODO: Deprecate PyTorch 1.11
+try:
+    from torch.nn.utils.parametrize import type_before_parametrizations
+except ImportError:
+    from brevitas.utils.torch_utils import type_before_parametrizations
+
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance
@@ -403,8 +408,8 @@ def act_handler(model, layer_map):
         if node.op == 'call_module':
             module = get_module(model, node.target)
             if isinstance(module, tuple(layer_map.keys())):
-                if layer_map[type(module)] is not None:
-                    quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                if layer_map[type_before_parametrizations(module)] is not None:
+                    quant_module_class, quant_module_kwargs = layer_map[type_before_parametrizations(module)]
                     quant_module = quant_module_class(**quant_module_kwargs)
                     # Check for activation equalization mul nodes
                     if len(node.users) == 1:
@@ -465,8 +470,8 @@ def layer_handler(
                             quant_identity_map=quant_identity_map,
                             quant_act_map=quant_act_map,
                             unsigned_act_tuple=unsigned_act_tuple)
-                if layer_map[type(module)] is not None:
-                    quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                if layer_map[type_before_parametrizations(module)] is not None:
+                    quant_module_class, quant_module_kwargs = layer_map[type_before_parametrizations(module)]
                     # Quantize the input if is not quantized, input_quant is not specified,
                     # and the quant_identity_map is provided.
                     if not are_inputs_quantized_and_aligned(
@@ -511,7 +516,7 @@ def find_module(
     Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
     Linear submodules.
     """
-    if _module_class_name(type(model)) in layer_map.keys():
+    if _module_class_name(type_before_parametrizations(model)) in layer_map.keys():
         module_to_replace.append(model)
     else:
         for name, module in model.named_children():
@@ -532,8 +537,8 @@ def layerwise_layer_handler(
     find_module(model, layer_map, module_to_replace, name_blacklist)
     rewriters = []
     for module in module_to_replace:
-        if layer_map[_module_class_name(type(module))] is not None:
-            quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type(module))]
+        if layer_map[_module_class_name(type_before_parametrizations(module))] is not None:
+            quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
             rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
             rewriters.append(rewriter)
     for rewriter in rewriters:
