@@ -13,7 +13,7 @@ from brevitas.function.ops import min_int
 class IntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed', 'narrow_range']
 
-    def __init__(self, signed: bool, narrow_range: bool):
+    def __init__(self, narrow_range: bool, signed: Optional[bool] = None):
         super(IntScaling, self).__init__()
         self.signed = signed
         self.narrow_range = narrow_range
@@ -21,6 +21,7 @@ class IntScaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
         is_signed = signed if signed is not None else self.signed
+        assert is_signed is not None, f"signed is not defined, signed={is_signed}"
         if is_signed:
             return -min_int(is_signed, self.narrow_range, bit_width)
         else:
@@ -30,11 +31,12 @@ class IntScaling(brevitas.jit.ScriptModule):
 class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed']
 
-    def __init__(self, signed: bool):
+    def __init__(self, signed: Optional[bool] = None):
         super(PowerOfTwoIntScaling, self).__init__()
         self.signed = signed
 
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
         is_signed = signed if signed is not None else self.signed
+        assert is_signed is not None, f"signed is not defined, signed={is_signed}"
         return max_int(is_signed, False, bit_width) + 1

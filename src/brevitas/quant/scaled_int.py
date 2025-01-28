@@ -306,7 +306,6 @@ class ShiftRoundSaturateTo8bit(TruncQuantSolver,
     bit_width_impl_type = 'const'
     float_to_int_impl_type = 'round'
     trunc_scaling_impl_type = 'wrapper'
-    signed = True  # Ignored
 
 
 class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):

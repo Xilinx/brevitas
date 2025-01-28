@@ -233,7 +233,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -268,7 +268,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -303,7 +303,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -338,7 +338,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -373,7 +373,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -408,7 +408,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -443,7 +443,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -474,7 +474,6 @@ class TestTruncIntQuantUnit:
                     "bit_width": torch.tensor([4.]),
                 },
             },
-
         ],)
     # yapf: enable
     def trunc_int_quant_io_fixture(self, request):
