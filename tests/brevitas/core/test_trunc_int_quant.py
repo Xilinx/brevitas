@@ -12,9 +12,9 @@ from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import TruncIntQuant
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
+from brevitas.core.scaling import PowerOfTwoIntScaling
 from brevitas.core.scaling import RuntimeStatsScaling
 from brevitas.core.scaling import TruncMsbScaling
-from brevitas.core.scaling import TruncPowerOfTwoIntScaling
 from brevitas.core.scaling import TruncScalingWrapper
 from brevitas.core.stats import AbsMax
 from tests.brevitas.core.bit_width_fixture import *  # noqa
@@ -233,7 +233,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -268,7 +268,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -303,7 +303,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -338,7 +338,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -373,7 +373,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -408,7 +408,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),
@@ -443,7 +443,7 @@ class TestTruncIntQuantUnit:
                     "bit_width_impl": BitWidthConst(4),
                     "float_to_int_impl": RoundSte(),
                     "trunc_scaling_impl": TruncScalingWrapper(
-                        trunc_int_scaling_impl=TruncPowerOfTwoIntScaling(),
+                        trunc_int_scaling_impl=PowerOfTwoIntScaling(signed=True),
                         scaling_impl=RuntimeStatsScaling(
                             scaling_stats_impl=AbsMax(),
                             scaling_stats_input_view_shape_impl=Identity(),

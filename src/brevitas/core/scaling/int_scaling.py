@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Union
+from typing import Optional, Union
 
 from torch import Tensor
 
@@ -19,11 +19,12 @@ class IntScaling(brevitas.jit.ScriptModule):
         self.narrow_range = narrow_range
 
     @brevitas.jit.script_method
-    def forward(self, bit_width: Tensor) -> Tensor:
-        if self.signed:
-            return -min_int(self.signed, self.narrow_range, bit_width)
+    def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
+        is_signed = signed if signed is not None else self.signed
+        if is_signed:
+            return -min_int(is_signed, self.narrow_range, bit_width)
         else:
-            return max_int(self.signed, self.narrow_range, bit_width)
+            return max_int(is_signed, self.narrow_range, bit_width)
 
 
 class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
@@ -34,15 +35,6 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
         self.signed = signed
 
     @brevitas.jit.script_method
-    def forward(self, bit_width: Tensor) -> Tensor:
-        return max_int(self.signed, False, bit_width) + 1
-
-
-class TruncPowerOfTwoIntScaling(brevitas.jit.ScriptModule):
-
-    def __init__(self):
-        super(TruncPowerOfTwoIntScaling, self).__init__()
-
-    @brevitas.jit.script_method
-    def forward(self, bit_width: Tensor, signed: Union[bool, Tensor]) -> Tensor:
-        return max_int(signed, False, bit_width) + 1
+    def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
+        is_signed = signed if signed is not None else self.signed
+        return max_int(is_signed, False, bit_width) + 1

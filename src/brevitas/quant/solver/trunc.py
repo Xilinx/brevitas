@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from brevitas.core.quant import TruncIntQuant
+from brevitas.core.scaling import PowerOfTwoIntScaling
 from brevitas.core.scaling import TruncMsbScaling
-from brevitas.core.scaling import TruncPowerOfTwoIntScaling
 from brevitas.core.scaling import TruncScalingWrapper
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -48,7 +48,7 @@ class SolveTruncIntScalingImplFromEnum(ExtendedInjector):
     @value
     def trunc_int_scaling_impl(restrict_scaling_type):
         if restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
-            return TruncPowerOfTwoIntScaling
+            return PowerOfTwoIntScaling
         else:
             raise RuntimeError(f'restrict_scaling_type={restrict_scaling_type} not recognized.')
 

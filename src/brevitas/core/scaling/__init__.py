@@ -9,7 +9,6 @@ from brevitas.core.stats import SCALAR_SHAPE
 from .float_scaling import FloatScaling
 from .int_scaling import IntScaling
 from .int_scaling import PowerOfTwoIntScaling
-from .int_scaling import TruncPowerOfTwoIntScaling
 from .pre_scaling import AccumulatorAwareParameterPreScaling
 from .pre_scaling import AccumulatorAwareZeroCenterParameterPreScaling
 from .pre_scaling import ParameterPreScalingWeightNorm
