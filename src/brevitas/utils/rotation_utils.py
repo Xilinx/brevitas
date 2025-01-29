@@ -79,4 +79,4 @@ class ScaleWeightParametrization(torch.nn.Module):
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         # Reciprocal is done on the fly as to preserve the tie between scale and its reciprocal
         scale = torch.reciprocal(self.scaling_factor) if self.is_sink else self.scaling_factor
-        return tensor * scale
+        return tensor * scale.to(tensor.device)

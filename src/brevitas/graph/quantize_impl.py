@@ -504,6 +504,7 @@ def _module_class_name(module_class_or_str):
     return name
 
 
+from torch.nn.utils.parametrize import type_before_parametrizations
 def find_module(
         model: nn.Module,
         layer_map: Dict[nn.Module, Optional[Dict]],

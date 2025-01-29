@@ -10,6 +10,8 @@ import operator
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 import warnings
 
+from brevitas.graph.gpxq import LayerHandler
+from brevitas.quant_tensor import QuantTensor
 import packaging
 import packaging.version
 import torch
@@ -20,7 +22,7 @@ import torch.nn.utils.parametrize as parametrize
 from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
-from brevitas.graph import ModuleToModuleByInstance
+from brevitas.graph import DisableEnableQuantization, ModuleToModuleByInstance
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
@@ -45,7 +47,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.rotation_utils import ScaleWeightParametrization
-from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas.utils.torch_utils import KwargsForwardHook, StopFwdException
 from brevitas.utils.torch_utils import WeightBiasWrapper
 
 # External optional dependency
@@ -169,7 +171,7 @@ class Region:
         # we need to add together the number of channels. Otherwise, all sources must have the same
         # number of output channel.
         # Furthermore, all output channels of all the sources are always fully equalized.
-        max_shape_srcs = 0
+        max_shape_srcs = 1
         for name, indexes in self.srcs.items():
             max_shape_srcs = max(max_shape_srcs, indexes.end + indexes.offset)
         return max_shape_srcs
@@ -178,7 +180,7 @@ class Region:
     def max_shape_sinks(self):
         # Compute the number of input channel from the sinks. If we are equalizing through cat,
         # we need to slice and potentially select only a subset of input channel from sinks.
-        max_shape_sinks = 0
+        max_shape_sinks = 1
         for name, indexes in self.sinks.items():
             max_shape_sinks = max(max_shape_sinks, indexes.offset + (indexes.end - indexes.start))
         return max_shape_sinks
@@ -489,6 +491,7 @@ def _cross_layer_equalization(
     # If equalization criteria are not met, we return a scalar one to indicate that no equalization
     # has been performed
     def _no_equalize():
+        raise
         return torch.tensor(1., dtype=dtype), rewriters
 
     # If a module has `allocate_params` attribute, we must load the weights following that method
@@ -504,8 +507,8 @@ def _cross_layer_equalization(
     dtype = next(single_module.parameters()).dtype
 
     # If region is not valid, don't equalize. If we are inserting a standalone mul, we don't need this check
-    if not region.is_valid and list_of_insert_mul_node_fn is None:
-        return _no_equalize()
+    # if not region.is_valid and list_of_insert_mul_node_fn is None:
+    #     return _no_equalize()
 
     src_axes = {}
     for name, indexes in region.srcs.items():
@@ -532,7 +535,7 @@ def _cross_layer_equalization(
         sink_axes[name] = (module, axis)
     # If act_val is enabled, use source or sink weights to determine the activation channel
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
-    if list_of_act_val is not None:
+    if list_of_insert_mul_node_fn is not None:
         list_of_sink_axes = [x for x in list(act_sink_axes.values()) if x is not None]
         list_of_source_axes = [x for x in list(act_sources_axes.values()) if x is not None]
         if len(list_of_sink_axes) > 0:
@@ -556,8 +559,8 @@ def _cross_layer_equalization(
     sink_weights = {
         name: transpose(m.weight.cpu().to(torch.float32), axis)
         for name, (m, axis) in sink_axes.items()}
-    srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
-    sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
+    srcs_range = 1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
+    sinks_range = 1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
     for k, v in sink_weights.items():
         # Sinks can be partially equalized, thus we need to select
         # only the channels we are interested in
@@ -590,6 +593,7 @@ def _cross_layer_equalization(
         weight_range = scale_fn(v.reshape(v.size(0), -1))
         srcs_range[channel_start:channel_end] = torch.max(
             srcs_range[channel_start:channel_end], weight_range)
+
     if list_of_act_val is not None:
         list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
         if len(list_of_act_val_shapes) > 0:
@@ -604,17 +608,16 @@ def _cross_layer_equalization(
                 for act_val in list_of_act_val],
                       1))
 
-    if list_of_act_val is not None:
         if co_optimize_act_weights and len(src_axes) > 0:
             srcs_range = .5 * srcs_range + .5 * srcs_range_act
         else:
             srcs_range = srcs_range_act
 
-    # If there is a mismatch between srcs and sinks values, exit
-    if srcs_range.shape != sinks_range.shape:
-        warnings.warn(
-            "Detected source and sink with non compatible shapes, equalization is skipped")
-        return _no_equalize()
+    # # If there is a mismatch between srcs and sinks values, exit
+    # if srcs_range.shape != sinks_range.shape:
+    #     warnings.warn(
+    #         "Detected source and sink with non compatible shapes, equalization is skipped")
+    #     return _no_equalize()
 
     # Instead of clipping very low values, which would cause their reciprocal to be very large
     # thus hindering quantization, we set both sources and sinks to one,
@@ -625,15 +628,19 @@ def _cross_layer_equalization(
     srcs_range = torch.where(
         channelwise_no_equalize, torch.tensor(1., dtype=torch.float32, device='cpu'), srcs_range)
 
-    srcs_range = torch.pow(srcs_range, alpha)
-    sinks_range = torch.pow(sinks_range, 1 - alpha)
+    srcs_range = torch.pow(srcs_range, alpha).to(torch.float16)
+    sinks_range = torch.pow(sinks_range, 1 - alpha).to(torch.float16)
+    # if len(srcs_range.shape) == 1 or len(sinks_range) == 1:
+    #     scaling_factors = torch.ones(1).type_as(sinks_range)
+    # else:
     scaling_factors = sinks_range / srcs_range
+    scaling_factors = torch.nn.Parameter(scaling_factors)
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
         device = list_of_act_val[0].device
         for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
             insert_mul_node_fn(
-                scaling_factors.to(device=device, dtype=dtype), act_val_shape, act_axis)
+                scaling_factors, act_val_shape, act_axis)
     if len(src_axes) > 0:
         for name, (module, axis) in src_axes.items():
             module_device = module.weight.device
@@ -644,7 +651,6 @@ def _cross_layer_equalization(
                 device=module_device, dtype=dtype)
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
             rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
-            print(rewriter_class, fuse_scaling)
             if hasattr(module, 'bias') and module.bias is not None:
                 rewriters.append(
                     rewriter_class(
@@ -686,10 +692,8 @@ def _cross_layer_equalization(
                 module=module,
                 tensor_name=tensor_name,
                 transform_module=ScaleWeightParametrization(
-                    scaling_factor=torch.reshape(partial_scaling, sink_broadcast_size),
+                    scaling_factor=scaling_factors,#torch.reshape(partial_scaling, sink_broadcast_size),
                     is_sink=True)))
-    for r in rewriters:
-        r.apply(model)
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
@@ -697,6 +701,8 @@ def _cross_layer_equalization(
         if hasattr(module, 'offload_params'):
             module.offload_params(module)
 
+    for r in rewriters:
+        r.apply(model)
     # print(scaling_factors, rewriters)
     return scaling_factors, rewriters
 
@@ -1068,6 +1074,31 @@ class ActivationEqualization(GraphTransform, ABC):
         self.model = model
         self.scale_computation_type = scale_computation_type
 
+        if self.scale_computation_type == 'maxabs':
+            self.scale_fn = _channel_maxabs
+        elif self.scale_computation_type == 'range':
+            self.scale_fn = _channel_range
+
+
+    def find_module(self, model, regions: List, prefix=''):
+        """
+        Iterate through the model looking at immediate children of every module to look for supported modules.
+        This allows us to stop the search when we meet a top-level module that is supported.
+        """
+        if isinstance(model,
+                      _supported_layers) and not isinstance(model, _batch_norm + (nn.LayerNorm,)):
+            if self.blacklist_layers is not None and prefix in self.blacklist_layers:
+                return
+            weight = get_weight_sink(model)
+            eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
+            region = Region(sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
+            regions.append(region)
+        else:
+            for name, module in model.named_children():
+                full_name = prefix + '.' + name if prefix != '' else name
+                self.find_module(module, regions, full_name)
+
+
     @abstractmethod
     def setup(self):
         pass
@@ -1083,7 +1114,7 @@ class ActivationEqualization(GraphTransform, ABC):
         broadcastable_shape.insert(batch_dim, 1)
         mul_factor = ScaleBias(
             num_features=shape[axis], bias=False, runtime_shape=broadcastable_shape)
-        mul_factor.weight.data = scale
+        mul_factor.weight = scale
         return mul_factor
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
@@ -1121,6 +1152,321 @@ class ActivationEqualization(GraphTransform, ABC):
             ModuleInstanceToModuleInstance(hook, hook.module).apply(self.model)
 
 
+class OptimizedScaling:
+
+    def __init__(self, layer, name):
+        self.layer = layer
+        self.name = name
+        self.inputs = dict()
+        self.disable_quant_inference = DisableEnableQuantization()
+
+    def process_input(self, inp):
+        # Input is a tuple, so we take first element
+        inp = inp[0]
+        # inp = self.layer.input_quant(inp)
+
+        # is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+
+        # If using quantized activations, inp could be QuantTensor. In
+        # this case, we overwrite the metadata.
+        if isinstance(inp, QuantTensor):
+            # if is_quant_enabled and self.quant_metadata is None:
+            #     self.quant_metadata = self.layer.input_quant.cache_class(inp, metadata_only=True)
+            inp = inp.value
+
+        # If input is unbatched, add batch_size = 1
+        if len(inp.shape) == 1:
+            warnings.warn("Found unbatched input, adding batch dimension equal to 1")
+            inp = inp.unsqueeze(0)
+
+        # Define batch size before re-organizing the input
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp.rename_(None)
+            inp = inp.transpose(0, batch_dim)
+
+        return inp
+
+    def update_batch(self, module, input, current_layer):
+        # if self.disable_pre_forward_hook:
+        #     return input
+
+        # Update reference to current layer
+        current_layer.layer_names.add(self.name)
+        inp = self.process_input(input)
+        batch_size = inp.shape[0]
+
+        if id(module) not in self.inputs:
+            self.inputs[id(module)] = [inp]
+        else:
+            self.inputs[id(module)].append(inp)
+        # If we are executing GPTQ with group of parallel layers, we keep track of how many forward
+        # we executed. Once we executed as many as the number of parallel_layers, we raise
+        # StopFwdException
+        current_layer.forward_count += 1
+        if current_layer.forward_count == len(self.layer):
+            current_layer.forward_count = 0
+            raise StopFwdException
+    
+    def update_layers(self):
+        layer = self.layer
+        # w: co, ci
+        # x: n, ci
+        outs = dict()
+        inp_scales = dict()
+        for l in layer:
+            # self.disable_quant_inference.disable_param_quantization(l, False)
+
+            # self.disable_quant_inference.disable_param_quantization(l, False)
+            # self.disable_quant_inference.disable_act_quantization(l, False)
+            inp = self.inputs[id(l)]
+            inp = torch.cat(inp, dim=0)
+
+            inp = inp.to(next(l.parameters()).device)
+            org_out = l(inp)
+            if isinstance(org_out, tuple):
+                org_out = org_out[0]
+            outs[id(l)] = org_out
+            inp_scales[id(l)] = inp.abs().view(-1, inp.shape[-1]).mean(0)
+        self.disable_quant_inference.enable_param_quantization(l, False)
+
+
+        best_error = float("inf")
+        best_ratio = -1
+        best_scales = None
+
+        n_grid = 20
+        history = []
+        # print(inp_scales[id(l)].shape)
+        # print(inp.shape)
+        # print(org_out.mean())
+        # org_sd = {id(l): {k: v.cpu() for k, v in l.state_dict().items()} for l in layer}
+        for ratio in range(n_grid):
+            ratio = ratio * 1 / n_grid
+            scales = inp_scales[id(l)].pow(ratio).clamp(min=1e-4).view(-1)
+            # print(inp_scales[id(l)].pow(ratio).clamp(min=1e-4).flatten()[:5], ratio, scales.flatten()[:5])
+
+            scales = (scales.max() * scales.min()).sqrt() / scales 
+            # update parametrized scale
+            for l in layer:
+                l.layer.parametrizations.weight[0].scaling_factor.data = scales#.cpu()
+
+            for l in layer:
+
+                inp = self.inputs[id(l)]
+                inp = torch.cat(inp, dim=0)
+                inp = inp.to(next(l.parameters()).device)
+                out = l(inp)
+                if isinstance(out, tuple):
+                    out = out[0]
+                # print(out.flatten()[:10])
+                # print(l.weight.flatten()[:10])
+                # print("----------------")
+
+            loss = (
+                (org_out - out).float().pow(2).mean().item()
+            )  # float prevents overflow
+            history.append(loss)
+            is_best = loss < best_error
+            # print(scales)
+            # print(loss, best_error)
+            # break
+            if is_best:
+                best_error = loss
+                best_ratio = ratio
+                best_scales = scales
+        self.disable_quant_inference.disable_param_quantization(l, False)
+
+        # print(best_ratio)
+        # print(l.parametrizations.weight.scale)
+            # block.load_state_dict(org_sd)
+        if best_ratio == -1:
+            print(history)
+            raise Exception
+        for l in layer:
+            l.layer.parametrizations.weight.scale = best_scales.cpu()
+        # print(best_ratio)
+        # print(l.parametrizations.weight.scale)
+        print(best_ratio)
+        # print(history)
+        # print(best_scales.flatten()[:5])
+
+        best_scales = best_scales.view(-1)
+        del self.inputs
+
+
+class ParametrizedActivationEqualization(ActivationEqualization):
+    def __init__(
+        self,
+        model,
+        scale_computation_type: str = 'maxabs',
+        blacklist_layers: Optional[List[str]] = None,
+        use_parametrized_scaling: bool = True):
+        super(ParametrizedActivationEqualization, self).__init__(model, scale_computation_type)
+        self.float_act_map = {}
+        self.batch_dim_act_map = {}
+        self.hooks = []
+        self.add_mul_node = True
+        self.blacklist_layers = blacklist_layers
+        self.use_parametrized_scaling = use_parametrized_scaling
+        self.hook_dict = dict()
+        self.gpxq_layers = dict()
+        self.disable_quant_inference = DisableEnableQuantization()
+
+
+
+        regions: List[Region] = []
+        self.find_module(model, regions)
+        self.regions = regions
+        self.current_layer = LayerHandler()
+        self.rewriters = []
+
+    def setup(self):
+
+        for region in self.regions:
+            module = region.get_module_from_name('sinks0')
+            batch_dim = 0
+            if hasattr(region, 'batch_first'):
+                batch_dim = 0 if region.batch_first else 1
+
+            hook_fn = partial(
+                self.forward_stats_hook, name=module, batch_dim=batch_dim, use_inp=True)
+            new_instance = KwargsForwardHook(module, hook_fn)
+            ModuleInstanceToModuleInstance(module, new_instance).apply(self.model)
+            self.hooks.append(new_instance)
+        
+    def init_parametrized_scales(self, model, model_args, model_kwargs):
+        print("SETUPPPP")
+        self.setup()
+        model(*model_args, **model_kwargs)
+        scale_factors = []
+        rewriters = []
+        self.remove_hooks()
+        print(len(self.regions))
+        for region in self.regions:
+            module = region.get_module_from_name('sinks0')
+            insert_mul_fn = partial(
+                self.insert_mul_node, region=module, batch_dim=0)
+            scale_factor_region, rewriters_region = _cross_layer_equalization(
+                    self.model,
+                    region,
+                    False,
+                    scale_computation_type=self.scale_computation_type,
+                    list_of_insert_mul_node_fn=[insert_mul_fn],
+                    list_of_act_val=[self.float_act_map[module]],
+                    fuse_scaling=False)
+            self.rewriters.append(rewriters_region)
+
+    def find_group_of_sinks(self, model):
+        group_of_sinks = dict()
+        for n, r in model.named_modules():
+            if isinstance(r, EqualizedModule):
+                if 'down_proj' not in n and 'gate_proj' not in n and 'up_proj' not in n:
+                    r.layer.parametrizations.weight[0].scaling_factor.data = torch.ones_like(r.layer.parametrizations.weight[0].scaling_factor)
+                    # self.disable_quant_inference.disable_param_quantization(r, False)
+                    continue
+                print(n)
+                if hasattr(r.layer, 'parametrizations') and r.layer.parametrizations.weight[0].is_sink: #and isinstance(r.parametrizations.weight, ScaleWeightParametrization)
+                    if id(r.layer.parametrizations.weight[0].scaling_factor) not in group_of_sinks:
+                        group_of_sinks[id(r.layer.parametrizations.weight[0].scaling_factor)] = [r]
+                        last = id(r.layer.parametrizations.weight[0].scaling_factor)
+                    else:
+                        group_of_sinks[id(r.layer.parametrizations.weight[0].scaling_factor)].append([r])
+                        last = id(r.layer.parametrizations.weight[0].scaling_factor)
+        # del group_of_sinks[last]
+        self.group_of_sinks = group_of_sinks
+
+    def __enter__(self):
+        self.disable_quant_inference.disable_param_quantization(self.model, False)
+
+        self.find_group_of_sinks(self.model)
+        self.orig_forward = self.model.forward
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            self.model.__class__.forward = self.catch_stopfwd
+        else:
+            self.model.forward = self.catch_stopfwd
+        for name, parallel_layers in self.group_of_sinks.items():
+            # for i, module in enumerate(parallel_layers):
+            #     if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
+            #         warnings.warn(
+            #             f'Hooks detected during setup for GPxQ. '
+            #             f'Behaviour might deviate from what expected.')
+            #     module_name = str(i) + ' ' + name
+
+                # gpxq_module_optimizer = self.initialize_module_optimizer(
+                #     module,
+                #     name,
+                #     act_order=self.act_order,
+                #     len_parallel_layers=len(parallel_layers),
+                #     create_weight_orig=self.create_weight_orig)
+            optimization_class = OptimizedScaling(parallel_layers, name)
+            hook_fn = partial(
+                optimization_class.update_batch, current_layer=self.current_layer)
+            hook_list = []
+            for module in parallel_layers:
+                hook_list.append(module.register_forward_pre_hook(hook_fn))
+            self.hook_dict[name] = hook_list
+            self.gpxq_layers[name] = optimization_class
+            # self.gpxq_layers_rev[name] = parallel_layers
+
+        # if not self.use_quant_activations:
+        #     self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+        #     self.disable_quant_inference.disable_act_quantization(
+        #         self.model, is_training=self.model.training)
+        #     self.disable_quant_inference.disable_bias_quantization(
+        #         self.model, is_training=self.model.training)
+
+        self.num_layers = len(self.group_of_sinks)
+        return self
+
+    def catch_stopfwd(self, *args, **kwargs):
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+
+    def update(self):
+        for name in self.current_layer.layer_names:
+            for h in self.hook_dict[name]:
+                h.remove()
+            self.gpxq_layers[name].update_layers()
+        self.current_layer.layer_names.clear()
+
+    def apply(self):
+        pass
+
+    def insert_mul_node(self, scale, shape, axis, region, batch_dim=0):
+        mul_factor = self.create_mul_node(scale, shape, axis, batch_dim)
+        rewriter = ModuleInstanceToModuleInstance(
+            region, EqualizedModule(scale_module=mul_factor, layer=region))
+        rewriter.apply(self.model)
+
+    def __exit__(self, *args, **kwargs):
+        self.disable_quant_inference.enable_param_quantization(self.model, False)
+
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            self.model.__class__.forward = self.orig_forward
+        else:
+            self.model.forward = self.orig_forward
+        print(args)
+        print(kwargs)
+        
+
+def extract_parametrized_scale(model: nn.Module) -> List[nn.Parameter]:
+    trainable_rotations = []
+    # IDs of the rotation matrices are tracked, as several modules can share
+    # the same parametrized rotation
+    ids_rot = set()
+    for module in model.modules():
+        if isinstance(module, ScaleWeightParametrization):
+            if id(module.scale) not in ids_rot:
+                ids_rot.add(id(module.scale))
+                trainable_rotations.append(module.scale)
+    return trainable_rotations
+
+
+
+
 class LayerwiseActivationEqualization(ActivationEqualization):
 
     def __init__(
@@ -1140,29 +1486,6 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         regions: List[Region] = []
         self.find_module(model, regions)
         self.regions = regions
-
-        if self.scale_computation_type == 'maxabs':
-            self.scale_fn = _channel_maxabs
-        elif self.scale_computation_type == 'range':
-            self.scale_fn = _channel_range
-
-    def find_module(self, model, regions: List, prefix=''):
-        """
-        Iterate through the model looking at immediate children of every module to look for supported modules.
-        This allows us to stop the search when we meet a top-level module that is supported.
-        """
-        if isinstance(model,
-                      _supported_layers) and not isinstance(model, _batch_norm + (nn.LayerNorm,)):
-            if self.blacklist_layers is not None and prefix in self.blacklist_layers:
-                return
-            weight = get_weight_sink(model)
-            eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
-            regions.append(region)
-        else:
-            for name, module in model.named_children():
-                full_name = prefix + '.' + name if prefix != '' else name
-                self.find_module(module, regions, full_name)
 
     def setup(self):
         for region in self.regions:
@@ -1234,10 +1557,6 @@ class GraphActivationEqualization(ActivationEqualization):
             return_acts=True,
             state_impl_kwargs={'supported_sinks': supported_sinks})
 
-        if self.scale_computation_type == 'maxabs':
-            self.scale_fn = _channel_maxabs
-        elif self.scale_computation_type == 'range':
-            self.scale_fn = _channel_range
 
     def setup(self):
         # Select only regions with activation to equalize through.
