@@ -783,7 +783,9 @@ def parse_args(args, override_defaults={}):
         type=str,
         default=None,
         choices=['per_tensor', 'per_row', 'per_group'],
-        help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
+        help=
+        'Granularity for scales/zero-point of KV cache. If not set, it will use input-quant-granularity. Default: %(default)s'
+    )
     parser.add_argument(
         '--input-group-size',
         type=int,
