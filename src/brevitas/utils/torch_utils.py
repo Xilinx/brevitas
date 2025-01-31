@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from dataclasses import dataclass
 from functools import wraps
 from typing import List, Optional, Tuple
 
 import torch
+from torch import nn
 from torch.nn import Sequential
 
 import brevitas
@@ -195,3 +197,17 @@ def type_before_parametrizations(module: torch.nn.Module) -> type:
         return module.__class__.__bases__[0]
     else:
         return type(module)
+
+
+# Required for being hashable
+@dataclass(eq=True, frozen=True)
+class WeightBiasWrapper:
+    weight: torch.Tensor = None
+    bias: torch.Tensor = None
+
+
+def update_module_tensor(module: nn.Module, tensor: torch.Tensor, tensor_name: str):
+    if isinstance(module, WeightBiasWrapper):
+        setattr(getattr(module, tensor_name), 'data', tensor)
+    else:
+        setattr(module, tensor_name, torch.nn.Parameter(tensor))

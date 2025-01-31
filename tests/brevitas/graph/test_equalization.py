@@ -38,8 +38,8 @@ from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas.utils.rotation_utils import RotationWeightParametrization
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *

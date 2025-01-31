@@ -43,10 +43,12 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas.utils.torch_utils import update_module_tensor
+from brevitas.utils.torch_utils import WeightBiasWrapper
 from brevitas.utils.torch_utils import pad_to_dim
 
 logging = setup_logger(__name__)
@@ -144,13 +146,6 @@ class EqualizationIndexes:
     start: int = 0
     end: int = 0
     offset: int = 0
-
-
-# Required for being hashable
-@dataclass(eq=True, frozen=True)
-class WeightBiasWrapper:
-    weight: torch.Tensor = None
-    bias: torch.Tensor = None
 
 
 # Required for being hashable
@@ -634,15 +629,17 @@ def _cross_layer_equalization(
             partial_inverse_scale = inverse_scaling_factors[channel_start:channel_end].to(
                 device=module_device, dtype=dtype)
             if hasattr(module, 'bias') and module.bias is not None:
-                _update_weights(
-                    module, module.bias * partial_inverse_scale.view_as(module.bias), attr='bias')
+                update_module_tensor(
+                    module,
+                    module.bias * partial_inverse_scale.view_as(module.bias),
+                    tensor_name='bias')
             src_broadcast_size = [1] * module.weight.ndim
             src_broadcast_size[axis] = module.weight.size(axis)
 
-            _update_weights(
+            update_module_tensor(
                 module,
                 module.weight * torch.reshape(partial_inverse_scale, src_broadcast_size),
-                attr='weight')
+                tensor_name='weight')
     for name, (module, axis) in sink_axes.items():
         module_device = module.weight.device
         sink_broadcast_size = [1] * module.weight.ndim
@@ -655,10 +652,10 @@ def _cross_layer_equalization(
         partial_scaling[indexes.start:indexes.end] = scaling_factors[indexes.offset:indexes.offset +
                                                                      channel_range]
         partial_scaling = partial_scaling.to(device=module_device, dtype=dtype)
-        _update_weights(
+        update_module_tensor(
             module,
             module.weight * torch.reshape(partial_scaling, sink_broadcast_size),
-            attr='weight')
+            tensor_name='weight')
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
@@ -667,13 +664,6 @@ def _cross_layer_equalization(
             module.offload_params(module)
 
     return scaling_factors
-
-
-def _update_weights(original_module, new_value, attr='weight'):
-    if isinstance(original_module, WeightBiasWrapper):
-        setattr(getattr(original_module, attr), 'data', new_value)
-    else:
-        setattr(original_module, attr, nn.Parameter(new_value))
 
 
 def _equalize(

@@ -11,7 +11,7 @@ from transformers import Trainer
 from transformers.tokenization_utils import PreTrainedTokenizerBase
 
 from brevitas.optim.cailey_sgd import CaileySGD
-from brevitas.utils.rotation_utils import extract_trainable_rotation_matrices
+from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 

@@ -10,8 +10,8 @@ import torch.nn.utils.parametrize as parametrize
 from brevitas.graph.base import _remove_parametrization_entries_state_dict
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
+from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas.utils.rotation_utils import RotationWeightParametrization
 from tests.marker import requires_pt_ge
 from tests.marker import requires_pt_lt
 
