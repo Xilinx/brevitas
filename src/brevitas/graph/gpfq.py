@@ -206,7 +206,7 @@ class GPFQ(GPxQ):
             Dg[group_index].copy_(self.G[group_index].diag())
             Dh[group_index].copy_(self.H[group_index].diag())
         # if either norms are 0, the weight is effectively pruned
-        Ds = torch.where(Dg * Dh != 0, Dg / Dh, 0.)  # \hat{D}_tt / D_tt
+        Ds = torch.where(Dg * Dh != 0, Dg / Dh, torch.zeros_like(Ds))  # \hat{D}_tt / D_tt
 
         Lg: Tensor = torch.zeros((self.groups, self.columns, self.columns),
                                  device=dev,
