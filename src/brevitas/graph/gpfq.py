@@ -22,7 +22,13 @@ from brevitas.utils.torch_utils import StopFwdException
 
 
 class GPFQ(GPxQ):
-    "Optimized greedy path following quantization (GPFQ)"
+    """
+    Optimized greedy path following quantization (GPFQ)
+
+    See `Post-training Quantization for Neural Networks with Provable Guarantees`
+
+    https://epubs.siam.org/doi/abs/10.1137/22M1511709 
+    """
 
     def __init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig) -> None:
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
