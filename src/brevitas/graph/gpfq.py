@@ -217,7 +217,9 @@ class GPFQ(GPxQ):
         for group_index in range(self.groups):
             L0g = torch.tril(self.G[group_index], -1)  # L0
             L0h = torch.tril(self.H[group_index], -1)  # \hat{L0}
-            Dhi = torch.where(Dh[group_index] != 0, 1. / Dh[group_index], 0)  # D^{-1}
+            Dhi = torch.where(
+                Dh[group_index] != 0, 1. / Dh[group_index],
+                torch.zeros_like(Dh[group_index]))  # D^{-1}
             Lg[group_index].copy_(torch.diag(Dhi) @ L0g)
             Lh[group_index].copy_(torch.diag(Dhi) @ L0h)
 
