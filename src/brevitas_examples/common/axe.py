@@ -13,7 +13,7 @@ try:
 except:
     LinAlgError = RuntimeError
 
-from brevitas.graph.gpfq import GPFQv2
+from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
@@ -253,7 +253,7 @@ class A2GPTQ(GPTQ):
         del thresholds, scales  # memory management
 
 
-class A2GPFQ(GPFQv2):
+class A2GPFQ(GPFQ):
     """
     Memory-efficient, accumulator-aware GPFQ as proposed in https://arxiv.org/pdf/2409.17092
     """

@@ -11,26 +11,19 @@ from torch.utils.data import TensorDataset
 
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
-from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import gptq_mode
 
 from .equalization_fixtures import *
 
 
 def apply_gpfq(
-        calib_loader: DataLoader,
-        model: nn.Module,
-        act_order: bool,
-        use_quant_activations: bool,
-        gpfq_class: GPFQ):
+        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gpfq_mode(model,
-                       use_quant_activations=use_quant_activations,
-                       act_order=act_order,
-                       gpfq_class=gpfq_class) as gpfq:
+        with gpfq_mode(model, use_quant_activations=use_quant_activations,
+                       act_order=act_order) as gpfq:
             gpfq_model = gpfq.model
             for _ in range(gpfq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
@@ -46,11 +39,8 @@ def apply_gptq(
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gptq_mode(
-                model,
-                use_quant_activations=use_quant_activations,
-                act_order=act_order,
-        ) as gptq:
+        with gptq_mode(model, use_quant_activations=use_quant_activations,
+                       act_order=act_order) as gptq:
             gptq_model = gptq.model
             for _ in range(gptq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
@@ -60,10 +50,7 @@ def apply_gptq(
                 gptq.update()
 
 
-apply_gpxq_func_map = {
-    "gpfq": partial(apply_gpfq, gpfq_class=GPFQ),
-    "gpfq2": partial(apply_gpfq, gpfq_class=GPFQv2),
-    "gptq": apply_gptq}
+apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
 
 
 @pytest.mark.parametrize("act_order", [True, False])

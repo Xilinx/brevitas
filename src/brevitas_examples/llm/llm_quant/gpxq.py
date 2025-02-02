@@ -11,8 +11,8 @@ from tqdm import tqdm
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
-from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.utils.python_utils import recurse_getattr
@@ -163,7 +163,7 @@ def apply_gpfq(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
     else:
-        gpfq_class = GPFQv2
+        gpfq_class = GPFQ
     if block_name is not None:
         context_manager_kwargs = {
             'act_order': act_order,
