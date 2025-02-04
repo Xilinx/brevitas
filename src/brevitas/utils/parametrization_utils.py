@@ -50,6 +50,35 @@ class RotationWeightParametrization(torch.nn.Module):
         return tensor
 
 
+class ScaleWeightParametrization(torch.nn.Module):
+    r"""Scales a tensor by a specified scaling factor
+    Args:
+        scaling_factor (Tensor): scaling factor by which to multiply
+            the tensor
+        axis (int): Axis in which to apply the scaling
+        use_inverse_scaling (bool): whether to take the inverse of the
+            scaling factor
+    """
+
+    def __init__(
+            self, scaling_factor: Tensor, axis: int, use_inverse_scaling: bool = False) -> None:
+        super().__init__()
+        self.scaling_factor = scaling_factor
+        self.axis = axis
+        self.use_inverse_scaling = use_inverse_scaling
+
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        # self.scaling_factor is 1D, so it needs to be reshaped to be broadcastable against tensor,
+        # e.g. suppose that the tensor corresponds to the weights of a nn.Linear whose shape is
+        # [output_channels, input_channels], then, if axis = 0, the scales are reshaped to [output_channels, 1]
+        broadcast_shape = [
+            tensor.size(self.axis) if self.axis == i else 1 for i in range(tensor.ndim)]
+        # Reciprocal is done on the fly as to preserve the tie between scale and its reciprocal
+        scale = torch.reciprocal(
+            self.scaling_factor) if self.use_inverse_scaling else self.scaling_factor
+        return tensor * scale.reshape(broadcast_shape).to(device=tensor.device, dtype=tensor.dtype)
+
+
 def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
     trainable_rotations = []
     # IDs of the rotation matrices are tracked, as several modules can share
