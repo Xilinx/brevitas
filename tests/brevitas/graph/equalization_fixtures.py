@@ -38,8 +38,13 @@ IN_SIZE_LINEAR = (1, 224, 3)
 IN_SIZE_CONV_SMALL = (1, 3, 32, 32)
 
 
+#TODO: Remove legacy stuff
 def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_type):
     scale_factors_regions = []
+    import copy
+
+    from brevitas.graph.equalize import _cross_layer_equalization_legacy
+    model_copy = copy.deepcopy(model)
     for i in range(3):
         for region in regions:
             scale_factors_region, _ = _cross_layer_equalization(
@@ -50,6 +55,26 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
                 scale_computation_type=scale_computation_type)
             if i == 0:
                 scale_factors_regions.append(scale_factors_region)
+    scale_factors_regions_legacy = []
+    regions_copy = copy.deepcopy(regions)
+    for r in regions_copy:
+        for name in r.name_to_module.keys():
+            from brevitas.utils.python_utils import recurse_getattr
+            r.name_to_module[name] = recurse_getattr(model_copy, name)
+    for i in range(3):
+        for region in regions_copy:
+            scale_factors_region_legacy = _cross_layer_equalization_legacy(
+                region,
+                merge_bias=merge_bias,
+                bias_shrinkage=bias_shrinkage,
+                scale_computation_type=scale_computation_type)
+            if i == 0:
+                scale_factors_regions_legacy.append(scale_factors_region_legacy)
+    # Add asserts
+    for sfr, sfrl in zip(scale_factors_regions, scale_factors_regions_legacy):
+        assert torch.allclose(sfr, sfrl, atol=0.0, rtol=0.0)
+    for param, param_legacy in zip(model.parameters(), model_copy.parameters()):
+        assert torch.allclose(param, param_legacy, atol=0.0, rtol=0.0)
     return scale_factors_regions
 
 
