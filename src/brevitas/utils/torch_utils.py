@@ -199,15 +199,5 @@ def type_before_parametrizations(module: torch.nn.Module) -> type:
         return type(module)
 
 
-# Required for being hashable
-@dataclass(eq=True, frozen=True)
-class WeightBiasWrapper:
-    weight: torch.Tensor = None
-    bias: torch.Tensor = None
-
-
 def update_module_tensor(module: nn.Module, tensor: torch.Tensor, tensor_name: str):
-    if isinstance(module, WeightBiasWrapper):
-        setattr(getattr(module, tensor_name), 'data', tensor)
-    else:
-        setattr(module, tensor_name, torch.nn.Parameter(tensor))
+    setattr(module, tensor_name, torch.nn.Parameter(tensor))
