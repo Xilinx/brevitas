@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -54,16 +54,22 @@ class RotationWeightParametrization(torch.nn.Module):
 class ScaleWeightParametrization(torch.nn.Module):
     r"""Scales a tensor by a specified scaling factor
     Args:
-        scaling_factor (Tensor): scaling factor by which to multiply
-            the tensor
-        axis (int): Axis in which to apply the scaling
+        scaling_factor (Tensor or Parameter): scaling factor by which to
+            multiply the tensor
+        axis (int): axis in which to apply the scaling
+        start_end_idxs (tuple, optional): when a tensor is partially equalized,
+            these indexes indicate the range of channels that are equalized,
+            while the scaling factor is set to 1 for the rest of the channels
+            (no-op for equalization)
+        slice_idxs (tuple, optional): these indexes determine the slice of
+            scaling_factor that must be used to equalize a given tensor
         use_inverse_scaling (bool): whether to take the inverse of the
             scaling factor
     """
 
     def __init__(
             self,
-            scaling_factor: Tensor,
+            scaling_factor: Union[Tensor, nn.Parameter],
             axis: int,
             start_end_idxs: Optional[Tuple[int, int]] = None,
             slice_idxs: Optional[Tuple[int, int]] = None,
@@ -79,20 +85,30 @@ class ScaleWeightParametrization(torch.nn.Module):
         # self.scaling_factor is 1D, so it needs to be reshaped to be broadcastable against tensor,
         # e.g. suppose that the tensor corresponds to the weights of a nn.Linear whose shape is
         # [output_channels, input_channels], then, if axis = 0, the scales are reshaped to [output_channels, 1]
-        num_features = tensor.size(self.axis)
-        broadcast_shape = [num_features if self.axis == i else 1 for i in range(tensor.ndim)]
-        # Reciprocal is done on the fly as to preserve the tie between scale and its reciprocal
-        scale = self.scaling_factor if self.slice_idxs is None else self.scaling_factor[
+        num_channels = tensor.size(self.axis)
+        broadcast_shape = [num_channels if self.axis == i else 1 for i in range(tensor.ndim)]
+        # self.scaling_factor might possible contain the scaling factors needed to equalize several
+        # modules. If that is the case, an slice of self.scaling_factor must be taken, and
+        # self.slice_idxs[0] and self.slice_idxs[1] indicate the starting and final positions of
+        # the slice respectively
+        scaling_factor = self.scaling_factor if self.slice_idxs is None else self.scaling_factor[
             self.slice_idxs[0]:self.slice_idxs[1]]
+        # Sinks might have only a subset of their channels equalized. Moreover, this subset is assumed to
+        # be a sequence of consecutive channels, thus they are specified by their start and end indexes
+        # (self.start_end_idxs). Therefore, the scaling factor is set to 1, for the channels that are
+        # not equalized
         if self.start_end_idxs is not None:
             # We replace the scaling factors of the channels we need to equalize, leaving the other to
             # one (i.e., no equalization)
-            scale = F.pad(
-                scale,
-                pad=(self.start_end_idxs[0], num_features - self.start_end_idxs[1]),
+            scaling_factor = F.pad(
+                scaling_factor,
+                pad=(self.start_end_idxs[0], num_channels - self.start_end_idxs[1]),
                 value=1.)
-        scale = torch.reciprocal(scale) if self.use_inverse_scaling else scale
-        return tensor * scale.reshape(broadcast_shape).to(device=tensor.device, dtype=tensor.dtype)
+        # Reciprocal is done on the fly as to preserve the tie between scale and its reciprocal
+        scaling_factor = torch.reciprocal(
+            scaling_factor) if self.use_inverse_scaling else scaling_factor
+        return tensor * scaling_factor.reshape(broadcast_shape).to(
+            device=tensor.device, dtype=tensor.dtype)
 
 
 def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:

@@ -472,6 +472,27 @@ def _cross_layer_equalization(
     the ranges of the first tensors' output channel are equal to the
     ranges of the second tensors' input channel
     """
+    # The names of the attributes containing the tensors to equalize, as well as the axis
+    # to equalize along, are stored in a List[Tuple[str, int]], where the first position
+    # in the tuple (NAME_IDX) is the name of the tensor, and the second (AXIS_IDX) is the
+    # equalization axis. Moreover, the first tuple in the list (WEIGHT_POS) must correspond
+    # to the weight tensor of a given module, while the second element, if present, should
+    # be its bias
+    WEIGHT_POS = 0
+    BIAS_POS = 1
+    NAME_IDX = 0
+    AXIS_IDX = 1
+
+    # Auxiliar methods to retrieve the weight and bias tensors from a given module
+    def _get_module_weight(m: nn.Module,
+                           tensor_names_axis: List[Tuple[str, int]]) -> Optional[nn.Parameter]:
+        return getattr(m, tensor_names_axis[WEIGHT_POS][NAME_IDX], None)
+
+    def _get_module_bias(m: nn.Module,
+                         tensor_names_axis: List[Tuple[str, int]]) -> Optional[nn.Parameter]:
+        return None if len(tensor_names_axis) <= 1 else getattr(
+            m, tensor_names_axis[BIAS_POS][NAME_IDX], None)
+
     rewriters = []
 
     # If equalization criteria are not met, we return a scalar one to indicate that no equalization
@@ -480,7 +501,6 @@ def _cross_layer_equalization(
         return torch.tensor(1., dtype=dtype), []
 
     # If a module has `allocate_params` attribute, we must load the weights following that method
-
     for name in (region.srcs_names + region.sinks_names):
         module = region.get_module_from_name(name)
         if hasattr(module, 'allocate_params'):
@@ -495,12 +515,6 @@ def _cross_layer_equalization(
     if not region.is_valid and list_of_insert_mul_node_fn is None:
         return _no_equalize()
 
-    # NOTE: Assumption! The list tensor_names_axis is not empty and the first element corresponds
-    # to the weight tensor.
-    WEIGHT_IDX = 0
-    NAME_IDX = 0
-    AXIS_IDX = 1
-
     src_axes = {}
     for name, indexes in region.srcs.items():
         module = region.get_module_from_name(name)
@@ -510,7 +524,7 @@ def _cross_layer_equalization(
 
         if isinstance(module, nn.MultiheadAttention):
             module = module.out_proj
-        # Bias is rotated for sources, if present
+        # Bias, if present, needs to be rotated for sources
         tensor_names_axis = [("weight", axis)] + ([
             ("bias", 0)] if getattr(module, 'bias', None) is not None else [])
         src_axes[name] = (module, tensor_names_axis)
@@ -534,7 +548,7 @@ def _cross_layer_equalization(
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
     axes_to_check = [
-        tensor_names_axis[WEIGHT_IDX][AXIS_IDX] for _,
+        tensor_names_axis[WEIGHT_POS][AXIS_IDX] for _,
         tensor_names_axis in list(src_axes.values()) + list(sink_axes.values())]
     if None in axes_to_check:
         return _no_equalize()
@@ -558,8 +572,8 @@ def _cross_layer_equalization(
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     sink_weights = {
         name: transpose(
-            getattr(m, tensor_names_axis[WEIGHT_IDX][NAME_IDX]).to(torch.float32),
-            tensor_names_axis[WEIGHT_IDX][AXIS_IDX])
+            _get_module_weight(m, tensor_names_axis).to(torch.float32),
+            tensor_names_axis[WEIGHT_POS][AXIS_IDX])
         for name, (m, tensor_names_axis) in sink_axes.items()}
     srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
     sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
@@ -578,20 +592,19 @@ def _cross_layer_equalization(
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
     if merge_bias:
-        # TODO: Use tensor_names to retrieve the appropiate weights and bias
         src_weights = {
             name: _combine_weights_bias(
                 transpose(
-                    getattr(m, tensor_names_axis[WEIGHT_IDX][NAME_IDX]),
-                    tensor_names_axis[WEIGHT_IDX][AXIS_IDX]),
+                    _get_module_weight(m, tensor_names_axis),
+                    tensor_names_axis[WEIGHT_POS][AXIS_IDX]),
                 bias_shrinkage,
-                m.bias).cpu().to(torch.float32)
+                _get_module_bias(m, tensor_names_axis)).cpu().to(torch.float32)
             for name, (m, tensor_names_axis) in src_axes.items()}
     else:
         src_weights = {
             name: transpose(
-                getattr(m, tensor_names_axis[WEIGHT_IDX][NAME_IDX]).cpu().to(torch.float32),
-                tensor_names_axis[WEIGHT_IDX][AXIS_IDX])
+                _get_module_weight(m, tensor_names_axis).cpu().to(torch.float32),
+                tensor_names_axis[WEIGHT_POS][AXIS_IDX])
             for name, (m, tensor_names_axis) in src_axes.items()}
     for k, v in src_weights.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
@@ -639,11 +652,9 @@ def _cross_layer_equalization(
     srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
     scaling_factors = srcs_range / sinks_range
-    # TODO: Maybe refactor? Make scaling a parameter if not fused
+    # If the scaling factors are not fused, they are stored as a parameter instead
     if not fuse_scaling:
-        # Make parameter if scaling_factors are not fused
         scaling_factors = nn.Parameter(scaling_factors)
-
     # Whether to apply the scaling in-place or parametrize the weights instead
     rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
 
@@ -1272,29 +1283,26 @@ class EqualizeGraph(GraphTransform):
             return graph_model
 
 
-class ScaleBiasMatMul(nn.Module):
+class ScaleBiasMul(nn.Module):
 
     def __init__(
-            self, num_features: int, bias: bool, axis: int, batch_dim: int, use_reciprocal: bool):
-        super(ScaleBiasMatMul, self).__init__()
+            self,
+            num_features: int,
+            bias: bool,
+            runtime_shape: Tuple[int] = (1, -1, 1, 1),
+            use_inverse_weights: bool = False):
+        super(ScaleBiasMul, self).__init__()
         self.num_features = num_features
         self.weight = nn.Parameter(torch.ones(num_features))
         self.bias = nn.Parameter(torch.zeros(num_features)) if bias else None
-        self.axis = axis
-        self.batch_dim = batch_dim
-        self.use_reciprocal = use_reciprocal
+        self.runtime_shape = runtime_shape
+        self.use_inverse_weights = use_inverse_weights
 
     def forward(self, input):
-        broadcast_shape = [
-            self.num_features if
-            (self.axis if self.axis >= 0 else input.ndim - 1 + self.axis) == i else 1
-            for i in range(input.ndim - 1)]
-        broadcast_shape.insert(self.batch_dim, 1)
-        weight = torch.reciprocal(self.weight.view(
-            broadcast_shape)) if self.use_reciprocal else self.weight.view(broadcast_shape)
-        out = input * weight.to(device=input.device, dtype=input.dtype)
+        weight = torch.reciprocal(self.weight) if self.use_inverse_weights else self.weight
+        out = input * weight.view(self.runtime_shape)
         if self.bias:
-            out += self.bias.view(broadcast_shape)
+            out += self.bias.view(self.runtime_shape)
         return out
 
 
@@ -1313,23 +1321,31 @@ class ActivationEqualization(GraphTransform, ABC):
     def insert_mul_node(self):
         pass
 
-    # TODO: Refactor
     def create_mul_node(self, scale, shape, axis, batch_dim=0):
-        # TODO: Remove
         broadcastable_shape = [1] * len(shape)
         broadcastable_shape[axis] = shape[axis]
         # Add Batch Dim
         broadcastable_shape.insert(batch_dim, 1)
-        mul_factor = ScaleBiasMatMul(
+        # If scale is passed as a Parameter, we want to keep the tie between the original
+        # parameter and that registered to the ScaleBiasMul module. Therefore, since ScaleBiasMul
+        # needs to multiply the input by the inverse of the scaling factor, the reciprocal
+        # operation needs to be computed dinamically during the forward pass. However, if
+        # a Tensor is passed, the inverse scale can be calculated and stored directly into
+        # the weight parameter, thus enabling to avoid to compute the reciprocal in the
+        # forward pass
+        use_inverse_weights = isinstance(scale, nn.Parameter)
+        mul_factor = ScaleBiasMul(
             num_features=shape[axis],
             bias=False,
-            axis=axis,
-            batch_dim=batch_dim,
-            use_reciprocal=isinstance(scale, nn.Parameter))
-        # TODO: Simplify this logic
-        if isinstance(scale, nn.Parameter):
+            runtime_shape=broadcastable_shape,
+            use_inverse_weights=use_inverse_weights)
+        if use_inverse_weights:
+            # Register as parameter, thus potentially being tied with the scaling factors
+            # kept by other modules
             mul_factor.weight = scale
         else:
+            # Modify in-place the values of the weight parameter of ScaleBiasMul and store
+            # the inverse of the scaling factor directly
             mul_factor.weight.data = torch.reciprocal(scale)
         return mul_factor
 
