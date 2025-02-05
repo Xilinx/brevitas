@@ -52,7 +52,8 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
                 region,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
-                scale_computation_type=scale_computation_type)
+                scale_computation_type=scale_computation_type,
+                fuse_scaling=True)
             if i == 0:
                 scale_factors_regions.append(scale_factors_region)
     scale_factors_regions_legacy = []
@@ -73,7 +74,8 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
     # Add asserts
     for sfr, sfrl in zip(scale_factors_regions, scale_factors_regions_legacy):
         assert torch.allclose(sfr, sfrl, atol=0.0, rtol=0.0)
-    for param, param_legacy in zip(model.parameters(), model_copy.parameters()):
+    for name, param_legacy in model_copy.named_parameters():
+        param = recurse_getattr(model, name)
         assert torch.allclose(param, param_legacy, atol=0.0, rtol=0.0)
     return scale_factors_regions
 

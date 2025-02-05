@@ -1,11 +1,12 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import torch
 from torch import nn
 from torch import Tensor
+import torch.nn.functional as F
 
 
 class RotationWeightParametrization(torch.nn.Module):
@@ -61,21 +62,36 @@ class ScaleWeightParametrization(torch.nn.Module):
     """
 
     def __init__(
-            self, scaling_factor: Tensor, axis: int, use_inverse_scaling: bool = False) -> None:
+            self,
+            scaling_factor: Tensor,
+            axis: int,
+            start_end_idxs: Optional[Tuple[int, int]] = None,
+            slice_idxs: Optional[Tuple[int, int]] = None,
+            use_inverse_scaling: bool = False) -> None:
         super().__init__()
         self.scaling_factor = scaling_factor
         self.axis = axis
+        self.start_end_idxs = start_end_idxs
+        self.slice_idxs = slice_idxs
         self.use_inverse_scaling = use_inverse_scaling
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         # self.scaling_factor is 1D, so it needs to be reshaped to be broadcastable against tensor,
         # e.g. suppose that the tensor corresponds to the weights of a nn.Linear whose shape is
         # [output_channels, input_channels], then, if axis = 0, the scales are reshaped to [output_channels, 1]
-        broadcast_shape = [
-            tensor.size(self.axis) if self.axis == i else 1 for i in range(tensor.ndim)]
+        num_features = tensor.size(self.axis)
+        broadcast_shape = [num_features if self.axis == i else 1 for i in range(tensor.ndim)]
         # Reciprocal is done on the fly as to preserve the tie between scale and its reciprocal
-        scale = torch.reciprocal(
-            self.scaling_factor) if self.use_inverse_scaling else self.scaling_factor
+        scale = self.scaling_factor if self.slice_idxs is None else self.scaling_factor[
+            self.slice_idxs[0]:self.slice_idxs[1]]
+        if self.start_end_idxs is not None:
+            # We replace the scaling factors of the channels we need to equalize, leaving the other to
+            # one (i.e., no equalization)
+            scale = F.pad(
+                scale,
+                pad=(self.start_end_idxs[0], num_features - self.start_end_idxs[1]),
+                value=1.)
+        scale = torch.reciprocal(scale) if self.use_inverse_scaling else scale
         return tensor * scale.reshape(broadcast_shape).to(device=tensor.device, dtype=tensor.dtype)
 
 

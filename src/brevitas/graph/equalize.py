@@ -640,7 +640,12 @@ def _cross_layer_equalization(
     sinks_range = torch.pow(sinks_range, 1 - alpha)
     scaling_factors = srcs_range / sinks_range
     # TODO: Maybe refactor? Make scaling a parameter if not fused
-    # scaling_factors = nn.Parameter(scaling_factors)
+    if not fuse_scaling:
+        # Make parameter if scaling_factors are not fused
+        scaling_factors = nn.Parameter(scaling_factors)
+
+    # Whether to apply the scaling in-place or parametrize the weights instead
+    rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
         for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
@@ -650,41 +655,30 @@ def _cross_layer_equalization(
         channel_start = indexes.offset + indexes.start
         channel_end = indexes.offset + indexes.end
         for tensor_name, axis in tensor_names_axis:
-            rewriter_class = ModuleInstanceTransformTensor
             rewriter = rewriter_class(
                 module=module,
                 tensor_name=tensor_name,
                 transform_module=ScaleWeightParametrization(
-                    scaling_factor=scaling_factors[channel_start:channel_end],
+                    scaling_factor=scaling_factors,
                     axis=axis,
+                    # Sources have all their channels equalized
+                    start_end_idxs=None,
+                    slice_idxs=(channel_start, channel_end),
                     use_inverse_scaling=True,
                 ))
             rewriters.append(rewriter)
     for name, (module, tensor_names_axis) in sink_axes.items():
         indexes = region.sinks[name]
         channel_range = indexes.end - indexes.start
-        # We replace the scaling factors of the channels we need to equalize, leaving the other to
-        # one (i.e., no equalization)
-        # TODO: Generalize this logic to generate dinamically the partial_scaling tensors in which some
-        # channels are not equalized
-        sink_channels = getattr(module, tensor_names_axis[WEIGHT_IDX][NAME_IDX]).size(
-            tensor_names_axis[WEIGHT_IDX][AXIS_IDX])
-        if channel_range < sink_channels:
-            partial_scaling = torch.ones(sink_channels, device='cpu', dtype=dtype)
-            partial_scaling[indexes.start:indexes
-                            .end] = scaling_factors[indexes.offset:indexes.offset + channel_range]
-        else:
-            partial_scaling = scaling_factors[indexes.offset:indexes.offset + channel_range]
-
         for tensor_name, axis in tensor_names_axis:
-            scaling_factor = partial_scaling
-            rewriter_class = ModuleInstanceTransformTensor
             rewriter = rewriter_class(
                 module=module,
                 tensor_name=tensor_name,
                 transform_module=ScaleWeightParametrization(
-                    scaling_factor=scaling_factor,
+                    scaling_factor=scaling_factors,
                     axis=axis,
+                    start_end_idxs=(indexes.start, indexes.end),
+                    slice_idxs=(indexes.offset, indexes.offset + channel_range),
                     use_inverse_scaling=False,
                 ))
             rewriters.append(rewriter)
@@ -1319,6 +1313,7 @@ class ActivationEqualization(GraphTransform, ABC):
     def insert_mul_node(self):
         pass
 
+    # TODO: Refactor
     def create_mul_node(self, scale, shape, axis, batch_dim=0):
         # TODO: Remove
         broadcastable_shape = [1] * len(shape)
