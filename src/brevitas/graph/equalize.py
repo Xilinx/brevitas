@@ -572,7 +572,7 @@ def _cross_layer_equalization(
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     sink_weights = {
         name: transpose(
-            _get_module_weight(m, tensor_names_axis).to(torch.float32),
+            _get_module_weight(m, tensor_names_axis).cpu().to(torch.float32),
             tensor_names_axis[WEIGHT_POS][AXIS_IDX])
         for name, (m, tensor_names_axis) in sink_axes.items()}
     srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
