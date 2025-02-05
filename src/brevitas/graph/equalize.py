@@ -1548,14 +1548,14 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
-def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
+def fuse_parametrizations(model: nn.Module) -> nn.Module:
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
     # Then, parametrizations can be safely removed
     for module in model.modules():
         if parametrize.is_parametrized(module):
             # Names of the tensors that can potentially be parametrized
-            tensor_names = ["weight", "bias"]
+            tensor_names = ["weight", "in_proj_weight", "bias"]
             # Remove parametrizations from each tensor
             for tensor_name in tensor_names:
                 if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
@@ -1688,7 +1688,7 @@ class GraphRotationEqualization(RotationEqualization):
             # Therefore, algorithms that do type checking might need to use type_before_parametrizations(module),
             # instead of only type(module) (see layerwise_layer_handler). Algorithms that rely on in-place modifications
             # of the weights should not operate on parametrized modules. In this situation, parametrizations
-            # need to be removed beforehand by invoking fuse_parametrized_rotations
+            # need to be removed beforehand by invoking fuse_parametrizations
             warnings.warn(
                 "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
             )

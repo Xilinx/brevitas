@@ -22,7 +22,7 @@ from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
 from brevitas.graph.base import ModuleInstanceTransformTensor
-from brevitas.graph.equalize import fuse_parametrized_rotations
+from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import functional_quantization_mode
@@ -438,7 +438,7 @@ def quantize_llm(args, extra_args=None):
             # Offload model before fusing the rotations
             model = offload_model(model)
             # Fuse rotations with weights
-            model = fuse_parametrized_rotations(model)
+            model = fuse_parametrizations(model)
 
         if args.act_calibration and not args.load_checkpoint:
             print("Apply act calibration...")

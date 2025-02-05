@@ -26,7 +26,7 @@ from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.equalize import EqualizationIndexes
-from brevitas.graph.equalize import fuse_parametrized_rotations
+from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
@@ -143,6 +143,57 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
         assert sum([shape == () for shape in shape_scale_regions]) == 1
     else:
         assert all([shape != () for shape in shape_scale_regions])
+
+
+@requires_pt_ge('2.3.1')
+@pytest_cases.parametrize("merge_bias", [True, False])
+def test_equalization_torchvision_models_unfused(model_coverage: tuple, merge_bias: bool):
+    model, _ = model_coverage
+
+    torch.manual_seed(SEED)
+    model.eval()
+    model = symbolic_trace(model)
+    model = TorchFunctionalToModule().apply(model)
+
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
+    # Instantiate model with unfused scales
+    model_unfused = copy.deepcopy(model)
+    # Copy regions and ensure that they point to the modules in the copied model
+    regions_unfused = copy.deepcopy(regions)
+    for r in regions_unfused:
+        for m_name in r.name_to_module:
+            r.name_to_module[m_name] = recurse_getattr(model_unfused, m_name)
+    # Equalize original model
+    scale_factor_regions = equalize_test(
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
+    # Equalized copied model
+    scale_factor_regions_unfused = equalize_test(
+        model_unfused,
+        regions_unfused,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs',
+        fuse_scaling=False)
+    # Ensure that scale factors match
+    for scale_factor, scale_factor_unfused in zip(scale_factor_regions, scale_factor_regions_unfused):
+        assert torch.allclose(scale_factor, scale_factor_unfused, atol=0.0, rtol=0.0)
+    # Ensure that parameters match
+    for name, param in model.named_parameters():
+        param_unfused = recurse_getattr(model_unfused, name)
+        assert torch.allclose(param, param_unfused, atol=0.0, rtol=0.0)
+    # Fuse parametrizations and make sure that weights keep matching
+    model_unfused = fuse_parametrizations(model_unfused)
+    assert all([not parametrize.is_parametrized(m) for m in model_unfused.modules()])
+    for name, param in model.named_parameters():
+        param_unfused = recurse_getattr(model_unfused, name)
+        assert torch.allclose(param, param_unfused, atol=0.0, rtol=0.0)
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
@@ -528,7 +579,7 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
             isinstance(module, RotatedModule) for module in rotated_model.modules()])
     # Optionally fuse the rotations
     if fuse_rotations:
-        rotated_model_unfused = fuse_parametrized_rotations(rotated_model_unfused)
+        rotated_model_unfused = fuse_parametrizations(rotated_model_unfused)
         # Verify that no parametrizations remain after fusing
         for module in rotated_model_unfused.modules():
             assert not parametrize.is_parametrized(module)
@@ -582,7 +633,7 @@ def test_fuse_parametrized_modules(kwargs):
     with torch.no_grad():
         output = qmodel(sample_input)
     # Fuse parametrizations
-    qmodel = fuse_parametrized_rotations(qmodel)
+    qmodel = fuse_parametrizations(qmodel)
     # Verify that scales were not lost
     module = recurse_getattr(model, key)
     assert module.weight_quant.tensor_quant.scaling_impl.init_done

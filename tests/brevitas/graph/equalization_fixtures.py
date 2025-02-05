@@ -38,15 +38,18 @@ IN_SIZE_LINEAR = (1, 224, 3)
 IN_SIZE_CONV_SMALL = (1, 3, 32, 32)
 
 
-def equalize_test(regions, merge_bias, bias_shrinkage, scale_computation_type):
+def equalize_test(
+        model, regions, merge_bias, bias_shrinkage, scale_computation_type, fuse_scaling=True):
     scale_factors_regions = []
     for i in range(3):
         for region in regions:
             scale_factors_region, _ = _cross_layer_equalization(
+                model,
                 region,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
-                scale_computation_type=scale_computation_type)
+                scale_computation_type=scale_computation_type,
+                fuse_scaling=fuse_scaling)
             if i == 0:
                 scale_factors_regions.append(scale_factors_region)
     return scale_factors_regions
