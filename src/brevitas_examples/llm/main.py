@@ -591,6 +591,7 @@ def quantize_llm(args, extra_args=None):
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
 
+        few_shot_eval_results = {}
         if args.few_shot_eval:
             with torch.no_grad(), quant_inference_mode(model):
                 model(**calibration_loader[0])
@@ -600,7 +601,7 @@ def quantize_llm(args, extra_args=None):
                     model = torch.compile(model)
 
                 wrapped_model = HFLM(pretrained=model)  # need to wrap for LLM eval
-                results = evaluator.simple_evaluate(
+                few_shot_eval_results = evaluator.simple_evaluate(
                     model=wrapped_model,
                     model_args=None,
                     tasks=list(args.few_shot_tasks),
@@ -610,9 +611,9 @@ def quantize_llm(args, extra_args=None):
                     log_samples=False,
                     batch_size=None,
                     verbosity="ERROR")
-            results = filter_results(results, args.few_shot_tasks)
+            few_shot_eval_results = filter_results(few_shot_eval_results, args.few_shot_tasks)
             print("Few shot eval results")
-            print(results)
+            print(few_shot_eval_results)
         remove_hooks(model)
 
         if args.checkpoint_name is not None and not args.load_checkpoint:
@@ -625,7 +626,7 @@ def quantize_llm(args, extra_args=None):
             model = model.to(dtype=torch.float32)
             model_export(model, calibration_loader[0], args)
 
-    return float_ppl, quant_ppl, model
+    return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 
 
 def override_defaults(args):

@@ -2,8 +2,6 @@ act_calibration:
 - false
 act_equalization:
 - null
-- layerwise
-- fx
 act_equalization_alpha:
 - 0.5
 bias_corr:
@@ -14,17 +12,12 @@ convert_layernorm_to_rmsnorm:
 - false
 dataset:
 - wikitext2
-- c4
 eval:
-- false
+- true
 export_prefix:
 - null
 export_target:
 - null
-- onnx_qcdq
-- torch_qcdq
-- sharded_torchmlir_group_weight
-- sharded_packed_torchmlir_group_weight
 few_shot_compile:
 - false
 few_shot_eval:
@@ -64,26 +57,18 @@ input_group_size:
 - 64
 input_param_method:
 - stats
-- mse
 input_quant_format:
 - int
 input_quant_granularity:
 - per_tensor
-- per_row
-- per_group
 input_quant_type:
-- sym
 - asym
 input_scale_precision:
 - float_scale
-- po2_scale
 input_scale_type:
 - static
-- dynamic
-- no_scale
 learned_round:
 - null
-- linear_round
 learned_round_fast_update:
 - false
 learned_round_iters:
@@ -127,20 +112,15 @@ replace_mha:
 replace_rmsnorm:
 - false
 rotation:
-- fx
-- layerwise
-- fused_no_fx
+- null
 rotation_mode:
 - had
-- ort
 rotation_orphan_sink:
 - false
 rotation_sdpa_regions:
 - false
 scale_rounding_func_type:
-- round
-- ceil
-- floor
+- null
 scaling_min_val:
 - 0.0001
 seed:
@@ -148,27 +128,23 @@ seed:
 seqlen:
 - 2048
 weight_bit_width:
+- 5
+- 6
+- 7
 - 8
 weight_equalization:
 - false
 weight_group_dim:
-- 1
-- 0
+- null
 weight_group_size:
 - 128
 weight_param_method:
 - stats
-- mse
-- hqo
 weight_quant_format:
 - int
 weight_quant_granularity:
-- per_channel
-- per_tensor
 - per_group
 weight_quant_type:
 - sym
-- asym
 weight_scale_precision:
 - float_scale
-- po2_scale
