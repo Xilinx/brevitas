@@ -7,12 +7,10 @@ import multiprocessing
 from multiprocessing import Queue
 import os
 import re
-import subprocess
 import sys
-import threading
 import time
 from types import SimpleNamespace
-from typing import Dict, List
+from typing import List
 
 import pandas as pd
 import randomname as rn
