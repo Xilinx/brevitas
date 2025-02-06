@@ -22,7 +22,7 @@ from brevitas_examples.llm.main import create_llm_args_parser
 from brevitas_examples.llm.main import validate
 
 # Set appropiately for your system
-RESULTS_FOLDER = "/home/pmonteag/work/brevitas/src/brevitas_examples/llm/benchmark"
+RESULTS_FOLDER = "./src/brevitas_examples/llm/benchmark"
 CUDA_AVAILABLE_DEVICES = [0, 1]
 NUM_GPUS_PER_PROCESS = 1
 NUM_RETRIES = 1
