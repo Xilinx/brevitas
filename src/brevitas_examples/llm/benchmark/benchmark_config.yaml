@@ -110,6 +110,10 @@ no_quantize:
 - false
 nsamples:
 - 128
+nsamples_rot_calibration:
+- 800
+optimize_rotations:
+- false
 quant_sdpa:
 - false
 quantize_input_zero_point:

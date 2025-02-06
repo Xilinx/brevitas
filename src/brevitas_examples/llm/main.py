@@ -1019,7 +1019,7 @@ def parse_args(args, override_defaults={}):
             args += [f"--{key}", str(override_defaults[key])]
             del override_defaults[key]
     parser.set_defaults(**override_defaults)
-    return parser.parse_args(args)
+    return parser.parse_known_args(args)
 
 
 def main():

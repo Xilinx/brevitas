@@ -1,11 +1,14 @@
 from argparse import ArgumentParser
 from argparse import Namespace
+import datetime
+from functools import reduce
 import itertools
 import os
 import re
 import subprocess
 import sys
 import threading
+import time
 from types import SimpleNamespace
 from typing import Dict, List
 
@@ -25,10 +28,13 @@ NUM_GPUS_PER_PROCESS = 1
 NUM_RETRIES = 1
 
 
-def run_args_bucket(id: int, args_dicts_queue: List[Dict]):
+def run_args_bucket(id: int, num_threads: int, args_dicts_queue: List[Dict]):
     # Visible devices for the thread
     thread_cuda_visible_devices = ",".join(
         map(str, CUDA_AVAILABLE_DEVICES[id:id + NUM_GPUS_PER_PROCESS]))
+    # Provide ballpark estimates of remaining time
+    mean_running_time = 0
+    num_runs = 0
     # Iterate over the combinations launching the LLM entrypoint
     while True:
         try:
@@ -36,7 +42,9 @@ def run_args_bucket(id: int, args_dicts_queue: List[Dict]):
             args_dict = args_dicts_queue.pop()
         except IndexError:
             break
-        print(f"Thread {id}, remaining combinations {len(args_dicts_queue)}")
+        print(
+            f"Thread {id}, remaining combinations {len(args_dicts_queue)}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((len(args_dicts_queue) / num_threads + 1)*mean_running_time)))}"
+        )
         # Generate name for the experiment
         job_name = rn.get_name()
         job_folder = f"{RESULTS_FOLDER}/{job_name}"
@@ -57,10 +65,25 @@ def run_args_bucket(id: int, args_dicts_queue: List[Dict]):
                 stderr=stderr_file,
             )
             # Wait before starting a new process to prevent using the same GPUs
+            start_time = time.time()
             return_code = process.wait()
+            end_time = time.time()
+            running_time = end_time - start_time
             stdout_file.close()
             stderr_file.close()
+            num_retries += 1
+            # Dump information regarding the state of the run
+            with open(f"{job_folder}/run_info.yaml", 'w') as f:
+                yaml.dump({
+                    "elapsed_time": running_time,
+                    "return_code": return_code,
+                    "retry_number": num_retries},
+                          f)
             if return_code is not None and return_code == 0:
+                # Update mean running time
+                num_runs += 1
+                mean_running_time = mean_running_time * (
+                    num_runs - 1) / num_runs + running_time / num_runs
                 break
 
 
@@ -76,8 +99,8 @@ def parse_config_args(args: List[str]) -> Namespace:
     return parser.parse_args(args)
 
 
-def parse_results(columns: List[str], results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
-    df = pd.DataFrame(columns=columns)
+def parse_results(results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
+    row_data_list = []
     for entry in os.scandir(results_folder):
         if entry.is_dir():
             # Get the identifier of the job
@@ -85,6 +108,8 @@ def parse_results(columns: List[str], results_folder: str = RESULTS_FOLDER) -> p
             # Retrieve the configuration from the YAML file
             with open(f"{results_folder}/{job_name}/config.yaml", 'r') as f:
                 job_config = yaml.safe_load(f)
+            with open(f"{results_folder}/{job_name}/run_info.yaml", 'r') as f:
+                job_info = yaml.safe_load(f)
             # Load the log file
             with open(f"{results_folder}/{job_name}/stdout.out", 'r') as f:
                 job_log = f.read()
@@ -94,10 +119,31 @@ def parse_results(columns: List[str], results_folder: str = RESULTS_FOLDER) -> p
                 # Find the line containing Quant PPL number
                 quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
                 quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
+                # Search for dictionary in log
+                few_shot_eval_line = re.findall(r"({.*?})", job_log)
+                # Retrieve last dictionary, in case other dictionaries were printed to the log
+                few_shot_eval = eval(few_shot_eval_line[-1]) if len(few_shot_eval_line) > 0 else {}
             # Add entry to DataFrame
             row_data = {
-                "job_id": job_name, **job_config, "float_ppl": float_ppl, "quant_ppl": quant_ppl}
-            df.loc[len(df)] = list(row_data.values())
+                "job_id": job_name,
+                **job_config,
+                **job_info,
+                "float_ppl": float_ppl,
+                "quant_ppl": quant_ppl,
+                **few_shot_eval}
+            row_data_list.append(row_data)
+    # Columns are obtained by computing the union of the sets of keys in row_data_list
+    common_keys = ["job_id"] + list(job_config.keys()) + list(job_info.keys()) + [
+        "float_ppl", "quant_ppl"]
+    common_keys_set = set(common_keys)
+    columns = common_keys + list(
+        reduce(lambda x, y: x.union(y),
+               [set(row_data.keys()) for row_data in row_data_list]).difference(common_keys_set))
+    # Instantiate DataFrame to store the results
+    df = pd.DataFrame(columns=columns)
+    for row_data in row_data_list:
+        # Fill missing columns with None
+        df.loc[len(df)] = [row_data[key] if key in row_data else None for key in columns]
     return df
 
 
@@ -121,7 +167,6 @@ if __name__ == "__main__":
         # Save YAML in the results folder
         with open(f"{RESULTS_FOLDER}/benchmark_config.yaml", 'w') as f:
             yaml.dump(args_dict, f)
-
     # Generate combinations of arguments
     args_keys, args_values = zip(*args_dict.items())
     # Retrieve argument combinations that are valid for the LLM entrypoint
@@ -143,7 +188,8 @@ if __name__ == "__main__":
         thread = threading.Thread(
             target=run_args_bucket, args=(
                 i,
-                args_combinations[i],
+                num_threads,
+                args_combinations,
             ))
         thread.start()
         threads.append(thread)
@@ -151,7 +197,6 @@ if __name__ == "__main__":
     # Wait for all threads to complete
     for thread in threads:
         thread.join()
-
     # Parse results
-    df = parse_results(columns=["job_id"] + list(args_keys) + ["float_ppl", "quant_ppl"])
+    df = parse_results()
     df.to_csv(f"{RESULTS_FOLDER}/results.csv", index=False)
