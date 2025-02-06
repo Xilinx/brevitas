@@ -2,7 +2,7 @@
 default_language_version:
     python: python3
 
-default_stages: [pre-commit]
+default_stages: [commit]
 
 exclude: '(src/brevitas/backport|docs)'
 

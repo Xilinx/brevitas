@@ -89,8 +89,8 @@ parser.add_argument(
 parser.add_argument(
     '--dtype',
     default='float',
-    choices=['float', 'bfloat16', 'half'],
-    help='Data type to use (float for FP32, bfloat16, or half for FP16)')
+    choices=['float', 'bfloat16', 'float16'],
+    help='Data type to use (float for FP32, bfloat16 for BF16, or float16 for FP16)')
 parser.add_argument(
     '--target-backend',
     default='fx',

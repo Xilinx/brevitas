@@ -71,7 +71,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--batch-size-validation BATCH_SIZE_VALIDATION]
                        [--export-dir EXPORT_DIR] [--gpu GPU]
                        [--calibration-samples CALIBRATION_SAMPLES]
-                       [--model-name ARCH] [--dtype {float,bfloat16,half}]
+                       [--model-name ARCH] [--dtype {float,bfloat16,float16}]
                        [--target-backend {fx,layerwise,flexml}]
                        [--scale-factor-type {float_scale,po2_scale}]
                        [--act-bit-width ACT_BIT_WIDTH]
@@ -167,8 +167,8 @@ options:
                         vgg16 | vgg16_bn | vgg19 | vgg19_bn | vit_b_16 |
                         vit_b_32 | vit_h_14 | vit_l_16 | vit_l_32 |
                         wide_resnet101_2 | wide_resnet50_2 (default: resnet18)
-  --dtype {float,bfloat16,half}
-                        Data type to use (float for FP32, bfloat16, or half
+  --dtype {float,bfloat16,float16)
+                        Data type to use (float for FP32, bfloat16 for BF16, or float16
                         for FP16)
   --target-backend {fx,layerwise,flexml}
                         Backend to target for quantization (default: fx)
