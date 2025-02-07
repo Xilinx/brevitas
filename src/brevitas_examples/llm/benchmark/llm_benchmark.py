@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import time
+import traceback
 from types import SimpleNamespace
 from typing import List
 
@@ -16,15 +17,14 @@ import pandas as pd
 import randomname as rn
 import yaml
 
-from brevitas_examples.llm.main import create_llm_args_parser
-from brevitas_examples.llm.main import validate
+from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.llm.llm_args import validate
 
 # Set appropiately for your system
-RESULTS_FOLDER = "./src/brevitas_examples/llm/benchmark"
-CUDA_AVAILABLE_DEVICES = [0, 1]
+RESULTS_FOLDER =  "./"
+DEFAULT_CUDA_AVAILABLE_DEVICES = [0]
 NUM_GPUS_PER_PROCESS = 1
 NUM_RETRIES = 1
-
 
 def _make_float(value):
     try:
@@ -33,9 +33,8 @@ def _make_float(value):
     except ValueError:
         return value
 
-
 def run_args_bucket_process(
-        id: int, num_processes: int, cuda_visible_devices: str, args_dicts_queue: Queue):
+        id: int, num_processes: int, cuda_visible_devices: str, args_queue: Queue):
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
     # Now import the LLM entrypoint, thus making sure that CUDA_VISIBLE_DEVICES
@@ -52,17 +51,19 @@ def run_args_bucket_process(
     while True:
         try:
             # Extract an element of the queue of combinations
-            args_dict = args_dicts_queue.get(timeout=10.)
-            if args_dict is None:
+            args_tuple = args_queue.get(timeout=10.)
+            if args_tuple is not None:
+                args, extra_args, args_dict = args_tuple
+            else:
                 break
         except Exception:
             break
         print(
-            f"Process {id}, remaining combinations {args_dicts_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_dicts_queue.qsize() / num_processes + 1)*mean_running_time)))}"
+            f"Process {id}, remaining combinations {args_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_queue.qsize() / num_processes + 1)*mean_running_time)))}"
         )
         # TODO: Change so each process has an unique name, without relying
         # on the process id suffix
-        job_name = f"{rn.get_name()}-{id}"
+        job_name = f"{rn.get_name()}"
         job_folder = f"{RESULTS_FOLDER}/{job_name}"
         # Create folder to store the results of the experiment
         os.mkdir(job_folder)
@@ -80,11 +81,11 @@ def run_args_bucket_process(
             # Wait before starting a new process to prevent using the same GPUs
             start_time = time.time()
             try:
-                results, _ = quantize_llm(SimpleNamespace(**args_dict))
+                results, _ = quantize_llm(args, extra_args)
                 results = {k: _make_float(v) for k, v in results.items()}
             except Exception as e:
                 # Print exception to stderr, so it can be checked in log
-                print(e, file=sys.stderr)
+                print(traceback.format_exc(), file=sys.stderr)
                 results = None
             end_time = time.time()
             # Restore stdout and stderr
@@ -125,8 +126,9 @@ def parse_config_args(args: List[str]) -> Namespace:
 
 def parse_results(results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
     row_data_list = []
+    job_config = None
     for entry in os.scandir(results_folder):
-        if entry.is_dir():
+        if entry.is_dir() and entry.name not in ["__pycache__"]:
             # Get the identifier of the job
             job_name = os.path.basename(entry.path)
             # Retrieve the configuration from the YAML file
@@ -164,18 +166,21 @@ def parse_results(results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
             # Add entry to DataFrame
             row_data = {"job_id": job_name, **job_config, **job_results}
             row_data_list.append(row_data)
-    # Columns are obtained by computing the union of the sets of keys in row_data_list
-    common_keys = ["job_id"] + list(job_config.keys()) + [
-        "elapsed_time", "status", "retry_number", "float_ppl", "quant_ppl"]
-    common_keys_set = set(common_keys)
-    columns = common_keys + list(
-        reduce(lambda x, y: x.union(y),
-               [set(row_data.keys()) for row_data in row_data_list]).difference(common_keys_set))
-    # Instantiate DataFrame to store the results
-    df = pd.DataFrame(columns=columns)
-    for row_data in row_data_list:
-        # Fill missing columns with None
-        df.loc[len(df)] = [row_data[key] if key in row_data else None for key in columns]
+    if job_config is not None:
+        # Columns are obtained by computing the union of the sets of keys in row_data_list
+        common_keys = ["job_id"] + list(job_config.keys()) + [
+            "elapsed_time", "status", "retry_number", "float_ppl", "quant_ppl"]
+        common_keys_set = set(common_keys)
+        columns = common_keys + list(
+            reduce(lambda x, y: x.union(y),
+                [set(row_data.keys()) for row_data in row_data_list]).difference(common_keys_set))
+        # Instantiate DataFrame to store the results
+        df = pd.DataFrame(columns=columns)
+        for row_data in row_data_list:
+            # Fill missing columns with None
+            df.loc[len(df)] = [row_data[key] if key in row_data else None for key in columns]
+    else:
+        print(f"No experiments results were found in {results_folder}")
     return df
 
 
@@ -186,14 +191,14 @@ if __name__ == "__main__":
     # Instantiate directory for storing the results
     if not os.path.exists(RESULTS_FOLDER):
         os.makedirs(RESULTS_FOLDER)
+    # Generate a YAML benchmark from default arguments
+    llm_parser = create_llm_args_parser()
     if len(sys.argv) > 1:
         args = parse_config_args(sys.argv[1:])
         # Load argument combinations from specified YAML
         with open(args.config, 'r') as f:
             args_dict = yaml.safe_load(f)
     else:
-        # Generate a YAML benchmark from default arguments
-        llm_parser = create_llm_args_parser()
         args_dict = {
             action.dest: [action.default] if action.choices is None else action.choices
             for action in llm_parser._actions}
@@ -204,19 +209,29 @@ if __name__ == "__main__":
             yaml.dump(args_dict, f)
     # Generate combinations of arguments
     args_keys, args_values = zip(*args_dict.items())
+    # Extract the keys that are known to the llm_parser
+    parser_keys = set(action.dest for action in llm_parser._actions)
     # Retrieve argument combinations that are valid for the LLM entrypoint
     q = Queue()
-    args_combinations = []
     for v in itertools.product(*args_values):
-        args_combination = dict(zip(args_keys, v))
+        args_dict = dict(zip(args_keys, v))
         try:
-            # Check if the arguments are valid
-            validate(SimpleNamespace(**args_combination))
-            args_combinations.append(args_combination)
-            q.put(args_combination)
-        except AssertionError:
+            # Separate the arguments that are know to the parser and the extra
+            # arguments that are used, for instance, in rotation optimization
+            args = {}
+            extra_args = []
+            for key, value in args_dict.items():
+                if key in parser_keys:
+                    args[key] = value
+                else:
+                    extra_args += [f"--{key.replace("_", "-")}", str(value)]
+            args = SimpleNamespace(**args)
+            validate(args, extra_args)
+            q.put((args, extra_args, args_dict))
+        except AssertionError as e:
             # Invalid configuration
             pass
+    CUDA_AVAILABLE_DEVICES = list(map(int, os.environ["CUDA_VISIBLE_DEVICES"].split(","))) if "CUDA_VISIBLE_DEVICES" in os.environ else DEFAULT_CUDA_AVAILABLE_DEVICES
     # Number of argument combinations
     num_processes = len(CUDA_AVAILABLE_DEVICES) // NUM_GPUS_PER_PROCESS
     # Instantiate threads to run the arguments in each bucket
