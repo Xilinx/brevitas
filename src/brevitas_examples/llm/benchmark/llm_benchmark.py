@@ -62,8 +62,6 @@ def run_args_bucket_process(
         print(
             f"Process: {id}, remaining combinations: {args_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_queue.qsize() / num_processes + 1)*mean_running_time)))}"
         )
-        # TODO: Change so each process has an unique name, without relying
-        # on the process id suffix
         job_name = f"{rn.get_name()}"
         job_folder = f"{results_folder}/{job_name}"
         # Create folder to store the results of the experiment
@@ -79,7 +77,7 @@ def run_args_bucket_process(
             # Redirect output to files
             sys.stdout = stdout_file
             sys.stderr = stderr_file
-            # Wait before starting a new process to prevent using the same GPUs
+            # Record the wall-clock elapsed time when running the LLM entrypoint
             start_time = time.time()
             try:
                 results, _ = quantize_llm(args, extra_args)
@@ -97,7 +95,7 @@ def run_args_bucket_process(
             stdout_file.close()
             stderr_file.close()
             num_retries += 1
-            # Dump information regarding the state of the run
+            # Dump information with the state and results of the run
             with open(f"{job_folder}/run_results.yaml", 'w') as f:
                 yaml.dump({
                     "elapsed_time": running_time,
@@ -106,7 +104,7 @@ def run_args_bucket_process(
                     **(results if results is not None else {})},
                           f)
             if results is not None:
-                # Update mean running time
+                # Update mean running time and move to next combination
                 num_runs += 1
                 mean_running_time = mean_running_time * (
                     num_runs - 1) / num_runs + running_time / num_runs
@@ -192,7 +190,8 @@ def parse_results(results_folder: str) -> pd.DataFrame:
             row_data = {"job_id": job_name, **job_config, **job_results}
             row_data_list.append(row_data)
     if job_config is not None:
-        # Columns are obtained by computing the union of the sets of keys in row_data_list
+        # Columns are obtained by computing the union of the sets of keys in row_data_list, since,
+        # for instance, some jobs might have crashed before completing the LM eval
         common_keys = ["job_id"] + list(job_config.keys()) + [
             "elapsed_time", "status", "retry_number", "float_ppl", "quant_ppl"]
         common_keys_set = set(common_keys)
@@ -251,15 +250,17 @@ if __name__ == "__main__":
                 else:
                     extra_args += [f"--{key.replace('_', '-')}", str(value)]
             args = SimpleNamespace(**args)
+            # Only keep valid configurations
             validate(args, extra_args)
             q.put((args, extra_args, args_dict))
         except AssertionError as e:
             # Invalid configuration
             pass
+    # Map the comma-separated string of GPU ids to a list
     cuda_available_devices = list(map(int, script_args.gpus.split(",")))
     # Number of argument combinations
     num_processes = len(cuda_available_devices) // script_args.num_gpus_per_process
-    # Instantiate threads to run the arguments in each bucket
+    # Instantiate processes to run the argument combinations
     processes = []
     for i in range(num_processes):
         cuda_visible_devices = ",".join(
