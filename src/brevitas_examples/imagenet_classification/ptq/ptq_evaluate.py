@@ -87,7 +87,10 @@ parser.add_argument(
     choices=model_names,
     help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet18)')
 parser.add_argument(
-    '--dtype', default='float', choices=['float', 'bfloat16'], help='Data type to use')
+    '--dtype',
+    default='float',
+    choices=['float', 'bfloat16', 'float16'],
+    help='Data type to use (float for FP32, bfloat16 for BF16, or float16 for FP16)')
 parser.add_argument(
     '--target-backend',
     default='fx',

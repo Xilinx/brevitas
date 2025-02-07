@@ -71,7 +71,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--batch-size-validation BATCH_SIZE_VALIDATION]
                        [--export-dir EXPORT_DIR] [--gpu GPU]
                        [--calibration-samples CALIBRATION_SAMPLES]
-                       [--model-name ARCH] [--dtype {float,bfloat16}]
+                       [--model-name ARCH] [--dtype {float,bfloat16,float16}]
                        [--target-backend {fx,layerwise,flexml}]
                        [--scale-factor-type {float_scale,po2_scale}]
                        [--act-bit-width ACT_BIT_WIDTH]
@@ -82,13 +82,19 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--weight-quant-type {sym,asym}]
                        [--weight-quant-granularity {per_tensor,per_channel,per_group}]
                        [--act-quant-granularity {per_tensor,per_group}]
-                       [--weight-quant-calibration-type {stats,mse}]
+                       [--weight-quant-calibration-type {stats,mse,hqo}]
                        [--act-equalization {fx,layerwise,None}]
                        [--act-quant-calibration-type {stats,mse}]
                        [--act-scale-computation-type {static,dynamic}]
                        [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
+                       [--learned-round {None,linear_round,hard_sigmoid_round,sigmoid_round}]
+                       [--learned-round-block-name LEARNED_ROUND_BLOCK_NAME]
+                       [--learned-round-loss {regularised_mse,mse}]
+                       [--learned-round-mode {layerwise,blockwise}]
                        [--learned-round-iters LEARNED_ROUND_ITERS]
+                       [--learned-round-lr-scheduler {None,linear}]
                        [--learned-round-lr LEARNED_ROUND_LR]
+                       [--learned-round-batch-size LEARNED_ROUND_BATCH_SIZE]
                        [--act-quant-percentile ACT_QUANT_PERCENTILE]
                        [--export-onnx-qcdq] [--export-torch-qcdq]
                        [--bias-corr | --no-bias-corr]
@@ -102,22 +108,24 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH]
                        [--act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH]
                        [--act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH]
-                       [--accumulator-bit-width ACCUMULATOR_BIT_WIDTH]
+                       [--gpxq-accumulator-bit-width GPXQ_ACCUMULATOR_BIT_WIDTH]
+                       [--gpxq-accumulator-tile-size GPXQ_ACCUMULATOR_TILE_SIZE]
                        [--onnx-opset-version ONNX_OPSET_VERSION]
                        [--channel-splitting-ratio CHANNEL_SPLITTING_RATIO]
-                       [--compression-rate COMPRESSION_RATE]
-                       [--gptq | --no-gptq] [--gpfq | --no-gpfq]
-                       [--gpfa2q | --no-gpfa2q]
+                       [--optimizer {adam,sign_sgd}] [--gptq | --no-gptq]
+                       [--gpfq | --no-gpfq]
                        [--gpxq-act-order | --no-gpxq-act-order]
-                       [--learned-round | --no-learned-round]
+                       [--gptq-use-quant-activations | --no-gptq-use-quant-activations]
+                       [--gpxq-create-weight-orig | --no-gpxq-create-weight-orig]
                        [--calibrate-bn | --no-calibrate-bn]
                        [--channel-splitting-split-input | --no-channel-splitting-split-input]
                        [--merge-bn | --no-merge-bn]
-                       [--uint_sym_act_for_unsigned_values | --no-uint_sym_act_for_unsigned_values]
+                       [--uint-sym-act-for-unsigned-values | --no-uint-sym-act-for-unsigned-values]
+                       [--compile | --no-compile]
 
 PyTorch ImageNet PTQ Validation
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --calibration-dir CALIBRATION_DIR
                         Path to folder containing Imagenet calibration folder
@@ -159,8 +167,9 @@ optional arguments:
                         vgg16 | vgg16_bn | vgg19 | vgg19_bn | vit_b_16 |
                         vit_b_32 | vit_h_14 | vit_l_16 | vit_l_32 |
                         wide_resnet101_2 | wide_resnet50_2 (default: resnet18)
-  --dtype {float,bfloat16}
-                        Data type to use
+  --dtype {float,bfloat16,float16)
+                        Data type to use (float for FP32, bfloat16 for BF16, or float16
+                        for FP16)
   --target-backend {fx,layerwise,flexml}
                         Backend to target for quantization (default: fx)
   --scale-factor-type {float_scale,po2_scale}
@@ -182,7 +191,7 @@ optional arguments:
                         Weight quantization type (default: per_tensor)
   --act-quant-granularity {per_tensor,per_group}
                         Activation quantization type (default: per_tensor)
-  --weight-quant-calibration-type {stats,mse}
+  --weight-quant-calibration-type {stats,mse,hqo}
                         Weight quantization calibration type (default: stats)
   --act-equalization {fx,layerwise,None}
                         Activation equalization type (default: None)
@@ -195,11 +204,25 @@ optional arguments:
   --graph-eq-iterations GRAPH_EQ_ITERATIONS
                         Numbers of iterations for graph equalization (default:
                         20)
+  --learned-round {None,linear_round,hard_sigmoid_round,sigmoid_round}
+                        Learned round type (default: None)
+  --learned-round-block-name LEARNED_ROUND_BLOCK_NAME
+                        Block name for learned round. It works only if FX is
+                        not needed (default: layer\d+)
+  --learned-round-loss {regularised_mse,mse}
+                        Learned round type (default: none)
+  --learned-round-mode {layerwise,blockwise}
+                        Learned round mode (default: none)
   --learned-round-iters LEARNED_ROUND_ITERS
                         Numbers of iterations for learned round for each layer
                         (default: 1000)
+  --learned-round-lr-scheduler {None,linear}
+                        Learning rate scheduler for learned round (default:
+                        None)
   --learned-round-lr LEARNED_ROUND_LR
                         Learning rate for learned round (default: 1e-3)
+  --learned-round-batch-size LEARNED_ROUND_BATCH_SIZE
+                        Learning rate for learned round (default: 1)
   --act-quant-percentile ACT_QUANT_PERCENTILE
                         Percentile to use for stats of activation quantization
                         (default: 99.999)
@@ -243,26 +266,36 @@ optional arguments:
   --act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH
                         Exponent bit width used with float quantization for
                         activations (default: 3)
-  --accumulator-bit-width ACCUMULATOR_BIT_WIDTH
-                        Accumulator Bit Width for GPFA2Q (default: None)
+  --gpxq-accumulator-bit-width GPXQ_ACCUMULATOR_BIT_WIDTH
+                        Accumulator Bit Width for GPxQ (default: None)
+  --gpxq-accumulator-tile-size GPXQ_ACCUMULATOR_TILE_SIZE
+                        Accumulator tile size for GPxQ (default: None)
   --onnx-opset-version ONNX_OPSET_VERSION
                         ONNX opset version
   --channel-splitting-ratio CHANNEL_SPLITTING_RATIO
                         Split Ratio for Channel Splitting. When set to 0.0,
                         Channel Splitting will not be applied. (default: 0.0)
-  --compression-rate COMPRESSION_RATE
-                        Specify compression rate < 1.0 for random projection.
-                        Default is 0.0 and does not use RP.
+  --optimizer {adam,sign_sgd}
+                        Optimizer to use with learnable rounding (default:
+                        adam)
   --gptq                Enable GPTQ (default: disabled)
   --no-gptq             Disable GPTQ (default: disabled)
   --gpfq                Enable GPFQ (default: disabled)
   --no-gpfq             Disable GPFQ (default: disabled)
-  --gpfa2q              Enable GPFA2Q (default: disabled)
-  --no-gpfa2q           Disable GPFA2Q (default: disabled)
   --gpxq-act-order      Enable GPxQ Act order heuristic (default: disabled)
   --no-gpxq-act-order   Disable GPxQ Act order heuristic (default: disabled)
-  --learned-round       Enable Learned round (default: disabled)
-  --no-learned-round    Disable Learned round (default: disabled)
+  --gptq-use-quant-activations
+                        Enable Use quant activations for GPTQ (default:
+                        disabled)
+  --no-gptq-use-quant-activations
+                        Disable Use quant activations for GPTQ (default:
+                        disabled)
+  --gpxq-create-weight-orig
+                        Enable Maintain original weights for non-quant forward
+                        pass (default: disabled)
+  --no-gpxq-create-weight-orig
+                        Disable Maintain original weights for non-quant
+                        forward pass (default: disabled)
   --calibrate-bn        Enable Calibrate BN (default: disabled)
   --no-calibrate-bn     Disable Calibrate BN (default: disabled)
   --channel-splitting-split-input
@@ -275,12 +308,14 @@ optional arguments:
                         (default: enabled)
   --no-merge-bn         Disable Merge BN layers before quantizing the model
                         (default: enabled)
-  --uint_sym_act_for_unsigned_values
+  --uint-sym-act-for-unsigned-values
                         Enable Use unsigned act quant when possible (default:
                         enabled)
-  --no-uint_sym_act_for_unsigned_values
+  --no-uint-sym-act-for-unsigned-values
                         Disable Use unsigned act quant when possible (default:
                         enabled)
+  --compile             Enable Use torch.compile (default: disabled)
+  --no-compile          Disable Use torch.compile (default: disabled)
 ```
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
