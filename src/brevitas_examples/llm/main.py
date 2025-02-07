@@ -153,6 +153,7 @@ def model_export(model, ref_input, args):
     elif args.export_target == 'torch_qcdq':
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
+
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
     set_seed(args.seed)

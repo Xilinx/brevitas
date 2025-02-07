@@ -361,6 +361,7 @@ def create_llm_args_parser():
         help='A list of module names to expand with hadamard rotation. Default: %(default)s')
     return parser
 
+
 def validate(args, extra_args: Optional[List[str]] = None):
     if args.optimize_rotations:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
