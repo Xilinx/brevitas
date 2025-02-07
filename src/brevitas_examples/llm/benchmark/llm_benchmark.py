@@ -11,17 +11,45 @@ import sys
 import time
 import traceback
 from types import SimpleNamespace
-from typing import List
+from typing import Any, Callable, Dict, List
 
 import pandas as pd
 import randomname as rn
 import yaml
 
 from brevitas_examples.llm.llm_args import create_llm_args_parser
-from brevitas_examples.llm.llm_args import validate
+from brevitas_examples.llm.llm_args import validate as validate_llm_args
 
 
-def _make_float(value):
+def _parse_llm_log_results(job_log: str) -> Dict[str, Any]:
+    # Find the line containing Float PPL number
+    float_ppl_line = re.search(r"Float perplexity \((.*?)\): (\d+\.\d+)", job_log)
+    float_ppl = float(float_ppl_line.group(2)) if float_ppl_line is not None else None
+    # Find the line containing Quant PPL number
+    quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
+    quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
+    # Search for dictionary in log
+    few_shot_eval_line = re.findall(r"({.*?})", job_log)
+    # Retrieve last dictionary, in case other dictionaries were printed to the log
+    few_shot_eval = eval(few_shot_eval_line[-1]) if len(few_shot_eval_line) > 0 else {}
+    # Return the results from the log as a dictionary
+    job_log_results = {
+        "float_ppl": float_ppl,
+        "quant_ppl": quant_ppl,
+        **few_shot_eval,}
+    return job_log_results
+
+
+# Enable processing arguments for an arbitrary entrypoint
+ENTRYPOINT_MAP = {
+    "llm": {
+        "args_parser": create_llm_args_parser(),
+        "args_validate": validate_llm_args,
+        "eval_metrics": ["float_ppl", "quant_ppl"],
+        "log_parser": _parse_llm_log_results}}
+
+
+def _make_float(value: Any) -> Any:
     try:
         float_value = float(value)
         return float_value
@@ -30,6 +58,7 @@ def _make_float(value):
 
 
 def run_args_bucket_process(
+        entrypoint: str,
         id: int,
         num_processes: int,
         cuda_visible_devices: str,
@@ -38,9 +67,14 @@ def run_args_bucket_process(
         args_queue: Queue):
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
-    # Now import the LLM entrypoint, thus making sure that CUDA_VISIBLE_DEVICES
+    # Now import the entrypoint, thus making sure that CUDA_VISIBLE_DEVICES
     # was set before importing torch
-    from brevitas_examples.llm.main import quantize_llm
+    if entrypoint == "llm":
+        from brevitas_examples.llm.main import quantize_llm
+        main_entrypoint = quantize_llm
+    else:
+        main_entrypoint = None
+        raise ValueError(f"Entrypoint {entrypoint} is not available")
 
     # Provide ballpark estimates of remaining time
     mean_running_time = 0
@@ -80,9 +114,9 @@ def run_args_bucket_process(
             # Record the wall-clock elapsed time when running the LLM entrypoint
             start_time = time.time()
             try:
-                results, _ = quantize_llm(args, extra_args)
+                results, _ = main_entrypoint(args, extra_args)
                 results = {k: _make_float(v) for k, v in results.items()}
-            except Exception as e:
+            except Exception:
                 # Print exception to stderr, so it can be checked in log
                 print(traceback.format_exc(), file=sys.stderr)
                 results = None
@@ -118,8 +152,14 @@ def parse_config_args(args: List[str]) -> Namespace:
         type=str,
         default=None,
         help=
-        'Specify YAML with argument combinations (e.g., config/default_template.yml). Default: %(default)s.'
+        'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml). Default: %(default)s.'
     )
+    parser.add_argument(
+        '--entrypoint',
+        type=str,
+        default="llm",
+        choices=["llm"],
+        help='Entrypoint to run. Default: %(default)s.')
     parser.add_argument(
         '--results-folder',
         type=str,
@@ -147,7 +187,7 @@ def parse_config_args(args: List[str]) -> Namespace:
     return parser.parse_args(args)
 
 
-def parse_results(results_folder: str) -> pd.DataFrame:
+def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
     row_data_list = []
     job_config = None
     for entry in os.scandir(results_folder):
@@ -164,28 +204,14 @@ def parse_results(results_folder: str) -> pd.DataFrame:
                 # Load the log file
                 with open(f"{results_folder}/{job_name}/stdout.out", 'r') as f:
                     job_log = f.read()
-                    # Find the line containing Float PPL number
-                    float_ppl_line = re.search(r"Float perplexity \((.*?)\): (\d+\.\d+)", job_log)
-                    float_ppl = float(
-                        float_ppl_line.group(2)) if float_ppl_line is not None else None
-                    # Find the line containing Quant PPL number
-                    quant_ppl_line = re.search(
-                        r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
-                    quant_ppl = float(
-                        quant_ppl_line.group(2)) if quant_ppl_line is not None else None
-                    # Search for dictionary in log
-                    few_shot_eval_line = re.findall(r"({.*?})", job_log)
-                    # Retrieve last dictionary, in case other dictionaries were printed to the log
-                    few_shot_eval = eval(
-                        few_shot_eval_line[-1]) if len(few_shot_eval_line) > 0 else {}
+                    # Parse results from log
+                    job_log_results = ENTRYPOINT_MAP[entrypoint]["log_parser"](job_log)
                 # Manually populate the results
                 job_results = {
                     "elapsed_time": job_results["elapsed_time"],
                     "status": job_results["status"],
                     "retry_number": job_results["retry_number"],
-                    "float_ppl": float_ppl,
-                    "quant_ppl": quant_ppl,
-                    **few_shot_eval,}
+                    **job_log_results,}
             # Add entry to DataFrame
             row_data = {"job_id": job_name, **job_config, **job_results}
             row_data_list.append(row_data)
@@ -193,7 +219,7 @@ def parse_results(results_folder: str) -> pd.DataFrame:
         # Columns are obtained by computing the union of the sets of keys in row_data_list, since,
         # for instance, some jobs might have crashed before completing the LM eval
         common_keys = ["job_id"] + list(job_config.keys()) + [
-            "elapsed_time", "status", "retry_number", "float_ppl", "quant_ppl"]
+            "elapsed_time", "status", "retry_number"] + ENTRYPOINT_MAP[entrypoint]["eval_metrics"]
         common_keys_set = set(common_keys)
         columns = common_keys + list(
             reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
@@ -204,7 +230,7 @@ def parse_results(results_folder: str) -> pd.DataFrame:
             # Fill missing columns with None
             df.loc[len(df)] = [row_data[key] if key in row_data else None for key in columns]
     else:
-        print(f"No experiments results were found in {results_folder}")
+        raise ValueError(f"No experiments results were found in {results_folder}")
     return df
 
 
@@ -212,10 +238,11 @@ if __name__ == "__main__":
     # A CUDA error message is issued when changing CUDA_VISIBLE_DEVICES
     # if processes are started in fork mode
     multiprocessing.set_start_method('spawn')
-    # Generate a YAML benchmark from default arguments
-    llm_parser = create_llm_args_parser()
     # Parse benchmark arguments
     script_args = parse_config_args(sys.argv[1:])
+    # Retrieve the argument parser for the entrypoint
+    entrypoint_parser: ArgumentParser = ENTRYPOINT_MAP[script_args.entrypoint]["args_parser"]
+    validate_args: Callable = ENTRYPOINT_MAP[script_args.entrypoint]["args_validate"]
     # Instantiate directory for storing the results
     if not os.path.exists(script_args.results_folder):
         os.makedirs(script_args.results_folder)
@@ -225,7 +252,7 @@ if __name__ == "__main__":
     else:
         args_dict = {
             action.dest: [action.default] if action.choices is None else action.choices
-            for action in llm_parser._actions}
+            for action in entrypoint_parser._actions}
         del args_dict["help"]  # Config file cannot be specified via YAML
         del args_dict["config"]  # Config file cannot be specified via YAML
         # Save YAML in the results folder
@@ -233,8 +260,8 @@ if __name__ == "__main__":
             yaml.dump(args_dict, f)
     # Generate combinations of arguments
     args_keys, args_values = zip(*args_dict.items())
-    # Extract the keys that are known to the llm_parser
-    parser_keys = set(action.dest for action in llm_parser._actions)
+    # Extract the keys that are known to the argument parser
+    parser_keys = set(action.dest for action in entrypoint_parser._actions)
     # Retrieve argument combinations that are valid for the LLM entrypoint
     q = Queue()
     for v in itertools.product(*args_values):
@@ -251,7 +278,7 @@ if __name__ == "__main__":
                     extra_args += [f"--{key.replace('_', '-')}", str(value)]
             args = SimpleNamespace(**args)
             # Only keep valid configurations
-            validate(args, extra_args)
+            validate_args(args, extra_args)
             q.put((args, extra_args, args_dict))
         except AssertionError as e:
             # Invalid configuration
@@ -268,6 +295,7 @@ if __name__ == "__main__":
         process = multiprocessing.Process(
             target=run_args_bucket_process,
             args=(
+                script_args.entrypoint,
                 i,
                 num_processes,
                 cuda_visible_devices,
@@ -283,5 +311,5 @@ if __name__ == "__main__":
     for process in processes:
         process.join()
     # Parse results
-    df = parse_results(script_args.results_folder)
+    df = parse_results(script_args.entrypoint, script_args.results_folder)
     df.to_csv(f"{script_args.results_folder}/results.csv", index=False)
