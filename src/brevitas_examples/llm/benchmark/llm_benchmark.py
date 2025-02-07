@@ -20,12 +20,6 @@ import yaml
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
 
-# Set appropiately for your system
-RESULTS_FOLDER = "./"
-DEFAULT_CUDA_AVAILABLE_DEVICES = [0]
-NUM_GPUS_PER_PROCESS = 1
-NUM_RETRIES = 1
-
 
 def _make_float(value):
     try:
@@ -36,7 +30,12 @@ def _make_float(value):
 
 
 def run_args_bucket_process(
-        id: int, num_processes: int, cuda_visible_devices: str, args_queue: Queue):
+        id: int,
+        num_processes: int,
+        cuda_visible_devices: str,
+        results_folder: str,
+        max_num_retries: int,
+        args_queue: Queue):
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
     # Now import the LLM entrypoint, thus making sure that CUDA_VISIBLE_DEVICES
@@ -61,12 +60,12 @@ def run_args_bucket_process(
         except Exception:
             break
         print(
-            f"Process {id}, remaining combinations {args_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_queue.qsize() / num_processes + 1)*mean_running_time)))}"
+            f"Process: {id}, remaining combinations: {args_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_queue.qsize() / num_processes + 1)*mean_running_time)))}"
         )
         # TODO: Change so each process has an unique name, without relying
         # on the process id suffix
         job_name = f"{rn.get_name()}"
-        job_folder = f"{RESULTS_FOLDER}/{job_name}"
+        job_folder = f"{results_folder}/{job_name}"
         # Create folder to store the results of the experiment
         os.mkdir(job_folder)
         # Save yaml file for reproducibility
@@ -74,7 +73,7 @@ def run_args_bucket_process(
             yaml.dump(args_dict, f)
         # Enable reruning the process there was a crash
         num_retries = 0
-        while num_retries < NUM_RETRIES:
+        while num_retries < max_num_retries:
             stdout_file = open(f"{job_folder}/stdout.out", 'w')
             stderr_file = open(f"{job_folder}/stderr.out", 'w')
             # Redirect output to files
@@ -121,12 +120,36 @@ def parse_config_args(args: List[str]) -> Namespace:
         type=str,
         default=None,
         help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
+        'Specify YAML with argument combinations (e.g., config/default_template.yml). Default: %(default)s.'
+    )
+    parser.add_argument(
+        '--results-folder',
+        type=str,
+        default="./",
+        help='Folder to store the experiment results. Default: %(default)s.')
+    parser.add_argument(
+        '--gpus',
+        type=str,
+        default="0",
+        help=
+        'Specify the identifiers of the GPUs to use in a comma-separated list. Default: %(default)s.'
+    )
+    parser.add_argument(
+        '--num-gpus-per-process',
+        type=int,
+        default=1,
+        help='Number of GPUs to each for running each argument combination. Default: %(default)s.')
+    parser.add_argument(
+        '--max-num-retries',
+        type=int,
+        default=1,
+        help=
+        'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
     )
     return parser.parse_args(args)
 
 
-def parse_results(results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
+def parse_results(results_folder: str) -> pd.DataFrame:
     row_data_list = []
     job_config = None
     for entry in os.scandir(results_folder):
@@ -190,15 +213,15 @@ if __name__ == "__main__":
     # A CUDA error message is issued when changing CUDA_VISIBLE_DEVICES
     # if processes are started in fork mode
     multiprocessing.set_start_method('spawn')
-    # Instantiate directory for storing the results
-    if not os.path.exists(RESULTS_FOLDER):
-        os.makedirs(RESULTS_FOLDER)
     # Generate a YAML benchmark from default arguments
     llm_parser = create_llm_args_parser()
-    if len(sys.argv) > 1:
-        args = parse_config_args(sys.argv[1:])
-        # Load argument combinations from specified YAML
-        with open(args.config, 'r') as f:
+    # Parse benchmark arguments
+    script_args = parse_config_args(sys.argv[1:])
+    # Instantiate directory for storing the results
+    if not os.path.exists(script_args.results_folder):
+        os.makedirs(script_args.results_folder)
+    if script_args.config is not None:
+        with open(script_args.config, 'r') as f:
             args_dict = yaml.safe_load(f)
     else:
         args_dict = {
@@ -207,7 +230,7 @@ if __name__ == "__main__":
         del args_dict["help"]  # Config file cannot be specified via YAML
         del args_dict["config"]  # Config file cannot be specified via YAML
         # Save YAML in the results folder
-        with open(f"{RESULTS_FOLDER}/benchmark_config.yaml", 'w') as f:
+        with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
             yaml.dump(args_dict, f)
     # Generate combinations of arguments
     args_keys, args_values = zip(*args_dict.items())
@@ -233,31 +256,31 @@ if __name__ == "__main__":
         except AssertionError as e:
             # Invalid configuration
             pass
-    CUDA_AVAILABLE_DEVICES = list(
-        map(int, os.environ["CUDA_VISIBLE_DEVICES"].split(
-            ","))) if "CUDA_VISIBLE_DEVICES" in os.environ else DEFAULT_CUDA_AVAILABLE_DEVICES
+    cuda_available_devices = list(map(int, script_args.gpus.split(",")))
     # Number of argument combinations
-    num_processes = len(CUDA_AVAILABLE_DEVICES) // NUM_GPUS_PER_PROCESS
+    num_processes = len(cuda_available_devices) // script_args.num_gpus_per_process
     # Instantiate threads to run the arguments in each bucket
     processes = []
     for i in range(num_processes):
         cuda_visible_devices = ",".join(
-            map(str, CUDA_AVAILABLE_DEVICES[i:i + NUM_GPUS_PER_PROCESS]))
+            map(str, cuda_available_devices[i:i + script_args.num_gpus_per_process]))
         process = multiprocessing.Process(
             target=run_args_bucket_process,
             args=(
                 i,
                 num_processes,
                 cuda_visible_devices,
+                script_args.results_folder,
+                script_args.max_num_retries,
                 q,
             ),
         )
         process.start()
         processes.append(process)
 
-    # Wait for all threads to complete
+    # Wait for all processes to complete
     for process in processes:
         process.join()
     # Parse results
-    df = parse_results()
-    df.to_csv(f"{RESULTS_FOLDER}/results.csv", index=False)
+    df = parse_results(script_args.results_folder)
+    df.to_csv(f"{script_args.results_folder}/results.csv", index=False)
