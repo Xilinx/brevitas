@@ -21,10 +21,11 @@ from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
 
 # Set appropiately for your system
-RESULTS_FOLDER =  "./"
+RESULTS_FOLDER = "./"
 DEFAULT_CUDA_AVAILABLE_DEVICES = [0]
 NUM_GPUS_PER_PROCESS = 1
 NUM_RETRIES = 1
+
 
 def _make_float(value):
     try:
@@ -32,6 +33,7 @@ def _make_float(value):
         return float_value
     except ValueError:
         return value
+
 
 def run_args_bucket_process(
         id: int, num_processes: int, cuda_visible_devices: str, args_queue: Queue):
@@ -172,8 +174,8 @@ def parse_results(results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
             "elapsed_time", "status", "retry_number", "float_ppl", "quant_ppl"]
         common_keys_set = set(common_keys)
         columns = common_keys + list(
-            reduce(lambda x, y: x.union(y),
-                [set(row_data.keys()) for row_data in row_data_list]).difference(common_keys_set))
+            reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
+                                            ]).difference(common_keys_set))
         # Instantiate DataFrame to store the results
         df = pd.DataFrame(columns=columns)
         for row_data in row_data_list:
@@ -224,14 +226,16 @@ if __name__ == "__main__":
                 if key in parser_keys:
                     args[key] = value
                 else:
-                    extra_args += [f"--{key.replace("_", "-")}", str(value)]
+                    extra_args += [f"--{key.replace('_', '-')}", str(value)]
             args = SimpleNamespace(**args)
             validate(args, extra_args)
             q.put((args, extra_args, args_dict))
         except AssertionError as e:
             # Invalid configuration
             pass
-    CUDA_AVAILABLE_DEVICES = list(map(int, os.environ["CUDA_VISIBLE_DEVICES"].split(","))) if "CUDA_VISIBLE_DEVICES" in os.environ else DEFAULT_CUDA_AVAILABLE_DEVICES
+    CUDA_AVAILABLE_DEVICES = list(
+        map(int, os.environ["CUDA_VISIBLE_DEVICES"].split(
+            ","))) if "CUDA_VISIBLE_DEVICES" in os.environ else DEFAULT_CUDA_AVAILABLE_DEVICES
     # Number of argument combinations
     num_processes = len(CUDA_AVAILABLE_DEVICES) // NUM_GPUS_PER_PROCESS
     # Instantiate threads to run the arguments in each bucket
