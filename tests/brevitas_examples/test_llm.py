@@ -24,6 +24,7 @@ from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_export
+from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import requires_pt_ge
 
 ATOL_PPL = 2e+02
@@ -620,6 +621,7 @@ def layer_args_hyperparam(default_run_args, request):
 
 @pytest.mark.llm
 @requires_pt_ge('2.2')
+@jit_disabled_for_dynamic_quant_act()
 def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
     from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
