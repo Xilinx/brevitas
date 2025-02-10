@@ -35,6 +35,8 @@ input_quant_granularity: per_tensor
 input_quant_type: asym
 input_scale_precision: float_scale
 input_scale_type: static
+kv_quant_granularity: null
+kv_quant_type: null
 learned_round: null
 learned_round_fast_update: false
 learned_round_iters: 200
@@ -59,6 +61,7 @@ replace_rmsnorm: false
 rotation: null
 rotation_mode: had
 rotation_orphan_sink: false
+rotation_sdpa_regions: false
 scale_rounding_func_type: null
 scaling_min_val: 0.0001
 seed: 0

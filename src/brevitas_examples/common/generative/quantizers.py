@@ -13,6 +13,7 @@ from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
@@ -97,6 +98,18 @@ class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_stats_op = 'min_max'
     scaling_per_output_type = ScalingPerOutputType.GROUP
+
+
+class ShiftedUint8DynamicActPerGroupFloat(DynamicActProxyMixin, ShiftedUint8ActPerTensorFloat):
+    """
+    Symmetric quantizer with per group scale.
+    """
+    proxy_class = GroupwiseActQuantProxyFromInjector
+    scaling_impl = RuntimeDynamicGroupStatsScaling
+    scaling_stats_op = 'min_max'
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    zero_point_impl = RuntimeDynamicGroupZeroPoint
+    zero_point_stats_impl = NegativeMinOrZero
 
 
 class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8ActPerTensorFloat):

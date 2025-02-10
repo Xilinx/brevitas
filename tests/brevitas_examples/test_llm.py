@@ -23,6 +23,7 @@ from brevitas import torch_version
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
+from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
 
@@ -584,6 +585,73 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             pytest.skip("Skipping dynamo + windows")
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
     assert_layer_types_count(model, exp_layer_types_count)
+
+
+@pytest_cases.fixture(
+    ids=["mistral-kv-quant-fx-sdpa", "mistral-kv-quant-functional-sdpa"],
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_calibration": False,
+            "input_quant_granularity": "per_row",
+            "kv_quant_granularity": "per_group",
+            "input_group_size": 32,
+            "input_scale_type": "dynamic",
+            "input_quant_type": "sym",
+            "quant_sdpa": True,
+            "functional_sdpa_quant": False,
+            "kv_quant_type": "asym"},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_calibration": False,
+            "input_quant_granularity": "per_row",
+            "kv_quant_granularity": "per_group",
+            "input_group_size": 32,
+            "input_scale_type": "dynamic",
+            "input_quant_type": "sym",
+            "quant_sdpa": False,
+            "functional_sdpa_quant": True,
+            "kv_quant_type": "asym"},])
+def layer_args_hyperparam(default_run_args, request):
+    args = default_run_args
+    layer_dict = request.param
+    args.update(**layer_dict)
+    yield args
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.2')
+@jit_disabled_for_dynamic_quant_act()
+def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
+    from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
+    from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
+    caplog.set_level(logging.INFO)
+    args = layer_args_hyperparam
+
+    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    quant_sdpa = []
+    for m in model.modules():
+        if isinstance(m, QuantSDPA):
+            quant_sdpa.append(m)
+
+    first_sdpa = quant_sdpa[0]
+
+    # Check that Q/Softmax quantization is disabled
+    assert first_sdpa.q_scaled_quant.act_quant.fused_activation_quant_proxy is None
+    assert first_sdpa.attn_output_weights_quant.act_quant.fused_activation_quant_proxy is None
+    # NOTE: We assume that asym == unsigned. This might change in the future.
+    assert not first_sdpa.v_quant.act_quant.is_signed
+    assert not first_sdpa.k_transposed_quant.act_quant.is_signed
+    # Check for groupwise activation quantization
+    assert isinstance(first_sdpa.v_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+    assert isinstance(first_sdpa.k_transposed_quant.act_quant, GroupwiseActQuantProxyFromInjector)
+    assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
+    assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
+    # Functional quantization uses one shared quant block for everything
+    if args.quant_sdpa:
+        assert len(quant_sdpa) > 1
+    elif args.functional_sdpa_quant:
+        assert len(quant_sdpa) == 1
 
 
 @pytest_cases.fixture(

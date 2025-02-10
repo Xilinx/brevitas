@@ -405,10 +405,13 @@ def quantize_llm(args, extra_args=None):
             input_scale_type=args.input_scale_type,
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
+            kv_quant_type=args.kv_quant_type,
+            kv_quant_granularity=args.kv_quant_granularity,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
+            quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
             device=device,
             scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(
@@ -762,11 +765,27 @@ def parse_args(args, override_defaults={}):
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
     parser.add_argument(
+        '--kv-quant-type',
+        type=str,
+        default=None,
+        choices=['sym', 'asym'],
+        help=
+        'KV quantization type. If None, it will follow input quant type. If set, will perform only KV cache quantization. Default: None'
+    )
+    parser.add_argument(
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
         choices=['per_tensor', 'per_row', 'per_group'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
+    parser.add_argument(
+        '--kv-quant-granularity',
+        type=str,
+        default=None,
+        choices=['per_tensor', 'per_row', 'per_group'],
+        help=
+        'Granularity for scales/zero-point of KV cache. If not set, it will use input-quant-granularity. Default: %(default)s'
+    )
     parser.add_argument(
         '--input-group-size',
         type=int,

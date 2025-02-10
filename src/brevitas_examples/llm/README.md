@@ -33,8 +33,9 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
                [--input-param-method {stats,mse}]
                [--input-scale-precision {float_scale,po2_scale}]
                [--input-scale-type {static,dynamic,no_scale}]
-               [--input-quant-type {sym,asym}]
+               [--input-quant-type {sym,asym}] [--kv-quant-type {sym,asym}]
                [--input-quant-granularity {per_tensor,per_row,per_group}]
+               [--kv-quant-granularity {per_tensor,per_row,per_group}]
                [--input-group-size INPUT_GROUP_SIZE]
                [--learned-round-lr LEARNED_ROUND_LR]
                [--learned-round-scale-lr LEARNED_ROUND_SCALE_LR]
@@ -125,7 +126,14 @@ options:
                         value.
   --input-quant-type {sym,asym}
                         Input quantization type. Default: asym.
+  --kv-quant-type {sym,asym}
+                        KV quantization type. If None, it will follow input
+                        quant type. If set, will perform only KV cache
+                        quantization. Default: None
   --input-quant-granularity {per_tensor,per_row,per_group}
+                        Granularity for scales/zero-point of inputs. Default:
+                        per_tensor.
+  --kv-quant-granularity {per_tensor,per_row,per_group}
                         Granularity for scales/zero-point of inputs. Default:
                         per_tensor.
   --input-group-size INPUT_GROUP_SIZE
