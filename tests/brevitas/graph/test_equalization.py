@@ -41,6 +41,7 @@ from brevitas.graph.utils import get_module
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas.utils.torch_utils import is_parametrized
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
@@ -93,6 +94,9 @@ def test_resnet18_equalization(fuse_scaling):
         eq_module = get_module(model, layer)
         orig_module = get_module(model_orig, layer)
         assert not torch.allclose(eq_module.weight, orig_module.weight)
+        # Check that parametrizations were added appropiately when scaling is not fused
+        if not fuse_scaling:
+            assert is_parametrized(eq_module)
 
     # Check that equalization is not introducing FP variations
     assert torch.allclose(expected_out, out, atol=ATOL)
