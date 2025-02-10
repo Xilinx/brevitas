@@ -49,8 +49,7 @@ from .equalization_fixtures import *
 
 @pytest_cases.parametrize("fuse_scaling", [True, False])
 def test_resnet18_equalization(fuse_scaling):
-    # if not fuse_scaling and parse('1.9.0') > torch_version:
-    if not fuse_scaling:
+    if not fuse_scaling and parse('1.9.0') > torch_version:
         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     model = models.resnet18(pretrained=True)
 
@@ -107,8 +106,7 @@ def test_resnet18_equalization(fuse_scaling):
 @pytest_cases.parametrize("fuse_scaling", [True, False])
 def test_equalization_torchvision_models(
         model_coverage: tuple, merge_bias: bool, fuse_scaling: bool):
-    # if not fuse_scaling and parse('1.9.0') > torch_version:
-    if not fuse_scaling:
+    if not fuse_scaling and parse('1.9.0') > torch_version:
         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     model, coverage = model_coverage
 
@@ -168,8 +166,7 @@ def test_equalization_torchvision_models(
 @pytest_cases.parametrize("merge_bias", [True, False])
 @pytest_cases.parametrize("fuse_scaling", [True, False])
 def test_models(toy_model, merge_bias, fuse_scaling, request):
-    # if not fuse_scaling and parse('1.9.0') > torch_version:
-    if not fuse_scaling:
+    if not fuse_scaling and parse('1.9.0') > torch_version:
         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     test_id = request.node.callspec.id
 

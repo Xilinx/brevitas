@@ -456,6 +456,7 @@ def transpose(tensor: torch.Tensor, axis: int):
     return tensor.permute(shape)
 
 
+@torch.no_grad()
 def _cross_layer_equalization(
         model: nn.Module,
         region: Region,
