@@ -7,6 +7,7 @@ from functools import reduce
 import itertools
 from unittest.mock import patch
 
+from packaging.version import parse
 import pytest
 import torch
 import torch.nn.utils.parametrize as parametrize
@@ -45,7 +46,10 @@ from tests.marker import requires_pt_ge
 from .equalization_fixtures import *
 
 
-def test_resnet18_equalization():
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+def test_resnet18_equalization(fuse_scaling):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     model = models.resnet18(pretrained=True)
 
     torch.manual_seed(SEED)
@@ -60,7 +64,12 @@ def test_resnet18_equalization():
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     _ = equalize_test(
-        model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model,
+        regions,
+        merge_bias=True,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs',
+        fuse_scaling=fuse_scaling)
     out = model(inp)
 
     regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
@@ -90,7 +99,11 @@ def test_resnet18_equalization():
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
-def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool):
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+def test_equalization_torchvision_models(
+        model_coverage: tuple, merge_bias: bool, fuse_scaling: bool):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     model, coverage = model_coverage
 
     torch.manual_seed(SEED)
@@ -112,7 +125,8 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
         regions,
         merge_bias=merge_bias,
         bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
+        scale_computation_type='maxabs',
+        fuse_scaling=fuse_scaling)
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
@@ -145,59 +159,11 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
         assert all([shape != () for shape in shape_scale_regions])
 
 
-@requires_pt_ge('2.3.1')
 @pytest_cases.parametrize("merge_bias", [True, False])
-def test_equalization_torchvision_models_unfused(model_coverage: tuple, merge_bias: bool):
-    model, _ = model_coverage
-
-    torch.manual_seed(SEED)
-    model.eval()
-    model = symbolic_trace(model)
-    model = TorchFunctionalToModule().apply(model)
-
-    supported_sinks = list(_supported_layers)
-    supported_sinks = tuple([
-        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
-    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
-    # Instantiate model with unfused scales
-    model_unfused = copy.deepcopy(model)
-    # Copy regions and ensure that they point to the modules in the copied model
-    regions_unfused = copy.deepcopy(regions)
-    for r in regions_unfused:
-        for m_name in r.name_to_module:
-            r.name_to_module[m_name] = recurse_getattr(model_unfused, m_name)
-    # Equalize original model
-    scale_factor_regions = equalize_test(
-        model,
-        regions,
-        merge_bias=merge_bias,
-        bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
-    # Equalized copied model
-    scale_factor_regions_unfused = equalize_test(
-        model_unfused,
-        regions_unfused,
-        merge_bias=merge_bias,
-        bias_shrinkage='vaiq',
-        scale_computation_type='maxabs',
-        fuse_scaling=False)
-    # Ensure that scale factors match
-    for scale_factor, scale_factor_unfused in zip(scale_factor_regions, scale_factor_regions_unfused):
-        assert torch.allclose(scale_factor, scale_factor_unfused, atol=0.0, rtol=0.0)
-    # Ensure that parameters match
-    for name, param in model.named_parameters():
-        param_unfused = recurse_getattr(model_unfused, name)
-        assert torch.allclose(param, param_unfused, atol=0.0, rtol=0.0)
-    # Fuse parametrizations and make sure that weights keep matching
-    model_unfused = fuse_parametrizations(model_unfused)
-    assert all([not parametrize.is_parametrized(m) for m in model_unfused.modules()])
-    for name, param in model.named_parameters():
-        param_unfused = recurse_getattr(model_unfused, name)
-        assert torch.allclose(param, param_unfused, atol=0.0, rtol=0.0)
-
-
-@pytest_cases.parametrize("merge_bias", [True, False])
-def test_models(toy_model, merge_bias, request):
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+def test_models(toy_model, merge_bias, fuse_scaling, request):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
@@ -223,7 +189,8 @@ def test_models(toy_model, merge_bias, request):
         regions,
         merge_bias=merge_bias,
         bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
+        scale_computation_type='maxabs',
+        fuse_scaling=fuse_scaling)
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     with torch.no_grad():
