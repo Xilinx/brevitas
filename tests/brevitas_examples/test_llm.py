@@ -23,8 +23,8 @@ from brevitas import torch_version
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
-from tests.marker import jit_disabled_for_export
 from tests.marker import jit_disabled_for_dynamic_quant_act
+from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
 
 ATOL_PPL = 2e+02
