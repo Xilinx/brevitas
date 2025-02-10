@@ -125,26 +125,6 @@ class GPFQ(GPxQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
-    def get_quant_weights(self, g, t, permutation_list) -> Tensor:
-        # TODO: we would like to implement slicing to minimize the amount
-        # of quantization, but right now slicing is done for a single channel
-        # and we would need to implement it for an arbitary slice of channels
-        if isinstance(self.layer, qnn.QuantLinear):
-            # No slicing, not optimized
-            q = self.layer.quant_weight(quant_input=self.quant_metadata)
-            q = q.value.unsqueeze(0)  # [1, OC, IC]
-            q = q[g, :, permutation_list[g][:t]]  # [groups, OC/groups, t]
-        elif isinstance(self.layer, SUPPORTED_CONV_OP):
-            # No slicing, not optimized
-            q = self.layer.quant_weight(quant_input=self.quant_metadata)
-            q = q.value
-            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
-                q = q.transpose(1, 0)  # This performs a view
-            q = q.flatten(1)
-            q = q.view(self.groups, -1, q.shape[-1])
-            q = q[g, :, permutation_list[g][:t]]  # [groups, OC/groups, t]
-        return q
-
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require metadata from input quantizers."
@@ -153,14 +133,12 @@ class GPFQ(GPxQ):
             self.layer.allocate_params(self.layer)
         del self.B  # free up memory by deleting the buffer
 
-        weight: Tensor = self.layer.weight.data
+        weight = self.layer.weight.data
         if self.create_weight_orig:
-            assert hasattr(self.layer, 'weight_orig'), \
-                "Error: GPFQ requires the original weights to be stored, see `create_weight_orig`."
-            weight_orig: Tensor = self.layer.weight_orig.data
+            weight_orig = self.layer.weight_orig.data
         else:
             warnings.warn("Warning: GPFQ will perform better with `create_weight_orig=True`.")
-            weight_orig: Tensor = weight.clone()
+            weight_orig = weight.clone()
         dev = weight.device
 
         # Store the original dtype of the weights
@@ -200,20 +178,16 @@ class GPFQ(GPxQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        Dg: Tensor = torch.zeros((self.groups, self.columns), dtype=torch.float32)
-        Dh: Tensor = torch.zeros((self.groups, self.columns), dtype=torch.float32)
+        Dg = torch.zeros((self.groups, self.columns), dtype=torch.float32)
+        Dh = torch.zeros((self.groups, self.columns), dtype=torch.float32)
         for group_index in range(self.groups):
             Dg[group_index].copy_(self.G[group_index].diag())
             Dh[group_index].copy_(self.H[group_index].diag())
         # if either norms are 0, the weight is effectively pruned
         Ds = torch.where(Dg * Dh != 0, Dg / Dh, torch.zeros_like(Dg))  # \hat{D}_tt / D_tt
 
-        Lg: Tensor = torch.zeros((self.groups, self.columns, self.columns),
-                                 device=dev,
-                                 dtype=torch.float32)
-        Lh: Tensor = torch.zeros((self.groups, self.columns, self.columns),
-                                 device=dev,
-                                 dtype=torch.float32)
+        Lg = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=torch.float32)
+        Lh = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=torch.float32)
         for group_index in range(self.groups):
             L0g = torch.tril(self.G[group_index], -1)  # L0
             L0h = torch.tril(self.H[group_index], -1)  # \hat{L0}
@@ -226,15 +200,13 @@ class GPFQ(GPxQ):
         del self.H, self.G  # memory management
 
         for t in range(weight.shape[-1]):
+            q_groups = self.get_quant_weights(t, 0, permutation_list, with_quant_history=True)
             for group_index in range(self.groups):
                 # t := time step (Lg, Lh, and Ds are re-ordered in time)
                 # i := input channel index (weight and error are not re-ordered)
                 i = permutation_list[group_index][t]
-
-                w: Tensor = weight_orig[group_index, :,
-                                        permutation_list[group_index][:t]].to(torch.float32)
-                q: Tensor = self.get_quant_weights(group_index, t,
-                                                   permutation_list).to(torch.float32)
+                w = weight_orig[group_index, :, permutation_list[group_index][:t]].to(torch.float32)
+                q = q_groups[group_index].to(torch.float32)
                 Lw = w.matmul(Lg[group_index, t, :t])
                 Lq = q.matmul(Lh[group_index, t, :t])
                 q_arg = Ds[group_index, t] * weight[group_index, :, i].to(torch.float32) + Lw - Lq
