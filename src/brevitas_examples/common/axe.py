@@ -18,7 +18,6 @@ from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gptq import GPTQ
-from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
 from brevitas.utils.quant_utils import _CachedIO
