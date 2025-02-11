@@ -627,7 +627,7 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     caplog.set_level(logging.INFO)
     args = layer_args_hyperparam
 
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    _, model = validate_args_and_run_main(args)
     quant_sdpa = []
     for m in model.modules():
         if isinstance(m, QuantSDPA):
