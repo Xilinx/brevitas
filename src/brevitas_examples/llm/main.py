@@ -988,7 +988,12 @@ def parse_args(args, override_defaults={}):
         type=str,
         nargs='*',
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
-<<<<<<< HEAD
+    parser.add_argument(
+        '--rotation-layers-to-expand',
+        type=str,
+        default=[],
+        nargs='*',
+        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
     if len(override_defaults) > 0:
         # Retrieve keys that are known to the parser
         parser_keys = set(map(lambda action: action.dest, parser._actions))
@@ -1002,14 +1007,6 @@ def parse_args(args, override_defaults={}):
         for key in extra_args_keys:
             args += [f"--{key}", str(override_defaults[key])]
             del override_defaults[key]
-=======
-    parser.add_argument(
-        '--rotation-layers-to-expand',
-        type=str,
-        default=[],
-        nargs='*',
-        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
->>>>>>> Feat (hadamard): support region expansion
     parser.set_defaults(**override_defaults)
 
     return parser.parse_known_args(args)
