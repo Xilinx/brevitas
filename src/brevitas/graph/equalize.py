@@ -1695,7 +1695,7 @@ class GraphRotationEqualization(RotationEqualization):
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
-        if self.orphan_sink:
+        if len(orphan_regions) > 0:
             for o_r in orphan_regions:
                 # Layerwise have only a single sink named 'sinks0'
                 id_sink = id(o_r.get_module_from_name('sinks0'))
