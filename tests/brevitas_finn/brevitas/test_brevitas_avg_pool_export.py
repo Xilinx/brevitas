@@ -77,10 +77,11 @@ def test_brevitas_avg_pool_export(
     odict = oxe.execute_onnx(model, idict, True)
     finn_output = odict[model.graph.output[0].name]
     # compare outputs
-    if restrict_scaling_type == "power_of_two" and kernel_size == 2:
-        atol = 1e-8
-    else:
-        atol = quant_avgpool.trunc_quant.scale().detach().numpy()  # Allow "off-by-1" errors
+    #if restrict_scaling_type == "power_of_two" and kernel_size == 2:
+    #    atol = 1e-8
+    #else:
+    #    atol = quant_avgpool.trunc_quant.scale().detach().numpy()  # Allow "off-by-1" errors
+    atol = 1e-8
     assert np.isclose(ref_output_array, finn_output, atol=atol).all()
     # cleanup
     os.remove(export_path)

@@ -234,7 +234,7 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
         self.validate(module)
         self.symbolic_kwargs = {
             'narrow_range': module.is_narrow_range,
-            'output_scale': module.scale(),
+            'output_scale': float(module.scale().detach().cpu().numpy()),
             'output_bit_width': module.bit_width(),
             'rounding_mode': module.rounding_mode}
 

@@ -123,14 +123,16 @@ class BrevitasTruncFn(Function):
             output_bit_width,
             rounding_mode):
         ret = g.op(
-            f'{DOMAIN_STRING}::Quant',
+            f'{DOMAIN_STRING}::Trunc',
             x,
-            output_scale,
+            scale,
             zero_point,
+            input_bit_width,
             output_bit_width,
             rounding_mode_s=rounding_mode,
             signed_i=int(signed),
-            narrow_i=int(narrow_range))
+            narrow_i=int(narrow_range),
+            output_scale_f=output_scale)
         ret.setType(x.type())
         return ret
 
