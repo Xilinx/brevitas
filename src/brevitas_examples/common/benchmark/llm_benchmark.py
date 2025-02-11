@@ -1,7 +1,9 @@
 from argparse import ArgumentParser
 from argparse import Namespace
+from collections import defaultdict
 import datetime
 from functools import reduce
+import hashlib
 import itertools
 import multiprocessing
 from multiprocessing import Queue
@@ -14,9 +16,10 @@ from types import SimpleNamespace
 from typing import Any, Callable, Dict, List
 
 import pandas as pd
-import randomname as rn
 import yaml
 
+from brevitas import __version__ as brevitas_version
+from brevitas import torch_version
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
 
@@ -53,8 +56,46 @@ def _make_float(value: Any) -> Any:
     try:
         float_value = float(value)
         return float_value
-    except ValueError:
+    except Exception:
         return value
+
+
+def _print_indented_dict(message: str, dictionary: Dict) -> None:
+    print(message)
+    for key, value in dictionary.items():
+        print(f"\t{key}: {value}")
+
+
+# Ensures that the bytestring is the same irrespective
+# of the order in which the keys are added to the dictionary
+def _dict_to_bytes(dictionary: Dict) -> bytes:
+    sorted_dict = {}
+    for key in sorted(dictionary):
+        sorted_dict[key] = dictionary[key]
+    return str(sorted_dict).encode('utf-8')
+
+
+# Not used at the moment, but kept for reference
+def args_dict_to_command(entrypoint_parser: ArgumentParser, args_dict: Dict) -> str:
+    from argparse import _StoreAction
+    from argparse import _StoreTrueAction
+
+    # Save actions from the argument parser
+    args_parser_dict = {action.dest: action for action in entrypoint_parser._actions}
+    # Iterate over the combinations
+    command_options = []
+    for key, value in args_dict.items():
+        if key in args_parser_dict:
+            action = args_parser_dict[key]
+            if isinstance(action, _StoreAction):
+                if value != action.default:
+                    command_options += [f"--{key.replace('_', '-')}", str(value)]
+            elif isinstance(action, _StoreTrueAction):
+                if value:
+                    command_options += [f"--{key.replace('_', '-')}"]
+        else:
+            command_options += [f"--{key.replace('_', '-')}", str(value)]
+    return " ".join(command_options)
 
 
 def run_args_bucket_process(
@@ -96,10 +137,21 @@ def run_args_bucket_process(
         print(
             f"Process: {id}, remaining combinations: {args_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_queue.qsize() / num_processes + 1)*mean_running_time)))}"
         )
-        job_name = f"{rn.get_name()}"
+        job_name = f"{hashlib.md5(_dict_to_bytes(args_dict)).hexdigest()}"
         job_folder = f"{results_folder}/{job_name}"
-        # Create folder to store the results of the experiment
-        os.mkdir(job_folder)
+        # Check if a folder for the experiment already exists. In case the
+        # experiment was successful before, do not try to run again
+        if os.path.isdir(job_folder):
+            try:
+                with open(f"{job_folder}/run_results.yaml", 'r') as f:
+                    job_results = yaml.safe_load(f)
+                if job_results["status"] == "successful":
+                    # Skip experiment
+                    continue
+            except Exception:
+                pass
+        else:
+            os.mkdir(job_folder)
         # Save yaml file for reproducibility
         with open(f"{job_folder}/config.yaml", 'w') as f:
             yaml.dump(args_dict, f)
@@ -133,8 +185,10 @@ def run_args_bucket_process(
             with open(f"{job_folder}/run_results.yaml", 'w') as f:
                 yaml.dump({
                     "elapsed_time": running_time,
-                    "status": "crashed" if results is None else "succesful",
+                    "status": "crashed" if results is None else "successful",
                     "retry_number": num_retries,
+                    "brevitas_version": brevitas_version,
+                    "torch_version": str(torch_version),
                     **(results if results is not None else {})},
                           f)
             if results is not None:
@@ -146,7 +200,7 @@ def run_args_bucket_process(
 
 
 def parse_config_args(args: List[str]) -> Namespace:
-    parser = ArgumentParser(add_help=False)
+    parser = ArgumentParser()
     parser.add_argument(
         '--config',
         type=str,
@@ -184,6 +238,12 @@ def parse_config_args(args: List[str]) -> Namespace:
         help=
         'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Whether to skip running experiments a (default: %(default)s).",
+    )
     return parser.parse_args(args)
 
 
@@ -211,6 +271,8 @@ def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
                     "elapsed_time": job_results["elapsed_time"],
                     "status": job_results["status"],
                     "retry_number": job_results["retry_number"],
+                    "brevitas_version": job_results["brevitas_version"],
+                    "torch_version": job_results["torch_version"],
                     **job_log_results,}
             # Add entry to DataFrame
             row_data = {"job_id": job_name, **job_config, **job_results}
@@ -219,7 +281,8 @@ def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
         # Columns are obtained by computing the union of the sets of keys in row_data_list, since,
         # for instance, some jobs might have crashed before completing the LM eval
         common_keys = ["job_id"] + list(job_config.keys()) + [
-            "elapsed_time", "status", "retry_number"] + ENTRYPOINT_MAP[entrypoint]["eval_metrics"]
+            "elapsed_time", "status", "retry_number", "brevitas_version", "torch_version"
+        ] + ENTRYPOINT_MAP[entrypoint]["eval_metrics"]
         common_keys_set = set(common_keys)
         columns = common_keys + list(
             reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
@@ -234,6 +297,40 @@ def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
     return df
 
 
+def print_benchmark_summary(
+        args_queue: List[Dict], script_args: Namespace, entrypoint_parser: ArgumentParser) -> None:
+    print(f"Num. experiments: {len(q)}")
+    _print_indented_dict("Benchmark args.:", vars(script_args))
+    # Return if there are not valid combination
+    if len(q) == 0:
+        return
+    # Retrieve the arguments that are not set to non-default values
+    args_combinations = defaultdict(set)
+    for _, _, args_dict in args_queue:
+        for key, value in args_dict.items():
+            if isinstance(value, list):
+                # Convert lists to tuples to make sure values are hashable
+                value = tuple(value)
+            args_combinations[key].add(value)
+    # Retrieve defaults of argument parser
+    args_parser_defaults = {action.dest: action.default for action in entrypoint_parser._actions}
+    args_keys = list(args_combinations.keys())
+    # Iterate over the keys removing entries with a length of 1 that are set to the default value
+    for key in args_keys:
+        if len(args_combinations[key]) == 1 and key in args_parser_defaults:
+            value = next(iter(args_combinations[key]))
+            default_value = args_parser_defaults[key]
+            if isinstance(default_value, list):
+                # Cast to tuple for comparison
+                default_value = tuple(default_value)
+            if value == default_value:
+                del args_combinations[key]
+    args_combinations_dict = {
+        f"--{key.replace('_','-')}": list(sorted(value)) for key,
+        value in args_combinations.items()}
+    _print_indented_dict("Non-default args.:", args_combinations_dict)
+
+
 if __name__ == "__main__":
     # A CUDA error message is issued when changing CUDA_VISIBLE_DEVICES
     # if processes are started in fork mode
@@ -244,17 +341,25 @@ if __name__ == "__main__":
     entrypoint_parser: ArgumentParser = ENTRYPOINT_MAP[script_args.entrypoint]["args_parser"]
     validate_args: Callable = ENTRYPOINT_MAP[script_args.entrypoint]["args_validate"]
     # Instantiate directory for storing the results
-    if not os.path.exists(script_args.results_folder):
+    if not script_args.dry_run and not os.path.exists(script_args.results_folder):
         os.makedirs(script_args.results_folder)
+    # If a benchmark YAML is passed, use that to retrieve argument combinations,
+    # otherwise generate all possible combinations of arguments from the
+    # entrypoint_parser
     if script_args.config is not None:
         with open(script_args.config, 'r') as f:
             args_dict = yaml.safe_load(f)
+        # Add defaults if only a subset of keys are specified
+        for action in entrypoint_parser._actions:
+            if action.dest not in args_dict:
+                args_dict[action.dest] = [action.default]
     else:
         args_dict = {
             action.dest: [action.default] if action.choices is None else action.choices
             for action in entrypoint_parser._actions}
-        del args_dict["help"]  # Config file cannot be specified via YAML
-        del args_dict["config"]  # Config file cannot be specified via YAML
+        # Remove unnecessary keys
+        del args_dict["help"]
+        del args_dict["config"]
         # Save YAML in the results folder
         with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
             yaml.dump(args_dict, f)
@@ -262,8 +367,8 @@ if __name__ == "__main__":
     args_keys, args_values = zip(*args_dict.items())
     # Extract the keys that are known to the argument parser
     parser_keys = set(action.dest for action in entrypoint_parser._actions)
-    # Retrieve argument combinations that are valid for the LLM entrypoint
-    q = Queue()
+    # Retrieve argument combinations that are valid for the entrypoint
+    q = []
     for v in itertools.product(*args_values):
         args_dict = dict(zip(args_keys, v))
         try:
@@ -279,10 +384,19 @@ if __name__ == "__main__":
             args = SimpleNamespace(**args)
             # Only keep valid configurations
             validate_args(args, extra_args)
-            q.put((args, extra_args, args_dict))
-        except AssertionError as e:
+            q.append((args, extra_args, args_dict))
+        except AssertionError:
             # Invalid configuration
             pass
+    # Show a summary of the configuration to be run in the benchmark execution
+    print_benchmark_summary(q, script_args, entrypoint_parser)
+    # In the case of a dry-run, just stop after the output of the benchmark summary
+    if script_args.dry_run:
+        exit()
+    # Prepare the shared queue for the processes
+    args_queue = Queue()
+    for args_tuple in q:
+        args_queue.put(args_tuple)
     # Map the comma-separated string of GPU ids to a list
     cuda_available_devices = list(map(int, script_args.gpus.split(",")))
     # Number of argument combinations
@@ -301,7 +415,7 @@ if __name__ == "__main__":
                 cuda_visible_devices,
                 script_args.results_folder,
                 script_args.max_num_retries,
-                q,
+                args_queue,
             ),
         )
         process.start()
