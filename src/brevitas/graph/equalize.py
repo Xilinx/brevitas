@@ -43,10 +43,13 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas.utils.torch_utils import pad_to_dim
+
+logging = setup_logger(__name__)
 
 # External optional dependency
 try:
@@ -1686,6 +1689,10 @@ class GraphRotationEqualization(RotationEqualization):
         self.find_module(graph_model, orphan_regions, blacklist_layers=blacklist_orphan_layers)
 
         if len(expanded_regions) > 0:
+            parameter_number_pre = 0
+            for m in graph_model.parameters():
+                parameter_number_pre += m.numel()
+            logging.info(f"{len(expanded_regions)} layers will be expanded during rotation")
             orphan_regions.extend(expanded_regions)
 
         if self.sdpa_regions:
@@ -1709,6 +1716,13 @@ class GraphRotationEqualization(RotationEqualization):
                 regions,
                 self.full_rotation_method,
                 fuse_rotations=not self.use_parametrized_rotations)
+            if len(expanded_regions) > 0:
+                parameter_number_post = 0
+                for m in graph_model.parameters():
+                    parameter_number_post += m.numel()
+                logging.info(
+                    f"Added {parameter_number_post - parameter_number_pre} parameters to the model")
+
         if self.return_rewriters:
             return graph_model, rewriters
         else:
