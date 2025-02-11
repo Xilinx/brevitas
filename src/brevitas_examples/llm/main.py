@@ -110,11 +110,12 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         layers_to_expand=layers_to_expand)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
-    for r in rewriters:
-        # The weights between model and new_model are tied, so this check prevents
-        # rotating the weights twice
-        if not isinstance(r, ModuleInstanceTransformTensor):
-            model = r.apply(model)
+    with torch.no_grad():
+        for r in rewriters:
+            # The weights between model and new_model are tied, so this check prevents
+            # rotating the weights twice
+            if not isinstance(r, ModuleInstanceTransformTensor):
+                model = r.apply(model)
     remove_hooks(new_model)
 
 

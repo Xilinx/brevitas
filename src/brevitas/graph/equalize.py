@@ -456,6 +456,15 @@ def transpose(tensor: torch.Tensor, axis: int):
     return tensor.permute(shape)
 
 
+# When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
+# which are registered to the scaling modules (used in the parametrization of the
+# the weights). By default, these parameters have requires_grad set to True, and when
+# registering the parametrizations, the forward pass of the parametrization modules
+# is run (when unsafe is False, see _init_ of ParametrizationList), as well as when
+# a module is part of multiple regions. Therefore, wrapping _cross_layer_equalization
+# with torch.no_grad() prevents gradient functions (and gradient-related intermediate
+# tensors) from being recorded when running this forward, thus preventing unnecessary
+# memory consumption during the algorithm execution.
 @torch.no_grad()
 def _cross_layer_equalization(
         model: nn.Module,
