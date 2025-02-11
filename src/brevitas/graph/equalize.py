@@ -1323,6 +1323,9 @@ def _apply_rotate(
     # operations have taken place
     regions = [region for region in regions if len(region.srcs) == 0] + [
         region for region in regions if len(region.srcs) > 0]
+
+    # Pre-initialize to None to avoid issue down the line
+    expanded_rot_mat, expanded_K, rot_mat, K = None, None, None, None
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
@@ -1331,7 +1334,6 @@ def _apply_rotate(
         hidden_dim = region.max_shape_sinks
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
-            K = None
             rot_func = _apply_ort_device
         elif not insert_rotation_module and not fuse_rotations:
             # If the model is distributed across GPUs, the device will be
@@ -1339,22 +1341,19 @@ def _apply_rotate(
             # to the same device as the weights need to be added
             device = next(model.parameters()).device
             rot_mat = random_hadamard_matrix(hidden_dim, device)
-            K = None
             rot_func = _apply_ort_device
         else:
             try:
                 # Build hadamard rotation matrix
-                original_rot_mat, original_k = rot_mat, K = get_hadK(hidden_dim)
-
+                rot_mat, K = get_hadK(hidden_dim)
                 hidden_dim = find_closest_hadamard_number(hidden_dim, hidden_dim + 1).cpu().item()
-                rot_mat, K = get_hadK(int(hidden_dim))
+                expanded_rot_mat, expanded_K = get_hadK(int(hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
                 print(f"Incomptible shapes {hidden_dim}")
                 if not insert_rotation_module:
                     print("Falling back to orthogonal matrices")
                     rot_mat = random_orthogonal_matrix(hidden_dim)
-                    K = None
                     rot_func = _apply_ort_device
                 print("Skipping layers")
                 continue
@@ -1393,6 +1392,7 @@ def _apply_rotate(
 
             # Only "weight" is rotated
             if region.expand_region:
+                rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
                 hidden_dim = module.weight.shape[1]
                 new_hidden = find_closest_hadamard_number(hidden_dim, hidden_dim + 1)
@@ -1404,8 +1404,6 @@ def _apply_rotate(
                 new_weights = torch.nn.functional.pad(module.weight.data, pad_tensor)
                 _update_weights(module, new_weights, 'weight')
                 module.in_features = int(new_hidden)
-            else:
-                rot_mat, K = original_rot_mat, original_k
 
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
             rewriter_class = ModuleInstanceTransformTensor if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
