@@ -4,5 +4,6 @@ lm_eval
 onnx
 onnxruntime
 optimum
+pandas
 tqdm
 transformers[sentencepiece]==4.47.1
