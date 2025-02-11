@@ -87,7 +87,7 @@ class RotatedModule(torch.nn.Module):
             else:
                 had_K = self.had_mat
                 K = self.k
-                inp = matmul_hadU_cuda(inp, had_K, K)
+            inp = matmul_hadU_cuda(inp, had_K, K)
         else:
             inp = matmul_hadU(inp)
         o = self.layer(inp)
