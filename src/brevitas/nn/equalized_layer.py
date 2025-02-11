@@ -2,6 +2,7 @@ from inspect import signature
 
 import torch
 
+from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
@@ -53,7 +54,7 @@ class EqualizedModule(torch.nn.Module):
 
 class RotatedModule(torch.nn.Module):
 
-    def __init__(self, layer, had_mat=None, k=None) -> None:
+    def __init__(self, layer, had_mat=None, k=None, expand=False) -> None:
         super().__init__()
         if had_mat is not None:
             self.had_mat = torch.nn.Parameter(had_mat).cpu()
@@ -61,16 +62,32 @@ class RotatedModule(torch.nn.Module):
             self.had_mat = None
         self.layer = layer
         self.k = k
+        self.expand = expand
+
+    def input_pad(self, inp):
+        # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
+        hidden_dim = inp.shape[-1]
+        new_hidden = find_closest_hadamard_number(hidden_dim, hidden_dim + 1)
+        pad = new_hidden - hidden_dim
+        pad_dim = len(inp.shape) * 2
+        pad_tensor = [0] * pad_dim
+        # Right padding the feature dimension
+        pad_tensor[1] = int(pad)
+        inp = torch.nn.functional.pad(inp, pad_tensor, mode='constant', value=0)
+        return inp
 
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
+        if self.expand:
+            inp = self.input_pad(inp)
+
         if is_cuda and fast_hadamard_transform is not None:
             if self.had_mat is None or self.k is None:
                 had_K, K = get_hadK(inp.shape[-1])
             else:
                 had_K = self.had_mat
                 K = self.k
-            inp = matmul_hadU_cuda(inp, had_K, K)
+                inp = matmul_hadU_cuda(inp, had_K, K)
         else:
             inp = matmul_hadU(inp)
         o = self.layer(inp)

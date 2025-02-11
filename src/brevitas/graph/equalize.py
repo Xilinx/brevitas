@@ -28,6 +28,7 @@ from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
+from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
@@ -155,6 +156,7 @@ class Region:
     sinks: Dict = field(default_factory=dict)
     acts: Tuple = field(default_factory=tuple)
     name_to_module: Dict = field(default_factory=dict)
+    expand_region: bool = False
 
     @property
     def srcs_names(self):
@@ -1342,7 +1344,10 @@ def _apply_rotate(
         else:
             try:
                 # Build hadamard rotation matrix
-                rot_mat, K = get_hadK(hidden_dim)
+                original_rot_mat, original_k = rot_mat, K = get_hadK(hidden_dim)
+
+                hidden_dim = find_closest_hadamard_number(hidden_dim, hidden_dim + 1).cpu().item()
+                rot_mat, K = get_hadK(int(hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
                 print(f"Incomptible shapes {hidden_dim}")
@@ -1384,27 +1389,44 @@ def _apply_rotate(
 
         for name, indexes in region.sinks.items():
             module = region.get_module_from_name(name)
+            weight_axis = _get_input_axis(module)
+
             # Only "weight" is rotated
-            tensor_names_axis = [("weight", _get_input_axis(module))]
+            if region.expand_region:
+                assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
+                hidden_dim = module.weight.shape[1]
+                new_hidden = find_closest_hadamard_number(hidden_dim, hidden_dim + 1)
+                pad_size = int(new_hidden - hidden_dim)
+                pad_dim = len(module.weight.data.shape) * 2
+                pad_tensor = [0] * pad_dim
+                pad_tensor[weight_axis * 2] = pad_size
+                pad_tensor = list(reversed(pad_tensor))
+                new_weights = torch.nn.functional.pad(module.weight.data, pad_tensor)
+                _update_weights(module, new_weights, 'weight')
+                module.in_features = int(new_hidden)
+            else:
+                rot_mat, K = original_rot_mat, original_k
+
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
             rewriter_class = ModuleInstanceTransformTensor if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
             # Obtain rewriters for applying the rotations
-            for tensor_name, axis in tensor_names_axis:
-                rewriter = rewriter_class(
-                    module=module,
-                    tensor_name=tensor_name,
-                    transform_module=RotationWeightParametrization(
-                        rot_mat=rot_mat,
-                        rot_func=rot_func,
-                        axis=axis,
-                        K=K,
-                    ))
-                rewriters.append(rewriter)
+            rewriter = rewriter_class(
+                module=module,
+                tensor_name='weight',
+                transform_module=RotationWeightParametrization(
+                    rot_mat=rot_mat,
+                    rot_func=rot_func,
+                    axis=weight_axis,
+                    K=K,
+                ))
+            rewriters.append(rewriter)
             # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
                 rewriter = ModuleInstanceWrapModule(
-                    module, RotatedModule, "layer", {
-                        "had_mat": rot_mat, "k": K})
+                    module,
+                    RotatedModule,
+                    "layer", {
+                        "had_mat": rot_mat, "k": K, "expand": region.expand_region})
                 rewriters.append(rewriter)
     if apply_inplace_rotations:
         for r in rewriters:
@@ -1501,16 +1523,30 @@ def _merge_ln(layer_norm, next_module, scale_bias_by_weight):
 
 class RotationEqualization(GraphTransform):
 
-    def __init__(self) -> None:
+    def __init__(self, blacklist_layers, layers_to_expand) -> None:
         super(RotationEqualization, self).__init__()
+        if blacklist_layers is not None:
+            self.blacklist_layers = blacklist_layers
+        else:
+            self.blacklist_layers = []
+        if layers_to_expand is not None:
+            self.layers_to_expand = layers_to_expand
+        else:
+            self.layers_to_expand = []
+        self.supported_sinks = ()
 
-    def find_module(self, model, regions: List, prefix=''):
+    def find_module(
+            self,
+            model: nn.Module,
+            regions: List[Region],
+            prefix: str = '',
+            blacklist_layers: Optional[List[str]] = None):
         """
         Iterate through the model looking at immediate children of every module to look for supported modules.
         This allows us to stop the search when we meet a top-level module that is supported.
         """
         if isinstance(model, self.supported_sinks):
-            if self.blacklist_layers is not None and prefix in self.blacklist_layers:
+            if prefix in blacklist_layers:
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
@@ -1519,7 +1555,25 @@ class RotationEqualization(GraphTransform):
         else:
             for name, module in model.named_children():
                 full_name = prefix + '.' + name if prefix != '' else name
-                self.find_module(module, regions, full_name)
+                self.find_module(module, regions, full_name, blacklist_layers)
+
+    def find_module_by_name(self, model: nn.Module, regions: List[Region], prefix: str = ''):
+        """
+        Iterate through the model looking at immediate children of every module to look for named modules.
+        This allows us to stop the search when we meet a top-level module that is supported.
+        """
+        if prefix in self.layers_to_expand:
+            if self.blacklist_layers is not None and prefix in self.blacklist_layers:
+                return
+            weight = get_weight_sink(model)
+            eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
+            region = Region(
+                sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model}, expand_region=True)
+            regions.append(region)
+        else:
+            for name, module in model.named_children():
+                full_name = prefix + '.' + name if prefix != '' else name
+                self.find_module_by_name(module, regions, full_name)
 
 
 class GraphRotationEqualization(RotationEqualization):
@@ -1532,8 +1586,9 @@ class GraphRotationEqualization(RotationEqualization):
             rotate_matmul: bool = False,
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
+            layers_to_expand: Optional[List[str]] = None,
             return_rewriters: bool = False) -> None:
-        super(GraphRotationEqualization, self).__init__()
+        super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 
         self.supported_srcs = (nn.Linear, nn.Embedding)
         self.supported_sinks = (nn.Linear)
@@ -1542,7 +1597,6 @@ class GraphRotationEqualization(RotationEqualization):
         common_scale_invariant.remove(torch.nn.LeakyReLU)
         self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
         self.scale_invariant_function = ()
-        self.blacklist_layers = blacklist_layers
         self.orphan_sink = orphan_sink
         self.rotate_matmul = rotate_matmul
         self.full_rotation_method = full_rotation_method
@@ -1629,9 +1683,17 @@ class GraphRotationEqualization(RotationEqualization):
                 'supported_sinks': self.supported_sinks,
                 'scale_invariant_layers': self.scale_invariant_layers,
                 'scale_invariant_function': self.scale_invariant_function})
+        expanded_regions = []
+        self.find_module_by_name(graph_model, expanded_regions)
         eq_layers = set()
         orphan_regions = []
-        self.find_module(graph_model, orphan_regions)
+
+        blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
+        self.find_module(graph_model, orphan_regions, blacklist_layers=blacklist_orphan_layers)
+
+        if len(expanded_regions) > 0:
+            orphan_regions.extend(expanded_regions)
+
         if self.sdpa_regions:
             sdpa_regions = self.rotate_sdpa(graph_model)
             regions.extend(sdpa_regions)
@@ -1739,15 +1801,21 @@ class MergeLnAffine(GraphTransform):
 
 class LayerwiseActivationRotation(RotationEqualization):
 
-    def __init__(self, blacklist_layer=None):
-        super(GraphTransform, self).__init__()
+    def __init__(self, blacklist_layer=None, layers_to_expand=None):
+        super().__init__(blacklist_layer, layers_to_expand)
 
         self.supported_sinks = (nn.Linear)
-        self.blacklist_layers = blacklist_layer
 
     def apply(self, model: nn.Module) -> nn.Module:
+
+        blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
         regions: List[Region] = []
-        self.find_module(model, regions)
+        self.find_module(model, regions, blacklist_layers=blacklist_orphan_layers)
+        expanded_regions = []
+        self.find_module_by_name(model, expanded_regions)
+
+        if len(expanded_regions) > 0:
+            regions.extend(expanded_regions)
         if len(regions) > 0:
             _apply_rotate(model, regions)
         return model

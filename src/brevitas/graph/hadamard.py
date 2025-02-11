@@ -73,6 +73,27 @@ def get_hadK(n, transpose=False):
     return hadK, K
 
 
+def find_closest_hadamard_number(orig, n):
+    import math
+
+    values_to_check = [172, 156, 140, 108, 60, 52, 40, 36, 28, 20, 12]
+    results = dict()
+    best_value = None
+    for v in values_to_check:
+        m = math.ceil(n / v) * v
+        m = torch.tensor(math.ceil(n / v))
+        floor_po2_m = torch.pow(2, torch.log2(m).floor())
+        ceil_po2_m = torch.pow(2, torch.log2(m).ceil())
+        m = floor_po2_m * v if floor_po2_m > orig else ceil_po2_m * v
+        results[v] = m
+        if best_value is None:
+            best_value = m
+        else:
+            best_value = m if (abs(n - m) <= abs(n - best_value) and m > best_value) else best_value
+
+    return best_value
+
+
 def matmul_hadU(X, transpose=False):
     n = X.shape[-1]
     hadK, K = get_hadK(n, transpose)
