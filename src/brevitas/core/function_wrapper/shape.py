@@ -16,7 +16,7 @@ from brevitas.function.shape import over_batch_over_tensor
 from brevitas.function.shape import over_output_channels
 from brevitas.function.shape import over_output_features
 from brevitas.function.shape import over_tensor
-from brevitas.utils.torch_utils import padding
+from brevitas.utils.torch_utils import padding_to_multiple
 
 
 class PermuteDims(brevitas.jit.ScriptModule):
@@ -170,8 +170,7 @@ class OverSubChannelBlockView(brevitas.jit.ScriptModule):
         # - Groupwise HQO quantization, where weight will already have been padded and expanded
         if len(x.shape) == len(self.expanded_groupwise_shape):
             return x
-        y = torch.nn.functional.pad(
-            x, padding(x, self.group_size, self.group_dim), mode='constant', value=0.)
+        y = padding_to_multiple(x, self.group_size, self.group_dim)
         y = y.view(self.expanded_groupwise_shape)
         return y
 
@@ -189,9 +188,7 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)
-        pad = padding(x, self.group_size, self.group_dim)
-
-        x = torch.nn.functional.pad(x, pad, mode='constant', value=0.)
+        x = padding_to_multiple(x, self.group_size, self.group_dim)
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)

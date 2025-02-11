@@ -46,6 +46,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas.utils.torch_utils import pad_to_dim
 
 # External optional dependency
 try:
@@ -1346,7 +1347,7 @@ def _apply_rotate(
             try:
                 # Build hadamard rotation matrix
                 rot_mat, K = get_hadK(hidden_dim)
-                hidden_dim = find_closest_hadamard_number(hidden_dim, hidden_dim + 1).cpu().item()
+                hidden_dim = find_closest_hadamard_number(hidden_dim)
                 expanded_rot_mat, expanded_K = get_hadK(int(hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
@@ -1395,13 +1396,8 @@ def _apply_rotate(
                 rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
                 hidden_dim = module.weight.shape[1]
-                new_hidden = find_closest_hadamard_number(hidden_dim, hidden_dim + 1)
-                pad_size = int(new_hidden - hidden_dim)
-                pad_dim = len(module.weight.data.shape) * 2
-                pad_tensor = [0] * pad_dim
-                pad_tensor[weight_axis * 2] = pad_size
-                pad_tensor = list(reversed(pad_tensor))
-                new_weights = torch.nn.functional.pad(module.weight.data, pad_tensor)
+                new_hidden = find_closest_hadamard_number(hidden_dim)
+                new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
                 _update_weights(module, new_weights, 'weight')
                 module.in_features = int(new_hidden)
 
@@ -1561,7 +1557,7 @@ class RotationEqualization(GraphTransform):
         This allows us to stop the search when we meet a top-level module that is supported.
         """
         if prefix in self.layers_to_expand:
-            if self.blacklist_layers is not None and prefix in self.blacklist_layers:
+            if prefix in self.blacklist_layers:
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)

@@ -111,14 +111,27 @@ def float_internal_scale(
 
 
 @brevitas.jit.ignore
-def padding(x: torch.Tensor, group_size: int, group_dim: int) -> List[int]:
-    # Given a tensor X, compute the padding aloing group_dim so that groupwise shaping is possible
+def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) -> torch.Tensor:
+    # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
     padding = [0, 0] * len(x.shape)
     size = x.shape
-    if size[group_dim] % group_size != 0:
-        padding[2 * group_dim] = group_size - size[group_dim] % group_size
+    if size[dim_multiple] % dim_to_expand != 0:
+        padding[2 * dim_multiple] = dim_to_expand - size[dim_multiple] % dim_to_expand
     padding = list(reversed(padding))
-    return padding
+    x = torch.nn.functional.pad(x, padding, mode='constant', value=0.)
+    return x
+
+
+def pad_to_dim(tensor: torch.Tensor, dim_to_expand: int, new_dim: int) -> torch.Tensor:
+    # Given a tensor X, compute the padding along dim_to_expand so that we match the desired new_dim
+    current_dim = tensor.shape[dim_to_expand]
+    pad_size = int(new_dim - current_dim)
+    pad_dim = len(tensor.data.shape) * 2
+    pad_tensor = [0] * pad_dim
+    pad_tensor[dim_to_expand * 2] = pad_size
+    pad_tensor = list(reversed(pad_tensor))
+    new_tensor = torch.nn.functional.pad(tensor.data, pad_tensor)
+    return new_tensor
 
 
 def is_broadcastable(tensor, other):

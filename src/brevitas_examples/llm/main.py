@@ -85,12 +85,18 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def fused_rotation_no_fx(model, layers_to_expand, calibration_loader, args):
+def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
         new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
+
+    layers_to_expand = []
+    if args.rotation is not None:
+        for name, _ in new_model.named_modules():
+            if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
+                layers_to_expand.append(name)
 
     apply_layernorm_affine_merge(new_model)
     # NOTE: This call breaks ties between the the lm_head and the embedding layer
@@ -370,7 +376,7 @@ def quantize_llm(args, extra_args=None):
         eq = LayerwiseActivationRotation(layers_to_expand=layers_to_expand)
         model = eq.apply(model)
     elif args.rotation == 'fused_no_fx':
-        fused_rotation_no_fx(model, layers_to_expand, calibration_loader, args)
+        fused_rotation_no_fx(model, calibration_loader, args)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
