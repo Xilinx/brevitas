@@ -24,7 +24,6 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
-from brevitas.utils.torch_utils import update_module_tensor
 
 __all__ = [
     'Transform',
@@ -309,7 +308,7 @@ class ModuleInstanceTransformTensor(Transform):
                 tensor = getattr(module, self.tensor_name).data
                 tensor = self.transform_module(tensor)
                 # Modify the weights in-place
-                update_module_tensor(module=module, tensor=tensor, tensor_name=self.tensor_name)
+                setattr(module, self.tensor_name, torch.nn.Parameter(tensor))
 
                 if hasattr(module, 'offload_params'):
                     module.offload_params(module)

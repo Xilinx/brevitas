@@ -534,7 +534,7 @@ def _cross_layer_equalization(
 
         if isinstance(module, nn.MultiheadAttention):
             module = module.out_proj
-        # Bias, if present, needs to be rotated for sources
+        # Bias, if present, needs to be scaled for sources
         tensor_names_axis = [("weight", axis)] + ([
             ("bias", 0)] if getattr(module, 'bias', None) is not None else [])
         src_axes[name] = (module, tensor_names_axis)
@@ -661,7 +661,7 @@ def _cross_layer_equalization(
 
     srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
-    scaling_factors = srcs_range / sinks_range
+    scaling_factors = sinks_range / srcs_range
     # If the scaling factors are not fused, they are stored as a parameter instead
     if not fuse_scaling:
         scaling_factors = nn.Parameter(scaling_factors)
@@ -685,7 +685,7 @@ def _cross_layer_equalization(
                     # Sources have all their channels equalized
                     start_end_idxs=None,
                     slice_idxs=(channel_start, channel_end),
-                    use_inverse_scaling=True,
+                    use_inverse_scaling=False,
                 ))
             rewriters.append(rewriter)
     for name, (module, tensor_names_axis) in sink_axes.items():
@@ -700,7 +700,7 @@ def _cross_layer_equalization(
                     axis=axis,
                     start_end_idxs=(indexes.start, indexes.end),
                     slice_idxs=(indexes.offset, indexes.offset + channel_range),
-                    use_inverse_scaling=False,
+                    use_inverse_scaling=True,
                 ))
             rewriters.append(rewriter)
 
@@ -1070,29 +1070,6 @@ class EqualizeGraph(GraphTransform):
             return graph_model
 
 
-class ScaleBiasMul(nn.Module):
-
-    def __init__(
-            self,
-            num_features: int,
-            bias: bool,
-            runtime_shape: Tuple[int] = (1, -1, 1, 1),
-            use_inverse_weights: bool = False):
-        super(ScaleBiasMul, self).__init__()
-        self.num_features = num_features
-        self.weight = nn.Parameter(torch.ones(num_features))
-        self.bias = nn.Parameter(torch.zeros(num_features)) if bias else None
-        self.runtime_shape = runtime_shape
-        self.use_inverse_weights = use_inverse_weights
-
-    def forward(self, input):
-        weight = torch.reciprocal(self.weight) if self.use_inverse_weights else self.weight
-        out = input * weight.view(self.runtime_shape)
-        if self.bias:
-            out += self.bias.view(self.runtime_shape)
-        return out
-
-
 class ActivationEqualization(GraphTransform, ABC):
 
     def __init__(
@@ -1113,27 +1090,15 @@ class ActivationEqualization(GraphTransform, ABC):
         broadcastable_shape[axis] = shape[axis]
         # Add Batch Dim
         broadcastable_shape.insert(batch_dim, 1)
-        # If scale is passed as a Parameter, we want to keep the tie between the original
-        # parameter and that registered to the ScaleBiasMul module. Therefore, since ScaleBiasMul
-        # needs to multiply the input by the inverse of the scaling factor, the reciprocal
-        # operation needs to be computed dinamically during the forward pass. However, if
-        # a Tensor is passed, the inverse scale can be calculated and stored directly into
-        # the weight parameter, thus enabling to avoid to compute the reciprocal in the
-        # forward pass
-        use_inverse_weights = isinstance(scale, nn.Parameter)
-        mul_factor = ScaleBiasMul(
-            num_features=shape[axis],
-            bias=False,
-            runtime_shape=broadcastable_shape,
-            use_inverse_weights=use_inverse_weights)
-        if use_inverse_weights:
+        mul_factor = ScaleBias(
+            num_features=shape[axis], bias=False, runtime_shape=broadcastable_shape)
+        if isinstance(scale, nn.Parameter):
             # Register as parameter, thus potentially being tied with the scaling factors
             # kept by other modules
             mul_factor.weight = scale
         else:
-            # Modify in-place the values of the weight parameter of ScaleBiasMul and store
-            # the inverse of the scaling factor directly
-            mul_factor.weight.data = torch.reciprocal(scale)
+            # Modify in-place the values of the weight parameter
+            mul_factor.weight.data = scale
         return mul_factor
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):

@@ -197,7 +197,3 @@ def type_before_parametrizations(module: torch.nn.Module) -> type:
         return module.__class__.__bases__[0]
     else:
         return type(module)
-
-
-def update_module_tensor(module: nn.Module, tensor: torch.Tensor, tensor_name: str):
-    setattr(module, tensor_name, torch.nn.Parameter(tensor))
