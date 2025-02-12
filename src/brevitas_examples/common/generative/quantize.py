@@ -310,7 +310,6 @@ def generate_quantizers(
 
         kv_quant_type = kv_quant_type if kv_quant_type is not None else input_quant_type
         kv_quant_granularity = kv_quant_granularity if kv_quant_granularity is not None else input_quant_granularity
-        print(kv_quant_granularity)
 
         v_quant = k_transposed_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
             input_scale_precision][input_param_method][kv_quant_granularity][kv_quant_type]

@@ -92,6 +92,12 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
         new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
 
+    layers_to_expand = []
+    if args.rotation is not None:
+        for name, _ in new_model.named_modules():
+            if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
+                layers_to_expand.append(name)
+
     apply_layernorm_affine_merge(new_model)
     # NOTE: This call breaks ties between the the lm_head and the embedding layer
     new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
@@ -105,7 +111,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
         sdpa_regions=args.rotation_sdpa_regions,
-        use_parametrized_rotations=args.optimize_rotations)
+        use_parametrized_rotations=args.optimize_rotations,
+        layers_to_expand=layers_to_expand)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
     for r in rewriters:
@@ -350,17 +357,23 @@ def quantize_llm(args, extra_args=None):
             model(**calibration_loader[0])
         remove_hooks(model)
 
+    layers_to_expand = []
+    if args.rotation is not None:
+        for name, _ in model.named_modules():
+            if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
+                layers_to_expand.append(name)
     if args.rotation == 'fx':
         model = offload_model(model)
         eq = GraphRotationEqualization(
             orphan_sink=args.rotation_orphan_sink,
             full_rotation_method=args.rotation_mode,
             sdpa_regions=args.rotation_sdpa_regions,
-            use_parametrized_rotations=args.optimize_rotations)
+            use_parametrized_rotations=args.optimize_rotations,
+            layers_to_expand=layers_to_expand)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
-        eq = LayerwiseActivationRotation()
+        eq = LayerwiseActivationRotation(layers_to_expand=layers_to_expand)
         model = eq.apply(model)
     elif args.rotation == 'fused_no_fx':
         fused_rotation_no_fx(model, calibration_loader, args)
@@ -981,6 +994,12 @@ def parse_args(args, override_defaults={}):
         type=str,
         nargs='*',
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
+    parser.add_argument(
+        '--rotation-layers-to-expand',
+        type=str,
+        default=[],
+        nargs='*',
+        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
     if len(override_defaults) > 0:
         # Retrieve keys that are known to the parser
         parser_keys = set(map(lambda action: action.dest, parser._actions))
