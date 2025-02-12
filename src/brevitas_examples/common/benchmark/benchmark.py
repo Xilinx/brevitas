@@ -1,3 +1,6 @@
+# Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from argparse import ArgumentParser
 from argparse import Namespace
 from collections import defaultdict
@@ -8,48 +11,20 @@ import itertools
 import multiprocessing
 from multiprocessing import Queue
 import os
-import re
 import sys
 import time
 import traceback
 from types import SimpleNamespace
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Type
 
 import pandas as pd
 import yaml
 
-from brevitas import __version__ as brevitas_version
-from brevitas import torch_version
-from brevitas_examples.llm.llm_args import create_llm_args_parser
-from brevitas_examples.llm.llm_args import validate as validate_llm_args
-
-
-def _parse_llm_log_results(job_log: str) -> Dict[str, Any]:
-    # Find the line containing Float PPL number
-    float_ppl_line = re.search(r"Float perplexity \((.*?)\): (\d+\.\d+)", job_log)
-    float_ppl = float(float_ppl_line.group(2)) if float_ppl_line is not None else None
-    # Find the line containing Quant PPL number
-    quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
-    quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
-    # Search for dictionary in log
-    few_shot_eval_line = re.findall(r"({.*?})", job_log)
-    # Retrieve last dictionary, in case other dictionaries were printed to the log
-    few_shot_eval = eval(few_shot_eval_line[-1]) if len(few_shot_eval_line) > 0 else {}
-    # Return the results from the log as a dictionary
-    job_log_results = {
-        "float_ppl": float_ppl,
-        "quant_ppl": quant_ppl,
-        **few_shot_eval,}
-    return job_log_results
-
+from brevitas_examples.common.benchmark.utils import BenchmarkUtils
+from brevitas_examples.llm.benchmark.utils import LLMBenchmarkUtils
 
 # Enable processing arguments for an arbitrary entrypoint
-ENTRYPOINT_MAP = {
-    "llm": {
-        "args_parser": create_llm_args_parser(),
-        "args_validate": validate_llm_args,
-        "eval_metrics": ["float_ppl", "quant_ppl"],
-        "log_parser": _parse_llm_log_results}}
+ENTRYPOINT_UTILS_MAP: Dict[str, Type[BenchmarkUtils]] = {"llm": LLMBenchmarkUtils}
 
 
 def _make_float(value: Any) -> Any:
@@ -99,7 +74,7 @@ def args_dict_to_command(entrypoint_parser: ArgumentParser, args_dict: Dict) -> 
 
 
 def run_args_bucket_process(
-        entrypoint: str,
+        main_entrypoint: Callable,
         id: int,
         num_processes: int,
         cuda_visible_devices: str,
@@ -108,14 +83,10 @@ def run_args_bucket_process(
         args_queue: Queue):
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
-    # Now import the entrypoint, thus making sure that CUDA_VISIBLE_DEVICES
-    # was set before importing torch
-    if entrypoint == "llm":
-        from brevitas_examples.llm.main import quantize_llm
-        main_entrypoint = quantize_llm
-    else:
-        main_entrypoint = None
-        raise ValueError(f"Entrypoint {entrypoint} is not available")
+    # Imports are deferred to ensure that CUDA is not initialized
+    # in the main process
+    from brevitas import __version__ as brevitas_version
+    from brevitas import torch_version
 
     # Provide ballpark estimates of remaining time
     mean_running_time = 0
@@ -247,7 +218,7 @@ def parse_config_args(args: List[str]) -> Namespace:
     return parser.parse_args(args)
 
 
-def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
+def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.DataFrame:
     row_data_list = []
     job_config = None
     for entry in os.scandir(results_folder):
@@ -265,7 +236,7 @@ def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
                 with open(f"{results_folder}/{job_name}/stdout.out", 'r') as f:
                     job_log = f.read()
                     # Parse results from log
-                    job_log_results = ENTRYPOINT_MAP[entrypoint]["log_parser"](job_log)
+                    job_log_results = entrypoint_utils.parse_log(job_log)
                 # Manually populate the results
                 job_results = {
                     "elapsed_time": job_results["elapsed_time"],
@@ -282,7 +253,7 @@ def parse_results(entrypoint: str, results_folder: str) -> pd.DataFrame:
         # for instance, some jobs might have crashed before completing the LM eval
         common_keys = ["job_id"] + list(job_config.keys()) + [
             "elapsed_time", "status", "retry_number", "brevitas_version", "torch_version"
-        ] + ENTRYPOINT_MAP[entrypoint]["eval_metrics"]
+        ] + entrypoint_utils.eval_metrics
         common_keys_set = set(common_keys)
         columns = common_keys + list(
             reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
@@ -338,8 +309,8 @@ if __name__ == "__main__":
     # Parse benchmark arguments
     script_args = parse_config_args(sys.argv[1:])
     # Retrieve the argument parser for the entrypoint
-    entrypoint_parser: ArgumentParser = ENTRYPOINT_MAP[script_args.entrypoint]["args_parser"]
-    validate_args: Callable = ENTRYPOINT_MAP[script_args.entrypoint]["args_validate"]
+    entrypoint_utils = ENTRYPOINT_UTILS_MAP[script_args.entrypoint]()
+    entrypoint_parser = entrypoint_utils.argument_parser
     # Instantiate directory for storing the results
     if not script_args.dry_run and not os.path.exists(script_args.results_folder):
         os.makedirs(script_args.results_folder)
@@ -383,7 +354,7 @@ if __name__ == "__main__":
                     extra_args += [f"--{key.replace('_', '-')}", str(value)]
             args = SimpleNamespace(**args)
             # Only keep valid configurations
-            validate_args(args, extra_args)
+            entrypoint_utils.validate(args, extra_args)
             q.append((args, extra_args, args_dict))
         except AssertionError:
             # Invalid configuration
@@ -409,7 +380,7 @@ if __name__ == "__main__":
         process = multiprocessing.Process(
             target=run_args_bucket_process,
             args=(
-                script_args.entrypoint,
+                entrypoint_utils.entrypoint_main,
                 i,
                 num_processes,
                 cuda_visible_devices,
@@ -425,5 +396,5 @@ if __name__ == "__main__":
     for process in processes:
         process.join()
     # Parse results
-    df = parse_results(script_args.entrypoint, script_args.results_folder)
+    df = parse_results(entrypoint_utils, script_args.results_folder)
     df.to_csv(f"{script_args.results_folder}/results.csv", index=False)
