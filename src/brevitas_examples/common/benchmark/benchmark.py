@@ -309,7 +309,7 @@ if __name__ == "__main__":
     # Parse benchmark arguments
     script_args = parse_config_args(sys.argv[1:])
     # Retrieve the argument parser for the entrypoint
-    entrypoint_utils = ENTRYPOINT_UTILS_MAP[script_args.entrypoint]()
+    entrypoint_utils = ENTRYPOINT_UTILS_MAP[script_args.entrypoint]
     entrypoint_parser = entrypoint_utils.argument_parser
     # Instantiate directory for storing the results
     if not script_args.dry_run and not os.path.exists(script_args.results_folder):
