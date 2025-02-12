@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-from functools import partial
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -17,8 +16,6 @@ from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
-from brevitas_examples.common.axe import A2GPFQ
-from brevitas_examples.common.axe import A2GPTQ
 
 
 def _gpxq_block_optimization_callback(block, gpxq, cached_args, cached_kwargs):
@@ -133,7 +130,7 @@ def apply_gptq(
     if block_name is not None:
         context_manager_kwargs = {
             'act_order': act_order,
-            'group_of_parallel_layers': group_of_parallel_layers,
+            'gptq_class': gptq_class,
             'create_weight_orig': create_weight_orig,
             'use_quant_activations': use_quant_activations,
             'gptq_class': gptq_class,
@@ -142,9 +139,8 @@ def apply_gptq(
         block_optimization(model, dataloader, block_name, gptq_mode, context_manager_kwargs)
     else:
         with gptq_mode(model,
-                       use_quant_activations=use_quant_activations,
-                       group_of_parallel_layers=group_of_parallel_layers,
                        act_order=act_order,
+                       gptq_class=gptq_class,
                        create_weight_orig=create_weight_orig,
                        gptq_class=gptq_class,
                        device=buffer_device,
@@ -202,8 +198,8 @@ def apply_gpfq(
         model,
         dataloader,
         act_order=True,
-        group_of_parallel_layers=None,
         block_name=None,
+        group_of_parallel_layers=None,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
