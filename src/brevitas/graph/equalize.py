@@ -1685,8 +1685,9 @@ class GraphRotationEqualization(RotationEqualization):
         eq_layers = set()
         orphan_regions = []
 
-        blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
-        self.find_module(graph_model, orphan_regions, blacklist_layers=blacklist_orphan_layers)
+        if self.orphan_sink:
+            blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
+            self.find_module(graph_model, orphan_regions, blacklist_layers=blacklist_orphan_layers)
 
         if len(expanded_regions) > 0:
             parameter_number_pre = 0
@@ -1702,7 +1703,7 @@ class GraphRotationEqualization(RotationEqualization):
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
-        if self.orphan_sink or len(expanded_regions) > 0:
+        if len(orphan_regions) > 0:
             for o_r in orphan_regions:
                 # Layerwise have only a single sink named 'sinks0'
                 id_sink = id(o_r.get_module_from_name('sinks0'))
