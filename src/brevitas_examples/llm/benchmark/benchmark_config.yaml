@@ -2,7 +2,6 @@ act_calibration:
 - false
 act_equalization:
 - null
-- layerwise
 act_equalization_alpha:
 - 0.5
 bias_corr:
