@@ -416,14 +416,15 @@ def quant_conv_with_input_quant_model(input_quant, weight_quant):
 
 
 @pytest_cases.fixture
-def quant_convdepthconv_model():
+def quant_convdepthconv_model(input_quant, weight_quant):
 
     class QuantConvDepthConvModel(nn.Module):
 
         def __init__(self) -> None:
             super().__init__()
             self.conv = qnn.QuantConv2d(3, 16, kernel_size=3)
-            self.conv_0 = qnn.QuantConv2d(16, 16, kernel_size=1, groups=16)
+            self.conv_0 = qnn.QuantConv2d(16, 16, kernel_size=1, groups=16,
+                                          input_quant=input_quant, weight_quant=weight_quant)
             self.relu = qnn.QuantReLU(return_quant_tensor=True)
 
         def forward(self, x):
