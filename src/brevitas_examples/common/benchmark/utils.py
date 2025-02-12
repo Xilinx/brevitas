@@ -294,6 +294,7 @@ def maybe_sort_values(values):
         sorted_values = list(values)
     return sorted_values
 
+
 def print_benchmark_summary(
         args_queue: List[Dict], script_args: Namespace, entrypoint_parser: ArgumentParser) -> None:
     print(f"Num. experiments: {len(args_queue)}")
