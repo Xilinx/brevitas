@@ -7,21 +7,22 @@ from functools import partial
 import logging
 from typing import Dict
 
-import torch
 from torch import nn
 
+from brevitas import config
 from brevitas.utils.quant_utils import *
 
 
 def setup_logger(name):
+    level = getattr(logging, config.LOGGING_LEVEL)
 
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
     logger.propagate = False
 
     # Create console handler and set level to debug
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(level)
 
     # Create formatter
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

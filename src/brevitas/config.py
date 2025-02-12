@@ -20,6 +20,7 @@ IGNORE_MISSING_KEYS = env_to_bool('BREVITAS_IGNORE_MISSING_KEYS', False)
 JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
 NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', False)
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
+LOGGING_LEVEL = os.environ.get('BREVITAS_LOGGING', 'CRITICAL')
 
 # Internal global variables
 _FULL_STATE_DICT = False
