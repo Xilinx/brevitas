@@ -1,10 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from functools import partial
 import math
 
 import torch
+import torch.nn as nn
 from tqdm import tqdm
 
 from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
@@ -14,9 +14,7 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
-from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
-from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
@@ -68,8 +66,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatM
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
-from brevitas_examples.common.axe import A2GPFQ
-from brevitas_examples.common.axe import A2GPTQ
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
@@ -573,6 +569,19 @@ def apply_act_equalization(model, calib_loader, layerwise):
                 model(images)
 
 
+def _a2q_layer_filter_fnc(layer: nn.Module) -> bool:
+    if isinstance(layer, nn.Conv2d):
+        # Assuming the first layer is the only layer with 3 input channels
+        if layer.in_channels == 3:
+            return False
+    elif isinstance(layer, nn.Linear):
+        # Assuming that the last linear layer has 1000 output features
+        if layer.out_features == 1000:
+            return False
+    return True
+
+
+@torch.no_grad()
 def apply_gptq(
         calib_loader,
         model,
@@ -580,66 +589,50 @@ def apply_gptq(
         use_quant_activations=False,
         create_weight_orig=False,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=128):
-    if max_accumulator_bit_width is not None:
-        # Use accumulator-aware extension (AXE) framework
-        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        gptq_class = partial(
-            A2GPTQ,
-            max_accumulator_bit_width=max_accumulator_bit_width,
-            max_accumulator_tile_size=max_accumulator_tile_size)
-    else:
-        gptq_class = GPTQ
+        max_accumulator_tile_size=None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    with torch.no_grad():
-        with gptq_mode(model,
-                       act_order=act_order,
-                       use_quant_activations=use_quant_activations,
-                       create_weight_orig=create_weight_orig,
-                       gptq_class=gptq_class) as gptq:
-            gptq_model = gptq.model
-            for i in tqdm(range(gptq.num_layers)):
-                for i, (images, target) in enumerate(calib_loader):
-                    images = images.to(device)
-                    images = images.to(dtype)
-                    gptq_model(images)
-                gptq.update()
+    with gptq_mode(model,
+                   act_order=act_order,
+                   use_quant_activations=use_quant_activations,
+                   create_weight_orig=create_weight_orig,
+                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                   max_accumulator_bit_width=max_accumulator_bit_width,
+                   max_accumulator_tile_size=max_accumulator_tile_size) as gptq:
+        gptq_model = gptq.model
+        for _ in tqdm(range(gptq.num_layers)):
+            for _, (images, _) in enumerate(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                gptq_model(images)
+            gptq.update()
 
 
+@torch.no_grad()
 def apply_gpfq(
         calib_loader,
         model,
         act_order,
-        create_weight_orig=False,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=128):
+        max_accumulator_tile_size=None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    if max_accumulator_bit_width is not None:
-        # Use accumulator-aware extension (AXE) framework
-        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        gpfq_class = partial(
-            A2GPFQ,
-            max_accumulator_bit_width=max_accumulator_bit_width,
-            max_accumulator_tile_size=max_accumulator_tile_size)
-    else:
-        gpfq_class = GPFQ
-    with torch.no_grad():
-        with gpfq_mode(model,
-                       create_weight_orig=create_weight_orig,
-                       use_quant_activations=True,
-                       act_order=act_order,
-                       gpfq_class=gpfq_class) as gpfq:
-            gpfq_model = gpfq.model
-            for i in tqdm(range(gpfq.num_layers)):
-                for i, (images, target) in enumerate(calib_loader):
-                    images = images.to(device)
-                    images = images.to(dtype)
-                    gpfq_model(images)
-                gpfq.update()
+    with gpfq_mode(model,
+                   act_order=act_order,
+                   create_weight_orig=True,
+                   use_quant_activations=True,
+                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                   max_accumulator_bit_width=max_accumulator_bit_width,
+                   max_accumulator_tile_size=max_accumulator_tile_size) as gpfq:
+        gpfq_model = gpfq.model
+        for _ in tqdm(range(gpfq.num_layers)):
+            for _, (images, _) in enumerate(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                gpfq_model(images)
+            gpfq.update()
 
 
 def check_positive_int(*args):
