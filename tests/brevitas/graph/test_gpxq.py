@@ -16,9 +16,9 @@ from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 import brevitas.nn as qnn
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas_examples.imagenet_classification.ptq.ptq_common import _a2q_layer_filter_fnc
 
 from .equalization_fixtures import *
-
 
 @torch.no_grad()
 def _dual_optimization_callback(
@@ -65,13 +65,22 @@ def apply_qronos(
 
 
 def apply_gptq(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        max_accumulator_bit_width: int,
+        max_accumulator_tile_size: int):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gptq_mode(model, use_quant_activations=use_quant_activations,
-                       act_order=act_order) as gptq:
+        with gptq_mode(model,
+                       act_order=act_order,
+                       a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                       use_quant_activations=use_quant_activations,
+                       max_accumulator_bit_width=max_accumulator_bit_width,
+                       max_accumulator_tile_size=max_accumulator_tile_size) as gptq:
             gptq_model = gptq.model
             for _ in range(gptq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
@@ -198,11 +207,20 @@ class TestQronosUpdateBatch:
 @pytest.mark.parametrize("use_quant_activations", [True, False])
 @pytest.mark.parametrize(
     "apply_gpxq_tuple", apply_gpxq_func_map.items(), ids=apply_gpxq_func_map.keys())
-def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq_tuple, request):
+@pytest.mark.parametrize("max_accumulator_bit_width", [None, 12, 32])
+@pytest.mark.parametrize("max_accumulator_tile_size", [None, 32])
+def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq_tuple, max_accumulator_bit_width, max_accumulator_tile_size, request):
 
     test_id = request.node.callspec.id
+    input_quant = test_id.split('-')[1]
 
     torch.manual_seed(SEED)
+
+    if (max_accumulator_bit_width is None) and (max_accumulator_tile_size is not None):
+        pytest.skip("max_accumulator_tile_size doesn't matter if max_accumulator_bit_width is None.")
+
+    if (max_accumulator_bit_width is not None) and input_quant.startswith("MXFloat"):
+        pytest.skip("AXE does not currently support minifloat formats.")
 
     name, apply_gpxq = apply_gpxq_tuple
 
