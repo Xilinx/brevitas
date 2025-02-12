@@ -43,9 +43,9 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
-from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas.utils.torch_utils import pad_to_dim
