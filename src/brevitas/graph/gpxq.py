@@ -245,19 +245,21 @@ class GPxQ(ABC):
     def single_layer_update(self):
         pass
 
-    def get_quant_weights(self, i, i1, permutation_list):
+    def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation
         i = i1 + i
         # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
         # of quantizing only a subset of the entire matrix speeding up the computation of GPxQ
         if isinstance(self.layer, qnn.QuantLinear):
-            if self.layer.weight_quant.is_groupwise:
+            if self.layer.weight_quant.is_groupwise or with_quant_history:
                 # No slicing, not optimized
-                index = permutation_list[0][i]
-                q = self.layer.quant_weight(quant_input=self.quant_metadata).value.unsqueeze(
-                    0)  # [1, OC, 1]
-                q = q[:, :, index:index + 1]  # [groups, OC/groups, 1]
+                q = self.layer.quant_weight(quant_input=self.quant_metadata)
+                q = q.value.unsqueeze(0)  # [1, OC, IC]
+                if with_quant_history:
+                    return q[:, :, permutation_list[0][:i]]  # [1, OC, i]
+                index = permutation_list[0][i]  # only 1 group for linear layers
+                q = q[:, :, index:index + 1]  # [1, OC, 1]
             else:
                 index = permutation_list[0][i]
                 subtensor_slice_list = [None, (index, index + 1)]
@@ -268,7 +270,7 @@ class GPxQ(ABC):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
             # and we quantize only the selected dimensions.
-            if self.layer.weight_quant.is_groupwise or self.groups > 1 or (
+            if self.layer.weight_quant.is_groupwise or with_quant_history or self.groups > 1 or (
                     self.groups == 1 and
                     isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
 
@@ -284,6 +286,8 @@ class GPxQ(ABC):
                     for ii, perm in enumerate(permutation_list):
                         quant_weight[ii, :, :] = quant_weight[ii, :, perm]
 
+                if with_quant_history:
+                    return quant_weight[:, :, :i]  # [groups, OC/groups, i]
                 q = quant_weight[:, :, i:i + 1]  # [groups, OC/groups, 1]
             else:
                 index = permutation_list[0][i]

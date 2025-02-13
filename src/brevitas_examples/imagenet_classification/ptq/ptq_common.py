@@ -14,8 +14,8 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
-from brevitas.graph.gpfq import GPFQv2
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
@@ -626,7 +626,7 @@ def apply_gpfq(
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
     else:
-        gpfq_class = GPFQv2
+        gpfq_class = GPFQ
     with torch.no_grad():
         with gpfq_mode(model,
                        create_weight_orig=create_weight_orig,
