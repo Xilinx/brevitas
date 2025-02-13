@@ -142,7 +142,7 @@ def default_run_args(request):
     args.weight_quant_granularity = "per_channel"  # "per_tensor", "per_channel", "per_group".
     args.input_bit_width = 8
     args.act_calibration = True
-    args.no_float16 = True
+    args.dtype = "float32"
     return args
 
 
@@ -910,7 +910,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": True,
             "rotation_mode": "ort",
             "nsamples_rot_calibration": 2,
-            "no_float16": True,
+            "dtype": "float32",
             "extra_args": [
                 "--learning_rate",
                 "1.5",
@@ -938,7 +938,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
             "nsamples_rot_calibration": 2,
-            "no_float16": True,
+            "dtype": "float32",
             "extra_args": [
                 "--learning_rate",
                 "1.5",
@@ -966,7 +966,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
             "nsamples_rot_calibration": 2,
-            "no_float16": True,
+            "dtype": "float32",
             "extra_args": [
                 "--learning_rate",
                 "1.5",
@@ -994,7 +994,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "nsamples_rot_calibration": 2,
-            "no_float16": True,
+            "dtype": "float32",
             "extra_args": [
                 "--learning_rate",
                 "1.5",
