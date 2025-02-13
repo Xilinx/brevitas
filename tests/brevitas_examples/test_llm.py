@@ -53,8 +53,8 @@ def validate_args(args):
 
 def validate_args_and_run_main(args, extra_args=None):
     validate_args(args)
-    float_ppl, quant_ppl, model = quantize_llm(args, extra_args=extra_args)
-    return float_ppl, quant_ppl, model
+    results, model = quantize_llm(args, extra_args=extra_args)
+    return results, model
 
 
 def assert_layer_types(model, exp_layer_types):
@@ -148,11 +148,10 @@ def default_run_args(request):
 
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
-    exp_float_ppl = model_with_ppl.float_ppl
     use_fx = requires_fx(args)
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    validate_args_and_run_main(args)
 
 
 # yapf: disable
@@ -248,9 +247,9 @@ def acc_args_and_acc(default_run_args, request):
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
-    float_ppl = float_ppl.detach().cpu().numpy()
-    quant_ppl = quant_ppl.detach().cpu().numpy()
+    results, _ = validate_args_and_run_main(args)
+    float_ppl = results["float_ppl"].detach().cpu().numpy()
+    quant_ppl = results["quant_ppl"].detach().cpu().numpy()
     assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
@@ -290,9 +289,9 @@ def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
 def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc_pt_ge_2_4
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
-    float_ppl = float_ppl.detach().cpu().numpy()
-    quant_ppl = quant_ppl.detach().cpu().numpy()
+    results, _ = validate_args_and_run_main(args)
+    float_ppl = results["float_ppl"].detach().cpu().numpy()
+    quant_ppl = results["quant_ppl"].detach().cpu().numpy()
     assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
@@ -419,7 +418,7 @@ def test_small_models_quant_layer(caplog, layer_args):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
         if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    _, model = validate_args_and_run_main(args)
     assert_layer_types(model, exp_layer_types)
 
 
@@ -583,7 +582,7 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
         if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    _, model = validate_args_and_run_main(args)
     assert_layer_types_count(model, exp_layer_types_count)
 
 
@@ -628,7 +627,7 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     caplog.set_level(logging.INFO)
     args = layer_args_hyperparam
 
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    _, model = validate_args_and_run_main(args)
     quant_sdpa = []
     for m in model.modules():
         if isinstance(m, QuantSDPA):
@@ -687,7 +686,7 @@ def layer_args_pt_ge_2_4(default_run_args, request):
 def test_small_models_quant_layer_pt_ge_2_4(caplog, layer_args_pt_ge_2_4):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args_pt_ge_2_4
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    _, model = validate_args_and_run_main(args)
     assert_layer_types(model, exp_layer_types)
 
 
@@ -719,8 +718,8 @@ def onnx_export_args(default_run_args, request):
 def test_small_models_onnx_export(caplog, onnx_export_args):
     caplog.set_level(logging.INFO)
     args = onnx_export_args
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
-    onnx_model = onnx.load(os.path.join(args.export_prefix, "model.onnx"))
+    validate_args_and_run_main(args)
+    onnx.load(os.path.join(args.export_prefix, "model.onnx"))
     shutil.rmtree(args.export_prefix)
 
 
@@ -754,9 +753,9 @@ def torch_export_args(default_run_args, request):
 def test_small_models_torch_export(caplog, torch_export_args):
     caplog.set_level(logging.INFO)
     args = torch_export_args
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
+    validate_args_and_run_main(args)
     filepath = args.export_prefix + ".pt"
-    torchscript_model = torch.jit.load(filepath)
+    torch.jit.load(filepath)
     os.remove(filepath)
 
 
@@ -801,9 +800,9 @@ def learned_round_ppl_args_and_ppl(default_run_args, request):
 def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = learned_round_ppl_args_and_ppl
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
-    float_ppl = float_ppl.detach().cpu().numpy()
-    quant_ppl = quant_ppl.detach().cpu().numpy()
+    results, _ = validate_args_and_run_main(args)
+    float_ppl = results["float_ppl"].detach().cpu().numpy()
+    quant_ppl = results["quant_ppl"].detach().cpu().numpy()
     assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
@@ -886,9 +885,9 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
         pytest.skip("Skipping dynamo + windows")
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = rotation_ppl_args_and_ppl
-    float_ppl, quant_ppl, model = validate_args_and_run_main(args)
-    float_ppl = float_ppl.detach().cpu().numpy()
-    quant_ppl = quant_ppl.detach().cpu().numpy()
+    results, _ = validate_args_and_run_main(args)
+    float_ppl = results["float_ppl"].detach().cpu().numpy()
+    quant_ppl = results["quant_ppl"].detach().cpu().numpy()
     assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
@@ -1037,9 +1036,9 @@ def test_small_models_rotation_optimization_ppl(
     RTOL_ROT, ATOL_ROT = 1e-05, 2.
     caplog.set_level(logging.INFO)
     args, extra_args, exp_float_ppl, exp_quant_ppl, _ = rotation_optimization_args_layer_count_and_ppl
-    float_ppl, quant_ppl, _ = validate_args_and_run_main(args, extra_args)
-    float_ppl = float_ppl.detach().cpu().numpy()
-    quant_ppl = quant_ppl.detach().cpu().numpy()
+    results, _ = validate_args_and_run_main(args, extra_args)
+    float_ppl = results["float_ppl"].detach().cpu().numpy()
+    quant_ppl = results["quant_ppl"].detach().cpu().numpy()
     assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allclose(exp_quant_ppl, quant_ppl, rtol=RTOL_ROT, atol=ATOL_ROT), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
@@ -1054,7 +1053,7 @@ def test_small_models_rotation_optimization_layer_count(
     caplog.set_level(logging.INFO)
     args, extra_args, _, _, exp_layer_types_count = rotation_optimization_args_layer_count_and_ppl
     with patch('brevitas_examples.llm.main.fuse_parametrized_rotations', lambda model: model):
-        _, _, model = validate_args_and_run_main(args, extra_args)
+        _, model = validate_args_and_run_main(args, extra_args)
     assert_layer_types_count(model, exp_layer_types_count)
 
 
