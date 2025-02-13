@@ -46,7 +46,7 @@ ln_affine_merge: false
 load_awq: null
 load_checkpoint: false
 model: facebook/opt-125m
-no_float16: false
+dtype: float32
 no_quantize: false
 nsamples: 128
 optimize_rotations: false
