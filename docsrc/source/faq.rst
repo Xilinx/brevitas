@@ -10,13 +10,13 @@ supported by PyTorch itself (currently FBGEMM and qnnpack).
 
 Brevitas is designed as a platform to implement novel quantization
 algorithms to target a variety of hardware backends adhering to a loose
-set of assumptions (i.e. uniform affine quantization).
+set of assumptions (e.g., uniform affine quantization).
 
 **Q: How can I train X/Y and run it on hardware W/Z? I can't find any
 documentation.**
 
 **A:** Brevitas is still sparsely documented. Until the situation
-improves, feel free to open an issue or ask on our gitter channel.
+improves, feel free to open an issue on `GitHub <https://github.com/Xilinx/brevitas>`_.
 
 **Q: Training with Brevitas is slow and/or I can't fit the same batch
 size as with floating-point training. Why? What can I do?**
