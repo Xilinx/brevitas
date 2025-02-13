@@ -142,7 +142,7 @@ def default_run_args(request):
     args.weight_quant_granularity = "per_channel"  # "per_tensor", "per_channel", "per_group".
     args.input_bit_width = 8
     args.act_calibration = True
-    args.no_float16 = True
+    args.dtype = "float32"
     return args
 
 

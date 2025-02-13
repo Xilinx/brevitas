@@ -15,9 +15,12 @@ Set the env variable `BREVITAS_JIT=1` to speed up the quantization process. Curr
 When using `--optimize-rotations`, the rotation training procedure relies on the Trainer class (https://huggingface.co/docs/transformers/en/main_classes/trainer). Therefore, training can be further configured by passing arguments accepted by the dataclass TrainingArguments (https://huggingface.co/docs/transformers/en/main_classes/trainer#transformers.TrainingArguments), e.g. `--learning_rate`, `--weight_decay`, `per_device_train_batch_size`.
 
 ```bash
-usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
-               [--nsamples NSAMPLES] [--seqlen SEQLEN] [--eval]
-               [--dataset {wikitext2,c4}] [--gpxq-block-name GPXQ_BLOCK_NAME]
+usage: main.py [-h] [--config CONFIG] [--model MODEL]
+               [--dtype {float32,float16,bfloat16}] [--seed SEED]
+               [--nsamples NSAMPLES]
+               [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION]
+               [--seqlen SEQLEN] [--eval] [--dataset {wikitext2,c4}]
+               [--gpxq-block-name GPXQ_BLOCK_NAME]
                [--weight-bit-width WEIGHT_BIT_WIDTH]
                [--weight-param-method {stats,mse,hqo}]
                [--weight-scale-precision {float_scale,po2_scale}]
@@ -48,11 +51,10 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
                [--gpxq-max-accumulator-tile-size GPXQ_MAX_ACCUMULATOR_TILE_SIZE]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
-               [--no-quantize] [--no-float16]
-               [--scaling-min-val SCALING_MIN_VAL] [--quant-sdpa]
-               [--functional-sdpa-quant] [--replace-mha]
+               [--no-quantize] [--scaling-min-val SCALING_MIN_VAL]
+               [--quant-sdpa] [--functional-sdpa-quant] [--replace-mha]
                [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
-               [--rotation-mode {had,ort}] [--optimize-rotations]
+               [--optimize-rotations] [--rotation-mode {had,ort}]
                [--rotation-orphan-sink] [--rotation-sdpa-regions]
                [--act-equalization {None,layerwise,fx}]
                [--act-equalization-alpha ACT_EQUALIZATION_ALPHA]
@@ -65,14 +67,20 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL] [--seed SEED]
                [--few-shot-compile] [--few-shot-zeroshot]
                [--few-shot-limit FEW_SHOT_LIMIT]
                [--few-shot-tasks [FEW_SHOT_TASKS ...]]
+               [--rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]]
 
 options:
   -h, --help            show this help message and exit
   --config CONFIG       Specify alternative default commandline args (e.g.,
                         config/default_template.yml). Default: None.
   --model MODEL         HF model name. Default: facebook/opt-125m.
+  --dtype {float32,float16,bfloat16}
+                        Data type for model. Default: None
   --seed SEED           Seed for sampling the calibration data. Default: 0.
   --nsamples NSAMPLES   Number of calibration data samples. Default: 128.
+  --nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION
+                        Number of calibration data samples for rotation.
+                        Default: 800.
   --seqlen SEQLEN       Sequence length. Default: 2048.
   --eval                Eval model PPL on the chosen Dataset.
   --dataset {wikitext2,c4}
@@ -134,8 +142,9 @@ options:
                         Granularity for scales/zero-point of inputs. Default:
                         per_tensor.
   --kv-quant-granularity {per_tensor,per_row,per_group}
-                        Granularity for scales/zero-point of inputs. Default:
-                        per_tensor.
+                        Granularity for scales/zero-point of KV cache. If not
+                        set, it will use input-quant-granularity. Default:
+                        None
   --input-group-size INPUT_GROUP_SIZE
                         Group size for per_group input quantization. Default:
                         64.
@@ -174,8 +183,6 @@ options:
                         Merge LN affine params.
   --replace-rmsnorm     Replace HF RMSNorms with Torch one.
   --no-quantize         Disable quantization.
-  --no-float16          Disable float16 as base datatype and switch to
-                        float32.
   --scaling-min-val SCALING_MIN_VAL
                         Minimum value to clamp scale to when using bf16 or
                         fp16 quantization.
@@ -191,6 +198,7 @@ options:
                         models (e.g. OPT).
   --rotation {fx,layerwise,fused_no_fx}
                         Apply graph rotation equalization
+  --optimize-rotations  Whether to optimize the rotations (default: False).
   --rotation-mode {had,ort}
                         If GraphRotation is enabled, decide how to compute the
                         random rotation matrix that is fully fused. Online or
@@ -242,5 +250,8 @@ options:
   --few-shot-tasks [FEW_SHOT_TASKS ...]
                         A list of tasks for zero_shot evaluation. Default:
                         ['arc_challenge', 'arc_easy', 'winogrande', 'piqa']
+  --rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]
+                        A list of module names to expand with hadamard
+                        rotation. Default: []
 
 ```
