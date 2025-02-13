@@ -160,10 +160,7 @@ def quantize_llm(args, extra_args=None):
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
-    if args.no_float16:
-        dtype = torch.float32
-    else:
-        dtype = torch.float16
+    dtype = getattr(torch, args.dtype)
 
     # Whether to quantize SDPA with FX
     quant_sdpa_fx = args.quant_sdpa and not args.replace_mha

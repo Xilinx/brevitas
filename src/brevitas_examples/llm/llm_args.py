@@ -20,6 +20,12 @@ def create_llm_args_parser():
         default="facebook/opt-125m",
         help='HF model name. Default: facebook/opt-125m.')
     parser.add_argument(
+        '--dtype',
+        type=str,
+        default=None,
+        choices=["float32", "float16", "bfloat16"],
+        help='Data type for model. Default: %(default)s')
+    parser.add_argument(
         '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
     parser.add_argument(
         '--nsamples',
@@ -220,10 +226,6 @@ def create_llm_args_parser():
     parser.add_argument(
         '--replace-rmsnorm', action='store_true', help='Replace HF RMSNorms with Torch one.')
     parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
-    parser.add_argument(
-        '--no-float16',
-        action='store_true',
-        help='Disable float16 as base datatype and switch to float32.')
     parser.add_argument(
         '--scaling-min-val',
         type=float,

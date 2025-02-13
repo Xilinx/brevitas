@@ -51,6 +51,7 @@ model: facebook/opt-125m
 no_float16: false
 no_quantize: false
 nsamples: 128
+nsamples_rot_calibration: 800
 optimize_rotations: false
 quant_sdpa: false
 quantize_input_zero_point: false
@@ -59,6 +60,7 @@ quantize_weight_zero_point: false
 replace_mha: false
 replace_rmsnorm: false
 rotation: null
+rotation_layers_to_expand: []
 rotation_mode: had
 rotation_orphan_sink: false
 rotation_sdpa_regions: false
