@@ -72,7 +72,7 @@ LR_SCHEDULER_ARGS = [
     (LinearLR, {
         "start_factor": 1.0, "end_factor": 0.0, "total_iters": 20}),]
 DEVICES = ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"]
-DTYPES = [torch.float32]
+DTYPES = [torch.float32, torch.float16]
 
 device_dtype_parametrize = pytest_cases.parametrize("device, dtype", list(product(DEVICES, DTYPES)))
 
@@ -83,6 +83,7 @@ class TestCaileySGD:
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
+        torch.manual_seed(SEED)
         optim_cls = CaileySGD
         # Generate a random orthogonal matrix of size NxN. Columns represent orthonormal vector in R^{N}
         N = 5
@@ -108,6 +109,8 @@ class TestCaileySGD:
             return loss
 
         initial_value = closure().item()
+        ATOL = 1e-5 if dtype == torch.float32 else 1e-2
+        RTOL = 1e-6 if dtype == torch.float16 else 1e-3
         for _ in range(20):
             closure()
             optimizer.step()
@@ -115,11 +118,15 @@ class TestCaileySGD:
                 scheduler.step()
 
             # Verify that iterates stay within the Stiefel manifold
+            print(
+                weight.to(dtype=torch.float32).detach().cpu()
+                @ weight.to(dtype=torch.float32).detach().cpu().t())
             assert torch.allclose(
-                weight.detach().cpu() @ weight.detach().cpu().t(),
-                torch.eye(P, P, device=device, dtype=dtype).detach().cpu(),
-                atol=1e-5,
-                rtol=1e-6)
+                weight.to(dtype=torch.float32).detach().cpu()
+                @ weight.to(dtype=torch.float32).detach().cpu().t(),
+                torch.eye(P, P, device=device, dtype=torch.float32).detach().cpu(),
+                atol=ATOL,
+                rtol=RTOL)
 
             if optimizer_kwargs.get("maximize", False):
                 assert closure().item() > initial_value
