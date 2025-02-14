@@ -256,8 +256,7 @@ def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.D
                     "elapsed_time": -1.,
                     "retry_number": -1.,
                     "brevitas_version": -1.,
-                    "torch_version": -1.,
-                }
+                    "torch_version": -1.,}
             # If the job was not succesful, try parsing the log
             if job_results["status"] == "crashed":
                 # Load the log file
