@@ -12,6 +12,8 @@ convert_layernorm_to_rmsnorm:
 - false
 dataset:
 - wikitext2
+dtype:
+- float16
 eval:
 - true
 export_prefix:
@@ -89,8 +91,6 @@ load_checkpoint:
 - false
 model:
 - facebook/opt-125m
-no_float16:
-- false
 no_quantize:
 - false
 nsamples:

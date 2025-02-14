@@ -22,7 +22,7 @@ def create_llm_args_parser():
     parser.add_argument(
         '--dtype',
         type=str,
-        default=None,
+        default="float16",
         choices=["float32", "float16", "bfloat16"],
         help='Data type for model. Default: %(default)s')
     parser.add_argument(

@@ -75,7 +75,7 @@ options:
                         config/default_template.yml). Default: None.
   --model MODEL         HF model name. Default: facebook/opt-125m.
   --dtype {float32,float16,bfloat16}
-                        Data type for model. Default: None
+                        Data type for model. Default: float16
   --seed SEED           Seed for sampling the calibration data. Default: 0.
   --nsamples NSAMPLES   Number of calibration data samples. Default: 128.
   --nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION

@@ -5,6 +5,7 @@ bias_corr: false
 checkpoint_name: null
 convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
+dtype: float16
 eval: false
 export_prefix: null
 export_target: null
@@ -48,7 +49,6 @@ ln_affine_merge: false
 load_awq: null
 load_checkpoint: false
 model: facebook/opt-125m
-no_float16: false
 no_quantize: false
 nsamples: 128
 nsamples_rot_calibration: 800
