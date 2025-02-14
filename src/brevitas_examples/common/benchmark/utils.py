@@ -246,8 +246,18 @@ def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.D
             # Retrieve the configuration from the YAML file
             with open(f"{results_folder}/{job_name}/config.yaml", 'r') as f:
                 job_config = yaml.safe_load(f)
-            with open(f"{results_folder}/{job_name}/run_results.yaml", 'r') as f:
-                job_results = yaml.safe_load(f)
+            try:
+                with open(f"{results_folder}/{job_name}/run_results.yaml", 'r') as f:
+                    job_results = yaml.safe_load(f)
+            except Exception:
+                # Failsafe if entrypoint failed in a way that brings down the whole process
+                job_results = {
+                    "status": "crashed",
+                    "elapsed_time": -1.,
+                    "retry_number": -1.,
+                    "brevitas_version": -1.,
+                    "torch_version": -1.,
+                }
             # If the job was not succesful, try parsing the log
             if job_results["status"] == "crashed":
                 # Load the log file
