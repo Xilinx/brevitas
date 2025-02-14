@@ -607,7 +607,7 @@ def compute_mlperf_fid(
 
     assert os.path.isfile(path_to_coco + '/tools/val2014.npz'), "Val2014.npz file required. Check the MLPerf directory for instructions"
 
-    post_proc = PostProcessCoco(statistics_path=path_to_coco + '/tools/val2014.npz')
+    post_proc = PostProcessCoco(statistics_path=path_to_coco + '/tools/val2014.npz', device=device)
 
     dtype = next(iter(model_to_replace.unet.parameters())).dtype
     res_dict = {}
