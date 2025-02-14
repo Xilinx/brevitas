@@ -163,6 +163,25 @@ class FP8e4m3OCPDynamicActPerRowFloat(FP8e4m3OCPDynamicActPerRowFixedPoint):
     restrict_scaling_type = RestrictValueType.FP
 
 
+class Fp8e4m3OCPDynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3OCPActPerTensorFloat):
+    """
+    Symmetric quantizer with per group scale.
+    """
+    proxy_class = GroupwiseActFloatQuantProxyFromInjector
+    scaling_impl = RuntimeDynamicGroupStatsScaling
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    scaling_stats_op = 'min_max'
+
+
+class Fp8e4m3OCPWeightSymmetricGroupQuant(Fp8e4m3OCPWeightPerChannelFloat):
+    """
+    Block / group / vector signed symmetric e4m3 OCP weight quantizer with float scales.
+    We inherit from a per-channel quantizer to re-use some underlying machinery.
+    """
+    proxy_class = GroupwiseWeightFloatQuantProxyFromInjector
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+
+
 class Fp8e4m3OCPWeightPerChannelFixedPointMSE(MSESymmetricScale,
                                               PerChannelPoTScaling8bit,
                                               Fp8e4m3OCPWeightPerChannelFloat):
