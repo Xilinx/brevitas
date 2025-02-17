@@ -130,7 +130,7 @@ def pad_to_dim(tensor: torch.Tensor, dim_to_expand: int, new_dim: int) -> torch.
     pad_tensor = [0] * pad_dim
     pad_tensor[dim_to_expand * 2] = pad_size
     pad_tensor = list(reversed(pad_tensor))
-    new_tensor = torch.nn.functional.pad(tensor.data, pad_tensor)
+    new_tensor = torch.nn.functional.pad(tensor, pad_tensor)
     return new_tensor
 
 
