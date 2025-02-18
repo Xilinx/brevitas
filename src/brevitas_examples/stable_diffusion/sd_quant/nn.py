@@ -34,7 +34,7 @@ from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStats
 
 
 
-class QuantAttentionLast(Attention):
+class QuantAttention(Attention):
 
     def __init__(
             self,

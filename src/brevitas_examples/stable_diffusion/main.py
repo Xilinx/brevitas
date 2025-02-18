@@ -50,7 +50,7 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDIN
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
-from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttentionLast
+from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -181,8 +181,6 @@ def main(args):
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
     pipe.vae.config.force_upcast = True
 
-    AttClass = Attention
-    QuantAttClass = QuantAttentionLast
     if args.share_qkv_quant:
         pipe.fuse_qkv_projections()
 
@@ -408,8 +406,8 @@ def main(args):
                     if module.is_cross_attention else None}
             query_lambda = lambda module: module.query_dim
             rewriter = ModuleToModuleByClass(
-                AttClass,
-                QuantAttClass,
+                Attention,
+                QuantAttention,
                 matmul_input_quant=input_quant,
                 query_dim=query_lambda,
                 dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
