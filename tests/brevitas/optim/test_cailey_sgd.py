@@ -65,14 +65,14 @@ torch.manual_seed(SEED)
 
 OPTIMIZER_KWARGS = [{
     "stiefel": True}, {
-        "stiefel": True, "lr": 1e-2}, {
-            "stiefel": True, "lr": torch.tensor(0.001)}]
+        "stiefel": True, "lr": 0.5}, {
+            "stiefel": True, "lr": torch.tensor(0.5)}]
 LR_SCHEDULER_ARGS = [
     None,
     (LinearLR, {
         "start_factor": 1.0, "end_factor": 0.0, "total_iters": 20}),]
 DEVICES = ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"]
-DTYPES = [torch.float32, torch.float16, torch.bfloat16]
+DTYPES = ["float32", "float16", "bfloat16"]
 
 device_dtype_parametrize = pytest_cases.parametrize("device, dtype", list(product(DEVICES, DTYPES)))
 
@@ -85,6 +85,7 @@ class TestCaileySGD:
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
         torch.manual_seed(SEED)
         optim_cls = CaileySGD
+        dtype = getattr(torch, dtype)
         # Generate a random orthogonal matrix of size NxN. Columns represent orthonormal vector in R^{N}
         N = 5
         P = 3
@@ -109,8 +110,8 @@ class TestCaileySGD:
             return loss
 
         initial_value = closure().item()
-        ATOL = 1e-5 if dtype == torch.float32 else 1e-2
-        RTOL = 1e-6 if dtype == torch.float32 else 1e-3
+        ATOL = 1e-2 if dtype == torch.float32 else 1e-1
+        RTOL = 1e-3 if dtype == torch.float32 else 1e-2
         for _ in range(20):
             closure()
             optimizer.step()

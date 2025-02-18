@@ -46,8 +46,8 @@ def qr_retraction(tan_vec):  # tan_vec, p-by-n, p <= n
     dtype = tan_vec.dtype
     # torch.linalg.qr is not implemented for 'Half'
     q, r = torch.linalg.qr(tan_vec.to(torch.float32))
-    q, r = q.to(dtype=dtype), r.to(dtype=dtype)
-    d = torch.diag(r, 0)
+    q = q.to(dtype=dtype)
+    d = torch.diag(r, 0).to(dtype=dtype)
     ph = d.sign()
     q *= ph.expand_as(q)
     q.t_()
@@ -90,7 +90,7 @@ class CaileySGD(Optimizer):
     def __init__(
         self,
         params,
-        lr: float = 1e-3,
+        lr: float = 1e-1,
         momentum: int = 0,
         dampening: int = 0,
         weight_decay: int = 0,
