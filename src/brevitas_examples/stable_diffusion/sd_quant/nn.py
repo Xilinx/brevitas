@@ -32,8 +32,6 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 
 
-
-
 class QuantAttention(Attention):
 
     def __init__(
