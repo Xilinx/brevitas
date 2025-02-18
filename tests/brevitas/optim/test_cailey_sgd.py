@@ -72,7 +72,7 @@ LR_SCHEDULER_ARGS = [
     (LinearLR, {
         "start_factor": 1.0, "end_factor": 0.0, "total_iters": 20}),]
 DEVICES = ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"]
-DTYPES = [torch.float32, torch.float16]
+DTYPES = [torch.float32, torch.float16, torch.bfloat16]
 
 device_dtype_parametrize = pytest_cases.parametrize("device, dtype", list(product(DEVICES, DTYPES)))
 
@@ -110,7 +110,7 @@ class TestCaileySGD:
 
         initial_value = closure().item()
         ATOL = 1e-5 if dtype == torch.float32 else 1e-2
-        RTOL = 1e-6 if dtype == torch.float16 else 1e-3
+        RTOL = 1e-6 if dtype == torch.float32 else 1e-3
         for _ in range(20):
             closure()
             optimizer.step()
