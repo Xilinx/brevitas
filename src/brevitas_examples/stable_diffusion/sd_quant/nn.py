@@ -17,20 +17,20 @@
 
 from typing import Optional
 
-from brevitas.core.function_wrapper.shape import OverTensorView
-from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
-from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 from diffusers.models.attention_processor import Attention
 from diffusers.models.lora import LoRACompatibleLinear
 import torch
 import torch.nn.functional as F
 
+from brevitas.core.function_wrapper.shape import OverTensorView
+from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
+
 
 
 
@@ -190,7 +190,7 @@ class AttnProcessor:
         temb=None,
         scale=1.0,
     ):
-        layer_to_check = attn.to_qkv if hasattr(attn.to_qkv) else attn.to_kv
+        layer_to_check = attn.to_qkv if hasattr(attn, 'to_qkv') else attn.to_kv
         extra_kwargs = {'scale': 1.} if isinstance(layer_to_check, LoRACompatibleLinear) else {}
         residual = hidden_states
 
