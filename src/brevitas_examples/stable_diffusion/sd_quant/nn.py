@@ -189,7 +189,7 @@ class AttnProcessor:
         scale=1.0,
     ):
         layer_to_check = attn.to_qkv if hasattr(attn, 'to_qkv') else attn.to_q
-        extra_kwargs = {'scale': 1.} if isinstance(layer_to_check, LoRACompatibleLinear) else {}
+        extra_kwargs = {'scale': scale} if isinstance(layer_to_check, LoRACompatibleLinear) else {}
         residual = hidden_states
 
         if attn.spatial_norm is not None:
