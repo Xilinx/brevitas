@@ -21,6 +21,7 @@ import numpy as np
 import packaging
 import packaging.version
 import pandas as pd
+from safetensors.torch import save_file
 import torch
 from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
@@ -38,6 +39,7 @@ from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.inject.enum import StatsOp
 from brevitas.nn.equalized_layer import EqualizedModule
+from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
@@ -126,7 +128,8 @@ def run_val_inference(
         use_negative_prompts,
         guidance_scale,
         total_steps,
-        test_latents=None):
+        test_latents=None,
+        output_type='latent'):
     with torch.no_grad():
 
         if test_latents is None:
@@ -139,9 +142,34 @@ def run_val_inference(
                 prompt,
                 negative_prompt=neg_prompts[0],
                 latents=test_latents,
-                output_type='latent',
+                output_type=output_type,
                 guidance_scale=guidance_scale,
                 num_inference_steps=total_steps)
+
+
+def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args):
+    new_calibration = []
+
+    def collect_inputs(*input_args, **input_kwargs):
+        new_calibration.append((input_args, input_kwargs))
+
+    original_vae_decode = pipe.vae.decode
+    pipe.vae.decode = hooked_on_a_function(pipe.vae.decode, collect_inputs)
+    run_val_inference(
+        pipe,
+        args.resolution,
+        calibration,
+        test_seeds,
+        args.device,
+        dtype,
+        total_steps=args.calibration_steps,
+        use_negative_prompts=args.use_negative_prompts,
+        test_latents=latents,
+        guidance_scale=args.guidance_scale,
+        output_type='pil')
+
+    pipe.vae.decode = original_vae_decode
+    return new_calibration
 
 
 def main(args):
@@ -265,72 +293,84 @@ def main(args):
             if isinstance(m, EqualizedModule) and hasattr(m.layer, 'in_features'):
                 m.in_features = m.layer.in_features
 
+    @value
+    def weight_bit_width(module):
+        if isinstance(module, nn.Linear):
+            return args.linear_weight_bit_width
+        elif isinstance(module, nn.Conv2d):
+            return args.conv_weight_bit_width
+        else:
+            raise RuntimeError(f"Module {module} not supported.")
+
+    @value
+    def input_bit_width(module):
+        if isinstance(module, nn.Linear):
+            return args.linear_input_bit_width
+        elif isinstance(module, nn.Conv2d):
+            return args.conv_input_bit_width
+        else:
+            raise RuntimeError(f"Module {module} not supported.")
+
+    input_kwargs = dict()
+    if args.input_scale_stats_op == 'minmax':
+
+        @value
+        def input_scale_stats_type():
+            if args.input_quant_type == 'asym':
+                input_scaling_stats_op = StatsOp.MIN_MAX
+            else:
+                input_scaling_stats_op = StatsOp.MAX
+            return input_scaling_stats_op
+
+        input_kwargs['scaling_stats_op'] = input_scale_stats_type
+
+    if args.input_zp_stats_op == 'minmax':
+
+        @value
+        def input_zp_stats_type():
+            if args.input_quant_type == 'asym':
+                zero_point_stats_impl = NegativeMinOrZero
+                return zero_point_stats_impl
+
+        input_kwargs['zero_point_stats_impl'] = input_zp_stats_type
+
+    sdpa_kwargs = dict()
+    if args.sdpa_scale_stats_op == 'minmax':
+
+        @value
+        def sdpa_scale_stats_type():
+            if args.sdpa_quant_type == 'asym':
+                sdpa_scaling_stats_op = StatsOp.MIN_MAX
+            else:
+                sdpa_scaling_stats_op = StatsOp.MAX
+            return sdpa_scaling_stats_op
+
+        sdpa_kwargs['scaling_stats_op'] = sdpa_scale_stats_type
+
+    if args.sdpa_zp_stats_op == 'minmax':
+
+        @value
+        def sdpa_zp_stats_type():
+            if args.sdpa_quant_type == 'asym':
+                zero_point_stats_impl = NegativeMinOrZero
+                return zero_point_stats_impl
+
+        sdpa_kwargs['zero_point_stats_impl'] = sdpa_zp_stats_type
+
+    # Model needs calibration if any of its activation quantizers are 'static'
+    activation_bw = [
+        args.linear_input_bit_width,
+        args.conv_input_bit_width,
+        args.sdpa_bit_width,]
+    activation_st = [
+        args.input_scale_type,
+        args.input_scale_type,
+        args.sdpa_scale_type,]
+    needs_calibration = any(
+        map(lambda b, st: (b > 0) and st == 'static', activation_bw, activation_st))
+
     # Quantize model
     if args.quantize:
-
-        @value
-        def weight_bit_width(module):
-            if isinstance(module, nn.Linear):
-                return args.linear_weight_bit_width
-            elif isinstance(module, nn.Conv2d):
-                return args.conv_weight_bit_width
-            else:
-                raise RuntimeError(f"Module {module} not supported.")
-
-        @value
-        def input_bit_width(module):
-            if isinstance(module, nn.Linear):
-                return args.linear_input_bit_width
-            elif isinstance(module, nn.Conv2d):
-                return args.conv_input_bit_width
-            else:
-                raise RuntimeError(f"Module {module} not supported.")
-
-        input_kwargs = dict()
-        if args.input_scale_stats_op == 'minmax':
-
-            @value
-            def input_scale_stats_type():
-                if args.input_quant_type == 'asym':
-                    input_scaling_stats_op = StatsOp.MIN_MAX
-                else:
-                    input_scaling_stats_op = StatsOp.MAX
-                return input_scaling_stats_op
-
-            input_kwargs['scaling_stats_op'] = input_scale_stats_type
-
-        if args.input_zp_stats_op == 'minmax':
-
-            @value
-            def input_zp_stats_type():
-                if args.input_quant_type == 'asym':
-                    zero_point_stats_impl = NegativeMinOrZero
-                    return zero_point_stats_impl
-
-            input_kwargs['zero_point_stats_impl'] = input_zp_stats_type
-
-        sdpa_kwargs = dict()
-        if args.sdpa_scale_stats_op == 'minmax':
-
-            @value
-            def sdpa_scale_stats_type():
-                if args.sdpa_quant_type == 'asym':
-                    sdpa_scaling_stats_op = StatsOp.MIN_MAX
-                else:
-                    sdpa_scaling_stats_op = StatsOp.MAX
-                return sdpa_scaling_stats_op
-
-            sdpa_kwargs['scaling_stats_op'] = sdpa_scale_stats_type
-
-        if args.sdpa_zp_stats_op == 'minmax':
-
-            @value
-            def sdpa_zp_stats_type():
-                if args.sdpa_quant_type == 'asym':
-                    zero_point_stats_impl = NegativeMinOrZero
-                    return zero_point_stats_impl
-
-            sdpa_kwargs['zero_point_stats_impl'] = sdpa_zp_stats_type
 
         print("Applying model quantization...")
         quantizers = generate_quantizers(
@@ -456,17 +496,7 @@ def main(args):
                 print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
         elif not args.dry_run:
-            # Model needs calibration if any of its activation quantizers are 'static'
-            activation_bw = [
-                args.linear_input_bit_width,
-                args.conv_input_bit_width,
-                args.sdpa_bit_width,]
-            activation_st = [
-                args.input_scale_type,
-                args.input_scale_type,
-                args.sdpa_scale_type,]
-            needs_calibration = any(
-                map(lambda b, st: (b > 0) and st == 'static', activation_bw, activation_st))
+
             if needs_calibration:
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(pipe.unet):
@@ -540,6 +570,87 @@ def main(args):
                         module.bias /= vae_fix_scale
         print(f"Corrected layers in VAE: {corrected_layers}")
 
+    if args.vae_quantize:
+        print("Quantizing VAE")
+        vae_calibration = collect_vae_calibration(
+            pipe, calibration_prompts, test_seeds, dtype, latents, args)
+        if args.vae_activation_equalization:
+            with torch.no_grad(), activation_equalization_mode(
+                    pipe.vae,
+                    alpha=0.9,#args.vae_act_eq_alpha,
+                    layerwise=True,
+                    blacklist_layers=blacklist if args.exclude_blacklist_act_eq else None,
+                    add_mul_node=True):
+                for (inp_args, inp_kwargs) in vae_calibration:
+                    pipe.vae.decode(*inp_args, **inp_kwargs)
+
+        quantizers = generate_quantizers(
+            dtype=dtype,
+            device=args.device,
+            weight_bit_width=weight_bit_width,
+            weight_quant_format=args.weight_quant_format,
+            weight_quant_type=args.weight_quant_type,
+            weight_param_method=args.weight_param_method,
+            weight_scale_precision=args.weight_scale_precision,
+            weight_quant_granularity=args.weight_quant_granularity,
+            weight_group_size=args.weight_group_size,
+            quantize_weight_zero_point=args.quantize_weight_zero_point,
+            quantize_input_zero_point=args.quantize_input_zero_point,
+            input_bit_width=input_bit_width,
+            input_quant_format=args.input_quant_format,
+            input_scale_type=args.input_scale_type,
+            input_scale_precision=args.input_scale_precision,
+            input_param_method=args.input_param_method,
+            input_quant_type=args.input_quant_type,
+            input_quant_granularity=args.input_quant_granularity,
+            input_kwargs=input_kwargs,
+            scaling_min_val=1e-3)
+
+        layer_map = generate_quant_maps(
+            *quantizers, dtype, args.device, args.input_quant_format, False)
+
+        linear_qkwargs = layer_map[torch.nn.Linear][1]
+        linear_qkwargs[
+            'input_quant'] = None if args.linear_input_bit_width == 0 else linear_qkwargs[
+                'input_quant']
+        linear_qkwargs[
+            'weight_quant'] = None if args.linear_weight_bit_width == 0 else linear_qkwargs[
+                'weight_quant']
+        layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], linear_qkwargs)
+
+        conv_qkwargs = layer_map[torch.nn.Conv2d][1]
+        conv_qkwargs[
+            'input_quant'] = None if args.conv_input_bit_width == 0 else conv_qkwargs['input_quant']
+        conv_qkwargs['weight_quant'] = None if args.conv_weight_bit_width == 0 else conv_qkwargs[
+            'weight_quant']
+        layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
+        pipe.vae = layerwise_quantize(
+            model=pipe.vae, compute_layer_map=layer_map, name_blacklist=['conv_out'])
+
+        with torch.no_grad():
+            pipe.vae.decode(*vae_calibration[0][0], **vae_calibration[0][1])
+        if needs_calibration:
+            print("Applying activation calibration")
+            with torch.no_grad(), calibration_mode(pipe.vae):
+                for (inp_args, inp_kwargs) in vae_calibration:
+                    pipe.vae.decode(*inp_args, **inp_kwargs)
+
+        if args.vae_gptq:
+            print("Applying GPTQ")
+            with torch.no_grad(), gptq_mode(pipe.vae,
+                        create_weight_orig=False,
+                        use_quant_activations=False,
+                        return_forward_output=True,
+                        act_order=True) as gptq:
+                for inp_args, inp_kwargs in vae_calibration:
+                    pipe.vae.decode(*inp_args, **inp_kwargs)
+        if args.vae_bias_corr:
+            print("Applying Bias Correction")
+            with torch.no_grad(), bias_correction_mode(pipe.vae):
+                for inp_args, inp_kwargs in vae_calibration:
+                    pipe.vae.decode(*inp_args, **inp_kwargs)
+        print("VAE quantized")
+
     if args.checkpoint_name is not None and args.load_checkpoint is None:
         torch.save(pipe.unet.state_dict(), os.path.join(output_dir, args.checkpoint_name))
         if args.vae_fp16_fix:
@@ -577,7 +688,13 @@ def main(args):
         if args.export_target == 'params_only':
             device = next(iter(pipe.unet.parameters())).device
             pipe.to('cpu')
-            export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
+            export_quant_params(pipe.unet, output_dir)
+            if args.quantize_vae or args.vae_fp16_fix:
+                export_quant_params(pipe.vae, output_dir)
+            else:
+                vae_output_path = os.path.join(output_dir, 'vae.safetensors')
+                print(f"Saving vae to {vae_output_path} ...")
+                save_file(pipe.vae.state_dict(), vae_output_path)
             pipe.to(device)
 
     # Perform inference
@@ -915,6 +1032,7 @@ if __name__ == "__main__":
         nargs='*',
         metavar='NAME',
         help='A list of module names to exclude from quantization. Default: %(default)s')
+
     add_bool_arg(
         parser,
         'quantize-weight-zero-point',
@@ -967,6 +1085,22 @@ if __name__ == "__main__":
         'share-qkv-quant',
         default=False,
         help='Share QKV/KV quantization. Default: Disabled')
+    add_bool_arg(parser, 'vae-quantize', default=False, help='Quantize VAE. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'vae-activation-equalization',
+        default=False,
+        help='Activation equalization for VAE, if quantize VAE is Enabled. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'vae-gptq',
+        default=False,
+        help='GPTQ for VAE, if quantize VAE is Enabled. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'vae-bias-correction',
+        default=False,
+        help='Bias Correction for VAE, if quantize VAE is Enabled. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)

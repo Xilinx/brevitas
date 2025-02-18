@@ -60,7 +60,7 @@ def hooked_on_a_function(function, prefunction):
 
     @functools.wraps(function)
     def run(*args, **kwargs):
-        prefunction()
+        prefunction(*args, **kwargs)
         return function(*args, **kwargs)
 
     return run

@@ -331,7 +331,7 @@ def remove_hooks(model: torch.nn.Module):
         model.graph.lint()
 
 
-def update_internal_dict(module):
+def update_internal_dict(module, *args, **kwargs):
     prefix = module._hf_hook.weights_map.prefix
     for key in module.state_dict().keys():
         # It might happen that we call an quantization's inner modules, and this cause some parameters to be
