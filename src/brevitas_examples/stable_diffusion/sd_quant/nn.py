@@ -188,7 +188,7 @@ class AttnProcessor:
         temb=None,
         scale=1.0,
     ):
-        layer_to_check = attn.to_qkv if hasattr(attn, 'to_qkv') else attn.to_kv
+        layer_to_check = attn.to_qkv if hasattr(attn, 'to_qkv') else attn.to_q
         extra_kwargs = {'scale': 1.} if isinstance(layer_to_check, LoRACompatibleLinear) else {}
         residual = hidden_states
 
