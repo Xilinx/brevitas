@@ -548,23 +548,17 @@ def quantize_llm(args, extra_args=None):
 
             accelerator = Accelerator(
                 kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
-            evaluation_tracker = EvaluationTracker(
-                output_dir="./results",
-                save_details=True,
-            )
+            evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
             pipeline_params = PipelineParameters(
                 launcher_type=ParallelismManager.ACCELERATE,
                 env_config=EnvConfig(cache_dir="/scratch/hf_models/"),
-                # Remove the 2 parameters below once your configuration is tested
-                override_batch_size=0,  # max_samples=10
-            )
+                override_batch_size=args.few_shot_override_batch_size)
             model_config = TransformersModelConfig(
                 pretrained=args.model,
                 dtype=dtype,
-                use_chat_template=True,
                 model_parallel=True,
                 accelerator=accelerator,
-                compile=False)
+                compile=True)
 
             with torch.no_grad(), quant_inference_mode(model):
                 model(**calibration_loader[0])
@@ -578,11 +572,11 @@ def quantize_llm(args, extra_args=None):
                     evaluation_tracker=evaluation_tracker,
                     model=model,
                     config=model_config)
-
-            pipeline.evaluate()
+                pipeline.evaluate()
             results = pipeline.get_results()
             results = filter_results(results, list(results["results"].keys()))
             pprint.pprint(results)
+
         remove_hooks(model)
 
         if args.checkpoint_name is not None and not args.load_checkpoint:
