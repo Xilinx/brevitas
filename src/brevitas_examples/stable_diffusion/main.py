@@ -44,16 +44,14 @@ from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas.export.inference import quant_inference_mode
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
-from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor2_0
-from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttentionLast
-from brevitas_examples.stable_diffusion.sd_quant.nn import QuantizableAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -183,28 +181,11 @@ def main(args):
         args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
     pipe.vae.config.force_upcast = True
-    is_mlperf_diffusers = diffusers_version == packaging.version.parse('0.21.2')
 
     AttClass = Attention
-    if is_mlperf_diffusers:
-        QuantAttClass = QuantAttention
-        if args.share_qkv_quant:
-            AttClass = QuantizableAttention
-            rewriter = ModuleToModuleByClass(
-                Attention,
-                QuantizableAttention,
-                query_dim=lambda module: module.to_q.in_features,
-                dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
-                bias=lambda module: hasattr(module.to_q, 'bias') and module.to_q.bias is not None,
-                processor=AttnProcessor2_0(),
-                dtype=dtype,
-                norm_num_groups=lambda module: None
-                if module.group_norm is None else module.group_norm.num_groups)
-            rewriter.apply(pipe.unet)
-    else:
-        QuantAttClass = QuantAttentionLast
-        if args.share_qkv_quant:
-            pipe.fuse_qkv_projections()
+    QuantAttClass = QuantAttentionLast
+    if args.share_qkv_quant:
+        pipe.fuse_qkv_projections()
 
     print(f"Model loaded from {args.model}.")
 
@@ -420,18 +401,13 @@ def main(args):
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
             input_quant = sdpa_quantizers[0]
-            if is_mlperf_diffusers:
-                extra_kwargs = {}
-                query_lambda = lambda module: module.to_qkv.in_features if hasattr(
-                    module, 'to_qkv') else module.to_q.in_features
-            else:
-                extra_kwargs = {
-                    'fuse_qkv':
-                        args.share_qkv_quant,
-                    'cross_attention_dim':
-                        lambda module: module.cross_attention_dim
-                        if module.is_cross_attention else None}
-                query_lambda = lambda module: module.query_dim
+            extra_kwargs = {
+                'fuse_qkv':
+                    args.share_qkv_quant,
+                'cross_attention_dim':
+                    lambda module: module.cross_attention_dim
+                    if module.is_cross_attention else None}
+            query_lambda = lambda module: module.query_dim
             rewriter = ModuleToModuleByClass(
                 AttClass,
                 QuantAttClass,
