@@ -337,12 +337,15 @@ def create_llm_args_parser():
         help='Whether to use fast update with learned round. Prototype (default: %(default)s)')
     parser.add_argument(
         '--few-shot-eval',
-        action="store_true",
-        help='Perform zero_shot evaluation with lm_eval. Default %(default)s)')
+        type=str,
+        default=None,
+        choices=['lm_eval', 'lighteval'],
+        help='Perform zero_shot evaluation with lm_eval or lighteval. Default %(default)s)')
+    parser.add_argument('--few-shot-override-batch-size', type=int, default=None)
     parser.add_argument(
         '--few-shot-compile',
         action="store_true",
-        help='Compile during zero_shot evaluation with lm_eval. Default %(default)s)')
+        help='Compile during zero_shot evaluation. Default %(default)s)')
     parser.add_argument(
         '--few-shot-zeroshot',
         action="store_true",

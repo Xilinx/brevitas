@@ -535,7 +535,7 @@ def quantize_llm(args, extra_args=None):
                     verbosity="ERROR")
             few_shot_eval_results = filter_results(few_shot_eval_results, args.few_shot_tasks)
             print("Few shot eval results")
-            print(few_shot_eval_results)
+            pprint.pprint(few_shot_eval_results)
         elif args.few_shot_eval == 'lighteval':
             from accelerate import Accelerator
             from accelerate import InitProcessGroupKwargs
