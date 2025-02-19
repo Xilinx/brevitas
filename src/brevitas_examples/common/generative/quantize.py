@@ -48,6 +48,7 @@ from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloatMSE
+from brevitas.quant.shifted_scaled_int import GaussianUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
@@ -85,7 +86,9 @@ WEIGHT_QUANT_MAP = {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
                 'per_channel': {
-                    'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat},
+                    'sym': Int8WeightPerChannelFloat,
+                    'asym': ShiftedUint8WeightPerChannelFloat,
+                    'gauss': GaussianUint8WeightPerChannelFloat},
                 'per_group': {
                     'sym': IntWeightSymmetricGroupQuant,
                     'asym': ShiftedUint8WeightGroupQuantFloat}},
@@ -261,7 +264,8 @@ def generate_quantizers(
         weight_kwargs=None,
         input_kwargs=None,
         quant_attn_mode=None,
-        scaling_min_val=1e-4):
+        scaling_min_val=1e-4,
+        weight_narrow_range=False):
     """
     Replace float layers with quant layers in the target model
     """
@@ -346,7 +350,7 @@ def generate_quantizers(
     weight_quant = weight_quant.let(
         **{
             'bit_width': weight_bit_width,
-            'narrow_range': False,
+            'narrow_range': weight_narrow_range,
             'quantize_zero_point': quantize_weight_zero_point},
         **weight_float_format)
 
