@@ -575,8 +575,10 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
+            device = next(iter(pipe.unet.parameters())).device 
             pipe.to('cpu')
             export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
+            pipe.to(device)
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
@@ -610,18 +612,18 @@ def main(args):
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
             assert args.prompt <= len(TESTING_PROMPTS), f"Only {len(TESTING_PROMPTS)} prompts are available"
-
-            quant_images = run_test_inference(
-                pipe,
-                args.resolution,
-                testing_prompts,
-                test_seeds,
-                output_dir,
-                args.device,
-                dtype,
-                use_negative_prompts=args.use_negative_prompts,
-                guidance_scale=args.guidance_scale,
-                name_prefix='quant_')
+            with torch.no_grad():
+                quant_images = run_test_inference(
+                    pipe,
+                    args.resolution,
+                    testing_prompts,
+                    test_seeds,
+                    output_dir,
+                    args.device,
+                    dtype,
+                    use_negative_prompts=args.use_negative_prompts,
+                    guidance_scale=args.guidance_scale,
+                    name_prefix='quant_')
 
             float_images_values = float_images.values()
             float_images_values = [x for x_nested in float_images_values for x in x_nested]
