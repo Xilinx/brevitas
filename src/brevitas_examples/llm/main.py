@@ -610,6 +610,25 @@ def override_defaults(args):
     return defaults
 
 
+def parse_args(args, override_defaults={}):
+    parser = create_llm_args_parser()
+    if len(override_defaults) > 0:
+        # Retrieve keys that are known to the parser
+        parser_keys = set(map(lambda action: action.dest, parser._actions))
+        # Extract the entries in override_defaults that correspond to keys not known to the parser
+        extra_args_keys = [key for key in override_defaults.keys() if key not in parser_keys]
+        # Remove all the keys in override_defaults that are unknown to the parser and, instead,
+        # include them in args, as if they were passed as arguments to the command line.
+        # This prevents the keys of HF TrainingArguments from being added as arguments to the parser.
+        # Consequently, they will be part of the second value returned by parse_known_args (thus being
+        # used as extra_args in quantize_llm)
+        for key in extra_args_keys:
+            args += [f"--{key}", str(override_defaults[key])]
+            del override_defaults[key]
+    parser.set_defaults(**override_defaults)
+    return parser.parse_known_args(args)
+
+
 def main():
     overrides = override_defaults(sys.argv[1:])
     args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
