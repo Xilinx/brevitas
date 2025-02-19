@@ -1697,7 +1697,6 @@ class GraphRotationEqualization(RotationEqualization):
             for m in graph_model.parameters():
                 parameter_number_pre += m.numel()
             logging.info(f"{len(expanded_regions)} layers will be expanded during rotation")
-            orphan_regions.extend(expanded_regions)
 
         if self.sdpa_regions:
             sdpa_regions = self.rotate_sdpa(graph_model)
@@ -1706,20 +1705,23 @@ class GraphRotationEqualization(RotationEqualization):
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
-        if len(orphan_regions) > 0:
-            for o_r in orphan_regions:
-                # Layerwise have only a single sink named 'sinks0'
-                id_sink = id(o_r.get_module_from_name('sinks0'))
-                if id_sink not in eq_layers:
-                    regions.append(o_r)
+        for o_r in orphan_regions:
+            # Layerwise have only a single sink named 'sinks0'
+            id_sink = id(o_r.get_module_from_name('sinks0'))
+            if id_sink not in eq_layers:
+                regions.append(o_r)
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            rewriters = _apply_rotate(
-                graph_model,
-                regions,
-                self.full_rotation_method,
-                fuse_rotations=not self.use_parametrized_rotations)
+            rewriters.extend(
+                _apply_rotate(
+                    graph_model,
+                    regions,
+                    self.full_rotation_method,
+                    fuse_rotations=not self.use_parametrized_rotations))
+            rewriters.extend(
+                _apply_rotate(
+                    graph_model, expanded_regions, self.full_rotation_method, fuse_rotations=False))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
