@@ -1121,7 +1121,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
+            region = Region(sinks={prefix: eq_indexes}, name_to_module={prefix: model})
             regions.append(region)
         else:
             for name, module in model.named_children():
@@ -1130,7 +1130,8 @@ class LayerwiseActivationEqualization(ActivationEqualization):
 
     def setup(self):
         for region in self.regions:
-            module = region.get_module_from_name('sinks0')
+            name = list(region.sinks.keys())[0]
+            module = region.get_module_from_name(name)
             batch_dim = 0
             if hasattr(region, 'batch_first'):
                 batch_dim = 0 if region.batch_first else 1
@@ -1145,8 +1146,10 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         scale_factors = []
         self.remove_hooks()
         for region in self.regions:
-            module = region.get_module_from_name('sinks0')
-            if self.float_act_map[module] == None:
+            name = list(region.sinks.keys())[0]
+            module = region.get_module_from_name(name)
+            if self.float_act_map.get(module, None) == None:
+                logging.info(f"Module {name} not found during layerwise activation equalization")
                 continue
             insert_mul_fn = partial(
                 self.insert_mul_node, region=module, batch_dim=self.batch_dim_act_map[module])

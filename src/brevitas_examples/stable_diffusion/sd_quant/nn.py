@@ -15,114 +15,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Mapping, Optional
+from typing import Optional
 
-import diffusers
 from diffusers.models.attention_processor import Attention
 from diffusers.models.lora import LoRACompatibleLinear
-import packaging
-import packaging.version
 import torch
 import torch.nn.functional as F
 
+from brevitas.core.function_wrapper.shape import OverTensorView
+from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 
 
-class QuantizableAttention(Attention):
-
-    def __init__(
-            self,
-            query_dim: int,
-            cross_attention_dim: Optional[int] = None,
-            heads: int = 8,
-            dim_head: int = 64,
-            dropout: float = 0.0,
-            bias=False,
-            upcast_attention: bool = False,
-            upcast_softmax: bool = False,
-            cross_attention_norm: Optional[str] = None,
-            cross_attention_norm_num_groups: int = 32,
-            added_kv_proj_dim: Optional[int] = None,
-            norm_num_groups: Optional[int] = None,
-            spatial_norm_dim: Optional[int] = None,
-            out_bias: bool = True,
-            scale_qk: bool = True,
-            only_cross_attention: bool = False,
-            eps: float = 1e-5,
-            rescale_output_factor: float = 1.0,
-            residual_connection: bool = False,
-            _from_deprecated_attn_block=False,
-            dtype=torch.float32,
-            processor: Optional["AttnProcessor"] = None):
-
-        super().__init__(
-            query_dim,
-            cross_attention_dim,
-            heads,
-            dim_head,
-            dropout,
-            bias,
-            upcast_attention,
-            upcast_softmax,
-            cross_attention_norm,
-            cross_attention_norm_num_groups,
-            added_kv_proj_dim,
-            norm_num_groups,
-            spatial_norm_dim,
-            out_bias,
-            scale_qk,
-            only_cross_attention,
-            eps,
-            rescale_output_factor,
-            residual_connection,
-            _from_deprecated_attn_block,
-            processor,
-        )
-        if self.to_q.weight.shape == self.to_k.weight.shape:
-            self.to_qkv = LoRACompatibleLinear(
-                query_dim, 3 * self.inner_dim, bias=bias, dtype=dtype)
-
-            del self.to_q
-            del self.to_k
-            del self.to_v
-
-        else:
-            self.to_q = LoRACompatibleLinear(query_dim, self.inner_dim, bias=bias, dtype=dtype)
-            self.to_kv = LoRACompatibleLinear(
-                self.cross_attention_dim, 2 * self.inner_dim, bias=bias, dtype=dtype)
-
-            del self.to_k
-            del self.to_v
-
-        self.to_out = torch.nn.ModuleList([])
-        self.to_out.append(
-            LoRACompatibleLinear(self.inner_dim, query_dim, bias=out_bias, dtype=dtype))
-        self.to_out.append(torch.nn.Dropout(dropout))
-
-    def load_state_dict(
-            self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False):
-        if hasattr(self, 'to_qkv') and 'to_q.weight' in state_dict:
-            new_weights = torch.cat(
-                [state_dict['to_q.weight'], state_dict['to_k.weight'], state_dict['to_v.weight']],
-                dim=0)
-            state_dict['to_qkv.weight'] = new_weights
-
-            del state_dict['to_q.weight']
-            del state_dict['to_k.weight']
-            del state_dict['to_v.weight']
-        elif hasattr(self, 'to_kv') and 'to_k.weight' in state_dict:
-            new_weights = torch.cat([state_dict['to_k.weight'], state_dict['to_v.weight']], dim=0)
-            state_dict['to_kv.weight'] = new_weights
-            del state_dict['to_k.weight']
-            del state_dict['to_v.weight']
-        return super().load_state_dict(state_dict, strict, assign)
-
-
-class QuantAttentionLast(Attention):
+class QuantAttention(Attention):
 
     def __init__(
             self,
@@ -197,128 +107,12 @@ class QuantAttentionLast(Attention):
             replacements = []
             for n, m in self.named_modules():
                 if isinstance(m, torch.nn.Linear):
-                    in_channels = m.in_features
-                    eq_m = EqualizedModule(ScaleBias(in_channels, False, (1, 1, -1)), m)
-                    r = ModuleInstanceToModuleInstance(m, eq_m)
-                    replacements.append(r)
-            for r in replacements:
-                r.apply(self)
-
-    def get_attention_scores(
-            self,
-            query: torch.Tensor,
-            key: torch.Tensor,
-            attention_mask: torch.Tensor = None) -> torch.Tensor:
-        r"""
-        Compute the attention scores.
-
-        Args:
-            query (`torch.Tensor`): The query tensor.
-            key (`torch.Tensor`): The key tensor.
-            attention_mask (`torch.Tensor`, *optional*): The attention mask to use. If `None`, no mask is applied.
-
-        Returns:
-            `torch.Tensor`: The attention probabilities/scores.
-        """
-        dtype = query.dtype
-        if self.upcast_attention:
-            query = query.float()
-            key = key.float()
-
-        if attention_mask is None:
-            baddbmm_input = torch.empty(
-                query.shape[0],
-                query.shape[1],
-                key.shape[1],
-                dtype=query.dtype,
-                device=query.device)
-            beta = 0
-        else:
-            baddbmm_input = attention_mask
-            beta = 1
-
-        attention_scores = torch.baddbmm(
-            baddbmm_input,
-            query,
-            key.transpose(-1, -2),
-            beta=beta,
-            alpha=self.scale,
-        )
-        del baddbmm_input
-
-        if self.upcast_softmax:
-            attention_scores = attention_scores.float()
-
-        attention_probs = attention_scores.softmax(dim=-1)
-        del attention_scores
-
-        attention_probs = attention_probs.to(dtype)
-
-        attention_probs = _unpack_quant_tensor(self.output_softmax_quant(attention_probs))
-        return attention_probs
-
-
-class QuantAttention(QuantizableAttention):
-
-    def __init__(
-            self,
-            query_dim: int,
-            cross_attention_dim: Optional[int] = None,
-            heads: int = 8,
-            dim_head: int = 64,
-            dropout: float = 0.0,
-            bias=False,
-            upcast_attention: bool = False,
-            upcast_softmax: bool = False,
-            cross_attention_norm: Optional[str] = None,
-            cross_attention_norm_num_groups: int = 32,
-            added_kv_proj_dim: Optional[int] = None,
-            norm_num_groups: Optional[int] = None,
-            spatial_norm_dim: Optional[int] = None,
-            out_bias: bool = True,
-            scale_qk: bool = True,
-            only_cross_attention: bool = False,
-            eps: float = 1e-5,
-            rescale_output_factor: float = 1.0,
-            residual_connection: bool = False,
-            _from_deprecated_attn_block=False,
-            processor: Optional["AttnProcessor"] = None,
-            matmul_input_quant=None,
-            dtype=torch.float32,
-            is_equalized=False):
-
-        super().__init__(
-            query_dim,
-            cross_attention_dim,
-            heads,
-            dim_head,
-            dropout,
-            bias,
-            upcast_attention,
-            upcast_softmax,
-            cross_attention_norm,
-            cross_attention_norm_num_groups,
-            added_kv_proj_dim,
-            norm_num_groups,
-            spatial_norm_dim,
-            out_bias,
-            scale_qk,
-            only_cross_attention,
-            eps,
-            rescale_output_factor,
-            residual_connection,
-            _from_deprecated_attn_block,
-            dtype,
-            processor,
-        )
-        self.output_softmax_quant = QuantIdentity(matmul_input_quant)
-        self.out_q = QuantIdentity(matmul_input_quant)
-        self.out_k = QuantIdentity(matmul_input_quant)
-        self.out_v = QuantIdentity(matmul_input_quant)
-        if is_equalized:
-            replacements = []
-            for n, m in self.named_modules():
-                if isinstance(m, torch.nn.Linear):
+                    if fuse_qkv:
+                        if self.is_cross_attention:
+                            if n in ['to_k', 'to_v']:
+                                continue
+                        elif n in ['to_q', 'to_k', 'to_v']:
+                            continue
                     in_channels = m.in_features
                     eq_m = EqualizedModule(ScaleBias(in_channels, False, (1, 1, -1)), m)
                     r = ModuleInstanceToModuleInstance(m, eq_m)
@@ -394,6 +188,8 @@ class AttnProcessor:
         temb=None,
         scale=1.0,
     ):
+        layer_to_check = attn.to_qkv if hasattr(attn, 'to_qkv') else attn.to_q
+        extra_kwargs = {'scale': scale} if isinstance(layer_to_check, LoRACompatibleLinear) else {}
         residual = hidden_states
 
         if attn.spatial_norm is not None:
@@ -415,14 +211,14 @@ class AttnProcessor:
 
         if encoder_hidden_states is None:
             assert attn.norm_cross is None, "Not supported"
-            query, key, value = attn.to_qkv(hidden_states, scale=scale).chunk(3, dim=-1)
+            query, key, value = attn.to_qkv(hidden_states, **extra_kwargs).chunk(3, dim=-1)
 
         else:
             assert not hasattr(attn, 'to_qkv'), 'Model not created correctly'
-            query = attn.to_q(hidden_states, scale=scale)
+            query = attn.to_q(hidden_states, **extra_kwargs)
             if attn.norm_cross:
                 encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
-            key, value = attn.to_kv(encoder_hidden_states, scale=scale).chunk(2, dim=-1)
+            key, value = attn.to_kv(encoder_hidden_states, **extra_kwargs).chunk(2, dim=-1)
         if hasattr(attn, 'out_q'):
             query = _unpack_quant_tensor(attn.out_q(query))
         if hasattr(attn, 'out_k'):
@@ -438,7 +234,7 @@ class AttnProcessor:
         hidden_states = attn.batch_to_head_dim(hidden_states)
 
         # linear proj
-        hidden_states = attn.to_out[0](hidden_states, scale=scale)
+        hidden_states = attn.to_out[0](hidden_states, **extra_kwargs)
         # dropout
         hidden_states = attn.to_out[1](hidden_states)
 
