@@ -55,10 +55,10 @@ def handle_quant_param(layer, layer_dict):
     return layer_dict
 
 
-def export_quant_params(model, output_dir):
-    quant_output_path = os.path.join(output_dir, 'quant_params.json')
-    unet_output_path = os.path.join(output_dir, 'params.safetensors')
-    print(f"Saving unet to {unet_output_path} ...")
+def export_quant_params(model, output_dir, prefix):
+    quant_output_path = os.path.join(output_dir, prefix + 'quant_params.json')
+    safetensor_output_path = os.path.join(output_dir, prefix + 'params.safetensors')
+    print(f"Saving unet to {safetensor_output_path} ...")
     from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
     export_manager = StdQCDQONNXManager
     export_manager.change_weight_export(
@@ -119,4 +119,4 @@ def export_quant_params(model, output_dir):
                 handled_quant_layers.add(id(module))
     with open(quant_output_path, 'w') as file:
         json.dump(quant_params, file, indent="  ")
-    save_file(state_dict, unet_output_path)
+    save_file(state_dict, safetensor_output_path)

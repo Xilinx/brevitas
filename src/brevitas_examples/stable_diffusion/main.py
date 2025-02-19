@@ -151,6 +151,11 @@ def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args)
     new_calibration = []
 
     def collect_inputs(*input_args, **input_kwargs):
+        input_args = tuple([
+            input_arg.cpu() if isinstance(input_arg, torch.Tensor) else input_arg
+            for input_arg in input_args])
+        input_kwargs = {
+            k: (v.cpu() if isinstance(v, torch.Tensor) else v) for (k, v) in input_kwargs.items()}
         new_calibration.append((input_args, input_kwargs))
 
     original_vae_decode = pipe.vae.decode
@@ -582,6 +587,12 @@ def main(args):
                     blacklist_layers=blacklist if args.exclude_blacklist_act_eq else None,
                     add_mul_node=True):
                 for (inp_args, inp_kwargs) in vae_calibration:
+                    input_args = tuple([
+                        input_arg.cpu() if isinstance(input_arg, torch.Tensor) else input_arg
+                        for input_arg in input_args])
+                    input_kwargs = {
+                        k: (v.cpu() if isinstance(v, torch.Tensor) else v)
+                        for (k, v) in input_kwargs.items()}
                     pipe.vae.decode(*inp_args, **inp_kwargs)
 
         quantizers = generate_quantizers(
@@ -628,11 +639,23 @@ def main(args):
             model=pipe.vae, compute_layer_map=layer_map, name_blacklist=['conv_out'])
 
         with torch.no_grad():
-            pipe.vae.decode(*vae_calibration[0][0], **vae_calibration[0][1])
+            input_args = tuple([
+                input_arg.cuda() if isinstance(input_arg, torch.Tensor) else input_arg
+                for input_arg in vae_calibration[0][0]])
+            input_kwargs = {
+                k: (v.cuda() if isinstance(v, torch.Tensor) else v)
+                for (k, v) in vae_calibration[0][1].items()}
+            pipe.vae.decode(*input_args, **input_kwargs)
         if needs_calibration:
             print("Applying activation calibration")
             with torch.no_grad(), calibration_mode(pipe.vae):
                 for (inp_args, inp_kwargs) in vae_calibration:
+                    inp_args = tuple([
+                        input_arg.cuda() if isinstance(input_arg, torch.Tensor) else input_arg
+                        for input_arg in input_args])
+                    inp_kwargs = {
+                        k: (v.cuda() if isinstance(v, torch.Tensor) else v)
+                        for (k, v) in input_kwargs.items()}
                     pipe.vae.decode(*inp_args, **inp_kwargs)
 
         if args.vae_gptq:
@@ -643,11 +666,23 @@ def main(args):
                         return_forward_output=True,
                         act_order=True) as gptq:
                 for inp_args, inp_kwargs in vae_calibration:
+                    inp_args = tuple([
+                        input_arg.cuda() if isinstance(input_arg, torch.Tensor) else input_arg
+                        for input_arg in input_args])
+                    inp_kwargs = {
+                        k: (v.cuda() if isinstance(v, torch.Tensor) else v)
+                        for (k, v) in input_kwargs.items()}
                     pipe.vae.decode(*inp_args, **inp_kwargs)
         if args.vae_bias_correction:
             print("Applying Bias Correction")
             with torch.no_grad(), bias_correction_mode(pipe.vae):
                 for inp_args, inp_kwargs in vae_calibration:
+                    inp_args = tuple([
+                        input_arg.cuda() if isinstance(input_arg, torch.Tensor) else input_arg
+                        for input_arg in input_args])
+                    inp_kwargs = {
+                        k: (v.cuda() if isinstance(v, torch.Tensor) else v)
+                        for (k, v) in input_kwargs.items()}
                     pipe.vae.decode(*inp_args, **inp_kwargs)
         print("VAE quantized")
 
@@ -688,9 +723,9 @@ def main(args):
         if args.export_target == 'params_only':
             device = next(iter(pipe.unet.parameters())).device
             pipe.to('cpu')
-            export_quant_params(pipe.unet, output_dir)
-            if args.quantize_vae or args.vae_fp16_fix:
-                export_quant_params(pipe.vae, output_dir)
+            export_quant_params(pipe.unet, output_dir, 'unet_')
+            if args.vae_quantize or args.vae_fp16_fix:
+                export_quant_params(pipe.vae, output_dir, 'vae_')
             else:
                 vae_output_path = os.path.join(output_dir, 'vae.safetensors')
                 print(f"Saving vae to {vae_output_path} ...")
