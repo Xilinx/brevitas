@@ -575,7 +575,7 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
-            device = next(iter(pipe.unet.parameters())).device 
+            device = next(iter(pipe.unet.parameters())).device
             pipe.to('cpu')
             export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
             pipe.to(device)
