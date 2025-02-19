@@ -644,7 +644,7 @@ def main(args):
                         act_order=True) as gptq:
                 for inp_args, inp_kwargs in vae_calibration:
                     pipe.vae.decode(*inp_args, **inp_kwargs)
-        if args.vae_bias_corr:
+        if args.vae_bias_correction:
             print("Applying Bias Correction")
             with torch.no_grad(), bias_correction_mode(pipe.vae):
                 for inp_args, inp_kwargs in vae_calibration:
