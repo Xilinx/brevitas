@@ -512,6 +512,7 @@ def quantize_llm(args, extra_args=None):
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
 
+        few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
             from lm_eval.models.huggingface import HFLM
@@ -546,6 +547,8 @@ def quantize_llm(args, extra_args=None):
             from lighteval.pipeline import PipelineParameters
             from lighteval.utils.utils import EnvConfig
 
+            # expects a list
+            few_shot_tasks = ",".join(args.few_shot_tasks)
             accelerator = Accelerator(
                 kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
             evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
@@ -567,18 +570,17 @@ def quantize_llm(args, extra_args=None):
                     model.cuda()
                     model.forward = torch.compile(model.forward, fullgraph=True)
                 pipeline = Pipeline(
-                    tasks=args.few_shot_tasks,
+                    tasks=few_shot_tasks,
                     pipeline_parameters=pipeline_params,
                     evaluation_tracker=evaluation_tracker,
                     model=model,
                     config=model_config)
                 pipeline.evaluate()
-            results = pipeline.get_results()
-            results = filter_results(results, list(results["results"].keys()))
-            pprint.pprint(results)
-
+            few_shot_eval_results = pipeline.get_results()
+            few_shot_eval_results = filter_results(
+                few_shot_eval_results, list(few_shot_eval_results["results"].keys()))
+            pprint.pprint(few_shot_eval_results)
         remove_hooks(model)
-
         if args.checkpoint_name is not None and not args.load_checkpoint:
             print(f"Saving checkpoint to {args.checkpoint_name}")
             torch.save(model.state_dict(), args.checkpoint_name)
