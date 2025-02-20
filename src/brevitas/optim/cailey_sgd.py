@@ -46,8 +46,8 @@ def qr_retraction(tan_vec):  # tan_vec, p-by-n, p <= n
     dtype = tan_vec.dtype
     # torch.linalg.qr is not implemented for 'Half'
     q, r = torch.linalg.qr(tan_vec.to(torch.float32))
-    q = q.to(dtype=dtype)
-    d = torch.diag(r, 0).to(dtype=dtype)
+    q, r = q.to(dtype=dtype), r.to(dtype=dtype)
+    d = torch.diag(r, 0)
     ph = d.sign()
     q *= ph.expand_as(q)
     q.t_()

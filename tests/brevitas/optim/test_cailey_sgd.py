@@ -42,22 +42,19 @@ POSSIBILITY OF SUCH DAMAGE.
 
 from copy import deepcopy
 from itertools import product
-import math
-import sys
-from typing import List, Union
-import unittest
 
 from hypothesis import given
 import numpy as np
+from packaging import version
 import pytest
 import pytest_cases
 from pytest_cases import fixture
 from scipy.stats import ortho_group
 import torch
 from torch.nn import Parameter
-import torch.nn as nn
 from torch.optim.lr_scheduler import LinearLR
 
+from brevitas import torch_version
 from brevitas.optim.cailey_sgd import CaileySGD
 from tests.conftest import SEED
 
@@ -83,6 +80,10 @@ class TestCaileySGD:
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
+        if torch_version < version.parse('2.3.1') and dtype in ["float16", "bfloat16"]:
+            pytest.skip(
+                "Some operations in the CaileySGD optimizer (e.g. diag, eye) are not implemented for 'Half' or 'BFloat16' in PyTorch versions under 2.3.1."
+            )
         torch.manual_seed(SEED)
         optim_cls = CaileySGD
         dtype = getattr(torch, dtype)
@@ -119,9 +120,6 @@ class TestCaileySGD:
                 scheduler.step()
 
             # Verify that iterates stay within the Stiefel manifold
-            print(
-                weight.to(dtype=torch.float32).detach().cpu()
-                @ weight.to(dtype=torch.float32).detach().cpu().t())
             assert torch.allclose(
                 weight.to(dtype=torch.float32).detach().cpu()
                 @ weight.to(dtype=torch.float32).detach().cpu().t(),
