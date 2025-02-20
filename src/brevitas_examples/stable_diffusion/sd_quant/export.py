@@ -55,26 +55,23 @@ def handle_quant_param(layer, layer_dict):
     return layer_dict
 
 
-def export_quant_params(pipe, output_dir, export_vae=False):
-    quant_output_path = os.path.join(output_dir, 'quant_params.json')
-    unet_output_path = os.path.join(output_dir, 'params.safetensors')
-    print(f"Saving unet to {unet_output_path} ...")
-    if export_vae:
-        vae_output_path = os.path.join(output_dir, 'vae.safetensors')
-        print(f"Saving vae to {vae_output_path} ...")
+def export_quant_params(model, output_dir, prefix):
+    quant_output_path = os.path.join(output_dir, prefix + 'quant_params.json')
+    safetensor_output_path = os.path.join(output_dir, prefix + 'params.safetensors')
+    print(f"Saving unet to {safetensor_output_path} ...")
     from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
     export_manager = StdQCDQONNXManager
     export_manager.change_weight_export(
         export_weight_q_node=True)  # We're exporting FP weights + quantization parameters
     quant_params = dict()
-    state_dict = pipe.unet.state_dict()
+    state_dict = model.state_dict()
     state_dict = {k: v for (k, v) in state_dict.items() if 'tensor_quant' not in k}
     state_dict = {k: v for (k, v) in state_dict.items() if not k.endswith('.scale.weight')}
     state_dict = {k.replace('.layer.', '.'): v for (k, v) in state_dict.items()}
 
     handled_quant_layers = set()
-    with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, export_manager):
-        for name, module in pipe.unet.named_modules():
+    with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager):
+        for name, module in model.named_modules():
             if isinstance(module, EqualizedModule):
                 if id(module.layer) in handled_quant_layers:
                     raise RuntimeError("This should not happen")
@@ -122,6 +119,4 @@ def export_quant_params(pipe, output_dir, export_vae=False):
                 handled_quant_layers.add(id(module))
     with open(quant_output_path, 'w') as file:
         json.dump(quant_params, file, indent="  ")
-    save_file(state_dict, unet_output_path)
-    if export_vae:
-        save_file(pipe.vae.state_dict(), vae_output_path)
+    save_file(state_dict, safetensor_output_path)
