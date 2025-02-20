@@ -43,7 +43,10 @@ def Cayley_loop(X, W, tan_vec, t):  #
 def qr_retraction(tan_vec):  # tan_vec, p-by-n, p <= n
     [p, n] = tan_vec.size()
     tan_vec.t_()
-    q, r = torch.linalg.qr(tan_vec)
+    dtype = tan_vec.dtype
+    # torch.linalg.qr is not implemented for 'Half'
+    q, r = torch.linalg.qr(tan_vec.to(torch.float32))
+    q, r = q.to(dtype=dtype), r.to(dtype=dtype)
     d = torch.diag(r, 0)
     ph = d.sign()
     q *= ph.expand_as(q)
@@ -87,7 +90,7 @@ class CaileySGD(Optimizer):
     def __init__(
         self,
         params,
-        lr: float = 1e-3,
+        lr: float = 1e-1,
         momentum: int = 0,
         dampening: int = 0,
         weight_decay: int = 0,
@@ -150,9 +153,7 @@ class CaileySGD(Optimizer):
 
                     param_state = self.state[p]
                     if "momentum_buffer" not in param_state:
-                        param_state["momentum_buffer"] = torch.zeros(g.t().size())
-                        if p.is_cuda:
-                            param_state["momentum_buffer"] = param_state["momentum_buffer"].cuda()
+                        param_state["momentum_buffer"] = torch.zeros_like(g.t())
 
                     V = param_state["momentum_buffer"]
                     V = momentum * V - g.t()
