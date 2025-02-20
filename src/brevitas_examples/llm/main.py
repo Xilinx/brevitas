@@ -4,11 +4,11 @@
 import argparse
 from contextlib import nullcontext
 from copy import deepcopy
+from datetime import timedelta
 import functools
+import pprint
 import sys
 
-from lm_eval import evaluator
-from lm_eval.models.huggingface import HFLM
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
@@ -63,14 +63,10 @@ from brevitas_examples.llm.llm_quant.run_utils import get_fx
 
 
 def filter_results(results, tasks):
-    # filter out what we actually want to track in azureml
+    # filter out what we actually want to track
     eval_results = dict()
     for task_name in tasks:
-        # first, log n_shots for each task
-        # for subtask, n_shots in results["n-shot"].items():
-        #     name = f"{subtask}_n_shot"
-        #     eval_results[name] = float(n_shots)
-        # then log all result metrics we have for this task
+        # log all result metrics we have for this task
         for key, val in results["results"][task_name].items():
             if not isinstance(val, str):
                 # for mmlu, we don't log results per subtask, but simply overall results
@@ -516,8 +512,10 @@ def quantize_llm(args, extra_args=None):
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
 
-        few_shot_eval_results = {}
-        if args.few_shot_eval:
+        few_shot_eval_results = dict()
+        if args.few_shot_eval == 'lm_eval':
+            from lm_eval import evaluator
+            from lm_eval.models.huggingface import HFLM
             with torch.no_grad(), quant_inference_mode(model):
                 model(**calibration_loader[0])
                 if args.few_shot_compile:
@@ -538,9 +536,51 @@ def quantize_llm(args, extra_args=None):
                     verbosity="ERROR")
             few_shot_eval_results = filter_results(few_shot_eval_results, args.few_shot_tasks)
             print("Few shot eval results")
-            print(few_shot_eval_results)
-        remove_hooks(model)
+            pprint.pprint(few_shot_eval_results)
+        elif args.few_shot_eval == 'lighteval':
+            from accelerate import Accelerator
+            from accelerate import InitProcessGroupKwargs
+            from lighteval.logging.evaluation_tracker import EvaluationTracker
+            from lighteval.models.transformers.transformers_model import TransformersModelConfig
+            from lighteval.pipeline import ParallelismManager
+            from lighteval.pipeline import Pipeline
+            from lighteval.pipeline import PipelineParameters
+            from lighteval.utils.utils import EnvConfig
 
+            # expects a list
+            few_shot_tasks = ",".join(args.few_shot_tasks)
+            accelerator = Accelerator(
+                kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
+            evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
+            pipeline_params = PipelineParameters(
+                launcher_type=ParallelismManager.ACCELERATE,
+                env_config=EnvConfig(cache_dir="/scratch/hf_models/"),
+                override_batch_size=args.few_shot_override_batch_size)
+            model_config = TransformersModelConfig(
+                pretrained=args.model,
+                dtype=dtype,
+                model_parallel=True,
+                accelerator=accelerator,
+                compile=True)
+
+            with torch.no_grad(), quant_inference_mode(model):
+                model(**calibration_loader[0])
+                if args.few_shot_compile:
+                    remove_hooks(model)
+                    model.cuda()
+                    model.forward = torch.compile(model.forward, fullgraph=True)
+                pipeline = Pipeline(
+                    tasks=few_shot_tasks,
+                    pipeline_parameters=pipeline_params,
+                    evaluation_tracker=evaluation_tracker,
+                    model=model,
+                    config=model_config)
+                pipeline.evaluate()
+            few_shot_eval_results = pipeline.get_results()
+            few_shot_eval_results = filter_results(
+                few_shot_eval_results, list(few_shot_eval_results["results"].keys()))
+            pprint.pprint(few_shot_eval_results)
+        remove_hooks(model)
         if args.checkpoint_name is not None and not args.load_checkpoint:
             print(f"Saving checkpoint to {args.checkpoint_name}")
             torch.save(model.state_dict(), args.checkpoint_name)
