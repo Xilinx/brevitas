@@ -221,15 +221,12 @@ class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
 
 
 class DynamicQuantScalingFloat(QuantScaleScaleShapeMixin,
-                               DynamicActProxyMixin,
                                Fp8e4m3OCPActPerTensorFloat):
     module = (this << 1).module
     upstream_scaling = (this << 1).scaling_per_output_type
     float_quant = FloatQuant
-    scaling_impl = RuntimeDynamicStatsScaling
-    scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'min_max'
-    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
+    scaling_impl_type = "const"
+    scaling_init = 1.0
 
 
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
@@ -246,6 +243,8 @@ class QuantScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloa
     tracked_parameter_list = (this << 1).tracked_parameter_list
     upstream_scaling = (this << 1).scaling_per_output_type
     float_quant = FloatQuant
+    scaling_impl_type = "const"
+    scaling_init = 1.0
 
 
 class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
