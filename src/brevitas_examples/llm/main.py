@@ -63,7 +63,7 @@ from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
-from benchmark.test_scale_format import test_scale_quant
+from brevitas_examples.llm.benchmark.test_scale_format import test_scale_quant
 
 def filter_results(results, tasks):
     # filter out what we actually want to track

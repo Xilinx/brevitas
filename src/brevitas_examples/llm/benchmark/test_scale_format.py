@@ -13,9 +13,9 @@ class Fp8e5m2OCPActPerTensorFloatConst(Fp8e4m3OCPActPerTensorFloatConst):
     mantissa_bit_width = 2
 
 def test_scale_quant(model):
-    e4m3 = qnn.QuantIdentity(act_quant=Fp8e4m3OCPActPerTensorFloatConst).cuda()
-    e5m2 = qnn.QuantIdentity(act_quant=Fp8e5m2OCPActPerTensorFloatConst).cuda()
-    x = torch.rand((100,100)).cuda()
+    e4m3 = qnn.QuantIdentity(act_quant=Fp8e4m3OCPActPerTensorFloatConst)
+    e5m2 = qnn.QuantIdentity(act_quant=Fp8e5m2OCPActPerTensorFloatConst)
+    x = torch.rand((100,100))
     layers_tested = 0
     layers_passed = 0
     layers_failed = 0
@@ -23,6 +23,9 @@ def test_scale_quant(model):
         if isinstance(module, qnn.QuantLinear):
             try:
                 weight_scale = module.quant_weight().scale
+                e4m3.to(device=weight_scale.device)
+                e5m2.to(device=weight_scale.device)
+                x.to(device=weight_scale.device)
                 assert (weight_scale == e4m3(weight_scale)).all()
                 assert not (weight_scale == e5m2(weight_scale)).all()
                 module.input_quant.return_quant_tensor = True
