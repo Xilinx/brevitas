@@ -63,6 +63,7 @@ from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
+from benchmark.test_scale_format import test_scale_quant
 
 def filter_results(results, tasks):
     # filter out what we actually want to track
@@ -554,6 +555,8 @@ def quantize_llm(args, extra_args=None):
         # We restore the original behaviour of the post-forward.
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
+
+        test_scale_quant(model)
 
         if args.eval and not args.no_quantize:
 
