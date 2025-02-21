@@ -25,7 +25,7 @@ def test_scale_quant(model):
                 weight_scale = module.quant_weight().scale
                 e4m3.to(device=weight_scale.device)
                 e5m2.to(device=weight_scale.device)
-                x.to(device=weight_scale.device)
+                x = x.to(device=weight_scale.device)
                 assert (weight_scale == e4m3(weight_scale)).all()
                 assert not (weight_scale == e5m2(weight_scale)).all()
                 module.input_quant.return_quant_tensor = True
@@ -34,7 +34,6 @@ def test_scale_quant(model):
                 assert not (act_scale == e5m2(act_scale)).all()
                 layers_passed += 1
             except:
-                breakpoint()
                 layers_failed += 1
             layers_tested += 1
     print(f"Layers passed: {layers_passed}, Layers failed: {layers_failed}, Layers tested: {layers_tested}")
