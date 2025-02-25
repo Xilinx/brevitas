@@ -64,3 +64,30 @@ def hooked_on_a_function(function, prefunction):
         return function(*args, **kwargs)
 
     return run
+
+
+def longest_common_prefix(strings):
+    """
+  Finds the longest common prefix of a list of strings.
+
+  Args:
+    strings: A list of strings.
+
+  Returns:
+    The longest common prefix of the strings.
+  """
+    # If the list of strings is empty, return an empty string.
+    if not strings:
+        return ""
+
+    # Find the shortest string in the list.
+    shortest_string = min(strings, key=len)
+
+    # Iterate over the characters in the shortest string.
+    for i, char in enumerate(shortest_string):
+        # If the character is not the same in all the strings, return the prefix up to the current character.
+        if any(string[i] != char for string in strings):
+            return shortest_string[:i]
+
+    # If all the characters in the shortest string are the same in all the strings, return the shortest string.
+    return shortest_string

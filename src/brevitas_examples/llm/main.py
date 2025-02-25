@@ -37,6 +37,8 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
+from brevitas_examples.llm.llm_quant.awq.equalize import fused_awq_scaling_no_fx
+from brevitas_examples.llm.llm_quant.awq.pre_quant import run_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
@@ -217,6 +219,10 @@ def quantize_llm(args, extra_args=None):
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
         device=None)
+
+    if args.awq_scale or args.awq_clip:
+        awq_regions = fused_awq_scaling_no_fx(
+            model, calibration_loader, args) if args.custom_awq_regions else None
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
@@ -405,6 +411,18 @@ def quantize_llm(args, extra_args=None):
         model.eval()
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
+
+    if args.awq_scale or args.awq_clip:
+        run_awq(
+            model=model,
+            tokenizer=tokenizer,
+            args=args,
+            regions=awq_regions,
+            n_samples=16,
+            seqlen=512,
+            auto_scale=args.awq_scale,
+            mse_range=args.awq_clip,
+        )
 
     # If any equalization has taken places, the embedding layer and the fully connected one are
     # not tied anymore, and they need to be treated as standalone, separate layers.

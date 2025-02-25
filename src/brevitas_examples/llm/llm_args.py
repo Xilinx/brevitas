@@ -389,6 +389,24 @@ def create_llm_args_parser():
         default=[],
         nargs='*',
         help='A list of module names to expand with hadamard rotation. Default: %(default)s')
+    parser.add_argument(
+        "--awq-scale",
+        action="store_true",
+        default=False,
+        help="Whether to apply AWQ scaling (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--awq-clip",
+        action="store_true",
+        default=False,
+        help="Whether to apply AWQ clipping (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--custom-awq-regions",
+        action="store_true",
+        default=False,
+        help="Whether to retrieve the AWQ regions automatically (default: %(default)s).",
+    )
     return parser
 
 

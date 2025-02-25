@@ -618,7 +618,8 @@ def _cross_layer_equalization(
         list_of_insert_mul_node_fn: Optional[List[Callable]] = None,
         alpha: float = 0.5,
         co_optimize_act_weights: bool = False,
-        fuse_scaling: bool = True) -> torch.Tensor:
+        fuse_scaling: bool = True,
+        parametrize_inplace: bool = True) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -787,7 +788,8 @@ def _cross_layer_equalization(
 
     # Apply rewriters before offloading
     for r in rewriters:
-        model = r.apply(model)
+        if parametrize_inplace or not isinstance(r, ModuleInstanceRegisterParametrization):
+            model = r.apply(model)
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
@@ -1149,6 +1151,49 @@ class EqualizeGraph(GraphTransform):
             return graph_model, regions
         else:
             return graph_model
+
+
+def extract_sdpa_regions(graph_module):
+    sdpa_nodes = list(graph_module.graph.nodes)
+    sdpa_nodes = [
+        c for c in sdpa_nodes if 'scaled_dot_product' in str(c.meta.get('orig_target', 'None'))]
+    regions = []
+
+    def find_src(node):
+        if node.op != 'call_module':
+            return find_src(node.args[0])
+        else:
+            return node
+
+    def find_sink(node):
+        output_node = list(node.users.keys())[0]
+        if output_node.op != 'call_module':
+            return find_sink(output_node)
+        else:
+            return output_node
+
+    for sdpa_node in sdpa_nodes:
+        value_input = sdpa_node.args[-1]
+
+        value_node = find_src(value_input)
+        output_node = find_sink(value_input)
+        sink_module = get_module(graph_module, output_node.target)
+        src_module = get_module(graph_module, value_node.target)
+        sink_weight = get_weight_sink(sink_module)
+        src_weight = get_weight_source(src_module)
+        sink_eq_indexes = EqualizationIndexes(0, sink_weight.shape[0], 0)
+        src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
+        region = Region(
+            srcs={value_node.target + '$' + str(src_eq_indexes): src_eq_indexes},
+            sinks={output_node.target + '$' + str(sink_eq_indexes): sink_eq_indexes},
+            name_to_module={
+                value_node.target: src_module, output_node.target: sink_module})
+        regions.append(region)
+        for m in graph_module.modules():
+            if isinstance(m, ScaledDotProductAttention):
+                m.pre_process_q = functional_rotate_input
+                m.pre_process_k = functional_rotate_input
+    return regions
 
 
 class ActivationEqualization(GraphTransform, ABC):
@@ -1618,7 +1663,7 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
     for module in model.modules():
         if parametrize.is_parametrized(module):
             # Names of the tensors that can potentially be parametrized
-            tensor_names = ["weight", "in_proj_weight", "bias"]
+            tensor_names = list(module.parametrizations.keys())
             # Remove parametrizations from each tensor
             for tensor_name in tensor_names:
                 if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
@@ -1844,7 +1889,7 @@ class GraphRotationEqualization(RotationEqualization):
             logging.info(f"{len(expanded_regions)} layers will be expanded during rotation")
 
         if self.sdpa_regions:
-            sdpa_regions = self.rotate_sdpa(graph_model)
+            sdpa_regions = extract_sdpa_regions(graph_model)
             regions.extend(sdpa_regions)
 
         for r in regions:
