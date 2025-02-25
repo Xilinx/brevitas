@@ -1704,7 +1704,6 @@ class GraphRotationEqualization(RotationEqualization):
 
         for r in regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
-            name = [sink_name for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
         # We check if any of the expanded region overlap with the fused regions.

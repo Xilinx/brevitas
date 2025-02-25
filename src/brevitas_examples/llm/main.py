@@ -540,6 +540,7 @@ def quantize_llm(args, extra_args=None):
         elif args.few_shot_eval == 'lighteval':
             from accelerate import Accelerator
             from accelerate import InitProcessGroupKwargs
+            from huggingface_hub import constants
             from lighteval.logging.evaluation_tracker import EvaluationTracker
             from lighteval.models.transformers.transformers_model import TransformersModelConfig
             from lighteval.pipeline import ParallelismManager
@@ -557,7 +558,7 @@ def quantize_llm(args, extra_args=None):
                 evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
                 pipeline_params = PipelineParameters(
                     launcher_type=ParallelismManager.ACCELERATE,
-                    env_config=EnvConfig(cache_dir="/scratch/hf_models/"),
+                    env_config=EnvConfig(cache_dir=constants.HF_HUB_CACHE),
                     override_batch_size=args.few_shot_override_batch_size)
                 model_config = TransformersModelConfig(
                     pretrained=args.model,
