@@ -454,6 +454,7 @@ def _restore_observer_mode(module, previous_observer_mode):
         if hasattr(m, 'observer_only'):
             m.observer_only = previous_observer_mode[m]
 
+
 # If modules are offloaded, during local loss mode we need to re-allocate params after the search is complete
 def _restore_params(module):
     for m in module.modules():
