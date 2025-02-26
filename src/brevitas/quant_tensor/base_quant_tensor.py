@@ -351,31 +351,9 @@ class FloatMixin:
     def flatten(self, *args, **kwargs):
         return self.set(value=self.value.flatten(*args, **kwargs))
 
-    def __add__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value + other.value
-        else:
-            output = self.value + other
-        return output
-
-    def __mul__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value * other.value
-        else:
-            output = self.value * other
-        return output
-
-    def __truediv__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value / other.value
-        else:
-            output = self.value / other
-        return output
-
     def transpose(self, *args, **kwargs):
         value = self.value.transpose(*args, **kwargs)
-        tensor_meta = {
-            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
         for k, tm in tensor_meta.items():
             if len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.transpose(*args, **kwargs)
@@ -383,8 +361,7 @@ class FloatMixin:
 
     def permute(self, *args, **kwargs):
         value = self.value.permute(*args, **kwargs)
-        tensor_meta = {
-            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
         for k, tm in tensor_meta.items():
             if len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.permute(*args, **kwargs)

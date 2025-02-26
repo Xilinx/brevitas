@@ -97,6 +97,25 @@ class FloatQuantTensor(FloatQuantTensorBase, FloatMixin, QuantTensor):
         if not isinstance(tensor, FloatQuantTensor):
             raise RuntimeError("Tensor is not a FloatQuantTensor")
 
+    # Magic methods can't live in the Mixin class
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        else:
+            return self.value + other
+
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        else:
+            return self.value * other
+
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        else:
+            return self.value / other
+
     @staticmethod
     def cat(tensors, dim, out=None):
         if out is not None:

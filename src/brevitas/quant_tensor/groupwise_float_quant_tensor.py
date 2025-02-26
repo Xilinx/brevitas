@@ -147,6 +147,25 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, Quant
         value = self.value.permute(*args, **kwargs)
         return value
 
+    # Magic methods can't live in the Mixin class
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        else:
+            return self.value + other
+
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        else:
+            return self.value * other
+
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        else:
+            return self.value / other
+
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
