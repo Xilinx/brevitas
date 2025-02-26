@@ -378,13 +378,13 @@ def generate_quantizers(
         weight_quant = weight_quant.let(**{'group_size': weight_group_size})
     # weight scale is converted to a standalone parameter
 
-    # TODO: Restore
+    # TODO: Fix for AWQ
     # weight_quant = weight_quant.let(scaling_impl_type='parameter_from_stats')
     weight_quant = weight_quant.let(scaling_impl_type='stats')
     # weight zero-point is converted to a standalone parameter
     # This is done already by default in the per_group quantizer
-    if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group':
-        weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+    # if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group':
+    #    weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)

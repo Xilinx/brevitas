@@ -190,15 +190,16 @@ def run_awq(
                 input_feat=input_feat,
             )
             apply_scale(block_regions=block_regions, scales_dict=scales_dict, input_feat=input_feat)
+        # Fuse the scaling and clipping parametrizations
+        block = fuse_parametrizations(block)
         if mse_range:
             clip_dict = auto_clip_block(
                 block_regions=block_regions,
                 input_feat=input_feat,
             )
+
             apply_clip(block_regions=block_regions, clip_dict=clip_dict)
 
-        # Fuse the scaling and clipping parametrizations
-        block = fuse_parametrizations(block)
         del input_feat
         gc.collect()
         torch.cuda.empty_cache()

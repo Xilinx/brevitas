@@ -23,32 +23,6 @@ from brevitas.utils.python_utils import longest_common_prefix
 from brevitas.utils.python_utils import recurse_getattr
 
 
-class WeightClipParametrization(nn.Module):
-
-    def __init__(
-            self, group_size: Optional[int] = None, max_val: Optional[torch.Tensor] = None) -> None:
-        super().__init__()
-        self.group_size = group_size
-        self.max_val = max_val
-
-    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-        orig_shape = tensor.shape
-        # shape enables broadcasting against max_val
-        shape = [
-            tensor.shape[0],
-            1,
-            -1,
-            self.group_size if self.group_size is not None else tensor.shape[1]]
-        if self.max_val is None:
-            return tensor
-        if self.max_val is not None:
-            num_repeats = shape[0] // self.max_val.shape[0]
-            max_val = self.max_val.repeat(num_repeats, 1, 1, 1)
-        else:
-            max_val = None
-        return torch.clamp(tensor.view(*shape), min=-max_val, max=max_val).view(orig_shape)
-
-
 @dataclass(eq=True, frozen=True)
 class RegionAWQ(Region):
     block: Optional[nn.Module] = field(default=None)
@@ -151,35 +125,15 @@ class EqualizeAWQ(GraphTransform):
                         r.transform_module.scaling_factor.data)
         return rewriters
 
-    def _retrieve_clipping_rewriters(self, model: Union[GraphModule, nn.Module],
-                                     region: Region) -> List[Transform]:
-        rewriters = []
-        for sink_name in region.sinks_names:
-            sink = region.name_to_module[sink_name]
-            rewriters.append(
-                ModuleInstanceRegisterParametrization(
-                    module=sink,
-                    tensor_name="weight",
-                    transform_module=WeightClipParametrization(
-                        group_size=self.weight_group_size,
-                        max_val=None,
-                    )))
-        return rewriters
-
     def apply(self,
               model: Union[GraphModule, nn.Module],
               regions: Optional[List[Region]] = None) -> List[Transform]:
         # Try to identify regions if not passed directly
         if regions is None:
             regions = self._extract_awq_regions(model)
-        scaling_rewriters = []
-        clipping_rewriters = []
+        rewriters = []
         for region in regions:
-            # Add scaling and clipping rewriters
-            scaling_rewriters.extend(self._retrieve_scaling_rewriters(model, region))
-            clipping_rewriters.extend(self._retrieve_clipping_rewriters(model, region))
-        # Clipping rewriters are added on top of the scaling ones
-        rewriters = scaling_rewriters + clipping_rewriters
+            rewriters.extend(self._retrieve_scaling_rewriters(model, region))
         if self.add_parametrizations_inplace:
             for r in rewriters:
                 model = r.apply(model)
