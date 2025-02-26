@@ -60,7 +60,7 @@ def fix_regions(regions, old_model_ref, tensor_name):
     return regions
 
 
-def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader, args: Namespace):
+def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader):
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
@@ -70,8 +70,6 @@ def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader, ar
     # Insert the identity scaling factors
     eq = EqualizeAWQ(
         sdpa_regions=True,
-        weight_group_size=args.weight_group_size
-        if args.weight_quant_granularity == 'per_group' else None,
         add_parametrizations_inplace=False,
     )
     new_model, regions, rewriters = eq.apply(model=new_model)

@@ -222,7 +222,7 @@ def quantize_llm(args, extra_args=None):
 
     if args.awq_scale or args.awq_clip:
         awq_regions = fused_awq_scaling_no_fx(
-            model, calibration_loader, args) if args.custom_awq_regions else None
+            model, calibration_loader) if args.custom_awq_regions else None
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization

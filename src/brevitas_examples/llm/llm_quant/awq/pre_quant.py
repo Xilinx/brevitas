@@ -113,11 +113,7 @@ def run_awq(
     else:
         regions_per_block = [retrieve_block_awq_regions(block) for block in blocks]
         # Apply the regions
-        eq = EqualizeAWQ(
-            weight_group_size=args.weight_group_size
-            if args.weight_quant_granularity == 'per_group' else None,
-            add_parametrizations_inplace=True,
-        )
+        eq = EqualizeAWQ(add_parametrizations_inplace=True,)
         # TODO: Consider using a more readable alternative to sum(regions_per_block, [])
         model, _, _ = eq.apply(model=model, regions=sum(regions_per_block, []))
 
@@ -190,14 +186,13 @@ def run_awq(
                 input_feat=input_feat,
             )
             apply_scale(block_regions=block_regions, scales_dict=scales_dict, input_feat=input_feat)
-        # Fuse the scaling and clipping parametrizations
+        # Fuse the scaling parametrizations
         block = fuse_parametrizations(block)
         if mse_range:
             clip_dict = auto_clip_block(
                 block_regions=block_regions,
                 input_feat=input_feat,
             )
-
             apply_clip(block_regions=block_regions, clip_dict=clip_dict)
 
         del input_feat

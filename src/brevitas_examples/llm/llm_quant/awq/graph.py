@@ -74,13 +74,9 @@ def extract_sinks_scaling_factor(sinks: List[nn.Module]) -> nn.Parameter:
 class EqualizeAWQ(GraphTransform):
 
     def __init__(
-            self,
-            sdpa_regions: bool = True,
-            weight_group_size: Optional[int] = None,
-            add_parametrizations_inplace: bool = False) -> None:
+            self, sdpa_regions: bool = True, add_parametrizations_inplace: bool = False) -> None:
         super(EqualizeAWQ, self).__init__()
         self.sdpa_regions = sdpa_regions
-        self.weight_group_size = weight_group_size
         self.add_parametrizations_inplace = add_parametrizations_inplace
         self.blacklist_layers = ["lm_head", "embedding"]
         # These attributes are only kept to reuse the _cross_layer_equalization method
