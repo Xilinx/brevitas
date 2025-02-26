@@ -6,8 +6,7 @@ from torch import Tensor
 from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
 
-IS_VALID_ATOL = 2e-1
-BFLOAT16_IS_VALID_ATOL = 0.5
+TOLERANCE = {torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
 
 
 # Base class for all QuantTensor.
@@ -176,8 +175,7 @@ class IntMixin:
             pre_round_int_value = self._pre_round_int_value
             rounded_int_value = torch.round(pre_round_int_value)
             max_abs_diff = torch.max(torch.abs(pre_round_int_value - rounded_int_value))
-            atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype in (
-                torch.bfloat16, torch.float16) else IS_VALID_ATOL
+            atol = TOLERANCE[self.value.dtype]
             is_int = max_abs_diff < atol
             if self.bit_width >= 2:
                 if self.signed:
@@ -286,7 +284,7 @@ class FloatMixin:
             pre_round_minifloat_value = self._pre_round_float_value
             rounded_minifloat_value = torch.round(pre_round_minifloat_value)
             max_abs_diff = torch.max(torch.abs(pre_round_minifloat_value - rounded_minifloat_value))
-            atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype == torch.bfloat16 else IS_VALID_ATOL
+            atol = TOLERANCE[self.value.dtype]
             is_minifloat = max_abs_diff < atol
             # We are missing the checks about self being contained between max and min value
             # given by mantissa, exponent, inf, nan, and saturating
