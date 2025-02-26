@@ -4,12 +4,10 @@ import torch
 from torch import Tensor
 
 from brevitas.function.ops_ste import round_ste
+from brevitas.utils.torch_utils import float_internal_scale
 
 IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
-
-IS_VALID_ATOL = 2e-1
-B_FLOAT16_IS_VALID_ATOL = 0.5
 
 
 # Base class for all QuantTensor.
@@ -178,7 +176,7 @@ class IntMixin:
             pre_round_int_value = self._pre_round_int_value
             rounded_int_value = torch.round(pre_round_int_value)
             max_abs_diff = torch.max(torch.abs(pre_round_int_value - rounded_int_value))
-            atol = B_FLOAT16_IS_VALID_ATOL if self.value.dtype in (
+            atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype in (
                 torch.bfloat16, torch.float16) else IS_VALID_ATOL
             is_int = max_abs_diff < atol
             if self.bit_width >= 2:
@@ -215,7 +213,7 @@ class IntMixin:
                 else:
                     return int_value.to(torch.int32)
         else:
-            raise RuntimeError(f"IntQuantTensor not valid.")
+            raise RuntimeError(f"QuantTensor not valid.")
 
     def check_scaling_factors_same(self, other):
         if self.training:
@@ -245,6 +243,166 @@ class IntMixin:
 
     def flatten(self, *args, **kwargs):
         return self.set(value=self.value.flatten(*args, **kwargs))
+
+    def transpose(self, *args, **kwargs):
+        value = self.value.transpose(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.transpose(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
+
+    def permute(self, *args, **kwargs):
+        value = self.value.permute(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.permute(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
+
+
+class FloatMixin:
+
+    @property
+    def _pre_round_float_value(self):
+        value = self.value
+        scale = self.scale
+        if self.scale.dtype == torch.bfloat16:
+            value = self.value.type(torch.float32)
+            scale = self.scale.type(torch.float32)
+        minifloat_value = value / scale
+        fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
+        eps = torch.finfo(scale.dtype).tiny
+        int_scale = float_internal_scale(
+            minifloat_value, self.mantissa_bit_width, fp_internal_scale, eps)
+        minifloat_value = minifloat_value / int_scale
+        return minifloat_value
+
+    @property
+    def is_valid(self):
+        with torch.no_grad():
+            pre_round_minifloat_value = self._pre_round_float_value
+            rounded_minifloat_value = torch.round(pre_round_minifloat_value)
+            max_abs_diff = torch.max(torch.abs(pre_round_minifloat_value - rounded_minifloat_value))
+            atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype == torch.bfloat16 else IS_VALID_ATOL
+            is_minifloat = max_abs_diff < atol
+            # We are missing the checks about self being contained between max and min value
+            # given by mantissa, exponent, inf, nan, and saturating
+            return is_minifloat
+
+    def minifloat(self, float_datatype=True):
+        # TODO: Check if OCP and cast to proper data-type if matching
+        assert float_datatype, "Minifloat quant returns only higher precision dtype"
+        if self.is_valid:
+            value = self.value
+            scale = self.scale
+            if self.scale.dtype == torch.bfloat16:
+                value = self.value.type(torch.float32)
+                scale = self.scale.type(torch.float32)
+            minifloat_value = value / scale
+            fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
+            eps = torch.finfo(scale.dtype).tiny
+            int_scale = float_internal_scale(
+                minifloat_value, self.mantissa_bit_width, fp_internal_scale, eps)
+            float_value = torch.round(self._pre_round_float_value) * int_scale
+            return float_value.type(self.scale.dtype)
+        else:
+            raise RuntimeError(f"FloatQuantTensor not valid.")
+
+    def check_scaling_factors_same(self, other):
+        if self.training:
+            return True
+        if not torch.allclose(self.scale, other.scale):
+            raise RuntimeError("Scaling factors are different")
+
+    def check_zero_points_same(self, other):
+        if self.training:
+            return True
+        if not torch.allclose(self.zero_point, other.zero_point):
+            raise RuntimeError("Zero points are different")
+
+    def check_bit_width_same(self, other):
+        if not torch.allclose(self.exponent_bit_width,
+                              other.exponent_bit_width) and not torch.allclose(
+                                  self.mantissa_bit_width, other.mantissa_bit_width):
+            raise RuntimeError("Bit widths are different")
+
+    def check_exponent_bias(self, other):
+        if not torch.allclose(self.exponent_bias, other.exponent_bias):
+            raise RuntimeError("Bit widths are different")
+
+    def check_inf_nan_same(self, other):
+        if not (set(self.inf_values) == set(other.inf_values)) and not (set(self.nan_values) == set(
+                other.nan_values)):
+            raise RuntimeError("Floating point representations are different")
+
+    def check_sign_same(self, other):
+        if not self.signed == other.signed:
+            raise RuntimeError("Signs are different")
+
+    def view(self, *args, **kwargs):
+        return self.set(value=self.value.view(*args, **kwargs))
+
+    def reshape(self, *args, **kwargs):
+        return self.set(value=self.value.reshape(*args, **kwargs))
+
+    def flatten(self, *args, **kwargs):
+        return self.set(value=self.value.flatten(*args, **kwargs))
+
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        else:
+            output = self.value + other
+        return output
+
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        else:
+            output = self.value * other
+        return output
+
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        else:
+            output = self.value / other
+        return output
+
+    def transpose(self, *args, **kwargs):
+        value = self.value.transpose(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.transpose(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
+
+    def permute(self, *args, **kwargs):
+        value = self.value.permute(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.permute(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
+
+    @property
+    def device(self):
+        value_device = self.value_.device
+        is_same_device = True
+        for t in [self.scale,
+                  self.zero_point,
+                  self.exponent_bit_width,
+                  self.mantissa_bit_width,
+                  self.exponent_bias]:
+            is_same_device &= value_device == t.device
+        if not is_same_device:
+            raise RuntimeError("Value and metadata are on different devices")
+        return value_device
 
 
 def _unpack_quant_tensor(input_data):
