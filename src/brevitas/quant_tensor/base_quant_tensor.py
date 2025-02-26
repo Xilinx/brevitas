@@ -404,6 +404,10 @@ class FloatMixin:
             raise RuntimeError("Value and metadata are on different devices")
         return value_device
 
+    def int(self):
+        value = torch.round(self._pre_round_float_value)
+        return value
+
 
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
