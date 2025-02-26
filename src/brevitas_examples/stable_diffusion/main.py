@@ -651,7 +651,7 @@ def main(args):
             pipe.vae.decode(*input_args, **input_kwargs)
 
         if args.vae_load_checkpoint is not None:
-            with load_quant_model_mode(pipe.unet):
+            with load_quant_model_mode(pipe.vae):
                 pipe = pipe.to('cpu')
                 print(f"Loading checkpoint: {args.vae_load_checkpoint}... ", end="")
                 pipe.vae.load_state_dict(torch.load(args.vae_load_checkpoint, map_location='cpu'))
