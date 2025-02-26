@@ -78,7 +78,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def eps(self):
         return torch.finfo(self.scale.dtype).tiny
 
-    def __torch_function__(self, func, types, args=(), kwargs=None):
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
         if func in FLOAT_QUANT_TENSOR_FN_HANDLER:

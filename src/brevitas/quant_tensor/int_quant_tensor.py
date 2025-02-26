@@ -43,7 +43,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
     def training(self):
         return self.training_t.item()
 
-    def __torch_function__(self, func, types, args=(), kwargs=None):
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
         if func in INT_QUANT_TENSOR_FN_HANDLER:
