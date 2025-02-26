@@ -121,7 +121,7 @@ def auto_clip_layer(
     del org_out
     gc.collect()
     torch.cuda.empty_cache()
-    return best_max_val
+    return best_max_val.detach().cpu()
 
 
 @torch.no_grad()
@@ -144,7 +144,7 @@ def apply_clip(block_regions: List[RegionAWQ], clip_dict: Dict[int, torch.Tensor
         for name in region.sinks_names:
             if name in clip_dict:
                 sink = region.name_to_module[name]
-                max_val = clip_dict[name]
+                max_val = clip_dict[name].to(sink.weight.device)
                 orig_shape = sink.weight.shape
                 sink.weight.data = torch.clamp(
                     sink.weight.data.view(*(list(max_val.shape[:-1]) + [-1])), -max_val,

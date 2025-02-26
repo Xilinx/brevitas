@@ -43,6 +43,8 @@ from brevitas.graph.calibrate import disable_enable_quantization
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import Region
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.awq.auto_clip import apply_clip
 from brevitas_examples.llm.llm_quant.awq.auto_clip import auto_clip_block
 from brevitas_examples.llm.llm_quant.awq.auto_scale import apply_scale
@@ -104,7 +106,6 @@ def run_awq(
     mse_range: bool = True,
     calib_data: str = "pileval",
 ):
-    model.cuda()
     # TODO: Reuse computation
     blocks = get_blocks(model)
     # Prepare AWQ regions
@@ -140,12 +141,16 @@ def run_awq(
 
     # patch layer 0 to catch input and kwargs
     blocks[0] = Catcher(blocks[0])
+    # Prepare model to capture inputs to the first block
+    model = offload_model(model)
     try:
         with disable_enable_quantization(model, disable_quant=True):
-            model(samples.to(next(model.parameters()).device))
+            model(samples)
     except ValueError:  # work with early exit
         pass
     blocks[0] = blocks[0].module  # restore
+    # Move model back to CPU
+    remove_hooks(model)
     inps = inps[0]
 
     gc.collect()
@@ -153,6 +158,7 @@ def run_awq(
     # solve layer by layer
     for i in tqdm.tqdm(range(len(blocks)), desc="Running AWQ..."):
         block = blocks[i]
+        block.cuda()
         block_regions = regions_per_block[i]
 
         # firstly, get input features of all linear blocks
@@ -196,7 +202,6 @@ def run_awq(
             apply_clip(block_regions=block_regions, clip_dict=clip_dict)
 
         del input_feat
+        block.cpu()
         gc.collect()
         torch.cuda.empty_cache()
-
-    model.cpu()

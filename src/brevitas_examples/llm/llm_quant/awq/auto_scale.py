@@ -107,7 +107,7 @@ def auto_scale_block(
         scaling_factor.data = torch.ones_like(scaling_factor.data)
 
         assert torch.isnan(best_scales).sum() == 0, best_scales
-        return best_scales.detach()
+        return best_scales.detach().cpu()
 
     def _auto_get_scale(
             sinks: List[nn.Module],
@@ -144,7 +144,7 @@ def apply_scale(
         # Modify scaling factors appropiately
         scaling_factor = extract_sinks_scaling_factor([
             region.name_to_module[sink_name] for sink_name in region.sinks_names])
-        scaling_factor.data = scales
+        scaling_factor.data = scales.to(scaling_factor.device)
         # Apply the scaling factor to the inputs
         if input_feat is not None:
             input_feat[region_id].mul_(scales.view(1, -1).to(input_feat[region_id].device))
