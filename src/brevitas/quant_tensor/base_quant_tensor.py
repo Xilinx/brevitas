@@ -1,6 +1,15 @@
 from typing import List, NamedTuple, Optional, Tuple
 
+import torch
 from torch import Tensor
+
+from brevitas.function.ops_ste import round_ste
+
+IS_VALID_ATOL = 2e-1
+BFLOAT16_IS_VALID_ATOL = 0.5
+
+IS_VALID_ATOL = 2e-1
+B_FLOAT16_IS_VALID_ATOL = 0.5
 
 
 # Base class for all QuantTensor.
@@ -91,6 +100,10 @@ class QuantTensor:
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
 
+    @staticmethod
+    def is_zero_zero_point(tensor):
+        return (tensor.zero_point == 0.).all()
+
 
 class IntQuantTensorBase(NamedTuple):
     value: Tensor
@@ -142,6 +155,67 @@ class GroupwisIntQuantTensorBase(NamedTuple):
     signed_t: Tensor
     training_t: Tensor
     dequant_shape: Optional[Tuple] = None
+
+
+class IntMixin:
+
+    @property
+    def _pre_round_int_value(self):
+        value = self.value
+        scale = self.scale
+        zero_point = self.zero_point
+        if self.scale.dtype == torch.bfloat16:
+            value = self.value.type(torch.float32)
+            scale = self.scale.type(torch.float32)
+            zero_point = self.zero_point.type(torch.float32)
+        int_value = value / scale
+        int_value = int_value + zero_point
+        return int_value
+
+    @property
+    def is_valid(self):
+        with torch.no_grad():
+            pre_round_int_value = self._pre_round_int_value
+            rounded_int_value = torch.round(pre_round_int_value)
+            max_abs_diff = torch.max(torch.abs(pre_round_int_value - rounded_int_value))
+            atol = B_FLOAT16_IS_VALID_ATOL if self.value.dtype in (
+                torch.bfloat16, torch.float16) else IS_VALID_ATOL
+            is_int = max_abs_diff < atol
+            if self.bit_width >= 2:
+                if self.signed:
+                    is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
+                    is_lower_b = (-2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
+                else:
+                    is_upper_b = (2.0 ** self.bit_width - 1 >= rounded_int_value).all()
+                    is_lower_b = (0. <= rounded_int_value).all()
+                return (is_int & is_upper_b & is_lower_b).item()
+            else:  # binary case
+                unique_vals = rounded_int_value.unique(
+                    sorted=False, return_counts=False, return_inverse=False)
+                is_binary = unique_vals.view(-1).size()[0] == 2
+                is_signed = (unique_vals < 0.).any().item()
+                sign_match = is_signed == self.signed
+                return is_int.item() and is_binary and sign_match
+
+    def int(self, float_datatype=False):
+        if self.is_valid:
+            int_value = round_ste(self._pre_round_int_value)
+            if float_datatype:
+                # Values at 8bit and lower can be represented exactly with float16 and bfloat16
+                # otherwise (e.g. Int16 bias), we upscale to float32
+                if self.bit_width <= 8.:
+                    return int_value.type(self.scale.dtype)
+                else:
+                    return int_value.type(torch.float32)
+            else:
+                if self.bit_width <= 8. and self.signed_t.item():
+                    return int_value.to(torch.int8)
+                elif self.bit_width <= 8. and not self.signed_t.item():
+                    return int_value.to(torch.uint8)
+                else:
+                    return int_value.to(torch.int32)
+        else:
+            raise RuntimeError(f"IntQuantTensor not valid.")
 
 
 def _unpack_quant_tensor(input_data):
