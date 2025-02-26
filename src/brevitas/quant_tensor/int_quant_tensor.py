@@ -10,15 +10,13 @@ from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor.base_quant_tensor import IntMixin
 
 from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
-IS_VALID_ATOL = 2e-1
-B_FLOAT16_IS_VALID_ATOL = 0.5
 
-
-class IntQuantTensor(IntQuantTensorBase, QuantTensor):
+class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
 
     def __new__(cls, value, scale, zero_point, bit_width, signed, training):
 
@@ -43,7 +41,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
     def training(self):
         return self.training_t.item()
 
-    def __torch_function__(self, func, types, args=(), kwargs=None):
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
         if func in INT_QUANT_TENSOR_FN_HANDLER:
@@ -60,44 +59,6 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
         return self.value
 
     @property
-    def _pre_round_int_value(self):
-        value = self.value
-        scale = self.scale
-        zero_point = self.zero_point
-        if self.scale.dtype == torch.bfloat16:
-            value = self.value.type(torch.float32)
-            scale = self.scale.type(torch.float32)
-            zero_point = self.zero_point.type(torch.float32)
-        int_value = value / scale
-        int_value = int_value + zero_point
-        return int_value
-
-    @property
-    def is_valid(self):
-        with torch.no_grad():
-            pre_round_int_value = self._pre_round_int_value
-            rounded_int_value = torch.round(pre_round_int_value)
-            max_abs_diff = torch.max(torch.abs(pre_round_int_value - rounded_int_value))
-            atol = B_FLOAT16_IS_VALID_ATOL if self.value.dtype in (
-                torch.bfloat16, torch.float16) else IS_VALID_ATOL
-            is_int = max_abs_diff < atol
-            if self.bit_width >= 2:
-                if self.signed:
-                    is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
-                    is_lower_b = (-2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
-                else:
-                    is_upper_b = (2.0 ** self.bit_width - 1 >= rounded_int_value).all()
-                    is_lower_b = (0. <= rounded_int_value).all()
-                return (is_int & is_upper_b & is_lower_b).item()
-            else:  # binary case
-                unique_vals = rounded_int_value.unique(
-                    sorted=False, return_counts=False, return_inverse=False)
-                is_binary = unique_vals.view(-1).size()[0] == 2
-                is_signed = (unique_vals < 0.).any().item()
-                sign_match = is_signed == self.signed
-                return is_int.item() and is_binary and sign_match
-
-    @property
     def device(self):
         value_device = self.value.device
         is_same_device = True
@@ -107,102 +68,13 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
             raise RuntimeError("Value and metadata are on different devices")
         return value_device
 
-    def int(self, float_datatype=False):
-        if self.is_valid:
-            int_value = round_ste(self._pre_round_int_value)
-            if float_datatype:
-                # Values at 8bit and lower can be represented exactly with float16 and bfloat16
-                # otherwise (e.g. Int16 bias), we upscale to float32
-                if self.bit_width <= 8.:
-                    return int_value.type(self.scale.dtype)
-                else:
-                    return int_value.type(torch.float32)
-            else:
-                if self.bit_width <= 8. and self.signed_t.item():
-                    return int_value.to(torch.int8)
-                elif self.bit_width <= 8. and not self.signed_t.item():
-                    return int_value.to(torch.uint8)
-                else:
-                    return int_value.to(torch.int32)
-        else:
-            raise RuntimeError(f"IntQuantTensor not valid.")
-
     @staticmethod
     def check_input_type(tensor):
         if not isinstance(tensor, IntQuantTensor):
             raise RuntimeError("Tensor is not a IntQuantTensor")
 
-    @staticmethod
-    def is_zero_zero_point(tensor):
-        IntQuantTensor.check_input_type(tensor)
-        return (tensor.zero_point == 0.).all()
-
-    def check_scaling_factors_same(self, other):
-        if self.training:
-            return True
-        if not torch.allclose(self.scale, other.scale):
-            raise RuntimeError("Scaling factors are different")
-
-    def check_zero_points_same(self, other):
-        if self.training:
-            return True
-        if not torch.allclose(self.zero_point, other.zero_point):
-            raise RuntimeError("Zero points are different")
-
-    def check_bit_width_same(self, other):
-        if not torch.allclose(self.bit_width, other.bit_width):
-            raise RuntimeError("Bit widths are different")
-
-    def check_sign_same(self, other):
-        if not self.signed == other.signed:
-            raise RuntimeError("Signs are different")
-
-    def view(self, *args, **kwargs):
-        return self.set(value=self.value.view(*args, **kwargs))
-
-    def reshape(self, *args, **kwargs):
-        return self.set(value=self.value.reshape(*args, **kwargs))
-
-    def flatten(self, *args, **kwargs):
-        return self.set(value=self.value.flatten(*args, **kwargs))
-
-    def transpose(self, *args, **kwargs):
-        value = self.value.transpose(*args, **kwargs)
-        tensor_meta = {
-            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
-        for k, tm in tensor_meta.items():
-            if len(value.shape) == len(tm.shape):
-                tensor_meta[k] = tm.transpose(*args, **kwargs)
-        return self.set(value=value, **tensor_meta)
-
-    def permute(self, *args, **kwargs):
-        value = self.value.permute(*args, **kwargs)
-        tensor_meta = {
-            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
-        for k, tm in tensor_meta.items():
-            if len(value.shape) == len(tm.shape):
-                tensor_meta[k] = tm.permute(*args, **kwargs)
-        return self.set(value=value, **tensor_meta)
-
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
-
-    @property
-    def ndim(self):
-        return self.value.ndim
-
-    def dim(self):
-        return self.value.dim()
-
-    @property
-    def shape(self):
-        return self.value.shape
-
-    def dim(self):
-        return self.value.dim()
-
-    def add(self, other):
-        return self + other
 
     @staticmethod
     def cat(tensors, dim, out=None):

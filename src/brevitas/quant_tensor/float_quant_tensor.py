@@ -6,16 +6,13 @@ import torch
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.quant_tensor.base_quant_tensor import FloatMixin
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
-IS_VALID_ATOL = 2e-1
-BFLOAT16_IS_VALID_ATOL = 0.5
 
-
-class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
+class FloatQuantTensor(FloatQuantTensorBase, FloatMixin, QuantTensor):
 
     def __new__(
             cls,
@@ -78,7 +75,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def eps(self):
         return torch.finfo(self.scale.dtype).tiny
 
-    def __torch_function__(self, func, types, args=(), kwargs=None):
+    @classmethod
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
         if func in FLOAT_QUANT_TENSOR_FN_HANDLER:
@@ -94,135 +92,29 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def tensor(self):
         return self.value
 
-    @property
-    def _pre_round_float_value(self):
-        value = self.value
-        scale = self.scale
-        if self.scale.dtype == torch.bfloat16:
-            value = self.value.type(torch.float32)
-            scale = self.scale.type(torch.float32)
-        minifloat_value = value / scale
-        fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-        eps = torch.finfo(scale.dtype).tiny
-        int_scale = float_internal_scale(
-            minifloat_value, self.mantissa_bit_width, fp_internal_scale, eps)
-        minifloat_value = minifloat_value / int_scale
-        return minifloat_value
-
-    def int(self):
-        fx_value = torch.round(self._pre_round_float_value)
-        return fx_value
-
-    @property
-    def is_valid(self):
-        with torch.no_grad():
-            pre_round_minifloat_value = self._pre_round_float_value
-            rounded_minifloat_value = torch.round(pre_round_minifloat_value)
-            max_abs_diff = torch.max(torch.abs(pre_round_minifloat_value - rounded_minifloat_value))
-            atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype == torch.bfloat16 else IS_VALID_ATOL
-            is_minifloat = max_abs_diff < atol
-            # We are missing the checks about self being contained between max and min value
-            # given by mantissa, exponent, inf, nan, and saturating
-            return is_minifloat
-
-    @property
-    def device(self):
-        value_device = self.value.device
-        is_same_device = True
-        for t in [self.scale,
-                  self.zero_point,
-                  self.exponent_bit_width,
-                  self.mantissa_bit_width,
-                  self.exponent_bias]:
-            is_same_device &= value_device == t.device
-        if not is_same_device:
-            raise RuntimeError("Value and metadata are on different devices")
-        return value_device
-
-    def minifloat(self, float_datatype=True):
-        # TODO: Check if OCP and cast to proper data-type if matching
-        assert float_datatype, "Minifloat quant returns only higher precision dtype"
-        if self.is_valid:
-            value = self.value
-            scale = self.scale
-            if self.scale.dtype == torch.bfloat16:
-                value = self.value.type(torch.float32)
-                scale = self.scale.type(torch.float32)
-            minifloat_value = value / scale
-            fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-            eps = torch.finfo(scale.dtype).tiny
-            int_scale = float_internal_scale(
-                minifloat_value, self.mantissa_bit_width, fp_internal_scale, eps)
-            float_value = torch.round(self._pre_round_float_value) * int_scale
-            return float_value.type(self.scale.dtype)
-        else:
-            raise RuntimeError(f"FloatQuantTensor not valid.")
-
     @staticmethod
     def check_input_type(tensor):
         if not isinstance(tensor, FloatQuantTensor):
             raise RuntimeError("Tensor is not a FloatQuantTensor")
 
-    @staticmethod
-    def is_zero_zero_point(tensor):
-        FloatQuantTensor.check_input_type(tensor)
-        return (tensor.zero_point == 0.).all()
+    # Magic methods can't live in the Mixin class
+    def __add__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
+        else:
+            return self.value + other
 
-    def check_scaling_factors_same(self, other):
-        if self.training:
-            return True
-        if not torch.allclose(self.scale, other.scale):
-            raise RuntimeError("Scaling factors are different")
+    def __mul__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
+        else:
+            return self.value * other
 
-    def check_zero_points_same(self, other):
-        if self.training:
-            return True
-        if not torch.allclose(self.zero_point, other.zero_point):
-            raise RuntimeError("Zero points are different")
-
-    def check_bit_width_same(self, other):
-        if not torch.allclose(self.exponent_bit_width,
-                              other.exponent_bit_width) and not torch.allclose(
-                                  self.mantissa_bit_width, other.mantissa_bit_width):
-            raise RuntimeError("Bit widths are different")
-
-    def check_exponent_bias(self, other):
-        if not torch.allclose(self.exponent_bias, other.exponent_bias):
-            raise RuntimeError("Bit widths are different")
-
-    def check_inf_nan_same(self, other):
-        if not (set(self.inf_values) == set(other.inf_values)) and not (set(self.nan_values) == set(
-                other.nan_values)):
-            raise RuntimeError("Floating point representations are different")
-
-    def check_sign_same(self, other):
-        if not self.signed == other.signed:
-            raise RuntimeError("Signs are different")
-
-    def view(self, *args, **kwargs):
-        return self.set(value=self.value.view(*args, **kwargs))
-
-    def reshape(self, *args, **kwargs):
-        return self.set(value=self.value.reshape(*args, **kwargs))
-
-    def flatten(self, *args, **kwargs):
-        return self.set(value=self.value.flatten(*args, **kwargs))
-
-    def transpose(self, *args, **kwargs):
-        value = self.value.transpose(*args, **kwargs)
-        tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        for k, tm in tensor_meta.items():
-            if len(value.shape) == len(tm.shape):
-                tensor_meta[k] = tm.transpose(*args, **kwargs)
-        return self.set(value=value, **tensor_meta)
-
-    def permute(self, *args, **kwargs):
-        value = self.value.permute(*args, **kwargs)
-        tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        for k, tm in tensor_meta.items():
-            if len(value.shape) == len(tm.shape):
-                tensor_meta[k] = tm.permute(*args, **kwargs)
-        return self.set(value=value, **tensor_meta)
+    def __truediv__(self, other):
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
+        else:
+            return self.value / other
 
     @staticmethod
     def cat(tensors, dim, out=None):
@@ -300,29 +192,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             # TODO: implement
             raise NotImplementedError
 
-    def __add__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value + other.value
-        else:
-            output = self.value + other
-        return output
-
-    def __mul__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value * other.value
-        else:
-            output = self.value * other
-        return output
-
     def __str__(self):
         return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed_t={self.signed_t}, training_t={self.training_t})"
-
-    def __truediv__(self, other):
-        if isinstance(other, QuantTensor):
-            return self.value / other.value
-        else:
-            output = self.value / other
-        return output
 
     def __abs__(self):
         if self.signed:

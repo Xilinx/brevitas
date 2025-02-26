@@ -17,6 +17,7 @@ from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
+from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.quant_utils import _CachedIOFloat
 from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
@@ -71,6 +72,16 @@ def qdq(normal_tensor, quant_tensor):
     return (
         torch.round(normal_tensor / quant_tensor.scale + quant_tensor.zero_point) -
         quant_tensor.zero_point) * quant_tensor.scale
+
+
+def test_qt_structure():
+    qt = IntQuantTensor(
+        torch.randn(10), torch.randn(1), torch.tensor(0.), torch.tensor(8.), True, False)
+    assert isinstance(qt, IntQuantTensor)
+    assert isinstance(qt, QuantTensor)
+    assert isinstance(qt, tuple)
+    assert hasattr(qt, '_fields')
+    assert len(qt._fields) == 6
 
 
 def test_quant_tensor_init():
