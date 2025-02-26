@@ -217,6 +217,35 @@ class IntMixin:
         else:
             raise RuntimeError(f"IntQuantTensor not valid.")
 
+    def check_scaling_factors_same(self, other):
+        if self.training:
+            return True
+        if not torch.allclose(self.scale, other.scale):
+            raise RuntimeError("Scaling factors are different")
+
+    def check_zero_points_same(self, other):
+        if self.training:
+            return True
+        if not torch.allclose(self.zero_point, other.zero_point):
+            raise RuntimeError("Zero points are different")
+
+    def check_bit_width_same(self, other):
+        if not torch.allclose(self.bit_width, other.bit_width):
+            raise RuntimeError("Bit widths are different")
+
+    def check_sign_same(self, other):
+        if not self.signed == other.signed:
+            raise RuntimeError("Signs are different")
+
+    def view(self, *args, **kwargs):
+        return self.set(value=self.value.view(*args, **kwargs))
+
+    def reshape(self, *args, **kwargs):
+        return self.set(value=self.value.reshape(*args, **kwargs))
+
+    def flatten(self, *args, **kwargs):
+        return self.set(value=self.value.flatten(*args, **kwargs))
+
 
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
