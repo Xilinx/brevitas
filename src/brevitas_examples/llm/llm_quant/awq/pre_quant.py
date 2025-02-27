@@ -106,6 +106,9 @@ def run_awq(
     mse_range: bool = True,
     calib_data: str = "pileval",
 ):
+    # Cache needs to be disabled for training
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
     # TODO: Reuse computation
     blocks = get_blocks(model)
     # Prepare AWQ regions
@@ -205,3 +208,5 @@ def run_awq(
         block.cpu()
         gc.collect()
         torch.cuda.empty_cache()
+    # Restore previous cache setting
+    model.config.use_cache = use_cache
