@@ -455,6 +455,13 @@ def _restore_observer_mode(module, previous_observer_mode):
             m.observer_only = previous_observer_mode[m]
 
 
+# If modules are offloaded, during local loss mode we need to re-allocate params after the search is complete
+def _restore_params(module):
+    for m in module.modules():
+        if hasattr(m, 'local_loss_mode') and hasattr(m, 'allocate_params'):
+            m.allocate_params(m)
+
+
 class MSE(torch.nn.Module):
     # References:
     # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
@@ -478,6 +485,7 @@ class MSE(torch.nn.Module):
             proxy_module, enabled, self.previous_observer_mode)
         self.restore_observer_mode = lambda: _restore_observer_mode(
             proxy_module, self.previous_observer_mode)
+        self.restore_offload_param = lambda: _restore_params(proxy_module)
         self.internal_candidate = None
         self.num = mse_iters
         self.search_method = mse_search_method
@@ -554,6 +562,7 @@ class MSE(torch.nn.Module):
             raise ValueError(f"Search method {self.search_method} not supported.")
         # Save for evaluation by other modules (e.g. zp) invoking local loss mode
         self.internal_candidate = best_candidate
+        self.restore_offload_param()
         return best_candidate
 
     def forward(self, x):

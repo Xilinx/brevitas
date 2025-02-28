@@ -540,6 +540,7 @@ def quantize_llm(args, extra_args=None):
         elif args.few_shot_eval == 'lighteval':
             from accelerate import Accelerator
             from accelerate import InitProcessGroupKwargs
+            from huggingface_hub import constants
             from lighteval.logging.evaluation_tracker import EvaluationTracker
             from lighteval.models.transformers.transformers_model import TransformersModelConfig
             from lighteval.pipeline import ParallelismManager
@@ -547,24 +548,24 @@ def quantize_llm(args, extra_args=None):
             from lighteval.pipeline import PipelineParameters
             from lighteval.utils.utils import EnvConfig
 
-            # expects a list
-            few_shot_tasks = ",".join(args.few_shot_tasks)
-            accelerator = Accelerator(
-                kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
-            evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
-            pipeline_params = PipelineParameters(
-                launcher_type=ParallelismManager.ACCELERATE,
-                env_config=EnvConfig(cache_dir="/scratch/hf_models/"),
-                override_batch_size=args.few_shot_override_batch_size)
-            model_config = TransformersModelConfig(
-                pretrained=args.model,
-                dtype=dtype,
-                model_parallel=True,
-                accelerator=accelerator,
-                compile=True)
-
             with torch.no_grad(), quant_inference_mode(model):
                 model(**calibration_loader[0])
+                remove_hooks(model)
+                # expects a list
+                few_shot_tasks = ",".join(args.few_shot_tasks)
+                accelerator = Accelerator(
+                    kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
+                evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
+                pipeline_params = PipelineParameters(
+                    launcher_type=ParallelismManager.ACCELERATE,
+                    env_config=EnvConfig(cache_dir=constants.HF_HUB_CACHE),
+                    override_batch_size=args.few_shot_override_batch_size)
+                model_config = TransformersModelConfig(
+                    pretrained=args.model,
+                    dtype=dtype,
+                    model_parallel=True,
+                    accelerator=accelerator,
+                    compile=True)
                 if args.few_shot_compile:
                     remove_hooks(model)
                     model.cuda()

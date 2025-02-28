@@ -92,7 +92,7 @@ def find_closest_hadamard_number(starting_dim, steps=1):
             else:
                 best_value = m if (
                     abs(starting_dim - m) <= abs(starting_dim - best_value) and
-                    m > best_value) else best_value
+                    m > starting_dim) else best_value
         starting_dim = best_value
 
     return int(best_value.cpu().item())

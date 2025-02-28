@@ -1662,10 +1662,10 @@ class GraphRotationEqualization(RotationEqualization):
             sink_eq_indexes = EqualizationIndexes(0, sink_weight.shape[0], 0)
             src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
             region = Region(
-                srcs={'src0': src_eq_indexes},
-                sinks={'sink0': sink_eq_indexes},
+                srcs={'src_sdpa': src_eq_indexes},
+                sinks={'sink_sdpa': sink_eq_indexes},
                 name_to_module={
-                    'src0': src_module, 'sink0': sink_module})
+                    'src_sdpa': src_module, 'sink_sdpa': sink_module})
             regions.append(region)
             for m in graph_module.modules():
                 if isinstance(m, ScaledDotProductAttention):
@@ -1697,29 +1697,53 @@ class GraphRotationEqualization(RotationEqualization):
             for m in graph_model.parameters():
                 parameter_number_pre += m.numel()
             logging.info(f"{len(expanded_regions)} layers will be expanded during rotation")
-            orphan_regions.extend(expanded_regions)
 
         if self.sdpa_regions:
             sdpa_regions = self.rotate_sdpa(graph_model)
             regions.extend(sdpa_regions)
+
         for r in regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
-        if len(orphan_regions) > 0:
-            for o_r in orphan_regions:
-                # Layerwise have only a single sink named 'sinks0'
-                id_sink = id(o_r.get_module_from_name('sinks0'))
-                if id_sink not in eq_layers:
-                    regions.append(o_r)
+        # We check if any of the expanded region overlap with the fused regions.
+        # If so, we need to apply expanded rotation after the fused one.
+        # Furthremore, this is not compatible with optimized rotations.
+        overlap = False
+        for e_r in expanded_regions:
+            # Layerwise have only a single sink named 'sinks0'
+            id_sink = id(e_r.get_module_from_name('sinks0'))
+            if id_sink in eq_layers:
+                overlap = True
+
+        if overlap:
+            assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
+            first_set, second_set = regions, expanded_regions
+        else:
+            first_set, second_set = expanded_regions, regions
+
+        # We update mergeable regions to include also non-mergeable ones
+        for o_r in orphan_regions:
+            # Layerwise have only a single sink named 'sinks0'
+            id_sink = id(o_r.get_module_from_name('sinks0'))
+            if id_sink not in eq_layers:
+                regions.append(o_r)
+
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
         if len(regions) > 0:
-            rewriters = _apply_rotate(
-                graph_model,
-                regions,
-                self.full_rotation_method,
-                fuse_rotations=not self.use_parametrized_rotations)
+            rewriters.extend(
+                _apply_rotate(
+                    graph_model,
+                    first_set,
+                    self.full_rotation_method,
+                    fuse_rotations=not self.use_parametrized_rotations))
+            rewriters.extend(
+                _apply_rotate(
+                    graph_model,
+                    second_set,
+                    self.full_rotation_method,
+                    fuse_rotations=not self.use_parametrized_rotations))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
