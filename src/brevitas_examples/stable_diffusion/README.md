@@ -113,6 +113,12 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--override-conv-quant-config | --no-override-conv-quant-config]
                [--vae-fp16-fix | --no-vae-fp16-fix]
                [--share-qkv-quant | --no-share-qkv-quant]
+               [--vae-quantize | --no-vae-quantize]
+               [--vae-activation-equalization | --no-vae-activation-equalization]
+               [--vae-gptq | --no-vae-gptq]
+               [--vae-bias-correction | --no-vae-bias-correction]
+               [--compile-ptq | --no-compile-ptq]
+               [--compile-eval | --no-compile-eval]
 
 Stable Diffusion quantization
 
@@ -315,5 +321,30 @@ options:
                         Default: Disabled
   --share-qkv-quant     Enable Share QKV/KV quantization. Default: Disabled
   --no-share-qkv-quant  Disable Share QKV/KV quantization. Default: Disabled
+  --vae-quantize        Enable Quantize VAE. Default: Disabled
+  --no-vae-quantize     Disable Quantize VAE. Default: Disabled
+  --vae-activation-equalization
+                        Enable Activation equalization for VAE, if quantize
+                        VAE is Enabled. Default: Disabled
+  --no-vae-activation-equalization
+                        Disable Activation equalization for VAE, if quantize
+                        VAE is Enabled. Default: Disabled
+  --vae-gptq            Enable GPTQ for VAE, if quantize VAE is Enabled.
+                        Default: Disabled
+  --no-vae-gptq         Disable GPTQ for VAE, if quantize VAE is Enabled.
+                        Default: Disabled
+  --vae-bias-correction
+                        Enable Bias Correction for VAE, if quantize VAE is
+                        Enabled. Default: Disabled
+  --no-vae-bias-correction
+                        Disable Bias Correction for VAE, if quantize VAE is
+                        Enabled. Default: Disabled
+  --compile-ptq         Enable Compile proxies for PTQ. Default: Disabled
+  --no-compile-ptq      Disable Compile proxies for PTQ. Default: Disabled
+  --compile-eval        Enable Compile proxies for evaluation. Default:
+                        Disabled
+  --no-compile-eval     Disable Compile proxies for evaluation. Default:
+                        Disabled
+
 
 ```

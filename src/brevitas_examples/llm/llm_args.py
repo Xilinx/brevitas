@@ -349,9 +349,13 @@ def create_llm_args_parser():
         help='Perform zero_shot evaluation with lm_eval or lighteval. Default %(default)s)')
     parser.add_argument('--few-shot-override-batch-size', type=int, default=None)
     parser.add_argument(
-        '--few-shot-compile',
+        '--compile-ptq',
         action="store_true",
-        help='Compile during zero_shot evaluation. Default %(default)s)')
+        help='Compile for PTQ algorithms. Default %(default)s)')
+    parser.add_argument(
+        '--compile-eval',
+        action="store_true",
+        help='Compile during evaluation. Default %(default)s)')
     parser.add_argument(
         '--few-shot-zeroshot',
         action="store_true",
