@@ -44,8 +44,6 @@ __all__ = ["auto_clip_block", "apply_clip"]
 @torch.no_grad()
 def auto_clip_layer(
         sink: nn.Module, input_feat: torch.Tensor, n_grid=20, max_shrink=0.5, n_sample_token=512):
-    # wweight     [co, ci]      -> [co, 1, n_group, group size]
-    # input_feat  [n_token, ci] -> [1, n_token, n_group, group size]
     if isinstance(sink.weight_quant, GroupwiseWeightQuantProxyFromInjector):
         num_output_channels, num_groups, group_size = sink.weight_quant.tensor_quant.int_quant.input_view_impl.expanded_groupwise_shape
         oc_batch_size = 256 if num_output_channels % 256 == 0 else 64
@@ -64,24 +62,24 @@ def auto_clip_layer(
             "scaling_per_output_channel_shape": (oc_batch_size, 1),}
     else:
         raise ValueError(f"{type(sink.weight_quant)} not supported")
-
+    w = sink.weight.data
+    assert w.dim() == 2
+    org_w_shape = w.shape
+    # w           [co, ci]      -> [co, 1, n_group, group size]
+    # input_feat  [n_token, ci] -> [1, n_token, n_group, group size]
     input_feat = input_feat.view(-1, input_feat.shape[-1])
     input_feat = input_feat.reshape(1, input_feat.shape[0], -1, group_size)
     input_feat = input_feat[:, 0::input_feat.shape[1] // n_sample_token]
-
-    sink.weight_quant.quant_injector = sink.weight_quant.quant_injector.let(
-        **batch_quant_injector_properties)
-    sink.weight_quant.init_tensor_quant(preserve_state_dict=True)
-
-    # FP weights
-    w = sink.weight
-    weight_shape = [num_output_channels, 1, -1, group_size]
-    w = w.reshape(*weight_shape)
+    w = w.reshape(w.shape[0], 1, -1, group_size)
 
     oc_batch_size = 256 if w.shape[0] % 256 == 0 else 64  # prevent OOM
     assert w.shape[0] % oc_batch_size == 0
     w_all = w
     best_max_val_all = []
+
+    sink.weight_quant.quant_injector = sink.weight_quant.quant_injector.let(
+        **batch_quant_injector_properties)
+    sink.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
     for i_b in range(w.shape[0] // oc_batch_size):
         w = w_all[i_b * oc_batch_size:(i_b + 1) * oc_batch_size]
@@ -95,9 +93,8 @@ def auto_clip_layer(
 
         for i_s in range(int(max_shrink * n_grid)):
             max_val = org_max_val * (1 - i_s / n_grid)
-            cur_w = torch.clamp(w, -max_val, max_val)
-
-            # q_w = sink.weight_quant(cur_w.repeat(w_all.shape[0] // oc_batch_size, 1, 1, 1).view(w.shape[0], -1)).value.reshape(*weight_shape)[i_b * oc_batch_size:(i_b + 1) * oc_batch_size]
+            min_val = -max_val
+            cur_w = torch.clamp(w, min_val, max_val)
             q_w = sink.weight_quant(cur_w.view(
                 oc_batch_size, -1)).value.reshape(*[oc_batch_size, 1, -1, group_size])
             cur_out = (input_feat * q_w).sum(dim=-1)
@@ -114,14 +111,13 @@ def auto_clip_layer(
     sink.weight_quant.quant_injector = sink.weight_quant.quant_injector.let(
         **quant_injector_properties)
     sink.weight_quant.init_tensor_quant(preserve_state_dict=True)
-    # Set max_val to its original value
     best_max_val = torch.cat(best_max_val_all, dim=0)
 
     del input_feat
     del org_out
     gc.collect()
     torch.cuda.empty_cache()
-    return best_max_val.detach().cpu()
+    return best_max_val.squeeze(1).detach().cpu()
 
 
 @torch.no_grad()
@@ -138,14 +134,17 @@ def auto_clip_block(block_regions: List[RegionAWQ], input_feat: Dict[int, torch.
     return clip_dict
 
 
+@torch.no_grad()
 def apply_clip(block_regions: List[RegionAWQ], clip_dict: Dict[int, torch.Tensor]) -> None:
     # Set the clipping values to the optimal values found
     for region in block_regions:
         for name in region.sinks_names:
             if name in clip_dict:
                 sink = region.name_to_module[name]
+                sink.cuda()
                 max_val = clip_dict[name].to(sink.weight.device)
-                orig_shape = sink.weight.shape
-                sink.weight.data = torch.clamp(
-                    sink.weight.data.view(*(list(max_val.shape[:-1]) + [-1])), -max_val,
-                    max_val).view(orig_shape)
+                org_shape = sink.weight.shape
+                sink.weight.data = sink.weight.data.reshape(*max_val.shape[:2], -1)
+                sink.weight.data = torch.clamp(sink.weight.data, -max_val, max_val)
+                sink.weight.data = sink.weight.data.reshape(org_shape)
+                sink.cpu()

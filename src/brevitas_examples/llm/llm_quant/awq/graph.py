@@ -127,6 +127,8 @@ class EqualizeAWQ(GraphTransform):
         # Try to identify regions if not passed directly
         if regions is None:
             regions = self._extract_awq_regions(model)
+        else:
+            regions = [region for region in regions if len(region.srcs) > 0]
         rewriters = []
         for region in regions:
             rewriters.extend(self._retrieve_scaling_rewriters(model, region))

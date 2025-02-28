@@ -40,6 +40,7 @@ from transformers.models.llama.modeling_llama import LlamaForCausalLM
 from transformers.models.opt.modeling_opt import OPTForCausalLM
 
 from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import Region
 from brevitas.utils.python_utils import recurse_getattr
@@ -94,6 +95,27 @@ def prepare_awq_regions(model: nn.Module, blocks: List[nn.Module],
     return regions_per_block
 
 
+def _retrieve_per_block_regions(blocks: List[nn.Module]) -> List[List[RegionAWQ]]:
+    regions_per_block = [retrieve_block_awq_regions(block) for block in blocks]
+    # Incorporate the orphan regions
+    _add_orphan_regions(blocks, regions_per_block)
+    return regions_per_block
+
+
+def _add_orphan_regions(blocks: List[nn.Module], regions_per_block: List[List[RegionAWQ]]) -> None:
+    # Find linears which are not registered as sinks of any region
+    for i, block in enumerate(blocks):
+        for name, module in block.named_modules():
+            if (isinstance(module, nn.Linear) and
+                    not any(any(module is region.get_module_from_name(sink_name)
+                                for sink_name in region.sinks)
+                            for region in regions_per_block[i])):
+                # Create region for an orphan sink
+                eq_indexes = EqualizationIndexes(0, module.weight.shape[0], 0)
+                regions_per_block[i].append(
+                    RegionAWQ(sinks={name: eq_indexes}, name_to_module={name: module}))
+
+
 @torch.no_grad()
 def run_awq(
     model: nn.Module,
@@ -115,7 +137,7 @@ def run_awq(
     if regions is not None:
         regions_per_block = prepare_awq_regions(model, blocks, regions)
     else:
-        regions_per_block = [retrieve_block_awq_regions(block) for block in blocks]
+        regions_per_block = _retrieve_per_block_regions(blocks)
         # Apply the regions
         eq = EqualizeAWQ(add_parametrizations_inplace=True,)
         # TODO: Consider using a more readable alternative to sum(regions_per_block, [])

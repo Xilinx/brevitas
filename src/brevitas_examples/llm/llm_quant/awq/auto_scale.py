@@ -124,12 +124,14 @@ def auto_scale_block(
 
     # Make sure region order is the same as in AWQ
     for region in block_regions:
-        scales_dict[id(region)] = _auto_get_scale(
-            sinks=[region.get_module_from_name(sink_name) for sink_name in region.sinks],
-            inp=input_feat[id(region)],
-            region_block=region.block,
-            kwargs=block_kwargs if region.use_kwargs else {},
-        )
+        # Only scale non-orphan regions
+        if len(region.srcs) > 0:
+            scales_dict[id(region)] = _auto_get_scale(
+                sinks=[region.get_module_from_name(sink_name) for sink_name in region.sinks],
+                inp=input_feat[id(region)],
+                region_block=region.block,
+                kwargs=block_kwargs if region.use_kwargs else {},
+            )
     return scales_dict
 
 
@@ -137,14 +139,14 @@ def apply_scale(
         block_regions: List[RegionAWQ],
         scales_dict: Dict[int, torch.Tensor],
         input_feat: Dict[int, torch.Tensor] = None) -> None:
-    # Set the scaling factors to the optimal values found
     for region in block_regions:
-        region_id = id(region)
-        scales = scales_dict[region_id]
-        # Modify scaling factors appropiately
-        scaling_factor = extract_sinks_scaling_factor([
-            region.name_to_module[sink_name] for sink_name in region.sinks_names])
-        scaling_factor.data = scales.to(scaling_factor.device)
-        # Apply the scaling factor to the inputs
-        if input_feat is not None:
-            input_feat[region_id].mul_(scales.view(1, -1).to(input_feat[region_id].device))
+        if len(region.srcs) > 0:
+            region_id = id(region)
+            scales = scales_dict[region_id]
+            # Modify scaling factors appropiately
+            scaling_factor = extract_sinks_scaling_factor([
+                region.name_to_module[sink_name] for sink_name in region.sinks_names])
+            scaling_factor.data = scales.to(scaling_factor.device)
+            # Apply the scaling factor to the inputs
+            if input_feat is not None:
+                input_feat[region_id].mul_(scales.view(1, -1).to(input_feat[region_id].device))

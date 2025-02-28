@@ -220,10 +220,6 @@ def quantize_llm(args, extra_args=None):
         require_fx=require_fx and args.export_target is not None,
         device=None)
 
-    if args.awq_scale or args.awq_clip:
-        awq_regions = fused_awq_scaling_no_fx(
-            model, calibration_loader) if args.custom_awq_regions else None
-
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
         rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
@@ -253,6 +249,10 @@ def quantize_llm(args, extra_args=None):
 
     if args.replace_rmsnorm:
         model = replace_rmsnorm_with_torch(model, model.config)
+
+    if args.awq_scale or args.awq_clip:
+        awq_regions = fused_awq_scaling_no_fx(
+            model, calibration_loader) if args.custom_awq_regions else None
 
     if require_fx:
         if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:

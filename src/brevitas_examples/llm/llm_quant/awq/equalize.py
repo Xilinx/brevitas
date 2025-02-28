@@ -61,6 +61,9 @@ def fix_regions(regions, old_model_ref, tensor_name):
 
 
 def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader):
+    use_cache = model.config.use_cache
+    # Export fails due to the cache
+    model.config.use_cache = False
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
@@ -83,4 +86,5 @@ def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader):
             if not isinstance(r, ModuleInstanceTransformTensor):
                 model = r.apply(model)
     remove_hooks(new_model)
+    model.config.use_cache = use_cache
     return regions
