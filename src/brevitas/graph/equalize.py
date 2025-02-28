@@ -1722,7 +1722,7 @@ class GraphRotationEqualization(RotationEqualization):
         else:
             first_set, second_set = expanded_regions, regions
 
-        # We update mergiable regions to include also non-mergiable ones
+        # We update mergeable regions to include also non-mergeable ones
         for o_r in orphan_regions:
             # Layerwise have only a single sink named 'sinks0'
             id_sink = id(o_r.get_module_from_name('sinks0'))
