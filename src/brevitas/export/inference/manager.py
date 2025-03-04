@@ -6,6 +6,7 @@ from functools import partial
 from torch.nn import Module
 import torch.nn as nn
 
+from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 from brevitas.export.inference.handler import DynamicIntInferenceHandler
 from brevitas.export.inference.handler import FloatInferencetHandler
 from brevitas.export.inference.handler import FloatWeightInferencetHandler
@@ -22,8 +23,6 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
-
-from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 
 
 def _override_caching_mode(m: nn.Module, attr: str, enabled: bool, metadata_only: bool = True):

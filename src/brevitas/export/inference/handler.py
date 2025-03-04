@@ -8,12 +8,14 @@ from typing import Tuple
 import torch
 from torch import Tensor
 import torch.nn as nn
+
 from brevitas.function.ops import max_float
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
-from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector, DynamicActFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBase
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
@@ -322,6 +324,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
                 out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
 
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+
 
 class DynamicFloatInferenceHandler(FloatInferencetHandler):
     handled_layer = DynamicActFloatQuantProxyFromInjector

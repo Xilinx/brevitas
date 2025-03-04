@@ -94,6 +94,7 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
                 self.training)
         return out
 
+
 class DynamicActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjector):
 
     def scale(self, force_eval=True):
