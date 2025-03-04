@@ -18,6 +18,9 @@ from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance
 from brevitas.graph.utils import del_module
 from brevitas.graph.utils import get_module
+from brevitas.utils.logging import setup_logger
+
+logging = setup_logger(__name__)
 
 ADD_FNS = [torch.add, operator.add, operator.iadd]
 
@@ -522,6 +525,7 @@ def find_module(
         for name, module in model.named_children():
             full_name = prefix + '.' + name if prefix != '' else name
             if name_blacklist is not None and full_name in name_blacklist:
+                logging.info(f"Skipping {name_blacklist} module from quantization")
                 continue
             find_module(module, layer_map, module_to_replace, name_blacklist, full_name)
 
