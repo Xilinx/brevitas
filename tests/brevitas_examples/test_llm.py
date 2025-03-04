@@ -443,7 +443,8 @@ def test_small_models_quant_layer(caplog, layer_args):
         "mistral-int8-quant-last-layer",
         "llama-rotation-mixed-fx",
         "llama-rotation-full-fx",
-        "llama-rotation-full-fx-sdpa"],
+        "llama-rotation-full-fx-sdpa",
+        "llama-int8-svd_quant"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -572,7 +573,14 @@ def test_small_models_quant_layer(caplog, layer_args):
                 "<class 'torch.nn.modules.linear.Linear'>":
                     15,  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
                 "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,
-                "<class 'torch.nn.modules.normalization.LayerNorm'>": 0,}},])
+                "<class 'torch.nn.modules.normalization.LayerNorm'>": 0,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "svd_quant": True,
+            "svd_quant_rank": 4,
+            "exp_layer_types_count": {
+                "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>": 15,
+                "<class 'brevitas.nn.quant_linear.QuantLinear'>": 15,}},])
 def layer_args_types_count(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
