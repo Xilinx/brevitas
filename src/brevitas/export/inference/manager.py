@@ -6,6 +6,7 @@ from functools import partial
 from torch.nn import Module
 import torch.nn as nn
 
+from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 from brevitas.export.inference.handler import DynamicIntInferenceHandler
 from brevitas.export.inference.handler import FloatInferencetHandler
 from brevitas.export.inference.handler import FloatWeightInferencetHandler
@@ -108,6 +109,7 @@ class InferenceManager(BaseManager):
     handlers = [
         IntInferencetHandler,
         DynamicIntInferenceHandler,
+        DynamicFloatInferenceHandler,
         FloatInferencetHandler,
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,

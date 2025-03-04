@@ -27,7 +27,7 @@ from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
 
-ATOL_PPL = 2e+02
+ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
 
 
@@ -217,6 +217,7 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
 @pytest_cases.fixture(
     ids=[
         "llama",
+        "llama_float_dynamic_input",
         "mistral",],
     params=[
         {
@@ -226,11 +227,22 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 33239.5,
             "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33283.75390625},
         {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_equalization": "fx",
+            "bias_corr": True,
+            "weight_quant_format": "float_ocp_e4m3",
+            "input_quant_format": "float_ocp_e4m3",
+            "input_quant_granularity": "per_row",
+            "input_scale_type": "dynamic",
+            "input_quant_type": "sym",
+            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 33239.5,
+            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33234.398},
+        {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_equalization": "layerwise",
             "gptq": True,
             "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 31274.05078125,
-            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33139.23046875},])
+            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33117.71484375},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -247,6 +259,8 @@ def acc_args_and_acc(default_run_args, request):
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
+    if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
+        pytest.skip("Dynamic activation not compatible with JIT")
     results, _ = validate_args_and_run_main(args)
     float_ppl = results["float_ppl"].detach().cpu().numpy()
     quant_ppl = results["quant_ppl"].detach().cpu().numpy()
@@ -264,15 +278,15 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
-            "float_ppl": 50016.0,
-            "quant_ppl": 50016.0},
+            "float_ppl": 49941.7734375,
+            "quant_ppl": 49941.578125},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "quant_sdpa": True,
-            "float_ppl": 50016.0,
-            "quant_ppl": 50016.0},])
+            "float_ppl": 49941.7734375,
+            "quant_ppl": 49941.578125},])
 def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
     args = default_run_args
     run_dict = request.param
