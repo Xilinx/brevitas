@@ -15,6 +15,8 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
+from diffusers import FluxPipeline
+from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
 import numpy as np
@@ -82,6 +84,15 @@ def load_calib_prompts(calib_data_path, sep="\t"):
     df = pd.read_csv(calib_data_path, sep=sep)
     lst = df["caption"].tolist()
     return lst
+
+
+def get_denoising_network(pipe):
+    if isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline)):
+        return pipe.unet
+    elif isinstance(pipe, FluxPipeline):
+        return pipe.transformerer
+    else:
+        raise ValueError
 
 
 def run_test_inference(
@@ -209,13 +220,12 @@ def main(args):
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
     variant = 'fp16' if dtype == torch.float16 else None
-    pipe = DiffusionPipeline.from_pretrained(
-        args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
+    pipe = FluxPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
     pipe.vae.config.force_upcast = True
 
     if args.share_qkv_quant:
-        pipe.fuse_qkv_projections()
+        pipe.transformer.fuse_qkv_projections()
 
     print(f"Model loaded from {args.model}.")
 
@@ -248,7 +258,8 @@ def main(args):
     # Extract list of layers to avoid
     blacklist = []
     non_blacklist = dict()
-    for name, _ in pipe.unet.named_modules():
+    denoising_network = get_denoising_network(pipe)
+    for name, _ in denoising_network.named_modules():
         if any(map(lambda x: x in name, args.quant_blacklist)):
             blacklist.append(name)
         else:
@@ -261,20 +272,20 @@ def main(args):
     print(f"Blacklisted layers: {set(blacklist)}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
-    for m in pipe.unet.modules():
+    for m in denoising_network.modules():
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
         with torch.no_grad(), activation_equalization_mode(
-                pipe.unet,
+                denoising_network,
                 alpha=args.act_eq_alpha,
                 layerwise=True,
                 blacklist_layers=blacklist if args.exclude_blacklist_act_eq else None,
                 add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
-            for m in pipe.unet.modules():
+            for m in denoising_network.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
             total_steps = args.calibration_steps
@@ -294,7 +305,7 @@ def main(args):
                 guidance_scale=args.guidance_scale)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
-        for m in pipe.unet.modules():
+        for m in denoising_network.modules():
             if isinstance(m, EqualizedModule) and hasattr(m.layer, 'in_features'):
                 m.in_features = m.layer.in_features
 
@@ -461,10 +472,10 @@ def main(args):
                 **extra_kwargs)
             import brevitas.config as config
             config.IGNORE_MISSING_KEYS = True
-            pipe.unet = rewriter.apply(pipe.unet)
+            denoising_network = rewriter.apply(denoising_network)
             config.IGNORE_MISSING_KEYS = False
-            pipe.unet = pipe.unet.to(args.device)
-            pipe.unet = pipe.unet.to(dtype)
+            denoising_network = denoising_network.to(args.device)
+            denoising_network = denoising_network.to(dtype)
 
             if args.override_conv_quant_config:
                 print(
@@ -475,8 +486,8 @@ def main(args):
                 conv_qkwargs['weight_quant'] = sdpa_quantizers[1]
                 layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
-        pipe.unet = layerwise_quantize(
-            model=pipe.unet, compute_layer_map=layer_map, name_blacklist=blacklist)
+        denoising_network = layerwise_quantize(
+            model=denoising_network, compute_layer_map=layer_map, name_blacklist=blacklist)
         print("Model quantization applied.")
 
         pipe.set_progress_bar_config(disable=True)
@@ -499,17 +510,18 @@ def main(args):
                     m.compile_quant()
 
         if args.load_checkpoint is not None:
-            with load_quant_model_mode(pipe.unet):
+            with load_quant_model_mode(denoising_network):
                 pipe = pipe.to('cpu')
                 print(f"Loading checkpoint: {args.load_checkpoint}... ", end="")
-                pipe.unet.load_state_dict(torch.load(args.load_checkpoint, map_location='cpu'))
+                denoising_network.load_state_dict(
+                    torch.load(args.load_checkpoint, map_location='cpu'))
                 print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
         elif not args.dry_run:
 
             if needs_calibration:
                 print("Applying activation calibration")
-                with torch.no_grad(), calibration_mode(pipe.unet):
+                with torch.no_grad(), calibration_mode(denoising_network):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -524,7 +536,7 @@ def main(args):
 
             if args.gptq:
                 print("Applying GPTQ. It can take several hours")
-                with torch.no_grad(), gptq_mode(pipe.unet,
+                with torch.no_grad(), gptq_mode(denoising_network,
                             create_weight_orig=False,
                             use_quant_activations=False,
                             return_forward_output=True,
@@ -545,7 +557,7 @@ def main(args):
                         torch.cuda.empty_cache()
             if args.bias_correction:
                 print("Applying bias correction")
-                with torch.no_grad(), bias_correction_mode(pipe.unet):
+                with torch.no_grad(), bias_correction_mode(denoising_network):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -692,7 +704,7 @@ def main(args):
         print("VAE quantized")
 
     if args.checkpoint_name is not None and args.load_checkpoint is None:
-        torch.save(pipe.unet.state_dict(), os.path.join(output_dir, args.checkpoint_name))
+        torch.save(denoising_network.state_dict(), os.path.join(output_dir, args.checkpoint_name))
         if args.vae_fp16_fix:
             torch.save(
                 pipe.vae.state_dict(), os.path.join(output_dir, f"vae_{args.checkpoint_name}"))
@@ -700,10 +712,10 @@ def main(args):
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
         if args.export_cpu_float32:
-            pipe.unet.to('cpu').to(torch.float32)
-        pipe.unet.eval()
-        device = next(iter(pipe.unet.parameters())).device
-        dtype = next(iter(pipe.unet.parameters())).dtype
+            denoising_network.to('cpu').to(torch.float32)
+        denoising_network.eval()
+        device = next(iter(denoising_network.parameters())).device
+        dtype = next(iter(denoising_network.parameters())).dtype
 
         # Define tracing input
         if is_sd_xl:
@@ -726,9 +738,9 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
-            device = next(iter(pipe.unet.parameters())).device
+            device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')
-            export_quant_params(pipe.unet, output_dir, 'unet_')
+            export_quant_params(denoising_network, output_dir, 'unet_')
             if args.vae_quantize or args.vae_fp16_fix:
                 export_quant_params(pipe.vae, output_dir, 'vae_')
             else:
@@ -739,10 +751,9 @@ def main(args):
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
-        # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
-            with torch.no_grad(), quant_inference_mode(pipe.unet, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 # Perform a single forward pass before evenutally compiling
                 run_val_inference(
                     pipe,
@@ -756,7 +767,7 @@ def main(args):
                     test_latents=latents,
                     guidance_scale=args.guidance_scale)
                 if args.compile:
-                    pipe.unet = torch.compile(pipe.unet)
+                    denoising_network = torch.compile(denoising_network)
                 compute_mlperf_fid(
                     args.model,
                     args.path_to_coco,
