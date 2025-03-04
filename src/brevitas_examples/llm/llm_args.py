@@ -278,6 +278,8 @@ def create_llm_args_parser():
         '--rotation-sdpa-regions',
         action="store_true",
         help='If GraphRotation is enabled, decide wheter to equalize across SDPA')
+    parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
+    parser.add_argument('--svd-quant-rank', type=int, default=32, help='Rank to use for SVDQuant (default: %(default)s).')
     parser.add_argument(
         '--act-equalization',
         default=None,
