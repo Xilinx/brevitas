@@ -419,6 +419,9 @@ def quantize_llm(args, extra_args=None):
         quantization_cm = nullcontext()
 
     with quantization_cm:
+        # We initialize weights scale factor pre-GPTQ
+        with torch.no_grad():
+            model(**calibration_loader[0])
 
         if args.optimize_rotations:
             apply_rotation_optimization(
