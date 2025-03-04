@@ -80,10 +80,11 @@ class LayerwiseLowRankCorrection(GraphTransform):
                 self.find_module(module, layers, full_name)
 
     def apply(self, rank):
+        model = self.model
         variances = torch.zeros((len(self.layers),))
         for i, layer in enumerate(self.layers):
             ecm, var = _create_correction_module(layer, rank)
             variances[i] = var.to(dtype=variances.dtype)
             rewriter = ModuleInstanceToModuleInstance(layer, ecm)
-            rewriter.apply(self.model)
-        return variances
+            model = rewriter.apply(model)
+        return model, variances
