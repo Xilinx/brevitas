@@ -1,4 +1,5 @@
 
+from typing import List, Optional
 import torch
 import torch.nn as nn
 
@@ -49,7 +50,7 @@ def _create_correction_module(layer, rank):
     cm = LowRankCorrectionModule(in_features, out_features, rank)
     cm.l1.weight.data = L1
     cm.l2.weight.data = L2
-    ql.weight.data = R
+    layer.weight.data = R
     ecm = ErrorCorrectedModule(cm, layer)
     ecm.train = layer.train
     ecm.to(dtype=source_dtype)
@@ -61,8 +62,10 @@ class LayerwiseLowRankCorrection(GraphTransform):
             self,
             model,
             blacklist_layers: Optional[List[str]] = None):
+        self.model = model
+        self.blacklist_layers = blacklist_layers
         self.layers = []
-        self.find_module(model, layers)
+        self.find_module(model, self.layers)
 
     def find_module(self, model, layers: List, prefix=''):
         """
@@ -72,11 +75,11 @@ class LayerwiseLowRankCorrection(GraphTransform):
         if isinstance(model, _supported_layers):
             if self.blacklist_layers is not None and prefix in self.blacklist_layers:
                 return
-            layers += model
+            layers += [model]
         else:
             for name, module in model.named_children():
                 full_name = prefix + '.' + name if prefix != '' else name
-                self.find_module(module, regions, full_name)
+                self.find_module(module, layers, full_name)
 
     def setup(self):
         pass
