@@ -20,7 +20,7 @@ from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
@@ -156,11 +156,12 @@ class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3ActPerTensorFloat):
     scaling_per_output_channel = True
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = FloorSte
-    proxy_class = ActFloatQuantProxyFromInjector
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class FP8e4m3OCPDynamicActPerRowFloat(FP8e4m3OCPDynamicActPerRowFixedPoint):
     restrict_scaling_type = RestrictValueType.FP
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class Fp8e4m3OCPDynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3OCPActPerTensorFloat):

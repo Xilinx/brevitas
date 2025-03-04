@@ -23,6 +23,8 @@ from brevitas.export.manager import BaseManager
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
 
+from brevitas.export.inference.handler import DynamicFloatInferenceHandler
+
 
 def _override_caching_mode(m: nn.Module, attr: str, enabled: bool, metadata_only: bool = True):
     cache_var = 'cache_inference_quant_' + attr
@@ -108,6 +110,7 @@ class InferenceManager(BaseManager):
     handlers = [
         IntInferencetHandler,
         DynamicIntInferenceHandler,
+        DynamicFloatInferenceHandler,
         FloatInferencetHandler,
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,
