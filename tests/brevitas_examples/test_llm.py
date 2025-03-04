@@ -304,7 +304,8 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         "mistral-fp8_fnuz",
         "llama-mxfp8",
         "llama-int8-act_equalization=layerwise",
-        "mistral-int8-quant-last-layer",],
+        "mistral-int8-quant-last-layer",
+        "llama-int8-svd_quant",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -398,6 +399,15 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
             "quantize_last_layer": True,
             "exp_layer_types": {
                 "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "svd_quant": True,
+            "svd_quant_rank": 4,
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>",
+                "model.layers.0.self_attn.q_proj.layer":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
     ])  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
 def layer_args(default_run_args, request):
     args = default_run_args
