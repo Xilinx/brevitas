@@ -1,3 +1,6 @@
+# Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from dataclasses import dataclass
 from dataclasses import field
 import os
@@ -14,6 +17,7 @@ from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.rotation_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
+from brevitas_examples.llm.llm_quant.fsdp_trainer import FSDPTrainer
 
 
 @dataclass

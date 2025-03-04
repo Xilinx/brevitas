@@ -1585,6 +1585,7 @@ class GraphRotationEqualization(RotationEqualization):
             sdpa_regions: bool = False,
             rotate_matmul: bool = False,
             use_parametrized_rotations: bool = False,
+            apply_inplace_rotations: bool = True,
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
             return_rewriters: bool = False) -> None:
@@ -1613,6 +1614,7 @@ class GraphRotationEqualization(RotationEqualization):
                 "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
             )
         self.use_parametrized_rotations = use_parametrized_rotations
+        self.apply_inplace_rotations = apply_inplace_rotations
 
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
@@ -1737,13 +1739,15 @@ class GraphRotationEqualization(RotationEqualization):
                     graph_model,
                     first_set,
                     self.full_rotation_method,
-                    fuse_rotations=not self.use_parametrized_rotations))
+                    fuse_rotations=not self.use_parametrized_rotations,
+                    apply_inplace_rotations=self.apply_inplace_rotations))
             rewriters.extend(
                 _apply_rotate(
                     graph_model,
                     second_set,
                     self.full_rotation_method,
-                    fuse_rotations=not self.use_parametrized_rotations))
+                    fuse_rotations=not self.use_parametrized_rotations,
+                    apply_inplace_rotations=self.apply_inplace_rotations))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
