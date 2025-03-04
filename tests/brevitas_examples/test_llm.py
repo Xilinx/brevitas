@@ -245,6 +245,8 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33117.71484375},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
+    if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
+        pytest.skip("Dynamic activation not compatible with JIT")
     run_dict = request.param
     float_ppl = run_dict["float_ppl"]
     quant_ppl = run_dict["quant_ppl"]
