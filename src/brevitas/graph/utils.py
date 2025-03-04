@@ -121,6 +121,9 @@ def name_from_module(model, module):
 
 
 def replace_module(model, old_module, new_module):
+    old_module_is_training = old_module.is_training()
+    if isinstance(new_module, nn.Module):
+        new_module = new_module.train() if old_module_is_training else new_module.eval()
     name = name_from_module(model, old_module)
     set_module(model, new_module, name)
 

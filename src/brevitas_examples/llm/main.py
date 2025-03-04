@@ -419,12 +419,6 @@ def quantize_llm(args, extra_args=None):
         quantization_cm = nullcontext()
 
     with quantization_cm:
-        with torch.no_grad():
-            model(**calibration_loader[0])
-
-        # We restore the original behaviour of the post-forward.
-        for k, v in dict_hooks.items():
-            k._hf_hook.post_forward = v
 
         if args.optimize_rotations:
             apply_rotation_optimization(
@@ -503,6 +497,10 @@ def quantize_llm(args, extra_args=None):
             print("Applying bias correction...")
             apply_bias_correction(model, calibration_loader)
             print("Bias correction applied.")
+
+        # We restore the original behaviour of the post-forward.
+        for k, v in dict_hooks.items():
+            k._hf_hook.post_forward = v
 
         if args.eval and not args.no_quantize:
             print("Model eval...")
