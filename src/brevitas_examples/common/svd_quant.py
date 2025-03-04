@@ -1,13 +1,14 @@
-
 from typing import List, Optional
+
 import torch
 import torch.nn as nn
 
-import brevitas.nn as qnn
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import ModuleInstanceToModuleInstance
+import brevitas.nn as qnn
 
 _supported_layers = (qnn.QuantLinear,)
+
 
 class ErrorCorrectedModule(torch.nn.Module):
 
@@ -33,7 +34,6 @@ class LowRankCorrectionModule(torch.nn.Module):
         return self.l2(self.l1(x))
 
 
-            
 def _create_correction_module(layer, rank):
     train = layer.train
     in_features = layer.weight.shape[1]
@@ -41,9 +41,9 @@ def _create_correction_module(layer, rank):
     source_dtype = layer.weight.dtype
 
     # Convert to FP32 for SVD
-    U,S,V = torch.linalg.svd(layer.weight.to(dtype=torch.float32))
-    L1 = torch.diag(S[:rank]) @  V[:rank,:]
-    L2 = U[:,:rank]
+    U, S, V = torch.linalg.svd(layer.weight.to(dtype=torch.float32))
+    L1 = torch.diag(S[:rank]) @ V[:rank, :]
+    L2 = U[:, :rank]
     R = layer.weight - L2 @ L1
     print(f"Est. Variance Retained: {S[:rank].sum() / S.sum()}")
     print(f"Residual: {torch.norm(R) / torch.norm(layer.weight)}")
@@ -58,10 +58,8 @@ def _create_correction_module(layer, rank):
 
 
 class LayerwiseLowRankCorrection(GraphTransform):
-    def __init__(
-            self,
-            model,
-            blacklist_layers: Optional[List[str]] = None):
+
+    def __init__(self, model, blacklist_layers: Optional[List[str]] = None):
         self.model = model
         self.blacklist_layers = blacklist_layers
         self.layers = []
