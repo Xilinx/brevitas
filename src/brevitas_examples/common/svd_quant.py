@@ -79,9 +79,6 @@ class LayerwiseLowRankCorrection(GraphTransform):
                 full_name = prefix + '.' + name if prefix != '' else name
                 self.find_module(module, layers, full_name)
 
-    def setup(self):
-        pass
-
     def apply(self, rank):
         variances = torch.zeros((len(self.layers),))
         for i, layer in enumerate(self.layers):

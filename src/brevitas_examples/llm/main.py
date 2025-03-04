@@ -447,6 +447,8 @@ def quantize_llm(args, extra_args=None):
             print("Apply SVDQuant...")
             remove_hooks(model)
             apply_svd_quant(model, blacklist=None, rank=args.svd_quant_rank)
+            with torch.no_grad():
+                model(**calibration_loader[0])
             model = offload_model(model)
             print("SVDQuant applied.")
 
