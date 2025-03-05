@@ -579,8 +579,8 @@ def test_small_models_quant_layer(caplog, layer_args):
             "svd_quant": True,
             "svd_quant_rank": 4,
             "exp_layer_types_count": {
-                "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>": 15,
-                "<class 'brevitas.nn.quant_linear.QuantLinear'>": 15,}},])
+                "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>": 14,
+                "<class 'brevitas.nn.quant_linear.QuantLinear'>": 14,}},])
 def layer_args_types_count(default_run_args, request):
     args = default_run_args
     layer_dict = request.param

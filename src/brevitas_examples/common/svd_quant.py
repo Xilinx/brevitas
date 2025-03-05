@@ -35,7 +35,6 @@ class LowRankCorrectionModule(torch.nn.Module):
 
 
 def _create_correction_module(layer, rank):
-    train = layer.train
     in_features = layer.weight.shape[1]
     out_features = layer.weight.shape[0]
     source_dtype = layer.weight.dtype
@@ -52,7 +51,6 @@ def _create_correction_module(layer, rank):
     cm.l2.weight.data = L2
     layer.weight.data = R
     ecm = ErrorCorrectedModule(cm, layer)
-    ecm.train = train
     ecm.to(dtype=source_dtype)
     return ecm, S[:rank].sum() / S.sum()
 
