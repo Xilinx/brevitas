@@ -60,6 +60,7 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
+from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
 
 def filter_results(results, tasks):
@@ -441,6 +442,15 @@ def quantize_llm(args, extra_args=None):
             print("Apply act calibration...")
             apply_calibration(model, calibration_loader)
             print("Act calibration applied.")
+
+        if args.svd_quant:
+            print("Apply SVDQuant...")
+            remove_hooks(model)
+            model = apply_svd_quant(model, blacklist=None, rank=args.svd_quant_rank)
+            with torch.no_grad():
+                model(**calibration_loader[0])
+            model = offload_model(model)
+            print("SVDQuant applied.")
 
         if args.learned_round:
             print("Applying learned round...")
