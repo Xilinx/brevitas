@@ -90,7 +90,7 @@ def get_denoising_network(pipe):
     if isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline)):
         return pipe.unet
     elif isinstance(pipe, FluxPipeline):
-        return pipe.transformerer
+        return pipe.transformer
     else:
         raise ValueError
 
@@ -105,18 +105,23 @@ def run_test_inference(
         dtype,
         use_negative_prompts,
         guidance_scale,
-        name_prefix=''):
+        name_prefix='',
+        use_latents=True):
     images = dict()
     with torch.no_grad():
         if not os.path.exists(output_path):
             os.mkdir(output_path)
-        test_latents = generate_latents(seeds, device, dtype, unet_input_shape(resolution))
+        extra_kwargs = {}
+        if use_latents:
+            extra_kwargs['latents'] = generate_latents(
+                seeds, device, dtype, unet_input_shape(resolution))
+
         neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
         for prompt in prompts:
             prompt_images = pipe([prompt] * len(seeds),
-                                 latents=test_latents,
                                  negative_prompt=neg_prompts,
-                                 guidance_scale=guidance_scale).images
+                                 guidance_scale=guidance_scale,
+                                 **extra_kwargs).images
             images[prompt] = prompt_images
 
         i = 0
@@ -140,11 +145,15 @@ def run_val_inference(
         guidance_scale,
         total_steps,
         test_latents=None,
-        output_type='latent'):
+        output_type='latent',
+        use_latents=True):
     with torch.no_grad():
 
         if test_latents is None:
             test_latents = generate_latents(seeds[0], device, dtype, unet_input_shape(resolution))
+        extra_kwargs = {}
+        if use_latents:
+            extra_kwargs['latents'] = test_latents
 
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
         for prompt in tqdm(prompts):
@@ -152,10 +161,10 @@ def run_val_inference(
             pipe(
                 prompt,
                 negative_prompt=neg_prompts[0],
-                latents=test_latents,
                 output_type=output_type,
                 guidance_scale=guidance_scale,
-                num_inference_steps=total_steps)
+                num_inference_steps=total_steps,
+                **extra_kwargs)
 
 
 def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args):
@@ -217,12 +226,18 @@ def main(args):
     # Extend seeds based on batch_size
     test_seeds = [TEST_SEED] + [TEST_SEED + i for i in range(1, args.batch_size)]
 
+    is_flux_model = 'flux' in args.model.lower()
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
-    variant = 'fp16' if dtype == torch.float16 else None
-    pipe = FluxPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
-    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-    pipe.vae.config.force_upcast = True
+    if is_flux_model:
+        extra_kwargs = {}
+    else:
+        extra_kwargs = {'variant': 'fp16' if dtype == torch.float16 else None}
+
+    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
+    if not is_flux_model:
+        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+        pipe.vae.config.force_upcast = True
 
     if args.share_qkv_quant:
         pipe.transformer.fuse_qkv_projections()
@@ -246,7 +261,8 @@ def main(args):
             dtype,
             guidance_scale=args.guidance_scale,
             use_negative_prompts=args.use_negative_prompts,
-            name_prefix='float_')
+            name_prefix='float_',
+            use_latents=not is_flux_model)
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -260,7 +276,7 @@ def main(args):
     non_blacklist = dict()
     denoising_network = get_denoising_network(pipe)
     for name, _ in denoising_network.named_modules():
-        if any(map(lambda x: x in name, args.quant_blacklist)):
+        if any(map(lambda x: x in name, args.quant_recursive_blacklist)):
             blacklist.append(name)
         else:
             if isinstance(_, (torch.nn.Linear, torch.nn.Conv2d)):
@@ -302,7 +318,8 @@ def main(args):
                 total_steps=total_steps,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
-                guidance_scale=args.guidance_scale)
+                guidance_scale=args.guidance_scale,
+                use_latents=not is_flux_model)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in denoising_network.modules():
@@ -487,7 +504,9 @@ def main(args):
                 layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
         denoising_network = layerwise_quantize(
-            model=denoising_network, compute_layer_map=layer_map, name_blacklist=blacklist)
+            model=denoising_network,
+            compute_layer_map=layer_map,
+            name_blacklist=blacklist + args.quant_standalone_blacklist)
         print("Model quantization applied.")
 
         pipe.set_progress_bar_config(disable=True)
@@ -502,7 +521,8 @@ def main(args):
                 total_steps=1,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
-                guidance_scale=args.guidance_scale)
+                guidance_scale=args.guidance_scale,
+                use_latents=not is_flux_model)
 
         if args.compile_ptq:
             for m in pipe.modules():
@@ -532,7 +552,8 @@ def main(args):
                         total_steps=args.calibration_steps,
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
-                        guidance_scale=args.guidance_scale)
+                        guidance_scale=args.guidance_scale,
+                        use_latents=not is_flux_model)
 
             if args.gptq:
                 print("Applying GPTQ. It can take several hours")
@@ -552,7 +573,8 @@ def main(args):
                             total_steps=args.calibration_steps,
                             use_negative_prompts=args.use_negative_prompts,
                             test_latents=latents,
-                            guidance_scale=args.guidance_scale)
+                            guidance_scale=args.guidance_scale,
+                            use_latents=not is_flux_model)
                         gptq.update()
                         torch.cuda.empty_cache()
             if args.bias_correction:
@@ -568,7 +590,8 @@ def main(args):
                         total_steps=args.calibration_steps,
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
-                        guidance_scale=args.guidance_scale)
+                        guidance_scale=args.guidance_scale,
+                        use_latents=not is_flux_model)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -593,6 +616,7 @@ def main(args):
         print(f"Corrected layers in VAE: {corrected_layers}")
 
     if args.vae_quantize:
+        assert not is_flux_model, "Not supported yet"
         print("Quantizing VAE")
         vae_calibration = collect_vae_calibration(
             pipe, calibration_prompts, test_seeds, dtype, latents, args)
@@ -765,7 +789,8 @@ def main(args):
                     total_steps=1,
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
-                    guidance_scale=args.guidance_scale)
+                    guidance_scale=args.guidance_scale,
+                    use_latent=not is_flux_model)
                 if args.compile:
                     denoising_network = torch.compile(denoising_network)
                 compute_mlperf_fid(
@@ -791,7 +816,8 @@ def main(args):
                     dtype,
                     use_negative_prompts=args.use_negative_prompts,
                     guidance_scale=args.guidance_scale,
-                    name_prefix='quant_')
+                    name_prefix='quant_',
+                    use_latents=not is_flux_model)
 
             float_images_values = float_images.values()
             float_images_values = [x for x_nested in float_images_values for x in x_nested]
@@ -1077,13 +1103,21 @@ if __name__ == "__main__":
         'Whether to do static or dynamic scaled dot product attention quantization. Default: %(default)s.'
     )
     parser.add_argument(
-        '--quant-blacklist',
+        '--quant-recursive-blacklist',
         type=str,
         default=['time_emb'],
         nargs='*',
         metavar='NAME',
+        help=
+        'A list of module names to exclude from quantization. They are recursively searched in the  Default: %(default)s'
+    )
+    parser.add_argument(
+        '--quant-standalone-blacklist',
+        type=str,
+        default=[],
+        nargs='*',
+        metavar='NAME',
         help='A list of module names to exclude from quantization. Default: %(default)s')
-
     add_bool_arg(
         parser,
         'quantize-weight-zero-point',
