@@ -5,18 +5,18 @@ Rotations in Brevitas
 Why are rotations important?
 ----------------------------------------------------------
 
-Large Language Models exhibit *computational invariance* [1]_, i.e. regions in which, if an invertible linear operation is applied to the output of a set of source modules and, conversely, its inverse is applied on the input of a set of sink modules, the output of the model remains unchanged (assuming sufficient precision). This invariance has been leveraged by applying random orthogonal transformations (whose inverse is its transpose) on the weights of the modules in these regions [2]_, which effectively removes weight and activation outliers, thus improving their amenability to quantization. Moreover, some of these rotations can be fused into the weights of the region's modules, so FP inference performance is not affected.
+Large Language Models exhibit *computational invariance* [1]_ meaning that applying an invertible linear operation to the output of certain modules (sources), and its inverse to the input of others (sinks), leaves the model's output unchanged (assuming sufficient precision).  This property allows for the selective application of random orthogonal transformations, which effectively mitigate weight and activation outliers, enhancing their quantization amenability [2]_.  Moreover, some rotations can be fused into the module weights, thus preserving floating-point inference performance.
 
-However, random orthogonal rotations generally improve quantization amenability in low-bit regimes. However, performance exhibits a large variance under different random rotations, as observed in [4]_. Consequently, these authors propose to further optimize the rotations, to improve quantized performance. In order to do so, they leverage the Cailey-SGD optimizer to ensure that the optimized rotations stay within the Stiefel manifold during optimization [5]_.
+Although random orthogonal rotations generally improve quantization amenability in low-bit regimes, the quantized network performance  exhibits a large variance under different random rotations, as observed in [4]_. Consequently, these authors propose to further optimize the rotations to improve quantized performance. In order to do so, they leverage the Cailey-SGD optimizer to ensure that the optimized rotations stay within the Stiefel manifold during optimization [5]_.
 
 
 Rotations in Brevitas
 ----------------------------------------------------------
 
-Brevitas enables to add rotations to an arbitrary model in a fined-grained manner through a number of options, specified in the LLM entrypoint (`brevitas_examples/llm/llm_args.py`):
+Brevitas enables to add rotations to an arbitrary model in a fined-grained manner through a number of options, specified in the LLM entrypoint (``brevitas_examples/llm/llm_args.py``):
 
-- ``--rotation`` (*'fx', 'layerwise', 'fused_no_fx'*). If *'layerwise'*, each linear layer is wrapped in a ``RotatedModule``, which rotates the input to the module by an orthogonal (Hadamard) matrix, while its inverse is fused into the weights of the linear layer. On the other hand, for 'fx' or 'fused_no_fx', Brevitas automatically detects the regions exhibiting rotation invariance, fusing the rotations into the weights of sources/sinks.
-- ``--rotation-mode`` (*'had', 'ort'*). If *'had'*, random Hadamard matrices are used for rotations, which provide tighter bounds and are more efficient to apply [3]_. Therefore, this option is generally preferable to *'ort'*, which uses arbitrary random orthogonal matrices.
+- ``--rotation`` [``'fx'``, ``'layerwise'``, ``'fused_no_fx'``]. If ``'layerwise'``, each linear layer is wrapped in a ``RotatedModule``, which rotates the input to the module by an orthogonal (Hadamard) matrix, while its inverse is fused into the weights of the linear layer. On the other hand, for ``'fx'`` or ``'fused_no_fx'``, Brevitas automatically detects the regions exhibiting rotation invariance, fusing the rotations into the weights of sources/sinks.
+- ``--rotation-mode`` [``'had'``, ``'ort'``]. If ``'had'``, random Hadamard matrices are used for rotations, which provide tighter bounds and are more efficient to apply [3]_. Therefore, this option is generally preferable to ``'ort'``, which uses arbitrary random orthogonal matrices.
 - ``--rotation-orphan-sink``. If enabled, linear layers that are not sinks in any other rotation-invariant region are wrapped in a ``RotatedModule``, as described for ``--rotation layerwise``.
 - ``--rotation-sdpa-regions``. If enabled, the value/output region (R₂ in [4]_) is rotated.
 
