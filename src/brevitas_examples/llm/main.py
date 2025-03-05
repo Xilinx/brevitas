@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+from argparse import Namespace
 from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
@@ -14,6 +15,7 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
+from transformers import PreTrainedTokenizerBase
 from transformers.utils.fx import _SUPPORTED_MODELS
 import yaml
 
@@ -39,7 +41,9 @@ from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
+from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+import brevitas_examples.llm.llm_quant.distributed_utils as dist_utils
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
@@ -81,7 +85,10 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def fused_rotation_no_fx(model, calibration_loader, args):
+def fused_rotation_no_fx(
+        model: torch.nn.Module, calibration_loader: DatasetToDevice, args: Namespace):
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
@@ -101,22 +108,55 @@ def fused_rotation_no_fx(model, calibration_loader, args):
 
     for r in rewriters:
         r.apply(model)
-    new_model = offload_model(new_model)
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
         sdpa_regions=args.rotation_sdpa_regions,
         use_parametrized_rotations=args.optimize_rotations,
+        apply_inplace_rotations=False,
         layers_to_expand=layers_to_expand)
     new_model, rewriters = eq.apply(new_model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
-    for r in rewriters:
-        # The weights between model and new_model are tied, so this check prevents
-        # rotating the weights twice
-        if not isinstance(r, ModuleInstanceTransformTensor):
-            model = r.apply(model)
-    remove_hooks(new_model)
+    with dist_utils.dist_offload_model(model):
+        for r in rewriters:
+            # The weights between model and model are tied, so this check prevents
+            # rotating the weights twice
+            if dist_utils.is_main_process() or not isinstance(r, ModuleInstanceTransformTensor):
+                model = r.apply(model)
+    # Restore previous cache setting
+    model.config.use_cache = use_cache
+
+
+@dist_utils.on_main_process
+def apply_validate_fp_model(
+        model: torch.nn.Module,
+        tokenizer: PreTrainedTokenizerBase,
+        validation_loader: DatasetToDevice,
+        args: Namespace) -> float:
+    assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
+    print("Float model eval...")
+    model = offload_model(model)
+    float_ppl = compute_perplexity(
+        model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+    remove_hooks(model)
+    print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
+    return float_ppl
+
+
+@dist_utils.on_main_process
+def apply_validate_quant_model(
+        model: torch.nn.Module,
+        tokenizer: PreTrainedTokenizerBase,
+        validation_loader: DatasetToDevice,
+        calibration_loader: DatasetToDevice,
+        args: Namespace) -> float:
+    print("Model eval...")
+    with torch.no_grad(), quant_inference_mode(model):
+        model(**calibration_loader[0])
+        quant_ppl = compute_perplexity(
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+    print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
 
 
 def set_seed(seed):
@@ -153,6 +193,9 @@ def model_export(model, ref_input, args):
 
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
+    # Validate arguments when running in a distributed environmnet
+    if dist_utils.is_multi_process():
+        dist_utils.validate_distributed_args(args)
     set_seed(args.seed)
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
@@ -230,13 +273,8 @@ def quantize_llm(args, extra_args=None):
     print("Data loaded.")
 
     if args.eval:
-        assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
-        print("Float model eval...")
-        model = offload_model(model)
-        float_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-        remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
+        float_ppl = apply_validate_fp_model(
+            model=model, tokenizer=tokenizer, validation_loader=validation_loader, args=args)
 
     if args.replace_rmsnorm:
         model = replace_rmsnorm_with_torch(model, model.config)
@@ -394,22 +432,22 @@ def quantize_llm(args, extra_args=None):
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
 
-    model = offload_model(model)
-
-    dict_hooks = dict()
-
-    # When offloading to CPU + GPU, the CPU scale factors must be updated
-    # before we move them back to the meta device.
-    # If we don't, we lose the new value but the internal flag "init_done" is True, thus we will use the wrong scale.
-    # To do this, we attach a "hook" to the post_forward function, called before the post_forward
-    # The function will update the dict with the initialized scales
-    for m in model.modules():
-        if hasattr(m, '_hf_hook'):
-            if m._hf_hook.weights_map is not None:
-                # We store the original function to be restored later
-                dict_hooks[m] = m._hf_hook.post_forward
-                new_funct = functools.partial(update_internal_dict, m)
-                m._hf_hook.post_forward = hooked_on_a_function(m._hf_hook.post_forward, new_funct)
+    if dist_utils.is_main_process():
+        model = offload_model(model)
+        dict_hooks = dict()
+        # When offloading to CPU + GPU, the CPU scale factors must be updated
+        # before we move them back to the meta device.
+        # If we don't, we lose the new value but the internal flag "init_done" is True, thus we will use the wrong scale.
+        # To do this, we attach a "hook" to the post_forward function, called before the post_forward
+        # The function will update the dict with the initialized scales
+        for m in model.modules():
+            if hasattr(m, '_hf_hook'):
+                if m._hf_hook.weights_map is not None:
+                    # We store the original function to be restored later
+                    dict_hooks[m] = m._hf_hook.post_forward
+                    new_funct = functools.partial(update_internal_dict, m)
+                    m._hf_hook.post_forward = hooked_on_a_function(
+                        m._hf_hook.post_forward, new_funct)
 
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
@@ -420,17 +458,32 @@ def quantize_llm(args, extra_args=None):
         quantization_cm = nullcontext()
 
     with quantization_cm:
-        # We initialize weights scale factor pre-GPTQ
-        with torch.no_grad():
-            model(**calibration_loader[0])
+        # In non-main processes, the init_flags need to be set to True, as the main process
+        # has taken care of the initialization and the appropiate values will be set in the
+        # synchronization step before the optimization starts
+        if dist_utils.is_main_process():
+            with torch.no_grad():
+                # We initialize weights scale factor pre-GPTQ
+                model(**calibration_loader[0])
+        else:
+            # TODO: Generalize this logic. Currently, only ParameterFromStatsFromParameterZeroPoint
+            # and ParameterFromStatsFromParameterScaling have the attribute init_done
+            for module in model.modules():
+                if hasattr(module, "init_done"):
+                    module.init_done = True
 
         if args.optimize_rotations:
+            remove_hooks(model)
             apply_rotation_optimization(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=rot_calibration_loader,
                 training_args=rot_optimization_args,
             )
+            # At this point, optimization has finished, so non-main process
+            # can be stopped
+            if not dist_utils.is_main_process():
+                return {}
             # Remove hooks from optimization
             remove_hooks(model)
             # Offload model before fusing the rotations
@@ -516,12 +569,12 @@ def quantize_llm(args, extra_args=None):
             k._hf_hook.post_forward = v
 
         if args.eval and not args.no_quantize:
-            print("Model eval...")
-            with torch.no_grad(), quant_inference_mode(model):
-                model(**calibration_loader[0])
-                quant_ppl = compute_perplexity(
-                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-            print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
+            quant_ppl = apply_validate_quant_model(
+                model=model,
+                tokenizer=tokenizer,
+                validation_loader=validation_loader,
+                calibration_loader=calibration_loader,
+                args=args)
 
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
