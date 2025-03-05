@@ -106,15 +106,17 @@ def run_test_inference(
         use_negative_prompts,
         guidance_scale,
         name_prefix='',
-        use_latents=True):
+        is_unet=True):
     images = dict()
     with torch.no_grad():
         if not os.path.exists(output_path):
             os.mkdir(output_path)
         extra_kwargs = {}
-        if use_latents:
+        if is_unet:
             extra_kwargs['latents'] = generate_latents(
                 seeds, device, dtype, unet_input_shape(resolution))
+        else:
+            extra_kwargs['max_sequence_length'] = 512
 
         neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
         for prompt in prompts:
@@ -146,14 +148,17 @@ def run_val_inference(
         total_steps,
         test_latents=None,
         output_type='latent',
-        use_latents=True):
+        is_unet=True):
     with torch.no_grad():
 
         if test_latents is None:
             test_latents = generate_latents(seeds[0], device, dtype, unet_input_shape(resolution))
         extra_kwargs = {}
-        if use_latents:
+
+        if is_unet:
             extra_kwargs['latents'] = test_latents
+        else:
+            extra_kwargs['max_sequence_length'] = 512
 
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
         for prompt in tqdm(prompts):
