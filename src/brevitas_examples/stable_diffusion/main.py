@@ -48,6 +48,7 @@ from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
@@ -267,7 +268,7 @@ def main(args):
             guidance_scale=args.guidance_scale,
             use_negative_prompts=args.use_negative_prompts,
             name_prefix='float_',
-            use_latents=not is_flux_model)
+            is_unet=not is_flux_model)
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -324,7 +325,7 @@ def main(args):
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
                 guidance_scale=args.guidance_scale,
-                use_latents=not is_flux_model)
+                is_unet=not is_flux_model)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in denoising_network.modules():
@@ -527,12 +528,7 @@ def main(args):
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
                 guidance_scale=args.guidance_scale,
-                use_latents=not is_flux_model)
-
-        if args.compile_ptq:
-            for m in pipe.modules():
-                if hasattr(m, 'compile_quant'):
-                    m.compile_quant()
+                is_unet=not is_flux_model)
 
         if args.load_checkpoint is not None:
             with load_quant_model_mode(denoising_network):
@@ -558,7 +554,17 @@ def main(args):
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
                         guidance_scale=args.guidance_scale,
-                        use_latents=not is_flux_model)
+                        is_unet=not is_flux_model)
+
+        if args.svd_quant:
+            print("Apply SVDQuant...")
+            model = apply_svd_quant(model, blacklist=None, rank=args.svd_quant_rank)
+            print("SVDQuant applied.")
+
+        if args.compile_ptq:
+            for m in denoising_network.modules():
+                if hasattr(m, 'compile_quant'):
+                    m.compile_quant()
 
             if args.gptq:
                 print("Applying GPTQ. It can take several hours")
@@ -579,7 +585,7 @@ def main(args):
                             use_negative_prompts=args.use_negative_prompts,
                             test_latents=latents,
                             guidance_scale=args.guidance_scale,
-                            use_latents=not is_flux_model)
+                            is_unet=not is_flux_model)
                         gptq.update()
                         torch.cuda.empty_cache()
             if args.bias_correction:
@@ -596,7 +602,7 @@ def main(args):
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
                         guidance_scale=args.guidance_scale,
-                        use_latents=not is_flux_model)
+                        is_unet=not is_flux_model)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -810,7 +816,7 @@ def main(args):
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
             assert args.prompt <= len(TESTING_PROMPTS), f"Only {len(TESTING_PROMPTS)} prompts are available"
-            with torch.no_grad():
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 quant_images = run_test_inference(
                     pipe,
                     args.resolution,
@@ -822,7 +828,7 @@ def main(args):
                     use_negative_prompts=args.use_negative_prompts,
                     guidance_scale=args.guidance_scale,
                     name_prefix='quant_',
-                    use_latents=not is_flux_model)
+                    is_unet=not is_flux_model)
 
             float_images_values = float_images.values()
             float_images_values = [x for x_nested in float_images_values for x in x_nested]
@@ -895,6 +901,7 @@ if __name__ == "__main__":
         type=int,
         default=512,
         help='Resolution along height and width dimension. Default: 512.')
+    parser.add_argument('--svd-quant-rank', type=int, default=32, help='SVDQuant rank. Default: 32')
     parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
     parser.add_argument(
         '--calibration-steps', type=int, default=8, help='Steps used during calibration')
@@ -911,6 +918,7 @@ if __name__ == "__main__":
         default=False,
         help='Toggle Activation Equalization. Default: Disabled')
     add_bool_arg(parser, 'gptq', default=False, help='Toggle gptq. Default: Disabled')
+    add_bool_arg(parser, 'svd-quant', default=False, help='Toggle SVDQuant. Default: Disabled')
     add_bool_arg(
         parser, 'bias-correction', default=True, help='Toggle bias-correction. Default: Enabled')
     parser.add_argument(
