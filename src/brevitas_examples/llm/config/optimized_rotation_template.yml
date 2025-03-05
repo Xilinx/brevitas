@@ -1,0 +1,44 @@
+convert_layernorm_to_rmsnorm: false
+dataset: wikitext2
+dtype: float32
+eval: true
+# Input quantization parameters
+input_bit_width: 4
+input_group_size: 32
+input_param_method: stats
+input_quant_format: int
+input_quant_granularity: per_row
+input_quant_type: asym
+input_scale_precision: float_scale
+input_scale_type: dynamic
+# Model to quantize
+model: HuggingfaceTB/SmolLM2-135M
+# Rotation-related parameters
+optimize_rotations: true
+replace_rmsnorm: true
+rotation: fused_no_fx
+rotation_sdpa_regions: true
+rotation_mode: had
+rotation_orphan_sink: true
+# Weight quantization parameters
+weight_bit_width: 4
+weight_equalization: false
+weight_group_dim: null
+weight_group_size: null
+weight_param_method: mse
+weight_quant_format: int
+weight_quant_granularity: per_channel
+weight_quant_type: sym
+weight_scale_precision: float_scale
+# HuggingFace TrainerArguments
+learning_rate: 1.5
+weight_decay: 0.0
+lr_scheduler_type: cosine
+max_steps: 100
+save_safetensors: false
+per_device_train_batch_size: 4
+logging_steps: 10
+gradient_accumulation_steps: 2
+log_on_each_node: false
+torch_empty_cache_steps: 1
+gradient_checkpointing: true
