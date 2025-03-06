@@ -2,12 +2,15 @@ from typing import List, Optional
 
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 import brevitas.nn as qnn
+from brevitas.utils.logging import setup_logger
 
 _supported_layers = (qnn.QuantLinear,)
+logging = setup_logger(__name__)
 
 
 class ErrorCorrectedModule(torch.nn.Module):
@@ -18,7 +21,12 @@ class ErrorCorrectedModule(torch.nn.Module):
         self.layer = layer
 
     def forward(self, x):
-        return self.layer(x) + self.correction(x)
+        self.correction = self.correction.to('cuda')
+        self.layer = self.layer.to('cuda')
+        out = self.layer(x) + self.correction(x)
+        self.correction = self.correction.to('cpu')
+        self.layer = self.layer.to('cpu')
+        return out
 
 
 class LowRankCorrectionModule(torch.nn.Module):
@@ -44,17 +52,19 @@ def _create_correction_module(layer, rank):
     L1 = torch.diag(S[:rank]) @ V[:rank, :]
     L2 = U[:, :rank]
     R = layer.weight - L2 @ L1
-    print(f"Est. Variance Retained: {S[:rank].sum() / S.sum()}")
-    print(f"Residual: {torch.norm(R) / torch.norm(layer.weight)}")
+    logging.debug(f"Est. Variance Retained: {S[:rank].sum() / S.sum()}")
+    logging.debug(f"Residual: {torch.norm(R) / torch.norm(layer.weight)}")
     cm = LowRankCorrectionModule(in_features, out_features, rank)
-    cm.l1.weight.data = L1
-    cm.l2.weight.data = L2
-    layer.weight.data = R
-    if layer.weight_quant.is_quant_enabled:
-        layer.weight_quant.init_tensor_quant()
-    ecm = ErrorCorrectedModule(cm, layer)
-    ecm.to(dtype=source_dtype)
-    return ecm, S[:rank].sum() / S.sum()
+    cm.l1.weight = torch.nn.Parameter(L1)
+    cm.l2.weight = torch.nn.Parameter(L2)
+    layer.weight = torch.nn.Parameter(R)
+
+    # if layer.weight_quant.is_quant_enabled:
+    #     layer.weight_quant.init_tensor_quant()
+    ecm = ErrorCorrectedModule(cm, layer).to(dtype=source_dtype)
+    var = S[:rank].sum() / S.sum()
+    del U, S, V, L1, L2, R
+    return ecm, var
 
 
 class LayerwiseLowRankCorrection(GraphTransform):
@@ -83,10 +93,13 @@ class LayerwiseLowRankCorrection(GraphTransform):
         model = self.model
         variances = torch.zeros((len(self.layers),))
         rewriters = []
-        for i, layer in enumerate(self.layers):
+        for i, layer in enumerate(tqdm(self.layers)):
             ecm, var = _create_correction_module(layer, rank)
             variances[i] = var.to(dtype=variances.dtype)
-            rewriters += [ModuleInstanceToModuleInstance(layer, ecm)]
+            rewriters.append(ModuleInstanceToModuleInstance(layer, ecm).apply(model))
+            ecm.cpu()
+            torch.cuda.empty_cache()
+
         for r in rewriters:
             model = r.apply(model)
         return model, variances

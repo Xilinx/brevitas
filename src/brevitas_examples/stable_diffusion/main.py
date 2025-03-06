@@ -120,7 +120,7 @@ def run_test_inference(
             extra_kwargs['max_sequence_length'] = 512
 
         neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
-        for prompt in prompts:
+        for prompt in tqdm(prompts):
             prompt_images = pipe([prompt] * len(seeds),
                                  negative_prompt=neg_prompts,
                                  guidance_scale=guidance_scale,
@@ -424,6 +424,7 @@ def main(args):
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
+            input_group_size=32,  #args.input_group_size
             input_bit_width=input_bit_width,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
@@ -467,6 +468,7 @@ def main(args):
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_sdpa_zero_point,
                 input_bit_width=args.sdpa_bit_width,
+                input_group_size=32,  #args.input_group_size
                 input_quant_format=args.sdpa_quant_format,
                 input_scale_type=args.sdpa_scale_type,
                 input_scale_precision=args.sdpa_scale_precision,
@@ -558,7 +560,8 @@ def main(args):
 
         if args.svd_quant:
             print("Apply SVDQuant...")
-            model = apply_svd_quant(model, blacklist=None, rank=args.svd_quant_rank)
+            denoising_network = apply_svd_quant(
+                denoising_network, blacklist=None, rank=args.svd_quant_rank)
             print("SVDQuant applied.")
 
         if args.compile_ptq:
@@ -566,31 +569,14 @@ def main(args):
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
 
-            if args.gptq:
-                print("Applying GPTQ. It can take several hours")
-                with torch.no_grad(), gptq_mode(denoising_network,
-                            create_weight_orig=False,
-                            use_quant_activations=False,
-                            return_forward_output=True,
-                            act_order=True) as gptq:
-                    for _ in tqdm(range(gptq.num_layers)):
-                        run_val_inference(
-                            pipe,
-                            args.resolution,
-                            calibration_prompts,
-                            test_seeds,
-                            args.device,
-                            dtype,
-                            total_steps=args.calibration_steps,
-                            use_negative_prompts=args.use_negative_prompts,
-                            test_latents=latents,
-                            guidance_scale=args.guidance_scale,
-                            is_unet=not is_flux_model)
-                        gptq.update()
-                        torch.cuda.empty_cache()
-            if args.bias_correction:
-                print("Applying bias correction")
-                with torch.no_grad(), bias_correction_mode(denoising_network):
+        if args.gptq:
+            print("Applying GPTQ. It can take several hours")
+            with torch.no_grad(), gptq_mode(denoising_network,
+                        create_weight_orig=False,
+                        use_quant_activations=False,
+                        return_forward_output=True,
+                        act_order=True) as gptq:
+                for _ in tqdm(range(gptq.num_layers)):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -603,6 +589,23 @@ def main(args):
                         test_latents=latents,
                         guidance_scale=args.guidance_scale,
                         is_unet=not is_flux_model)
+                    gptq.update()
+                    torch.cuda.empty_cache()
+        if args.bias_correction:
+            print("Applying bias correction")
+            with torch.no_grad(), bias_correction_mode(denoising_network):
+                run_val_inference(
+                    pipe,
+                    args.resolution,
+                    calibration_prompts,
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=args.calibration_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale,
+                    is_unet=not is_flux_model)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -660,6 +663,7 @@ def main(args):
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
             input_bit_width=input_bit_width,
+            input_group_size=32,  #args.input_group_size
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
             input_scale_precision=args.input_scale_precision,
@@ -1037,7 +1041,7 @@ if __name__ == "__main__":
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
-        choices=['per_tensor'],
+        choices=['per_tensor', 'per_group'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
     parser.add_argument(
         '--input-scale-type',
