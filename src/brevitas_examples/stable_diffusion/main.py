@@ -561,7 +561,7 @@ def main(args):
         if args.svd_quant:
             print("Apply SVDQuant...")
             denoising_network = apply_svd_quant(
-                denoising_network, blacklist=None, rank=args.svd_quant_rank)
+                denoising_network, blacklist=None, rank=args.svd_quant_rank, iters=args.svd_quant_iters, dtype=torch.float32)
             print("SVDQuant applied.")
 
         if args.compile_ptq:
@@ -906,6 +906,11 @@ if __name__ == "__main__":
         default=512,
         help='Resolution along height and width dimension. Default: 512.')
     parser.add_argument('--svd-quant-rank', type=int, default=32, help='SVDQuant rank. Default: 32')
+    parser.add_argument(
+        '--svd-quant-iters',
+        type=int,
+        default=1,
+        help='Number of iterations to use for SVDQuant (default: %(default)s).')
     parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
     parser.add_argument(
         '--calibration-steps', type=int, default=8, help='Steps used during calibration')

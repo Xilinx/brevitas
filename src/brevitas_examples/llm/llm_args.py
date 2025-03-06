@@ -285,6 +285,11 @@ def create_llm_args_parser():
         default=32,
         help='Rank to use for SVDQuant (default: %(default)s).')
     parser.add_argument(
+        '--svd-quant-iters',
+        type=int,
+        default=1,
+        help='Number of iterations to use for SVDQuant (default: %(default)s).')
+    parser.add_argument(
         '--act-equalization',
         default=None,
         choices=[None, 'layerwise', 'fx'],

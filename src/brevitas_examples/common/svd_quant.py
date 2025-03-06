@@ -121,12 +121,12 @@ class LayerwiseLowRankCorrection(GraphTransform):
                 full_name = prefix + '.' + name if prefix != '' else name
                 self.find_module(module, layers, full_name)
 
-    def apply(self, rank):
+    def apply(self, rank, iters=1, dtype=torch.float32):
         model = self.model
         errs = torch.zeros((len(self.layers),))
         rewriters = []
         for i, layer in enumerate(tqdm(self.layers)):
-            ecm, err = _create_correction_module(layer, rank)
+            ecm, err = _create_correction_module(layer, rank, iters=iters, dtype=dtype)
             errs[i] = err.to(dtype=errs.dtype)
             rewriters.append(ModuleInstanceToModuleInstance(layer, ecm))
             ecm.cpu()
