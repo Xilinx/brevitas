@@ -96,7 +96,7 @@ class LayerwiseLowRankCorrection(GraphTransform):
         for i, layer in enumerate(tqdm(self.layers)):
             ecm, var = _create_correction_module(layer, rank)
             variances[i] = var.to(dtype=variances.dtype)
-            rewriters.append(ModuleInstanceToModuleInstance(layer, ecm).apply(model))
+            rewriters.append(ModuleInstanceToModuleInstance(layer, ecm))
             ecm.cpu()
             torch.cuda.empty_cache()
 
