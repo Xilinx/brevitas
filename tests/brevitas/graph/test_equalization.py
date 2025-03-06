@@ -148,10 +148,7 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
-@pytest_cases.parametrize("fuse_scaling", [True, False])
-def test_models(toy_model, merge_bias, fuse_scaling, request):
-    if not fuse_scaling and parse('1.9.0') > torch_version:
-        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
+def test_models(toy_model, merge_bias, request):
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
