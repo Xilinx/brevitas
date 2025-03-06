@@ -21,11 +21,13 @@ class ErrorCorrectedModule(torch.nn.Module):
         self.layer = layer
 
     def forward(self, x):
-        self.correction = self.correction.to('cuda')
-        self.layer = self.layer.to('cuda')
+        x_device = x.device
+        l_device = self.layer.weight.device
+        self.correction = self.correction.to(x_device)
+        self.layer = self.layer.to(x_device)
         out = self.layer(x) + self.correction(x)
-        self.correction = self.correction.to('cpu')
-        self.layer = self.layer.to('cpu')
+        self.correction = self.correction.to(l_device)
+        self.layer = self.layer.to(l_device)
         return out
 
 
@@ -42,29 +44,59 @@ class LowRankCorrectionModule(torch.nn.Module):
         return self.l2(self.l1(x))
 
 
-def _create_correction_module(layer, rank):
+def _create_correction_module(layer, rank, iters=2, dtype=torch.float32):
+
+    def calculate_Err(orig_weight, L1, L2, layer):
+        R = orig_weight - (layer.quant_weight() + L2 @ L1)
+        Err = torch.norm(R) / torch.norm(orig_weight)
+        return Err
+
     in_features = layer.weight.shape[1]
     out_features = layer.weight.shape[0]
     source_dtype = layer.weight.dtype
 
-    # Convert to FP32 for SVD
-    U, S, V = torch.linalg.svd(layer.weight.to(dtype=torch.float32))
-    L1 = torch.diag(S[:rank]) @ V[:rank, :]
-    L2 = U[:, :rank]
-    R = layer.weight - L2 @ L1
-    logging.debug(f"Est. Variance Retained: {S[:rank].sum() / S.sum()}")
-    logging.debug(f"Residual: {torch.norm(R) / torch.norm(layer.weight)}")
+    # Convert to dtype for SVD
+    orig_weight = layer.weight.detach().clone().to(dtype=dtype)
     cm = LowRankCorrectionModule(in_features, out_features, rank)
-    cm.l1.weight = torch.nn.Parameter(L1)
-    cm.l2.weight = torch.nn.Parameter(L2)
-    layer.weight = torch.nn.Parameter(R)
-
-    # if layer.weight_quant.is_quant_enabled:
-    #     layer.weight_quant.init_tensor_quant()
-    ecm = ErrorCorrectedModule(cm, layer).to(dtype=source_dtype)
-    var = S[:rank].sum() / S.sum()
-    del U, S, V, L1, L2, R
-    return ecm, var
+    cm.to(dtype)
+    next_R = orig_weight
+    best_R = orig_weight
+    best_L1 = cm.l1.weight.detach().clone()
+    best_L2 = cm.l2.weight.detach().clone()
+    best_Err = calculate_Err(orig_weight, best_L1, best_L2, layer)
+    logging.debug(f"Residual: {best_Err}")
+    for i in range(iters):
+        U, S, V = torch.linalg.svd(next_R)
+        L1 = torch.diag(S[:rank]) @ V[:rank, :]
+        L2 = U[:, :rank]
+        R = orig_weight - L2 @ L1
+        cm.l1.weight = torch.nn.Parameter(L1)
+        cm.l2.weight = torch.nn.Parameter(L2)
+        layer.weight = torch.nn.Parameter(R)
+        #if layer.weight_quant.is_quant_enabled:
+        #    layer.weight_quant.init_tensor_quant()
+        cur_Err = calculate_Err(orig_weight, L1, L2, layer)
+        next_R = orig_weight - layer.quant_weight()
+        if i == 0:
+            logging.debug(f"Residual: {cur_Err}")
+        if cur_Err < best_Err:
+            best_Err = cur_Err
+            best_L1 = L1
+            best_L2 = L2
+            best_R = R
+        del U, S, V, L1, L2, R
+    cm.l1.weight = torch.nn.Parameter(best_L1)
+    cm.l2.weight = torch.nn.Parameter(best_L2)
+    layer.weight = torch.nn.Parameter(best_R)
+    #if layer.weight_quant.is_quant_enabled:
+    #    layer.weight_quant.init_tensor_quant()
+    best_Err = calculate_Err(
+        orig_weight, cm.l1.weight.data, cm.l2.weight.data, layer)  # Sanity check
+    logging.debug(f"Final Residual: {best_Err}")
+    ecm = ErrorCorrectedModule(cm, layer)
+    ecm.to(dtype=source_dtype)
+    del best_L1, best_L2, best_R, next_R
+    return ecm, best_Err
 
 
 class LayerwiseLowRankCorrection(GraphTransform):
@@ -91,15 +123,14 @@ class LayerwiseLowRankCorrection(GraphTransform):
 
     def apply(self, rank):
         model = self.model
-        variances = torch.zeros((len(self.layers),))
+        errs = torch.zeros((len(self.layers),))
         rewriters = []
         for i, layer in enumerate(tqdm(self.layers)):
-            ecm, var = _create_correction_module(layer, rank)
-            variances[i] = var.to(dtype=variances.dtype)
+            ecm, err = _create_correction_module(layer, rank)
+            errs[i] = err.to(dtype=errs.dtype)
             rewriters.append(ModuleInstanceToModuleInstance(layer, ecm))
             ecm.cpu()
             torch.cuda.empty_cache()
-
         for r in rewriters:
             model = r.apply(model)
-        return model, variances
+        return model, errs
