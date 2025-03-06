@@ -54,11 +54,12 @@ def _create_correction_module(layer, rank, iters=1, dtype=torch.float32):
     in_features = layer.weight.shape[1]
     out_features = layer.weight.shape[0]
     source_dtype = layer.weight.dtype
+    device = layer.weight.device
 
     # Convert to dtype for SVD
     orig_weight = layer.weight.detach().clone().to(dtype=dtype)
     cm = LowRankCorrectionModule(in_features, out_features, rank)
-    cm.to(dtype)
+    cm.to(dtype=dtype, device=device)
     next_R = orig_weight
     best_R = orig_weight
     best_L1 = cm.l1.weight.detach().clone()
