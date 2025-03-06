@@ -561,7 +561,11 @@ def main(args):
         if args.svd_quant:
             print("Apply SVDQuant...")
             denoising_network = apply_svd_quant(
-                denoising_network, blacklist=None, rank=args.svd_quant_rank, iters=args.svd_quant_iters, dtype=torch.float32)
+                denoising_network,
+                blacklist=None,
+                rank=args.svd_quant_rank,
+                iters=args.svd_quant_iters,
+                dtype=torch.float32)
             print("SVDQuant applied.")
 
         if args.compile_ptq:
