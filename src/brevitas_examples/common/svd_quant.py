@@ -44,7 +44,7 @@ class LowRankCorrectionModule(torch.nn.Module):
         return self.l2(self.l1(x))
 
 
-def _create_correction_module(layer, rank, iters=2, dtype=torch.float32):
+def _create_correction_module(layer, rank, iters=1, dtype=torch.float32):
 
     def calculate_Err(orig_weight, L1, L2, layer):
         R = orig_weight - (layer.quant_weight() + L2 @ L1)
@@ -95,7 +95,7 @@ def _create_correction_module(layer, rank, iters=2, dtype=torch.float32):
     logging.debug(f"Final Residual: {best_Err}")
     ecm = ErrorCorrectedModule(cm, layer)
     ecm.to(dtype=source_dtype)
-    del best_L1, best_L2, best_R, next_R
+    del best_L1, best_L2, best_R, next_R, orig_weight
     return ecm, best_Err
 
 
