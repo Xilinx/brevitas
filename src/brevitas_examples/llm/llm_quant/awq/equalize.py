@@ -15,6 +15,9 @@ from brevitas_examples.llm.llm_quant.awq.graph import EqualizeAWQ
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 
 
+# Auxiliar method to retrieve the id of a parameter registered to a given
+# module, retrieving the id of the original parameter, in case the module
+# is parametrized
 def _get_tensor_weight_id(module, tensor_name):
     if is_parametrized(module) and tensor_name in module.parametrizations:
         return id(module.parametrizations[tensor_name].original)
@@ -23,6 +26,9 @@ def _get_tensor_weight_id(module, tensor_name):
     return None
 
 
+# This functions remap regions to match modules in a potentially different model that shares the same underlying tensors
+# We rely on the fact that two versions of the same model (eager vs FX) might have different modules id (id(fx_module) != id (eager_module))
+# However, the underlying tensors are still shared, so we can recostruct the mapping between modules of the two models
 def fix_regions(regions, old_model_ref, tensor_name):
     for region in regions:
         name_to_module_keys = list(region.name_to_module.keys())
@@ -32,10 +38,9 @@ def fix_regions(regions, old_model_ref, tensor_name):
             name, module = [
                 (n, m) for n, m in old_model_ref.named_modules()
                 if hasattr(m, tensor_name) and _get_tensor_weight_id(m, tensor_name) == tensor_id][0]
-            # Replace keys, improve this logic
             del region.name_to_module[graph_module_name]
             region.name_to_module[name] = module
-            # There are two cases, the names in the region dictionaries can have the name
+            # Add sources
             srcs_keys = list(region.srcs.keys())
             for srcs_key in srcs_keys:
                 split_srcs_key = srcs_key.split("$")
@@ -62,7 +67,7 @@ def fix_regions(regions, old_model_ref, tensor_name):
 
 def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader):
     use_cache = model.config.use_cache
-    # Export fails due to the cache
+    # _dynamo.export fails due to the cache
     model.config.use_cache = False
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])

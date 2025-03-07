@@ -57,7 +57,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "self_attn.k_proj": block.self_attn.k_proj,
                     "self_attn.v_proj": block.self_attn.v_proj,},
                 block=block.self_attn,
-                use_kwargs=True,
             ))
         # attn out
         block_regions.append(
@@ -105,7 +104,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "self_attn.k_proj": block.self_attn.k_proj,
                     "self_attn.v_proj": block.self_attn.v_proj,},
                 block=block.self_attn,
-                use_kwargs=True,
             ))
         # attn out
         # Please refer to https://github.com/mit-han-lab/llm-awq/pull/67#issue-1850622696
@@ -153,7 +151,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "input_layernorm": block.input_layernorm,
                     "self_attention.query_key_value": block.self_attention.query_key_value,},
                 block=block,
-                use_kwargs=True,
             ))
         # attn out
         # Please refer to https://github.com/mit-han-lab/llm-awq/issues/2#issuecomment-1606297469
@@ -175,7 +172,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "post_attention_layernorm": block.post_attention_layernorm,
                     "mlp.dense_h_to_4h": block.mlp.dense_h_to_4h,},
                 block=block,
-                use_kwargs=True,
             ))
         # fc2
         block_regions.append(
@@ -198,7 +194,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "norm_1": block.norm_1,
                     "attn.Wqkv": block.attn.Wqkv,},
                 block=block.attn,
-                use_kwargs=True,
             ))
         # attn out
         block_regions.append(
@@ -257,7 +252,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                         "mlp.dense_h_to_4h": block.mlp.dense_h_to_4h,
                         "self_attention.query_key_value": block.self_attention.query_key_value,},
                     block=block,
-                    use_kwargs=True,
                 ))
         elif "falcon-40b" in str(block.__class__).lower():
             block_regions.append(
@@ -269,7 +263,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                         "ln_attn": block.ln_attn,
                         "self_attention.query_key_value": block.self_attention.query_key_value,},
                     block=block,
-                    use_kwargs=True,
                 ))
             block_regions.append(
                 RegionAWQ(
@@ -280,7 +273,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                         "ln_mlp": block.ln_mlp,
                         "mlp.dense_h_to_4h": block.mlp.dense_h_to_4h,},
                     block=block,
-                    use_kwargs=True,
                 ))
         else:
             raise NotImplementedError(
@@ -296,7 +288,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "mlp.act": block.mlp.act,
                     "mlp.dense_4h_to_h": block.mlp.dense_4h_to_h,},
                 block=block,
-                use_kwargs=True,
             ))
     elif "bigcode" in str(block.__class__).lower():
         block_regions.append(
@@ -308,7 +299,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "ln_1": block.ln_1,
                     "attn.c_attn": block.attn.c_attn,},
                 block=block.attn,
-                use_kwargs=True,
             ))
         # fc1
         block_regions.append(
@@ -341,7 +331,6 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
                     "input_layernorm": block.input_layernorm,
                     "attention.query_key_value": block.attention.query_key_value,},
                 block=block.attention,
-                use_kwargs=True,
             ))
         # fc1
         block_regions.append(

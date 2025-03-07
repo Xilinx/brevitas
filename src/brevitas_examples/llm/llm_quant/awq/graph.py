@@ -23,34 +23,39 @@ from brevitas.utils.python_utils import longest_common_prefix
 from brevitas.utils.python_utils import recurse_getattr
 
 
+# The Regions in AWQ are defined as subclasses of Region, for compatibility
+# with Brevitas equalization logic
 @dataclass(eq=True, frozen=True)
 class RegionAWQ(Region):
+    # Module for which to capture float/quantized outputs
+    # in AWQ optimization
     block: Optional[nn.Module] = field(default=None)
-    use_kwargs: bool = field(default=False)
 
     @property
     def prev_op(self) -> nn.Module:
+        # The AWQ regions have a single previous operator
         return self.get_module_from_name(next(iter(self.srcs)))
 
     @property
     def repr_sink(self) -> nn.Module:
+        # Retrives a representative sink for the region
         return self.get_module_from_name(next(iter(self.sinks)))
 
 
+# Retrieves the immediate parent for a set of modules
 def _find_common_ancestor_sinks(model: nn.Module, region: Region) -> nn.Module:
     module_name = longest_common_prefix(region.sinks_names).strip(".")
     return recurse_getattr(model, module_name)
 
 
+# Maps a Brevitas region to a AWQ region
 def initialize_awq_region(model: nn.Module, region: Region) -> RegionAWQ:
     return RegionAWQ(
         srcs=region.srcs,
         sinks=region.sinks,
         acts=region.acts,
         name_to_module=region.name_to_module,
-        block=_find_common_ancestor_sinks(model, region),
-        use_kwargs=len(region.sinks) > 1,
-    )
+        block=_find_common_ancestor_sinks(model, region))
 
 
 def extract_sinks_scaling_factor(sinks: List[nn.Module]) -> nn.Parameter:

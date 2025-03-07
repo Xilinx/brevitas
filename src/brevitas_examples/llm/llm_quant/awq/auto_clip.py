@@ -40,13 +40,10 @@ from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 __all__ = ["auto_clip_block", "apply_clip"]
 
 
-# weight quantization
-@torch.no_grad()
-def auto_clip_layer(
-        sink: nn.Module, input_feat: torch.Tensor, n_grid=20, max_shrink=0.5, n_sample_token=512):
+def _get_weight_quant_properties(sink: nn.Module, oc_batch_size: int = 256):
     if isinstance(sink.weight_quant, GroupwiseWeightQuantProxyFromInjector):
         num_output_channels, num_groups, group_size = sink.weight_quant.tensor_quant.int_quant.input_view_impl.expanded_groupwise_shape
-        oc_batch_size = 256 if num_output_channels % 256 == 0 else 64
+        oc_batch_size = oc_batch_size if num_output_channels % 256 == 0 else 64
         quant_injector_properties = {
             "stats_output_shape": (num_output_channels, num_groups, 1),
             "expanded_groupwise_shape": (num_output_channels, num_groups, group_size),}
@@ -55,28 +52,36 @@ def auto_clip_layer(
             "expanded_groupwise_shape": (oc_batch_size, num_groups, group_size),}
     elif isinstance(sink.weight_quant, WeightQuantProxyFromInjector):
         num_output_channels, num_groups, group_size = sink.weight.shape[0], 1, sink.weight.shape[1]
-        oc_batch_size = 256 if num_output_channels % 256 == 0 else 64
+        oc_batch_size = oc_batch_size if num_output_channels % 256 == 0 else 64
         quant_injector_properties = {
             "scaling_per_output_channel_shape": (num_output_channels, 1),}
         batch_quant_injector_properties = {
             "scaling_per_output_channel_shape": (oc_batch_size, 1),}
     else:
         raise ValueError(f"{type(sink.weight_quant)} not supported")
+    return group_size, oc_batch_size, quant_injector_properties, batch_quant_injector_properties
+
+
+# weight quantization
+@torch.no_grad()
+def auto_clip_layer(
+        sink: nn.Module, input_feat: torch.Tensor, n_grid=20, max_shrink=0.5, n_sample_token=512):
+    # Retrieve group size and injector properties to clip in weight batches
+    group_size, oc_batch_size, quant_injector_properties, batch_quant_injector_properties = _get_weight_quant_properties(sink)
+
     w = sink.weight.data
     assert w.dim() == 2
-    org_w_shape = w.shape
     # w           [co, ci]      -> [co, 1, n_group, group size]
     # input_feat  [n_token, ci] -> [1, n_token, n_group, group size]
     input_feat = input_feat.view(-1, input_feat.shape[-1])
     input_feat = input_feat.reshape(1, input_feat.shape[0], -1, group_size)
     input_feat = input_feat[:, 0::input_feat.shape[1] // n_sample_token]
     w = w.reshape(w.shape[0], 1, -1, group_size)
-
-    oc_batch_size = 256 if w.shape[0] % 256 == 0 else 64  # prevent OOM
     assert w.shape[0] % oc_batch_size == 0
     w_all = w
     best_max_val_all = []
 
+    # Enable quantizing a weight batch to prevent OOM
     sink.weight_quant.quant_injector = sink.weight_quant.quant_injector.let(
         **batch_quant_injector_properties)
     sink.weight_quant.init_tensor_quant(preserve_state_dict=True)
@@ -108,6 +113,7 @@ def auto_clip_layer(
             best_max_val[cur_best_idx] = max_val[cur_best_idx]
         best_max_val_all.append(best_max_val)
 
+    # Restore initial configuration for the quant_injector
     sink.weight_quant.quant_injector = sink.weight_quant.quant_injector.let(
         **quant_injector_properties)
     sink.weight_quant.init_tensor_quant(preserve_state_dict=True)

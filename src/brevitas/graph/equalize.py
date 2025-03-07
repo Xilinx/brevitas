@@ -786,7 +786,8 @@ def _cross_layer_equalization(
     for module in chain(src_axes.values(), sink_axes.values()):
         rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
-    # Apply rewriters before offloading
+    # Apply rewriters before offloading, if parametrize_inplace is True.  Note that parametrizations
+    # are not immediately to prevent potential errors if the model is offloaded.
     for r in rewriters:
         if parametrize_inplace or not isinstance(r, ModuleInstanceRegisterParametrization):
             model = r.apply(model)

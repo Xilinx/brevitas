@@ -4,6 +4,7 @@
 from contextlib import contextmanager
 from enum import Enum
 import functools
+from typing import List
 
 
 class AutoName(str, Enum):
@@ -66,18 +67,18 @@ def hooked_on_a_function(function, prefunction):
     return run
 
 
-def longest_common_prefix(strings):
+def longest_common_prefix(strings: List[str]):
     """
-  Finds the longest common prefix of a list of strings.
+    Finds the longest common prefix of a list of strings.
 
-  Args:
-    strings: A list of strings.
+    Args:
+        strings (list): A list of strings.
 
-  Returns:
-    The longest common prefix of the strings.
-  """
+    Returns:
+        The longest common prefix of the strings.
+    """
     # If the list of strings is empty, return an empty string.
-    if not strings:
+    if len(strings) == 0:
         return ""
 
     # Find the shortest string in the list.

@@ -27,6 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import inspect
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -84,7 +85,7 @@ def auto_scale_block(
             scales = x_max.pow(ratio).clamp(min=1e-4).view(-1)
             scales = torch.reciprocal(scales / (scales.max() * scales.min()).sqrt())
             scaling_factor.data = scales
-            # TODO: Verify
+            # Capture quantized output from sinks
             with disable_enable_quantization(region_block,
                                              disable_quant=True,
                                              excluded_modules=sinks):
@@ -122,15 +123,19 @@ def auto_scale_block(
 
     scales_dict = {}  # return the searched scales
 
-    # Make sure region order is the same as in AWQ
     for region in block_regions:
         # Only scale non-orphan regions
         if len(region.srcs) > 0:
+            # Decide whether to propagate the block_kwargs to the region block based on its forward signature
+            region_block_args = [] if region.block is None else inspect.getfullargspec(
+                region.block.forward).args
+            kwargs = block_kwargs if all(
+                kwarg in region_block_args for kwarg in block_kwargs) else {}
             scales_dict[id(region)] = _auto_get_scale(
                 sinks=[region.get_module_from_name(sink_name) for sink_name in region.sinks],
                 inp=input_feat[id(region)],
                 region_block=region.block,
-                kwargs=block_kwargs if region.use_kwargs else {},
+                kwargs=kwargs,
             )
     return scales_dict
 
