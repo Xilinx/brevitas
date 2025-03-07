@@ -15,7 +15,17 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
-from diffusers import FluxPipeline
+
+try:
+    from diffusers import FluxPipeline
+except:
+    FluxPipeline = object()
+
+try:
+    from diffusers import StableDiffusion3Pipeline
+except:
+    StableDiffusion3Pipeline = object()
+
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
@@ -90,7 +100,7 @@ def load_calib_prompts(calib_data_path, sep="\t"):
 def get_denoising_network(pipe):
     if isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline)):
         return pipe.unet
-    elif isinstance(pipe, FluxPipeline):
+    elif isinstance(pipe, (FluxPipeline, StableDiffusion3Pipeline)):
         return pipe.transformer
     else:
         raise ValueError
@@ -107,7 +117,9 @@ def run_test_inference(
         use_negative_prompts,
         guidance_scale,
         name_prefix='',
-        is_unet=True):
+        inference_steps=50,
+        is_unet=True,
+        deterministic=True):
     images = dict()
     with torch.no_grad():
         if not os.path.exists(output_path):
@@ -119,11 +131,15 @@ def run_test_inference(
         else:
             extra_kwargs['max_sequence_length'] = 512
 
+        generator = torch.Generator(device).manual_seed(0) if deterministic else None
+
         neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
         for prompt in tqdm(prompts):
             prompt_images = pipe([prompt] * len(seeds),
                                  negative_prompt=neg_prompts,
                                  guidance_scale=guidance_scale,
+                                 num_inference_steps=inference_steps,
+                                 generator=generator,
                                  **extra_kwargs).images
             images[prompt] = prompt_images
 
@@ -149,6 +165,7 @@ def run_val_inference(
         total_steps,
         test_latents=None,
         output_type='latent',
+        deterministic=True,
         is_unet=True):
     with torch.no_grad():
 
@@ -160,7 +177,7 @@ def run_val_inference(
             extra_kwargs['latents'] = test_latents
         else:
             extra_kwargs['max_sequence_length'] = 512
-
+        generator = torch.Generator(device).manual_seed(0) if deterministic else None
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
         for prompt in tqdm(prompts):
             # We don't want to generate any image, so we return only the latent encoding pre VAE
@@ -170,6 +187,7 @@ def run_val_inference(
                 output_type=output_type,
                 guidance_scale=guidance_scale,
                 num_inference_steps=total_steps,
+                generator=generator,
                 **extra_kwargs)
 
 
@@ -193,6 +211,7 @@ def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args)
         test_seeds,
         args.device,
         dtype,
+        deterministic=args.deterministic,
         total_steps=args.calibration_steps,
         use_negative_prompts=args.use_negative_prompts,
         test_latents=latents,
@@ -241,7 +260,9 @@ def main(args):
         extra_kwargs = {'variant': 'fp16' if dtype == torch.float16 else None}
 
     pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
-    if not is_flux_model:
+    is_unet = isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline))
+
+    if is_unet:
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
         pipe.vae.config.force_upcast = True
 
@@ -265,10 +286,12 @@ def main(args):
             output_dir,
             args.device,
             dtype,
+            deterministic=args.deterministic,
+            inference_steps=args.inference_steps,
             guidance_scale=args.guidance_scale,
             use_negative_prompts=args.use_negative_prompts,
             name_prefix='float_',
-            is_unet=not is_flux_model)
+            is_unet=is_unet)
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -321,11 +344,12 @@ def main(args):
                 test_seeds,
                 args.device,
                 dtype,
+                deterministic=args.deterministic,
                 total_steps=total_steps,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
                 guidance_scale=args.guidance_scale,
-                is_unet=not is_flux_model)
+                is_unet=is_unet)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in denoising_network.modules():
@@ -527,10 +551,11 @@ def main(args):
                 args.device,
                 dtype,
                 total_steps=1,
+                deterministic=args.deterministic,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
                 guidance_scale=args.guidance_scale,
-                is_unet=not is_flux_model)
+                is_unet=is_unet)
 
         if args.load_checkpoint is not None:
             with load_quant_model_mode(denoising_network):
@@ -552,11 +577,12 @@ def main(args):
                         test_seeds,
                         args.device,
                         dtype,
+                        deterministic=args.deterministic,
                         total_steps=args.calibration_steps,
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
                         guidance_scale=args.guidance_scale,
-                        is_unet=not is_flux_model)
+                        is_unet=is_unet)
 
         if args.svd_quant:
             print("Apply SVDQuant...")
@@ -588,11 +614,12 @@ def main(args):
                         test_seeds,
                         args.device,
                         dtype,
+                        deterministic=args.deterministic,
                         total_steps=args.calibration_steps,
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
                         guidance_scale=args.guidance_scale,
-                        is_unet=not is_flux_model)
+                        is_unet=is_unet)
                     gptq.update()
                     torch.cuda.empty_cache()
         if args.bias_correction:
@@ -605,11 +632,12 @@ def main(args):
                     test_seeds,
                     args.device,
                     dtype,
+                    deterministic=args.deterministic,
                     total_steps=args.calibration_steps,
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
                     guidance_scale=args.guidance_scale,
-                    is_unet=not is_flux_model)
+                    is_unet=is_unet)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -805,6 +833,7 @@ def main(args):
                     test_seeds,
                     args.device,
                     dtype,
+                    deterministic=args.deterministic,
                     total_steps=1,
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
@@ -833,10 +862,12 @@ def main(args):
                     output_dir,
                     args.device,
                     dtype,
+                    deterministic=args.deterministic,
+                    inference_steps=args.inference_steps,
                     use_negative_prompts=args.use_negative_prompts,
                     guidance_scale=args.guidance_scale,
                     name_prefix='quant_',
-                    is_unet=not is_flux_model)
+                    is_unet=is_unet)
 
             float_images_values = float_images.values()
             float_images_values = [x for x_nested in float_images_values for x in x_nested]
@@ -918,6 +949,8 @@ if __name__ == "__main__":
     parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
     parser.add_argument(
         '--calibration-steps', type=int, default=8, help='Steps used during calibration')
+    parser.add_argument(
+        '--inference-steps', type=int, default=50, help='Steps used during inference')
     add_bool_arg(
         parser,
         'output-path',
@@ -1219,6 +1252,11 @@ if __name__ == "__main__":
         'compile-eval',
         default=False,
         help='Compile proxies for evaluation. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'deterministic',
+        default=True,
+        help='Deterministic image generation. Default: Enabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
