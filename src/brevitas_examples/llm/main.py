@@ -350,7 +350,7 @@ def quantize_llm(args, extra_args=None):
         print("Applying model quantization...")
         # When AWQ is enabled, the scaling_impl_type for the weights needs to be 'stats', as the
         # scaling factor that multiplies the weights is optimized
-        weigth_scaling_impl_type = 'stats' if (
+        weight_scaling_impl_type = 'stats' if (
             args.awq_scale or args.awq_clip) else 'parameter_from_stats'
         linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
             dtype=dtype,
@@ -361,6 +361,7 @@ def quantize_llm(args, extra_args=None):
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
             weight_group_dim=args.weight_group_dim,
+            weight_scaling_impl_type=weight_scaling_impl_type,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             weight_quant_format=args.weight_quant_format,
             input_bit_width=args.input_bit_width,
