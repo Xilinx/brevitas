@@ -101,12 +101,13 @@ def test_float_to_quant_float(inp, minifloat_format):
             input_view_impl=Identity(),
             signed=signed,
             float_clamp_impl=float_clamp)
+        max_mantissa = compute_max_mantissa(torch.tensor(mantissa_bit_width, dtype=torch.float))
         expected_out, *_ = float_quant(inp)
         scale = float_quant.scaling_impl(inp)
         out_quant, scale = float_quant.quantize(inp, scale)
         exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
         out_quant, *_ = float_quant.float_clamp_impl(
-            out_quant, exponent_bit_width, mantissa_bit_width, exponent_bias)
+            out_quant, exponent_bit_width, max_mantissa, exponent_bias)
         assert torch.allclose(expected_out, out_quant * scale)
 
 
