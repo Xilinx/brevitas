@@ -126,11 +126,10 @@ def auto_scale_block(
     for region in block_regions:
         # Only scale non-orphan regions
         if len(region.srcs) > 0:
-            # Decide whether to propagate the block_kwargs to the region block based on its forward signature
+            # Decide which block_kwargs to propagate to the region block based on its forward signature
             region_block_args = [] if region.block is None else inspect.getfullargspec(
                 region.block.forward).args
-            kwargs = block_kwargs if all(
-                kwarg in region_block_args for kwarg in block_kwargs) else {}
+            kwargs = {arg: block_kwargs[arg] for arg in region_block_args if arg in block_kwargs}
             scales_dict[id(region)] = _auto_get_scale(
                 sinks=[region.get_module_from_name(sink_name) for sink_name in region.sinks],
                 inp=input_feat[id(region)],
