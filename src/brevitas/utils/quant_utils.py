@@ -101,8 +101,8 @@ class _CachedIOGroupwiseFloat:
             self.value = quant_tensor.value
         # torch.compile compatibility
         self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
         self.scale = quant_tensor.scale
+        self.zero_point_ = quant_tensor.zero_point_
         self.zero_point = quant_tensor.zero_point
 
     @property
@@ -155,8 +155,8 @@ class _CachedIOGroupwiseInt:
             self.value = quant_tensor.value
         # torch.compile compatibility
         self.scale_ = quant_tensor.scale_
-        self.zero_point_ = quant_tensor.zero_point_
         self.scale = quant_tensor.scale
+        self.zero_point_ = quant_tensor.zero_point_
         self.zero_point = quant_tensor.zero_point
 
     @property

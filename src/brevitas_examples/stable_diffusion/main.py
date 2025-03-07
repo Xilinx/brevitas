@@ -15,6 +15,7 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
+from PIL import Image
 
 try:
     from diffusers import FluxPipeline
@@ -59,7 +60,11 @@ from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import \
+    calculate_activation_statistics
+from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import calculate_frechet_distance
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
+from brevitas_examples.stable_diffusion.mlperf_evaluation.inception import InceptionV3
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
@@ -91,6 +96,51 @@ TESTING_PROMPTS = [
 ]
 
 
+def coco_testing(
+        pipe,
+        num_prompt,
+        resolution,
+        inference_steps,
+        guidance_scale,
+        use_negative_prompts,
+        caption_path,
+        statistics_path,
+        dtype,
+        is_unet,
+        deterministic,
+        device):
+    captions_df = pd.read_csv(caption_path, sep="\t")
+    captions_df = captions_df[:num_prompt]
+    captions_df = [captions_df.loc[i].caption for i in range(len(captions_df))]
+
+    with np.load(statistics_path) as f:
+        m1, s1 = f["mu"][:], f["sigma"][:]
+
+    imgs = run_test_inference(
+        pipe,
+        resolution,
+        captions_df, [TEST_SEED],
+        device,
+        dtype,
+        deterministic=deterministic,
+        inference_steps=inference_steps,
+        guidance_scale=guidance_scale,
+        use_negative_prompts=use_negative_prompts,
+        is_unet=is_unet)
+    imgs = [(t[0].cpu().permute(1, 2, 0).float().numpy() * 255).round().astype(np.uint8)
+            for t in imgs.values()]
+    imgs = [Image.fromarray(e).convert("RGB") for e in imgs]
+    print(len(imgs))
+    print(imgs[0])
+    block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[2048]
+    model = InceptionV3([block_idx]).to(device)
+    m2, s2 = calculate_activation_statistics(imgs, model, 1, 2048, 'cuda', 1)
+
+    fid_value = calculate_frechet_distance(m1, s1, m2, s2)
+
+    return fid_value
+
+
 def load_calib_prompts(calib_data_path, sep="\t"):
     df = pd.read_csv(calib_data_path, sep=sep)
     lst = df["caption"].tolist()
@@ -111,26 +161,17 @@ def run_test_inference(
         resolution,
         prompts,
         seeds,
-        output_path,
         device,
         dtype,
         use_negative_prompts,
         guidance_scale,
+        output_path=None,
         name_prefix='',
         inference_steps=50,
         is_unet=True,
         deterministic=True):
     images = dict()
     with torch.no_grad():
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
-        extra_kwargs = {}
-        if is_unet:
-            extra_kwargs['latents'] = generate_latents(
-                seeds, device, dtype, unet_input_shape(resolution))
-        else:
-            extra_kwargs['max_sequence_length'] = 512
-
         generator = torch.Generator(device).manual_seed(0) if deterministic else None
 
         neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
@@ -140,16 +181,19 @@ def run_test_inference(
                                  guidance_scale=guidance_scale,
                                  num_inference_steps=inference_steps,
                                  generator=generator,
-                                 **extra_kwargs).images
-            images[prompt] = prompt_images
+                                 output_type="pt" if output_path is None else "pil").images
+            images[prompt] = [img for img in prompt_images]
 
-        i = 0
-        for prompt, prompt_images in images.items():
-            for image in prompt_images:
-                file_path = os.path.join(output_path, f"{name_prefix}{i}.png")
-                print(f"Saving to {file_path}")
-                image.save(file_path)
-                i += 1
+        if output_path is not None:
+            if not os.path.exists(output_path):
+                os.mkdir(output_path)
+            i = 0
+            for prompt, prompt_images in images.items():
+                for image in prompt_images:
+                    file_path = os.path.join(output_path, f"{name_prefix}{i}.png")
+                    print(f"Saving to {file_path}")
+                    image.save(file_path)
+                    i += 1
     return images
 
 
@@ -175,8 +219,7 @@ def run_val_inference(
 
         if is_unet:
             extra_kwargs['latents'] = test_latents
-        else:
-            extra_kwargs['max_sequence_length'] = 512
+
         generator = torch.Generator(device).manual_seed(0) if deterministic else None
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
         for prompt in tqdm(prompts):
@@ -275,7 +318,7 @@ def main(args):
     print(f"Moving model to {args.device}...")
     pipe = pipe.to(args.device)
 
-    if args.prompt > 0 and not args.use_mlperf_inference:
+    if args.prompt > 0 and args.inference_pipeline == 'samples':
         print(f"Running inference with prompt ...")
         testing_prompts = TESTING_PROMPTS[:args.prompt]
         float_images = run_test_inference(
@@ -283,9 +326,9 @@ def main(args):
             args.resolution,
             testing_prompts,
             test_seeds,
-            output_dir,
             args.device,
             dtype,
+            output_path=output_dir,
             deterministic=args.deterministic,
             inference_steps=args.inference_steps,
             guidance_scale=args.guidance_scale,
@@ -439,6 +482,7 @@ def main(args):
         quantizers = generate_quantizers(
             dtype=dtype,
             device=args.device,
+            scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -482,6 +526,7 @@ def main(args):
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
                 device=args.device,
+                scale_rounding_func_type=args.scale_rounding_func,
                 weight_bit_width=args.sdpa_bit_width,
                 weight_quant_format=args.sdpa_quant_format,
                 weight_quant_type=args.sdpa_quant_type,
@@ -685,6 +730,7 @@ def main(args):
         quantizers = generate_quantizers(
             dtype=dtype,
             device=args.device,
+            scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -822,7 +868,7 @@ def main(args):
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
-        if args.use_mlperf_inference:
+        if args.inference_pipeline == 'mlperf':
             print(f"Computing accuracy with MLPerf pipeline")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 # Perform a single forward pass before evenutally compiling
@@ -849,7 +895,7 @@ def main(args):
                     output_dir,
                     args.device,
                     not args.vae_fp16_fix)
-        else:
+        elif args.inference_pipeline == 'samples':
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
             assert args.prompt <= len(TESTING_PROMPTS), f"Only {len(TESTING_PROMPTS)} prompts are available"
@@ -859,9 +905,9 @@ def main(args):
                     args.resolution,
                     testing_prompts,
                     test_seeds,
-                    output_dir,
                     args.device,
                     dtype,
+                    output_path=output_dir,
                     deterministic=args.deterministic,
                     inference_steps=args.inference_steps,
                     use_negative_prompts=args.use_negative_prompts,
@@ -883,6 +929,22 @@ def main(args):
             fid.update(float_images_values, real=True)
             fid.update(quant_images_values, real=False)
             print(f"FID: {float(fid.compute())}")
+
+        elif args.inference_pipeline == 'coco':
+            fid = coco_testing(
+                pipe,
+                num_prompt=args.prompt,
+                resolution=args.resolution,
+                inference_steps=args.inference_steps,
+                guidance_scale=args.guidance_scale,
+                use_negative_prompts=args.use_negative_prompts,
+                caption_path=args.caption_path,
+                statistics_path=args.statistics_path,
+                dtype=dtype,
+                is_unet=is_unet,
+                deterministic=args.deterministic,
+                device=args.device)
+            print(fid)
 
 
 if __name__ == "__main__":
@@ -933,7 +995,21 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help=
-        'Path to MLPerf compliant Coco dataset. Used when the --use-mlperf flag is set. Default: None'
+        'Path to MLPerf compliant Coco dataset. Used when the inference_pipeline is mlperf. Default: None'
+    )
+    parser.add_argument(
+        '--path-to-coco-captions',
+        type=str,
+        default=None,
+        help=
+        'Path to MLPerf compliant Coco captions. Used when the inference_pipeline is coco. Default: None'
+    )
+    parser.add_argument(
+        '--path-to-coco-statistics',
+        type=str,
+        default=None,
+        help=
+        'Path to MLPerf compliant Coco dataset. Used when the inference_pipeline is coco. Default: None'
     )
     parser.add_argument(
         '--resolution',
@@ -1168,7 +1244,7 @@ if __name__ == "__main__":
         nargs='*',
         metavar='NAME',
         help=
-        'A list of module names to exclude from quantization. They are recursively searched in the  Default: %(default)s'
+        'A list of module names to exclude from quantization. They are recursively searched in the model architecture. Default: %(default)s'
     )
     parser.add_argument(
         '--quant-standalone-blacklist',
@@ -1177,6 +1253,28 @@ if __name__ == "__main__":
         nargs='*',
         metavar='NAME',
         help='A list of module names to exclude from quantization. Default: %(default)s')
+    parser.add_argument(
+        '--scale-rounding-func',
+        type=str,
+        default='floor',
+        choices=['floor', 'ceil', 'round'],
+        help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--inference-pipeline',
+        type=str,
+        default='samples',
+        choices=['samples', 'coco', 'mlperf'],
+        help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--caption-path',
+        type=str,
+        default=None,
+        help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--statistics-path',
+        type=str,
+        default=None,
+        help='Inference pipeline for evaluation.  Default: %(default)s')
     add_bool_arg(
         parser,
         'quantize-weight-zero-point',
