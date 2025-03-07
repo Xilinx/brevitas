@@ -12,6 +12,7 @@ from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from tests.marker import requires_pt_ge
 
 WEIGHT_QUANTIZERS = {
     'int8': Int8WeightPerTensorFloat,
@@ -29,6 +30,7 @@ ACT_QUANTIZERS = {
 
 
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
+@requires_pt_ge('2.0')
 def test_compile(weight_quantizer):
     name, quant = weight_quantizer
     linear = qnn.QuantLinear(8, 128, weight_quant=quant)
@@ -39,6 +41,7 @@ def test_compile(weight_quantizer):
 
 
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
+@requires_pt_ge('2.0')
 def test_compile(act_quantizer):
     name, quant = act_quantizer
     if 'mx' in name:
