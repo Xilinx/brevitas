@@ -7,6 +7,7 @@ from functools import reduce
 import itertools
 from unittest.mock import patch
 
+from packaging.version import parse
 import pytest
 import torch
 import torch.nn.utils.parametrize as parametrize
@@ -26,7 +27,7 @@ from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.equalize import EqualizationIndexes
-from brevitas.graph.equalize import fuse_parametrized_rotations
+from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
@@ -38,8 +39,9 @@ from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
 from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas.utils.rotation_utils import RotationWeightParametrization
+from brevitas.utils.torch_utils import is_parametrized
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
@@ -60,7 +62,7 @@ def test_resnet18_equalization():
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     _ = equalize_test(
-        regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     out = model(inp)
 
     regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
@@ -108,7 +110,11 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     scale_factor_regions = equalize_test(
-        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
@@ -164,7 +170,11 @@ def test_models(toy_model, merge_bias, request):
         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
     scale_factor_regions = equalize_test(
-        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     with torch.no_grad():
@@ -181,7 +191,10 @@ def test_models(toy_model, merge_bias, request):
 
 
 @pytest_cases.parametrize("layerwise", [True, False])
-def test_act_equalization_models(toy_model, layerwise, request):
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+def test_act_equalization_models(toy_model, layerwise, fuse_scaling, request):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
@@ -197,7 +210,11 @@ def test_act_equalization_models(toy_model, layerwise, request):
     expected_out = model(inp)
     model = symbolic_trace(model)
     with torch.no_grad():
-        with activation_equalization_mode(model, 0.5, True, layerwise=layerwise) as aem:
+        with activation_equalization_mode(model,
+                                          0.5,
+                                          True,
+                                          layerwise=layerwise,
+                                          fuse_scaling=fuse_scaling) as aem:
             regions = aem.graph_act_eq.regions
             model(inp)
     scale_factor_regions = aem.scale_factors
@@ -224,7 +241,10 @@ def test_act_equalization_models(toy_model, layerwise, request):
     "model_dict", [(model_name, coverage) for model_name, coverage in MODELS.items()],
     ids=[model_name for model_name, _ in MODELS.items()])
 @pytest_cases.parametrize("layerwise", [True, False])
-def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool):
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, fuse_scaling: bool):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
     model, coverage = model_dict
 
     if model == 'googlenet' and torch_version == version.parse('1.8.1'):
@@ -250,7 +270,11 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool):
     expected_out = model(inp)
 
     with torch.no_grad():
-        with activation_equalization_mode(model, 0.5, True, layerwise=layerwise) as aem:
+        with activation_equalization_mode(model,
+                                          0.5,
+                                          True,
+                                          layerwise=layerwise,
+                                          fuse_scaling=fuse_scaling) as aem:
             model(inp)
     scale_factor_regions = aem.scale_factors
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
@@ -520,7 +544,7 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
             isinstance(module, RotatedModule) for module in rotated_model.modules()])
     # Optionally fuse the rotations
     if fuse_rotations:
-        rotated_model_unfused = fuse_parametrized_rotations(rotated_model_unfused)
+        rotated_model_unfused = fuse_parametrizations(rotated_model_unfused)
         # Verify that no parametrizations remain after fusing
         for module in rotated_model_unfused.modules():
             assert not parametrize.is_parametrized(module)
@@ -574,7 +598,7 @@ def test_fuse_parametrized_modules(kwargs):
     with torch.no_grad():
         output = qmodel(sample_input)
     # Fuse parametrizations
-    qmodel = fuse_parametrized_rotations(qmodel)
+    qmodel = fuse_parametrizations(qmodel)
     # Verify that scales were not lost
     module = recurse_getattr(model, key)
     assert module.weight_quant.tensor_quant.scaling_impl.init_done

@@ -6,8 +6,9 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
+from itertools import chain
 import operator
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 import warnings
 
 import packaging
@@ -44,8 +45,9 @@ from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.utils.logging import setup_logger
+from brevitas.utils.parametrization_utils import RotationWeightParametrization
+from brevitas.utils.parametrization_utils import ScaleWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas.utils.rotation_utils import RotationWeightParametrization
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas.utils.torch_utils import pad_to_dim
 
@@ -144,13 +146,6 @@ class EqualizationIndexes:
     start: int = 0
     end: int = 0
     offset: int = 0
-
-
-# Required for being hashable
-@dataclass(eq=True, frozen=True)
-class WeightBiasWrapper:
-    weight: torch.Tensor = None
-    bias: torch.Tensor = None
 
 
 # Required for being hashable
@@ -279,25 +274,31 @@ class activation_equalization_mode:
             layerwise=True,
             enabled=True,
             blacklist_layers=None,
-            co_optimize_act_weights=False) -> None:
+            co_optimize_act_weights=False,
+            fuse_scaling=True) -> None:
         self.model = model
         self.alpha = alpha
         self.enabled = enabled
         self.add_mul_node = add_mul_node
         self.co_optimize_act_weights = co_optimize_act_weights
+        self.fuse_scaling = fuse_scaling
         if layerwise:
             if not self.add_mul_node:
                 raise ValueError("Layerwise activation equalization requires add_mul_node")
             self.graph_act_eq = LayerwiseActivationEqualization(
-                self.model, blacklist_layers=blacklist_layers)
+                self.model, blacklist_layers=blacklist_layers, fuse_scaling=self.fuse_scaling)
         else:
             if not isinstance(self.model, (TorchGraphModule, GraphModule)):
                 raise TypeError(
                     "A Torch FX representation of the model is needed for Graph Activation Equalization"
                 )
             self.graph_act_eq = GraphActivationEqualization(
-                self.model, self.add_mul_node, co_optimize_act_weights=co_optimize_act_weights)
+                self.model,
+                self.add_mul_node,
+                co_optimize_act_weights=co_optimize_act_weights,
+                fuse_scaling=self.fuse_scaling)
         self.scale_factors = None
+        self.rewriters = None
 
     def __enter__(self):
         if self.enabled:
@@ -306,7 +307,7 @@ class activation_equalization_mode:
 
     def __exit__(self, type, value, traceback):
         if self.enabled:
-            self.scale_factors = self.graph_act_eq.apply(self.alpha)
+            self.scale_factors, self.rewriters = self.graph_act_eq.apply(self.alpha)
         return True  # To propagate exceptions
 
 
@@ -461,7 +462,150 @@ def transpose(tensor: torch.Tensor, axis: int):
     return tensor.permute(shape)
 
 
+class EqualizationModuleWrapper:
+
+    def __init__(
+            self,
+            module: nn.Module,
+            weight_tensor_name: str,
+            weight_axis: int,
+            equalization_indexes: EqualizationIndexes,
+            bias_tensor_name: Optional[str] = None,
+            bias_axis: int = 0) -> None:
+        self.module = module
+        self._weight_tensor_name = weight_tensor_name
+        self.weight_axis = weight_axis
+        self.equalization_indexes = equalization_indexes
+        self._bias_tensor_name = bias_tensor_name
+        self.bias_axis = bias_axis
+
+    @property
+    def weight(self) -> Optional[nn.Parameter]:
+        return getattr(self.module, self._weight_tensor_name, None)
+
+    @property
+    def bias(self) -> Optional[nn.Parameter]:
+        if self._bias_tensor_name is not None:
+            return getattr(self.module, self._bias_tensor_name, None)
+        return None
+
+    @abstractmethod
+    def _get_transform_module_kwargs(self) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def get_weight_range(self, scale_fn: Callable, **kwargs) -> torch.Tensor:
+        pass
+
+    def instantiate_rewriters(
+            self,
+            rewriter_class: Type[Union[ModuleInstanceTransformTensor,
+                                       ModuleInstanceRegisterParametrization]],
+            scaling_factor: Union[nn.Parameter, torch.Tensor]) -> List[Transform]:
+        rewriters = []
+        tensor_names_axis = [(self._weight_tensor_name, self.weight_axis)] + ([
+            (self._bias_tensor_name, self.bias_axis)] if self.bias is not None else [])
+        transform_module_kwargs = self._get_transform_module_kwargs()
+        for tensor_name, axis in tensor_names_axis:
+            rewriters.append(
+                self._instantiate_rewriter_transform(
+                    tensor_name=tensor_name,
+                    rewriter_class=rewriter_class,
+                    transform_module_class=ScaleWeightParametrization,
+                    scaling_factor=scaling_factor,
+                    axis=axis,
+                    **transform_module_kwargs))
+        return rewriters
+
+    def _instantiate_rewriter_transform(
+            self,
+            tensor_name: str,
+            rewriter_class: Type[Union[ModuleInstanceTransformTensor,
+                                       ModuleInstanceRegisterParametrization]],
+            transform_module_class: Type[nn.Module],
+            **transform_module_kwargs) -> Transform:
+        return rewriter_class(
+            module=self.module,
+            tensor_name=tensor_name,
+            transform_module=transform_module_class(**transform_module_kwargs))
+
+
+class EqualizationSourceWrapper(EqualizationModuleWrapper):
+
+    def __init__(
+            self,
+            module: nn.Module,
+            weight_tensor_name: str,
+            weight_axis: int,
+            equalization_indexes: EqualizationIndexes,
+            bias_tensor_name: Optional[str] = None,
+            bias_axis: int = 0) -> None:
+        super().__init__(
+            module,
+            weight_tensor_name,
+            weight_axis,
+            equalization_indexes,
+            bias_tensor_name,
+            bias_axis)
+
+    def _get_transform_module_kwargs(self) -> Dict[str, Any]:
+        channel_start = self.equalization_indexes.offset + self.equalization_indexes.start
+        channel_end = self.equalization_indexes.offset + self.equalization_indexes.end
+        return {
+            "start_end_idxs": None,
+            "slice_idxs": (channel_start, channel_end),
+            "use_inverse_scaling": False}
+
+    # Determine the srcs_range based on where we are performing activation equalization or
+    # weight equalization
+    def get_weight_range(
+            self,
+            scale_fn: Callable,
+            merge_bias: bool,
+            bias_shrinkage: Optional[Union[float, str]] = None) -> torch.Tensor:
+        weight = transpose(self.weight, self.weight_axis)
+        if merge_bias:
+            weight = _combine_weights_bias(weight, bias_shrinkage, self.bias)
+        weight = weight.cpu().to(torch.float32)
+        return scale_fn(weight.reshape(weight.size(0), -1))
+
+
+class EqualizationSinkWrapper(EqualizationModuleWrapper):
+
+    def __init__(
+            self,
+            module: nn.Module,
+            weight_tensor_name: str,
+            weight_axis: int,
+            equalization_indexes: EqualizationIndexes) -> None:
+        super().__init__(module, weight_tensor_name, weight_axis, equalization_indexes)
+
+    def _get_transform_module_kwargs(self) -> Dict[str, Any]:
+        channel_range = self.equalization_indexes.end - self.equalization_indexes.start
+        return {
+            "start_end_idxs": (self.equalization_indexes.start, self.equalization_indexes.end),
+            "slice_idxs": (
+                self.equalization_indexes.offset, self.equalization_indexes.offset + channel_range),
+            "use_inverse_scaling": True}
+
+    def get_weight_range(self, scale_fn: Callable) -> torch.Tensor:
+        weight = transpose(self.weight.cpu().to(torch.float32), self.weight_axis)
+        return scale_fn(weight.reshape(
+            weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
+
+
+# When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
+# which are registered to the scaling modules (used in the parametrization of the
+# the weights). By default, these parameters have requires_grad set to True, and when
+# registering the parametrizations, the forward pass of the parametrization modules
+# is run (when unsafe is False, see _init_ of ParametrizationList), as well as when
+# a module is part of multiple regions. Therefore, wrapping _cross_layer_equalization
+# with torch.no_grad() prevents gradient functions (and gradient-related intermediate
+# tensors) from being recorded when running this forward, thus preventing unnecessary
+# memory consumption during the algorithm execution.
+@torch.no_grad()
 def _cross_layer_equalization(
+        model: nn.Module,
         region: Region,
         merge_bias: bool,
         scale_computation_type: str,
@@ -469,20 +613,21 @@ def _cross_layer_equalization(
         list_of_act_val: Optional[torch.Tensor] = None,
         list_of_insert_mul_node_fn: Optional[List[Callable]] = None,
         alpha: float = 0.5,
-        co_optimize_act_weights: bool = False) -> torch.Tensor:
+        co_optimize_act_weights: bool = False,
+        fuse_scaling: bool = True) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
     ranges of the second tensors' input channel
     """
+    rewriters = []
 
     # If equalization criteria are not met, we return a scalar one to indicate that no equalization
     # has been performed
     def _no_equalize():
-        return torch.tensor(1., dtype=dtype)
+        return torch.tensor(1., dtype=dtype), []
 
     # If a module has `allocate_params` attribute, we must load the weights following that method
-
     for name in (region.srcs_names + region.sinks_names):
         module = region.get_module_from_name(name)
         if hasattr(module, 'allocate_params'):
@@ -501,25 +646,49 @@ def _cross_layer_equalization(
     for name, indexes in region.srcs.items():
         module = region.get_module_from_name(name)
         # If module is not supported, do not perform graph equalization
-        axis = _get_output_axis(module)
+        weight_axis = _get_output_axis(module)
         act_sources_axes[name] = _get_act_axis(module)
 
         if isinstance(module, nn.MultiheadAttention):
             module = module.out_proj
-        src_axes[name] = (module, axis)
+
+        src_axes[name] = EqualizationSourceWrapper(
+            module=module,
+            weight_tensor_name="weight",
+            weight_axis=weight_axis,
+            equalization_indexes=indexes,
+            bias_tensor_name="bias",
+            bias_axis=0,
+        )
 
     sink_axes = {}
     for name, indexes in region.sinks.items():
         module = region.get_module_from_name(name)
-        axis = _get_input_axis(module)
+        weight_axis = _get_input_axis(module)
         act_sink_axes[name] = _get_act_axis(module)
-        # For MultiheadAttention, we support only self-attetion
+        # For MultiheadAttention, we support only self-attention
+        # For sinks, we only need to modify the weight but not the bias
         if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
-            # For sinks, we only need to modify the weight but not the bias
-            module = WeightBiasWrapper(module.in_proj_weight)
+            # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
+            weight_tensor_name = "in_proj_weight"
         elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
             return _no_equalize()
-        sink_axes[name] = (module, axis)
+        else:
+            weight_tensor_name = "weight"
+
+        sink_axes[name] = EqualizationSinkWrapper(
+            module=module,
+            weight_tensor_name=weight_tensor_name,
+            weight_axis=weight_axis,
+            equalization_indexes=indexes,
+        )
+
+    # Check if any of the axis is None, which means that the module is not supported.
+    # In that case, do not perform graph equalization
+    axes_to_check = [m.weight_axis for m in list(src_axes.values()) + list(sink_axes.values())]
+    if None in axes_to_check:
+        return _no_equalize()
+
     # If act_val is enabled, use source or sink weights to determine the activation channel
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if list_of_act_val is not None:
@@ -536,48 +705,29 @@ def _cross_layer_equalization(
         if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
             return _no_equalize()
 
-    # Check if any of the axis is None, which means that the module is not supported.
-    # In that case, do not perform graph equalization
-    axes_to_check = [axis for _, axis in list(src_axes.values()) + list(sink_axes.values())]
-    if None in axes_to_check:
-        return _no_equalize()
-
     scale_fn = _select_scale_computation_fn(scale_computation_type)
-    sink_weights = {
-        name: transpose(m.weight.cpu().to(torch.float32), axis)
-        for name, (m, axis) in sink_axes.items()}
     srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
     sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
-    for k, v in sink_weights.items():
+    for name, module in sink_axes.items():
         # Sinks can be partially equalized, thus we need to select
         # only the channels we are interested in
-        indexes = region.sinks[k]
+        indexes = region.sinks[name]
         # Compute the range of the channels we need to equalize
-        weight_range = scale_fn(v.reshape(v.size(0), -1))[indexes.start:indexes.end]
+        weight_range = module.get_weight_range(scale_fn=scale_fn)
         # Compute the numbers of channels we are equalizing
         channel_range = indexes.end - indexes.start
         # Use the offset and the range to update the correct range in the sinks
         sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
             sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
 
-    # Determine the srcs_range based on where we are performing activation equalization or
-    # weight equalization
-    if merge_bias:
-        src_weights = {
-            name: _combine_weights_bias(transpose(m.weight, axis), bias_shrinkage,
-                                        m.bias).cpu().to(torch.float32)
-            for name, (m, axis) in src_axes.items()}
-    else:
-        src_weights = {
-            name: transpose(m.weight.cpu().to(torch.float32), axis)
-            for name, (m, axis) in src_axes.items()}
-    for k, v in src_weights.items():
+    for name, module in src_axes.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
-        indexes = region.srcs[k]
+        indexes = region.srcs[name]
         channel_start = indexes.offset + indexes.start
         channel_end = indexes.offset + indexes.end
-        weight_range = scale_fn(v.reshape(v.size(0), -1))
+        weight_range = module.get_weight_range(
+            scale_fn=scale_fn, merge_bias=merge_bias, bias_shrinkage=bias_shrinkage)
         srcs_range[channel_start:channel_end] = torch.max(
             srcs_range[channel_start:channel_end], weight_range)
     if list_of_act_val is not None:
@@ -586,8 +736,7 @@ def _cross_layer_equalization(
             shape_0 = list_of_act_val_shapes[0]
             if any(shape_0 != shape for shape in list_of_act_val_shapes):
                 return _no_equalize()
-        list_of_act_val = list_of_act_val = [
-            transpose(act_val, act_axis) for act_val in list_of_act_val]
+        list_of_act_val = [transpose(act_val, act_axis) for act_val in list_of_act_val]
         srcs_range_act = scale_fn(
             torch.cat([
                 act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
@@ -617,48 +766,23 @@ def _cross_layer_equalization(
 
     srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
-    scaling_factors = srcs_range / sinks_range
-    inverse_scaling_factors = torch.reciprocal(scaling_factors)
+    scaling_factors = sinks_range / srcs_range
+    # If the scaling factors are not fused, they are stored as a parameter instead
+    if not fuse_scaling:
+        scaling_factors = nn.Parameter(scaling_factors)
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
-        device = list_of_act_val[0].device
         for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
-            insert_mul_node_fn(
-                inverse_scaling_factors.to(device=device, dtype=dtype), act_val_shape, act_axis)
-    if len(src_axes) > 0:
-        for name, (module, axis) in src_axes.items():
-            module_device = module.weight.device
-            indexes = region.srcs[name]
-            channel_start = indexes.offset + indexes.start
-            channel_end = indexes.offset + indexes.end
-            partial_inverse_scale = inverse_scaling_factors[channel_start:channel_end].to(
-                device=module_device, dtype=dtype)
-            if hasattr(module, 'bias') and module.bias is not None:
-                _update_weights(
-                    module, module.bias * partial_inverse_scale.view_as(module.bias), attr='bias')
-            src_broadcast_size = [1] * module.weight.ndim
-            src_broadcast_size[axis] = module.weight.size(axis)
+            insert_mul_node_fn(scaling_factors, act_val_shape, act_axis)
 
-            _update_weights(
-                module,
-                module.weight * torch.reshape(partial_inverse_scale, src_broadcast_size),
-                attr='weight')
-    for name, (module, axis) in sink_axes.items():
-        module_device = module.weight.device
-        sink_broadcast_size = [1] * module.weight.ndim
-        sink_broadcast_size[axis] = module.weight.size(axis)
-        indexes = region.sinks[name]
-        channel_range = indexes.end - indexes.start
-        partial_scaling = torch.ones(module.weight.size(axis), device='cpu', dtype=dtype)
-        # We replace the scaling factors of the channels we need to equalize, leaving the other to
-        # one (i.e., no equalization)
-        partial_scaling[indexes.start:indexes.end] = scaling_factors[indexes.offset:indexes.offset +
-                                                                     channel_range]
-        partial_scaling = partial_scaling.to(device=module_device, dtype=dtype)
-        _update_weights(
-            module,
-            module.weight * torch.reshape(partial_scaling, sink_broadcast_size),
-            attr='weight')
+    # Whether to apply the scaling in-place or parametrize the weights instead
+    rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
+    for module in chain(src_axes.values(), sink_axes.values()):
+        rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
+
+    # Apply rewriters before offloading
+    for r in rewriters:
+        model = r.apply(model)
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
@@ -666,14 +790,7 @@ def _cross_layer_equalization(
         if hasattr(module, 'offload_params'):
             module.offload_params(module)
 
-    return scaling_factors
-
-
-def _update_weights(original_module, new_value, attr='weight'):
-    if isinstance(original_module, WeightBiasWrapper):
-        setattr(getattr(original_module, attr), 'data', new_value)
-    else:
-        setattr(original_module, attr, nn.Parameter(new_value))
+    return scaling_factors, rewriters
 
 
 def _equalize(
@@ -687,15 +804,18 @@ def _equalize(
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
+    rewriters = []
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region = _cross_layer_equalization(
+            scale_factors_region, region_rewriters = _cross_layer_equalization(
+                model,
                 region,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
                 scale_computation_type=scale_computation_type)
             scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
+            rewriters.extend(region_rewriters)
             if scale_factor_max is not None:
                 scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
             else:
@@ -760,8 +880,7 @@ def get_weight_sink(module):
     transpose = lambda weight, axis: weight if axis == 0 else weight.transpose(0, 1)
     if isinstance(module, nn.MultiheadAttention) and not hasattr(module, 'in_proj_weight'):
         raise RuntimeError("Configuration for Multiheadattention not supported")
-    weight = WeightBiasWrapper(module.in_proj_weight).weight if isinstance(
-        module, nn.MultiheadAttention) else module.weight
+    weight = module.in_proj_weight if isinstance(module, nn.MultiheadAttention) else module.weight
     axis = _get_input_axis(module)
     weight = transpose(weight, axis)
     return weight
@@ -1049,7 +1168,13 @@ class ActivationEqualization(GraphTransform, ABC):
         broadcastable_shape.insert(batch_dim, 1)
         mul_factor = ScaleBias(
             num_features=shape[axis], bias=False, runtime_shape=broadcastable_shape)
-        mul_factor.weight.data = scale
+        if isinstance(scale, nn.Parameter):
+            # Register as parameter, thus potentially being tied with the scaling factors
+            # kept by other modules
+            mul_factor.weight = scale
+        else:
+            # Modify in-place the values of the weight parameter
+            mul_factor.weight.data = scale
         return mul_factor
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
@@ -1093,13 +1218,15 @@ class LayerwiseActivationEqualization(ActivationEqualization):
             self,
             model,
             scale_computation_type: str = 'maxabs',
-            blacklist_layers: Optional[List[str]] = None):
+            blacklist_layers: Optional[List[str]] = None,
+            fuse_scaling: bool = True):
         super(LayerwiseActivationEqualization, self).__init__(model, scale_computation_type)
         self.float_act_map = {}
         self.batch_dim_act_map = {}
         self.hooks = []
         self.add_mul_node = True
         self.blacklist_layers = blacklist_layers
+        self.fuse_scaling = fuse_scaling
 
         regions: List[Region] = []
         self.find_module(model, regions)
@@ -1144,6 +1271,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
 
     def apply(self, alpha):
         scale_factors = []
+        rewriters = []
         self.remove_hooks()
         for region in self.regions:
             name = list(region.sinks.keys())[0]
@@ -1153,15 +1281,18 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 continue
             insert_mul_fn = partial(
                 self.insert_mul_node, region=module, batch_dim=self.batch_dim_act_map[module])
-            scale_factors.append(
-                _cross_layer_equalization(
-                    region,
-                    False,
-                    scale_computation_type=self.scale_computation_type,
-                    list_of_act_val=[self.float_act_map[module]],
-                    list_of_insert_mul_node_fn=[insert_mul_fn],
-                    alpha=alpha))
-        return scale_factors
+            scale_factors_region, rewriters_region = _cross_layer_equalization(
+                self.model,
+                region,
+                False,
+                scale_computation_type=self.scale_computation_type,
+                list_of_act_val=[self.float_act_map[module]],
+                list_of_insert_mul_node_fn=[insert_mul_fn],
+                alpha=alpha,
+                fuse_scaling=self.fuse_scaling)
+            scale_factors.append(scale_factors_region)
+            rewriters.extend(rewriters_region)
+        return scale_factors, rewriters
 
     def insert_mul_node(self, scale, shape, axis, region, batch_dim=0):
         mul_factor = self.create_mul_node(scale, shape, axis, batch_dim)
@@ -1177,7 +1308,8 @@ class GraphActivationEqualization(ActivationEqualization):
             model: GraphModule,
             add_mul_node: bool = False,
             scale_computation_type: str = 'maxabs',
-            co_optimize_act_weights: bool = False):
+            co_optimize_act_weights: bool = False,
+            fuse_scaling: bool = True):
         super(GraphActivationEqualization, self).__init__(model, scale_computation_type)
         self.float_act_map = {}
         self.batch_dim_act_map = {}
@@ -1185,6 +1317,7 @@ class GraphActivationEqualization(ActivationEqualization):
         self.hooked_modules = set()
         self.add_mul_node = add_mul_node
         self.co_optimize_act_weights = co_optimize_act_weights
+        self.fuse_scaling = fuse_scaling
 
         # It is not possible to equalize through LayerNorm/BatchNorm as sink
         supported_sinks = tuple([
@@ -1241,6 +1374,7 @@ class GraphActivationEqualization(ActivationEqualization):
 
     def apply(self, alpha):
         scale_factors = []
+        rewriters = []
         self.remove_hooks()
         for region in self.regions:
             region_names = region.sinks_names if len(region.acts) == 0 else region.acts
@@ -1262,17 +1396,20 @@ class GraphActivationEqualization(ActivationEqualization):
                             act_node=act_node,
                             batch_dim=self.batch_dim_act_map[act_name]))
 
-            scale_factors.append(
-                _cross_layer_equalization(
-                    region,
-                    False,
-                    scale_computation_type=self.scale_computation_type,
-                    list_of_act_val=list_of_act_val,
-                    list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
-                    alpha=alpha,
-                    co_optimize_act_weights=self.co_optimize_act_weights))
+            scale_factors_region, rewriters_region = _cross_layer_equalization(
+                self.model,
+                region,
+                False,
+                scale_computation_type=self.scale_computation_type,
+                list_of_act_val=list_of_act_val,
+                list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
+                alpha=alpha,
+                co_optimize_act_weights=self.co_optimize_act_weights,
+                fuse_scaling=self.fuse_scaling)
+            scale_factors.append(scale_factors_region)
+            rewriters.append(rewriters_region)
 
-        return scale_factors
+        return scale_factors, rewriters
 
     def insert_mul_node(self, scale, shape, axis, act_node, batch_dim=0):
         mul_factor = self.create_mul_node(scale, shape, axis, batch_dim)
@@ -1468,14 +1605,14 @@ def _untie_parameters_with_parametrizations(model: torch.nn.Module):
     return model
 
 
-def fuse_parametrized_rotations(model: nn.Module) -> nn.Module:
+def fuse_parametrizations(model: nn.Module) -> nn.Module:
     # First of all, parameters that have parametrizations need to be untied
     model = _untie_parameters_with_parametrizations(model)
     # Then, parametrizations can be safely removed
     for module in model.modules():
         if parametrize.is_parametrized(module):
             # Names of the tensors that can potentially be parametrized
-            tensor_names = ["weight", "bias"]
+            tensor_names = ["weight", "in_proj_weight", "bias"]
             # Remove parametrizations from each tensor
             for tensor_name in tensor_names:
                 if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
@@ -1608,7 +1745,7 @@ class GraphRotationEqualization(RotationEqualization):
             # Therefore, algorithms that do type checking might need to use type_before_parametrizations(module),
             # instead of only type(module) (see layerwise_layer_handler). Algorithms that rely on in-place modifications
             # of the weights should not operate on parametrized modules. In this situation, parametrizations
-            # need to be removed beforehand by invoking fuse_parametrized_rotations
+            # need to be removed beforehand by invoking fuse_parametrizations
             warnings.warn(
                 "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
             )

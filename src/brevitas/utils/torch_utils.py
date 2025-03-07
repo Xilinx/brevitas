@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from dataclasses import dataclass
 from functools import wraps
 from typing import List, Optional, Tuple
 
 import torch
+from torch import nn
 from torch.nn import Sequential
 
 import brevitas
