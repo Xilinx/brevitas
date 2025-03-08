@@ -133,8 +133,8 @@ class _AXE:
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
 
         scales: Tensor = self.layer.weight_quant.scale()
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if is_c:
+        if isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
+            if is_conv_transposed(self.layer):
                 scales = scales.transpose(1, 0)  # This performs a view
             scales = scales.flatten(1)
 
