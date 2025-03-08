@@ -191,6 +191,9 @@ class ModuleToModule(GraphTransform, ABC):
     def _replace_old_module(self, model, old_module, new_module, load_state_dict=True):
         replace_module(model, old_module, new_module)
         if load_state_dict:
+            # work-around since weight_orig is from a previous quantization algorithm
+            if hasattr(old_module, 'weight_orig'):
+                new_module.register_buffer('weight_orig', old_module.weight_orig.data)
             if not is_parametrized(old_module):
                 new_module.load_state_dict(old_module.state_dict())
             else:
