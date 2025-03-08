@@ -15,8 +15,8 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
-from brevitas.graph.gpxq import SUPPORTED_CONV_OP
-from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
+from brevitas.graph.gpxq import SUPPORTED_CONV_QUANT_MODULE
+from brevitas.graph.utils import is_conv_transposed
 import brevitas.nn as qnn
 from brevitas.utils.torch_utils import StopFwdException
 
@@ -70,9 +70,9 @@ class GPFQ(GPxQ):
             # For QuantLinear layer, groups will be 1
             inp_processed = inp.unsqueeze(0)
 
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
+        if isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
             # Pick the correct unfoldNd class
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+            if is_conv_transposed(self.layer):
                 unfold_impl = unfoldNd.UnfoldTransposeNd
             else:
                 unfold_impl = unfoldNd.UnfoldNd
@@ -146,8 +146,8 @@ class GPFQ(GPxQ):
         # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+        if isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
+            if is_conv_transposed(self.layer):
                 weight = weight.transpose(1, 0)  # This performs a view
                 weight_orig = weight_orig.transpose(1, 0)
             weight = weight.flatten(1)
@@ -307,11 +307,10 @@ class gpfq_mode(gpxq_mode):
                 gpxq_class.disable_pre_forward_hook = False
             return out
 
-    def initialize_module_optimizer(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
+    def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
         return self.gpfq_class(
             layer=layer,
             name=name,
-            act_order=act_order,
+            act_order=self.act_order,
             len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig)

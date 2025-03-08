@@ -9,6 +9,7 @@ from torch.utils.data import TensorDataset
 
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.magr import magr_mode
 
 from .equalization_fixtures import *
 
@@ -78,3 +79,46 @@ def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq
         model=model,
         act_order=act_order,
         use_quant_activations=use_quant_activations)
+
+
+@torch.no_grad()
+def apply_magr(
+        model,
+        dataloader,
+        create_weight_orig=False,
+        group_of_parallel_layers=None,
+        alpha=0.1,
+        num_steps=10):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with magr_mode(model,
+                   group_of_parallel_layers=group_of_parallel_layers,
+                   create_weight_orig=create_weight_orig,
+                   num_steps=num_steps,
+                   alpha=alpha) as magr:
+        magr_model = magr.model
+        for _, (images, _) in enumerate(dataloader):
+            images = images.to(device)
+            images = images.to(dtype)
+            magr_model(images)
+        magr.update()
+
+
+def test_magr(toy_model, request):
+    test_id = request.node.callspec.id
+
+    torch.manual_seed(SEED)
+
+    model_class = toy_model
+    model = model_class()
+    if 'mha' in test_id:
+        inp = torch.randn(32, *IN_SIZE_LINEAR[1:])
+    else:
+        inp = torch.randn(32, *IN_SIZE_CONV_SMALL[1:])
+    model.eval()
+    model(inp)  # test forward pass and collect scaling factors
+    dataset = TensorDataset(inp, inp)
+    dataloader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
+
+    apply_magr(model, dataloader)

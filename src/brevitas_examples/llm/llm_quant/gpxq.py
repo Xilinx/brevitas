@@ -15,14 +15,38 @@ from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.magr import magr_mode
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.axe import A2GPFQ
 from brevitas_examples.common.axe import A2GPTQ
 
 
+def _gpxq_block_optimization_callback(block, gpxq, cached_args, cached_kwargs):
+    for _ in tqdm(range(gpxq.num_layers), desc="Layers", leave=False):
+        for args, kwargs in zip(cached_args, cached_kwargs):
+            args = send_to_device(args, 'cuda')
+            kwargs = send_to_device(kwargs, 'cuda')
+            block(*args, **kwargs)
+        gpxq.update()
+
+
+def _magr_block_optimization_callback(block, magr, cached_args, cached_kwargs):
+    for args, kwargs in zip(cached_args, cached_kwargs):
+        args = send_to_device(args, 'cuda')
+        kwargs = send_to_device(kwargs, 'cuda')
+        block(*args, **kwargs)
+    magr.update()
+
+
 @torch.no_grad()
-def block_optimization(model, dataloader, block_name, context_manager_func, context_manager_kwargs):
+def block_optimization(
+        model,
+        dataloader,
+        block_name,
+        context_manager_func,
+        context_manager_kwargs,
+        block_optimization_callback=_gpxq_block_optimization_callback):
     disable_quant_inference = DisableEnableQuantization()
     cache_state = model.config.use_cache
     model.config.use_cache = False
@@ -68,12 +92,7 @@ def block_optimization(model, dataloader, block_name, context_manager_func, cont
     # Iterate through all the blocks
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
         with context_manager_func(block, **context_manager_kwargs) as gpxq:
-            for _ in tqdm(range(gpxq.num_layers), desc="Layers", leave=False):
-                for args, kwargs in zip(cached_args, cached_kwargs):
-                    args = send_to_device(args, 'cuda')
-                    kwargs = send_to_device(kwargs, 'cuda')
-                    block(*args, **kwargs)
-                gpxq.update()
+            block_optimization_callback(block, gpxq, cached_args, cached_kwargs)
 
         if index < len(blocks) - 1:
             # Once the block is done, we need to update the input to the next block
@@ -114,7 +133,7 @@ def apply_gptq(
         group_of_parallel_layers=None,
         block_name=None,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=128):
+        max_accumulator_tile_size=None):
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
@@ -154,7 +173,7 @@ def apply_gpfq(
         group_of_parallel_layers=None,
         block_name=None,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=128):
+        max_accumulator_tile_size=None):
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
@@ -182,3 +201,37 @@ def apply_gpfq(
                 for inps in dataloader:
                     gpfq_model(**inps)
                 gpfq.update()
+
+
+@torch.no_grad()
+def apply_magr(
+        model,
+        dataloader,
+        create_weight_orig=False,
+        group_of_parallel_layers=None,
+        block_name=None,
+        alpha=0.1,
+        num_steps=10):
+    if block_name is not None:
+        context_manager_kwargs = {
+            'group_of_parallel_layers': group_of_parallel_layers,
+            'create_weight_orig': create_weight_orig,
+            'alpha': alpha,
+            'num_steps': num_steps}
+        block_optimization(
+            model,
+            dataloader,
+            block_name,
+            magr_mode,
+            context_manager_kwargs,
+            block_optimization_callback=_magr_block_optimization_callback)
+    else:
+        with magr_mode(model,
+                       group_of_parallel_layers=group_of_parallel_layers,
+                       create_weight_orig=create_weight_orig,
+                       num_steps=num_steps,
+                       alpha=alpha) as magr:
+            magr_model = magr.model
+            for inps in tqdm(dataloader, desc="Calculating covariances..."):
+                magr_model(**inps)
+            magr.update()

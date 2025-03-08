@@ -13,6 +13,7 @@ import warnings
 
 import torch
 from torch.fx import GraphModule as TorchGraphModule
+import torch.nn as nn
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import disable_return_quant_tensor
@@ -21,11 +22,18 @@ from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.utils import is_conv_transposed
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
 
-SUPPORTED_TCONV_OP = (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)
+# supported base torch modules
+SUPPORTED_TCONV_TORCH_MODULE = (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
+SUPPORTED_CONV_TORCH_MODULE = (nn.Conv1d, nn.Conv2d, nn.Conv3d, *SUPPORTED_TCONV_TORCH_MODULE)
 
-SUPPORTED_CONV_OP = (qnn.QuantConv1d, qnn.QuantConv2d, qnn.QuantConv3d, *SUPPORTED_TCONV_OP)
+# supported Brevitas quant modules
+SUPPORTED_TCONV_QUANT_MODULE = (
+    qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)
+SUPPORTED_CONV_QUANT_MODULE = (
+    qnn.QuantConv1d, qnn.QuantConv2d, qnn.QuantConv3d, *SUPPORTED_TCONV_QUANT_MODULE)
 
 
 @dataclass
@@ -85,7 +93,6 @@ class gpxq_mode(ABC):
         self.num_layers = 0
         # Quantize following magnitude of activation
         self.act_order = act_order
-        # How many subblock to use during GPTQ for each layer
 
         self.disable_quant_inference = DisableEnableQuantization()
         self.return_quant_tensor_state = dict()
@@ -100,7 +107,7 @@ class gpxq_mode(ABC):
             self.model.forward = self.catch_stopfwd
 
     def _is_module_supported(self, module):
-        if isinstance(module, SUPPORTED_CONV_OP):
+        if isinstance(module, SUPPORTED_CONV_QUANT_MODULE):
             return True
         elif isinstance(module, qnn.QuantLinear):
             return True
@@ -139,7 +146,6 @@ class gpxq_mode(ABC):
                     gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
                         name,
-                        act_order=self.act_order,
                         len_parallel_layers=len(parallel_layers),
                         create_weight_orig=self.create_weight_orig)
                     hook_fn = partial(
@@ -188,6 +194,7 @@ class GPxQ(ABC):
         self.layer = layer
         self.name = name
         self.act_order = act_order
+        self.create_weight_orig = create_weight_orig
 
         weight_shape = torch.tensor(layer.weight.shape)
 
@@ -196,7 +203,7 @@ class GPxQ(ABC):
 
         # By default, use groups = 1
         self.groups = 1
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
+        if isinstance(self.layer, SUPPORTED_CONV_TORCH_MODULE):
             if is_conv_transposed(self.layer):
                 weight_shape[1], weight_shape[0] = weight_shape[0], weight_shape[1]
             self.groups = self.layer.groups
@@ -214,9 +221,11 @@ class GPxQ(ABC):
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
-        inp = self.layer.input_quant(inp)
-
-        is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+        if isinstance(self.layer, QuantWBIOL):
+            inp = self.layer.input_quant(inp)
+            is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+        else:
+            is_quant_enabled = False
 
         # If using quantized activations, inp could be QuantTensor. In
         # this case, we overwrite the metadata.
@@ -268,18 +277,16 @@ class GPxQ(ABC):
                     self.layer.quant_weight(
                         subtensor_slice_list=subtensor_slice_list,
                         quant_input=self.quant_metadata)).unsqueeze(0)  # [1, OC, 1]
-        elif isinstance(self.layer, SUPPORTED_CONV_OP):
+        elif isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
             # and we quantize only the selected dimensions.
             if self.layer.weight_quant.is_groupwise or with_quant_history or self.groups > 1 or (
-                    self.groups == 1 and
-                    isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
-
+                    self.groups == 1 and is_conv_transposed(self.layer)):
                 quant_weight = self.layer.quant_weight(quant_input=self.quant_metadata)
                 quant_weight = _unpack_quant_tensor(quant_weight)
 
-                if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                if is_conv_transposed(self.layer):
                     quant_weight = quant_weight.transpose(1, 0)  # This performs a view
                 quant_weight = quant_weight.flatten(1)
                 quant_weight = quant_weight.view(self.groups, -1, quant_weight.shape[-1])

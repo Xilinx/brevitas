@@ -18,8 +18,8 @@ from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gptq import GPTQ
-from brevitas.graph.gpxq import SUPPORTED_CONV_OP
-from brevitas.graph.gpxq import SUPPORTED_TCONV_OP
+from brevitas.graph.gpxq import SUPPORTED_CONV_QUANT_MODULE
+from brevitas.graph.utils import is_conv_transposed
 from brevitas.utils.quant_utils import _CachedIO
 
 
@@ -134,7 +134,7 @@ class _AXE:
 
         scales: Tensor = self.layer.weight_quant.scale()
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+            if is_c:
                 scales = scales.transpose(1, 0)  # This performs a view
             scales = scales.flatten(1)
 
@@ -212,8 +212,8 @@ class A2GPTQ(_AXE, GPTQ):
         # original dtype
         dtype = weight.dtype
 
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+        if isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
+            if is_conv_transposed(self.layer):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
 
@@ -400,8 +400,8 @@ class A2GPFQ(_AXE, GPFQ):
         # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+        if isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
+            if is_conv_transposed(self.layer):
                 weight = weight.transpose(1, 0)  # This performs a view
                 weight_orig = weight_orig.transpose(1, 0)
             weight = weight.flatten(1)
