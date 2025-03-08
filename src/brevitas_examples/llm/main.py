@@ -68,6 +68,7 @@ def filter_results(results, tasks):
     # filter out what we actually want to track
     eval_results = dict()
     for task_name in tasks:
+        # log all result metrics we have for this task
         for key, val in results["results"][task_name].items():
             if not isinstance(val, str):
                 # for mmlu, we don't log results per subtask, but simply overall results
