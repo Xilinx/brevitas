@@ -206,6 +206,7 @@ class FloatInferencetHandler(InferenceHandler):
             elif hasattr(module, 'fused_activation_quant_proxy'):
                 self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
+                self.max_available_float = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl.max_available_float
             self.pre_compute_max_mantissa = compute_max_mantissa(self.mantissa_bit_width)
             self.max_clamp = max_float(
                 self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)
