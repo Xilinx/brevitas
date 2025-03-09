@@ -1,3 +1,4 @@
+from hypothesis import given
 import pytest_cases
 import torch
 
@@ -13,6 +14,7 @@ from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import requires_pt_ge
 
 WEIGHT_QUANTIZERS = {
@@ -31,16 +33,18 @@ ACT_QUANTIZERS = {
 
 
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
+@given(weight=float_tensor_st(shape=(8, 16)))
 @requires_pt_ge('2.0')
-def test_compile_weight(weight_quantizer):
+def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
-    inp = torch.randn(8, 128)
-    linear = qnn.QuantLinear(128, 256, weight_quant=quant)
+    inp = torch.randn(8, 16)
+    linear = qnn.QuantLinear(16, 8, weight_quant=quant)
+    linear.weight.data = weight
     linear.eval()
     out = linear.quant_weight()
     linear.weight_quant.compile_quant()
     quant_out = linear.quant_weight()
-    with quant_inference_mode(linear):
+    with quant_inference_mode(linear, compile=True):
         _ = linear(inp)
         inference_out = linear.quant_weight()
     assert torch.allclose(out, quant_out)
@@ -48,14 +52,14 @@ def test_compile_weight(weight_quantizer):
 
 
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
+@given(inp=float_tensor_st(shape=(8, 16)))
 @requires_pt_ge('2.0')
-def test_compile_act(act_quantizer):
+def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
     if 'mx' in name:
         extra_kwargs = {'group_dim': 1}
     else:
         extra_kwargs = {}
-    inp = torch.randn(8, 128)
     identity = qnn.QuantIdentity(quant, **extra_kwargs)
     out = identity(inp)
     identity.eval()
@@ -63,7 +67,7 @@ def test_compile_act(act_quantizer):
 
     identity.act_quant.compile_quant()
     quant_out = identity(inp)
-    with quant_inference_mode(identity):
+    with quant_inference_mode(identity, compile=True):
         _ = identity(inp)
         inference_out = identity(inp)
     assert torch.allclose(out, quant_out)
