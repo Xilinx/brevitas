@@ -151,10 +151,6 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         if module.is_quant_enabled:
             self.group_dim = module.group_dim
             self.input_view = module.input_view_impl
-            if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
-                self.cached_weight = module._cached_weight.quant_tensor.value
-            else:
-                self.cached_weight = None
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
@@ -293,10 +289,6 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
             self.input_view = module.input_view_impl
             self.flattened_view = module.apply_input_view
             self.group_dim = module.group_dim
-            if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
-                self.cached_weight = module._cached_weight.quant_tensor.value_
-            else:
-                self.cached_weight = None
             self.shape = module.tracked_parameter_list[0].shape
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
