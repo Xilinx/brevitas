@@ -130,8 +130,7 @@ def coco_testing(
     imgs = [(t[0].cpu().permute(1, 2, 0).float().numpy() * 255).round().astype(np.uint8)
             for t in imgs.values()]
     imgs = [Image.fromarray(e).convert("RGB") for e in imgs]
-    print(len(imgs))
-    print(imgs[0])
+
     block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[2048]
     model = InceptionV3([block_idx]).to(device)
     m2, s2 = calculate_activation_statistics(imgs, model, 1, 2048, 'cuda', 1)
@@ -148,9 +147,9 @@ def load_calib_prompts(calib_data_path, sep="\t"):
 
 
 def get_denoising_network(pipe):
-    if isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline)):
+    if hasattr(pipe, 'unet'):
         return pipe.unet
-    elif isinstance(pipe, (FluxPipeline, StableDiffusion3Pipeline)):
+    elif hasattr(pipe, 'transformer'):
         return pipe.transformer
     else:
         raise ValueError
@@ -182,7 +181,10 @@ def run_test_inference(
                                  num_inference_steps=inference_steps,
                                  generator=generator,
                                  output_type="pt" if output_path is None else "pil").images
-            images[prompt] = [img for img in prompt_images]
+            if output_path is None:
+                images[prompt] = [img.cpu() for img in prompt_images]
+            else:
+                images[prompt] = prompt_images
 
         if output_path is not None:
             if not os.path.exists(output_path):
@@ -492,7 +494,7 @@ def main(args):
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            input_group_size=32,  #args.input_group_size
+            input_group_size=16,  #args.input_group_size
             input_bit_width=input_bit_width,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
@@ -874,17 +876,16 @@ def main(args):
                 # Perform a single forward pass before evenutally compiling
                 run_val_inference(
                     pipe,
-                    args.resolution,
-                    [calibration_prompts[0]],  # We need a list
+                    args.resolution, [calibration_prompts[0]],
                     test_seeds,
                     args.device,
                     dtype,
-                    deterministic=args.deterministic,
                     total_steps=1,
+                    deterministic=args.deterministic,
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
                     guidance_scale=args.guidance_scale,
-                    use_latent=not is_flux_model)
+                    is_unet=is_unet)
                 if args.compile:
                     denoising_network = torch.compile(denoising_network)
                 compute_mlperf_fid(
@@ -898,8 +899,20 @@ def main(args):
         elif args.inference_pipeline == 'samples':
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
-            assert args.prompt <= len(TESTING_PROMPTS), f"Only {len(TESTING_PROMPTS)} prompts are available"
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+                run_val_inference(
+                    pipe,
+                    args.resolution, [calibration_prompts[0]],
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=1,
+                    deterministic=args.deterministic,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale,
+                    is_unet=is_unet)
+
                 quant_images = run_test_inference(
                     pipe,
                     args.resolution,
@@ -931,20 +944,34 @@ def main(args):
             print(f"FID: {float(fid.compute())}")
 
         elif args.inference_pipeline == 'coco':
-            fid = coco_testing(
-                pipe,
-                num_prompt=args.prompt,
-                resolution=args.resolution,
-                inference_steps=args.inference_steps,
-                guidance_scale=args.guidance_scale,
-                use_negative_prompts=args.use_negative_prompts,
-                caption_path=args.caption_path,
-                statistics_path=args.statistics_path,
-                dtype=dtype,
-                is_unet=is_unet,
-                deterministic=args.deterministic,
-                device=args.device)
-            print(fid)
+            pipe.set_progress_bar_config(disable=True)
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+                run_val_inference(
+                    pipe,
+                    args.resolution, [calibration_prompts[0]],
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=1,
+                    deterministic=args.deterministic,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale,
+                    is_unet=is_unet)
+                fid = coco_testing(
+                    pipe,
+                    num_prompt=args.prompt,
+                    resolution=args.resolution,
+                    inference_steps=args.inference_steps,
+                    guidance_scale=args.guidance_scale,
+                    use_negative_prompts=args.use_negative_prompts,
+                    caption_path=args.caption_path,
+                    statistics_path=args.statistics_path,
+                    dtype=dtype,
+                    is_unet=is_unet,
+                    deterministic=args.deterministic,
+                    device=args.device)
+                print(fid)
 
 
 if __name__ == "__main__":
@@ -1022,7 +1049,7 @@ if __name__ == "__main__":
         type=int,
         default=1,
         help='Number of iterations to use for SVDQuant (default: %(default)s).')
-    parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
+    parser.add_argument('--guidance-scale', type=float, default=None, help='Guidance scale.')
     parser.add_argument(
         '--calibration-steps', type=int, default=8, help='Steps used during calibration')
     parser.add_argument(
@@ -1297,11 +1324,6 @@ if __name__ == "__main__":
         help='Quantize scaled dot product attention zero-point. Default: %(default)s')
     add_bool_arg(
         parser, 'export-cpu-float32', default=False, help='Export FP32 on CPU. Default: Disabled')
-    add_bool_arg(
-        parser,
-        'use-mlperf-inference',
-        default=False,
-        help='Evaluate FID score with MLPerf pipeline. Default: False')
     add_bool_arg(
         parser,
         'use-negative-prompts',
