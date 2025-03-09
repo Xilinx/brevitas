@@ -9,6 +9,7 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 
+from brevitas.function import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
@@ -201,28 +202,33 @@ class FloatInferencetHandler(InferenceHandler):
             if hasattr(module.tensor_quant, 'float_to_int_impl'):
                 self.float_to_int_impl = module.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.tensor_quant.float_clamp_impl
+                self.max_available_float = module.tensor_quant.float_clamp_impl.max_available_float(
+                )
             elif hasattr(module, 'fused_activation_quant_proxy'):
                 self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
-
+            self.pre_compute_max_mantissa = compute_max_mantissa(self.mantissa_bit_width)
             self.max_clamp = max_float(
-                self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+                self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)
             self.min_clamp = -self.max_clamp
             self.fp_internal_scale_min = 1. - self.exponent_bias - self.mantissa_bit_width
             self.max_value = max_float(
-                self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+                self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)
+            self.max_value = self.max_value if self.max_available_float is None else torch.min(
+                self.max_value, self.max_available_float)
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quantize(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
-        # Compute masks
-        inf_mask = x.isinf()
-        p_max_val_mask = x > self.max_value
-        n_max_val_mask = -x > self.max_value
         # Quantize
         x = x / scale
         internal_scale = float_internal_scale(
             x, self.mantissa_bit_width, self.fp_internal_scale_min, self.eps)
         x = internal_scale * self.float_to_int_impl(x / internal_scale)
+
+        # Compute masks
+        inf_mask = x.isinf()
+        p_max_val_mask = x > self.max_value
+        n_max_val_mask = -x > self.max_value
 
         # Clamp
         x = self.float_clamp_impl.saturating_clamp(x, self.max_value, self.min_value)
