@@ -202,8 +202,7 @@ class FloatInferencetHandler(InferenceHandler):
             if hasattr(module.tensor_quant, 'float_to_int_impl'):
                 self.float_to_int_impl = module.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.tensor_quant.float_clamp_impl
-                self.max_available_float = module.tensor_quant.float_clamp_impl.max_available_float(
-                )
+                self.max_available_float = module.tensor_quant.float_clamp_impl.max_available_float
             elif hasattr(module, 'fused_activation_quant_proxy'):
                 self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
@@ -215,7 +214,7 @@ class FloatInferencetHandler(InferenceHandler):
             self.max_value = max_float(
                 self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)
             self.max_value = self.max_value if self.max_available_float is None else torch.min(
-                self.max_value, self.max_available_float)
+                self.max_value, self.max_available_float())
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quantize(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
