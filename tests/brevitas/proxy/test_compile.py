@@ -43,34 +43,33 @@ def test_compile_weight(weight, weight_quantizer):
     linear.weight.data = weight
     linear.eval()
     out = linear.quant_weight().value
-    # linear.weight_quant.compile_quant()
+    linear.weight_quant.compile_quant()
     quant_out = linear.quant_weight().value
-    with quant_inference_mode(linear, compile=False):
+    with quant_inference_mode(linear, compile=True):
         _ = linear(inp)
         inference_out = linear.quant_weight()
     assert torch.allclose(out, quant_out)
-    print(torch.max(torch.abs(inference_out - out)))
     assert torch.allclose(out, inference_out)
 
 
-# @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
-# @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
-# @requires_pt_ge('2.3.1')
-# def test_compile_act(inp, act_quantizer):
-#     name, quant = act_quantizer
-#     if 'mx' in name:
-#         extra_kwargs = {'group_dim': 1}
-#     else:
-#         extra_kwargs = {}
-#     identity = qnn.QuantIdentity(quant, **extra_kwargs)
-#     out = identity(inp)
-#     identity.eval()
-#     out = identity(inp)
+@pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
+@given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
+@requires_pt_ge('2.3.1')
+def test_compile_act(inp, act_quantizer):
+    name, quant = act_quantizer
+    if 'mx' in name:
+        extra_kwargs = {'group_dim': 1}
+    else:
+        extra_kwargs = {}
+    identity = qnn.QuantIdentity(quant, **extra_kwargs)
+    out = identity(inp)
+    identity.eval()
+    out = identity(inp)
 
-#     identity.act_quant.compile_quant()
-#     quant_out = identity(inp)
-#     with quant_inference_mode(identity, compile=True):
-#         _ = identity(inp)
-#         inference_out = identity(inp)
-#     assert torch.allclose(out, quant_out)
-#     assert torch.allclose(out, inference_out)
+    identity.act_quant.compile_quant()
+    quant_out = identity(inp)
+    with quant_inference_mode(identity, compile=True):
+        _ = identity(inp)
+        inference_out = identity(inp)
+    assert torch.allclose(out, quant_out)
+    assert torch.allclose(out, inference_out)
