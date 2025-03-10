@@ -82,6 +82,7 @@ def set_seed(seed):
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
+    model.config.use_cache = False
     with torch.no_grad():
         new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
