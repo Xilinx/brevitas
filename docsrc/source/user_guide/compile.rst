@@ -32,16 +32,16 @@ highly optimized kernels and great speed-ups compared to their floating point va
 
 Compile your quantized network
 ==============================
-Starting with torch 2.0, it is not possible to `compile` your code to get on-the-fly speed-up compared
+Starting with torch 2.0, it is now possible to `compile` your code to get on-the-fly speed-up compared
 to eager execution. With the most recent versions of torch, this functionality is greatly improved
 with support to more operations and patterns.
 
 However, compile still has some limitations, which might lead to excessive recompilations or failures to compile altogether.
 
 In Brevitas, we are adding support for compile in different point of the quantization pipeline,
-trying to find a good compromise between easiness-of-use, benefits in terms of speed-up, and compatibility.
+trying to find a good compromise between ease-of-use, speed-up, and compatibility.
 
-Currently, there are three main ways to leverage torch.compile with Brevitas, each with its own pro and cons.
+Currently, there are three main ways to leverage torch.compile with Brevitas, each with its own pros and cons.
 
 The first two of these approaches rely on newly introduced quant_inference_mode.
 This mode should be used once quantization is finished, and the idea is to trade away some flexibility, which is not
@@ -117,7 +117,7 @@ inference time, which for some algorithms is definitely interesting.
         model(**example_input)
 
 As in the previous case, the user is responsible for compiling the model, although we provide some functions
-in our quantizers to simplify the process. NB: this inference might (and very likely will) change in the future.
+in our quantizers to simplify the process. NB: this interface might (and very likely will) change in the future.
 This approach is also compatible with quant_inference_mode, because the compilation status is reset.
 
 
@@ -127,10 +127,10 @@ Some results
 Quantizers compile + quant_inference_mode
 -----------------------------------------
 These are small examples of possible speed-ups with compile.
-The runtime includes compilation time, which is especially significative for the WikiText2 inference
+The runtime includes compilation time, which is especially significant for the WikiText2 inference
 that has a very short runtime.
-Even then, compile provides a considerable speed-up, which becomes more evident with biggger models and
-longer evaluations (e.g., few-shot 
+Even then, compile provides a considerable speed-up, which becomes more evident with bigger models and
+longer evaluations (e.g., few-shot).
 
 
 
@@ -182,7 +182,7 @@ A non-comprehensive list can be found below:
 
 * Some operations are currently not supported for compile, such as kth-value that we use for percentile statistics
 
-* When optimizing PTQ, it is generally suggested to skip the activation calibration part, as it might easily lead to too-many-recompilations errors
+* When optimizing PTQ, it is generally suggested to skip the activation calibration part, as it may lead to too-many-recompilations errors
 
 * Compiling inference execution might lead to slightly different output compared to eager execution
 
@@ -218,7 +218,7 @@ quantization benefits more than integer one, especially with quant_inference_mod
 Similarly, compiling during PTQ might not provide benefits because the slow part of the codebase is not the quantization part,
 but the algorithm itself.
 
-* Which PTQ algorithms are compile-friendly?
+* *Which PTQ algorithms are compile-friendly?*
 
 This is undefined. In general, it does not only depend on the algorithm itself but also on everything that comes after the compilation process.
 A lot of supported algorithms should be fairly compatible with compile since there's limited interaction, but we have not tested all possible combinations with all possible networks.
