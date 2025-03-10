@@ -11,7 +11,7 @@ def _disabled(fn):
     return fn
 
 
-if torch_version > version.parse('2.0'):
+if torch_version > version.parse('2.1'):
     disable = torch._dynamo.disable
 else:
     disable = _disabled
