@@ -223,6 +223,9 @@ def float_to_int_impl_to_enum(module):
         return None
 
 
+# For old version of pytorch (2.3.1), this is needed otherwise compile skips this function
+# For new versions, this might still be useful to avoid too many recompilations.
+@torch._dynamo.disable
 def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
     curr_shape = value_.shape
     start_dim = group_dim if group_dim >= 0 else group_dim - 1
