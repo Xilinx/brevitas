@@ -15,6 +15,8 @@ from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
+from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import requires_pt_ge
 
@@ -29,6 +31,8 @@ ACT_QUANTIZERS = {
     'int8': Int8ActPerTensorFloat,
     'uint8': ShiftedUint8ActPerTensorFloat,
     'fp8': Fp8e4m3ActPerTensorFloat,
+    'per_tensor_dynamic_int8': Int8DynamicActPerTensorFloat,
+    'per_group_dynamic_fp8': Fp8e4m3DynamicActPerGroupFloat,
     'mxint8': MXInt8Act,
     'mxfloat8': MXFloat8e4m3Act}
 
