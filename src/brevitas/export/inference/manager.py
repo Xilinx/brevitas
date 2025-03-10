@@ -24,6 +24,7 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
 
 def _override_caching_mode(m: nn.Module, attr: str, enabled: bool, metadata_only: bool = True):
@@ -107,8 +108,11 @@ class quant_inference_mode:
         disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
         self.model.apply(disable_quant_tensor)
         if self.compile:
+            # This is needed to avoid too many recompilations during weight quantization
+            torch._dynamo.config.force_parameter_static_shapes = False
             for m in self.model.modules():
-                if hasattr(m, 'compile_quant'):
+                if isinstance(m, QuantProxyFromInjector) and hasattr(
+                        m, 'compile_quant') and m.is_quant_enabled:
                     m.compile_quant(compile_export=True)
 
 
