@@ -36,29 +36,29 @@ Starting with torch 2.0, it is not possible to `compile` your code to get on-the
 to eager execution. With the most recent versions of torch, this functionality is greatly improved
 with support to more operations and patterns.
 
-However, compile still has some limitations, which might lead to excessive recompilations 
+However, compile still has some limitations, which might lead to excessive recompilations or failures to compile altogether.
 
 In Brevitas, we are adding support for compile in different point of the quantization pipeline,
-trying to find a good compromise between easiness-of-use, benefits in terms of speed-up, and broad compatibility.
+trying to find a good compromise between easiness-of-use, benefits in terms of speed-up, and compatibility.
 
 Currently, there are three main ways to leverage torch.compile with Brevitas, each with its own pro and cons.
 
-The first two of these approaches rely on newly introduce quant_inference_mode.
-This mode should be used once quantization is finished, and the idea is to throw away some flexibility, which is not
-needed anymore, in exchange for slightly faster execution times.
+The first two of these approaches rely on newly introduced quant_inference_mode.
+This mode should be used once quantization is finished, and the idea is to trade away some flexibility, which is not
+needed anymore at inference time, in exchange for slightly faster execution times.
 
 Full model compile + quant_inference_mode
 -----------------------------------------
 
 The first option is to compile the entire model after entering quant_inference_mode.
-This simplifies the compute graph that compile needs to optimize, as well as remove dependency from 
+Using quant_inference_mode simplifies the compute graph that compile needs to optimize, as well as drop the use of
 QuantTensor. The NamedTuple structure is not currently compatible with compile, and even the
 torch subclass tensors have some outstanding issues.
 
 This approach might grant the best performance, since the entire model is being optimized.
-On the negative side, model-specific issue might cause compile to fail. Similarly, it is easier to
+On the negative side, model-specific issues might cause compile to fail. Similarly, it is easier to
 fall into too-many-recompilations issue, and the compile process might be extremely slow, which means 
-taht it becomes beneficial only for long inference runs.
+that it becomes beneficial only for long inference runs.
 In this scenario, the user is responsible to compile the model, as in the example below:
 
 .. code-block:: python
@@ -76,7 +76,7 @@ In this scenario, the user is responsible to compile the model, as in the exampl
 Quantizers compile + quant_inference_mode
 -----------------------------------------
 The second approach tied to quant_inference_mode is the compilation of the quantization functions.
-We noticed that this is already enough to grant a considerable speed-up (numbers below), and the
+We noticed that this is already enough to grant a considerable speed-up (numbers below) for some use cases, and the
 lower surface area means that we can control a bit better any potential torch.compile issue.
 Also, the compilation time is greatly reduced compared to the previous case, although the speed-up
 benefits will also be slightly lower.
@@ -133,9 +133,8 @@ Even then, compile provides a considerable speed-up, which becomes more evident 
 longer evaluations (e.g., few-shot 
 
 
-Diffusion model: Sana 1.6B, with per-group fp8 quantization
 
-.. list-table:: Title
+.. list-table:: Sana 1.6B, with per-group fp8 quantization
    :widths: 25 25 25
    :header-rows: 1
 
@@ -152,9 +151,8 @@ Diffusion model: Sana 1.6B, with per-group fp8 quantization
      - 1h15m
      - 2h10m
 
-LLM: Llama 3.2 1B, with per-group fp8 quantization
 
-.. list-table:: Title
+.. list-table:: Llama 3.2 1B, with per-group fp8 quantization
    :widths: 25 25 25
    :header-rows: 1
 
@@ -163,7 +161,7 @@ LLM: Llama 3.2 1B, with per-group fp8 quantization
      - Eager Inference Time (WikiText2)
    * - Float
      - Not Measured
-     - 
+     - 12s
    * - Weight-only quantization
      - 18s
      - 40s
