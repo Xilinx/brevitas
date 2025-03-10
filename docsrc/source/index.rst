@@ -15,7 +15,7 @@ Brevitas
 
    API reference <api_reference/index>
 
-   Architecture <architecture>
+   User Guides <user_guide/index>
 
    FAQ <faq>
 
@@ -27,4 +27,4 @@ It provides a platform both for researchers interested in implementing new quant
 Brevitas supports a super-set of quantization schemes implemented across various frameworks and compilers under a single unified API.
 For certain combinations of layers and types of of quantization inference acceleration is supported by exporting to *FINN*, *onnxruntime* or *Pytorch*'s own quantized operators.
 
-Brevitas has been successfully adopted both in various research projects as well as in large-scale commercial deployments targeting CPUs, GPUs, and custom accelerators running on Xilinx FPGAs. The general quantization style implemented is affine quantization, with a focus on uniform quantization. Non-uniform quantization is currently not supported out-of-the-box.
+Brevitas has been successfully adopted both in various research projects as well as in large-scale commercial deployments targeting CPUs, GPUs, and custom accelerators running on AMD FPGAs. The general quantization style implemented is affine quantization, with a focus on uniform quantization. Non-uniform quantization is currently not supported out-of-the-box.
