@@ -845,7 +845,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
         "llama_fused_rotation_ort_no_orphan",
         "llama_fused_rotation_had",
         "llama_fused_rotation_had_no_orphan",
-        "llama_layerwise",],
+        "llama_layerwise",
+        "llama_fused_rotation_had_no_orphan_expanded"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -899,7 +900,19 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "replace_rmsnorm": True,
             "rotation": "layerwise",
             "float_ppl": 33238.8984375,
-            "quant_ppl": 33446.734375,},])
+            "quant_ppl": 33446.734375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "rotation_orphan_sink": False,
+            "rotation_mode": "had",
+            "rotation_layers_to_expand": ["down_proj"],
+            "float_ppl": 33238.8984375,
+            "quant_ppl": 33216.3671875,},])
 def rotation_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param

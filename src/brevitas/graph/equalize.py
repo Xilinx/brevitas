@@ -1541,7 +1541,8 @@ def _apply_rotate(
                 hidden_dim = module.weight.shape[1]
                 new_hidden = find_closest_hadamard_number(hidden_dim)
                 new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
-                _update_weights(module, new_weights, 'weight')
+                # Modify the weights in-place
+                setattr(module, 'weight', torch.nn.Parameter(new_weights))
                 module.in_features = int(new_hidden)
 
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
