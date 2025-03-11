@@ -31,10 +31,9 @@ class ScaleBias(Module):
         self.runtime_shape = runtime_shape
 
     def forward(self, input):
-        out = input * self.weight.view(self.runtime_shape).to(
-            device=input.device, dtype=input.dtype)
+        out = input * self.weight.view(self.runtime_shape)
         if self.bias:
-            out += self.bias.view(self.runtime_shape).to(device=input.device, dtype=input.dtype)
+            out += self.bias.view(self.runtime_shape)
         return out
 
 

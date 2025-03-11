@@ -107,8 +107,7 @@ class ScaleWeightParametrization(torch.nn.Module):
         # Reciprocal is done on the fly as to preserve the tie between scale and its reciprocal
         scaling_factor = torch.reciprocal(
             scaling_factor) if self.use_inverse_scaling else scaling_factor
-        return tensor * scaling_factor.reshape(broadcast_shape).to(
-            device=tensor.device, dtype=tensor.dtype)
+        return tensor * scaling_factor.reshape(broadcast_shape)
 
 
 def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
