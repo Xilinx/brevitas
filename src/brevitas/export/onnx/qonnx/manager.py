@@ -33,6 +33,7 @@ from .handler import BrevitasWeightQuantProxyHandler
 
 logging = setup_logger(__name__)
 
+
 class QONNXManager(ONNXBaseManager):
     target_name = 'brevitas'
     dequantize_tracing_input = False
@@ -83,8 +84,10 @@ class QONNXManager(ONNXBaseManager):
         key = "custom_opsets"
         if key in onnx_export_kwargs.keys():
             if QONNX_DOMAIN_STRING in onnx_export_kwargs[key].keys():
-                logging.warning(f"Overriding {key}[\"{QONNX_DOMAIN_STRING}\"] = {QONNX_DOMAIN_VERSION}")
+                logging.warning(
+                    f"Overriding {key}[\"{QONNX_DOMAIN_STRING}\"] = {QONNX_DOMAIN_VERSION}")
             onnx_export_kwargs[key][QONNX_DOMAIN_STRING] = QONNX_DOMAIN_VERSION
         else:
             onnx_export_kwargs[key] = {QONNX_DOMAIN_STRING: QONNX_DOMAIN_VERSION}
-        super(QONNXManager, cls).export_onnx(module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+        super(QONNXManager, cls).export_onnx(
+            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
