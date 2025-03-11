@@ -50,6 +50,15 @@ def jit_disabled_for_mock():
     return skip_wrapper
 
 
+def jit_disabled_for_compile():
+    skip = config.JIT_ENABLED
+
+    def skip_wrapper(f):
+        return pytest.mark.skipif(skip, reason=f'Compile requires JIT to be disabled')(f)
+
+    return skip_wrapper
+
+
 def jit_disabled_for_local_loss():
     skip = config.JIT_ENABLED
 

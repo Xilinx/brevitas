@@ -393,7 +393,7 @@ def generate_quantizers(
                     'permute_dims': None,
                     'stats_reduce_dim': 1})
         elif input_quant_granularity == 'per_group':
-            input_quant = input_quant.let(**{'group_dim': 2, 'group_size': input_group_size})
+            input_quant = input_quant.let(**{'group_size': input_group_size})
 
         # QKV/Softmax Quant
         if kv_quant_granularity == 'per_row':

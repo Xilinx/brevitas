@@ -204,16 +204,17 @@ class FloatInferencetHandler(InferenceHandler):
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quantize(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
-        # Compute masks
-        if not self.saturating:
-            inf_mask = x.isinf()
-            p_max_val_mask = x > self.max_value
-            n_max_val_mask = -x > self.max_value
         # Quantize
         x = x / scale
         internal_scale = float_internal_scale(
             x, self.mantissa_bit_width, self.fp_internal_scale_min, self.eps)
         x = internal_scale * self.float_to_int_impl(x / internal_scale)
+
+        # Compute masks
+        if not self.saturating:
+            inf_mask = x.isinf()
+            p_max_val_mask = x > self.max_value
+            n_max_val_mask = -x > self.max_value
 
         # Clamp
         x = self.float_clamp_impl.saturating_clamp(x, self.max_value, self.min_value)

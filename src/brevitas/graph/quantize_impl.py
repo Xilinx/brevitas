@@ -525,7 +525,7 @@ def find_module(
         for name, module in model.named_children():
             full_name = prefix + '.' + name if prefix != '' else name
             if name_blacklist is not None and full_name in name_blacklist:
-                logging.info(f"Skipping {name_blacklist} module from quantization")
+                logging.info(f"Skipping {full_name} module from quantization")
                 continue
             find_module(module, layer_map, module_to_replace, name_blacklist, full_name)
 
