@@ -170,7 +170,7 @@ class OverSubChannelBlockView(brevitas.jit.ScriptModule):
         # - Groupwise HQO quantization, where weight will already have been padded and expanded
         if len(x.shape) == len(self.expanded_groupwise_shape):
             return x
-        y = padding_to_multiple(x, self.group_size, self.group_dim)
+        y = padding_to_multiple(x, self.group_dim, self.group_size)
         y = y.view(self.expanded_groupwise_shape)
         return y
 
@@ -188,7 +188,7 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)
-        x = padding_to_multiple(x, self.group_size, self.group_dim)
+        x = padding_to_multiple(x, self.group_dim, self.group_size)
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)

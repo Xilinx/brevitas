@@ -308,7 +308,6 @@ class activation_equalization_mode:
     def __exit__(self, type, value, traceback):
         if self.enabled:
             self.scale_factors, self.rewriters = self.graph_act_eq.apply(self.alpha)
-        return True  # To propagate exceptions
 
 
 def _channel_range(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:

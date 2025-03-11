@@ -117,8 +117,8 @@ def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) 
     # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
     padding = [0, 0] * len(x.shape)
     size = x.shape
-    if size[dim_multiple] % dim_to_expand != 0:
-        padding[2 * dim_multiple] = dim_to_expand - size[dim_multiple] % dim_to_expand
+    if size[dim_to_expand] % dim_multiple != 0:
+        padding[2 * dim_to_expand] = dim_multiple - size[dim_to_expand] % dim_multiple
     padding = list(reversed(padding))
     x = torch.nn.functional.pad(x, padding, mode='constant', value=0.)
     return x
