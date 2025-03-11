@@ -176,7 +176,7 @@ Quant Layers and Mixins
 
 A `QuantLayer` is the quantized variant of a `torch.nn` layer, and can be found under `brevitas.nn`.
 Typically a QuantLayer inherits from both its floating-point variant (e.g. `QuantConv2d` inherits from `Conv2d`),
-plus a serie of mixins, each responsibile for instantiating a proxy within the QuantLayer.
+plus a series of mixins, each responsibile for instantiating a proxy within the QuantLayer.
 A mixin is more specialized than a proxy, so for example both `QuantInputMixin` and `QuantOutputMixin`
 instantiate an activation quantization proxy. So-called _QuantWBIOL_ layers (such as `QuantConv2d`)
 inherit from `QuantWeightMixin`, `QuantBiasMixin`, `QuantInputMixin` and `QuantOutputMixin`.
