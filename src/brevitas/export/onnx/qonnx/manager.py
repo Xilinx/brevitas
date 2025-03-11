@@ -13,6 +13,7 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.logging import setup_logger
 
 from .function import BrevitasBinaryQuantFn
 from .function import BrevitasQuantFn
@@ -30,6 +31,7 @@ from .handler import BrevitasTruncQuantProxyHandler
 from .handler import BrevitasWeightFloatQuantProxyHandler
 from .handler import BrevitasWeightQuantProxyHandler
 
+logging = setup_logger(__name__)
 
 class QONNXManager(ONNXBaseManager):
     target_name = 'brevitas'
@@ -81,7 +83,7 @@ class QONNXManager(ONNXBaseManager):
         key = "custom_opsets"
         if key in onnx_export_kwargs.keys():
             if QONNX_DOMAIN_STRING in onnx_export_kwargs[key].keys():
-                pass
+                logging.warning(f"Overriding {key}[\"{QONNX_DOMAIN_STRING}\"] = {QONNX_DOMAIN_VERSION}")
             onnx_export_kwargs[key][QONNX_DOMAIN_STRING] = QONNX_DOMAIN_VERSION
         else:
             onnx_export_kwargs[key] = {QONNX_DOMAIN_STRING: QONNX_DOMAIN_VERSION}
