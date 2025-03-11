@@ -140,7 +140,7 @@ to derive its quantized representation back. A valid QuantTensor carries *scale*
 and whether it was generated in training or inference mode.
 
 The arithmetic of QuantTensors implments a generalized version of fixed-point arithmetic, with the main assumption
-being that only two QuantTensor with the same scale factor can be summed together. This constrain is enforced
+being that only two QuantTensor with the same scale factor can be summed together. This constraint is enforced
 when the QuantTensors involved in a sum have been generated in inference mode, but it's not enforced in training mode.
 This is because when dealing with e.g. `ScalingImplType.PARAMETER_FROM_STATS`, the activation tensors in a residual topology
 can have different scale factors along the skip connection at training time, but not at inference time.
