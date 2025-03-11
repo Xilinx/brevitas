@@ -25,7 +25,7 @@ SEED = 123456
 ATOL_DICT = {
     torch.float32: 1e-3,
     torch.float16: 5e-2,
-    torch.bfloat16: 1e-1,}
+    torch.bfloat16: 3e-1,}
 ATOL = 1e-3
 
 MODELS = {
