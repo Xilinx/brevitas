@@ -76,10 +76,7 @@ def fused_awq_scaling_no_fx(model: nn.Module, calibration_loader: DataLoader):
         new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
     new_model = offload_model(new_model)
     # Insert the identity scaling factors
-    eq = EqualizeAWQ(
-        sdpa_regions=True,
-        add_parametrizations_inplace=False,
-    )
+    eq = EqualizeAWQ(add_parametrizations_inplace=False)
     new_model, regions, rewriters = eq.apply(model=new_model)
     rewriters = fix_rewriter(rewriters, model, "weight")
     # Map the regions of the graph model (new_model) to modules of the original model (model)

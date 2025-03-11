@@ -401,12 +401,6 @@ def create_llm_args_parser():
         default=False,
         help="Whether to apply AWQ clipping (default: %(default)s).",
     )
-    parser.add_argument(
-        "--custom-awq-regions",
-        action="store_true",
-        default=False,
-        help="Whether to retrieve the AWQ regions automatically (default: %(default)s).",
-    )
     return parser
 
 

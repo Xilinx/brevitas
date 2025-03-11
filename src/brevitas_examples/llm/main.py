@@ -37,7 +37,6 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
-from brevitas_examples.llm.llm_quant.awq.equalize import fused_awq_scaling_no_fx
 from brevitas_examples.llm.llm_quant.awq.pre_quant import run_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
@@ -250,10 +249,6 @@ def quantize_llm(args, extra_args=None):
     if args.replace_rmsnorm:
         model = replace_rmsnorm_with_torch(model, model.config)
 
-    if args.awq_scale or args.awq_clip:
-        awq_regions = fused_awq_scaling_no_fx(
-            model, calibration_loader) if args.custom_awq_regions else None
-
     if require_fx:
         if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
             model = get_fx(model, is_export=args.export_target is not None)
@@ -422,7 +417,6 @@ def quantize_llm(args, extra_args=None):
             model=model,
             tokenizer=tokenizer,
             args=args,
-            regions=awq_regions,
             n_samples=128,
             seqlen=512,
             auto_scale=args.awq_scale,

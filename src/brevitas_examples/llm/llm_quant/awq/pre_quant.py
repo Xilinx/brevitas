@@ -31,19 +31,18 @@ from argparse import Namespace
 from collections import defaultdict
 import functools
 import gc
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
+from accelerate.utils.operations import send_to_device
 import torch
 import torch.nn as nn
-import tqdm
-from transformers.models.llama.modeling_llama import LlamaForCausalLM
-from transformers.models.opt.modeling_opt import OPTForCausalLM
+from tqdm import tqdm
 
 from brevitas.graph.calibrate import disable_enable_quantization
 from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import fuse_parametrizations
-from brevitas.graph.equalize import Region
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.awq.auto_clip import apply_clip
@@ -51,48 +50,11 @@ from brevitas_examples.llm.llm_quant.awq.auto_clip import auto_clip_block
 from brevitas_examples.llm.llm_quant.awq.auto_scale import apply_scale
 from brevitas_examples.llm.llm_quant.awq.auto_scale import auto_scale_block
 from brevitas_examples.llm.llm_quant.awq.graph import EqualizeAWQ
-from brevitas_examples.llm.llm_quant.awq.graph import initialize_awq_region
 from brevitas_examples.llm.llm_quant.awq.utils.calib_data import get_calib_dataset
 from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 from brevitas_examples.llm.llm_quant.awq.utils.region import retrieve_block_awq_regions
 
 __all__ = ["run_awq"]
-
-
-# TODO: Reuse function
-def get_blocks(model: nn.Module) -> nn.ModuleList:
-    if isinstance(model, LlamaForCausalLM):
-        blocks = model.model.layers
-    elif isinstance(model, OPTForCausalLM):
-        blocks = model.model.decoder.layers
-    else:
-        raise NotImplementedError(type(model))
-    return blocks
-
-
-def _regions_to_block(blocks: List[nn.Module], regions: List[RegionAWQ]) -> List[List[RegionAWQ]]:
-    regions_per_block = [[] for _ in range(len(blocks))]
-    for region in regions:
-        for i, block in enumerate(blocks):
-            if all(any(m_region is m_block
-                       for m_block in block.modules())
-                   for m_region in region.name_to_module.values()):
-                regions_per_block[i].append(region)
-                break
-    # Verify that the regions were assigned correctly
-    assert all(map(lambda x : len(x) == len(regions_per_block[0]), regions_per_block)), "The number of regions assigned to each block is not constant."
-    return regions_per_block
-
-
-def prepare_awq_regions(model: nn.Module, blocks: List[nn.Module],
-                        regions: List[Region]) -> List[List[RegionAWQ]]:
-    # Fix regions to point to quantized modules
-    for region in regions:
-        for module_name in region.name_to_module.keys():
-            region.name_to_module[module_name] = recurse_getattr(model, module_name)
-    regions = [initialize_awq_region(model, region) for region in regions]
-    regions_per_block = _regions_to_block(blocks, regions)
-    return regions_per_block
 
 
 def _retrieve_per_block_regions(blocks: List[nn.Module]) -> List[List[RegionAWQ]]:
@@ -116,12 +78,30 @@ def _add_orphan_regions(blocks: List[nn.Module], regions_per_block: List[List[Re
                     RegionAWQ(sinks={name: eq_indexes}, name_to_module={name: module}))
 
 
+# Hook to capture inputs to module
+def intercept_input(
+        module: nn.Module,
+        args: Tuple,
+        kwargs: Dict,
+        args_list: List[Tuple],
+        kwargs_list: Optional[List[Tuple]],
+        raise_exception: bool = True):
+    if isinstance(args, tuple):
+        args = args[0]
+    args = send_to_device(args, 'cpu')
+    args_list.append(args)
+    if kwargs_list is not None:
+        kwargs = send_to_device(kwargs, 'cpu')
+        kwargs_list.append(kwargs)
+    if raise_exception:
+        raise StopFwdException
+
+
 @torch.no_grad()
 def run_awq(
     model: nn.Module,
     tokenizer,
     args: Namespace,
-    regions: Optional[List[Region]] = None,
     n_samples: int = 512,
     seqlen: int = 512,
     auto_scale: bool = True,
@@ -129,82 +109,69 @@ def run_awq(
     calib_data: str = "pileval",
 ):
     # Cache needs to be disabled for training
-    use_cache = model.config.use_cache
+    cache_state = model.config.use_cache
     model.config.use_cache = False
-    # TODO: Reuse computation
-    blocks = get_blocks(model)
-    # Prepare AWQ regions
-    if regions is not None:
-        regions_per_block = prepare_awq_regions(model, blocks, regions)
-    else:
+    # Retrive model blocks
+    blocks = recurse_getattr(model, args.gpxq_block_name)
+
+    samples = get_calib_dataset(
+        data=calib_data, tokenizer=tokenizer, n_samples=n_samples, block_size=seqlen)
+    samples = torch.cat(samples, dim=0)
+
+    first_block = blocks[0]
+    cached_args, cached_kwargs = [], []
+
+    # Capture inputs to the first block
+    hook = first_block.register_forward_pre_hook(
+        functools.partial(
+            intercept_input,
+            args_list=cached_args,
+            kwargs_list=cached_kwargs,
+            raise_exception=True,
+        ),
+        with_kwargs=True)
+    with disable_enable_quantization(model):
+        try:
+            model(samples)
+        except StopFwdException:
+            pass
+    hook.remove()
+
+    # Add scaling modules for optimization
+    if auto_scale:
         regions_per_block = _retrieve_per_block_regions(blocks)
         # Apply the regions
         eq = EqualizeAWQ(add_parametrizations_inplace=True,)
         # TODO: Consider using a more readable alternative to sum(regions_per_block, [])
         model, _, _ = eq.apply(model=model, regions=sum(regions_per_block, []))
 
-    samples = get_calib_dataset(
-        data=calib_data, tokenizer=tokenizer, n_samples=n_samples, block_size=seqlen)
-    samples = torch.cat(samples, dim=0)
-
-    inps = []
-    block_kwargs = {}
-
-    # get input and kwargs to layer 0
-    # with_kwargs is only supported in PyTorch 2.0
-    # use this Catcher hack for now
-    class Catcher(nn.Module):
-
-        def __init__(self, module):
-            super().__init__()
-            self.module = module
-
-        def forward(self, inp, **kwargs):
-            inps.append(inp)
-            block_kwargs.update(kwargs)
-            raise ValueError  # early exit to break later inference
-
-    # patch layer 0 to catch input and kwargs
-    blocks[0] = Catcher(blocks[0])
-    # Prepare model to capture inputs to the first block
-    model = offload_model(model)
-    try:
-        with disable_enable_quantization(model, disable_quant=True):
-            model(samples)
-    except ValueError:  # work with early exit
-        pass
-    blocks[0] = blocks[0].module  # restore
-    # Move model back to CPU
-    remove_hooks(model)
-    inps = inps[0]
-
-    gc.collect()
-    torch.cuda.empty_cache()
-    # solve layer by layer
-    for i in tqdm.tqdm(range(len(blocks)), desc="Running AWQ..."):
-        block = blocks[i]
+    # Prepare inputs
+    inps = cached_args[0]
+    block_kwargs = cached_kwargs[0]
+    # Iterate through all the blocks
+    for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
         block.cuda()
-        block_regions = regions_per_block[i]
-
-        # firstly, get input features of all linear blocks
-        def cache_input_hook(m, x, y, name, feat_dict):
-            x = x[0]
-            x = x.detach().cpu()
-            feat_dict[name].append(x)
+        block_regions = regions_per_block[index]
 
         input_feat = defaultdict(list)
-        handles = []
+        hooks = []
         for region in block_regions:
             sink = region.repr_sink
-            handles.append(
-                sink.register_forward_hook(
-                    functools.partial(cache_input_hook, name=id(region), feat_dict=input_feat)))
+            hooks.append(
+                sink.register_forward_pre_hook(
+                    functools.partial(
+                        intercept_input,
+                        args_list=input_feat[id(region)],
+                        kwargs_list=None,
+                        raise_exception=False,
+                    ),
+                    with_kwargs=True))
         inps = inps.to(next(block.parameters()).device)  # in case multi-gpu
         # get output as next layer's input
-        with disable_enable_quantization(model, disable_quant=True):
+        with disable_enable_quantization(model):
             inps = block(inps, **block_kwargs)[0]
-        for h in handles:
-            h.remove()
+        for hook in hooks:
+            hook.remove()
 
         # now solve for scaling and clipping
         input_feat = {k: torch.cat(v, dim=0) for k, v in input_feat.items()}
@@ -230,5 +197,5 @@ def run_awq(
         block.cpu()
         gc.collect()
         torch.cuda.empty_cache()
-    # Restore previous cache setting
-    model.config.use_cache = use_cache
+    # Restore cache state
+    model.config.use_cache = cache_state

@@ -19,8 +19,6 @@ from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import extract_sdpa_regions
 from brevitas.graph.equalize import Region
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
-from brevitas.utils.python_utils import longest_common_prefix
-from brevitas.utils.python_utils import recurse_getattr
 
 
 # The Regions in AWQ are defined as subclasses of Region, for compatibility
@@ -40,22 +38,6 @@ class RegionAWQ(Region):
     def repr_sink(self) -> nn.Module:
         # Retrives a representative sink for the region
         return self.get_module_from_name(next(iter(self.sinks)))
-
-
-# Retrieves the immediate parent for a set of modules
-def _find_common_ancestor_sinks(model: nn.Module, region: Region) -> nn.Module:
-    module_name = longest_common_prefix(region.sinks_names).strip(".")
-    return recurse_getattr(model, module_name)
-
-
-# Maps a Brevitas region to a AWQ region
-def initialize_awq_region(model: nn.Module, region: Region) -> RegionAWQ:
-    return RegionAWQ(
-        srcs=region.srcs,
-        sinks=region.sinks,
-        acts=region.acts,
-        name_to_module=region.name_to_module,
-        block=_find_common_ancestor_sinks(model, region))
 
 
 def extract_sinks_scaling_factor(sinks: List[nn.Module]) -> nn.Parameter:
@@ -78,35 +60,13 @@ def extract_sinks_scaling_factor(sinks: List[nn.Module]) -> nn.Parameter:
 
 class EqualizeAWQ(GraphTransform):
 
-    def __init__(
-            self, sdpa_regions: bool = True, add_parametrizations_inplace: bool = False) -> None:
+    def __init__(self, add_parametrizations_inplace: bool = False) -> None:
         super(EqualizeAWQ, self).__init__()
-        self.sdpa_regions = sdpa_regions
         self.add_parametrizations_inplace = add_parametrizations_inplace
-        self.blacklist_layers = ["lm_head", "embedding"]
         # These attributes are only kept to reuse the _cross_layer_equalization method
         self._merge_bias = True
         self._bias_shrinkage = 'vaiq'
         self._scale_computation_type = 'maxabs'
-
-    def _extract_awq_regions(self, graph_model: GraphModule) -> List[Region]:
-        regions = []
-        # Add Value/Output region
-        if self.sdpa_regions:
-            sdpa_regions = extract_sdpa_regions(graph_model)
-            regions.extend(sdpa_regions)
-        # It is not possible to equalize through LayerNorm/BatchNorm as sink
-        supported_sinks = tuple([
-            x for x in _supported_layers if x not in (nn.LayerNorm, *_batch_norm)])
-        regions.extend(
-            _extract_regions(graph_model, state_impl_kwargs={'supported_sinks': supported_sinks}))
-        # Remove regions containing blacklisted layers
-        regions = [
-            region for region in regions if not any(
-                any(blacklist_layer in m_name
-                    for m_name in region.name_to_module)
-                for blacklist_layer in self.blacklist_layers)]
-        return regions
 
     def _retrieve_scaling_rewriters(self, model: Union[GraphModule, nn.Module],
                                     region: Region) -> List[Transform]:
@@ -128,12 +88,9 @@ class EqualizeAWQ(GraphTransform):
 
     def apply(self,
               model: Union[GraphModule, nn.Module],
-              regions: Optional[List[Region]] = None) -> List[Transform]:
-        # Try to identify regions if not passed directly
-        if regions is None:
-            regions = self._extract_awq_regions(model)
-        else:
-            regions = [region for region in regions if len(region.srcs) > 0]
+              regions: List[Region] = None) -> List[Transform]:
+        # Only apply scaling parametrization in non-orphan regions
+        regions = [region for region in regions if len(region.srcs) > 0]
         rewriters = []
         for region in regions:
             rewriters.extend(self._retrieve_scaling_rewriters(model, region))

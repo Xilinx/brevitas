@@ -86,9 +86,7 @@ def auto_scale_block(
             scales = torch.reciprocal(scales / (scales.max() * scales.min()).sqrt())
             scaling_factor.data = scales
             # Capture quantized output from sinks
-            with disable_enable_quantization(region_block,
-                                             disable_quant=True,
-                                             excluded_modules=sinks):
+            with disable_enable_quantization(region_block, excluded_modules=sinks):
                 out = region_block(x * scales, **kwargs)
             if isinstance(out, tuple):
                 out = out[0]
