@@ -137,12 +137,11 @@ def run_awq(
             pass
     hook.remove()
 
+    # Retrieve AWQ regions
+    regions_per_block = _retrieve_per_block_regions(blocks)
     # Add scaling modules for optimization
     if auto_scale:
-        regions_per_block = _retrieve_per_block_regions(blocks)
-        # Apply the regions
         eq = EqualizeAWQ(add_parametrizations_inplace=True,)
-        # TODO: Consider using a more readable alternative to sum(regions_per_block, [])
         model, _, _ = eq.apply(model=model, regions=sum(regions_per_block, []))
 
     # Prepare inputs
@@ -151,6 +150,7 @@ def run_awq(
     # Iterate through all the blocks
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
         block.cuda()
+        device = next(block.parameters()).device
         block_regions = regions_per_block[index]
 
         input_feat = defaultdict(list)
@@ -166,7 +166,9 @@ def run_awq(
                         raise_exception=False,
                     ),
                     with_kwargs=True))
-        inps = inps.to(next(block.parameters()).device)  # in case multi-gpu
+
+        inps = inps.to(device)  # in case multi-gpu
+        block_kwargs = send_to_device(block_kwargs, device)
         # get output as next layer's input
         with disable_enable_quantization(model):
             inps = block(inps, **block_kwargs)[0]
@@ -184,8 +186,8 @@ def run_awq(
                 input_feat=input_feat,
             )
             apply_scale(block_regions=block_regions, scales_dict=scales_dict, input_feat=input_feat)
-        # Fuse the scaling parametrizations
-        block = fuse_parametrizations(block)
+            # Fuse the scaling parametrizations
+            block = fuse_parametrizations(block)
         if mse_range:
             clip_dict = auto_clip_block(
                 block_regions=block_regions,
