@@ -13,7 +13,8 @@ from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
-DOMAIN_STRING = "onnx.brevitas"
+DOMAIN_STRING = "qonnx.custom_op.general"
+DOMAIN_VERSION = 2
 
 
 class BrevitasBinaryQuantFn(Function):
