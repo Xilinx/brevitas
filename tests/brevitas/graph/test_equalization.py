@@ -198,6 +198,10 @@ def test_models(toy_model, merge_bias, request):
 def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, request):
     if not fuse_scaling and parse('1.9.0') > torch_version:
         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
+    if dtype in [torch.float16, torch.bfloat16] and parse('2.3.0') > torch_version:
+        pytest.skip(
+            "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
+        )
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
