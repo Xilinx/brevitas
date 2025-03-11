@@ -41,18 +41,18 @@ However, compile still has some limitations, which might lead to excessive recom
 In Brevitas, we are adding support for compile in different point of the quantization pipeline,
 trying to find a good compromise between ease-of-use, speed-up, and compatibility.
 
-Currently, there are three main ways to leverage torch.compile with Brevitas, each with its own pros and cons.
+Currently, there are three main ways to leverage ``torch.compile`` with Brevitas, each with its own pros and cons.
 
-The first two of these approaches rely on newly introduced quant_inference_mode.
+The first two of these approaches rely on newly introduced ``quant_inference_mode``.
 This mode should be used once quantization is finished, and the idea is to trade away some flexibility,
 which is not needed anymore at inference time, in exchange for slightly faster execution times.
 
-Full model compile + quant_inference_mode
------------------------------------------
+Full model compile + ``quant_inference_mode``
+---------------------------------------------
 
-The first option is to compile the entire model after entering quant_inference_mode.
+The first option is to compile the entire model after entering ``quant_inference_mode``.
 Using quant_inference_mode simplifies the compute graph that compile needs to optimize,
-as well as drop the use of QuantTensor.
+as well as drop the use of ``QuantTensor``.
 The NamedTuple structure is not currently compatible with compile, and even the torch subclass tensors have some outstanding issues.
 
 This approach might grant the best performance, since the entire model is being optimized.
@@ -73,11 +73,11 @@ In this scenario, the user is responsible to compile the model, as in the exampl
         model = torch.compile(model)
 
 
-Quantizers compile + quant_inference_mode
------------------------------------------
-The second approach tied to quant_inference_mode is the compilation of the quantization functions.
+Quantizers compile + ``quant_inference_mode``
+---------------------------------------------
+The second approach tied to ``quant_inference_mode`` is the compilation of the quantization functions.
 We noticed that this is already enough to grant a considerable speed-up (numbers below) for some use cases,
-and the lower surface area means that we can control a bit better any potential torch.compile issue.
+and the lower surface area means that we can control a bit better any potential ``torch.compile`` issue.
 Also, the compilation time is greatly reduced compared to the previous case,
 although the speed-up benefits will also be slightly lower.
 
@@ -97,7 +97,7 @@ Compared to the previous case, compile is handled automatically by the context m
 Quantizers compile + PTQ
 ------------------------
 
-The third option is to compile the quantization functions without quant_inference_mode.
+The third option is to compile the quantization functions without ``quant_inference_mode``.
 In this case, the computational graph is slightly more complicated,
 and the possibility of errors with torch.compile increases.
 The benefit of this approach is that it can be used also during PTQ,
@@ -120,14 +120,14 @@ so not only inference time, which for some algorithms is definitely interesting.
 As in the previous case, the user is responsible for compiling the model,
 although we provide some functions in our quantizers to simplify the process.
 NB: this interface might (and very likely will) change in the future.
-This approach is also compatible with quant_inference_mode, because the compilation status is reset.
+This approach is also compatible with ``quant_inference_mode``, because the compilation status is reset.
 
 
 Some results
 ============
 
-Quantizers compile + quant_inference_mode
------------------------------------------
+Quantizers compile + ``quant_inference_mode``
+---------------------------------------------
 These are small examples of possible speed-ups with compile.
 The runtime includes compilation time, which is especially significant for the WikiText2 inference that has a very short runtime.
 Even then, compile provides a considerable speed-up,
@@ -179,7 +179,7 @@ A non-comprehensive list can be found below:
 
 * Dynamic Activation quantization requires recompilations, even within inference mode
 
-* Compiling the entire model after optimizing for PTQ requires resetting the compilation status (e.g., torch._dynamo.reset())
+* Compiling the entire model after optimizing for PTQ requires resetting the compilation status (e.g., ``torch._dynamo.reset()``)
 
 * Some operations are currently not supported for compile, such as kth-value that we use for percentile statistics
 
@@ -209,12 +209,12 @@ Even if compilation fails only with quantization in the loop, it might be too br
 
 * *Combining quant_inference_mode with compile=True gives me too-many-recompilations error, what should I do?*
 
-Increasing torch._dynamo.config.cache_size_limit or torch._dynamo.config.accumulated_cache_size_limit might help. 
+Increasing ``torch._dynamo.config.cache_size_limit`` or ``torch._dynamo.config.accumulated_cache_size_limit`` might help. 
 
 * *After compiling, I don't see any speed-up. Is this normal?*
 
 Yes, for some combinations of quantizers, compile might provide limited benefits.
-We noticed that minifloat quantization benefits more than integer one, especially with quant_inference_mode.
+We noticed that minifloat quantization benefits more than integer one, especially with ``quant_inference_mode``.
 Similarly, compiling during PTQ might not provide benefits because the slow part of the codebase is not the quantization part,
 but the algorithm itself.
 
@@ -235,9 +235,9 @@ but there are a lot of new functionalities and bug-fixes every new versions.
 
 No, this is known issue, due to underlying optimizations we cannot control.
 
-* *What are the next steps for Brevitas + Compile?*
+* *What are the next steps for Brevitas + compile?*
 
 We would like to expand the optimization area, balancing code refactoring for compile with observed speed-ups.
-An example of this is to compile an entire QuantLayer, but we also need to study on the trade-offs.
+An example of this is to compile an entire ``QuantLayer``, but we also need to study on the trade-offs.
 We would love to increase of test suite for this, and we welcome all contributions.
 
