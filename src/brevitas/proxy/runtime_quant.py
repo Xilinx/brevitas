@@ -100,6 +100,15 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_class = None
         self.skip_create_quant_tensor = False
 
+    def compile_quant(self, compile_export=False):
+        fullgraph = not self.is_groupwise
+        if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
+            self.export_handler = torch.compile(
+                self.export_handler, dynamic=True, fullgraph=fullgraph)
+        elif self.fused_activation_quant_proxy is not None:
+            self.fused_activation_quant_proxy.tensor_quant = torch.compile(
+                self.fused_activation_quant_proxy.tensor_quant, dynamic=True, fullgraph=fullgraph)
+
     @property
     def input_view_impl(self):
         if self.fused_activation_quant_proxy.tensor_quant is not None and not isinstance(

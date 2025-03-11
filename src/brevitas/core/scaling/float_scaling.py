@@ -34,9 +34,9 @@ class FloatScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(
-            self, exponent_bit_width: Tensor, mantissa_bit_width: Tensor,
+            self, exponent_bit_width: Tensor, pre_compute_max_mantissa: Tensor,
             exponent_bias: Tensor) -> Tensor:
-        max_value = max_float(exponent_bit_width, mantissa_bit_width, exponent_bias)
+        max_value = max_float(exponent_bit_width, pre_compute_max_mantissa, exponent_bias)
         max_value = max_value if self.max_available_float is None else torch.min(
             max_value, self.max_available_float())
         return max_value

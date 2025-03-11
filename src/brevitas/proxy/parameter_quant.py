@@ -97,6 +97,12 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.quant_tensor_class = None  # To be redefined by each class
         self.skip_create_quant_tensor = False
 
+    def compile_quant(self, compile_export=False):
+        if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
+            self.export_handler = torch.compile(self.export_handler, dynamic=True, fullgraph=True)
+        elif self.tensor_quant is not None:
+            self.tensor_quant = torch.compile(self.tensor_quant, dynamic=True, fullgraph=True)
+
     @property
     def input_view_impl(self):
         if self.tensor_quant is not None:

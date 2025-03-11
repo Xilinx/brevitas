@@ -426,6 +426,11 @@ def quantize_llm(args, extra_args=None):
         with torch.no_grad():
             model(**calibration_loader[0])
 
+        if args.compile_ptq:
+            for m in model.modules():
+                if hasattr(m, 'compile_quant'):
+                    m.compile_quant()
+
         if args.optimize_rotations:
             apply_rotation_optimization(
                 model=model,
@@ -518,8 +523,9 @@ def quantize_llm(args, extra_args=None):
             k._hf_hook.post_forward = v
 
         if args.eval and not args.no_quantize:
+
             print("Model eval...")
-            with torch.no_grad(), quant_inference_mode(model):
+            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
@@ -529,7 +535,7 @@ def quantize_llm(args, extra_args=None):
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
             from lm_eval.models.huggingface import HFLM
-            with torch.no_grad(), quant_inference_mode(model):
+            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
                 if args.few_shot_compile:
                     remove_hooks(model)
@@ -561,7 +567,7 @@ def quantize_llm(args, extra_args=None):
             from lighteval.pipeline import PipelineParameters
             from lighteval.utils.utils import EnvConfig
 
-            with torch.no_grad(), quant_inference_mode(model):
+            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
                 remove_hooks(model)
                 # expects a list
@@ -577,12 +583,7 @@ def quantize_llm(args, extra_args=None):
                     pretrained=args.model,
                     dtype=dtype,
                     model_parallel=True,
-                    accelerator=accelerator,
-                    compile=True)
-                if args.few_shot_compile:
-                    remove_hooks(model)
-                    model.cuda()
-                    model.forward = torch.compile(model.forward, fullgraph=True)
+                    accelerator=accelerator)
                 pipeline = Pipeline(
                     tasks=few_shot_tasks,
                     pipeline_parameters=pipeline_params,

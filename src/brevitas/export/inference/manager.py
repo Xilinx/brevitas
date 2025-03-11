@@ -3,6 +3,7 @@
 
 from functools import partial
 
+import torch
 from torch.nn import Module
 import torch.nn as nn
 
@@ -23,6 +24,7 @@ from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
 
 def _override_caching_mode(m: nn.Module, attr: str, enabled: bool, metadata_only: bool = True):
@@ -52,9 +54,10 @@ def _override_create_quant_tensor(m: nn.Module, state: bool):
 
 class quant_inference_mode:
 
-    def __init__(self, model, cache_quant_weight=False, enabled=True):
+    def __init__(self, model, cache_quant_weight=False, compile=False, enabled=True):
         self.model = model
         self.enabled = enabled
+        self.compile = compile
         self.cache_quant_weight = cache_quant_weight
         self.export_manager = InferenceManager
         self.hook_list = []
@@ -73,6 +76,8 @@ class quant_inference_mode:
             self.model.apply(
                 lambda m: _override_weight_caching_mode(
                     m, enabled=True, metadata_only=not self.cache_quant_weight))
+
+            torch._dynamo.reset()
 
     def __exit__(self, type, value, traceback):
         # Disable all caching
@@ -102,6 +107,13 @@ class quant_inference_mode:
         self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
         disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
         self.model.apply(disable_quant_tensor)
+        if self.compile:
+            # This is needed to avoid too many recompilations during weight quantization
+            torch._dynamo.config.force_parameter_static_shapes = False
+            for m in self.model.modules():
+                if isinstance(m, QuantProxyFromInjector) and hasattr(
+                        m, 'compile_quant') and m.is_quant_enabled:
+                    m.compile_quant(compile_export=True)
 
 
 # Inheritance from BaseManager is not techincally needed

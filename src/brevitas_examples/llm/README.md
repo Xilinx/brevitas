@@ -63,8 +63,10 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME] [--load-checkpoint]
                [--fuse-sequences] [--learned-round {None,linear_round}]
-               [--learned-round-fast-update] [--few-shot-eval]
-               [--few-shot-compile] [--few-shot-zeroshot]
+               [--learned-round-fast-update]
+               [--few-shot-eval {lm_eval,lighteval}]
+               [--few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE]
+               [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
                [--few-shot-limit FEW_SHOT_LIMIT]
                [--few-shot-tasks [FEW_SHOT_TASKS ...]]
                [--rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]]
@@ -240,10 +242,12 @@ options:
   --learned-round-fast-update
                         Whether to use fast update with learned round.
                         Prototype (default: False)
-  --few-shot-eval       Perform zero_shot evaluation with lm_eval. Default
-                        False)
-  --few-shot-compile    Compile during zero_shot evaluation with lm_eval.
-                        Default False)
+  --few-shot-eval {lm_eval,lighteval}
+                        Perform zero_shot evaluation with lm_eval or
+                        lighteval. Default None)
+  --few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE
+  --compile-ptq         Compile for PTQ algorithms. Default False)
+  --compile-eval        Compile during evaluation. Default False)
   --few-shot-zeroshot   Whether to do zero or few shot eval. Default False)
   --few-shot-limit FEW_SHOT_LIMIT
                         Few shot limit. Default None)

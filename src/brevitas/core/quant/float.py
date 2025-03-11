@@ -10,6 +10,7 @@ import brevitas
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
+from brevitas.function import compute_max_mantissa
 from brevitas.utils.torch_utils import float_internal_scale
 
 
@@ -66,6 +67,11 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.eps = torch.finfo(dtype).tiny
         self.observer_only = brevitas.jit.Attribute(False, bool)
 
+        # This is more friendly for compile
+        # TODO: This assumes fixed mantissa bit-width
+        self.pre_compute_max_mantissa = StatelessBuffer(
+            compute_max_mantissa(self.mantissa_bit_width()))
+
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x = self.input_view_impl(x)
@@ -83,7 +89,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def forward(self, x):
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
-                self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
+                self.exponent_bit_width(), self.pre_compute_max_mantissa(), self.exponent_bias())
         else:
             float_scaling_impl_value = None
         scale = self.scaling_impl(x, float_scaling_impl_value)
@@ -94,7 +100,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             y, scale = self.quantize(x, scale)
             # after quantizing, clamp to special cases like NaN/inf if they are set
             y, saturating, inf_values, nan_values = self.float_clamp_impl(
-                y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
+                y, self.exponent_bit_width(), self.pre_compute_max_mantissa(), self.exponent_bias())
             y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias(), saturating, inf_values, nan_values

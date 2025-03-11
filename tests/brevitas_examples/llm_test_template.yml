@@ -8,7 +8,6 @@ dataset: wikitext2
 eval: false
 export_prefix: null
 export_target: null
-few_shot_compile: false
 few_shot_eval: false
 few_shot_limit: null
 few_shot_tasks:

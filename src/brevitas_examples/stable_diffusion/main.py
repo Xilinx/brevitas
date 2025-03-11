@@ -493,6 +493,11 @@ def main(args):
                 test_latents=latents,
                 guidance_scale=args.guidance_scale)
 
+        if args.compile_ptq:
+            for m in pipe.modules():
+                if hasattr(m, 'compile_quant'):
+                    m.compile_quant()
+
         if args.load_checkpoint is not None:
             with load_quant_model_mode(pipe.unet):
                 pipe = pipe.to('cpu')
@@ -737,7 +742,7 @@ def main(args):
         # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
-            with torch.no_grad(), quant_inference_mode(pipe.unet):
+            with torch.no_grad(), quant_inference_mode(pipe.unet, compile=args.compile_eval):
                 # Perform a single forward pass before evenutally compiling
                 run_val_inference(
                     pipe,
@@ -1136,6 +1141,13 @@ if __name__ == "__main__":
         'vae-bias-correction',
         default=False,
         help='Bias Correction for VAE, if quantize VAE is Enabled. Default: Disabled')
+    add_bool_arg(
+        parser, 'compile-ptq', default=False, help='Compile proxies for PTQ. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'compile-eval',
+        default=False,
+        help='Compile proxies for evaluation. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
