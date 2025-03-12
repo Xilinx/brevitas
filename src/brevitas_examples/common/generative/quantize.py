@@ -395,7 +395,6 @@ def generate_quantizers(
         elif input_quant_granularity == 'per_group':
             input_quant = input_quant.let(**{'group_size': input_group_size})
 
-
         # QKV/Softmax Quant
         if kv_quant_granularity == 'per_row':
             q_scaled_quant = q_scaled_quant.let(
