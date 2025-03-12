@@ -5,7 +5,6 @@ SPDX-License-Identifier: MIT
 
 import argparse
 from datetime import datetime
-from functools import partial
 import json
 import math
 import os
@@ -15,18 +14,6 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
-from PIL import Image
-
-try:
-    from diffusers import FluxPipeline
-except:
-    FluxPipeline = object()
-
-try:
-    from diffusers import StableDiffusion3Pipeline
-except:
-    StableDiffusion3Pipeline = object()
-
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
@@ -38,6 +25,7 @@ from safetensors.torch import save_file
 import torch
 from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
+import torchvision.io as image_io
 from tqdm import tqdm
 
 from brevitas.core.stats.stats_op import NegativeMinOrZero
@@ -62,9 +50,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import \
     calculate_activation_statistics
-from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import calculate_frechet_distance
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
-from brevitas_examples.stable_diffusion.mlperf_evaluation.inception import InceptionV3
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
@@ -96,48 +82,14 @@ TESTING_PROMPTS = [
 ]
 
 
-def coco_testing(
-        pipe,
-        num_prompt,
-        resolution,
-        inference_steps,
-        guidance_scale,
-        use_negative_prompts,
-        caption_path,
-        statistics_path,
-        dtype,
-        is_unet,
-        deterministic,
-        device):
-    captions_df = pd.read_csv(caption_path, sep="\t")
-    captions_df = captions_df[:num_prompt]
-    captions_df = [captions_df.loc[i].caption for i in range(len(captions_df))]
-
-    with np.load(statistics_path) as f:
-        m1, s1 = f["mu"][:], f["sigma"][:]
-
-    imgs = run_test_inference(
-        pipe,
-        resolution,
-        captions_df, [TEST_SEED],
-        device,
-        dtype,
-        deterministic=deterministic,
-        inference_steps=inference_steps,
-        guidance_scale=guidance_scale,
-        use_negative_prompts=use_negative_prompts,
-        is_unet=is_unet)
-    imgs = [(t[0].cpu().permute(1, 2, 0).float().numpy() * 255).round().astype(np.uint8)
-            for t in imgs.values()]
-    imgs = [Image.fromarray(e).convert("RGB") for e in imgs]
-
-    block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[2048]
-    model = InceptionV3([block_idx]).to(device)
-    m2, s2 = calculate_activation_statistics(imgs, model, 1, 2048, 'cuda', 1)
-
-    fid_value = calculate_frechet_distance(m1, s1, m2, s2)
-
-    return fid_value
+def load_images_from_folder(folder_path):
+    images = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.png') or filename.endswith('.jpg'):
+            img_path = os.path.join(folder_path, filename)
+            image = image_io.read_image(img_path)
+            images.append(image)
+    return images
 
 
 def load_calib_prompts(calib_data_path, sep="\t"):
@@ -157,46 +109,37 @@ def get_denoising_network(pipe):
 
 def run_test_inference(
         pipe,
-        resolution,
         prompts,
         seeds,
         device,
-        dtype,
         use_negative_prompts,
         guidance_scale,
         output_path=None,
-        name_prefix='',
+        subfolder='',
         inference_steps=50,
-        is_unet=True,
         deterministic=True):
-    images = dict()
+
     with torch.no_grad():
+        full_dir = os.path.join(output_path, subfolder)
         generator = torch.Generator(device).manual_seed(0) if deterministic else None
+        if output_path is not None:
+            os.makedirs(full_dir, exist_ok=True)
 
         neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
+        i = 0
         for prompt in tqdm(prompts):
             prompt_images = pipe([prompt] * len(seeds),
                                  negative_prompt=neg_prompts,
                                  guidance_scale=guidance_scale,
                                  num_inference_steps=inference_steps,
-                                 generator=generator,
-                                 output_type="pt" if output_path is None else "pil").images
-            if output_path is None:
-                images[prompt] = [img.cpu() for img in prompt_images]
-            else:
-                images[prompt] = prompt_images
+                                 generator=generator).images
 
-        if output_path is not None:
-            if not os.path.exists(output_path):
-                os.mkdir(output_path)
-            i = 0
-            for prompt, prompt_images in images.items():
+            if output_path is not None:
                 for image in prompt_images:
-                    file_path = os.path.join(output_path, f"{name_prefix}{i}.png")
-                    print(f"Saving to {file_path}")
+                    file_path = os.path.join(full_dir, f"image_{i}.png")
+                    # print(f"Saving to {file_path}")
                     image.save(file_path)
                     i += 1
-    return images
 
 
 def run_val_inference(
@@ -323,20 +266,17 @@ def main(args):
     if args.prompt > 0 and args.inference_pipeline == 'samples':
         print(f"Running inference with prompt ...")
         testing_prompts = TESTING_PROMPTS[:args.prompt]
-        float_images = run_test_inference(
+        run_test_inference(
             pipe,
-            args.resolution,
             testing_prompts,
             test_seeds,
             args.device,
-            dtype,
             output_path=output_dir,
             deterministic=args.deterministic,
             inference_steps=args.inference_steps,
             guidance_scale=args.guidance_scale,
             use_negative_prompts=args.use_negative_prompts,
-            name_prefix='float_',
-            is_unet=is_unet)
+            subfolder='float')
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -913,38 +853,44 @@ def main(args):
                     guidance_scale=args.guidance_scale,
                     is_unet=is_unet)
 
-                quant_images = run_test_inference(
+                run_test_inference(
                     pipe,
-                    args.resolution,
                     testing_prompts,
                     test_seeds,
                     args.device,
-                    dtype,
                     output_path=output_dir,
                     deterministic=args.deterministic,
                     inference_steps=args.inference_steps,
                     use_negative_prompts=args.use_negative_prompts,
                     guidance_scale=args.guidance_scale,
-                    name_prefix='quant_',
-                    is_unet=is_unet)
+                    subfolder='quant')
 
-            float_images_values = float_images.values()
-            float_images_values = [x for x_nested in float_images_values for x in x_nested]
-            float_images_values = torch.tensor([np.array(image) for image in float_images_values])
-            float_images_values = float_images_values.permute(0, 3, 1, 2)
-
-            quant_images_values = quant_images.values()
-            quant_images_values = [x for x_nested in quant_images_values for x in x_nested]
-            quant_images_values = torch.tensor([np.array(image) for image in quant_images_values])
-            quant_images_values = quant_images_values.permute(0, 3, 1, 2)
+            float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
+            quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
 
             fid = FrechetInceptionDistance(normalize=False)
             fid.update(float_images_values, real=True)
             fid.update(quant_images_values, real=False)
             print(f"FID: {float(fid.compute())}")
 
-        elif args.inference_pipeline == 'coco':
+        elif args.inference_pipeline == 'reference_images':
             pipe.set_progress_bar_config(disable=True)
+
+            # Load the reference images.
+            # We expect a folder with either '.png' or '.jpeg'.
+            # All the images will be used for FID computation.
+            float_images_values = load_images_from_folder(args.reference_images_path)
+
+            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            for float_image in tqdm(float_images_values):
+
+                if float_image.shape[0] == 1:
+                    float_image = float_image.repeat(3, 1, 1)
+                if len(float_image.shape) == 3:
+                    float_image = float_image.unsqueeze(0)
+                fid.update(float_image.cuda(), real=True)
+            del float_images_values
+
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 run_val_inference(
                     pipe,
@@ -958,20 +904,31 @@ def main(args):
                     test_latents=latents,
                     guidance_scale=args.guidance_scale,
                     is_unet=is_unet)
-                fid = coco_testing(
+
+                # Load reference test set
+                # We expect a pandas dataset with a 'caption' column
+                captions_df = pd.read_csv(args.caption_path, sep="\t")
+                captions_df = [captions_df.loc[i].caption for i in range(len(captions_df))]
+                captions_df = captions_df[:args.prompt]
+
+                run_test_inference(
                     pipe,
-                    num_prompt=args.prompt,
-                    resolution=args.resolution,
-                    inference_steps=args.inference_steps,
-                    guidance_scale=args.guidance_scale,
-                    use_negative_prompts=args.use_negative_prompts,
-                    caption_path=args.caption_path,
-                    statistics_path=args.statistics_path,
-                    dtype=dtype,
-                    is_unet=is_unet,
+                    captions_df,
+                    test_seeds,
+                    args.device,
+                    output_path=output_dir,
                     deterministic=args.deterministic,
-                    device=args.device)
-                print(fid)
+                    inference_steps=args.inference_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    guidance_scale=args.guidance_scale,
+                    subfolder='quant_reference')
+
+                quant_images_values = load_images_from_folder(
+                    os.path.join(output_dir, 'quant_reference'))
+                for quant_image in tqdm(quant_images_values):
+                    fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
+
+                print(f"FID: {float(fid.compute())}")
 
 
 if __name__ == "__main__":
@@ -1290,7 +1247,7 @@ if __name__ == "__main__":
         '--inference-pipeline',
         type=str,
         default='samples',
-        choices=['samples', 'coco', 'mlperf'],
+        choices=['samples', 'reference_images', 'mlperf'],
         help='Inference pipeline for evaluation.  Default: %(default)s')
     parser.add_argument(
         '--caption-path',
@@ -1298,7 +1255,7 @@ if __name__ == "__main__":
         default=None,
         help='Inference pipeline for evaluation.  Default: %(default)s')
     parser.add_argument(
-        '--statistics-path',
+        '--reference-images-path',
         type=str,
         default=None,
         help='Inference pipeline for evaluation.  Default: %(default)s')
