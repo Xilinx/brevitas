@@ -41,7 +41,6 @@ from brevitas.graph.utils import get_module
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas.utils.torch_utils import is_parametrized
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
@@ -192,9 +191,19 @@ def test_models(toy_model, merge_bias, request):
 
 @pytest_cases.parametrize("layerwise", [True, False])
 @pytest_cases.parametrize("fuse_scaling", [True, False])
-def test_act_equalization_models(toy_model, layerwise, fuse_scaling, request):
+@pytest_cases.parametrize(
+    "dtype", [torch.float32, torch.float16, torch.bfloat16],
+    ids=lambda dtype: str(dtype).split(".")[-1])
+@pytest_cases.parametrize(
+    "device", ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"],
+    ids=lambda dtype: str(dtype).split(".")[-1])
+def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, device, request):
     if not fuse_scaling and parse('1.9.0') > torch_version:
         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
+    if dtype in [torch.float16, torch.bfloat16] and parse('2.3.0') > torch_version:
+        pytest.skip(
+            "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
+        )
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
@@ -204,7 +213,8 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, request):
 
     model_class = toy_model
     model = model_class()
-    inp = torch.randn(in_shape)
+    model.to(device=device, dtype=dtype)
+    inp = torch.randn(in_shape, device=device, dtype=dtype)
 
     model.eval()
     expected_out = model(inp)
@@ -221,7 +231,7 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, request):
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
-    assert torch.allclose(expected_out, out, atol=ATOL)
+    assert torch.allclose(expected_out, out, atol=ATOL_DICT[dtype])
 
     # This region is made up of a residual branch, so no regions are found for act equalization
     if 'convgroupconv' in test_id:

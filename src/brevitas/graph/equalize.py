@@ -635,6 +635,7 @@ def _cross_layer_equalization(
     act_sink_axes = {}
     act_sources_axes = {}
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
+    device = next(single_module.parameters()).device
     dtype = next(single_module.parameters()).dtype
 
     # If region is not valid, don't equalize. If we are inserting a standalone mul, we don't need this check
@@ -765,7 +766,7 @@ def _cross_layer_equalization(
 
     srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
-    scaling_factors = sinks_range / srcs_range
+    scaling_factors = (sinks_range / srcs_range).to(device=device, dtype=dtype)
     # If the scaling factors are not fused, they are stored as a parameter instead
     if not fuse_scaling:
         scaling_factors = nn.Parameter(scaling_factors)

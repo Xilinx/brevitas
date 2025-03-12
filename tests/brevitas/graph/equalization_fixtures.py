@@ -22,6 +22,10 @@ from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 
 SEED = 123456
+ATOL_DICT = {
+    torch.float32: 1e-3,
+    torch.float16: 5e-2,
+    torch.bfloat16: 3e-1,}
 ATOL = 1e-3
 
 MODELS = {
