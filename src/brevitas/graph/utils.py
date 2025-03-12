@@ -10,7 +10,6 @@ from torch import nn
 from brevitas import nn as qnn
 from brevitas.fx import map_arg
 from brevitas.fx import Node
-from brevitas.utils.python_utils import recurse_getattr
 
 __all__ = [
     'module_class_name',
