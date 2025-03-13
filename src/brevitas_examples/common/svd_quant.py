@@ -89,8 +89,7 @@ def _create_correction_module(layer, rank, iters=1, dtype=torch.float32):
     cm.l1.weight = torch.nn.Parameter(best_L1)
     cm.l2.weight = torch.nn.Parameter(best_L2)
     layer.weight = torch.nn.Parameter(best_R)
-    #if layer.weight_quant.is_quant_enabled:
-    #    layer.weight_quant.init_tensor_quant()
+
     best_Err = calculate_Err(
         orig_weight, cm.l1.weight.data, cm.l2.weight.data, layer)  # Sanity check
     logging.debug(f"Final Residual: {best_Err}")
