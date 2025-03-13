@@ -421,7 +421,6 @@ def get_activations(files, model, batch_size=50, dims=2048, device="cpu", num_wo
             pred = adaptive_avg_pool2d(pred, output_size=(1, 1))
 
         pred = pred.squeeze(3).squeeze(2).cpu().numpy()
-
         pred_arr[start_idx:start_idx + pred.shape[0]] = pred
 
         start_idx = start_idx + pred.shape[0]

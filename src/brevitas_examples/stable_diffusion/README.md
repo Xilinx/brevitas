@@ -1,4 +1,8 @@
-# Stable Diffusion Quantization
+# Diffusion Quantization
+
+This entrypoint supports quantization of different diffusion models, from Stable Diffusion to Flux.
+We are still experimenting with it, thus some functionalities might not work as intended.
+Feel free to open an issue if you face any issue.
 
 ## Requirements
 
@@ -16,12 +20,12 @@ pip install -e .[export]
 
 ## Quantization Options
 
-It supports Stable Diffusion 2.1 and Stable Diffusion XL.
 
 The following PTQ techniques are currently supported:
 - Activation Equalization (e.g., SmoothQuant), layerwise (with the addition of Mul ops)
 - Activation Calibration, in the case of static activation quantization
 - GPTQ
+- SVDQuant
 - Bias Correction
 
 These techniques can be applied for both integer and floating point quantization.
@@ -62,12 +66,16 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--load-checkpoint LOAD_CHECKPOINT]
                [--path-to-latents PATH_TO_LATENTS]
                [--path-to-coco PATH_TO_COCO] [--resolution RESOLUTION]
+               [--svd-quant-rank SVD_QUANT_RANK]
+               [--svd-quant-iters SVD_QUANT_ITERS]
                [--guidance-scale GUIDANCE_SCALE]
                [--calibration-steps CALIBRATION_STEPS]
+               [--inference-steps INFERENCE_STEPS]
                [--output-path OUTPUT_PATH | --no-output-path]
                [--quantize | --no-quantize]
                [--activation-equalization | --no-activation-equalization]
-               [--gptq | --no-gptq] [--bias-correction | --no-bias-correction]
+               [--gptq | --no-gptq] [--svd-quant | --no-svd-quant]
+               [--bias-correction | --no-bias-correction]
                [--dtype {float32,float16,bfloat16}]
                [--attention-slicing | --no-attention-slicing]
                [--compile | --no-compile]
@@ -89,9 +97,10 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--weight-quant-format WEIGHT_QUANT_FORMAT]
                [--input-quant-format INPUT_QUANT_FORMAT]
                [--weight-quant-granularity {per_channel,per_tensor,per_group}]
-               [--input-quant-granularity {per_tensor}]
+               [--input-quant-granularity {per_tensor,per_group}]
                [--input-scale-type {static,dynamic}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
+               [--input-group-size INPUT_GROUP_SIZE]
                [--sdpa-bit-width SDPA_BIT_WIDTH]
                [--sdpa-param-method {stats,mse}]
                [--sdpa-scale-stats-op {minmax,percentile}]
@@ -101,13 +110,17 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--sdpa-quant-format SDPA_QUANT_FORMAT]
                [--sdpa-quant-granularity {per_tensor}]
                [--sdpa-scale-type {static,dynamic}]
-               [--quant-blacklist [NAME ...]]
+               [--quant-recursive-blacklist [NAME ...]]
+               [--quant-standalone-blacklist [NAME ...]]
+               [--scale-rounding-func {floor,ceil,round}]
+               [--inference-pipeline {samples,reference_images,mlperf}]
+               [--caption-path CAPTION_PATH]
+               [--reference-images-path REFERENCE_IMAGES_PATH]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
                [--exclude-blacklist-act-eq | --no-exclude-blacklist-act-eq]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
                [--quantize-sdpa-zero-point | --no-quantize-sdpa-zero-point]
                [--export-cpu-float32 | --no-export-cpu-float32]
-               [--use-mlperf-inference | --no-use-mlperf-inference]
                [--use-negative-prompts | --no-use-negative-prompts]
                [--dry-run | --no-dry-run]
                [--override-conv-quant-config | --no-override-conv-quant-config]
@@ -119,6 +132,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--vae-bias-correction | --no-vae-bias-correction]
                [--compile-ptq | --no-compile-ptq]
                [--compile-eval | --no-compile-eval]
+               [--deterministic | --no-deterministic]
 
 Stable Diffusion quantization
 
@@ -130,7 +144,7 @@ options:
                         Target device for quantized model.
   -b BATCH_SIZE, --batch-size BATCH_SIZE
                         How many seeds to use for each image during
-                        validation. Default: 2
+                        validation. Default: 1
   --prompt PROMPT       Number of prompt to use for testing. Default: 4
   --calibration-prompt CALIBRATION_PROMPT
                         Number of prompt to use for calibration. Default: 2
@@ -147,14 +161,20 @@ options:
                         generated based on an internal seed.
   --path-to-coco PATH_TO_COCO
                         Path to MLPerf compliant Coco dataset. Used when the
-                        --use-mlperf flag is set. Default: None
+                        inference_pipeline is mlperf. Default: None
   --resolution RESOLUTION
                         Resolution along height and width dimension. Default:
                         512.
+  --svd-quant-rank SVD_QUANT_RANK
+                        SVDQuant rank. Default: 32
+  --svd-quant-iters SVD_QUANT_ITERS
+                        Number of iterations to use for SVDQuant (default: 1).
   --guidance-scale GUIDANCE_SCALE
                         Guidance scale.
   --calibration-steps CALIBRATION_STEPS
                         Steps used during calibration
+  --inference-steps INFERENCE_STEPS
+                        Steps used during inference
   --output-path OUTPUT_PATH
                         Path where to generate output folder.
   --no-output-path      Disable Path where to generate output folder.
@@ -168,8 +188,10 @@ options:
                         Disabled
   --gptq                Enable Toggle gptq. Default: Disabled
   --no-gptq             Disable Toggle gptq. Default: Disabled
-  --bias-correction     Enable Toggle bias-correction. Default: Enabled
-  --no-bias-correction  Disable Toggle bias-correction. Default: Enabled
+  --svd-quant           Enable Toggle SVDQuant. Default: Disabled
+  --no-svd-quant        Disable Toggle SVDQuant. Default: Disabled
+  --bias-correction     Enable Toggle bias-correction. Default: Disabled
+  --no-bias-correction  Disable Toggle bias-correction. Default: Disabled
   --dtype {float32,float16,bfloat16}
                         Model Dtype, choices are float32, float16, bfloat16.
                         Default: float16
@@ -229,7 +251,7 @@ options:
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
                         per_channel.
-  --input-quant-granularity {per_tensor}
+  --input-quant-granularity {per_tensor,per_group}
                         Granularity for scales/zero-point of inputs. Default:
                         per_tensor.
   --input-scale-type {static,dynamic}
@@ -237,6 +259,9 @@ options:
                         Default: static.
   --weight-group-size WEIGHT_GROUP_SIZE
                         Group size for per_group weight quantization. Default:
+                        16.
+  --input-group-size INPUT_GROUP_SIZE
+                        Group size for per_group input quantization. Default:
                         16.
   --sdpa-bit-width SDPA_BIT_WIDTH
                         Scaled dot product attention bit width. Default: 0
@@ -267,9 +292,21 @@ options:
   --sdpa-scale-type {static,dynamic}
                         Whether to do static or dynamic scaled dot product
                         attention quantization. Default: static.
-  --quant-blacklist [NAME ...]
+  --quant-recursive-blacklist [NAME ...]
                         A list of module names to exclude from quantization.
-                        Default: ['time_emb']
+                        They are recursively searched in the model
+                        architecture. Default: []
+  --quant-standalone-blacklist [NAME ...]
+                        A list of module names to exclude from quantization.
+                        Default: []
+  --scale-rounding-func {floor,ceil,round}
+                        Inference pipeline for evaluation. Default: floor
+  --inference-pipeline {samples,reference_images,mlperf}
+                        Inference pipeline for evaluation. Default: samples
+  --caption-path CAPTION_PATH
+                        Inference pipeline for evaluation. Default: None
+  --reference-images-path REFERENCE_IMAGES_PATH
+                        Inference pipeline for evaluation. Default: None
   --quantize-weight-zero-point
                         Enable Quantize weight zero-point. Default: Enabled
   --no-quantize-weight-zero-point
@@ -293,12 +330,6 @@ options:
   --export-cpu-float32  Enable Export FP32 on CPU. Default: Disabled
   --no-export-cpu-float32
                         Disable Export FP32 on CPU. Default: Disabled
-  --use-mlperf-inference
-                        Enable Evaluate FID score with MLPerf pipeline.
-                        Default: False
-  --no-use-mlperf-inference
-                        Disable Evaluate FID score with MLPerf pipeline.
-                        Default: False
   --use-negative-prompts
                         Enable Use negative prompts during
                         generation/calibration. Default: Enabled
@@ -345,6 +376,9 @@ options:
                         Disabled
   --no-compile-eval     Disable Compile proxies for evaluation. Default:
                         Disabled
-
+  --deterministic       Enable Deterministic image generation. Default:
+                        Enabled
+  --no-deterministic    Disable Deterministic image generation. Default:
+                        Enabled
 
 ```

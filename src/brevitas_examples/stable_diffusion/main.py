@@ -5,7 +5,6 @@ SPDX-License-Identifier: MIT
 
 import argparse
 from datetime import datetime
-from functools import partial
 import json
 import math
 import os
@@ -15,6 +14,7 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
+from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
 import numpy as np
@@ -24,7 +24,15 @@ import pandas as pd
 from safetensors.torch import save_file
 import torch
 from torch import nn
+# FID Computation can be performed with several different libraries.
+# Each will produce slightly different but valid results
 from torchmetrics.image.fid import FrechetInceptionDistance
+
+try:
+    from cleanfid import fid as cleanfid
+except:
+    cleanfid = None
+import torchvision.io as image_io
 from tqdm import tqdm
 
 from brevitas.core.stats.stats_op import NegativeMinOrZero
@@ -46,6 +54,9 @@ from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import \
+    calculate_activation_statistics
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
@@ -78,44 +89,67 @@ TESTING_PROMPTS = [
 ]
 
 
+def load_images_from_folder(folder_path):
+    images = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.png') or filename.endswith('.jpg'):
+            img_path = os.path.join(folder_path, filename)
+            image = image_io.read_image(img_path)
+            images.append(image)
+    return images
+
+
 def load_calib_prompts(calib_data_path, sep="\t"):
     df = pd.read_csv(calib_data_path, sep=sep)
     lst = df["caption"].tolist()
     return lst
 
 
+def get_denoising_network(pipe):
+    if hasattr(pipe, 'unet'):
+        return pipe.unet
+    elif hasattr(pipe, 'transformer'):
+        return pipe.transformer
+    else:
+        raise ValueError
+
+
 def run_test_inference(
         pipe,
-        resolution,
         prompts,
         seeds,
-        output_path,
         device,
-        dtype,
         use_negative_prompts,
         guidance_scale,
-        name_prefix=''):
-    images = dict()
-    with torch.no_grad():
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
-        test_latents = generate_latents(seeds, device, dtype, unet_input_shape(resolution))
-        neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
-        for prompt in prompts:
-            prompt_images = pipe([prompt] * len(seeds),
-                                 latents=test_latents,
-                                 negative_prompt=neg_prompts,
-                                 guidance_scale=guidance_scale).images
-            images[prompt] = prompt_images
+        resolution,
+        output_path=None,
+        subfolder='',
+        inference_steps=50,
+        deterministic=True):
 
+    with torch.no_grad():
+        full_dir = os.path.join(output_path, subfolder)
+        generator = torch.Generator(device).manual_seed(0) if deterministic else None
+        if output_path is not None:
+            os.makedirs(full_dir, exist_ok=True)
+
+        neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
         i = 0
-        for prompt, prompt_images in images.items():
-            for image in prompt_images:
-                file_path = os.path.join(output_path, f"{name_prefix}{i}.png")
-                print(f"Saving to {file_path}")
-                image.save(file_path)
-                i += 1
-    return images
+        for prompt in tqdm(prompts):
+            prompt_images = pipe([prompt] * len(seeds),
+                                 negative_prompt=neg_prompts,
+                                 height=resolution,
+                                 width=resolution,
+                                 guidance_scale=guidance_scale,
+                                 num_inference_steps=inference_steps,
+                                 generator=generator).images
+
+            if output_path is not None:
+                for image in prompt_images:
+                    file_path = os.path.join(full_dir, f"image_{i}.png")
+                    # print(f"Saving to {file_path}")
+                    image.save(file_path)
+                    i += 1
 
 
 def run_val_inference(
@@ -129,22 +163,32 @@ def run_val_inference(
         guidance_scale,
         total_steps,
         test_latents=None,
-        output_type='latent'):
+        output_type='latent',
+        deterministic=True,
+        is_unet=True):
     with torch.no_grad():
 
         if test_latents is None:
             test_latents = generate_latents(seeds[0], device, dtype, unet_input_shape(resolution))
+        extra_kwargs = {}
 
+        if is_unet:
+            extra_kwargs['latents'] = test_latents
+
+        generator = torch.Generator(device).manual_seed(0) if deterministic else None
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
         for prompt in tqdm(prompts):
             # We don't want to generate any image, so we return only the latent encoding pre VAE
             pipe(
                 prompt,
                 negative_prompt=neg_prompts[0],
-                latents=test_latents,
                 output_type=output_type,
                 guidance_scale=guidance_scale,
-                num_inference_steps=total_steps)
+                height=resolution,
+                width=resolution,
+                num_inference_steps=total_steps,
+                generator=generator,
+                **extra_kwargs)
 
 
 def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args):
@@ -167,6 +211,7 @@ def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args)
         test_seeds,
         args.device,
         dtype,
+        deterministic=args.deterministic,
         total_steps=args.calibration_steps,
         use_negative_prompts=args.use_negative_prompts,
         test_latents=latents,
@@ -206,16 +251,23 @@ def main(args):
     # Extend seeds based on batch_size
     test_seeds = [TEST_SEED] + [TEST_SEED + i for i in range(1, args.batch_size)]
 
+    is_flux_model = 'flux' in args.model.lower()
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
-    variant = 'fp16' if dtype == torch.float16 else None
-    pipe = DiffusionPipeline.from_pretrained(
-        args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
-    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-    pipe.vae.config.force_upcast = True
+    if is_flux_model:
+        extra_kwargs = {}
+    else:
+        extra_kwargs = {'variant': 'fp16' if dtype == torch.float16 else None}
+
+    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
+    is_unet = isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline))
+
+    if is_unet:
+        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+        pipe.vae.config.force_upcast = True
 
     if args.share_qkv_quant:
-        pipe.fuse_qkv_projections()
+        pipe.transformer.fuse_qkv_projections()
 
     print(f"Model loaded from {args.model}.")
 
@@ -223,20 +275,21 @@ def main(args):
     print(f"Moving model to {args.device}...")
     pipe = pipe.to(args.device)
 
-    if args.prompt > 0 and not args.use_mlperf_inference:
+    if args.prompt > 0 and args.inference_pipeline == 'samples':
         print(f"Running inference with prompt ...")
         testing_prompts = TESTING_PROMPTS[:args.prompt]
-        float_images = run_test_inference(
+        run_test_inference(
             pipe,
-            args.resolution,
             testing_prompts,
             test_seeds,
-            output_dir,
             args.device,
-            dtype,
+            resolution=args.resolution,
+            output_path=output_dir,
+            deterministic=args.deterministic,
+            inference_steps=args.inference_steps,
             guidance_scale=args.guidance_scale,
             use_negative_prompts=args.use_negative_prompts,
-            name_prefix='float_')
+            subfolder='float')
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -248,8 +301,9 @@ def main(args):
     # Extract list of layers to avoid
     blacklist = []
     non_blacklist = dict()
-    for name, _ in pipe.unet.named_modules():
-        if any(map(lambda x: x in name, args.quant_blacklist)):
+    denoising_network = get_denoising_network(pipe)
+    for name, _ in denoising_network.named_modules():
+        if any(map(lambda x: x in name, args.quant_recursive_blacklist)):
             blacklist.append(name)
         else:
             if isinstance(_, (torch.nn.Linear, torch.nn.Conv2d)):
@@ -261,20 +315,20 @@ def main(args):
     print(f"Blacklisted layers: {set(blacklist)}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
-    for m in pipe.unet.modules():
+    for m in denoising_network.modules():
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
         with torch.no_grad(), activation_equalization_mode(
-                pipe.unet,
+                denoising_network,
                 alpha=args.act_eq_alpha,
                 layerwise=True,
                 blacklist_layers=blacklist if args.exclude_blacklist_act_eq else None,
                 add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
-            for m in pipe.unet.modules():
+            for m in denoising_network.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
             total_steps = args.calibration_steps
@@ -288,13 +342,15 @@ def main(args):
                 test_seeds,
                 args.device,
                 dtype,
+                deterministic=args.deterministic,
                 total_steps=total_steps,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
-                guidance_scale=args.guidance_scale)
+                guidance_scale=args.guidance_scale,
+                is_unet=is_unet)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
-        for m in pipe.unet.modules():
+        for m in denoising_network.modules():
             if isinstance(m, EqualizedModule) and hasattr(m.layer, 'in_features'):
                 m.in_features = m.layer.in_features
 
@@ -381,6 +437,7 @@ def main(args):
         quantizers = generate_quantizers(
             dtype=dtype,
             device=args.device,
+            scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -390,6 +447,7 @@ def main(args):
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
+            input_group_size=args.input_group_size,
             input_bit_width=input_bit_width,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
@@ -423,6 +481,7 @@ def main(args):
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
                 device=args.device,
+                scale_rounding_func_type=args.scale_rounding_func,
                 weight_bit_width=args.sdpa_bit_width,
                 weight_quant_format=args.sdpa_quant_format,
                 weight_quant_type=args.sdpa_quant_type,
@@ -433,6 +492,7 @@ def main(args):
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_sdpa_zero_point,
                 input_bit_width=args.sdpa_bit_width,
+                input_group_size=args.input_group_size,
                 input_quant_format=args.sdpa_quant_format,
                 input_scale_type=args.sdpa_scale_type,
                 input_scale_precision=args.sdpa_scale_precision,
@@ -461,10 +521,10 @@ def main(args):
                 **extra_kwargs)
             import brevitas.config as config
             config.IGNORE_MISSING_KEYS = True
-            pipe.unet = rewriter.apply(pipe.unet)
+            denoising_network = rewriter.apply(denoising_network)
             config.IGNORE_MISSING_KEYS = False
-            pipe.unet = pipe.unet.to(args.device)
-            pipe.unet = pipe.unet.to(dtype)
+            denoising_network = denoising_network.to(args.device)
+            denoising_network = denoising_network.to(dtype)
 
             if args.override_conv_quant_config:
                 print(
@@ -475,8 +535,10 @@ def main(args):
                 conv_qkwargs['weight_quant'] = sdpa_quantizers[1]
                 layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
-        pipe.unet = layerwise_quantize(
-            model=pipe.unet, compute_layer_map=layer_map, name_blacklist=blacklist)
+        denoising_network = layerwise_quantize(
+            model=denoising_network,
+            compute_layer_map=layer_map,
+            name_blacklist=blacklist + args.quant_standalone_blacklist)
         print("Model quantization applied.")
 
         pipe.set_progress_bar_config(disable=True)
@@ -489,27 +551,25 @@ def main(args):
                 args.device,
                 dtype,
                 total_steps=1,
+                deterministic=args.deterministic,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
-                guidance_scale=args.guidance_scale)
-
-        if args.compile_ptq:
-            for m in pipe.modules():
-                if hasattr(m, 'compile_quant'):
-                    m.compile_quant()
+                guidance_scale=args.guidance_scale,
+                is_unet=is_unet)
 
         if args.load_checkpoint is not None:
-            with load_quant_model_mode(pipe.unet):
+            with load_quant_model_mode(denoising_network):
                 pipe = pipe.to('cpu')
                 print(f"Loading checkpoint: {args.load_checkpoint}... ", end="")
-                pipe.unet.load_state_dict(torch.load(args.load_checkpoint, map_location='cpu'))
+                denoising_network.load_state_dict(
+                    torch.load(args.load_checkpoint, map_location='cpu'))
                 print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
         elif not args.dry_run:
 
             if needs_calibration:
                 print("Applying activation calibration")
-                with torch.no_grad(), calibration_mode(pipe.unet):
+                with torch.no_grad(), calibration_mode(denoising_network):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -517,35 +577,36 @@ def main(args):
                         test_seeds,
                         args.device,
                         dtype,
+                        deterministic=args.deterministic,
                         total_steps=args.calibration_steps,
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
-                        guidance_scale=args.guidance_scale)
+                        guidance_scale=args.guidance_scale,
+                        is_unet=is_unet)
 
-            if args.gptq:
-                print("Applying GPTQ. It can take several hours")
-                with torch.no_grad(), gptq_mode(pipe.unet,
-                            create_weight_orig=False,
-                            use_quant_activations=False,
-                            return_forward_output=True,
-                            act_order=True) as gptq:
-                    for _ in tqdm(range(gptq.num_layers)):
-                        run_val_inference(
-                            pipe,
-                            args.resolution,
-                            calibration_prompts,
-                            test_seeds,
-                            args.device,
-                            dtype,
-                            total_steps=args.calibration_steps,
-                            use_negative_prompts=args.use_negative_prompts,
-                            test_latents=latents,
-                            guidance_scale=args.guidance_scale)
-                        gptq.update()
-                        torch.cuda.empty_cache()
-            if args.bias_correction:
-                print("Applying bias correction")
-                with torch.no_grad(), bias_correction_mode(pipe.unet):
+        if args.svd_quant:
+            print("Apply SVDQuant...")
+            denoising_network = apply_svd_quant(
+                denoising_network,
+                blacklist=None,
+                rank=args.svd_quant_rank,
+                iters=args.svd_quant_iters,
+                dtype=torch.float32)
+            print("SVDQuant applied.")
+
+        if args.compile_ptq:
+            for m in denoising_network.modules():
+                if hasattr(m, 'compile_quant'):
+                    m.compile_quant()
+
+        if args.gptq:
+            print("Applying GPTQ. It can take several hours")
+            with torch.no_grad(), gptq_mode(denoising_network,
+                        create_weight_orig=False,
+                        use_quant_activations=False,
+                        return_forward_output=True,
+                        act_order=True) as gptq:
+                for _ in tqdm(range(gptq.num_layers)):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -553,10 +614,30 @@ def main(args):
                         test_seeds,
                         args.device,
                         dtype,
+                        deterministic=args.deterministic,
                         total_steps=args.calibration_steps,
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
-                        guidance_scale=args.guidance_scale)
+                        guidance_scale=args.guidance_scale,
+                        is_unet=is_unet)
+                    gptq.update()
+                    torch.cuda.empty_cache()
+        if args.bias_correction:
+            print("Applying bias correction")
+            with torch.no_grad(), bias_correction_mode(denoising_network):
+                run_val_inference(
+                    pipe,
+                    args.resolution,
+                    calibration_prompts,
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    deterministic=args.deterministic,
+                    total_steps=args.calibration_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale,
+                    is_unet=is_unet)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -581,6 +662,7 @@ def main(args):
         print(f"Corrected layers in VAE: {corrected_layers}")
 
     if args.vae_quantize:
+        assert not is_flux_model, "Not supported yet"
         print("Quantizing VAE")
         vae_calibration = collect_vae_calibration(
             pipe, calibration_prompts, test_seeds, dtype, latents, args)
@@ -603,6 +685,7 @@ def main(args):
         quantizers = generate_quantizers(
             dtype=dtype,
             device=args.device,
+            scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -613,6 +696,7 @@ def main(args):
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
             input_bit_width=input_bit_width,
+            input_group_size=args.input_group_size,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
             input_scale_precision=args.input_scale_precision,
@@ -692,7 +776,7 @@ def main(args):
         print("VAE quantized")
 
     if args.checkpoint_name is not None and args.load_checkpoint is None:
-        torch.save(pipe.unet.state_dict(), os.path.join(output_dir, args.checkpoint_name))
+        torch.save(denoising_network.state_dict(), os.path.join(output_dir, args.checkpoint_name))
         if args.vae_fp16_fix:
             torch.save(
                 pipe.vae.state_dict(), os.path.join(output_dir, f"vae_{args.checkpoint_name}"))
@@ -700,10 +784,10 @@ def main(args):
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
         if args.export_cpu_float32:
-            pipe.unet.to('cpu').to(torch.float32)
-        pipe.unet.eval()
-        device = next(iter(pipe.unet.parameters())).device
-        dtype = next(iter(pipe.unet.parameters())).dtype
+            denoising_network.to('cpu').to(torch.float32)
+        denoising_network.eval()
+        device = next(iter(denoising_network.parameters())).device
+        dtype = next(iter(denoising_network.parameters())).dtype
 
         # Define tracing input
         if is_sd_xl:
@@ -726,9 +810,9 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
-            device = next(iter(pipe.unet.parameters())).device
+            device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')
-            export_quant_params(pipe.unet, output_dir, 'unet_')
+            export_quant_params(denoising_network, output_dir, 'unet_')
             if args.vae_quantize or args.vae_fp16_fix:
                 export_quant_params(pipe.vae, output_dir, 'vae_')
             else:
@@ -739,24 +823,24 @@ def main(args):
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
-        # with brevitas_proxy_inference_mode(pipe.unet):
-        if args.use_mlperf_inference:
+        if args.inference_pipeline == 'mlperf':
             print(f"Computing accuracy with MLPerf pipeline")
-            with torch.no_grad(), quant_inference_mode(pipe.unet, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 # Perform a single forward pass before evenutally compiling
                 run_val_inference(
                     pipe,
-                    args.resolution,
-                    [calibration_prompts[0]],  # We need a list
+                    args.resolution, [calibration_prompts[0]],
                     test_seeds,
                     args.device,
                     dtype,
                     total_steps=1,
+                    deterministic=args.deterministic,
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
-                    guidance_scale=args.guidance_scale)
+                    guidance_scale=args.guidance_scale,
+                    is_unet=is_unet)
                 if args.compile:
-                    pipe.unet = torch.compile(pipe.unet)
+                    denoising_network = torch.compile(denoising_network)
                 compute_mlperf_fid(
                     args.model,
                     args.path_to_coco,
@@ -765,37 +849,109 @@ def main(args):
                     output_dir,
                     args.device,
                     not args.vae_fp16_fix)
-        else:
+        elif args.inference_pipeline == 'samples':
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
-            assert args.prompt <= len(TESTING_PROMPTS), f"Only {len(TESTING_PROMPTS)} prompts are available"
-            with torch.no_grad():
-                quant_images = run_test_inference(
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+                run_val_inference(
                     pipe,
-                    args.resolution,
-                    testing_prompts,
+                    args.resolution, [calibration_prompts[0]],
                     test_seeds,
-                    output_dir,
                     args.device,
                     dtype,
+                    total_steps=1,
+                    deterministic=args.deterministic,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale,
+                    is_unet=is_unet)
+
+                run_test_inference(
+                    pipe,
+                    testing_prompts,
+                    test_seeds,
+                    args.device,
+                    resolution=args.resolution,
+                    output_path=output_dir,
+                    deterministic=args.deterministic,
+                    inference_steps=args.inference_steps,
                     use_negative_prompts=args.use_negative_prompts,
                     guidance_scale=args.guidance_scale,
-                    name_prefix='quant_')
+                    subfolder='quant')
 
-            float_images_values = float_images.values()
-            float_images_values = [x for x_nested in float_images_values for x in x_nested]
-            float_images_values = torch.tensor([np.array(image) for image in float_images_values])
-            float_images_values = float_images_values.permute(0, 3, 1, 2)
-
-            quant_images_values = quant_images.values()
-            quant_images_values = [x for x_nested in quant_images_values for x in x_nested]
-            quant_images_values = torch.tensor([np.array(image) for image in quant_images_values])
-            quant_images_values = quant_images_values.permute(0, 3, 1, 2)
+            float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
+            quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
 
             fid = FrechetInceptionDistance(normalize=False)
             fid.update(float_images_values, real=True)
             fid.update(quant_images_values, real=False)
-            print(f"FID: {float(fid.compute())}")
+            print(f"Torchmetrics FID: {float(fid.compute())}")
+            if cleanfid is not None:
+                score = cleanfid.compute_fid(
+                    os.path.join(output_dir, 'quant'), os.path.join(output_dir, 'float'))
+                print(f"Cleanfid FID: {float(score)}")
+
+        elif args.inference_pipeline == 'reference_images':
+            pipe.set_progress_bar_config(disable=True)
+
+            # Load the reference images.
+            # We expect a folder with either '.png' or '.jpeg'.
+            # All the images will be used for FID computation.
+            float_images_values = load_images_from_folder(args.reference_images_path)
+
+            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            for float_image in tqdm(float_images_values):
+
+                if float_image.shape[0] == 1:
+                    float_image = float_image.repeat(3, 1, 1)
+                if len(float_image.shape) == 3:
+                    float_image = float_image.unsqueeze(0)
+                fid.update(float_image.cuda(), real=True)
+            del float_images_values
+
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+                run_val_inference(
+                    pipe,
+                    args.resolution, [calibration_prompts[0]],
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=1,
+                    deterministic=args.deterministic,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale,
+                    is_unet=is_unet)
+
+                # Load reference test set
+                # We expect a pandas dataset with a 'caption' column
+                captions_df = pd.read_csv(args.caption_path, sep="\t")
+                captions_df = [captions_df.loc[i].caption for i in range(len(captions_df))]
+                captions_df = captions_df[:args.prompt]
+
+                run_test_inference(
+                    pipe,
+                    captions_df,
+                    test_seeds,
+                    args.device,
+                    resolution=args.resolution,
+                    output_path=output_dir,
+                    deterministic=args.deterministic,
+                    inference_steps=args.inference_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    guidance_scale=args.guidance_scale,
+                    subfolder='quant_reference')
+
+                quant_images_values = load_images_from_folder(
+                    os.path.join(output_dir, 'quant_reference'))
+                for quant_image in tqdm(quant_images_values):
+                    fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
+
+                print(f"Torchmetrics FID: {float(fid.compute())}")
+                if cleanfid is not None:
+                    score = cleanfid.fid.compute_fid(
+                        os.path.join(output_dir, 'quant'), args.reference_images_path)
+                    print(f"Cleanfid FID: {float(fid.compute())}")
 
 
 if __name__ == "__main__":
@@ -812,8 +968,8 @@ if __name__ == "__main__":
         '-b',
         '--batch-size',
         type=int,
-        default=2,
-        help='How many seeds to use for each image during validation. Default: 2')
+        default=1,
+        help='How many seeds to use for each image during validation. Default: 1')
     parser.add_argument(
         '--prompt', type=int, default=4, help='Number of prompt to use for testing. Default: 4')
     parser.add_argument(
@@ -846,16 +1002,24 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help=
-        'Path to MLPerf compliant Coco dataset. Used when the --use-mlperf flag is set. Default: None'
+        'Path to MLPerf compliant Coco dataset. Used when the inference_pipeline is mlperf. Default: None'
     )
     parser.add_argument(
         '--resolution',
         type=int,
         default=512,
         help='Resolution along height and width dimension. Default: 512.')
-    parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
+    parser.add_argument('--svd-quant-rank', type=int, default=32, help='SVDQuant rank. Default: 32')
+    parser.add_argument(
+        '--svd-quant-iters',
+        type=int,
+        default=1,
+        help='Number of iterations to use for SVDQuant (default: %(default)s).')
+    parser.add_argument('--guidance-scale', type=float, default=None, help='Guidance scale.')
     parser.add_argument(
         '--calibration-steps', type=int, default=8, help='Steps used during calibration')
+    parser.add_argument(
+        '--inference-steps', type=int, default=50, help='Steps used during inference')
     add_bool_arg(
         parser,
         'output-path',
@@ -869,8 +1033,9 @@ if __name__ == "__main__":
         default=False,
         help='Toggle Activation Equalization. Default: Disabled')
     add_bool_arg(parser, 'gptq', default=False, help='Toggle gptq. Default: Disabled')
+    add_bool_arg(parser, 'svd-quant', default=False, help='Toggle SVDQuant. Default: Disabled')
     add_bool_arg(
-        parser, 'bias-correction', default=True, help='Toggle bias-correction. Default: Enabled')
+        parser, 'bias-correction', default=False, help='Toggle bias-correction. Default: Disabled')
     parser.add_argument(
         '--dtype',
         default='float16',
@@ -954,13 +1119,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--weight-quant-type',
         type=str,
-        default='asym',
+        default='sym',
         choices=['sym', 'asym'],
         help='Weight quantization type. Default: asym.')
     parser.add_argument(
         '--input-quant-type',
         type=str,
-        default='asym',
+        default='sym',
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
     parser.add_argument(
@@ -987,7 +1152,7 @@ if __name__ == "__main__":
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
-        choices=['per_tensor'],
+        choices=['per_tensor', 'per_group'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
     parser.add_argument(
         '--input-scale-type',
@@ -1000,6 +1165,11 @@ if __name__ == "__main__":
         type=int,
         default=16,
         help='Group size for per_group weight quantization. Default: 16.')
+    parser.add_argument(
+        '--input-group-size',
+        type=int,
+        default=16,
+        help='Group size for per_group input quantization. Default: 16.')
     parser.add_argument(
         '--sdpa-bit-width',
         type=int,
@@ -1066,13 +1236,43 @@ if __name__ == "__main__":
         'Whether to do static or dynamic scaled dot product attention quantization. Default: %(default)s.'
     )
     parser.add_argument(
-        '--quant-blacklist',
+        '--quant-recursive-blacklist',
         type=str,
-        default=['time_emb'],
+        default=[],
+        nargs='*',
+        metavar='NAME',
+        help=
+        'A list of module names to exclude from quantization. They are recursively searched in the model architecture. Default: %(default)s'
+    )
+    parser.add_argument(
+        '--quant-standalone-blacklist',
+        type=str,
+        default=[],
         nargs='*',
         metavar='NAME',
         help='A list of module names to exclude from quantization. Default: %(default)s')
-
+    parser.add_argument(
+        '--scale-rounding-func',
+        type=str,
+        default='floor',
+        choices=['floor', 'ceil', 'round'],
+        help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--inference-pipeline',
+        type=str,
+        default='samples',
+        choices=['samples', 'reference_images', 'mlperf'],
+        help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--caption-path',
+        type=str,
+        default=None,
+        help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--reference-images-path',
+        type=str,
+        default=None,
+        help='Inference pipeline for evaluation.  Default: %(default)s')
     add_bool_arg(
         parser,
         'quantize-weight-zero-point',
@@ -1095,11 +1295,6 @@ if __name__ == "__main__":
         help='Quantize scaled dot product attention zero-point. Default: %(default)s')
     add_bool_arg(
         parser, 'export-cpu-float32', default=False, help='Export FP32 on CPU. Default: Disabled')
-    add_bool_arg(
-        parser,
-        'use-mlperf-inference',
-        default=False,
-        help='Evaluate FID score with MLPerf pipeline. Default: False')
     add_bool_arg(
         parser,
         'use-negative-prompts',
@@ -1148,6 +1343,11 @@ if __name__ == "__main__":
         'compile-eval',
         default=False,
         help='Compile proxies for evaluation. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'deterministic',
+        default=True,
+        help='Deterministic image generation. Default: Enabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
