@@ -1041,7 +1041,7 @@ if __name__ == "__main__":
     add_bool_arg(parser, 'gptq', default=False, help='Toggle gptq. Default: Disabled')
     add_bool_arg(parser, 'svd-quant', default=False, help='Toggle SVDQuant. Default: Disabled')
     add_bool_arg(
-        parser, 'bias-correction', default=False, help='Toggle bias-correction. Default: Enabled')
+        parser, 'bias-correction', default=False, help='Toggle bias-correction. Default: Disabled')
     parser.add_argument(
         '--dtype',
         default='float16',

@@ -197,8 +197,8 @@ options:
   --no-gptq             Disable Toggle gptq. Default: Disabled
   --svd-quant           Enable Toggle SVDQuant. Default: Disabled
   --no-svd-quant        Disable Toggle SVDQuant. Default: Disabled
-  --bias-correction     Enable Toggle bias-correction. Default: Enabled
-  --no-bias-correction  Disable Toggle bias-correction. Default: Enabled
+  --bias-correction     Enable Toggle bias-correction. Default: Disabled
+  --no-bias-correction  Disable Toggle bias-correction. Default: Disabled
   --dtype {float32,float16,bfloat16}
                         Model Dtype, choices are float32, float16, bfloat16.
                         Default: float16
@@ -299,7 +299,7 @@ options:
   --quant-recursive-blacklist [NAME ...]
                         A list of module names to exclude from quantization.
                         They are recursively searched in the model
-                        architecture. Default: ['time_emb']
+                        architecture. Default: []
   --quant-standalone-blacklist [NAME ...]
                         A list of module names to exclude from quantization.
                         Default: []
@@ -384,6 +384,5 @@ options:
                         Enabled
   --no-deterministic    Disable Deterministic image generation. Default:
                         Enabled
-
 
 ```
