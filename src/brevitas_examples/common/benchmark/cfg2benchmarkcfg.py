@@ -22,6 +22,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config, 'r') as f:
         defaults = yaml.safe_load(f)
-    benchmark_defaults = {k: [v] for k,v in defaults.items()}
+    benchmark_defaults = {k: [v] for k, v in defaults.items()}
     with open(args.benchmark_config, 'w') as f:
         yaml.dump(benchmark_defaults, f)
