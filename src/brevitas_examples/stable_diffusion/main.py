@@ -29,7 +29,7 @@ from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 try:
-    import cleanfid
+    from cleanfid import fid as cleanfid
 except:
     cleanfid = None
 import torchvision.io as image_io
@@ -887,7 +887,7 @@ def main(args):
             fid.update(quant_images_values, real=False)
             print(f"Torchmetrics FID: {float(fid.compute())}")
             if cleanfid is not None:
-                score = cleanfid.fid.compute_fid(
+                score = cleanfid.compute_fid(
                     os.path.join(output_dir, 'quant'), os.path.join(output_dir, 'float'))
                 print(f"Cleanfid FID: {float(score)}")
 
