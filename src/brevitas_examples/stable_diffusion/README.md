@@ -65,10 +65,8 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--checkpoint-name CHECKPOINT_NAME]
                [--load-checkpoint LOAD_CHECKPOINT]
                [--path-to-latents PATH_TO_LATENTS]
-               [--path-to-coco PATH_TO_COCO]
-               [--path-to-coco-captions PATH_TO_COCO_CAPTIONS]
-               [--path-to-coco-statistics PATH_TO_COCO_STATISTICS]
-               [--resolution RESOLUTION] [--svd-quant-rank SVD_QUANT_RANK]
+               [--path-to-coco PATH_TO_COCO] [--resolution RESOLUTION]
+               [--svd-quant-rank SVD_QUANT_RANK]
                [--svd-quant-iters SVD_QUANT_ITERS]
                [--guidance-scale GUIDANCE_SCALE]
                [--calibration-steps CALIBRATION_STEPS]
@@ -102,6 +100,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--input-quant-granularity {per_tensor,per_group}]
                [--input-scale-type {static,dynamic}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
+               [--input-group-size INPUT_GROUP_SIZE]
                [--sdpa-bit-width SDPA_BIT_WIDTH]
                [--sdpa-param-method {stats,mse}]
                [--sdpa-scale-stats-op {minmax,percentile}]
@@ -145,7 +144,7 @@ options:
                         Target device for quantized model.
   -b BATCH_SIZE, --batch-size BATCH_SIZE
                         How many seeds to use for each image during
-                        validation. Default: 2
+                        validation. Default: 1
   --prompt PROMPT       Number of prompt to use for testing. Default: 4
   --calibration-prompt CALIBRATION_PROMPT
                         Number of prompt to use for calibration. Default: 2
@@ -163,12 +162,6 @@ options:
   --path-to-coco PATH_TO_COCO
                         Path to MLPerf compliant Coco dataset. Used when the
                         inference_pipeline is mlperf. Default: None
-  --path-to-coco-captions PATH_TO_COCO_CAPTIONS
-                        Path to MLPerf compliant Coco captions. Used when the
-                        inference_pipeline is coco. Default: None
-  --path-to-coco-statistics PATH_TO_COCO_STATISTICS
-                        Path to MLPerf compliant Coco dataset. Used when the
-                        inference_pipeline is coco. Default: None
   --resolution RESOLUTION
                         Resolution along height and width dimension. Default:
                         512.
@@ -266,6 +259,9 @@ options:
                         Default: static.
   --weight-group-size WEIGHT_GROUP_SIZE
                         Group size for per_group weight quantization. Default:
+                        16.
+  --input-group-size INPUT_GROUP_SIZE
+                        Group size for per_group input quantization. Default:
                         16.
   --sdpa-bit-width SDPA_BIT_WIDTH
                         Scaled dot product attention bit width. Default: 0
