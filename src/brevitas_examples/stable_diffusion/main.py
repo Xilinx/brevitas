@@ -24,7 +24,14 @@ import pandas as pd
 from safetensors.torch import save_file
 import torch
 from torch import nn
+# FID Computation can be performed with several different libraries.
+# Each will produce slightly different but valid results
 from torchmetrics.image.fid import FrechetInceptionDistance
+
+try:
+    import cleanfid
+except:
+    cleanfid = None
 import torchvision.io as image_io
 from tqdm import tqdm
 
@@ -871,7 +878,11 @@ def main(args):
             fid = FrechetInceptionDistance(normalize=False)
             fid.update(float_images_values, real=True)
             fid.update(quant_images_values, real=False)
-            print(f"FID: {float(fid.compute())}")
+            print(f"Torchmetrics FID: {float(fid.compute())}")
+            if cleanfid is not None:
+                score = cleanfid.fid.compute_fid(
+                    os.path.join(output_dir, 'quant'), os.path.join(output_dir, 'float'))
+                print(f"Cleanfid FID: {float(score)}")
 
         elif args.inference_pipeline == 'reference_images':
             pipe.set_progress_bar_config(disable=True)
@@ -928,7 +939,11 @@ def main(args):
                 for quant_image in tqdm(quant_images_values):
                     fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
 
-                print(f"FID: {float(fid.compute())}")
+                print(f"Torchmetrics FID: {float(fid.compute())}")
+                if cleanfid is not None:
+                    score = cleanfid.fid.compute_fid(
+                        os.path.join(output_dir, 'quant'), args.reference_images_path)
+                    print(f"Cleanfid FID: {float(fid.compute())}")
 
 
 if __name__ == "__main__":
@@ -1026,7 +1041,7 @@ if __name__ == "__main__":
     add_bool_arg(parser, 'gptq', default=False, help='Toggle gptq. Default: Disabled')
     add_bool_arg(parser, 'svd-quant', default=False, help='Toggle SVDQuant. Default: Disabled')
     add_bool_arg(
-        parser, 'bias-correction', default=True, help='Toggle bias-correction. Default: Enabled')
+        parser, 'bias-correction', default=False, help='Toggle bias-correction. Default: Enabled')
     parser.add_argument(
         '--dtype',
         default='float16',
@@ -1110,13 +1125,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--weight-quant-type',
         type=str,
-        default='asym',
+        default='sym',
         choices=['sym', 'asym'],
         help='Weight quantization type. Default: asym.')
     parser.add_argument(
         '--input-quant-type',
         type=str,
-        default='asym',
+        default='sym',
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
     parser.add_argument(
@@ -1224,7 +1239,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--quant-recursive-blacklist',
         type=str,
-        default=['time_emb'],
+        default=[],
         nargs='*',
         metavar='NAME',
         help=
