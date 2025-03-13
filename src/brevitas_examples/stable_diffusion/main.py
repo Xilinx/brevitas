@@ -121,6 +121,7 @@ def run_test_inference(
         device,
         use_negative_prompts,
         guidance_scale,
+        resolution,
         output_path=None,
         subfolder='',
         inference_steps=50,
@@ -137,6 +138,8 @@ def run_test_inference(
         for prompt in tqdm(prompts):
             prompt_images = pipe([prompt] * len(seeds),
                                  negative_prompt=neg_prompts,
+                                 height=resolution,
+                                 width=resolution,
                                  guidance_scale=guidance_scale,
                                  num_inference_steps=inference_steps,
                                  generator=generator).images
@@ -181,6 +184,8 @@ def run_val_inference(
                 negative_prompt=neg_prompts[0],
                 output_type=output_type,
                 guidance_scale=guidance_scale,
+                height=resolution,
+                width=resolution,
                 num_inference_steps=total_steps,
                 generator=generator,
                 **extra_kwargs)
@@ -278,6 +283,7 @@ def main(args):
             testing_prompts,
             test_seeds,
             args.device,
+            resolution=args.resolution,
             output_path=output_dir,
             deterministic=args.deterministic,
             inference_steps=args.inference_steps,
@@ -441,7 +447,7 @@ def main(args):
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            input_group_size=16,  #args.input_group_size
+            input_group_size=args.input_group_size,
             input_bit_width=input_bit_width,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
@@ -486,7 +492,7 @@ def main(args):
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_sdpa_zero_point,
                 input_bit_width=args.sdpa_bit_width,
-                input_group_size=32,  #args.input_group_size
+                input_group_size=args.input_group_size,
                 input_quant_format=args.sdpa_quant_format,
                 input_scale_type=args.sdpa_scale_type,
                 input_scale_precision=args.sdpa_scale_precision,
@@ -690,7 +696,7 @@ def main(args):
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             quantize_input_zero_point=args.quantize_input_zero_point,
             input_bit_width=input_bit_width,
-            input_group_size=32,  #args.input_group_size
+            input_group_size=args.input_group_size,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
             input_scale_precision=args.input_scale_precision,
@@ -865,6 +871,7 @@ def main(args):
                     testing_prompts,
                     test_seeds,
                     args.device,
+                    resolution=args.resolution,
                     output_path=output_dir,
                     deterministic=args.deterministic,
                     inference_steps=args.inference_steps,
@@ -927,6 +934,7 @@ def main(args):
                     captions_df,
                     test_seeds,
                     args.device,
+                    resolution=args.resolution,
                     output_path=output_dir,
                     deterministic=args.deterministic,
                     inference_steps=args.inference_steps,
@@ -960,8 +968,8 @@ if __name__ == "__main__":
         '-b',
         '--batch-size',
         type=int,
-        default=2,
-        help='How many seeds to use for each image during validation. Default: 2')
+        default=1,
+        help='How many seeds to use for each image during validation. Default: 1')
     parser.add_argument(
         '--prompt', type=int, default=4, help='Number of prompt to use for testing. Default: 4')
     parser.add_argument(
@@ -995,20 +1003,6 @@ if __name__ == "__main__":
         default=None,
         help=
         'Path to MLPerf compliant Coco dataset. Used when the inference_pipeline is mlperf. Default: None'
-    )
-    parser.add_argument(
-        '--path-to-coco-captions',
-        type=str,
-        default=None,
-        help=
-        'Path to MLPerf compliant Coco captions. Used when the inference_pipeline is coco. Default: None'
-    )
-    parser.add_argument(
-        '--path-to-coco-statistics',
-        type=str,
-        default=None,
-        help=
-        'Path to MLPerf compliant Coco dataset. Used when the inference_pipeline is coco. Default: None'
     )
     parser.add_argument(
         '--resolution',
@@ -1171,6 +1165,11 @@ if __name__ == "__main__":
         type=int,
         default=16,
         help='Group size for per_group weight quantization. Default: 16.')
+    parser.add_argument(
+        '--input-group-size',
+        type=int,
+        default=16,
+        help='Group size for per_group input quantization. Default: 16.')
     parser.add_argument(
         '--sdpa-bit-width',
         type=int,
