@@ -57,8 +57,9 @@ class IntInferencetHandler(InferenceHandler):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
-            self.scale = module.scale()
-            self.zero_point = module.zero_point()
+            # Continguous is used to be extra-safe with torch.compile
+            self.scale = module.scale().contiguous()
+            self.zero_point = module.zero_point().contiguous()
             self.zero_point = self.zero_point.to(self.scale.device)
             self.bit_width = module.bit_width()
             self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
@@ -173,8 +174,9 @@ class FloatInferencetHandler(InferenceHandler):
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
-            self.scale = module.scale()
-            self.zero_point = module.zero_point()
+            # Continguous is used to be extra-safe with torch.compile
+            self.scale = module.scale().contiguous()
+            self.zero_point = module.zero_point().contiguous()
             self.zero_point = self.zero_point.to(self.scale.device)
             self.exponent_bit_width = module.exponent_bit_width()
             self.mantissa_bit_width = module.mantissa_bit_width()
@@ -290,7 +292,6 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
             self.input_view = module.input_view_impl
             self.flattened_view = module.apply_input_view
             self.group_dim = module.group_dim
-            self.shape = module.tracked_parameter_list[0].shape
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
