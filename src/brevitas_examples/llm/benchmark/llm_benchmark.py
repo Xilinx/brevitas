@@ -1,3 +1,6 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from argparse import ArgumentParser
 from argparse import Namespace
 import re

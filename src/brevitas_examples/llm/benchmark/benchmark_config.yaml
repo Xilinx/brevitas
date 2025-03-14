@@ -19,7 +19,7 @@ dataset:
 dtype:
 - float16
 eval:
-- true
+- false
 export_prefix:
 - null
 export_target:
@@ -126,7 +126,7 @@ rotation:
 rotation_layers_to_expand:
 - []
 rotation_mode:
-- had
+- ort
 rotation_orphan_sink:
 - false
 rotation_sdpa_regions:
@@ -146,9 +146,6 @@ svd_quant_iters:
 svd_quant_rank:
 - 32
 weight_bit_width:
-- 5
-- 6
-- 7
 - 8
 weight_equalization:
 - false

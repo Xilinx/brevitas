@@ -64,7 +64,7 @@ replace_mha: false
 replace_rmsnorm: false
 rotation: null
 rotation_layers_to_expand: []
-rotation_mode: had
+rotation_mode: ort
 rotation_orphan_sink: false
 rotation_sdpa_regions: false
 scale_rounding_func_type: null

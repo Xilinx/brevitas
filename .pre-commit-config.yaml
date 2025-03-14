@@ -37,3 +37,12 @@ repos:
     - id: yapf
       args: ["-i"]
       additional_dependencies: [toml]
+
+- repo: local
+  hooks:
+    - id: update-args-yaml-readme
+      name: Update entrypoint arguments
+      entry: bash src/brevitas_examples/common/hook_utils/update_args.sh
+      language: system
+      types: [python]
+      pass_filenames: false
