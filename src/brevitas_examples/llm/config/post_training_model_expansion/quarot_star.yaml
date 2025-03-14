@@ -20,8 +20,6 @@ export_prefix:
 - null
 export_target:
 - null
-few_shot_compile:
-- false
 few_shot_eval:
 - lighteval
 few_shot_limit:
@@ -124,7 +122,6 @@ rotation_sdpa_regions:
 - true
 rotation_layers_to_expand:
 - - down_proj
--
 scale_rounding_func_type:
 - null
 scaling_min_val:
