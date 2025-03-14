@@ -269,7 +269,7 @@ def create_llm_args_parser():
     )
     parser.add_argument(
         '--rotation-mode',
-        default='ort',
+        default='had',
         choices=['had', 'ort'],
         help=
         'If GraphRotation is enabled, decide how to compute the random rotation matrix that is fully fused. Online or partial rotation will always be Hadamard'

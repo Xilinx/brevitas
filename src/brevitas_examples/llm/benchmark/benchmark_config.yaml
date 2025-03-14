@@ -126,7 +126,7 @@ rotation:
 rotation_layers_to_expand:
 - []
 rotation_mode:
-- ort
+- had
 rotation_orphan_sink:
 - false
 rotation_sdpa_regions:
