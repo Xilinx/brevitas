@@ -542,10 +542,6 @@ def quantize_llm(args, extra_args=None):
             from lm_eval.models.huggingface import HFLM
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
-                if args.few_shot_compile:
-                    remove_hooks(model)
-                    model.cuda()
-                    model = torch.compile(model)
 
                 wrapped_model = HFLM(pretrained=model)  # need to wrap for LLM eval
                 few_shot_eval_results = evaluator.simple_evaluate(
