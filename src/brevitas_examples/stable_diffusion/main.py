@@ -266,8 +266,12 @@ def main(args):
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
         pipe.vae.config.force_upcast = True
 
+    denoising_network = get_denoising_network(pipe)
     if args.share_qkv_quant:
-        pipe.transformer.fuse_qkv_projections()
+        if hasattr(pipe, 'fuse_qkv_projections'):
+            pipe.fuse_qkv_projections()
+        elif hasattr(denoising_network):
+            denoising_network.fuse_qkv_projections()
 
     print(f"Model loaded from {args.model}.")
 
@@ -301,7 +305,7 @@ def main(args):
     # Extract list of layers to avoid
     blacklist = []
     non_blacklist = dict()
-    denoising_network = get_denoising_network(pipe)
+
     for name, _ in denoising_network.named_modules():
         if any(map(lambda x: x in name, args.quant_recursive_blacklist)):
             blacklist.append(name)
@@ -960,8 +964,8 @@ def main(args):
 
                 print(f"Torchmetrics FID: {float(fid.compute())}")
                 if cleanfid is not None:
-                    score = cleanfid.fid.compute_fid(
-                        args.reference_images_path, os.path.join(output_dir, 'quant'))
+                    score = cleanfid.compute_fid(
+                        args.reference_images_path, os.path.join(output_dir, 'quant_reference'))
                     print(f"Cleanfid FID: {float(fid.compute())}")
 
 
