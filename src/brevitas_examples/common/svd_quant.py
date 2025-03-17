@@ -56,15 +56,16 @@ def _create_correction_module(layer, rank, iters=1, dtype=torch.float32):
     source_dtype = layer.weight.dtype
 
     # Convert to dtype for SVD
-    orig_weight = layer.weight.detach().to(dtype=dtype).cpu()
     layer = layer.cuda()
+    # For some reason not fully clear to me, if we don't put hits on CPU then there's memory leakage
+    orig_weight = layer.weight.detach().to(dtype=dtype).cpu()
     cm = LowRankCorrectionModule(in_features, out_features, rank).to(
         dtype=dtype, device=layer.weight.device)
     next_R = orig_weight
     best_R = orig_weight
     best_L1 = cm.l1.weight.detach()
     best_L2 = cm.l2.weight.detach()
-    best_Err = calculate_Err(orig_weight, best_L1.cpu(), best_L2.cpu(), layer.cpu())
+    best_Err = calculate_Err(orig_weight.cuda(), best_L1, best_L2, layer)
     logging.debug(f"Start Residual: {best_Err}")
     for i in range(iters):
         U, S, V = torch.linalg.svd(next_R)
