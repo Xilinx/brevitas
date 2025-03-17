@@ -56,7 +56,6 @@ def _create_correction_module(layer, rank, iters=1, dtype=torch.float32):
     source_dtype = layer.weight.dtype
 
     # Convert to dtype for SVD
-    layer = layer.cuda()
     # For some reason not fully clear to me, if we don't put hits on CPU then there's memory leakage
     orig_weight = layer.weight.detach().to(dtype=dtype).cpu()
     cm = LowRankCorrectionModule(in_features, out_features, rank).to(
