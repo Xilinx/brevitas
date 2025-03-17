@@ -270,7 +270,7 @@ def main(args):
     if args.share_qkv_quant:
         if hasattr(pipe, 'fuse_qkv_projections'):
             pipe.fuse_qkv_projections()
-        elif hasattr(denoising_network):
+        elif hasattr(denoising_network, 'fuse_qkv_projections'):
             denoising_network.fuse_qkv_projections()
 
     print(f"Model loaded from {args.model}.")
@@ -824,7 +824,7 @@ def main(args):
         if args.export_target == 'params_only':
             device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')
-            export_quant_params(denoising_network, output_dir, 'unet_')
+            export_quant_params(denoising_network, output_dir, 'denoising_network_')
             if args.vae_quantize or args.vae_fp16_fix:
                 export_quant_params(pipe.vae, output_dir, 'vae_')
             else:

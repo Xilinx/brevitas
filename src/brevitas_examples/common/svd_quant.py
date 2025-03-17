@@ -62,29 +62,28 @@ def _create_correction_module(layer, rank, iters=1, dtype=torch.float32):
     cm.to(dtype=dtype, device=device)
     next_R = orig_weight
     best_R = orig_weight
-    best_L1 = cm.l1.weight.detach().clone()
-    best_L2 = cm.l2.weight.detach().clone()
+    best_L1 = cm.l1.weight.detach()
+    best_L2 = cm.l2.weight.detach()
     best_Err = calculate_Err(orig_weight, best_L1, best_L2, layer)
     logging.debug(f"Residual: {best_Err}")
     for i in range(iters):
-        U, S, V = torch.linalg.svd(next_R)
+        U, S, V = torch.linalg.svd(next_R.cuda())
         L1 = torch.diag(S[:rank]) @ V[:rank, :]
         L2 = U[:, :rank]
-        R = orig_weight - L2 @ L1
-        cm.l1.weight = torch.nn.Parameter(L1)
-        cm.l2.weight = torch.nn.Parameter(L2)
-        layer.weight = torch.nn.Parameter(R)
-        #if layer.weight_quant.is_quant_enabled:
-        #    layer.weight_quant.init_tensor_quant()
-        cur_Err = calculate_Err(orig_weight, L1, L2, layer)
-        next_R = orig_weight - layer.quant_weight()
+        R = orig_weight.cuda() - L2 @ L1
+        cm.l1.weight = torch.nn.Parameter(L1.to(device))
+        cm.l2.weight = torch.nn.Parameter(L2.to(device))
+        layer.weight = torch.nn.Parameter(R.to(device))
+
+        cur_Err = calculate_Err(orig_weight.cpu(), L1.cpu(), L2.cpu(), layer)
+        next_R = orig_weight.cpu() - layer.quant_weight()
         if i == 0:
             logging.debug(f"Residual: {cur_Err}")
         if cur_Err < best_Err:
-            best_Err = cur_Err
-            best_L1 = L1
-            best_L2 = L2
-            best_R = R
+            best_Err = cur_Err.cpu()
+            best_L1 = L1.cpu()
+            best_L2 = L2.cpu()
+            best_R = R.cpu()
         del U, S, V, L1, L2, R
     cm.l1.weight = torch.nn.Parameter(best_L1)
     cm.l2.weight = torch.nn.Parameter(best_L2)
@@ -126,11 +125,13 @@ class LayerwiseLowRankCorrection(GraphTransform):
         errs = torch.zeros((len(self.layers),))
         rewriters = []
         for i, layer in enumerate(tqdm(self.layers)):
+            layer = layer.cpu()
             ecm, err = _create_correction_module(layer, rank, iters=iters, dtype=dtype)
-            errs[i] = err.to(dtype=errs.dtype)
-            rewriters.append(ModuleInstanceToModuleInstance(layer, ecm))
+            errs[i] = err.to(dtype=errs.dtype, device='cpu')
             ecm.cpu()
+            # rewriters.append(ModuleInstanceToModuleInstance(layer, ecm))
+            ModuleInstanceToModuleInstance(layer, ecm).apply(model)
             torch.cuda.empty_cache()
-        for r in rewriters:
-            model = r.apply(model)
+        # for r in rewriters:
+        #     model = r.apply(model)
         return model, errs
