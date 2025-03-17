@@ -173,8 +173,8 @@ class FloatInferencetHandler(InferenceHandler):
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
-            self.scale = module.scale().contiguous()
-            self.zero_point = module.zero_point().contiguous()
+            self.scale = module.scale()
+            self.zero_point = module.zero_point()
             self.zero_point = self.zero_point.to(self.scale.device)
             self.exponent_bit_width = module.exponent_bit_width()
             self.mantissa_bit_width = module.mantissa_bit_width()
