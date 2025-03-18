@@ -319,7 +319,8 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         "llama-mxfp8",
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
-        "llama-int8-svd_quant",],
+        "llama-int8-svd_quant",
+        "llama-mxfp4-quant-scale",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -412,7 +413,8 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
             "exp_layer_types": {
-                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},},
+                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},
+        },  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "svd_quant": True,
@@ -422,7 +424,35 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
                     "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>",
                 "model.layers.0.self_attn.q_proj.layer":
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
-    ])  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "weight_bit_width": 4,
+            "weight_quant_format": "float_ocp_e2m1",
+            "weight_scale_precision": "e4m3_scale",
+            "weight_param_method": "stats",
+            "weight_quant_granularity": "per_group",
+            "weight_group_size": 16,
+            "weight_quant_type": "sym",
+            "input_bit_width": 4,
+            "input_quant_format": "float_ocp_e2m1",
+            "input_scale_type": "dynamic",
+            "input_scale_precision": "e4m3_scale",
+            "input_param_method": "stats",
+            "input_quant_granularity": "per_group",
+            "input_group_size": 16,
+            "input_quant_type": "sym",
+            "act_calibration": False,
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.restrict_clamp_scaling.restrict_value_impl":
+                    "<class 'brevitas.core.restrict_val.QuantRestrictValue'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.restrict_clamp_scaling.restrict_value_impl.float_to_int_impl":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.stats_scaling_impl.restrict_clamp_scaling.restrict_value_impl":
+                    "<class 'brevitas.core.restrict_val.QuantRestrictValue'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.stats_scaling_impl.restrict_clamp_scaling.restrict_value_impl.float_to_int_impl":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",},
+        },  # MX weights/activations with minifloat-quantized scales
+    ])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
