@@ -32,6 +32,7 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.export.inference.handler import DynamicActFloatQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsScaling
 
 try:
@@ -517,13 +518,20 @@ def main(args):
             # Convert softmax quant to the equivalent per_row dynamic quantizer
             softmax_quant = softmax_quant.let(
                 **{
-                    'scaling_impl': RuntimeDynamicStatsScaling,
-                    'scaling_stats_input_view_shape_impl': OverOutputFeaturesView,
-                    'proxy_class': DynamicActFloatQuantProxyFromInjector,
-                    'dynamic_scaling_broadcastable_fn': lambda x,
-                                                        shape: x.view(*shape[:-1], 1),
-                    'permute_dims': None,
-                    'stats_reduce_dim': 1})
+                    'scaling_impl':
+                        RuntimeDynamicStatsScaling,
+                    'scaling_stats_input_view_shape_impl':
+                        OverOutputFeaturesView,
+                    'proxy_class':
+                        DynamicActQuantProxyFromInjector if 'int' in
+                        args.sdpa_quant_format else DynamicActFloatQuantProxyFromInjector,
+                    'dynamic_scaling_broadcastable_fn':
+                        lambda x,
+                        shape: x.view(*shape[:-1], 1),
+                    'permute_dims':
+                        None,
+                    'stats_reduce_dim':
+                        1})
             extra_kwargs = {
                 'fuse_qkv':
                     args.share_qkv_quant,
