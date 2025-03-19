@@ -68,6 +68,7 @@ class QuantAttention(Attention):
             elementwise_affine: bool = True,
             is_causal: bool = False,
             matmul_input_quant=None,
+            softmax_quant=None,
             is_equalized=False,
             fuse_qkv=False):
 
@@ -113,7 +114,7 @@ class QuantAttention(Attention):
         if fuse_qkv:
             self.fuse_projections()
 
-        self.output_softmax_quant = QuantIdentity(matmul_input_quant)
+        self.output_softmax_quant = QuantIdentity(softmax_quant)
         self.out_q = QuantIdentity(matmul_input_quant)
         self.out_k = QuantIdentity(matmul_input_quant)
         self.out_v = QuantIdentity(matmul_input_quant)

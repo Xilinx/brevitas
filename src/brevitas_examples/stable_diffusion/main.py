@@ -4,6 +4,7 @@ SPDX-License-Identifier: MIT
 """
 
 import argparse
+from copy import deepcopy
 from datetime import datetime
 import json
 import math
@@ -28,6 +29,10 @@ from torch import nn
 # FID Computation can be performed with several different libraries.
 # Each will produce slightly different but valid results
 from torchmetrics.image.fid import FrechetInceptionDistance
+
+from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
+from brevitas.export.inference.handler import DynamicActFloatQuantProxyFromInjector
+from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsScaling
 
 try:
     from cleanfid import fid as cleanfid
@@ -507,6 +512,18 @@ def main(args):
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
             input_quant = sdpa_quantizers[0]
+
+            softmax_quant = deepcopy(input_quant)
+            # Convert softmax quant to the equivalent per_row dynamic quantizer
+            softmax_quant = softmax_quant.let(
+                **{
+                    'scaling_impl': RuntimeDynamicStatsScaling,
+                    'scaling_stats_input_view_shape_impl': OverOutputFeaturesView,
+                    'proxy_class': DynamicActFloatQuantProxyFromInjector,
+                    'dynamic_scaling_broadcastable_fn': lambda x,
+                                                        shape: x.view(*shape[:-1], 1),
+                    'permute_dims': None,
+                    'stats_reduce_dim': 1})
             extra_kwargs = {
                 'fuse_qkv':
                     args.share_qkv_quant,
@@ -527,6 +544,7 @@ def main(args):
                 Attention,
                 QuantAttention,
                 matmul_input_quant=input_quant,
+                softmax_quant=softmax_quant,
                 query_dim=query_lambda,
                 dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
                 is_equalized=args.activation_equalization,
