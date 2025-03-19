@@ -109,7 +109,7 @@ class DynamicIntInferenceHandler(IntInferencetHandler):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
-            self.module_forward = module.fused_activation_quant_proxy
+            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         return self.module_forward(x)
@@ -124,7 +124,7 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
-            self.module_forward = module.fused_activation_quant_proxy
+            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
             self.group_dim = module.group_dim
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
@@ -265,7 +265,7 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
-            self.module_forward = module.fused_activation_quant_proxy
+            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
             self.group_dim = module.group_dim
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
@@ -310,7 +310,7 @@ class DynamicFloatInferenceHandler(FloatInferencetHandler):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
-            self.module_forward = module.fused_activation_quant_proxy
+            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         return self.module_forward(x)
