@@ -57,6 +57,9 @@ class SharkActQuant(nn.Module):
         self.layer_name = None
         self.shared_dict = None
 
+    def attach_debug_info(self, module: nn.Module):
+        pass
+
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
             # Continguous is used to be extra-safe with torch.compile
@@ -69,13 +72,13 @@ class SharkActQuant(nn.Module):
 
     def forward(self, x):
         assert self.layer_name is not None
-        assert self.theta is not None
+        assert self.shared_dict is not None
 
         zero_point = None if torch.count_nonzero(self.zero_point) == 0 else self.zero_point
         if zero_point:
             zero_point -= 128  # TODO: check
         input_quant = StaticScaledQuantizer(
-            scale=torch.repricocal(self.scale),
+            scale=torch.reciprocal(self.scale),
             reciprocal_scale=self.scale,
             offset=zero_point,
             dtype=torch.int8)

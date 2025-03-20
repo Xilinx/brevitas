@@ -15,6 +15,7 @@ from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
+from brevitas.export.shark.handler import SharkActQuant
 from brevitas.export.shark.handler import SharkWeightQuant
 from brevitas.graph.equalize import EqualizedModule
 from brevitas.nn.quant_layer import QuantNonLinearActLayer
@@ -49,8 +50,7 @@ def _override_create_quant_tensor(m: nn.Module, state: bool):
 def _quant_wbiol_handler(layer, layer_name, shared_dict):
     if layer.weight_quant.is_quant_enabled:
         _quant_handler(layer, layer_name, 'weight_quant', shared_dict)
-
-    elif layer.input_quant.is_quant_enabled:
+    if layer.input_quant.is_quant_enabled:
         _quant_handler(layer, layer_name, 'input_quant', shared_dict)
 
 
@@ -67,7 +67,7 @@ def _quant_handler(layer, layer_name, quant_name, shared_dict):
 
 # Inheritance from BaseManager is not techincally needed
 class SharkManager(BaseManager):
-    handlers = [SharkWeightQuant]
+    handlers = [SharkWeightQuant, SharkActQuant]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
