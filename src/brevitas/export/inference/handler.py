@@ -58,12 +58,13 @@ class IntInferencetHandler(InferenceHandler):
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
             scale = module.scale_() if hasattr(module, 'scale_') else module.scale()
-            zero_point = module.zero_point_() if hasattr(
-                module, 'zero_point_') else module.zero_point()
+            zero_point = module.zero_point_() if hasattr(module,
+                                                         'zero_point_') else module.zero_point()
             # Continguous is used to be extra-safe with torch.compile
             # self.zero_point = self.zero_point.contiguous()
-            self.register_buffer('scale', scale.contiguous())
-            self.register_buffer('zero_point', zero_point.contiguous())
+            self.scale = scale.contiguous()
+            self.zero_point = zero_point.contiguous()
+
             self.zero_point = self.zero_point.to(self.scale.device)
             self.bit_width = module.bit_width()
             self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
@@ -100,8 +101,7 @@ class IntWeightInferencetHandler(IntInferencetHandler):
                 self.cached_weight = None
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
-        return self.dequantize(
-                self.quantize(x, scale, zero_point), scale, zero_point)
+        return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         if self.cached_weight is not None:
@@ -160,10 +160,9 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         if module.is_quant_enabled:
             self.group_dim = module.group_dim
             self.input_view = module.input_view_impl
-    
+
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
-        return self.dequantize(
-                self.quantize(x, scale, zero_point), scale, zero_point)
+        return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
@@ -174,7 +173,7 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
         zero_point = self.zero_point
         if zero_point.shape != ():
             zero_point = self.input_view(zero_point)
-        
+
         if self.cached_weight is not None:
             out = self.cached_weight
         else:
@@ -185,8 +184,6 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
             # If we skip quant tensor, we return the flattened version of the groupwise tensor
             out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
         return out, scale, zero_point, self.bit_width
-    
-
 
 
 class FloatInferencetHandler(InferenceHandler):
@@ -276,8 +273,8 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
                 self.cached_weight = None
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
-        return self.dequantize(
-                self.quantize(x, scale, zero_point), scale, zero_point)
+        return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
+
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         if self.cached_weight is not None:
             x = self.cached_weight
@@ -323,10 +320,9 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
             self.group_dim = module.group_dim
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
-        out = self.dequantize(
-            self.quantize(x, scale, zero_point), scale, zero_point)
+        out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
         return out
-    
+
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
         assert self.skip_create_quant_tensor
@@ -336,7 +332,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
             scale = self.scale
             if scale.shape != ():
                 scale = self.input_view(scale)
-                
+
             zero_point = self.zero_point
             if zero_point.shape != ():
                 zero_point = self.input_view(zero_point)

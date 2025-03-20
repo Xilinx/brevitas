@@ -4,14 +4,14 @@ import torch
 
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBase
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
-from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
 
 
 class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
 
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
-        self.cache_class = _CachedIOGroupwiseFloat
+        # Dynamic Activation does not require caching
+        self.cache_class = None
 
     @property
     def group_dim(self):

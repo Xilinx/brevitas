@@ -209,7 +209,8 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             else:
                 out = y[0]
 
-        if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
+        if not self.training and self.cache_inference_quant_act and isinstance(
+                out, QuantTensor) and self.cache_class:
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_out
         return out
@@ -242,6 +243,11 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
 
 
 class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
+
+    def __init__(self, quant_layer, quant_injector):
+        super().__init__(quant_layer, quant_injector)
+        # Dynamic Activation does not require caching
+        self.cache_class = None
 
     def scale(self, force_eval=True):
         raise RuntimeError("Scale for Dynamic Act Quant is input-dependant")
