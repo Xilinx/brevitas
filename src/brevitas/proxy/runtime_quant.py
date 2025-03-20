@@ -209,8 +209,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             else:
                 out = y[0]
 
-        if not self.training and self.cache_inference_quant_act and isinstance(
-                out, QuantTensor) and self.cache_class:
+        if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_out
         return out
