@@ -2,8 +2,9 @@ import torch
 
 from brevitas.export.shark.manager import SharkManager
 import brevitas.nn as qnn
+from brevitas.quant import Int8ActPerTensorFloat
 
-n = qnn.QuantLinear(3, 5, bias=False)
+n = qnn.QuantLinear(3, 5, input_quant=Int8ActPerTensorFloat, bias=False)
 n.eval()
 
 export = SharkManager()
