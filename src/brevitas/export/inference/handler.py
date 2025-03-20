@@ -61,7 +61,6 @@ class IntInferencetHandler(InferenceHandler):
             zero_point = module.zero_point_() if hasattr(module,
                                                          'zero_point_') else module.zero_point()
             # Continguous is used to be extra-safe with torch.compile
-            # self.zero_point = self.zero_point.contiguous()
             self.scale = scale.contiguous()
             self.zero_point = zero_point.contiguous()
 
