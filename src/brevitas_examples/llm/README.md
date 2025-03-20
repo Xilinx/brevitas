@@ -211,7 +211,8 @@ options:
   --few-shot-eval {lm_eval,lighteval}
                         Perform zero_shot evaluation with lm_eval or lighteval. Default None)
   --few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE
-  --few-shot-compile    Compile during zero_shot evaluation. Default False)
+  --compile-ptq         Compile for PTQ algorithms. Default False)
+  --compile-eval        Compile during evaluation. Default False)
   --few-shot-zeroshot   Whether to do zero or few shot eval. Default False)
   --no-bos-preprocessing
                         Do not add BOS token during pre-processing. Default
