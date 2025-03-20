@@ -97,11 +97,6 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
 
 class DynamicActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjector):
 
-    def __init__(self, quant_layer, quant_injector):
-        super().__init__(quant_layer, quant_injector)
-        # Dynamic Activation does not require caching
-        self.cache_class = None
-
     def scale(self, force_eval=True):
         raise RuntimeError("Scale for Dynamic Act Quant is input-dependant")
 

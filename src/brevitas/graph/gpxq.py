@@ -220,7 +220,7 @@ class GPxQ(ABC):
         # If using quantized activations, inp could be QuantTensor. In
         # this case, we overwrite the metadata.
         if isinstance(inp, QuantTensor):
-            if is_quant_enabled and self.quant_metadata is None and self.layer.input_quant.cache_class:
+            if is_quant_enabled and self.quant_metadata is None:
                 self.quant_metadata = self.layer.input_quant.cache_class(inp, metadata_only=True)
             inp = inp.value
 

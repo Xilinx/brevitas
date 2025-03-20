@@ -4,14 +4,14 @@ import torch
 
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant_tensor import GroupwiseIntQuantTensor
+from brevitas.utils.quant_utils import _CachedIOGroupwiseInt
 
 
 class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
 
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
-        # Dynamic Activation does not require caching
-        self.cache_class = None
+        self.cache_class = _CachedIOGroupwiseInt
 
     @property
     def group_dim(self):
