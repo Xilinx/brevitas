@@ -99,7 +99,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
 
     def compile_quant(self, compile_export=False):
         if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
-            self.export_handler = torch.compile(self.export_handler, dynamic=True, fullgraph=True)
+            self.export_handler.inner_forward = torch.compile(self.export_handler.inner_forward, dynamic=True, fullgraph=True)
         elif self.tensor_quant is not None:
             # For groupwise weight quantization, we have graph breaks
             fullgraph = not self.is_groupwise

@@ -396,7 +396,7 @@ def quantize_llm(args, extra_args=None):
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
 
-    model = offload_model(model)
+    model = offload_model(model, gpu_device_map={0: '5GB'})
 
     dict_hooks = dict()
 
