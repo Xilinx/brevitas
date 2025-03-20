@@ -19,8 +19,9 @@ import torch
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
+from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.main import main
-from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
@@ -28,6 +29,11 @@ from tests.marker import requires_pt_ge
 
 ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
+
+
+def parse_args(args):
+    parser = create_llm_args_parser()
+    return parse_args_utils(parser, args)
 
 
 def ptid2pathname(string):

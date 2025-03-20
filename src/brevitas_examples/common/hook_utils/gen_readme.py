@@ -7,8 +7,9 @@ from jinja2 import Environment
 from jinja2 import FileSystemLoader
 
 from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.stable_diffusion.stable_diffusion_args import create_sd_args_parser
 
-ENTRYPOINT_ARGS = {"llm": create_llm_args_parser}
+ENTRYPOINT_ARGS = {"llm": create_llm_args_parser, "stable_diffusion": create_sd_args_parser}
 
 
 def render_readme_template(
