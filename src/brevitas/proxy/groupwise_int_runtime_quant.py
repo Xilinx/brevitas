@@ -10,6 +10,7 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
 
     def __init__(self, quant_layer, quant_injector):
         super().__init__(quant_layer, quant_injector)
+        # Dynamic Activation does not require caching
         self.cache_class = None
 
     @property
