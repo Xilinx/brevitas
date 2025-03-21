@@ -188,22 +188,21 @@ class ONNXBaseManager(BaseManager, ABC):
 
                     patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
                     with patch_export():
-                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
-
+                        model = torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
                     cls.set_export_mode(module, enabled=False)
                     module.train(training_state)
 
                     # do some cleanup on the exported ONNX model
-                    if export_path is not None:
-                        model = onnx.load(export_path)
-                    else:
-                        model = onnx.ModelProto.FromString(model_bytes.getvalue())
+                    # if export_path is not None:
+                    #     model = onnx.load(export_path)
+                    # else:
+                    #     model = onnx.ModelProto.FromString(model_bytes.getvalue())
                     # model = opt.optimize(model, cls.onnx_passes)
                     # model = cls.apply_model_transforms(model)
-                    if export_path is not None:
-                        onnx.save(model, export_path)
+                    # if export_path is not None:
+                    #     onnx.save(model, export_path)
                     return model
 
     @classmethod

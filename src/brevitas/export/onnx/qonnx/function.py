@@ -5,6 +5,7 @@ import onnxscript
 from onnxscript import BOOL
 from onnxscript import FLOAT
 from onnxscript import INT32
+from onnxscript import INT64
 from onnxscript import STRING
 import torch
 from torch.autograd import Function
@@ -42,15 +43,11 @@ def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed
 
 
 @onnxscript.script(qonnx_op, default_opset=onnxscript.opset17)
-def quant(
-        self: FLOAT,
-        scale: FLOAT,
-        zero_point: FLOAT,
-        bit_width: INT32,
-        narrow_range: INT32,
-        signed: INT32,
+def Quant(
+        self, scale, zero_point, bit_width, narrow_range: int, signed: int,
         rounding_mode: str) -> FLOAT:
-    return qonnx_op.Quant(self, scale, zero_point, bit_width, narrow_range, signed)
+
+    return self
 
 
 class BrevitasBinaryQuantFn(Function):
@@ -97,10 +94,10 @@ class BrevitasQuantFn(Function):
             x,
             scale,
             zero_point,
-            bit_width=bit_width,
-            narrow_range=int(narrow_range),
+            bit_width,
+            int(narrow_range),
             signed=int(signed),
-            rounding_mode='round')
+            rounding_mode=rounding_mode)
         return y
 
 
