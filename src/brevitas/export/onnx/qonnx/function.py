@@ -1,6 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import onnxscript
+from onnxscript import BOOL
+from onnxscript import FLOAT
+from onnxscript import INT32
+from onnxscript import STRING
 import torch
 from torch.autograd import Function
 from torch.onnx.symbolic_helper import _get_tensor_sizes
@@ -15,6 +20,37 @@ from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
 DOMAIN_STRING = "qonnx.custom_op.general"
 DOMAIN_VERSION = 2
+qonnx_op = onnxscript.values.Opset(domain=DOMAIN_STRING, version=DOMAIN_VERSION)
+
+
+# Define and use the operator in PyTorch
+@torch.library.custom_op("mylibrary::int_quant", mutates_args=())
+def int_quant(
+        input: torch.Tensor,
+        scale: torch.Tensor,
+        zero_point: torch.Tensor,
+        bit_width: torch.Tensor,
+        narrow_range: int,
+        signed: int,
+        rounding_mode: str) -> torch.Tensor:
+    return input
+
+
+@int_quant.register_fake
+def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+    return torch.empty_like(tensor_x)
+
+
+@onnxscript.script(qonnx_op, default_opset=onnxscript.opset17)
+def quant(
+        self: FLOAT,
+        scale: FLOAT,
+        zero_point: FLOAT,
+        bit_width: INT32,
+        narrow_range: INT32,
+        signed: INT32,
+        rounding_mode: str) -> FLOAT:
+    return qonnx_op.Quant(self, scale, zero_point, bit_width, narrow_range, signed)
 
 
 class BrevitasBinaryQuantFn(Function):
@@ -49,14 +85,22 @@ class BrevitasQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        quant = IntQuant(
-            float_to_int_impl=float_to_int_impl(),
-            tensor_clamp_impl=TensorClamp(),
-            input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
-            narrow_range=narrow_range,
-            signed=signed)
-        y = quant(scale, zero_point, bit_width, x)
+        # float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+        # quant = IntQuant(
+        #     float_to_int_impl=float_to_int_impl(),
+        #     tensor_clamp_impl=TensorClamp(),
+        #     input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
+        #     narrow_range=narrow_range,
+        #     signed=signed)
+        # y = quant(scale, zero_point, bit_width, x)
+        y = int_quant(
+            x,
+            scale,
+            zero_point,
+            bit_width=bit_width,
+            narrow_range=int(narrow_range),
+            signed=int(signed),
+            rounding_mode='round')
         return y
 
 
