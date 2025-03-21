@@ -171,6 +171,13 @@ class ONNXBaseManager(BaseManager, ABC):
                     else:
                         model_bytes = BytesIO()
                         export_target = model_bytes
+                    from functools import partial
+
+                    from brevitas.export.inference.manager import _override_create_quant_tensor
+                    from brevitas.export.inference.manager import disable_return_quant_tensor
+                    return_quant_tensor_state = disable_return_quant_tensor(module)
+                    disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
+                    module.apply(disable_quant_tensor)
 
                     # Check if we attached Float-related handlers, then we need to patch export
                     fp8_export_patch = False
@@ -193,8 +200,8 @@ class ONNXBaseManager(BaseManager, ABC):
                         model = onnx.load(export_path)
                     else:
                         model = onnx.ModelProto.FromString(model_bytes.getvalue())
-                    model = opt.optimize(model, cls.onnx_passes)
-                    model = cls.apply_model_transforms(model)
+                    # model = opt.optimize(model, cls.onnx_passes)
+                    # model = cls.apply_model_transforms(model)
                     if export_path is not None:
                         onnx.save(model, export_path)
                     return model
