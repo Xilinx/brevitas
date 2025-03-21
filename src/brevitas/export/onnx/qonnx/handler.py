@@ -146,10 +146,10 @@ class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
         scale = self.symbolic_kwargs['scale']
         zero_point = self.symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
-        if bit_width == 1:
-            x = BrevitasBinaryQuantFn.apply(x, *self.symbolic_kwargs.values())
-        else:
-            x = BrevitasQuantFn.apply(x, *self.symbolic_kwargs.values())
+        #if bit_width == 1:
+        #    x = BrevitasBinaryQuantFn.apply(x, *self.symbolic_kwargs.values())
+        #else:
+        x = BrevitasQuantFn.apply(x, *self.symbolic_kwargs.values())
         return x, scale, zero_point, bit_width
 
 
@@ -181,8 +181,7 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
                 'rounding_mode': 'ROUND'}
 
     def symbolic_execution(self, x: Tensor):
-        quant_weight = self.quant_weight_values[x.data_ptr()]
-        return super().symbolic_execution(quant_weight)
+        return super().symbolic_execution(x)
 
 
 class BrevitasDecoupledWeightQuantProxyHandler(BrevitasWeightQuantProxyHandler):
