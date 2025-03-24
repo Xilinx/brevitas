@@ -70,7 +70,7 @@ def create_llm_args_parser():
         '--weight-quant-type',
         type=str,
         default='sym',
-        choices=['sym', 'asym'],
+        choices=['sym', 'asym', 'gauss'],
         help='Weight quantization type. Default: asym.')
     parser.add_argument(
         '--weight-quant-format',

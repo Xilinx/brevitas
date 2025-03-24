@@ -264,8 +264,7 @@ def generate_quantizers(
         weight_kwargs=None,
         input_kwargs=None,
         quant_attn_mode=None,
-        scaling_min_val=1e-4,
-        weight_narrow_range=False):
+        scaling_min_val=1e-4):
     """
     Replace float layers with quant layers in the target model
     """
@@ -350,7 +349,7 @@ def generate_quantizers(
     weight_quant = weight_quant.let(
         **{
             'bit_width': weight_bit_width,
-            'narrow_range': weight_narrow_range,
+            'narrow_range': False,
             'quantize_zero_point': quantize_weight_zero_point},
         **weight_float_format)
 
