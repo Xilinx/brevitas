@@ -1,0 +1,69 @@
+convert_layernorm_to_rmsnorm:
+- false
+dataset:
+- wikitext2
+dtype:
+- float32
+eval:
+- true
+use_distillation_loss:
+- true
+gradient_accumulation_steps:
+- 4
+few_shot_eval:
+- lm_eval
+compile_eval:
+- true
+learning_rate:
+- 1.5
+- 0.5
+- 0.1
+gamma:
+- 0.1
+- 0.5
+- 0.9
+temperature:
+- 1.0
+- 2.0
+beta:
+- 0.0
+- 0.5
+- 1.0
+log_on_each_node:
+- false
+logging_steps:
+- 10
+lr_scheduler_type:
+- cosine
+max_steps:
+- 100
+model:
+- HuggingfaceTB/SmolLM2-135M
+optimize_rotations:
+- true
+per_device_train_batch_size:
+- 2
+replace_rmsnorm:
+- true
+rotation:
+- fused_no_fx
+rotation_mode:
+- had
+rotation_orphan_sink:
+- true
+rotation_sdpa_regions:
+- true
+save_safetensors:
+- false
+weight_bit_width:
+- 3
+weight_decay:
+- 0.0
+weight_quant_format:
+- int
+weight_quant_granularity:
+- per_group
+weight_quant_type:
+- sym
+weight_scale_precision:
+- float_scale

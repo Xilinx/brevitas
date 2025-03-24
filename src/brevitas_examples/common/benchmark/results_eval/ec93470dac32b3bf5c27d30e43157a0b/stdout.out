@@ -1,0 +1,41 @@
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+{0: 14643153817.599998, 'cpu': 62990184140.799995}
+{'': 538060160, 'model': 538060160, 'model.embed_tokens': 113246208, 'model.embed_tokens.weight': 113246208, 'model.layers': 424811520, 'model.layers.0': 14160384, 'model.layers.1': 14160384, 'model.layers.2': 14160384, 'model.layers.3': 14160384, 'model.layers.4': 14160384, 'model.layers.5': 14160384, 'model.layers.6': 14160384, 'model.layers.7': 14160384, 'model.layers.8': 14160384, 'model.layers.9': 14160384, 'model.layers.10': 14160384, 'model.layers.11': 14160384, 'model.layers.12': 14160384, 'model.layers.13': 14160384, 'model.layers.14': 14160384, 'model.layers.15': 14160384, 'model.layers.16': 14160384, 'model.layers.17': 14160384, 'model.layers.18': 14160384, 'model.layers.19': 14160384, 'model.layers.20': 14160384, 'model.layers.21': 14160384, 'model.layers.22': 14160384, 'model.layers.23': 14160384, 'model.layers.24': 14160384, 'model.layers.25': 14160384, 'model.layers.26': 14160384, 'model.layers.27': 14160384, 'model.layers.28': 14160384, 'model.layers.29': 14160384, 'model.norm': 2304, 'model.norm.weight': 2304, 'model.rotary_emb': 128, 'model.rotary_emb.inv_freq': 128}
+Float perplexity (wikitext2): 13.739
+Applying model quantization...
+Model quantization applied.
+{0: 14982263296.0, 'cpu': 62969153228.799995}
+{'': 656250032, 'model': 543003824, 'model.embed_tokens': 114573312, 'model.embed_tokens.parametrizations': 114573312, 'model.layers': 428428080, 'model.layers.0': 14280936, 'model.layers.1': 14280936, 'model.layers.2': 14280936, 'model.layers.3': 14280936, 'model.layers.4': 14280936, 'model.layers.5': 14280936, 'model.layers.6': 14280936, 'model.layers.7': 14280936, 'model.layers.8': 14280936, 'model.layers.9': 14280936, 'model.layers.10': 14280936, 'model.layers.11': 14280936, 'model.layers.12': 14280936, 'model.layers.13': 14280936, 'model.layers.14': 14280936, 'model.layers.15': 14280936, 'model.layers.16': 14280936, 'model.layers.17': 14280936, 'model.layers.18': 14280936, 'model.layers.19': 14280936, 'model.layers.20': 14280936, 'model.layers.21': 14280936, 'model.layers.22': 14280936, 'model.layers.23': 14280936, 'model.layers.24': 14280936, 'model.layers.25': 14280936, 'model.layers.26': 14280936, 'model.layers.27': 14280936, 'model.layers.28': 14280936, 'model.layers.29': 14280936, 'model.norm': 2304, 'model.norm.weight': 2304, 'lm_head': 113246208, 'lm_head.parametrizations': 113246208, 'lm_head.parametrizations.weight': 113246208, 'model.rotary_emb': 128, 'model.rotary_emb.inv_freq': 128}
+{'loss': 12.945, 'grad_norm': 112.5295639038086, 'learning_rate': 0.09755282581475769, 'epoch': 0.1}
+{'loss': 9.8811, 'grad_norm': 74.81896209716797, 'learning_rate': 0.09045084971874738, 'epoch': 0.2}
+{'loss': 8.7565, 'grad_norm': 66.0485610961914, 'learning_rate': 0.07938926261462366, 'epoch': 0.3}
+{'loss': 8.3027, 'grad_norm': 55.110225677490234, 'learning_rate': 0.06545084971874737, 'epoch': 0.4}
+{'loss': 7.8691, 'grad_norm': 51.647193908691406, 'learning_rate': 0.05, 'epoch': 0.5}
+{'loss': 7.5744, 'grad_norm': 50.61781311035156, 'learning_rate': 0.03454915028125263, 'epoch': 0.6}
+{'loss': 7.3164, 'grad_norm': 50.04084777832031, 'learning_rate': 0.02061073738537635, 'epoch': 0.7}
+{'loss': 7.2381, 'grad_norm': 50.57029342651367, 'learning_rate': 0.009549150281252633, 'epoch': 0.8}
+{'loss': 7.1494, 'grad_norm': 47.84492874145508, 'learning_rate': 0.0024471741852423235, 'epoch': 0.9}
+{'loss': 7.172, 'grad_norm': 48.14863586425781, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 813.1053, 'train_samples_per_second': 0.984, 'train_steps_per_second': 0.123, 'train_loss': 8.420472259521484, 'epoch': 1.0}
+{0: 14982263296.0, 'cpu': 62679104409.6}
+{'': 656250032, 'model': 543003824, 'model.embed_tokens': 114573312, 'model.embed_tokens.parametrizations': 114573312, 'model.layers': 428428080, 'model.layers.0': 14280936, 'model.layers.1': 14280936, 'model.layers.2': 14280936, 'model.layers.3': 14280936, 'model.layers.4': 14280936, 'model.layers.5': 14280936, 'model.layers.6': 14280936, 'model.layers.7': 14280936, 'model.layers.8': 14280936, 'model.layers.9': 14280936, 'model.layers.10': 14280936, 'model.layers.11': 14280936, 'model.layers.12': 14280936, 'model.layers.13': 14280936, 'model.layers.14': 14280936, 'model.layers.15': 14280936, 'model.layers.16': 14280936, 'model.layers.17': 14280936, 'model.layers.18': 14280936, 'model.layers.19': 14280936, 'model.layers.20': 14280936, 'model.layers.21': 14280936, 'model.layers.22': 14280936, 'model.layers.23': 14280936, 'model.layers.24': 14280936, 'model.layers.25': 14280936, 'model.layers.26': 14280936, 'model.layers.27': 14280936, 'model.layers.28': 14280936, 'model.layers.29': 14280936, 'model.norm': 2304, 'model.norm.weight': 2304, 'lm_head': 113246208, 'lm_head.parametrizations': 113246208, 'lm_head.parametrizations.weight': 113246208, 'model.rotary_emb': 128, 'model.rotary_emb.inv_freq': 128}
+Model eval...
+Quantized perplexity (wikitext2): 138.673
+Few shot eval results
+{'arc_challenge_acc,none': 0.22610921501706485,
+ 'arc_challenge_acc_norm,none': 0.24829351535836178,
+ 'arc_challenge_acc_norm_stderr,none': 0.012624912868089679,
+ 'arc_challenge_acc_stderr,none': 0.012224202097063337,
+ 'arc_easy_acc,none': 0.2786195286195286,
+ 'arc_easy_acc_norm,none': 0.2798821548821549,
+ 'arc_easy_acc_norm_stderr,none': 0.009212077524656682,
+ 'arc_easy_acc_stderr,none': 0.009199329195026532,
+ 'piqa_acc,none': 0.5457018498367792,
+ 'piqa_acc_norm,none': 0.515778019586507,
+ 'piqa_acc_norm_stderr,none': 0.011660014400426034,
+ 'piqa_acc_stderr,none': 0.011616990094583295,
+ 'winogrande_acc,none': 0.4925019731649566,
+ 'winogrande_acc_stderr,none': 0.014050905521228646}

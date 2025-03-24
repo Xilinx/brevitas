@@ -4,6 +4,7 @@
 from abc import ABC
 from copy import deepcopy
 from functools import partial
+from typing import Optional, List
 import sys
 
 import torch
@@ -102,6 +103,54 @@ class calibration_mode:
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
+class disable_enable_quantization:
+    """
+        Context manager to disable/enable quantization for a nn.Module,
+        potentially excluding a set of submodules.
+
+    Args:
+        model (nn.Module): module for which quantization will be enabled/
+            disabled
+        disable_quant (bool): whether to disable quantization
+        excluded_modules (list): list of submodules of modules to be excluded
+            from quantization disabling
+    """
+
+    def __init__(
+            self,
+            model: nn.Module,
+            disable_act_quant: bool = True,
+            disable_param_quant: bool = True,
+            disable_out_quant: bool = True,
+            excluded_modules: Optional[List[nn.Module]] = None):
+        self.model = model
+        self.disable_act_quant = disable_act_quant
+        self.disable_param_quant = disable_param_quant
+        self.disable_out_quant = disable_out_quant
+        self.excluded_modules = excluded_modules if excluded_modules is not None else []
+        self.disable_quant_class = DisableEnableQuantization()
+        self.return_quant_tensor_state = None
+
+    def __enter__(self):
+        if self.disable_act_quant:
+            self.disable_quant_class.disable_act_quantization(self.model, False)
+        if self.disable_param_quant:
+            self.disable_quant_class.disable_param_quantization(self.model, False)
+        if self.disable_out_quant:
+            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+        # Re-enable quantization for excluded modules
+        for module in self.excluded_modules:
+            self.disable_quant_class.enable_act_quantization(module, False)
+            self.disable_quant_class.enable_param_quantization(module, False)
+            restore_return_quant_tensor(module, self.return_quant_tensor_state)
+
+    def __exit__(self, type, value, traceback):
+        if self.disable_act_quant:
+            self.disable_quant_class.enable_act_quantization(self.model, False)
+        if self.disable_param_quant:
+            self.disable_quant_class.enable_param_quantization(self.model, False)
+        if self.disable_out_quant:
+            restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
 class bias_correction_mode:
 

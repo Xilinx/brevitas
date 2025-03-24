@@ -1,0 +1,7 @@
+brevitas_version: 0.11.1.dev108+gabeacd50.d20250312
+elapsed_time: 863.7399275302887
+float_ppl: 13.738974571228027
+quant_ppl: 146.13710021972656
+retry_number: 1
+status: successful
+torch_version: 2.4.1+cu121

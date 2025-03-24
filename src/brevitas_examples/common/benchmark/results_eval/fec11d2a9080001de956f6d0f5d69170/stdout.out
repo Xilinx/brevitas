@@ -1,0 +1,43 @@
+[2025-03-24 09:04:50,365] [INFO] [real_accelerator.py:222:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+Warning: The cache directory for DeepSpeed Triton autotune, /home/pmonteag/.triton/autotune, appears to be on an NFS system. While this is generally acceptable, if you experience slowdowns or hanging when DeepSpeed exits, it is recommended to set the TRITON_CACHE_DIR environment variable to a non-NFS path.
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+{0: 16111160217.599998, 'cpu': 79319100313.59999}
+{'': 538060160, 'model': 538060160, 'model.embed_tokens': 113246208, 'model.embed_tokens.weight': 113246208, 'model.layers': 424811520, 'model.layers.0': 14160384, 'model.layers.1': 14160384, 'model.layers.2': 14160384, 'model.layers.3': 14160384, 'model.layers.4': 14160384, 'model.layers.5': 14160384, 'model.layers.6': 14160384, 'model.layers.7': 14160384, 'model.layers.8': 14160384, 'model.layers.9': 14160384, 'model.layers.10': 14160384, 'model.layers.11': 14160384, 'model.layers.12': 14160384, 'model.layers.13': 14160384, 'model.layers.14': 14160384, 'model.layers.15': 14160384, 'model.layers.16': 14160384, 'model.layers.17': 14160384, 'model.layers.18': 14160384, 'model.layers.19': 14160384, 'model.layers.20': 14160384, 'model.layers.21': 14160384, 'model.layers.22': 14160384, 'model.layers.23': 14160384, 'model.layers.24': 14160384, 'model.layers.25': 14160384, 'model.layers.26': 14160384, 'model.layers.27': 14160384, 'model.layers.28': 14160384, 'model.layers.29': 14160384, 'model.norm': 2304, 'model.norm.weight': 2304, 'model.rotary_emb': 128, 'model.rotary_emb.inv_freq': 128}
+Float perplexity (wikitext2): 13.739
+Applying model quantization...
+Model quantization applied.
+{0: 16068588031.999998, 'cpu': 78832066252.79999}
+{'': 656250032, 'model': 543003824, 'model.embed_tokens': 114573312, 'model.embed_tokens.parametrizations': 114573312, 'model.layers': 428428080, 'model.layers.0': 14280936, 'model.layers.1': 14280936, 'model.layers.2': 14280936, 'model.layers.3': 14280936, 'model.layers.4': 14280936, 'model.layers.5': 14280936, 'model.layers.6': 14280936, 'model.layers.7': 14280936, 'model.layers.8': 14280936, 'model.layers.9': 14280936, 'model.layers.10': 14280936, 'model.layers.11': 14280936, 'model.layers.12': 14280936, 'model.layers.13': 14280936, 'model.layers.14': 14280936, 'model.layers.15': 14280936, 'model.layers.16': 14280936, 'model.layers.17': 14280936, 'model.layers.18': 14280936, 'model.layers.19': 14280936, 'model.layers.20': 14280936, 'model.layers.21': 14280936, 'model.layers.22': 14280936, 'model.layers.23': 14280936, 'model.layers.24': 14280936, 'model.layers.25': 14280936, 'model.layers.26': 14280936, 'model.layers.27': 14280936, 'model.layers.28': 14280936, 'model.layers.29': 14280936, 'model.norm': 2304, 'model.norm.weight': 2304, 'lm_head': 113246208, 'lm_head.parametrizations': 113246208, 'lm_head.parametrizations.weight': 113246208, 'model.rotary_emb': 128, 'model.rotary_emb.inv_freq': 128}
+{'loss': 5.8239, 'grad_norm': 20.613534927368164, 'learning_rate': 1.4632923872213652, 'epoch': 0.1}
+{'loss': 4.445, 'grad_norm': 16.628690719604492, 'learning_rate': 1.3567627457812106, 'epoch': 0.2}
+{'loss': 4.1003, 'grad_norm': 11.604398727416992, 'learning_rate': 1.1908389392193548, 'epoch': 0.3}
+{'loss': 4.0562, 'grad_norm': 8.574066162109375, 'learning_rate': 0.9817627457812106, 'epoch': 0.4}
+{'loss': 3.9309, 'grad_norm': 6.837920665740967, 'learning_rate': 0.75, 'epoch': 0.5}
+{'loss': 3.8639, 'grad_norm': 7.056748390197754, 'learning_rate': 0.5182372542187895, 'epoch': 0.6}
+{'loss': 3.8338, 'grad_norm': 6.002828598022461, 'learning_rate': 0.3091610607806452, 'epoch': 0.7}
+{'loss': 3.8544, 'grad_norm': 6.153148651123047, 'learning_rate': 0.1432372542187895, 'epoch': 0.8}
+{'loss': 3.8448, 'grad_norm': 5.9459052085876465, 'learning_rate': 0.03670761277863485, 'epoch': 0.9}
+{'loss': 3.8128, 'grad_norm': 5.323968410491943, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 576.2523, 'train_samples_per_second': 1.388, 'train_steps_per_second': 0.174, 'train_loss': 4.15659610748291, 'epoch': 1.0}
+{0: 16021611827.199999, 'cpu': 76952126361.59999}
+{'': 656250032, 'model': 543003824, 'model.embed_tokens': 114573312, 'model.embed_tokens.parametrizations': 114573312, 'model.layers': 428428080, 'model.layers.0': 14280936, 'model.layers.1': 14280936, 'model.layers.2': 14280936, 'model.layers.3': 14280936, 'model.layers.4': 14280936, 'model.layers.5': 14280936, 'model.layers.6': 14280936, 'model.layers.7': 14280936, 'model.layers.8': 14280936, 'model.layers.9': 14280936, 'model.layers.10': 14280936, 'model.layers.11': 14280936, 'model.layers.12': 14280936, 'model.layers.13': 14280936, 'model.layers.14': 14280936, 'model.layers.15': 14280936, 'model.layers.16': 14280936, 'model.layers.17': 14280936, 'model.layers.18': 14280936, 'model.layers.19': 14280936, 'model.layers.20': 14280936, 'model.layers.21': 14280936, 'model.layers.22': 14280936, 'model.layers.23': 14280936, 'model.layers.24': 14280936, 'model.layers.25': 14280936, 'model.layers.26': 14280936, 'model.layers.27': 14280936, 'model.layers.28': 14280936, 'model.layers.29': 14280936, 'model.norm': 2304, 'model.norm.weight': 2304, 'lm_head': 113246208, 'lm_head.parametrizations': 113246208, 'lm_head.parametrizations.weight': 113246208, 'model.rotary_emb': 128, 'model.rotary_emb.inv_freq': 128}
+Model eval...
+Quantized perplexity (wikitext2): 38.186
+Few shot eval results
+{'arc_challenge_acc,none': 0.22013651877133106,
+ 'arc_challenge_acc_norm,none': 0.24744027303754265,
+ 'arc_challenge_acc_norm_stderr,none': 0.01261035266329266,
+ 'arc_challenge_acc_stderr,none': 0.01210812488346088,
+ 'arc_easy_acc,none': 0.30134680134680136,
+ 'arc_easy_acc_norm,none': 0.2904040404040404,
+ 'arc_easy_acc_norm_stderr,none': 0.009314833302936464,
+ 'arc_easy_acc_stderr,none': 0.009415259879351578,
+ 'piqa_acc,none': 0.5571273122959739,
+ 'piqa_acc_norm,none': 0.5397170837867247,
+ 'piqa_acc_norm_stderr,none': 0.011628961491718543,
+ 'piqa_acc_stderr,none': 0.011589430503509043,
+ 'winogrande_acc,none': 0.5074980268350434,
+ 'winogrande_acc_stderr,none': 0.014050905521228646}
