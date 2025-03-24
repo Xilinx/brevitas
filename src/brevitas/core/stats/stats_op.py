@@ -28,6 +28,7 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
+            beta: float = 1.,
             stats_reduce_dim: Optional[int] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None,
@@ -35,6 +36,7 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
         super(NegativeMinOrZero, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
+        self.beta = StatelessBuffer(torch.tensor(beta, dtype=dtype, device=device))
         self.keepdim = keepdim
 
     @brevitas.jit.script_method
@@ -44,7 +46,7 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
         else:
             min_val = torch.min(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
         min_val = torch.clamp(min_val, max=self.zero())
-        return min_val
+        return self.beta() * min_val
 
 
 class AbsPercentile(brevitas.jit.ScriptModule):
@@ -179,6 +181,7 @@ class AbsMinMax(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
+            beta: float = 1.,
             stats_reduce_dim: Optional[int] = None,
             keepdim: bool = False,
             dtype: Optional[torch.dtype] = None,
@@ -187,6 +190,7 @@ class AbsMinMax(brevitas.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
         self.keepdim = keepdim
         self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
+        self.beta = StatelessBuffer(torch.tensor(beta, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
@@ -198,7 +202,7 @@ class AbsMinMax(brevitas.jit.ScriptModule):
             min_val = torch.min(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
         # We need to make sure the lower bound is not positive to align with zero-point statistics
         min_val = torch.clamp(min_val, max=self.zero())
-        return torch.abs(max_val - min_val)
+        return self.beta() * torch.abs(max_val - min_val)
 
 
 class AbsMaxAve(brevitas.jit.ScriptModule):
