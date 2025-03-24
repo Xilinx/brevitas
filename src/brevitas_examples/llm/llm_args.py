@@ -358,14 +358,17 @@ def create_llm_args_parser():
     parser.add_argument('--few-shot-override-batch-size', type=int, default=None)
     parser.add_argument(
         '--compile-ptq',
+        default=False,
         action="store_true",
         help='Compile for PTQ algorithms. Default %(default)s)')
     parser.add_argument(
         '--compile-eval',
+        default=False,
         action="store_true",
         help='Compile during evaluation. Default %(default)s)')
     parser.add_argument(
         '--few-shot-zeroshot',
+        default=False,
         action="store_true",
         help='Whether to do zero or few shot eval. Default %(default)s)')
     parser.add_argument(
