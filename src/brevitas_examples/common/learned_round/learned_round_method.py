@@ -151,10 +151,11 @@ class RegularisedMSELoss(LearnedRoundLoss):
 
         if self.iter < self.loss_start:
             b = self.temp_decay(self.iter)
-            round_loss = 0
+            round_loss = 0.
         else:  # 1 - |(h-0.5)*2|**b
             b = self.temp_decay(self.iter)
-            round_vals = self.learned_round_module.p_forward()
+            round_vals = self.learned_round_module.learned_round_impl(
+                self.learned_round_module.value)
             round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
 
         total_loss = rec_loss + round_loss
