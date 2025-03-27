@@ -24,34 +24,36 @@ def export_onnx(pipe, trace_inputs, output_dir, export_manager):
 
 
 def handle_quant_param(layer, layer_dict):
-    input_scale = layer.input_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
-        'scale'].data
-    input_zp = layer.input_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
-        'zero_point'].data
-    weight_scale = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
-        'scale'].data
-    weight_zp = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
-        'zero_point'].data
+    if layer.input_quant.is_quant_enabled:
+        input_scale = layer.input_quant.export_handler.symbolic_kwargs[
+            'dequantize_symbolic_kwargs']['scale'].data
+        input_zp = layer.input_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
+            'zero_point'].data
+        layer_dict['input_scale'] = input_scale.cpu().numpy().tolist()
+        layer_dict['input_scale_shape'] = input_scale.shape
+        layer_dict['input_zp'] = input_zp.to(torch.float32).cpu().numpy().tolist()
+        layer_dict['input_zp_shape'] = input_zp.shape
+        layer_dict['input_zp_dtype'] = str(input_zp.dtype)
+    if layer.weight_quant.is_quant_enabled:
+        weight_scale = layer.weight_quant.export_handler.symbolic_kwargs[
+            'dequantize_symbolic_kwargs']['scale'].data
+        weight_zp = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
+            'zero_point'].data
+        layer_dict['weight_scale'] = weight_scale.cpu().numpy().tolist()
+        nelems = layer.weight.shape[0]
+        weight_scale_shape = [nelems] + [1] * (layer.weight.data.ndim - 1)
+        layer_dict['weight_scale_shape'] = weight_scale_shape
+        if torch.sum(weight_zp.to(torch.float32)) != 0.:
+            weight_zp = weight_zp - 128.  # apply offset to have signed z
+            layer_dict['weight_zp'] = weight_zp.to(torch.float32).cpu().numpy().tolist()
+            layer_dict['weight_zp_shape'] = weight_scale_shape
+            layer_dict['weight_zp_dtype'] = str(weight_zp.dtype)
     if layer.output_quant.export_handler.symbolic_kwargs is not None:
         output_scale = layer.output_quant.export_handler.symbolic_kwargs[
             'dequantize_symbolic_kwargs']['scale'].data
 
         layer_dict['output_scale'] = output_scale.cpu().numpy().tolist()
         layer_dict['output_scale_shape'] = output_scale.shape
-    layer_dict['input_scale'] = input_scale.cpu().numpy().tolist()
-    layer_dict['input_scale_shape'] = input_scale.shape
-    layer_dict['input_zp'] = input_zp.to(torch.float32).cpu().numpy().tolist()
-    layer_dict['input_zp_shape'] = input_zp.shape
-    layer_dict['input_zp_dtype'] = str(input_zp.dtype)
-    layer_dict['weight_scale'] = weight_scale.cpu().numpy().tolist()
-    nelems = layer.weight.shape[0]
-    weight_scale_shape = [nelems] + [1] * (layer.weight.data.ndim - 1)
-    layer_dict['weight_scale_shape'] = weight_scale_shape
-    if torch.sum(weight_zp.to(torch.float32)) != 0.:
-        weight_zp = weight_zp - 128.  # apply offset to have signed z
-        layer_dict['weight_zp'] = weight_zp.to(torch.float32).cpu().numpy().tolist()
-        layer_dict['weight_zp_shape'] = weight_scale_shape
-        layer_dict['weight_zp_dtype'] = str(weight_zp.dtype)
     return layer_dict
 
 

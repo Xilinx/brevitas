@@ -9,6 +9,7 @@ import json
 import math
 import os
 import time
+import warnings
 
 from dependencies import value
 import diffusers
@@ -55,14 +56,13 @@ from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import \
-    calculate_activation_statistics
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
+from brevitas_examples.stable_diffusion.sd_quant.nn import FusedFluxAttnProcessor2_0
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
@@ -266,8 +266,12 @@ def main(args):
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
         pipe.vae.config.force_upcast = True
 
+    denoising_network = get_denoising_network(pipe)
     if args.share_qkv_quant:
-        pipe.transformer.fuse_qkv_projections()
+        if hasattr(pipe, 'fuse_qkv_projections'):
+            pipe.fuse_qkv_projections()
+        elif hasattr(denoising_network, 'fuse_qkv_projections'):
+            denoising_network.fuse_qkv_projections()
 
     print(f"Model loaded from {args.model}.")
 
@@ -301,7 +305,7 @@ def main(args):
     # Extract list of layers to avoid
     blacklist = []
     non_blacklist = dict()
-    denoising_network = get_denoising_network(pipe)
+
     for name, _ in denoising_network.named_modules():
         if any(map(lambda x: x in name, args.quant_recursive_blacklist)):
             blacklist.append(name)
@@ -477,6 +481,7 @@ def main(args):
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
         if args.sdpa_bit_width > 0:
+            assert args.share_qkv_quant, "SDPA quantization requires QKV fusion. Enable share_qkv_quant"
             # `args.weight_quant_granularity` must be compatible with `args.sdpa_quant_format`
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
@@ -509,6 +514,15 @@ def main(args):
                 'cross_attention_dim':
                     lambda module: module.cross_attention_dim
                     if module.is_cross_attention else None}
+
+            if is_flux_model:
+                extra_kwargs['qk_norm'] = 'rms_norm'
+                extra_kwargs['bias'] = True
+                extra_kwargs['processor'] = FusedFluxAttnProcessor2_0()
+            else:
+                warnings.warn("Quantized Attention is supported only for Flux and SDXL")
+                extra_kwargs['processor'] = AttnProcessor()
+
             query_lambda = lambda module: module.query_dim
             rewriter = ModuleToModuleByClass(
                 Attention,
@@ -516,7 +530,6 @@ def main(args):
                 matmul_input_quant=input_quant,
                 query_dim=query_lambda,
                 dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
-                processor=AttnProcessor(),
                 is_equalized=args.activation_equalization,
                 **extra_kwargs)
             import brevitas.config as config
@@ -812,7 +825,7 @@ def main(args):
         if args.export_target == 'params_only':
             device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')
-            export_quant_params(denoising_network, output_dir, 'unet_')
+            export_quant_params(denoising_network, output_dir, 'denoising_network_')
             if args.vae_quantize or args.vae_fp16_fix:
                 export_quant_params(pipe.vae, output_dir, 'vae_')
             else:
@@ -882,13 +895,16 @@ def main(args):
             float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
             quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
 
-            fid = FrechetInceptionDistance(normalize=False)
-            fid.update(float_images_values, real=True)
-            fid.update(quant_images_values, real=False)
+            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            for float_image in tqdm(float_images_values):
+                fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
+            for quant_image in tqdm(quant_images_values):
+                fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
+
             print(f"Torchmetrics FID: {float(fid.compute())}")
             if cleanfid is not None:
                 score = cleanfid.compute_fid(
-                    os.path.join(output_dir, 'quant'), os.path.join(output_dir, 'float'))
+                    os.path.join(output_dir, 'float'), os.path.join(output_dir, 'quant'))
                 print(f"Cleanfid FID: {float(score)}")
 
         elif args.inference_pipeline == 'reference_images':
@@ -949,8 +965,8 @@ def main(args):
 
                 print(f"Torchmetrics FID: {float(fid.compute())}")
                 if cleanfid is not None:
-                    score = cleanfid.fid.compute_fid(
-                        os.path.join(output_dir, 'quant'), args.reference_images_path)
+                    score = cleanfid.compute_fid(
+                        args.reference_images_path, os.path.join(output_dir, 'quant_reference'))
                     print(f"Cleanfid FID: {float(fid.compute())}")
 
 
