@@ -481,6 +481,7 @@ def main(args):
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
         if args.sdpa_bit_width > 0:
+            assert args.share_qkv_quant, "SDPA quantization requires QKV fusion. Enable share_qkv_quant"
             # `args.weight_quant_granularity` must be compatible with `args.sdpa_quant_format`
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
