@@ -121,7 +121,6 @@ class BrevitasTruncFn(Function):
             signed,
             narrow_range,
             output_scale,
-            output_zero_point,
             output_bit_width,
             rounding_mode):
         ret = g.op(
@@ -131,7 +130,6 @@ class BrevitasTruncFn(Function):
             zero_point,
             input_bit_width,
             output_scale,
-            output_zero_point,
             output_bit_width,
             rounding_mode_s=rounding_mode,
             signed_i=int(signed),
@@ -149,7 +147,6 @@ class BrevitasTruncFn(Function):
             signed,
             narrow_range,
             output_scale,
-            output_zero_point,
             output_bit_width,
             rounding_mode):
         # TODO: Restore this (fails when `signed` arg added)
