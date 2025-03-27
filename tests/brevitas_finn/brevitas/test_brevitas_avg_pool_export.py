@@ -15,6 +15,8 @@ from brevitas.export import export_qonnx
 from brevitas.nn import TruncAvgPool2d
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_activation import QuantReLU
+from tests.conftest import MIN_QONNX_VERSION
+from tests.marker import requires_package_ge
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 
@@ -27,6 +29,7 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 @pytest.mark.parametrize("channels", [2, 4])
 @pytest.mark.parametrize("idim", [7, 8])
 @pytest.mark.parametrize("restrict_scaling_type", ["log_fp", "power_of_two"])
+@requires_package_ge('qonnx', MIN_QONNX_VERSION)
 def test_brevitas_avg_pool_export(
         kernel_size,
         stride,

@@ -18,6 +18,8 @@ import torch
 from brevitas import torch_version
 from brevitas.export import export_qonnx
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
+from tests.conftest import MIN_QONNX_VERSION
+from tests.marker import requires_package_ge
 
 ort_mac_fail = pytest.mark.skipif(
     torch_version >= parse('1.5.0') and system() == 'Darwin',
@@ -32,6 +34,7 @@ SEED = 0
 
 @ort_mac_fail
 @pytest.mark.parametrize("pretrained", [True])
+@requires_package_ge('qonnx', MIN_QONNX_VERSION)
 def test_mobilenet_v1_4b(pretrained):
     finn_onnx = "mobilenet_v1_4b.onnx"
     mobilenet = quant_mobilenet_v1_4b(pretrained)
