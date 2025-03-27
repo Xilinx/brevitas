@@ -136,8 +136,8 @@ def max_int(
     """ Compute the maximum integer representable by a given number of bits.
 
     Args:
-        signed (bool): Indicates whether the represented integer is signed or not.
-        narrow_range (bool): Indicates whether to narrow the maximum unsigned value represented by 1.
+        signed (Union[bool, Tensor]): Indicates whether the represented integer is signed or not.
+        narrow_range (Union[bool, Tensor]): Indicates whether to narrow the maximum unsigned value represented by 1.
         bit_width (Tensor): Number of bits available for the representation.
 
     Returns:
@@ -153,9 +153,17 @@ def max_int(
         >>> max_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
         tensor(255)
     """
-    if not signed and not narrow_range:
+    if isinstance(signed, Tensor):
+        _signed = signed.item() == True
+    else:
+        _signed = signed
+    if isinstance(narrow_range, Tensor):
+        _narrow_range = narrow_range.item() == True
+    else:
+        _narrow_range = narrow_range
+    if not _signed and not _narrow_range:
         value = (2 ** bit_width) - 1
-    elif not signed and narrow_range:
+    elif not _signed and _narrow_range:
         value = (2 ** bit_width) - 2
     else:
         value = (2 ** (bit_width - 1)) - 1
@@ -169,8 +177,8 @@ def min_int(
     """ Compute the minimum integer representable by a given number of bits.
 
     Args:
-        signed (bool): Indicates whether the represented integer is signed or not.
-        narrow_range (bool): Indicates whether to narrow the minimum value represented by 1.
+        signed (Union[bool, Tensor]): Indicates whether the represented integer is signed or not.
+        narrow_range (Union[bool, Tensor]): Indicates whether to narrow the minimum value represented by 1.
         bit_width (Tensor): Number of bits available for the representation.
 
     Returns:
@@ -186,9 +194,17 @@ def min_int(
         >>> min_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
         tensor(0)
     """
-    if signed and narrow_range:
+    if isinstance(signed, Tensor):
+        _signed = signed.item() == True
+    else:
+        _signed = signed
+    if isinstance(narrow_range, Tensor):
+        _narrow_range = narrow_range.item() == True
+    else:
+        _narrow_range = narrow_range
+    if _signed and _narrow_range:
         value = -(2 ** (bit_width - 1)) + 1
-    elif signed and not narrow_range:
+    elif _signed and not _narrow_range:
         value = -(2 ** (bit_width - 1))
     else:
         value = 0 * bit_width
