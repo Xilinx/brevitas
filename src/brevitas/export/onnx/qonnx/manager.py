@@ -89,5 +89,5 @@ class QONNXManager(ONNXBaseManager):
             onnx_export_kwargs[key][QONNX_DOMAIN_STRING] = QONNX_DOMAIN_VERSION
         else:
             onnx_export_kwargs[key] = {QONNX_DOMAIN_STRING: QONNX_DOMAIN_VERSION}
-        super(QONNXManager, cls).export_onnx(
+        return super(QONNXManager, cls).export_onnx(
             module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
