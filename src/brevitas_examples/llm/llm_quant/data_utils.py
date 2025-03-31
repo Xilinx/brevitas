@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from functools import partial
 import random
 from typing import Any, Iterable, List, Optional, Union
 
@@ -33,6 +34,7 @@ import torch
 from transformers import AutoConfig
 
 from .data import get_c4
+from .data import get_dataset_clm
 from .data import get_wikitext2
 
 
@@ -89,7 +91,10 @@ def get_dataset_for_model(
     torch.random.manual_seed(seed)
     get_dataset_map = {
         "wikitext2": get_wikitext2,
-        "c4": get_c4,}
+        "c4": get_c4,
+        "wikitext2_clm": partial(get_dataset_clm, dataset_name="wikitext2"),
+        "c4_clm": partial(get_dataset_clm, dataset_name="c4"),
+        "pile_clm": partial(get_dataset_clm, dataset_name="pile"),}
     if split not in ["train", "validation"]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
     if dataset_name not in get_dataset_map:

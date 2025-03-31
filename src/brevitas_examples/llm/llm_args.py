@@ -45,7 +45,7 @@ def create_llm_args_parser():
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikitext2', 'c4'],
+        choices=['wikitext2', 'c4', 'wikitext2_clm', 'c4_clm', 'pile_clm'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(
@@ -368,6 +368,8 @@ def create_llm_args_parser():
         '--few-shot-zeroshot',
         action="store_true",
         help='Whether to do zero or few shot eval. Default %(default)s)')
+    parser.add_argument(
+        '--add-bos-token', action="store_true", help='Add BOS token. Default %(default)s)')
     parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(

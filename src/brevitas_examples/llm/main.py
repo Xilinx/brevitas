@@ -202,7 +202,7 @@ def quantize_llm(args, extra_args=None):
 
     validation_loader = get_dataset_for_model(
         args.model,
-        dataset_name=args.dataset,
+        dataset_name="wikitext2",
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
@@ -543,7 +543,8 @@ def quantize_llm(args, extra_args=None):
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
 
-                wrapped_model = HFLM(pretrained=model)  # need to wrap for LLM eval
+                wrapped_model = HFLM(
+                    pretrained=model, add_bos_token=args.add_bos_token)  # need to wrap for LLM eval
                 few_shot_eval_results = evaluator.simple_evaluate(
                     model=wrapped_model,
                     model_args=None,
