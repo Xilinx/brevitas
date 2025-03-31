@@ -24,10 +24,7 @@ class IntScaling(brevitas.jit.ScriptModule):
         if is_signed is None:
             assert is_signed is not None, f"signed is not defined, signed={is_signed}"
             is_signed = True
-        if isinstance(is_signed, Tensor):
-            is_signed = bool(is_signed.item())
-        else:
-            is_signed = is_signed
+        is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
         if is_signed:
             return -min_int(is_signed, self.narrow_range, bit_width)
         else:
@@ -46,5 +43,6 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
         is_signed = signed if signed is not None else self.signed
         if is_signed is None:
             assert is_signed is not None, f"signed is not defined, signed={is_signed}"
-            return max_int(True, False, bit_width) + 1
+            is_signed = True
+        is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
         return max_int(is_signed, False, bit_width) + 1
