@@ -154,11 +154,11 @@ def max_int(
         tensor(255)
     """
     if isinstance(signed, Tensor):
-        _signed = signed.item() == True
+        _signed = bool(signed.item())
     else:
         _signed = signed
     if isinstance(narrow_range, Tensor):
-        _narrow_range = narrow_range.item() == True
+        _narrow_range = bool(narrow_range.item())
     else:
         _narrow_range = narrow_range
     if not _signed and not _narrow_range:
@@ -195,11 +195,11 @@ def min_int(
         tensor(0)
     """
     if isinstance(signed, Tensor):
-        _signed = signed.item() == True
+        _signed = bool(signed.item())
     else:
         _signed = signed
     if isinstance(narrow_range, Tensor):
-        _narrow_range = narrow_range.item() == True
+        _narrow_range = bool(narrow_range.item())
     else:
         _narrow_range = narrow_range
     if _signed and _narrow_range:
