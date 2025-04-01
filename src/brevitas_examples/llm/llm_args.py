@@ -369,7 +369,9 @@ def create_llm_args_parser():
         action="store_true",
         help='Whether to do zero or few shot eval. Default %(default)s)')
     parser.add_argument(
-        '--add-bos-token', action="store_true", help='Add BOS token. Default %(default)s)')
+        '--no-bos-preprocessing',
+        action="store_true",
+        help='Do not add BOS token during pre-processing. Default %(default)s)')
     parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(
@@ -450,10 +452,3 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
             else:
                 assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
-
-    if not args.fuse_sequences:
-        # 350 is approximately the 99% percentile for the sequence length in WikiText2 (train partition, using AutoTokenizer)
-        if args.seqlen >= 350:
-            warn(
-                "Data loading can take a long time or, potentially, enter an infinite loop. Consider setting --args.fuse_sequences "
-                "or decreasing the sequence length (seqlen)")

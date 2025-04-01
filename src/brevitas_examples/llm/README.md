@@ -19,7 +19,8 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--dtype {float32,float16,bfloat16}] [--seed SEED]
                [--nsamples NSAMPLES]
                [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION]
-               [--seqlen SEQLEN] [--eval] [--dataset {wikitext2,c4}]
+               [--seqlen SEQLEN] [--eval]
+               [--dataset {wikitext2,c4,wikitext2_clm,c4_clm,pile_clm}]
                [--gpxq-block-name GPXQ_BLOCK_NAME]
                [--weight-bit-width WEIGHT_BIT_WIDTH]
                [--weight-param-method {stats,mse,hqo}]
@@ -56,6 +57,8 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
                [--optimize-rotations] [--rotation-mode {had,ort}]
                [--rotation-orphan-sink] [--rotation-sdpa-regions]
+               [--svd-quant] [--svd-quant-rank SVD_QUANT_RANK]
+               [--svd-quant-iters SVD_QUANT_ITERS]
                [--act-equalization {None,layerwise,fx}]
                [--act-equalization-alpha ACT_EQUALIZATION_ALPHA]
                [--load-awq LOAD_AWQ]
@@ -67,7 +70,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--few-shot-eval {lm_eval,lighteval}]
                [--few-shot-override-batch-size FEW_SHOT_OVERRIDE_BATCH_SIZE]
                [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
-               [--few-shot-limit FEW_SHOT_LIMIT]
+               [--no-bos-preprocessing] [--few-shot-limit FEW_SHOT_LIMIT]
                [--few-shot-tasks [FEW_SHOT_TASKS ...]]
                [--rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]]
 
@@ -85,7 +88,7 @@ options:
                         Default: 800.
   --seqlen SEQLEN       Sequence length. Default: 2048.
   --eval                Eval model PPL on the chosen Dataset.
-  --dataset {wikitext2,c4}
+  --dataset {wikitext2,c4,wikitext2_clm,c4_clm,pile_clm}
                         Dataset to use for quantization (default: wikitext2)
   --gpxq-block-name GPXQ_BLOCK_NAME
                         Block name for faster GPxQ optimization. It works only
@@ -211,6 +214,11 @@ options:
   --rotation-sdpa-regions
                         If GraphRotation is enabled, decide wheter to equalize
                         across SDPA
+  --svd-quant           Apply SVDQuant.
+  --svd-quant-rank SVD_QUANT_RANK
+                        Rank to use for SVDQuant (default: 32).
+  --svd-quant-iters SVD_QUANT_ITERS
+                        Number of iterations to use for SVDQuant (default: 1).
   --act-equalization {None,layerwise,fx}
                         Apply activation equalization (SmoothQuant). Layerwise
                         introduces standalone mul nodes,while fx merges them
@@ -249,6 +257,9 @@ options:
   --compile-ptq         Compile for PTQ algorithms. Default False)
   --compile-eval        Compile during evaluation. Default False)
   --few-shot-zeroshot   Whether to do zero or few shot eval. Default False)
+  --no-bos-preprocessing
+                        Do not add BOS token during pre-processing. Default
+                        False)
   --few-shot-limit FEW_SHOT_LIMIT
                         Few shot limit. Default None)
   --few-shot-tasks [FEW_SHOT_TASKS ...]

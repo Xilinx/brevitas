@@ -40,26 +40,38 @@ from tqdm import tqdm
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 
+def get_pile(
+        tokenizer: Any,
+        seqlen: int,
+        nsamples: int,
+        split: str = "train",
+        bos_preprocessing: bool = True,
+        seed: int = 42):
+    random.seed(bos_preprocessing)
+    assert bos_preprocess, "The pile datasets requires bos_preprocessing"
+    if split == 'train':
+        data = _load_dataset('pile', split, seed)
+        return get_dataset_clm(data, tokenizer, nsamples, seqlen)
+
+    if split == 'validation':
+        warnings.warn(f"There is no available validation split for pile. Defaulting to wikitext2.")
+        return get_wikitext2(tokenizer, seqlen, nsamples, split, bos_preprocessing=False, seed=seed)
+
+
 def get_c4(
         tokenizer: Any,
         seqlen: int,
         nsamples: int,
         split: str = "train",
-        fuse_sequences: bool = True,
+        bos_preprocessing: bool = True,
         seed: int = 42):
     random.seed(seed)
+    data = _load_dataset('c4', split, seed)
 
-    if split == "train":
-        data = load_dataset(
-            "allenai/c4", split="train", data_files={"train": "en/c4-train.00000-of-01024.json.gz"})
-    elif split == "validation":
-        data = load_dataset(
-            "allenai/c4",
-            split="validation",
-            data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
-        )
+    if bos_preprocessing and split == 'train':
+        dataset = get_dataset_clm(data, tokenizer, nsamples, seqlen)
+    else:
 
-    if fuse_sequences:
         data = data.shuffle(seed=seed)[:10000]  # c4 is too big.
         full_text = "\n\n".join(data["text"])
         tokenized_data = tokenizer(full_text, return_tensors="pt")
@@ -71,28 +83,6 @@ def get_c4(
             inp = tokenized_data.input_ids[:, i:j]
             attention_mask = torch.ones((1, seqlen), dtype=torch.int64)
             dataset.append({"input_ids": inp, "attention_mask": attention_mask})
-    else:
-        dataset = []
-        with tqdm(total=nsamples) as pbar:
-            while len(dataset) < nsamples:
-                data_index = random.randint(0, len(data) - 1)
-
-                enc = tokenizer(data[data_index]["text"], return_tensors="pt")
-
-                if enc["input_ids"].shape[1] < seqlen:
-                    continue
-
-                start_idx = random.randint(0, enc["input_ids"].shape[1] - seqlen)
-                end_idx = start_idx + seqlen - 1
-                attention_mask = torch.ones((1, seqlen), dtype=torch.int64)
-                input_ids = enc["input_ids"][:, start_idx:end_idx + 1]
-
-                # Add BOS token.
-                if tokenizer.eos_token_id is not None:
-                    input_ids[:, 0] = tokenizer.eos_token_id
-
-                dataset.append({"input_ids": input_ids, "attention_mask": attention_mask})
-                pbar.update(1)
 
     return dataset
 
@@ -149,10 +139,6 @@ def _load_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
-        elif split == "validation":
-            warnings.warn(
-                f"There is no available validation split for pile. Defaulting to wikitext2.")
-            data = _load_dataset(dataset_name="wikitext2", split="validation", seed=seed)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available.")
     return data
@@ -165,30 +151,23 @@ def _clm_dataset_to_list(row: np.ndarray,) -> Dict[str, torch.Tensor]:
 
 
 def get_dataset_clm(
-    dataset_name: str,
+    data: str,
     tokenizer: PreTrainedTokenizerBase,
     nsamples: int,
     seqlen: int,
-    split: str,
-    fuse_sequences: bool,
-    seed: int = 42,
     filter_empty_sequences: bool = True,
     dataset_processing_num_proc_per_process: int = 1,
-    dataset_overwrite_cache: bool = False,
     text_column_name: str = "text",
 ):
-    random.seed(seed)
-    # Load given dataset
-    raw_dataset = _load_dataset(dataset_name, split, seed)
     # Preprocess dataset
-    dataset = raw_dataset.map(
+    dataset = data.map(
         partial(
             _tokenize_and_group_texts,
             tokenizer=tokenizer,
             sequence_length=seqlen,
             filter_empty_sequences=filter_empty_sequences),
         input_columns=text_column_name,
-        remove_columns=raw_dataset.column_names,
+        remove_columns=data.column_names,
         features=Features({"input_ids": Sequence(feature=Value(dtype="int64"), length=seqlen)}),
         batched=True,
         num_proc=dataset_processing_num_proc_per_process,
@@ -210,23 +189,28 @@ def get_wikitext2(
         seqlen: int,
         nsamples: int,
         split: str = 'train',
-        fuse_sequences: bool = True,
+        bos_preprocessing: bool = True,
         seed: int = 42):
     random.seed(seed)
 
     if split == 'train':
-        traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
-        trainenc = tokenizer("\n\n".join(traindata['text']), return_tensors='pt')
-        trainloader = []
-        for _ in tqdm(range(nsamples)):
-            i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-            j = i + seqlen
-            inp = trainenc.input_ids[:, i:j]
-            attention_mask = torch.ones_like(inp)
-            trainloader.append({'input_ids': inp, 'attention_mask': attention_mask})
-        return trainloader
+        data = _load_dataset('wikitext2', split, seed)
+        # BOS Preprocess adds a BOS token to every sentence before concatenating and splitting it
+        # in equal-length sentences
+        if bos_preprocessing:
+            return get_dataset_clm(data, tokenizer, nsamples, seqlen)
+        else:
+            trainenc = tokenizer("\n\n".join(data['text']), return_tensors='pt')
+            trainloader = []
+            for _ in tqdm(range(nsamples)):
+                i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+                j = i + seqlen
+                inp = trainenc.input_ids[:, i:j]
+                attention_mask = torch.ones_like(inp)
+                trainloader.append({'input_ids': inp, 'attention_mask': attention_mask})
+            return trainloader
     elif split == 'validation':
-        data = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
+        data = _load_dataset('wikitext2', split, seed)
         data = tokenizer("\n\n".join(data['text']), return_tensors='pt')
         nsamples = data['input_ids'].numel() // seqlen
         testloader = []

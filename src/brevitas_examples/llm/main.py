@@ -190,6 +190,7 @@ def quantize_llm(args, extra_args=None):
     # Load the data for calibration and evaluation.
     calibration_loader = get_dataset_for_model(
         args.model,
+        bos_preprocessing=not args.no_bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
@@ -197,11 +198,11 @@ def quantize_llm(args, extra_args=None):
         split="train",
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
-        device=None,
-        fuse_sequences=args.fuse_sequences)
+        device=None)
 
     validation_loader = get_dataset_for_model(
         args.model,
+        bos_preprocessing=not args.no_bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
@@ -209,8 +210,7 @@ def quantize_llm(args, extra_args=None):
         split="validation",
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
-        device=None,
-        fuse_sequences=args.fuse_sequences)
+        device=None)
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
@@ -225,8 +225,7 @@ def quantize_llm(args, extra_args=None):
             split="train",
             seed=args.seed,
             require_fx=require_fx and args.export_target is not None,
-            device=None,
-            fuse_sequences=args.fuse_sequences)
+            device=None)
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")
