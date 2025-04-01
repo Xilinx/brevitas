@@ -27,6 +27,7 @@ SOFTWARE.
 from functools import partial
 import random
 from typing import Any, Dict, List
+import warnings
 
 from datasets import Dataset
 from datasets import Features
@@ -129,15 +130,29 @@ def _tokenize_and_group_texts(
     return group_texts(tokenized_batch, sequence_length)
 
 
-def _load_dataset(dataset_name: str, seed: int = 42) -> Dataset:
+def _load_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     if dataset_name == "wikitext2":
-        data = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
+        data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "c4":
-        data = load_dataset(
-            "allenai/c4", split="train", data_files={"train": "en/c4-train.00000-of-01024.json.gz"})
+        if split == "train":
+            data = load_dataset(
+                "allenai/c4",
+                split="train",
+                data_files={"train": "en/c4-train.00000-of-01024.json.gz"})
+        elif split == "validation":
+            data = load_dataset(
+                "allenai/c4",
+                split="validation",
+                data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
+            )
         data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
     elif dataset_name == "pile":
-        data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
+        if split == "train":
+            data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
+        elif split == "validation":
+            warnings.warn(
+                f"There is no available validation split for pile. Defaulting to wikitext2.")
+            data = _load_dataset(dataset_name="wikitext2", split="validation", seed=seed)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available.")
     return data
@@ -164,7 +179,7 @@ def get_dataset_clm(
 ):
     random.seed(seed)
     # Load given dataset
-    raw_dataset = _load_dataset(dataset_name, seed)
+    raw_dataset = _load_dataset(dataset_name, split, seed)
     # Preprocess dataset
     dataset = raw_dataset.map(
         partial(

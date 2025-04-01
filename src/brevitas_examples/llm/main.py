@@ -202,7 +202,7 @@ def quantize_llm(args, extra_args=None):
 
     validation_loader = get_dataset_for_model(
         args.model,
-        dataset_name="wikitext2",
+        dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
