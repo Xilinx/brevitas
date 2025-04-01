@@ -19,8 +19,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--dtype {float32,float16,bfloat16}] [--seed SEED]
                [--nsamples NSAMPLES]
                [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION]
-               [--seqlen SEQLEN] [--eval]
-               [--dataset {wikitext2,c4,wikitext2_clm,c4_clm,pile_clm}]
+               [--seqlen SEQLEN] [--eval] [--dataset {wikitext2,c4,pile}]
                [--gpxq-block-name GPXQ_BLOCK_NAME]
                [--weight-bit-width WEIGHT_BIT_WIDTH]
                [--weight-param-method {stats,mse,hqo}]
@@ -88,7 +87,7 @@ options:
                         Default: 800.
   --seqlen SEQLEN       Sequence length. Default: 2048.
   --eval                Eval model PPL on the chosen Dataset.
-  --dataset {wikitext2,c4,wikitext2_clm,c4_clm,pile_clm}
+  --dataset {wikitext2,c4,pile}
                         Dataset to use for quantization (default: wikitext2)
   --gpxq-block-name GPXQ_BLOCK_NAME
                         Block name for faster GPxQ optimization. It works only
