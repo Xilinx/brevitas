@@ -45,7 +45,7 @@ def create_llm_args_parser():
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikitext2', 'c4', 'wikitext2_clm', 'c4_clm', 'pile_clm'],
+        choices=['wikitext2', 'c4', 'pile'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(
