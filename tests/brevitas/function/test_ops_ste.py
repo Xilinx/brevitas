@@ -109,7 +109,7 @@ def test_scalar_clamp_min_ste_backend(prefix: str, x):
     """
     backend_name = 'scalar_clamp_min_ste_impl'
     with mock.patch(prefix + backend_name) as python_backend:
-        inp, min_val, mocked_return_val = x
+        min_val, inp, mocked_return_val = x
         python_backend.return_value = mocked_return_val
         return_val = scalar_clamp_min_ste(inp, min_val)
         # check that the wrapped function is called with the correct argument
