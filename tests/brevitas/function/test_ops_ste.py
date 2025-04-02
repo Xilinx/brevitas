@@ -43,14 +43,18 @@ def test_jit_annotations(prefix: str):
     """
     Test that the annotations to enable/disable the jit are being set correctly
     """
-    if prefix == NATIVE_PREFIX:
+    if brevitas.NATIVE_STE_BACKEND_LOADED:
+        assert prefix == NATIVE_PREFIX
         assert ops_ste.fn_prefix == torch
         assert ops_ste.script_flag == brevitas.jit.script
-        assert config.JIT_ENABLED
     else:
         assert prefix == AUTOGRAD_OPS_PREFIX
         assert ops_ste.fn_prefix == brevitas
         assert ops_ste.script_flag == torch.jit.ignore
+    if config.JIT_ENABLED:
+        assert brevitas.jit.script == torch.jit.script
+    else:
+        assert brevitas.jit.script == brevitas.jit._disabled
 
 
 @given(x=two_float_tensor_random_shape_st())
