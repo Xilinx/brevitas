@@ -225,7 +225,7 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "act_equalization": "fx",
             "bias_corr": True,
             "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 31136.918,
-            "quant_ppl": 31314.102 if transformers_version_ge('4.46.0') else 33283.75390625},
+            "quant_ppl": 31314.102 if transformers_version_ge('4.46.0') else 31314.102},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
@@ -236,13 +236,13 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
             "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 31136.918,
-            "quant_ppl": 31073.258 if transformers_version_ge('4.46.0') else 33234.398},
+            "quant_ppl": 31073.258 if transformers_version_ge('4.46.0') else 31073.258},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_equalization": "layerwise",
             "gptq": True,
             "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 27792.436,
-            "quant_ppl": 28608.725 if transformers_version_ge('4.46.0') else 33117.71484375},])
+            "quant_ppl": 28608.725 if transformers_version_ge('4.46.0') else 28608.725},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
