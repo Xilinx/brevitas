@@ -10,41 +10,20 @@ import torch
 from torch.nn import Module
 import torch.nn as nn
 
+from brevitas.export.inference.manager import _override_act_caching_mode
+from brevitas.export.inference.manager import _override_bias_caching_mode
+from brevitas.export.inference.manager import _override_weight_caching_mode
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
+from brevitas.export.shark.handler import SharkActFloatQuant
 from brevitas.export.shark.handler import SharkActQuant
 from brevitas.export.shark.handler import SharkWeightQuant
 from brevitas.graph.equalize import EqualizedModule
 from brevitas.nn.quant_layer import QuantNonLinearActLayer
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
-
-
-def _override_caching_mode(m: nn.Module, attr: str, enabled: bool, metadata_only: bool = True):
-    cache_var = 'cache_inference_quant_' + attr
-    cache_var_metadata_only = cache_var + '_metadata_only'
-    if hasattr(m, cache_var):
-        setattr(m, cache_var, enabled)
-        setattr(m, cache_var_metadata_only, metadata_only)
-
-
-def _override_bias_caching_mode(m: nn.Module, enabled: bool, metadata_only: bool = True):
-    _override_caching_mode(m, 'bias', enabled, metadata_only)
-
-
-def _override_act_caching_mode(m: nn.Module, enabled: bool, metadata_only: bool = True):
-    _override_caching_mode(m, 'act', enabled, metadata_only)
-
-
-def _override_weight_caching_mode(m: nn.Module, enabled: bool, metadata_only: bool = False):
-    _override_caching_mode(m, 'weight', enabled, metadata_only)
-
-
-def _override_create_quant_tensor(m: nn.Module, state: bool):
-    if hasattr(m, 'skip_create_quant_tensor'):
-        m.skip_create_quant_tensor = state
 
 
 def _quant_wbiol_handler(layer, layer_name, shared_dict):
@@ -67,17 +46,19 @@ def _quant_handler(layer, layer_name, quant_name, shared_dict):
 
 # Inheritance from BaseManager is not techincally needed
 class SharkManager(BaseManager):
-    handlers = [SharkWeightQuant, SharkActQuant]
+    handlers = [SharkWeightQuant, SharkActQuant, SharkActFloatQuant]
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
         _set_proxy_export_mode(model, enabled)
-        _set_recurrent_layer_export_mode(model, enabled)
 
     @classmethod
     def set_export_handler(cls, module: Module):
         _set_proxy_export_handler(cls, module)
-        _set_recurrent_layer_export_handler(cls, module)
 
     def export(self, model, *model_args, **model_kwargs):
 
@@ -89,8 +70,10 @@ class SharkManager(BaseManager):
         # - Populate layer_name and shared dict fields
         # - ...
         # - Profit (?)
+        sd = model.state_dict()
+        tensors = {name: DefaultPrimitiveTensor(name=name, data=sd[name]) for name in sd.keys()}
 
-        shared_dict.update(model.state_dict())
+        # shared_dict.update(tensors)
 
         # Cache quant metadata
         model.apply(lambda m: _override_bias_caching_mode(m, enabled=True, metadata_only=True))
@@ -107,7 +90,7 @@ class SharkManager(BaseManager):
 
         for n, m in model.named_modules():
             if isinstance(m, EqualizedModule):
-                premul_input = m.scale
+                premul_input = m.scale.weight
                 premul_input = DefaultPrimitiveTensor(
                     name=f"{n}.premul_input",
                     data=premul_input,
@@ -116,7 +99,6 @@ class SharkManager(BaseManager):
                 _quant_wbiol_handler(m.layer, n, shared_dict)
                 # add check to avoid looping again into m.layer
             if isinstance(m, QuantWeightBiasInputOutputLayer):
-                print(n)
                 _quant_wbiol_handler(m, n, shared_dict)
 
             elif isinstance(m, QuantNonLinearActLayer):
@@ -125,9 +107,9 @@ class SharkManager(BaseManager):
         model(*model_args, **model_kwargs)
 
         self.set_export_mode(model, enabled=False)
-        print(shared_dict)
 
         theta = Theta(shared_dict)
-        ds = Dataset(dict(), theta)
+        theta.flatten()
+        ds = Dataset(self.config, theta)
 
         return ds

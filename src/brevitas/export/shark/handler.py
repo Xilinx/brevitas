@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
+from brevitas.proxy import ActFloatQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 
@@ -26,27 +27,24 @@ class SharkWeightQuant(nn.Module):
         if module.is_quant_enabled:
             # Continguous is used to be extra-safe with torch.compile
             self.scale = module.scale().contiguous()
-            self.zero_point = module.zero_point().contiguous()
-            self.zero_point = self.zero_point.to(self.scale.device)
+            zero_point = module.zero_point().contiguous().to(torch.float32)
+            zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point - 128.).to(
+                self.scale.device)
+            self.zero_point = zero_point
             self.bit_width = module.bit_width()
-            self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
-            self.max_clamp = max_int(module.is_signed, module.is_narrow_range, self.bit_width)
 
     def forward(self, x):
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
-        zero_point = None if torch.count_nonzero(self.zero_point) == 0 else self.zero_point
-        if zero_point:
-            zero_point -= 128  # TODO: check
         weight_quant = StaticScaledQuantizer(
             scale=torch.reciprocal(self.scale),
             reciprocal_scale=self.scale,
-            offset=zero_point,
+            offset=self.zero_point,
             dtype=torch.int8)
         quant_weight = weight_quant.quantize(x)
         self.shared_dict[self.layer_name + 'weight'] = quant_weight
-        return x, self.scale, self.zero_point, self.bit_width
+        return x, self.scale, torch.tensor(0.).type_as(self.scale), self.bit_width
 
 
 class SharkActQuant(nn.Module):
@@ -64,23 +62,60 @@ class SharkActQuant(nn.Module):
         if module.is_quant_enabled:
             # Continguous is used to be extra-safe with torch.compile
             self.scale = module.scale().contiguous()
-            self.zero_point = module.zero_point().contiguous()
-            self.zero_point = self.zero_point.to(self.scale.device)
+            zero_point = module.zero_point().contiguous().to(torch.float32)
+            zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point - 128.).to(
+                self.scale.device)
+            self.zero_point = zero_point
             self.bit_width = module.bit_width()
-            self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
-            self.max_clamp = max_int(module.is_signed, module.is_narrow_range, self.bit_width)
 
     def forward(self, x):
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
-        zero_point = None if torch.count_nonzero(self.zero_point) == 0 else self.zero_point
-        if zero_point:
-            zero_point -= 128  # TODO: check
         input_quant = StaticScaledQuantizer(
             scale=torch.reciprocal(self.scale),
             reciprocal_scale=self.scale,
-            offset=zero_point,
+            offset=self.zero_point,
             dtype=torch.int8)
         self.shared_dict[self.layer_name + 'q_input'] = input_quant
-        return x, self.scale, self.zero_point, self.bit_width
+        return x, self.scale, torch.tensor(0.).type_as(self.scale), self.bit_width
+
+
+class SharkActFloatQuant(nn.Module):
+    handled_layer = ActFloatQuantProxyFromInjector
+
+    def __init__(self):
+        super().__init__()
+        self.layer_name = None
+        self.shared_dict = None
+
+    def attach_debug_info(self, module: nn.Module):
+        pass
+
+    def prepare_for_export(self, module: nn.Module):
+        if module.is_quant_enabled:
+            # Continguous is used to be extra-safe with torch.compile
+
+            self.dtype = module.standard_float_dtype
+            assert self.dtype is not None
+            self.scale = module.scale().contiguous()
+            zero_point = module.zero_point().contiguous().to(torch.float32)
+            zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point - 128.).to(
+                self.scale.device)
+            self.zero_point = zero_point
+            self.mantissa_bit_width = module.mantissa_bit_width()
+            self.exponent_bit_width = module.mantissa_bit_width()
+            self.exponent_bias = module.mantissa_bit_width()
+            self.mantissa_bit_width = module.mantissa_bit_width()
+
+    def forward(self, x):
+        assert self.layer_name is not None
+        assert self.shared_dict is not None
+
+        input_quant = StaticScaledQuantizer(
+            scale=torch.reciprocal(self.scale),
+            reciprocal_scale=self.scale,
+            offset=self.zero_point,
+            dtype=self.dtype)
+        self.shared_dict[self.layer_name + 'q_input'] = input_quant
+        return x, self.scale, torch.tensor(0.).type_as(self.scale), self.mantissa_bit_width, self.mantissa_bit_width, self.mantissa_bit_width, self.mantissa_bit_width, None, None
