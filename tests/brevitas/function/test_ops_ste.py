@@ -32,18 +32,7 @@ ELEMWISE_STE_BACKEND = {
     floor_ste: 'floor_ste_impl',}
 
 
-@pytest_cases.fixture()
-@pytest_cases.parametrize(jit=BOOLS)
-@pytest_cases.parametrize(native_ste=BOOLS)
-def prefix_and_status(jit, native_ste) -> Tuple[str, bool]:
-    """
-    Fixture for prefixes and expected result of downstream tests of ste backends.
-
-    In general, the tests contained in this file check some brevitas configuration and check that the correct brevitas functions are called.
-    However, when `config.JIT_ENABLED=True` and `config.NATIVE_STE_BACKEND_LOADED=True`,
-    we won't see that the correct function is called, because the full compute graph is compiled down to c++.
-    In this case, we check return `status=False` and check that neither prefix is called.
-    """
+def prefix_and_status_impl(jit, native_ste):
     if native_ste and brevitas.NATIVE_STE_BACKEND_LOADED:
         if jit and config.JIT_ENABLED:
             return NATIVE_PREFIX, False
@@ -54,7 +43,41 @@ def prefix_and_status(jit, native_ste) -> Tuple[str, bool]:
     if not native_ste and not brevitas.NATIVE_STE_BACKEND_LOADED:
         if jit == config.JIT_ENABLED:
             return AUTOGRAD_OPS_PREFIX, True
-    pytest.skip()
+    return None, None
+
+
+def gen_case_id(jit_and_native_ste):
+    """
+    Generate a human readable name, so that the tests that actually run can be audited
+    """
+    jit, native_ste = jit_and_native_ste
+    prefix, status = prefix_and_status_impl(jit, native_ste)
+    if prefix is None:
+        return f"jit={int(jit)}-native_ste={int(native_ste)}"
+    else:
+        return f"prefix={prefix.split('.')[0]}-called={int(status)}-jit={int(bool(config.JIT_ENABLED))}-native_ste={int(native_ste)}"
+
+
+@pytest_cases.fixture()
+@pytest_cases.parametrize(
+"jit, native_ste",
+[(j, s) for j in BOOLS for s in BOOLS],
+ids=gen_case_id,
+)
+def prefix_and_status(jit, native_ste) -> Tuple[str, bool]:
+    """
+    Fixture for prefixes and expected result of downstream tests of ste backends.
+
+    In general, the tests contained in this file check some brevitas configuration and check that the correct brevitas functions are called.
+    However, when `config.JIT_ENABLED=True` and `config.NATIVE_STE_BACKEND_LOADED=True`,
+    we won't see that the correct function is called, because the full compute graph is compiled down to c++.
+    In this case, we check return `status=False` and check that neither prefix is called.
+    """
+    prefix, status = prefix_and_status_impl(jit, native_ste)
+    if prefix is None:
+        pytest.skip()
+    else:
+        return prefix, status
 
 
 def test_jit_annotations(prefix_and_status: Tuple[str, bool]):
