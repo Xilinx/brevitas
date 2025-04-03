@@ -60,9 +60,9 @@ def gen_case_id(jit_and_native_ste):
 
 @pytest_cases.fixture()
 @pytest_cases.parametrize(
-"jit, native_ste",
-[(j, s) for j in BOOLS for s in BOOLS],
-ids=gen_case_id,
+    "jit, native_ste",
+    [(j, s) for j in BOOLS for s in BOOLS],
+    ids=gen_case_id,
 )
 def prefix_and_status(jit, native_ste) -> Tuple[str, bool]:
     """
