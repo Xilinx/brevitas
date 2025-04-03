@@ -88,6 +88,8 @@ class SharkManager(BaseManager):
         model.apply(self.set_export_handler)
         self.set_export_mode(model, enabled=True)
 
+        wbiol_id = set()
+
         for n, m in model.named_modules():
             if isinstance(m, EqualizedModule):
                 premul_input = m.scale.weight
@@ -96,9 +98,12 @@ class SharkManager(BaseManager):
                     data=premul_input,
                 )
                 shared_dict[premul_input.name] = premul_input
-                _quant_wbiol_handler(m.layer, n, shared_dict)
-                # add check to avoid looping again into m.layer
-            if isinstance(m, QuantWeightBiasInputOutputLayer):
+                if isinstance(m.layer, QuantWeightBiasInputOutputLayer):
+                    wbiol_id.add(id(m.layer))
+                    _quant_wbiol_handler(m.layer, n, shared_dict)
+                    # add check to avoid looping again into m.layer
+            if isinstance(m, QuantWeightBiasInputOutputLayer) and id(m) not in wbiol_id:
+                wbiol_id.add(id(m))
                 _quant_wbiol_handler(m, n, shared_dict)
 
             elif isinstance(m, QuantNonLinearActLayer):
@@ -109,7 +114,7 @@ class SharkManager(BaseManager):
         self.set_export_mode(model, enabled=False)
 
         theta = Theta(shared_dict)
-        theta.flatten()
-        ds = Dataset(self.config, theta)
+        theta = theta.flatten()
+        ds = Dataset(self.config, Theta(theta))
 
         return ds

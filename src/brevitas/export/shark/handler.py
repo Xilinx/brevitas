@@ -43,7 +43,7 @@ class SharkWeightQuant(nn.Module):
             offset=self.zero_point,
             dtype=torch.int8)
         quant_weight = weight_quant.quantize(x)
-        self.shared_dict[self.layer_name + 'weight'] = quant_weight
+        self.shared_dict[self.layer_name + '.weight'] = quant_weight
         return x, self.scale, torch.tensor(0.).type_as(self.scale), self.bit_width
 
 
@@ -77,7 +77,7 @@ class SharkActQuant(nn.Module):
             reciprocal_scale=self.scale,
             offset=self.zero_point,
             dtype=torch.int8)
-        self.shared_dict[self.layer_name + 'q_input'] = input_quant
+        self.shared_dict[self.layer_name + '.q_input'] = input_quant
         return x, self.scale, torch.tensor(0.).type_as(self.scale), self.bit_width
 
 
@@ -117,5 +117,5 @@ class SharkActFloatQuant(nn.Module):
             reciprocal_scale=self.scale,
             offset=self.zero_point,
             dtype=self.dtype)
-        self.shared_dict[self.layer_name + 'q_input'] = input_quant
+        self.shared_dict[self.layer_name + '.q_input'] = input_quant
         return x, self.scale, torch.tensor(0.).type_as(self.scale), self.mantissa_bit_width, self.mantissa_bit_width, self.mantissa_bit_width, self.mantissa_bit_width, None, None
