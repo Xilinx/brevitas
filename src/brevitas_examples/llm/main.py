@@ -383,6 +383,8 @@ def quantize_llm(args, extra_args=None):
                 name_blacklist += ["lm_head", "embed_out"]
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+        # Just to be sure
+        model.eval()
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
@@ -430,6 +432,11 @@ def quantize_llm(args, extra_args=None):
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
 
+        if args.act_calibration and not args.load_checkpoint:
+            print("Apply act calibration...")
+            apply_calibration(model, calibration_loader)
+            print("Act calibration applied.")
+
         if args.optimize_rotations:
             apply_rotation_optimization(
                 model=model,
@@ -443,11 +450,6 @@ def quantize_llm(args, extra_args=None):
             model = offload_model(model)
             # Fuse rotations with weights
             model = fuse_parametrizations(model)
-
-        if args.act_calibration and not args.load_checkpoint:
-            print("Apply act calibration...")
-            apply_calibration(model, calibration_loader)
-            print("Act calibration applied.")
 
         if args.svd_quant:
             print("Apply SVDQuant...")
