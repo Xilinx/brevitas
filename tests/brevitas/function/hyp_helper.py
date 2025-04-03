@@ -37,6 +37,20 @@ def tensor_clamp_ste_test_st():
 
 
 @st.composite
+def scalar_clamp_ste_test_st(draw):
+    """
+    Generate min_val and max_val floats, val and val_grad tensors.
+    The val and val_grad tensors has the same random shape
+    """
+    shape = draw(random_tensor_shape_st())
+    min_val = draw(float_st())
+    max_val = draw(float_st())
+    val = draw(float_tensor_st(shape))
+    val_grad = draw(float_tensor_nz_st(shape))
+    return min_val, max_val, val, val_grad
+
+
+@st.composite
 def tensor_clamp_random_shape_test_st(draw):
     """
     Generate min_val, max_val and val tensors all of the same random shape.
