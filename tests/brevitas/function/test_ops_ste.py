@@ -1,12 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Tuple
+
 from hypothesis import given
 import mock
 import pytest
 import pytest_cases
 import torch
-from typing import Tuple
 
 import brevitas
 from brevitas import config
