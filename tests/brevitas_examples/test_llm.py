@@ -224,8 +224,8 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
             "bias_corr": True,
-            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 33239.5,
-            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33283.75390625},
+            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 31136.918,
+            "quant_ppl": 31314.102 if transformers_version_ge('4.46.0') else 31314.102},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
@@ -235,14 +235,14 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "input_quant_granularity": "per_row",
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 33239.5,
-            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33234.398},
+            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 31136.918,
+            "quant_ppl": 31073.258 if transformers_version_ge('4.46.0') else 31073.258},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_equalization": "layerwise",
             "gptq": True,
-            "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 31274.05078125,
-            "quant_ppl": 33056.0 if transformers_version_ge('4.46.0') else 33117.71484375},])
+            "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 27792.436,
+            "quant_ppl": 28608.725 if transformers_version_ge('4.46.0') else 28608.725},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -278,15 +278,15 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
-            "float_ppl": 49941.7734375,
-            "quant_ppl": 49941.578125},
+            "float_ppl": 47967.746,
+            "quant_ppl": 47869.035},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "quant_sdpa": True,
-            "float_ppl": 49941.7734375,
-            "quant_ppl": 49941.578125},])
+            "float_ppl": 47967.746,
+            "quant_ppl": 47869.035},])
 def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -804,8 +804,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33252.21484375},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31322.375},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
@@ -814,8 +814,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 31275.958984375,
-            "quant_ppl": 31337.4921875},])
+            "float_ppl": 27792.436,
+            "quant_ppl": 28161.56},])
 def learned_round_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -857,8 +857,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": True,
             "rotation_mode": "ort",
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33232.65234375,},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31272.172,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -868,8 +868,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33420.65234375,},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31310.459,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -879,8 +879,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33290.48046875,},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31038.398,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -890,8 +890,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33204.80859375,},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31182.68,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -899,8 +899,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "input_bit_width": None,
             "replace_rmsnorm": True,
             "rotation": "layerwise",
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33446.734375,},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31161.514,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -911,8 +911,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "rotation_layers_to_expand": ["down_proj"],
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33216.3671875,},])
+            "float_ppl": 31136.918,
+            "quant_ppl": 31155.57,},])
 def rotation_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -965,8 +965,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33239.33984375,
+            "float_ppl": 31136.918,
+            "quant_ppl": 31236.613,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -993,8 +993,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33423.0390625,
+            "float_ppl": 31136.918,
+            "quant_ppl": 31310.459,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1021,8 +1021,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33286.98828125,
+            "float_ppl": 31136.918,
+            "quant_ppl": 31176.02,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1049,8 +1049,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 33238.8984375,
-            "quant_ppl": 33175.3046875,
+            "float_ppl": 31136.918,
+            "quant_ppl": 31046.008,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,

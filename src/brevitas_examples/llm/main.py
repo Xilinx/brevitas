@@ -190,6 +190,7 @@ def quantize_llm(args, extra_args=None):
     # Load the data for calibration and evaluation.
     calibration_loader = get_dataset_for_model(
         args.model,
+        bos_preprocessing=not args.no_bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
@@ -197,11 +198,11 @@ def quantize_llm(args, extra_args=None):
         split="train",
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
-        device=None,
-        fuse_sequences=args.fuse_sequences)
+        device=None)
 
     validation_loader = get_dataset_for_model(
         args.model,
+        bos_preprocessing=not args.no_bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
@@ -209,8 +210,7 @@ def quantize_llm(args, extra_args=None):
         split="validation",
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
-        device=None,
-        fuse_sequences=args.fuse_sequences)
+        device=None)
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
@@ -225,8 +225,7 @@ def quantize_llm(args, extra_args=None):
             split="train",
             seed=args.seed,
             require_fx=require_fx and args.export_target is not None,
-            device=None,
-            fuse_sequences=args.fuse_sequences)
+            device=None)
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")
@@ -384,6 +383,8 @@ def quantize_llm(args, extra_args=None):
                 name_blacklist += ["lm_head", "embed_out"]
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+        # Just to be sure
+        model.eval()
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
@@ -431,6 +432,11 @@ def quantize_llm(args, extra_args=None):
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
 
+        if args.act_calibration and not args.load_checkpoint:
+            print("Apply act calibration...")
+            apply_calibration(model, calibration_loader)
+            print("Act calibration applied.")
+
         if args.optimize_rotations:
             apply_rotation_optimization(
                 model=model,
@@ -444,11 +450,6 @@ def quantize_llm(args, extra_args=None):
             model = offload_model(model)
             # Fuse rotations with weights
             model = fuse_parametrizations(model)
-
-        if args.act_calibration and not args.load_checkpoint:
-            print("Apply act calibration...")
-            apply_calibration(model, calibration_loader)
-            print("Act calibration applied.")
 
         if args.svd_quant:
             print("Apply SVDQuant...")
@@ -543,7 +544,8 @@ def quantize_llm(args, extra_args=None):
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
 
-                wrapped_model = HFLM(pretrained=model)  # need to wrap for LLM eval
+                wrapped_model = HFLM(
+                    pretrained=model, add_bos_token=True)  # need to wrap for LLM eval
                 few_shot_eval_results = evaluator.simple_evaluate(
                     model=wrapped_model,
                     model_args=None,

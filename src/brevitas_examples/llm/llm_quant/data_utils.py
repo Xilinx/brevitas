@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from functools import partial
 import random
 from typing import Any, Iterable, List, Optional, Union
 
@@ -33,6 +34,8 @@ import torch
 from transformers import AutoConfig
 
 from .data import get_c4
+from .data import get_dataset_clm
+from .data import get_pile
 from .data import get_wikitext2
 
 
@@ -80,16 +83,14 @@ def get_dataset_for_model(
     seqlen: int = 2048,
     seed: int = 0,
     split: str = "train",
-    fuse_sequences: bool = True,
+    bos_preprocessing: bool = True,
     require_fx: bool = False,
     device: Optional[Union[str, torch.device]] = None,
 ):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
-    get_dataset_map = {
-        "wikitext2": get_wikitext2,
-        "c4": get_c4,}
+    get_dataset_map = {"wikitext2": get_wikitext2, "c4": get_c4, "pile": get_pile}
     if split not in ["train", "validation"]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
     if dataset_name not in get_dataset_map:
@@ -102,8 +103,8 @@ def get_dataset_for_model(
         nsamples=nsamples,
         seqlen=seqlen,
         split=split,
-        fuse_sequences=fuse_sequences,
-        seed=seed)
+        seed=seed,
+        bos_preprocessing=bos_preprocessing)
 
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:
