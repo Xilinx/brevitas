@@ -4,12 +4,15 @@
 from hypothesis import given
 import mock
 import pytest
+import pytest_cases
 import torch
+from typing import Tuple
 
 import brevitas
 from brevitas import config
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
+from tests.brevitas.common import BOOLS
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
@@ -28,24 +31,38 @@ ELEMWISE_STE_BACKEND = {
     floor_ste: 'floor_ste_impl',}
 
 
-@pytest.fixture()
-def prefix() -> str:
+@pytest_cases.fixture()
+@pytest_cases.parametrize(jit=BOOLS)
+@pytest_cases.parametrize(native_ste=BOOLS)
+def prefix_and_status(jit, native_ste) -> Tuple[str, bool]:
     """
-    Fixture for prefix of the ste backend
+    Fixture for prefixes and expected result of downstream tests of ste backends.
+
+    In general, the tests contained in this file check some brevitas configuration and check that the correct brevitas functions are called.
+    However, when `config.JIT_ENABLED=True` and `config.NATIVE_STE_BACKEND_LOADED=True`,
+    we won't see that the correct function is called, because the full compute graph is compiled down to c++.
+    In this case, we check return `status=False` and check that neither prefix is called.
     """
-    if brevitas.NATIVE_STE_BACKEND_LOADED:
-        prefix = NATIVE_PREFIX
-    else:
-        prefix = AUTOGRAD_OPS_PREFIX
-    return prefix
+    if native_ste and brevitas.NATIVE_STE_BACKEND_LOADED:
+        if jit and config.JIT_ENABLED:
+            return NATIVE_PREFIX, False
+        if not jit and config.JIT_ENABLED:
+            return AUTOGRAD_OPS_PREFIX, False
+        if not jit and not config.JIT_ENABLED:
+            return NATIVE_PREFIX, True
+    if not native_ste and not brevitas.NATIVE_STE_BACKEND_LOADED:
+        if jit == config.JIT_ENABLED:
+            return AUTOGRAD_OPS_PREFIX, True
+    pytest.skip()
 
 
-def test_jit_annotations(prefix: str):
+def test_jit_annotations(prefix_and_status: Tuple[str, bool]):
     """
     Test that the annotations to enable/disable the jit are being set correctly
     """
+    prefix, status = prefix_and_status
     if brevitas.NATIVE_STE_BACKEND_LOADED:
-        assert prefix == NATIVE_PREFIX
+        assert prefix == NATIVE_PREFIX or prefix == AUTOGRAD_OPS_PREFIX  # Sanity-check, should always be True
         assert ops_ste.fn_prefix == torch
         assert ops_ste.script_flag == brevitas.jit.script
     else:
@@ -60,64 +77,84 @@ def test_jit_annotations(prefix: str):
 
 @given(x=two_float_tensor_random_shape_st())
 @pytest.mark.parametrize('ste_impl', ELEMWISE_STE_BACKEND.keys())
-def test_elemwise_ste_backend(prefix, x, ste_impl):
+def test_elemwise_ste_backend(prefix_and_status: Tuple[str, bool], x, ste_impl):
     """
     Test that ste_impl is wrapping the corresponding backend implementation correctly.
     """
+    prefix, status = prefix_and_status
     backend_name = ELEMWISE_STE_BACKEND[ste_impl]
     with mock.patch(prefix + backend_name) as python_backend:
         inp, mocked_return_val = x
         python_backend.return_value = mocked_return_val
         return_val = ste_impl(inp)
-        # check that the wrapped function is called with the correct argument
-        python_backend.assert_called_once_with(inp)
-        # check that the return value of the wrapper is the return values of the wrapped function
-        assert return_val is mocked_return_val
+        if status:
+            # check that the wrapped function is called with the correct argument
+            python_backend.assert_called_once_with(inp)
+            # check that the return value of the wrapper is the return values of the wrapped function
+            assert return_val is mocked_return_val
+        else:
+            # If (config.JIT_ENABLED and brevitas.NATIVE_STE_BACKEND_LOADED) we expect the prefix won't be called
+            python_backend.assert_not_called()
 
 
 @given(x=tensor_clamp_ste_test_st())
-def test_tensor_clamp_ste_backend(prefix: str, x):
+def test_tensor_clamp_ste_backend(prefix_and_status: Tuple[str, bool], x):
     """
     Test that tensor_clamp_ste is wrapping the backend implementation correctly.
     """
+    prefix, status = prefix_and_status
     backend_name = 'tensor_clamp_ste_impl'
     with mock.patch(prefix + backend_name) as python_backend:
         min_val, max_val, inp, mocked_return_val = x
         python_backend.return_value = mocked_return_val
         return_val = tensor_clamp_ste(inp, min_val, max_val)
-        # check that the wrapped function is called with the correct argument
-        python_backend.assert_called_once_with(inp, min_val, max_val)
-        # check that the return value of the wrapper is the return values of the wrapped function
-        assert return_val is mocked_return_val
+        if status:
+            # check that the wrapped function is called with the correct argument
+            python_backend.assert_called_once_with(inp, min_val, max_val)
+            # check that the return value of the wrapper is the return values of the wrapped function
+            assert return_val is mocked_return_val
+        else:
+            # If (config.JIT_ENABLED and brevitas.NATIVE_STE_BACKEND_LOADED) we expect the prefix won't be called
+            python_backend.assert_not_called()
 
 
 @given(x=scalar_clamp_ste_test_st())
-def test_scalar_clamp_ste_backend(prefix: str, x):
+def test_scalar_clamp_ste_backend(prefix_and_status: Tuple[str, bool], x):
     """
     Test that scalar_clamp_ste is wrapping the backend implementation correctly.
     """
+    prefix, status = prefix_and_status
     backend_name = 'scalar_clamp_ste_impl'
     with mock.patch(prefix + backend_name) as python_backend:
         min_val, max_val, inp, mocked_return_val = x
         python_backend.return_value = mocked_return_val
         return_val = scalar_clamp_ste(inp, min_val, max_val)
-        # check that the wrapped function is called with the correct argument
-        python_backend.assert_called_once_with(inp, min_val, max_val)
-        # check that the return value of the wrapper is the return values of the wrapped function
-        assert return_val is mocked_return_val
+        if status:
+            # check that the wrapped function is called with the correct argument
+            python_backend.assert_called_once_with(inp, min_val, max_val)
+            # check that the return value of the wrapper is the return values of the wrapped function
+            assert return_val is mocked_return_val
+        else:
+            # If (config.JIT_ENABLED and brevitas.NATIVE_STE_BACKEND_LOADED) we expect the prefix won't be called
+            python_backend.assert_not_called()
 
 
 @given(x=scalar_clamp_min_ste_test_st())
-def test_scalar_clamp_min_ste_backend(prefix: str, x):
+def test_scalar_clamp_min_ste_backend(prefix_and_status: Tuple[str, bool], x):
     """
     Test that scalar_clamp_min_ste is wrapping the backend implementation correctly.
     """
+    prefix, status = prefix_and_status
     backend_name = 'scalar_clamp_min_ste_impl'
     with mock.patch(prefix + backend_name) as python_backend:
         min_val, inp, mocked_return_val = x
         python_backend.return_value = mocked_return_val
         return_val = scalar_clamp_min_ste(inp, min_val)
-        # check that the wrapped function is called with the correct argument
-        python_backend.assert_called_once_with(inp, min_val)
-        # check that the return value of the wrapper is the return values of the wrapped function
-        assert return_val is mocked_return_val
+        if status:
+            # check that the wrapped function is called with the correct argument
+            python_backend.assert_called_once_with(inp, min_val)
+            # check that the return value of the wrapper is the return values of the wrapped function
+            assert return_val is mocked_return_val
+        else:
+            # If (config.JIT_ENABLED and brevitas.NATIVE_STE_BACKEND_LOADED) we expect the prefix won't be called
+            python_backend.assert_not_called()
