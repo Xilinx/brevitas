@@ -171,7 +171,7 @@ def get_dataset_clm(
         features=Features({"input_ids": Sequence(feature=Value(dtype="int64"), length=seqlen)}),
         batched=True,
         num_proc=dataset_processing_num_proc_per_process,
-        load_from_cache_file=False,
+        load_from_cache_file=True,
         desc=f"Grouping texts in chunks of {seqlen}",
     )
     # Retrieve a random subset of sequences
