@@ -41,7 +41,7 @@ def prefix_and_status_impl(jit, native_ste):
         if not jit and not config.JIT_ENABLED:
             return NATIVE_PREFIX, True
     if not native_ste and not brevitas.NATIVE_STE_BACKEND_LOADED:
-        if jit == config.JIT_ENABLED:
+        if jit == bool(config.JIT_ENABLED):
             return AUTOGRAD_OPS_PREFIX, True
     return None, None
 
