@@ -11,6 +11,7 @@ from brevitas import config
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
+from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 
@@ -90,7 +91,7 @@ def test_tensor_clamp_ste_backend(prefix: str, x):
         assert return_val is mocked_return_val
 
 
-@given(x=tensor_clamp_ste_test_st())
+@given(x=scalar_clamp_ste_test_st())
 def test_scalar_clamp_ste_backend(prefix: str, x):
     """
     Test that scalar_clamp_ste is wrapping the backend implementation correctly.
