@@ -77,6 +77,8 @@ def set_collect_stats_to_average(module):
 def finalize_collect_stats(module):
     if hasattr(module, 'init_scale'):
         module.init_scale()
+    elif hasattr(module, 'init_zp'):
+        module.init_zp()
 
 
 class calibration_mode:
