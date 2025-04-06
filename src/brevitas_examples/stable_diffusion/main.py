@@ -552,6 +552,7 @@ def main(args):
             model=denoising_network,
             compute_layer_map=layer_map,
             name_blacklist=blacklist + args.quant_standalone_blacklist)
+        denoising_network.eval()
         print("Model quantization applied.")
 
         pipe.set_progress_bar_config(disable=True)
@@ -659,11 +660,7 @@ def main(args):
             "decoder.up_blocks.3.resnets.0.conv2",
             "decoder.up_blocks.3.resnets.1.conv2",
             "decoder.up_blocks.3.resnets.2.conv2"]
-        #layer_whitelist = [
-        #    "decoder.up_blocks.3.resnets.0.conv_shortcut",
-        #    "decoder.up_blocks.3.resnets.0.conv2",
-        #    "decoder.up_blocks.3.resnets.1.conv2",
-        #    "decoder.up_blocks.3.resnets.2.conv2"]
+
         corrected_layers = []
         with torch.no_grad():
             for name, module in pipe.vae.named_modules():

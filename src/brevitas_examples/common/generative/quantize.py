@@ -61,6 +61,8 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import FP8e4m3FNUZDynamicActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
@@ -227,6 +229,13 @@ INPUT_QUANT_MAP = {
                     'per_group': {
                         'sym': MXFloat8e4m3Act}}}}},
     'float_fnuz': {
+        'dynamic': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3FNUZDynamicActPerTensorFloat},
+                    'per_row': {
+                        'sym': FP8e4m3FNUZDynamicActPerRowFloat}}}},
         'static': {
             'float_scale': {
                 'stats': {
@@ -260,7 +269,7 @@ def generate_quantizers(
         device=None,
         weight_kwargs=None,
         input_kwargs=None,
-        quant_attn_mode=None,
+        quant_attn_mode='mha',
         scaling_min_val=1e-4):
     """
     Replace float layers with quant layers in the target model
