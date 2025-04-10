@@ -48,8 +48,10 @@ def _quant_handler(layer, layer_name, quant_name, shared_dict):
 class SharkManager(BaseManager):
     handlers = [SharkWeightQuant, SharkActQuant, SharkActFloatQuant]
 
-    def __init__(self, config):
+    def __init__(self, config=None):
         super().__init__()
+        if config == None:
+            config = dict()
         self.config = config
 
     @classmethod
@@ -73,7 +75,7 @@ class SharkManager(BaseManager):
         sd = model.state_dict()
         tensors = {name: DefaultPrimitiveTensor(name=name, data=sd[name]) for name in sd.keys()}
 
-        # shared_dict.update(tensors)
+        shared_dict.update(tensors)
 
         # Cache quant metadata
         model.apply(lambda m: _override_bias_caching_mode(m, enabled=True, metadata_only=True))
@@ -101,7 +103,6 @@ class SharkManager(BaseManager):
                 if isinstance(m.layer, QuantWeightBiasInputOutputLayer):
                     wbiol_id.add(id(m.layer))
                     _quant_wbiol_handler(m.layer, n, shared_dict)
-                    # add check to avoid looping again into m.layer
             if isinstance(m, QuantWeightBiasInputOutputLayer) and id(m) not in wbiol_id:
                 wbiol_id.add(id(m))
                 _quant_wbiol_handler(m, n, shared_dict)
