@@ -18,7 +18,6 @@ from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
-import numpy as np
 import packaging
 import packaging.version
 import pandas as pd
