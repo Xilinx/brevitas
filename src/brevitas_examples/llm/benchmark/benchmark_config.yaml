@@ -99,6 +99,8 @@ load_checkpoint:
 - false
 model:
 - facebook/opt-125m
+no_bos_preprocessing:
+- false
 no_quantize:
 - false
 nsamples:
@@ -137,6 +139,12 @@ seed:
 - 0
 seqlen:
 - 2048
+svd_quant:
+- false
+svd_quant_iters:
+- 1
+svd_quant_rank:
+- 32
 weight_bit_width:
 - 5
 - 6

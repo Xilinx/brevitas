@@ -51,6 +51,7 @@ ln_affine_merge: false
 load_awq: null
 load_checkpoint: false
 model: facebook/opt-125m
+no_bos_preprocessing: false
 no_quantize: false
 nsamples: 128
 nsamples_rot_calibration: 800
@@ -70,6 +71,9 @@ scale_rounding_func_type: null
 scaling_min_val: 0.0001
 seed: 0
 seqlen: 2048
+svd_quant: false
+svd_quant_iters: 1
+svd_quant_rank: 32
 weight_bit_width: 8
 weight_equalization: false
 weight_group_dim: null
