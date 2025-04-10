@@ -76,8 +76,7 @@ class EqualizeAWQ(GraphTransform):
             merge_bias=self._merge_bias,
             bias_shrinkage=self._bias_shrinkage,
             scale_computation_type=self._scale_computation_type,
-            fuse_scaling=False,
-            parametrize_inplace=False)
+            fuse_scaling=False)
         # Scaling factors are set to identity
         for r in rewriters:
             if isinstance(r, ModuleInstanceRegisterParametrization):

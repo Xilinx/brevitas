@@ -618,8 +618,7 @@ def _cross_layer_equalization(
         list_of_insert_mul_node_fn: Optional[List[Callable]] = None,
         alpha: float = 0.5,
         co_optimize_act_weights: bool = False,
-        fuse_scaling: bool = True,
-        parametrize_inplace: bool = True) -> torch.Tensor:
+        fuse_scaling: bool = True) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -797,7 +796,7 @@ def _cross_layer_equalization(
     # AFTER we remove the HF hooks to prevent this error, thus the check isinstance(r, ModuleInstanceRegisterParametrization),
     # as the model passed to _cross_layer_equalization is potentially offloaded
     for r in rewriters:
-        if parametrize_inplace or not isinstance(r, ModuleInstanceRegisterParametrization):
+        if not isinstance(r, ModuleInstanceRegisterParametrization):
             model = r.apply(model)
 
     # If a module has `offload_params` attribute, we must offload the weights following that method

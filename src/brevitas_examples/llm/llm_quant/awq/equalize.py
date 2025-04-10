@@ -1,8 +1,6 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from argparse import Namespace
-
 import torch
 from torch import nn
 from torch.utils.data.dataloader import DataLoader
