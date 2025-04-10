@@ -242,6 +242,8 @@ class GPxQ(ABC):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
+        from brevitas.quant_tensor import _unpack_quant_tensor
+
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation
         i = i1 + i
@@ -249,6 +251,7 @@ class GPxQ(ABC):
         # of quantizing only a subset of the entire matrix speeding up the computation of GPxQ
         if isinstance(self.layer, qnn.QuantLinear):
             if self.layer.weight_quant.is_groupwise or with_quant_history:
+
                 # No slicing, not optimized
                 q = self.layer.quant_weight(quant_input=self.quant_metadata)
                 q = _unpack_quant_tensor(q).unsqueeze(0)  # [1, OC, IC]

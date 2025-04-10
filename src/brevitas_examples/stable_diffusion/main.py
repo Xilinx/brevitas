@@ -29,6 +29,7 @@ from torch import nn
 # Each will produce slightly different but valid results
 from torchmetrics.image.fid import FrechetInceptionDistance
 
+torch._dynamo.config.force_parameter_static_shapes = False
 try:
     from cleanfid import fid as cleanfid
 except:
@@ -166,11 +167,15 @@ def run_val_inference(
         test_latents=None,
         output_type='latent',
         deterministic=True,
-        is_unet=True):
+        is_unet=True,
+        batch=1):
     with torch.no_grad():
 
         if test_latents is None:
-            test_latents = generate_latents(seeds[0], device, dtype, unet_input_shape(resolution))
+            test_latents = generate_latents([seeds[0]] * batch,
+                                            device,
+                                            dtype,
+                                            unet_input_shape(resolution))
         extra_kwargs = {}
 
         if is_unet:
@@ -178,18 +183,18 @@ def run_val_inference(
 
         generator = torch.Generator(device).manual_seed(0) if deterministic else None
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
-        for prompt in tqdm(prompts):
+        for index in range(0, len(prompts), batch):
+            curr_prompts = prompts[index]
             # We don't want to generate any image, so we return only the latent encoding pre VAE
-            pipe(
-                prompt,
-                negative_prompt=neg_prompts[0],
-                output_type=output_type,
-                guidance_scale=guidance_scale,
-                height=resolution,
-                width=resolution,
-                num_inference_steps=total_steps,
-                generator=generator,
-                **extra_kwargs)
+            pipe([curr_prompts] * batch,
+                 negative_prompt=neg_prompts,
+                 output_type=output_type,
+                 guidance_scale=guidance_scale,
+                 height=resolution,
+                 width=resolution,
+                 num_inference_steps=total_steps,
+                 generator=generator,
+                 **extra_kwargs)
 
 
 def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args):
@@ -296,6 +301,36 @@ def main(args):
             use_negative_prompts=args.use_negative_prompts,
             subfolder='float')
 
+    if len(args.few_shot_calibration) > 0:
+        pipe.set_progress_bar_config(disable=True)
+        new_calib_set = []
+        counter = [0]
+
+        def calib_hook(module, inp, inp_kwargs):
+            if counter[0] in args.few_shot_calibration:
+                new_calib_set.append((inp, inp_kwargs))
+            counter[0] += 1
+            if counter[0] == args.calibration_steps:
+                counter[0] = 0
+
+        h = pipe.unet.register_forward_pre_hook(calib_hook, with_kwargs=True)
+
+        run_val_inference(
+            pipe,
+            args.resolution,
+            calibration_prompts,
+            test_seeds,
+            args.device,
+            dtype,
+            deterministic=args.deterministic,
+            total_steps=args.calibration_steps,
+            use_negative_prompts=args.use_negative_prompts,
+            test_latents=latents,
+            guidance_scale=args.guidance_scale,
+            is_unet=is_unet,
+            batch=args.calibration_batch_size)
+        h.remove()
+
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
 
@@ -324,6 +359,25 @@ def main(args):
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
+    def calibration_step(calibration_prompts, force_full_evaluation=False):
+        if len(args.few_shot_calibration) > 0 or not force_full_evaluation:
+            for i, (inp_args, inp_kwargs) in enumerate(new_calib_set):
+                denoising_network(*inp_args, **inp_kwargs)
+        else:
+            run_val_inference(
+                pipe,
+                args.resolution,
+                calibration_prompts,
+                test_seeds,
+                args.device,
+                dtype,
+                deterministic=args.deterministic,
+                total_steps=args.calibration_steps,
+                use_negative_prompts=args.use_negative_prompts,
+                test_latents=latents,
+                guidance_scale=args.guidance_scale,
+                is_unet=is_unet)
+
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
         with torch.no_grad(), activation_equalization_mode(
@@ -336,23 +390,12 @@ def main(args):
             for m in denoising_network.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
-            total_steps = args.calibration_steps
+
             if args.dry_run or args.load_checkpoint is not None:
                 calibration_prompts = [calibration_prompts[0]]
-                total_steps = 1
-            run_val_inference(
-                pipe,
-                args.resolution,
-                calibration_prompts,
-                test_seeds,
-                args.device,
-                dtype,
-                deterministic=args.deterministic,
-                total_steps=total_steps,
-                use_negative_prompts=args.use_negative_prompts,
-                test_latents=latents,
-                guidance_scale=args.guidance_scale,
-                is_unet=is_unet)
+
+            # SmoothQuant seems to be make better use of all the timesteps
+            calibration_step(calibration_prompts, force_full_evaluation=True)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in denoising_network.modules():
@@ -559,18 +602,7 @@ def main(args):
         pipe.set_progress_bar_config(disable=True)
 
         with torch.no_grad():
-            run_val_inference(
-                pipe,
-                args.resolution, [calibration_prompts[0]],
-                test_seeds,
-                args.device,
-                dtype,
-                total_steps=1,
-                deterministic=args.deterministic,
-                use_negative_prompts=args.use_negative_prompts,
-                test_latents=latents,
-                guidance_scale=args.guidance_scale,
-                is_unet=is_unet)
+            calibration_step([calibration_prompts[0]])
 
         if args.load_checkpoint is not None:
             with load_quant_model_mode(denoising_network):
@@ -580,24 +612,12 @@ def main(args):
                     torch.load(args.load_checkpoint, map_location='cpu'))
                 print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
-        elif not args.dry_run:
 
+        elif not args.dry_run:
             if needs_calibration:
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(denoising_network):
-                    run_val_inference(
-                        pipe,
-                        args.resolution,
-                        calibration_prompts,
-                        test_seeds,
-                        args.device,
-                        dtype,
-                        deterministic=args.deterministic,
-                        total_steps=args.calibration_steps,
-                        use_negative_prompts=args.use_negative_prompts,
-                        test_latents=latents,
-                        guidance_scale=args.guidance_scale,
-                        is_unet=is_unet)
+                    calibration_step(calibration_prompts)
 
         if args.svd_quant:
             print("Apply SVDQuant...")
@@ -617,46 +637,26 @@ def main(args):
             for m in denoising_network.modules():
                 if hasattr(m, 'compile_quant'):
                     m.compile_quant()
-
         if args.gptq:
             print("Applying GPTQ. It can take several hours")
-            with torch.no_grad(), gptq_mode(denoising_network,
-                        create_weight_orig=False,
-                        use_quant_activations=False,
-                        return_forward_output=True,
-                        act_order=True) as gptq:
-                for _ in tqdm(range(gptq.num_layers)):
-                    run_val_inference(
-                        pipe,
-                        args.resolution,
-                        calibration_prompts,
-                        test_seeds,
-                        args.device,
-                        dtype,
-                        deterministic=args.deterministic,
-                        total_steps=args.calibration_steps,
-                        use_negative_prompts=args.use_negative_prompts,
-                        test_latents=latents,
-                        guidance_scale=args.guidance_scale,
-                        is_unet=is_unet)
-                    gptq.update()
-                    torch.cuda.empty_cache()
+            gptq_subset = calibration_prompts[:128]
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
+                calibration_step([gptq_subset[0]])
+                with gptq_mode(denoising_network,
+                               create_weight_orig=False,
+                               use_quant_activations=True,
+                               return_forward_output=False,
+                               act_order=True) as gptq:
+                    for _ in tqdm(range(gptq.num_layers)):
+                        calibration_step(gptq_subset)
+                        gptq.update()
+
         if args.bias_correction:
             print("Applying bias correction")
-            with torch.no_grad(), bias_correction_mode(denoising_network):
-                run_val_inference(
-                    pipe,
-                    args.resolution,
-                    calibration_prompts,
-                    test_seeds,
-                    args.device,
-                    dtype,
-                    deterministic=args.deterministic,
-                    total_steps=args.calibration_steps,
-                    use_negative_prompts=args.use_negative_prompts,
-                    test_latents=latents,
-                    guidance_scale=args.guidance_scale,
-                    is_unet=is_unet)
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
+                calibration_step([calibration_prompts[0]])
+                with bias_correction_mode(denoising_network):
+                    calibration_step(calibration_prompts)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -1025,7 +1025,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--resolution',
         type=int,
-        default=512,
+        default=1024,
         help='Resolution along height and width dimension. Default: 512.')
     parser.add_argument('--svd-quant-rank', type=int, default=32, help='SVDQuant rank. Default: 32')
     parser.add_argument(
@@ -1170,7 +1170,7 @@ if __name__ == "__main__":
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
-        choices=['per_tensor', 'per_group'],
+        choices=['per_tensor', 'per_group', 'per_row'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
     parser.add_argument(
         '--input-scale-type',
@@ -1291,6 +1291,16 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help='Inference pipeline for evaluation.  Default: %(default)s')
+    parser.add_argument(
+        '--few-shot-calibration',
+        default=[],
+        nargs='*',
+        help='What timesteps to use for few-shot-calibration.  Default: %(default)s')
+    parser.add_argument(
+        '--calibration-batch-size',
+        type=int,
+        default=1,
+        help='Batch size for few-shot-calibration.  Default: %(default)s')
     add_bool_arg(
         parser,
         'quantize-weight-zero-point',

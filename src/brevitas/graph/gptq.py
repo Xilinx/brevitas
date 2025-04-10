@@ -52,14 +52,16 @@ class GPTQ(GPxQ):
         self.blocksize = math.ceil(self.columns / num_blocks)
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
-        self.H = torch.zeros((self.groups, self.columns, self.columns),
-                             device='cpu',
-                             dtype=torch.float32,
-                             pin_memory=torch.cuda.is_available())
-        self.B = torch.zeros((self.groups, self.columns, self.columns),
-                             device='cpu',
-                             dtype=torch.float32,
-                             pin_memory=torch.cuda.is_available())
+        self.H = torch.zeros(
+            (self.groups, self.columns, self.columns),
+            device='cpu',
+            dtype=torch.float32,
+        )
+        self.B = torch.zeros(
+            (self.groups, self.columns, self.columns),
+            device='cpu',
+            dtype=torch.float32,
+        )
         self.nsamples = 0
 
         assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
