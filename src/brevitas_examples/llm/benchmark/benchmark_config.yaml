@@ -8,6 +8,10 @@ bias_corr:
 - false
 checkpoint_name:
 - null
+compile_eval:
+- false
+compile_ptq:
+- false
 convert_layernorm_to_rmsnorm:
 - false
 dataset:
@@ -20,11 +24,11 @@ export_prefix:
 - null
 export_target:
 - null
-few_shot_compile:
-- false
 few_shot_eval:
-- false
+- null
 few_shot_limit:
+- null
+few_shot_override_batch_size:
 - null
 few_shot_tasks:
 - - arc_challenge
@@ -69,6 +73,10 @@ input_scale_precision:
 - float_scale
 input_scale_type:
 - static
+kv_quant_granularity:
+- null
+kv_quant_type:
+- null
 learned_round:
 - null
 learned_round_fast_update:
@@ -91,6 +99,8 @@ load_checkpoint:
 - false
 model:
 - facebook/opt-125m
+no_bos_preprocessing:
+- false
 no_quantize:
 - false
 nsamples:
@@ -113,6 +123,8 @@ replace_rmsnorm:
 - false
 rotation:
 - null
+rotation_layers_to_expand:
+- []
 rotation_mode:
 - had
 rotation_orphan_sink:
@@ -127,6 +139,12 @@ seed:
 - 0
 seqlen:
 - 2048
+svd_quant:
+- false
+svd_quant_iters:
+- 1
+svd_quant_rank:
+- 32
 weight_bit_width:
 - 5
 - 6
