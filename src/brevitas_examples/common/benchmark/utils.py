@@ -242,7 +242,9 @@ def parse_config_args(args: List[str]) -> Namespace:
         '--end-index',
         type=int,
         default=-1,
-        help='Index from which to end current run. A negative value runs all jobs from `--start-index` (default: %(default)s).')
+        help=
+        'Index from which to end current run. A negative value runs all jobs from `--start-index` (default: %(default)s).'
+    )
     return parser.parse_args(args)
 
 
@@ -387,7 +389,8 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     q = []
     cur_index = 0
     start_index = script_args.start_index
-    end_index = script_args.end_index if script_args.end_index > 0 else reduce(lambda x,y: x*y, [len(v) for v in args_values])
+    end_index = script_args.end_index if script_args.end_index > 0 else reduce(
+        lambda x, y: x * y, [len(v) for v in args_values])
     for v in itertools.product(*args_values):
         args_dict = dict(zip(args_keys, v))
         try:
