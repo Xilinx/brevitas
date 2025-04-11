@@ -925,13 +925,15 @@ def main(args):
             float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
             quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
 
-            fid = FrechetInceptionDistance(normalize=False)
-            fid.update(float_images_values, real=True)
-            fid.update(quant_images_values, real=False)
+            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            for float_image in tqdm(float_images_values):
+                fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
+            for quant_image in tqdm(quant_images_values):
+                fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
             print(f"Torchmetrics FID: {float(fid.compute())}")
             if cleanfid is not None:
                 score = cleanfid.compute_fid(
-                    os.path.join(output_dir, 'quant'), os.path.join(output_dir, 'float'))
+                    os.path.join(output_dir, 'float'), os.path.join(output_dir, 'quant'))
                 print(f"Cleanfid FID: {float(score)}")
 
         elif args.inference_pipeline == 'reference_images':

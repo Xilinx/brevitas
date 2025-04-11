@@ -73,9 +73,9 @@ class SharkManager(BaseManager):
         # - ...
         # - Profit (?)
         sd = model.state_dict()
-        tensors = {name: DefaultPrimitiveTensor(name=name, data=sd[name]) for name in sd.keys()}
+        tensors = dict() #{name: DefaultPrimitiveTensor(name=name, data=sd[name]) for name in sd.keys()}
 
-        shared_dict.update(tensors)
+        # shared_dict.update(tensors)
 
         # Cache quant metadata
         model.apply(lambda m: _override_bias_caching_mode(m, enabled=True, metadata_only=True))
@@ -103,12 +103,21 @@ class SharkManager(BaseManager):
                 if isinstance(m.layer, QuantWeightBiasInputOutputLayer):
                     wbiol_id.add(id(m.layer))
                     _quant_wbiol_handler(m.layer, n, shared_dict)
+                else: #isinstance(m.layer, torch.nn.Module) and len(list(m.children())) == 0:
+                    wbiol_id.add(id(m))
+                    for n_p, p in m.layer.named_parameters():
+                        param_name = n + '.' + n_p
+                        shared_dict[param_name] = DefaultPrimitiveTensor(name=param_name, data=p)
             if isinstance(m, QuantWeightBiasInputOutputLayer) and id(m) not in wbiol_id:
                 wbiol_id.add(id(m))
                 _quant_wbiol_handler(m, n, shared_dict)
 
             elif isinstance(m, QuantNonLinearActLayer):
                 _quant_act_handler(m, n, shared_dict)
+            elif isinstance(m, torch.nn.Module) and len(list(m.children())) == 0 and id(m) not in wbiol_id:
+                for n_p, p in m.named_parameters():
+                    param_name = n + '.' + n_p
+                    shared_dict[param_name] = DefaultPrimitiveTensor(name=param_name, data=p)
 
         model(*model_args, **model_kwargs)
 
