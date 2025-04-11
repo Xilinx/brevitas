@@ -20,6 +20,7 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.utils import is_conv_transposed
 import brevitas.nn as qnn
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 SUPPORTED_TCONV_OP = (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)
@@ -255,7 +256,7 @@ class GPxQ(ABC):
             if self.layer.weight_quant.is_groupwise or with_quant_history:
                 # No slicing, not optimized
                 q = self.layer.quant_weight(quant_input=self.quant_metadata)
-                q = q.value.unsqueeze(0)  # [1, OC, IC]
+                q = _unpack_quant_tensor(q).unsqueeze(0)  # [1, OC, IC]
                 if with_quant_history:
                     return q[:, :, permutation_list[0][:i]]  # [1, OC, i]
                 index = permutation_list[0][i]  # only 1 group for linear layers
@@ -263,9 +264,10 @@ class GPxQ(ABC):
             else:
                 index = permutation_list[0][i]
                 subtensor_slice_list = [None, (index, index + 1)]
-                q = self.layer.quant_weight(
-                    subtensor_slice_list=subtensor_slice_list,
-                    quant_input=self.quant_metadata).value.unsqueeze(0)  # [1, OC, 1]
+                q = _unpack_quant_tensor(
+                    self.layer.quant_weight(
+                        subtensor_slice_list=subtensor_slice_list,
+                        quant_input=self.quant_metadata)).unsqueeze(0)  # [1, OC, 1]
         elif isinstance(self.layer, SUPPORTED_CONV_OP):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
@@ -275,7 +277,7 @@ class GPxQ(ABC):
                     isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
 
                 quant_weight = self.layer.quant_weight(quant_input=self.quant_metadata)
-                quant_weight = quant_weight.value
+                quant_weight = _unpack_quant_tensor(quant_weight)
 
                 if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                     quant_weight = quant_weight.transpose(1, 0)  # This performs a view
@@ -299,9 +301,10 @@ class GPxQ(ABC):
                     residual_index = residual_index // shape
                 index_2d_to_nd = index_2d_to_nd[::-1]
                 index_2d_to_nd.insert(0, None)
-                q = self.layer.quant_weight(
-                    subtensor_slice_list=index_2d_to_nd,
-                    quant_input=self.quant_metadata).value.flatten(1)  # [OC, 1]
+                q = _unpack_quant_tensor(
+                    self.layer.quant_weight(
+                        subtensor_slice_list=index_2d_to_nd,
+                        quant_input=self.quant_metadata)).flatten(1)  # [OC, 1]
                 q = q.unsqueeze(0)  # [1, OC, 1]
         # We need to remove the last dim
         q = q.squeeze(2)  # [groups, OC/groups] or [1, OC]
