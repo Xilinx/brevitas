@@ -940,7 +940,6 @@ def main(args):
                 fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
             for quant_image in tqdm(quant_images_values):
                 fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
-
             print(f"Torchmetrics FID: {float(fid.compute())}")
             torchmetrics_fid = float(fid.compute())
             # Dump args to json
