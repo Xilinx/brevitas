@@ -135,7 +135,7 @@ class gpxq_mode(ABC):
                         f'Behaviour might deviate from what expected.')
 
                 # Attach hooks for GPTQ
-                if self._is_module_supported(module):
+                if self._is_module_supported(module) and module.weight_quant.is_quant_enabled:
                     gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
                         name,
