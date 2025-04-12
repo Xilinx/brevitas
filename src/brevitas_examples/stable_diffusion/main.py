@@ -302,13 +302,14 @@ def main(args):
             subfolder='float')
 
     if len(args.few_shot_calibration) > 0:
+        args.few_shot_calibration = list(map(int, args.few_shot_calibration))
         pipe.set_progress_bar_config(disable=True)
-        new_calib_set = []
+        few_shot_calibration_prompts = []
         counter = [0]
 
         def calib_hook(module, inp, inp_kwargs):
             if counter[0] in args.few_shot_calibration:
-                new_calib_set.append((inp, inp_kwargs))
+                few_shot_calibration_prompts.append((inp, inp_kwargs))
             counter[0] += 1
             if counter[0] == args.calibration_steps:
                 counter[0] = 0
@@ -330,6 +331,8 @@ def main(args):
             is_unet=is_unet,
             batch=args.calibration_batch_size)
         h.remove()
+    else:
+        few_shot_calibration_prompts = calibration_prompts
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -359,15 +362,18 @@ def main(args):
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
-    def calibration_step(calibration_prompts, force_full_evaluation=False):
-        if len(args.few_shot_calibration) > 0 or not force_full_evaluation:
-            for i, (inp_args, inp_kwargs) in enumerate(new_calib_set):
+    def calibration_step(force_full_calibration=False, num_prompts=None):
+        if len(args.few_shot_calibration) > 0 or not force_full_calibration:
+            for i, (inp_args, inp_kwargs) in enumerate(few_shot_calibration_prompts):
                 denoising_network(*inp_args, **inp_kwargs)
+                if num_prompts is not None and i == num_prompts:
+                    break
         else:
+            prompts_subset = calibration_prompts[:num_prompts] if num_prompts is not None else calibration_prompts
             run_val_inference(
                 pipe,
                 args.resolution,
-                calibration_prompts,
+                prompts_subset,
                 test_seeds,
                 args.device,
                 dtype,
@@ -390,12 +396,11 @@ def main(args):
             for m in denoising_network.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
-
-            if args.dry_run or args.load_checkpoint is not None:
-                calibration_prompts = [calibration_prompts[0]]
+            act_eq_num_prompts = 1 if args.dry_run or args.load_checkpoint else len(
+                calibration_prompts)
 
             # SmoothQuant seems to be make better use of all the timesteps
-            calibration_step(calibration_prompts, force_full_evaluation=True)
+            calibration_step(force_full_calibration=True, num_prompts=act_eq_num_prompts)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in denoising_network.modules():
@@ -602,7 +607,7 @@ def main(args):
         pipe.set_progress_bar_config(disable=True)
 
         with torch.no_grad():
-            calibration_step([calibration_prompts[0]])
+            calibration_step(num_prompts=1)
 
         if args.load_checkpoint is not None:
             with load_quant_model_mode(denoising_network):
@@ -617,7 +622,7 @@ def main(args):
             if needs_calibration:
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(denoising_network):
-                    calibration_step(calibration_prompts)
+                    calibration_step()
 
         if args.svd_quant:
             print("Apply SVDQuant...")
@@ -639,24 +644,21 @@ def main(args):
                     m.compile_quant()
         if args.gptq:
             print("Applying GPTQ. It can take several hours")
-            gptq_subset = calibration_prompts[:128]
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
-                calibration_step([gptq_subset[0]])
                 with gptq_mode(denoising_network,
                                create_weight_orig=False,
                                use_quant_activations=True,
                                return_forward_output=False,
                                act_order=True) as gptq:
                     for _ in tqdm(range(gptq.num_layers)):
-                        calibration_step(gptq_subset)
+                        calibration_step(num_prompts=128)
                         gptq.update()
 
         if args.bias_correction:
             print("Applying bias correction")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
-                calibration_step([calibration_prompts[0]])
                 with bias_correction_mode(denoising_network):
-                    calibration_step(calibration_prompts)
+                    calibration_step()
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128

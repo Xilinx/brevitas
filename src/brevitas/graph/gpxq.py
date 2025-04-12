@@ -247,10 +247,20 @@ class GPxQ(ABC):
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation
         i = i1 + i
+
         # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
         # of quantizing only a subset of the entire matrix speeding up the computation of GPxQ
+        no_slice = False
+        # Groupwise Quantization does not support slicing
+        no_slice = no_slice or self.layer.weight_quant.is_groupwise
+        # If we need quantization of past channels, we do not use slicing
+        no_slice = no_slice or with_quant_history
+        # If we are in export mode (i.e., inference mode), we do not slice for torch.compile
+        # compatibility
+        no_slice = no_slice or self.layer.weight_quant.export_mode
+
         if isinstance(self.layer, qnn.QuantLinear):
-            if self.layer.weight_quant.is_groupwise or with_quant_history:
+            if no_slice:
 
                 # No slicing, not optimized
                 q = self.layer.quant_weight(quant_input=self.quant_metadata)
@@ -267,11 +277,11 @@ class GPxQ(ABC):
                         subtensor_slice_list=subtensor_slice_list,
                         quant_input=self.quant_metadata)).unsqueeze(0)  # [1, OC, 1]
         elif isinstance(self.layer, SUPPORTED_CONV_OP):
-            # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
-            # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
-            # and we quantize only the selected dimensions.
-            if self.layer.weight_quant.is_groupwise or with_quant_history or self.groups > 1 or (
-                    self.groups == 1 and is_conv_transposed(self.layer)):
+            # Depthwise and ConvTranspose does not support slicing
+            no_slice_conv = no_slice or (self.groups > 1 or is_conv_transposed(self.layer))
+
+            if no_slice_conv:
+
                 quant_weight = self.layer.quant_weight(quant_input=self.quant_metadata)
                 quant_weight = _unpack_quant_tensor(quant_weight)
 
