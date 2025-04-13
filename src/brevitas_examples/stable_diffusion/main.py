@@ -171,30 +171,26 @@ def run_val_inference(
         batch=1):
     with torch.no_grad():
 
-        if test_latents is None:
-            test_latents = generate_latents([seeds[0]] * batch,
-                                            device,
-                                            dtype,
-                                            unet_input_shape(resolution))
         extra_kwargs = {}
 
-        if is_unet:
+        if is_unet and test_latents is not None:
             extra_kwargs['latents'] = test_latents
 
         generator = torch.Generator(device).manual_seed(0) if deterministic else None
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
-        for index in range(0, len(prompts), batch):
-            curr_prompts = prompts[index]
-            # We don't want to generate any image, so we return only the latent encoding pre VAE
-            pipe([curr_prompts] * batch,
-                 negative_prompt=neg_prompts,
-                 output_type=output_type,
-                 guidance_scale=guidance_scale,
-                 height=resolution,
-                 width=resolution,
-                 num_inference_steps=total_steps,
-                 generator=generator,
-                 **extra_kwargs)
+        for index in tqdm(range(0, len(prompts), batch)):
+            curr_prompts = prompts[index:index + batch]
+
+            pipe(
+                curr_prompts,
+                negative_prompt=neg_prompts * len(curr_prompts),
+                output_type=output_type,
+                guidance_scale=guidance_scale,
+                height=resolution,
+                width=resolution,
+                num_inference_steps=total_steps,
+                generator=generator,
+                **extra_kwargs)
 
 
 def collect_vae_calibration(pipe, calibration, test_seeds, dtype, latents, args):
@@ -257,16 +253,20 @@ def main(args):
     # Extend seeds based on batch_size
     test_seeds = [TEST_SEED] + [TEST_SEED + i for i in range(1, args.batch_size)]
 
-    is_flux_model = 'flux' in args.model.lower()
+    is_flux = 'flux' in args.model.lower()
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
-    if is_flux_model:
+    if is_flux:
         extra_kwargs = {}
     else:
         extra_kwargs = {'variant': 'fp16' if dtype == torch.float16 else None}
 
     pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
-    is_unet = isinstance(pipe, (StableDiffusionXLPipeline, StableDiffusionPipeline))
+
+    # Detect if is unet-based pipeline
+    is_unet = hasattr(pipe, 'unet')
+    # Detect Stable Diffusion XL pipeline
+    is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
 
     if is_unet:
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
@@ -301,6 +301,8 @@ def main(args):
             use_negative_prompts=args.use_negative_prompts,
             subfolder='float')
 
+    # Compute a few-shot calibration set
+    few_shot_calibration_prompts = None
     if len(args.few_shot_calibration) > 0:
         args.few_shot_calibration = list(map(int, args.few_shot_calibration))
         pipe.set_progress_bar_config(disable=True)
@@ -331,11 +333,6 @@ def main(args):
             is_unet=is_unet,
             batch=args.calibration_batch_size)
         h.remove()
-    else:
-        few_shot_calibration_prompts = calibration_prompts
-
-    # Detect Stable Diffusion XL pipeline
-    is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
 
     # Enable attention slicing
     if args.attention_slicing:
@@ -363,7 +360,7 @@ def main(args):
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
     def calibration_step(force_full_calibration=False, num_prompts=None):
-        if len(args.few_shot_calibration) > 0 or not force_full_calibration:
+        if len(args.few_shot_calibration) > 0 and not force_full_calibration:
             for i, (inp_args, inp_kwargs) in enumerate(few_shot_calibration_prompts):
                 denoising_network(*inp_args, **inp_kwargs)
                 if num_prompts is not None and i == num_prompts:
@@ -386,6 +383,7 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
+        print("Applying Activation Equalization")
         with torch.no_grad(), activation_equalization_mode(
                 denoising_network,
                 alpha=args.act_eq_alpha,
@@ -564,7 +562,7 @@ def main(args):
                     lambda module: module.cross_attention_dim
                     if module.is_cross_attention else None}
 
-            if is_flux_model:
+            if is_flux:
                 extra_kwargs['qk_norm'] = 'rms_norm'
                 extra_kwargs['bias'] = True
                 extra_kwargs['processor'] = FusedFluxAttnProcessor2_0()
@@ -625,7 +623,7 @@ def main(args):
                     calibration_step()
 
         if args.svd_quant:
-            print("Apply SVDQuant...")
+            print("Applying SVDQuant...")
             denoising_network = apply_svd_quant(
                 denoising_network,
                 blacklist=None,
@@ -679,7 +677,7 @@ def main(args):
         print(f"Corrected layers in VAE: {corrected_layers}")
 
     if args.vae_quantize:
-        assert not is_flux_model, "Not supported yet"
+        assert not is_flux, "Not supported yet"
         print("Quantizing VAE")
         vae_calibration = collect_vae_calibration(
             pipe, calibration_prompts, test_seeds, dtype, latents, args)
@@ -806,20 +804,15 @@ def main(args):
         device = next(iter(denoising_network.parameters())).device
         dtype = next(iter(denoising_network.parameters())).dtype
 
-        # Define tracing input
-        if is_sd_xl:
-            generate_fn = generate_unet_xl_rand_inputs
-            shape = SD_XL_EMBEDDINGS_SHAPE
-        else:
-            generate_fn = generate_unet_21_rand_inputs
-            shape = SD_2_1_EMBEDDINGS_SHAPE
-        trace_inputs = generate_fn(
-            embedding_shape=shape,
-            unet_input_shape=unet_input_shape(args.resolution),
-            device=device,
-            dtype=dtype)
-
         if args.export_target == 'onnx':
+            assert is_sd_xl, "Only SDXL ONNX export is currently supported. If this impacts you, feel free to open an issue"
+
+            trace_inputs = generate_unet_xl_rand_inputs(
+                embedding_shape=SD_XL_EMBEDDINGS_SHAPE,
+                unet_input_shape=unet_input_shape(args.resolution),
+                device=device,
+                dtype=dtype)
+
             if args.weight_quant_granularity == 'per_group':
                 export_manager = BlockQuantProxyLevelManager
             else:
@@ -906,10 +899,19 @@ def main(args):
                 fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
 
             print(f"Torchmetrics FID: {float(fid.compute())}")
+            torchmetrics_fid = float(fid.compute())
+            # Dump args to json
+            with open(os.path.join(output_dir, 'args.json'), 'w') as fp:
+                json.dump(vars(args), fp)
+            clean_fid = 0.
             if cleanfid is not None:
                 score = cleanfid.compute_fid(
                     os.path.join(output_dir, 'float'), os.path.join(output_dir, 'quant'))
                 print(f"Cleanfid FID: {float(score)}")
+                clean_fid = float(score)
+            results = {'torchmetrics_fid': torchmetrics_fid, 'clean_fid': clean_fid}
+            with open(os.path.join(output_dir, 'results.json'), 'w') as fp:
+                json.dump(results, fp)
 
         elif args.inference_pipeline == 'reference_images':
             pipe.set_progress_bar_config(disable=True)
