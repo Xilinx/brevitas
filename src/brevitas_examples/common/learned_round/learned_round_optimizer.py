@@ -184,6 +184,7 @@ Adapted from https://github.com/intel/auto-round, released under the following L
 
 from abc import ABC
 from abc import abstractmethod
+from contextlib import nullcontext
 import copy
 from functools import partial
 import itertools
@@ -206,9 +207,7 @@ from tqdm import tqdm
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
-from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.calibrate import disable_enable_quantization
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -322,25 +321,24 @@ def save_inputs_output(
         keep_gpu: bool = True,
         disable_quant: bool = False) -> None:
     if disable_quant:
-        disable_quant_class = DisableEnableQuantization()
-        disable_quant_class.disable_act_quantization(model, False)
-        disable_quant_class.disable_param_quantization(model, False)
-        return_quant_tensor_state = disable_return_quant_tensor(model)
+        disable_quantization_cm = disable_enable_quantization(
+            model=model,
+            is_training=False,
+            exit_is_training=False,
+        )
+    else:
+        disable_quantization_cm = nullcontext()
 
     data_saver = DataSaverHook(
         cache, store_inputs=store_inputs, store_output=store_output, keep_gpu=keep_gpu)
     handle = module.register_forward_hook(data_saver, with_kwargs=True)
-    with torch.no_grad():
+    with torch.no_grad(), disable_quantization_cm:
         for inps in dataloader:
             try:
                 model_forward(model, inps)
             except StopFwdException:
                 pass
     handle.remove()
-    if disable_quant:
-        disable_quant_class.enable_act_quantization(model, False)
-        disable_quant_class.enable_param_quantization(model, False)
-        restore_return_quant_tensor(model, return_quant_tensor_state)
 
 
 class LearnedRoundOptimizer:

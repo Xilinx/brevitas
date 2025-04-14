@@ -11,8 +11,7 @@ from torch import Tensor
 import torch.nn as nn
 import unfoldNd
 
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -280,9 +279,10 @@ class gpfq_mode(gpxq_mode):
             pass
 
         # Disable quantization
-        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
-        self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
-        self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
+        self.return_quant_tensor_state = DisableEnableQuantization.disable_return_quant_tensor(
+            self.model)
+        DisableEnableQuantization.disable_param_quantization(self.model, is_training=False)
+        DisableEnableQuantization.disable_act_quantization(self.model, is_training=False)
         # Collect float input
         try:
             self.orig_forward(*args, **kwargs)
@@ -291,12 +291,13 @@ class gpfq_mode(gpxq_mode):
 
         # Re-enable quantization. If activation quantization is disabled,
         # we also disable bias quantization
-        self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
+        DisableEnableQuantization.enable_param_quantization(self.model, is_training=False)
         if self.use_quant_activations:
-            self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
+            DisableEnableQuantization.enable_act_quantization(self.model, is_training=False)
         else:
-            self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
-        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+            DisableEnableQuantization.disable_bias_quantization(self.model, is_training=False)
+        DisableEnableQuantization.restore_return_quant_tensor(
+            self.model, self.return_quant_tensor_state)
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks

@@ -22,8 +22,7 @@ from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
 
@@ -91,7 +90,8 @@ class quant_inference_mode:
         if self.cache_quant_weight:
             self.model.apply(
                 lambda m: _override_weight_caching_mode(m, enabled=False, metadata_only=False))
-        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+        DisableEnableQuantization.restore_return_quant_tensor(
+            self.model, self.return_quant_tensor_state)
         enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
         self.model.apply(enable_quant_tensor)
 
@@ -104,7 +104,8 @@ class quant_inference_mode:
         self.hook_list[0].remove()
         self.model.apply(InferenceManager.set_export_handler)
         InferenceManager.set_export_mode(self.model, enabled=True)
-        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+        self.return_quant_tensor_state = DisableEnableQuantization.disable_return_quant_tensor(
+            self.model)
         disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
         self.model.apply(disable_quant_tensor)
         if self.compile:
