@@ -8,6 +8,7 @@ import sys
 
 import torch
 from torch import nn
+import torch.distributed as dist
 import torch.nn.functional as F
 
 from brevitas.nn import QuantHardTanh
@@ -19,6 +20,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant_tensor import QuantTensor
+from brevitas_examples.llm.llm_quant.dist_utils import TensorBucket
 
 from .base import Transform
 
@@ -107,9 +109,10 @@ class calibration_mode:
 
 class bias_correction_mode:
 
-    def __init__(self, model, enabled=True, skip_if_no_bias=False):
+    def __init__(self, model, enabled=True, skip_if_no_bias=False, batch_size=1):
         self.model = model
-        self.bias_correction = _BiasCorrection(skip_if_no_bias=skip_if_no_bias)
+        self.bias_correction = _BiasCorrection(
+            skip_if_no_bias=skip_if_no_bias, batch_size=batch_size)
         self.enabled = enabled
         self.hooks = []
         self.output_quant_modules = []
@@ -257,7 +260,7 @@ class _BiasCorrection(DisableEnableQuantization):
 
     LAYERS = (QuantWBIOL,)
 
-    def __init__(self, layers=LAYERS, skip_if_no_bias=False):
+    def __init__(self, layers=LAYERS, skip_if_no_bias=False, batch_size=1):
         super(_BiasCorrection, self).__init__()
         self.layers = layers
         self.iterations = {}
@@ -266,10 +269,14 @@ class _BiasCorrection(DisableEnableQuantization):
         self.collect_float_mean_hooks = []
         self.correct_bias_hooks = []
         self.skip_if_no_bias = skip_if_no_bias
+        self.batch_size = batch_size
 
     def compute_mean(self, inp, transpose_dim):
         inp = inp.transpose(0, transpose_dim)
-        return inp.reshape(inp.shape[0], -1).mean(dim=1).detach()
+        # TODO: Validate
+        if len(inp.shape) == 2:
+            inp = inp.view(inp.shape[0], -1, self.batch_size)
+        return inp.mean(dim=1).sum(dim=-1).detach()
 
     def channel_dim(self, inp, module):
         if len(inp.shape) == 3 and isinstance(module, QuantLinear):
@@ -291,10 +298,33 @@ class _BiasCorrection(DisableEnableQuantization):
         else:
             self.correction_map[name] += error
 
+    def _maybe_synchronize_correction_maps(self, bucketize: bool = False) -> None:
+        if dist.is_initialized():
+            if bucketize:
+                names, tensors = zip(*self.correction_map.items())
+                i = 0
+                for tensor_bucket in TensorBucket.bucketize_tensors(tensors):
+                    # Synchronize the correction maps
+                    dist.all_reduce(tensor_bucket.flattened_tensor, op=dist.ReduceOp.SUM)
+                    # Reassign correction maps
+                    for tensor in tensor_bucket.debucketize_tensors():
+                        self.correction_map[names[i]] = tensor
+                        i += 1
+            else:
+                for name in self.correction_map:
+                    # Synchronize the correction maps
+                    dist.all_reduce(self.correction_map[name], op=dist.ReduceOp.SUM)
+
+    def _get_correction_map_reduce_size(self, name: str) -> int:
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        return world_size * self.iterations[name] * self.batch_size
+
     def apply_correction(self, model):
+        # Maybe synchronize correction maps if multiple processes are being run
+        self._maybe_synchronize_correction_maps()
         for name, module in model.named_modules():
             if name in self.correction_map.keys():
-                correction = self.correction_map[name] / self.iterations[name]
+                correction = self.correction_map[name] / self._get_correction_map_reduce_size(name)
                 # When accelerate is enabled, bring tensors onto the device to avoid allocating a meta parameter.
                 if hasattr(module, 'allocate_params'):
                     module.allocate_params(module)

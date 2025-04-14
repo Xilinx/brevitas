@@ -37,6 +37,7 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
+from brevitas_examples.llm.llm_quant import dist_utils
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
@@ -650,6 +651,8 @@ def parse_args(args, override_defaults={}):
 
 
 def main():
+    # Initialize default distributed group if script is launched with torchrun
+    dist_utils.init_process_group(backend="nccl")
     overrides = override_defaults(sys.argv[1:])
     args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
     quantize_llm(args, extra_args)

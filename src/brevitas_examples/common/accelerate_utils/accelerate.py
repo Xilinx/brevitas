@@ -18,6 +18,7 @@ from accelerate.utils import send_to_device
 from accelerate.utils.modeling import named_module_tensors
 from psutil import virtual_memory
 import torch
+import torch.distributed as dist
 
 import brevitas.config as config
 from brevitas.graph.utils import get_module
@@ -369,9 +370,13 @@ def find_all_devices(data):
 def calc_gpu_device_map(absolute_mem_margin: float = 2.0 * 1e9,
                         relative_mem_margin: float = 0.3) -> Dict[int, float]:
     torch.cuda.empty_cache()
+    # Ensure GPU exclusion when multiple processes are run
+    rank, world_size = (dist.get_rank(), dist.get_world_size()) if dist.is_initialized() else (0, 1)
     gpu_device_map = {
         i: (torch.cuda.mem_get_info(i)[0] - absolute_mem_margin) * (1.0 - relative_mem_margin)
-        for i in range(torch.cuda.device_count())}
+        for i in range(
+            rank * (torch.cuda.device_count() // world_size), (rank + 1) *
+            (torch.cuda.device_count() // world_size))}
     return gpu_device_map
 
 
