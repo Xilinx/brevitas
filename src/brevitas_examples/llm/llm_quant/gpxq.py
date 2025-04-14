@@ -51,7 +51,7 @@ def block_optimization(
         disable_act_quant=not context_manager_kwargs.get('use_quant_activations', True),
         disable_weight_quant=False,
         disable_bias_quant=not context_manager_kwargs.get('use_quant_activations', True),
-        disable_out_quant=not context_manager_kwargs.get('use_quant_activations', True),
+        disable_return_quant_tensor=not context_manager_kwargs.get('use_quant_activations', True),
     )
     cache_state = model.config.use_cache
     model.config.use_cache = False
