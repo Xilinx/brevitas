@@ -25,7 +25,9 @@ import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
-SUPPORTED_CONV_OP = (nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
+SUPPORTED_CONV_OP = (
+    nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
+
 
 @dataclass
 class LayerHandler:
