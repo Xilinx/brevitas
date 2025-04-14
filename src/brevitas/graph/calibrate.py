@@ -32,8 +32,8 @@ __all__ = [
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjectorBase, BiasQuantProxyFromInjectorBase)
 
-_WEIGHT_PROXIES = (WeightQuantProxyFromInjectorBase)
-_BIAS_PROXIES = (BiasQuantProxyFromInjectorBase)
+_WEIGHT_PROXIES = (WeightQuantProxyFromInjectorBase,)
+_BIAS_PROXIES = (BiasQuantProxyFromInjectorBase,)
 
 _ACC_PROXIES = (TruncQuantProxyFromInjector, ClampQuantProxyFromInjector)
 

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from contextlib import nullcontext
+from copy import deepcopy
 import math
 from typing import Union
 
@@ -13,6 +14,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from brevitas.graph.calibrate import _ACC_PROXIES
+from brevitas.graph.calibrate import _BIAS_PROXIES
+from brevitas.graph.calibrate import _WEIGHT_PROXIES
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import disable_enable_quantization
@@ -20,6 +24,11 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.inject.enum import RestrictValueType
 import brevitas.nn as qnn
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
+from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -29,6 +38,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 from tests.conftest import SEED
 
@@ -435,13 +445,22 @@ class TestDisableEnableQuantization():
         ids=lambda disable_quant: f"return_quant={not disable_quant}")
     @pytest_cases.parametrize(
         'pass_excluded_modules', [False, True], ids=lambda flag: f"exclude={flag}")
+    @pytest_cases.parametrize('is_training', [False, True], ids=lambda flag: f"is_training={flag}")
+    @pytest_cases.parametrize(
+        'exit_is_training', [False, True, None], ids=lambda flag: f"exit_is_training={flag}")
     def test_disable_enable_quantization_context_manager(
             self,
             disable_weight_quant,
             disable_bias_quant,
             disable_act_quant,
             disable_return_quant_tensor,
-            pass_excluded_modules):
+            pass_excluded_modules,
+            is_training,
+            exit_is_training):
+        _ACTIVATION_PROXIES = _ACC_PROXIES + (ActQuantProxyFromInjectorBase,)
+        _QUANT_PROXIES = ((_WEIGHT_PROXIES if disable_weight_quant else tuple()) +
+                          (_BIAS_PROXIES if disable_bias_quant else tuple()) +
+                          (_ACTIVATION_PROXIES if disable_act_quant else ()))
         model = qnn.QuantLinear(
             in_features=3,
             out_features=1,
@@ -454,15 +473,17 @@ class TestDisableEnableQuantization():
         )
         disable_quantization_cm = disable_enable_quantization(
             model=model,
-            is_training=False,
+            is_training=is_training,
             disable_act_quant=disable_act_quant,
             disable_weight_quant=disable_weight_quant,
             disable_bias_quant=disable_bias_quant,
             disable_return_quant_tensor=disable_return_quant_tensor,
+            exit_is_training=exit_is_training,
             excluded_modules=[model] if pass_excluded_modules else None,
         )
         # Sample input, not relevant to the task
         input = torch.rand(size=(2, 3))
+
         if pass_excluded_modules:
             expected_output = model(input)
         else:
@@ -485,7 +506,20 @@ class TestDisableEnableQuantization():
             pytest_raise_cm = nullcontext()
 
         with disable_quantization_cm, pytest_raise_cm:
+            # Verify .training was set appropiately
+            assert all(
+                module.training == is_training
+                for module in model.modules()
+                if isinstance(module, _QUANT_PROXIES))
             output = model(input)
+
+        # Verify .training was modified appropiately when exiting the context
+        # manager
+        expected_training = True if exit_is_training is None else exit_is_training
+        assert all(
+            module.training == expected_training
+            for module in model.modules()
+            if isinstance(module, _QUANT_PROXIES))
 
         # Early stop if an exception was raised when computing the output
         if output is None:
