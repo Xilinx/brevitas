@@ -24,11 +24,7 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.inject.enum import RestrictValueType
 import brevitas.nn as qnn
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
-from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -38,7 +34,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
-from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 from tests.conftest import SEED
 
