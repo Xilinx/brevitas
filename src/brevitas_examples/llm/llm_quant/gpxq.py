@@ -210,8 +210,8 @@ def apply_magr(
         create_weight_orig=False,
         group_of_parallel_layers=None,
         block_name=None,
-        alpha=0.1,
-        num_steps=10):
+        alpha=0.01,
+        num_steps=200):
     if block_name is not None:
         context_manager_kwargs = {
             'group_of_parallel_layers': group_of_parallel_layers,

@@ -330,8 +330,7 @@ def quantize_llm(args, extra_args=None):
             calibration_loader,
             create_weight_orig=args.gpxq_create_weight_orig or
             args.gpfq,  # save original weights for GPxQ
-            alpha=args.magr_alpha,
-            num_steps=args.magr_num_steps)
+            alpha=args.magr_alpha)
         remove_hooks(model)
         print(f"MagR applied.")
 

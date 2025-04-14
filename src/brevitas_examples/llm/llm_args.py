@@ -201,8 +201,8 @@ def create_llm_args_parser():
     parser.add_argument(
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
-    parser.add_argument('--magr-alpha', type=float, default=1e-3, help='Alpha for MagR.')
-    parser.add_argument('--magr-num-steps', type=int, default=200, help='Number of steps for MagR.')
+    parser.add_argument(
+        '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
