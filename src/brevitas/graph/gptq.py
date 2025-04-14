@@ -8,6 +8,7 @@ import warnings
 
 from packaging import version
 import torch
+import torch.nn as nn
 
 try:
     from torch.linalg import LinAlgError
@@ -20,7 +21,6 @@ from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
-import brevitas.nn as qnn
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -64,17 +64,14 @@ class GPTQ(GPxQ):
 
         assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
 
-    def update_batch(self, module, input, current_layer):
-        if self.disable_pre_forward_hook:
-            return input
-
+    def compute_iterative_covariance(self, module, input, current_layer):
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
         inp = self.process_input(input)
         batch_size = inp.shape[0]
 
         # Preprocess the input to compute the Hessian
-        if isinstance(self.layer, qnn.QuantLinear):
+        if isinstance(self.layer, nn.Linear):
             if len(inp.shape) > 2:
                 inp = inp.reshape((-1, sum(inp.shape[2:])))
             inp = inp.t()
@@ -112,6 +109,13 @@ class GPTQ(GPxQ):
         # optimizing CPU to GPU transfer using in-place copy to pinned memory
         self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
         self.H += self.B
+
+    def update_batch(self, module, input, current_layer):
+        if self.disable_pre_forward_hook:
+            return input
+        # Workaround to avoid duplication with GPTQ and MagR, will have the same method
+        # across GPxQ classes
+        self.compute_iterative_covariance(module, input, current_layer)
         # If we are executing GPTQ with group of parallel layers, we keep track of how many forward
         # we executed. Once we executed as many as the number of parallel_layers, we raise
         # StopFwdException

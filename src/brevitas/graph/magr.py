@@ -2,14 +2,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-import math
 from typing import List, Optional
 
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-import unfoldNd
 
+from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -68,7 +67,7 @@ def _power_iteration(H, steps: int, eps: float = 1e-12):
     return max_singular_value
 
 
-class MagR(GPxQ):
+class MagR(GPTQ):
     """
     Implementation of MagR algorithm for PTQ pre-processing.
     """
@@ -79,10 +78,12 @@ class MagR(GPxQ):
             name,
             len_parallel_layers,
             create_weight_orig,
-            gradient_steps: int = 10,
+            gradient_steps: int = 200,
             power_steps: int = 30,
-            alpha: float = 0.1) -> None:
-        super().__init__(layer, name, None, len_parallel_layers, create_weight_orig)
+            alpha: float = 0.01) -> None:
+        # Note: using GPxQ initialization to avoid blocksize initialization and the
+        # torch versioning assertion
+        GPxQ.__init__(self, layer, name, None, len_parallel_layers, create_weight_orig)
         self.gradient_steps = gradient_steps
         self.power_steps = power_steps
         self.alpha = alpha
@@ -101,51 +102,9 @@ class MagR(GPxQ):
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
-
-        # Update reference to current layer
-        current_layer.layer_names.add(self.name)
-        inp = self.process_input(input)
-        batch_size = inp.shape[0]
-
-        # Preprocess the input to compute the Hessian
-        if isinstance(self.layer, nn.Linear):
-            if len(inp.shape) > 2:
-                inp = inp.reshape((-1, sum(inp.shape[2:])))
-            inp = inp.t()
-            # For Linear layer, groups will be 1
-            inp_processed = inp.unsqueeze(0)
-
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            # Pick the correct unfoldNd class
-            if is_conv_transposed(self.layer):
-                unfold_impl = unfoldNd.UnfoldTransposeNd
-            else:
-                unfold_impl = unfoldNd.UnfoldNd
-
-            unfold = unfold_impl(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride)
-
-            # Split input based on how many groups in convolution
-            inp_by_group = torch.chunk(inp, self.groups, 1)
-            inp_processed = []
-            # Preprocess input by group
-            for i, inp in enumerate(inp_by_group):
-                inp = unfold(inp)
-                inp = inp.transpose(1, 0)
-                inp = inp.flatten(1)
-                inp_processed.append(inp)
-            inp_processed = torch.stack(inp_processed)
-
-        # Hessian computation
-        self.H *= self.nsamples / (self.nsamples + batch_size)
-        self.nsamples += batch_size
-        inp_processed = math.sqrt(1 / self.nsamples) * inp_processed.to(torch.float32)
-        # optimizing CPU to GPU transfer using in-place copy to pinned memory
-        self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
-        self.H += self.B
+        # Workaround to avoid duplication with GPTQ and MagR, will have the same method
+        # across GPxQ classes
+        self.compute_iterative_covariance(module, input, current_layer)
 
     def single_layer_update(self):
         if hasattr(self.layer, 'allocate_params'):
