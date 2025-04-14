@@ -292,7 +292,7 @@ class disable_enable_quantization:
         disable_quant_act (bool): whether to disable activation quantization
         disable_weight_quant (bool): whether to disable weight quantization
         disable_bias_quant (bool): whether to disable bias quantization
-        disable_out_quant (bool): whether to disable output quantization
+        disable_return_quant_tensor (bool): whether to disable output quantization
         exit_is_training (bool): whether to set the module in training mode on
             __exit__. If None, the value of model.is_training when the context
             manager was entered is restored
@@ -461,7 +461,7 @@ class _BiasCorrection:
         with disable_enable_quantization(model=module,
                                          is_training=False,
                                          exit_is_training=False,
-                                         disable_out_quant=False):
+                                         disable_return_quant_tensor=False):
             out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         # Keep output quant disabled until further notice
