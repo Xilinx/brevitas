@@ -155,7 +155,7 @@ class gpxq_mode(disable_enable_quantization):
 
     def __exit__(self, type, value, traceback):
         # Restore original quantization configuration
-        super().__exit__()
+        super().__exit__(type, value, traceback)
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
             self.model.__class__.forward = self.orig_forward
         else:

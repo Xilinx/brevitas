@@ -367,7 +367,7 @@ class calibration_mode(disable_enable_quantization):
 
     def __exit__(self, type, value, traceback):
         # Call __exit__ on disable_enable_quantization context manager
-        super().__exit__()
+        super().__exit__(type, value, traceback)
         self.model.apply(finalize_collect_stats)
 
 
