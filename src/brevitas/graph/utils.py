@@ -10,6 +10,7 @@ from torch import nn
 from brevitas import nn as qnn
 from brevitas.fx import map_arg
 from brevitas.fx import Node
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 __all__ = [
     'module_class_name',
@@ -166,3 +167,7 @@ def get_node(graph_model, name):
     for node in graph_model.graph.nodes:
         if node.target == name:
             return node
+
+
+def is_quant_module(module):
+    return isinstance(module, QuantWBIOL)

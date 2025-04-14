@@ -12,7 +12,7 @@ import unfoldNd
 
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
-from brevitas.graph.gpxq import SUPPORTED_CONV_TORCH_MODULE
+from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 
 
@@ -115,7 +115,7 @@ class MagR(GPxQ):
             # For Linear layer, groups will be 1
             inp_processed = inp.unsqueeze(0)
 
-        if isinstance(self.layer, SUPPORTED_CONV_TORCH_MODULE):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
             # Pick the correct unfoldNd class
             if is_conv_transposed(self.layer):
                 unfold_impl = unfoldNd.UnfoldTransposeNd
@@ -163,7 +163,7 @@ class MagR(GPxQ):
         # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
-        if isinstance(self.layer, SUPPORTED_CONV_TORCH_MODULE):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
             if is_conv_transposed(self.layer):
                 weight = weight.transpose(1, 0)  # This performs a view
                 weight_orig = weight_orig.transpose(1, 0)
@@ -238,12 +238,7 @@ class magr_mode(gpxq_mode):
         self.alpha = alpha
 
     def _is_module_supported(self, module):
-        if isinstance(module, SUPPORTED_CONV_TORCH_MODULE):
-            return True
-        elif isinstance(module, nn.Linear):
-            return True
-        else:
-            return False
+        return isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP))
 
     def update(self):
         for name in tqdm(self.current_layer.layer_names, desc='Updating weights...', leave=True):

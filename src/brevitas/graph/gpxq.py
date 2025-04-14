@@ -20,21 +20,12 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
 
-# supported base torch modules
-SUPPORTED_TCONV_TORCH_MODULE = (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
-SUPPORTED_CONV_TORCH_MODULE = (nn.Conv1d, nn.Conv2d, nn.Conv3d, *SUPPORTED_TCONV_TORCH_MODULE)
-
-# supported Brevitas quant modules
-SUPPORTED_TCONV_QUANT_MODULE = (
-    qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)
-SUPPORTED_CONV_QUANT_MODULE = (
-    qnn.QuantConv1d, qnn.QuantConv2d, qnn.QuantConv3d, *SUPPORTED_TCONV_QUANT_MODULE)
-
+SUPPORTED_CONV_OP = (nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
 
 @dataclass
 class LayerHandler:
@@ -107,10 +98,12 @@ class gpxq_mode(ABC):
             self.model.forward = self.catch_stopfwd
 
     def _is_module_supported(self, module):
-        if isinstance(module, SUPPORTED_CONV_QUANT_MODULE):
-            return True
-        elif isinstance(module, qnn.QuantLinear):
-            return True
+        if is_quant_module(module):
+            is_quant_enabled = module.weight_quant.is_quant_enabled
+        else:
+            is_quant_enabled = False
+        if isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP)):
+            return is_quant_enabled
         else:
             return False
 
@@ -142,7 +135,7 @@ class gpxq_mode(ABC):
                         f'Behaviour might deviate from what expected.')
 
                 # Attach hooks for GPTQ
-                if self._is_module_supported(module) and module.weight_quant.is_quant_enabled:
+                if self._is_module_supported(module):
                     gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
                         name,
@@ -203,7 +196,7 @@ class GPxQ(ABC):
 
         # By default, use groups = 1
         self.groups = 1
-        if isinstance(self.layer, SUPPORTED_CONV_TORCH_MODULE):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
             if is_conv_transposed(self.layer):
                 weight_shape[1], weight_shape[0] = weight_shape[0], weight_shape[1]
             self.groups = self.layer.groups
@@ -221,7 +214,7 @@ class GPxQ(ABC):
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
-        if isinstance(self.layer, QuantWBIOL):
+        if is_quant_module(self.layer):
             inp = self.layer.input_quant(inp)
             is_quant_enabled = self.layer.weight_quant.is_quant_enabled
         else:
@@ -277,7 +270,7 @@ class GPxQ(ABC):
                     self.layer.quant_weight(
                         subtensor_slice_list=subtensor_slice_list,
                         quant_input=self.quant_metadata)).unsqueeze(0)  # [1, OC, 1]
-        elif isinstance(self.layer, SUPPORTED_CONV_QUANT_MODULE):
+        elif isinstance(self.layer, SUPPORTED_CONV_OP):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
             # and we quantize only the selected dimensions.
