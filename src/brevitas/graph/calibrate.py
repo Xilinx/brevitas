@@ -325,7 +325,8 @@ class disable_enable_quantization:
 
     def __enter__(self):
         if self.disable_act_quant:
-            DisableEnableQuantization.disable_act_quantization(self.model, self.is_training)
+            DisableEnableQuantization.disable_act_quantization(
+                self.model, self.is_training, self.call_act_quantizer_impl)
         if self.disable_weight_quant:
             DisableEnableQuantization.disable_weight_quantization(self.model, self.is_training)
         if self.disable_bias_quant:
@@ -355,7 +356,11 @@ class disable_enable_quantization:
 class calibration_mode(disable_enable_quantization):
 
     def __init__(self, model, enabled=True):
-        super().__init__(model=model, is_training=True, call_act_quantizer_impl=True)
+        super().__init__(
+            model=model,
+            is_training=True,
+            exit_is_training=model.training,
+            call_act_quantizer_impl=True)
         self.enabled = enabled
 
     def __enter__(self):
