@@ -9,18 +9,28 @@ from torch.utils.data import TensorDataset
 
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
+from brevitas_examples.imagenet_classification.ptq.ptq_common import _a2q_layer_filter_fnc
+
 
 from .equalization_fixtures import *
 
-
 def apply_gpfq(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        max_accumulator_bit_width: int,
+        max_accumulator_tile_size: int):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gpfq_mode(model, use_quant_activations=use_quant_activations,
-                       act_order=act_order) as gpfq:
+        with gpfq_mode(model,
+                       act_order=act_order,
+                       a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                       use_quant_activations=use_quant_activations,
+                       max_accumulator_tile_size=max_accumulator_tile_size,
+                       max_accumulator_bit_width=max_accumulator_bit_width) as gpfq:
             gpfq_model = gpfq.model
             for _ in range(gpfq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
@@ -31,13 +41,22 @@ def apply_gpfq(
 
 
 def apply_gptq(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        max_accumulator_bit_width: int,
+        max_accumulator_tile_size: int):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gptq_mode(model, use_quant_activations=use_quant_activations,
-                       act_order=act_order) as gptq:
+        with gptq_mode(model,
+                       act_order=act_order,
+                       a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                       use_quant_activations=use_quant_activations,
+                       max_accumulator_bit_width=max_accumulator_bit_width,
+                       max_accumulator_tile_size=max_accumulator_tile_size) as gptq:
             gptq_model = gptq.model
             for _ in range(gptq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
@@ -54,11 +73,20 @@ apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
 @pytest.mark.parametrize("use_quant_activations", [True, False])
 @pytest.mark.parametrize(
     "apply_gpxq_tuple", apply_gpxq_func_map.items(), ids=apply_gpxq_func_map.keys())
-def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq_tuple, request):
+@pytest.mark.parametrize("max_accumulator_bit_width", [None, 12, 32])
+@pytest.mark.parametrize("max_accumulator_tile_size", [None, 32])
+def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq_tuple, max_accumulator_bit_width, max_accumulator_tile_size, request):
 
     test_id = request.node.callspec.id
+    input_quant = test_id.split('-')[1]
 
     torch.manual_seed(SEED)
+
+    if (max_accumulator_bit_width is None) and (max_accumulator_tile_size is not None):
+        pytest.skip("max_accumulator_tile_size doesn't matter if max_accumulator_bit_width is None.")
+
+    if (max_accumulator_bit_width is not None) and input_quant.startswith("MXFloat"):
+        pytest.skip("AXE does not currently support minifloat formats.")
 
     name, apply_gpxq = apply_gpxq_tuple
 
@@ -72,9 +100,25 @@ def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq
     model(inp)  # test forward pass and collect scaling factors
     dataset = TensorDataset(inp, inp)
     calib_loader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
-
-    apply_gpxq(
-        calib_loader=calib_loader,
-        model=model,
-        act_order=act_order,
-        use_quant_activations=use_quant_activations)
+    
+    if (max_accumulator_bit_width is not None) and (input_quant == 'None' or not use_quant_activations):
+        # AXE (or A2GPxQ) requires that the quant activations are used. A2GPxQ.single_layer_update
+        # will raise a ValueError if AXE.quant_metadata is None (also see GPxQ.process_input). This
+        # will happen when `use_quant_activations=False` or when the input to a model is not quantized
+        # and `a2q_layer_filter_fnc` does not properly handle it.
+        with pytest.raises(ValueError):
+            apply_gpxq(
+                calib_loader=calib_loader,
+                model=model,
+                act_order=act_order,
+                use_quant_activations=use_quant_activations,
+                max_accumulator_bit_width=max_accumulator_bit_width,
+                max_accumulator_tile_size=max_accumulator_tile_size)
+    else:
+        apply_gpxq(
+            calib_loader=calib_loader,
+            model=model,
+            act_order=act_order,
+            use_quant_activations=use_quant_activations,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
