@@ -54,6 +54,7 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
+from brevitas_examples.common.svd_quant import ErrorCorrectedModule
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
@@ -606,6 +607,10 @@ def main(args):
                 rank=args.svd_quant_rank,
                 iters=args.svd_quant_iters,
                 dtype=torch.float32)
+            # Workaround to expose `in_features` attribute from the ErrorCorrectedModule Wrapper
+            for m in denoising_network.modules():
+                if isinstance(m, ErrorCorrectedModule) and hasattr(m.layer, 'in_features'):
+                    m.in_features = m.layer.in_features
             print("SVDQuant applied.")
 
         if args.compile_ptq:
