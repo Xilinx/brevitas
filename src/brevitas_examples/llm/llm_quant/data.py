@@ -47,7 +47,7 @@ def get_pile(
         split: str = "train",
         bos_preprocessing: bool = True,
         seed: int = 42):
-    random.seed(bos_preprocessing)
+    random.seed(seed)
     assert bos_preprocessing, "The pile datasets requires bos_preprocessing"
     if split == 'train':
         data = _load_dataset('pile', split, seed)
