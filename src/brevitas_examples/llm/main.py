@@ -531,10 +531,15 @@ def quantize_llm(args, extra_args=None):
         if args.eval and not args.no_quantize:
 
             print("Model eval...")
-            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+            from brevitas.export.shark.wave import wave_inference_mode
+            with torch.no_grad(), wave_inference_mode(model):
                 model(**calibration_loader[0])
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            # with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+            #     model(**calibration_loader[0])
+            #     quant_ppl = compute_perplexity(
+            #         model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
 
         few_shot_eval_results = dict()
