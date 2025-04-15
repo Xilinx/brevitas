@@ -48,7 +48,7 @@ def get_pile(
         bos_preprocessing: bool = True,
         seed: int = 42):
     random.seed(bos_preprocessing)
-    assert bos_preprocess, "The pile datasets requires bos_preprocessing"
+    assert bos_preprocessing, "The pile datasets requires bos_preprocessing"
     if split == 'train':
         data = _load_dataset('pile', split, seed)
         return get_dataset_clm(data, tokenizer, nsamples, seqlen)
