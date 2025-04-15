@@ -324,7 +324,6 @@ def save_inputs_output(
         disable_quantization_cm = disable_enable_quantization(
             model=model,
             is_training=False,
-            exit_is_training=False,
         )
     else:
         disable_quantization_cm = nullcontext()

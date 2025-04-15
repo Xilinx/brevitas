@@ -401,6 +401,7 @@ class TestDisableEnableQuantization():
             self,
             model: qnn.QuantLinear,
             input: torch.Tensor,
+            is_training: bool,
             disable_weight_quant: bool,
             disable_bias_quant: bool,
             disable_act_quant: bool) -> torch.Tensor:
@@ -409,21 +410,22 @@ class TestDisableEnableQuantization():
             weight = model.weight
         else:
             weight = model.quant_weight().value
+
+        quant_input = model.input_quant(input)
+
         if disable_bias_quant:
             bias = model.bias
         else:
-            quant_input = qnn.QuantIdentity(
-                act_quant=Int8ActPerTensorFloat, return_quant_tensor=True)(input)
             bias = model.bias_quant(model.bias, quant_input, model.quant_weight())
         # Retrieve quantized/unquantized input depending on the value of disable_act_quant
         if not disable_act_quant:
-            input = qnn.QuantIdentity(act_quant=Int8ActPerTensorFloat)(input)
+            input = quant_input
 
         # Compute the expected output
         expected_output = F.linear(input, weight, bias)
         # Quantize the output when disable_act_quant=False
         if not disable_act_quant:
-            expected_output = qnn.QuantIdentity(act_quant=Int8ActPerTensorFloat)(expected_output)
+            expected_output = model.output_quant(expected_output)
         return expected_output
 
     @pytest_cases.parametrize(
@@ -431,7 +433,7 @@ class TestDisableEnableQuantization():
         ids=lambda disable_quant: f"weight_quant={not disable_quant}")
     @pytest_cases.parametrize(
         'disable_bias_quant', [False, True],
-        ids=lambda disable_quant: f"act_quant={not disable_quant}")
+        ids=lambda disable_quant: f"bias_quant={not disable_quant}")
     @pytest_cases.parametrize(
         'disable_act_quant', [False, True],
         ids=lambda disable_quant: f"act_quant={not disable_quant}")
@@ -441,8 +443,6 @@ class TestDisableEnableQuantization():
     @pytest_cases.parametrize(
         'pass_excluded_modules', [False, True], ids=lambda flag: f"exclude={flag}")
     @pytest_cases.parametrize('is_training', [False, True], ids=lambda flag: f"is_training={flag}")
-    @pytest_cases.parametrize(
-        'exit_is_training', [False, True, None], ids=lambda flag: f"exit_is_training={flag}")
     def test_disable_enable_quantization_context_manager(
             self,
             disable_weight_quant,
@@ -450,8 +450,7 @@ class TestDisableEnableQuantization():
             disable_act_quant,
             disable_return_quant_tensor,
             pass_excluded_modules,
-            is_training,
-            exit_is_training):
+            is_training):
         _ACTIVATION_PROXIES = _ACC_PROXIES + (ActQuantProxyFromInjectorBase,)
         _QUANT_PROXIES = ((_WEIGHT_PROXIES if disable_weight_quant else tuple()) +
                           (_BIAS_PROXIES if disable_bias_quant else tuple()) +
@@ -466,6 +465,11 @@ class TestDisableEnableQuantization():
             output_quant=Int8ActPerTensorFloat,
             return_quant_tensor=True,
         )
+        # Set model to contrary of is_training
+        if is_training:
+            model.eval()
+        else:
+            model.train()
         disable_quantization_cm = disable_enable_quantization(
             model=model,
             is_training=is_training,
@@ -473,18 +477,23 @@ class TestDisableEnableQuantization():
             disable_weight_quant=disable_weight_quant,
             disable_bias_quant=disable_bias_quant,
             disable_return_quant_tensor=disable_return_quant_tensor,
-            exit_is_training=exit_is_training,
             excluded_modules=[model] if pass_excluded_modules else None,
         )
         # Sample input, not relevant to the task
         input = torch.rand(size=(2, 3))
 
         if pass_excluded_modules:
-            expected_output = model(input)
+            model_copy = deepcopy(model)
+            if is_training:
+                model_copy.train()
+            else:
+                model_copy.eval()
+            expected_output = model_copy(input)
         else:
             expected_output = self._evaluate_quant_linear(
-                model=model,
+                model=deepcopy(model),
                 input=input,
+                is_training=is_training,
                 disable_weight_quant=disable_weight_quant,
                 disable_bias_quant=disable_bias_quant,
                 disable_act_quant=disable_act_quant,
@@ -510,9 +519,8 @@ class TestDisableEnableQuantization():
 
         # Verify .training was modified appropiately when exiting the context
         # manager
-        expected_training = True if exit_is_training is None else exit_is_training
         assert all(
-            module.training == expected_training
+            module.training == (not is_training)
             for module in model.modules()
             if isinstance(module, _QUANT_PROXIES))
 

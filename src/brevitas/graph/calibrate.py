@@ -293,9 +293,6 @@ class disable_enable_quantization:
         disable_weight_quant (bool): whether to disable weight quantization
         disable_bias_quant (bool): whether to disable bias quantization
         disable_return_quant_tensor (bool): whether to disable output quantization
-        exit_is_training (bool): whether to set the module in training mode on
-            __exit__. If None, the value of model.is_training when the context
-            manager was entered is restored
         excluded_modules (list): list of submodules of modules to be excluded
             from quantization disabling
     """
@@ -309,7 +306,6 @@ class disable_enable_quantization:
             disable_weight_quant: bool = True,
             disable_bias_quant: bool = True,
             disable_return_quant_tensor: bool = True,
-            exit_is_training: Optional[bool] = None,
             excluded_modules: Optional[List[nn.Module]] = None):
         self.model = model
         self.is_training = is_training
@@ -319,7 +315,7 @@ class disable_enable_quantization:
         self.disable_weight_quant = disable_weight_quant
         self.disable_bias_quant = disable_bias_quant
         self.disable_return_quant_tensor = disable_return_quant_tensor
-        self.exit_is_training = model.training if exit_is_training is None else exit_is_training
+        self.prev_is_training = model.training
         self.excluded_modules = excluded_modules if excluded_modules is not None else []
         self.return_quant_tensor_state = {}
 
@@ -343,11 +339,11 @@ class disable_enable_quantization:
 
     def __exit__(self, type, value, traceback):
         if self.disable_act_quant:
-            DisableEnableQuantization.enable_act_quantization(self.model, self.exit_is_training)
+            DisableEnableQuantization.enable_act_quantization(self.model, self.prev_is_training)
         if self.disable_weight_quant:
-            DisableEnableQuantization.enable_weight_quantization(self.model, self.exit_is_training)
+            DisableEnableQuantization.enable_weight_quantization(self.model, self.prev_is_training)
         if self.disable_bias_quant:
-            DisableEnableQuantization.enable_bias_quantization(self.model, self.exit_is_training)
+            DisableEnableQuantization.enable_bias_quantization(self.model, self.prev_is_training)
         if self.disable_return_quant_tensor:
             DisableEnableQuantization.restore_return_quant_tensor(
                 self.model, self.return_quant_tensor_state)
@@ -356,11 +352,7 @@ class disable_enable_quantization:
 class calibration_mode(disable_enable_quantization):
 
     def __init__(self, model, enabled=True):
-        super().__init__(
-            model=model,
-            is_training=True,
-            exit_is_training=model.training,
-            call_act_quantizer_impl=True)
+        super().__init__(model=model, is_training=True, call_act_quantizer_impl=True)
         self.enabled = enabled
 
     def __enter__(self):
@@ -465,7 +457,6 @@ class _BiasCorrection:
         # Compute float reference
         with disable_enable_quantization(model=module,
                                          is_training=False,
-                                         exit_is_training=False,
                                          disable_return_quant_tensor=False):
             out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
