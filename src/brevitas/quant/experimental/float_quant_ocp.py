@@ -3,6 +3,7 @@
 
 from dependencies import value
 
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.quant.base import MSESymmetricScale
@@ -55,14 +56,14 @@ class FpOCPWeight(FpOCPMixin, FloatWeightBase):
     """
     OCP FP signed weight quantizer.
     """
-    pass
+    input_view_impl = Identity
 
 
 class FpOCPAct(FpOCPMixin, FloatActBase):
     """
     OCP FP signed activation quantizer.
     """
-    pass
+    input_view_impl = Identity
 
 
 class FpOCPWeightPerTensorFloat(FpOCPMixin, ScaledFloatWeightBase):

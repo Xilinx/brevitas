@@ -3,6 +3,7 @@
 
 from dependencies import value
 
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.quant.base import MSESymmetricScale
@@ -26,14 +27,14 @@ class FpFNUZWeight(FpFNUZMixin, FloatWeightBase):
     """
     FNUZ FP8 signed weight quantizer.
     """
-    pass
+    input_view_impl = Identity
 
 
 class FpFNUZAct(FpFNUZMixin, FloatActBase):
     """
     FP8 signed activation quantizer.
     """
-    pass
+    input_view_impl = Identity
 
 
 class FpFNUZWeightPerTensorFloat(FpFNUZMixin, ScaledFloatWeightBase):
