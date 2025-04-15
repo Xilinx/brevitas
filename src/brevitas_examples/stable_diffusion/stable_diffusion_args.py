@@ -9,7 +9,7 @@ from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_sd_args_parser():
+def create_args_parser():
     parser = argparse.ArgumentParser(description='Stable Diffusion quantization')
     parser.add_argument(
         '--config',
@@ -22,7 +22,7 @@ def create_sd_args_parser():
         '-m',
         '--model',
         type=str,
-        default='/scratch/hf_models/stable-diffusion-2-1-base',
+        default='stabilityai/stable-diffusion-2-1',
         help='Path or name of the model.')
     parser.add_argument(
         '-d', '--device', type=str, default='cuda:0', help='Target device for quantized model.')

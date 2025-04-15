@@ -6,10 +6,16 @@ from argparse import ArgumentParser
 from jinja2 import Environment
 from jinja2 import FileSystemLoader
 
-from brevitas_examples.llm.llm_args import create_llm_args_parser
-from brevitas_examples.stable_diffusion.stable_diffusion_args import create_sd_args_parser
+from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import \
+    create_args_parser as create_imagenet_ptq_args_parser
+from brevitas_examples.llm.llm_args import create_args_parser as create_llm_args_parser
+from brevitas_examples.stable_diffusion.stable_diffusion_args import \
+    create_args_parser as create_sd_args_parser
 
-ENTRYPOINT_ARGS = {"llm": create_llm_args_parser, "stable_diffusion": create_sd_args_parser}
+ENTRYPOINT_ARGS = {
+    "llm": create_llm_args_parser,
+    "stable_diffusion": create_sd_args_parser,
+    "imagenet_classification/ptq": create_imagenet_ptq_args_parser}
 
 
 def render_readme_template(
@@ -19,6 +25,8 @@ def render_readme_template(
     template = env.get_template(readme_template_path)
     # Render the README.md template with the entrypoint arguments
     output = template.render(readme_help=argument_parser.format_help())
+    # Replace gen_readme.py
+    output = output.replace("gen_readme.py", "main.py")
     # Save the rendered README.md
     with open(readme_path, 'w') as f:
         f.write(output + "\n")

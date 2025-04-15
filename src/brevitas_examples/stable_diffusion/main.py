@@ -10,8 +10,8 @@ import math
 import os
 import sys
 import time
-import warnings
 from typing import List, Optional
+import warnings
 
 from dependencies import value
 import diffusers
@@ -71,7 +71,7 @@ from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
-from brevitas_examples.stable_diffusion.stable_diffusion_args import create_sd_args_parser
+from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
 
 diffusers_version = packaging.version.parse(diffusers.__version__)
 TEST_SEED = 123456
@@ -977,7 +977,7 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
 
 def main():
     overrides = override_defaults(sys.argv[1:])
-    parser = create_sd_args_parser()
+    parser = create_args_parser()
     args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
     print("Args: " + str(vars(args)))
     quantize_sd(args, extra_args)

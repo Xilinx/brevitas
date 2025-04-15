@@ -59,7 +59,7 @@ To perform a dry-run quantization, where only the structure of the quantized mod
 ## Run
 
 ```bash
-usage: gen_readme.py [-h] [--config CONFIG] [-m MODEL] [-d DEVICE]
+usage: main.py [-h] [--config CONFIG] [-m MODEL] [-d DEVICE]
                      [-b BATCH_SIZE] [--prompt PROMPT]
                      [--calibration-prompt CALIBRATION_PROMPT]
                      [--calibration-prompt-path CALIBRATION_PROMPT_PATH]

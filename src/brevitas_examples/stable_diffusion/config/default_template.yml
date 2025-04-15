@@ -37,7 +37,7 @@ input_zp_stats_op: minmax
 linear_input_bit_width: 0
 linear_weight_bit_width: 8
 load_checkpoint: null
-model: /scratch/hf_models/stable-diffusion-2-1-base
+model: stabilityai/stable-diffusion-2-1
 output_path: .
 override_conv_quant_config: false
 path_to_coco: null

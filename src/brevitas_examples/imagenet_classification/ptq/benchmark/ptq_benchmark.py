@@ -9,20 +9,20 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from brevitas_examples.common.benchmark.utils import benchmark
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
-from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
-from brevitas_examples.stable_diffusion.stable_diffusion_args import validate as validate_args
+from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import create_args_parser
+from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import \
+    validate as validate_args
 
 
-class SDBenchmarkUtils(BenchmarkUtils):
+class ImagenetPTQBenchmarkUtils(BenchmarkUtils):
 
     argument_parser: ArgumentParser = create_args_parser()
-    eval_metrics: List[str] = []
+    eval_metrics: List[str] = ["quant_top1"]
 
     @staticmethod
     def parse_log(job_log: str) -> Dict[str, Any]:
         # TODO: Implement log parsing to extract quality metrics from entrypoint output
-        raise NotImplementedError(
-            "Log parsing for stable diffusion entrypoint is not implemented yet.")
+        raise NotImplementedError("Log parsing for Imagenet PTQ entrypoint is not implemented yet.")
 
     @staticmethod
     def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
@@ -31,12 +31,9 @@ class SDBenchmarkUtils(BenchmarkUtils):
     @staticmethod
     def entrypoint_main(args: Namespace,
                         extra_args: Optional[List[str]] = None) -> Tuple[Dict, Any]:
-        from brevitas_examples.stable_diffusion.main import quantize_sd
-        quantize_sd(args=args, extra_args=extra_args)
-        # TODO: Make SD entrypoint return a dictionary with the run results (e.g. FID)
-        # and quantized model
-        return {}, None
+        from brevitas_examples.imagenet_classification.ptq.ptq_evaluate import quantize_ptq_imagenet
+        return quantize_ptq_imagenet(args=args, extra_args=extra_args)
 
 
 if __name__ == "__main__":
-    benchmark(SDBenchmarkUtils, sys.argv[1:])
+    benchmark(ImagenetPTQBenchmarkUtils, sys.argv[1:])

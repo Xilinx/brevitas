@@ -1,8 +1,13 @@
 #!/bin/bash
 
-for ENTRYPOINT_NAME in "llm" "stable_diffusion"; do
+# Check first package
+if ! python -c "import jinja2; import yaml" 2>/dev/null; then
+    echo "Update entrypoint arguments hook requires a Python environment with the packages jinja2 and yaml installed. Skipping." >&2
+    exit 0
+fi
+
+for ENTRYPOINT_NAME in "llm" "stable_diffusion" "imagenet_classification/ptq"; do
     BENCHMARK_CONFIG_PATH="src/brevitas_examples/${ENTRYPOINT_NAME}/benchmark/benchmark_config.yaml"
-    ENTRYPOINT_ARGS_FILE="src/brevitas_examples/${ENTRYPOINT_NAME}/${ENTRYPOINT_NAME}_args.py"
     README_TEMPLATE_PATH="src/brevitas_examples/${ENTRYPOINT_NAME}/readme_template.md"
     README_PATH="src/brevitas_examples/${ENTRYPOINT_NAME}/README.md"
     TEMPLATE_CONFIG_PATH="src/brevitas_examples/${ENTRYPOINT_NAME}/config/default_template.yml"

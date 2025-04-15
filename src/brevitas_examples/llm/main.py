@@ -37,7 +37,7 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
-from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
@@ -629,7 +629,7 @@ def quantize_llm(args, extra_args=None):
 
 def main():
     overrides = override_defaults(sys.argv[1:])
-    parser = create_llm_args_parser()
+    parser = create_args_parser()
     args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
     quantize_llm(args, extra_args)
 

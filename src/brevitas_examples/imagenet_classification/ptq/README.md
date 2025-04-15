@@ -64,69 +64,72 @@ pip install brevitas[vision]
 This flow allows to specify which pre-trained torchvision model to quantize and apply PTQ to with the desired quantization configuration.
 It also gives the possibility to export the model to either ONNX QCDQ format or in torch QCDQ format.
 The quantization and export options to specify are:
+
 ```bash
-usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
-                       VALIDATION_DIR [--workers WORKERS]
-                       [--batch-size-calibration BATCH_SIZE_CALIBRATION]
-                       [--batch-size-validation BATCH_SIZE_VALIDATION]
-                       [--export-dir EXPORT_DIR] [--gpu GPU]
-                       [--calibration-samples CALIBRATION_SAMPLES]
-                       [--model-name ARCH] [--dtype {float,bfloat16,float16}]
-                       [--target-backend {fx,layerwise,flexml}]
-                       [--scale-factor-type {float_scale,po2_scale}]
-                       [--act-bit-width ACT_BIT_WIDTH]
-                       [--weight-bit-width WEIGHT_BIT_WIDTH]
-                       [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
-                       [--bias-bit-width {32,16,None}]
-                       [--act-quant-type {sym,asym}]
-                       [--weight-quant-type {sym,asym}]
-                       [--weight-quant-granularity {per_tensor,per_channel,per_group}]
-                       [--act-quant-granularity {per_tensor,per_group}]
-                       [--weight-quant-calibration-type {stats,mse,hqo}]
-                       [--act-equalization {fx,layerwise,None}]
-                       [--act-quant-calibration-type {stats,mse}]
-                       [--act-scale-computation-type {static,dynamic}]
-                       [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
-                       [--learned-round {None,linear_round,hard_sigmoid_round,sigmoid_round}]
-                       [--learned-round-block-name LEARNED_ROUND_BLOCK_NAME]
-                       [--learned-round-loss {regularised_mse,mse}]
-                       [--learned-round-mode {layerwise,blockwise}]
-                       [--learned-round-iters LEARNED_ROUND_ITERS]
-                       [--learned-round-lr-scheduler {None,linear}]
-                       [--learned-round-lr LEARNED_ROUND_LR]
-                       [--learned-round-batch-size LEARNED_ROUND_BATCH_SIZE]
-                       [--act-quant-percentile ACT_QUANT_PERCENTILE]
-                       [--export-onnx-qcdq] [--export-torch-qcdq]
-                       [--bias-corr | --no-bias-corr]
-                       [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
-                       [--weight-narrow-range | --no-weight-narrow-range]
-                       [--gpfq-p GPFQ_P]
-                       [--quant-format {int,float,float_ocp}]
-                       [--layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH]
-                       [--layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH]
-                       [--weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH]
-                       [--weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH]
-                       [--act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH]
-                       [--act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH]
-                       [--gpxq-accumulator-bit-width GPXQ_ACCUMULATOR_BIT_WIDTH]
-                       [--gpxq-accumulator-tile-size GPXQ_ACCUMULATOR_TILE_SIZE]
-                       [--onnx-opset-version ONNX_OPSET_VERSION]
-                       [--channel-splitting-ratio CHANNEL_SPLITTING_RATIO]
-                       [--optimizer {adam,sign_sgd}] [--gptq | --no-gptq]
-                       [--gpfq | --no-gpfq]
-                       [--gpxq-act-order | --no-gpxq-act-order]
-                       [--gptq-use-quant-activations | --no-gptq-use-quant-activations]
-                       [--gpxq-create-weight-orig | --no-gpxq-create-weight-orig]
-                       [--calibrate-bn | --no-calibrate-bn]
-                       [--channel-splitting-split-input | --no-channel-splitting-split-input]
-                       [--merge-bn | --no-merge-bn]
-                       [--uint-sym-act-for-unsigned-values | --no-uint-sym-act-for-unsigned-values]
-                       [--compile | --no-compile]
+usage: main.py [-h] [--config CONFIG]
+                     [--calibration-dir CALIBRATION_DIR]
+                     [--validation-dir VALIDATION_DIR] [--workers WORKERS]
+                     [--batch-size-calibration BATCH_SIZE_CALIBRATION]
+                     [--batch-size-validation BATCH_SIZE_VALIDATION]
+                     [--export-dir EXPORT_DIR] [--gpu GPU]
+                     [--calibration-samples CALIBRATION_SAMPLES]
+                     [--model-name ARCH] [--dtype {float,bfloat16,float16}]
+                     [--target-backend {fx,layerwise,flexml}]
+                     [--scale-factor-type {float_scale,po2_scale}]
+                     [--act-bit-width ACT_BIT_WIDTH]
+                     [--weight-bit-width WEIGHT_BIT_WIDTH]
+                     [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
+                     [--bias-bit-width {32,16,None}]
+                     [--act-quant-type {sym,asym}]
+                     [--weight-quant-type {sym,asym}]
+                     [--weight-quant-granularity {per_tensor,per_channel,per_group}]
+                     [--act-quant-granularity {per_tensor,per_group}]
+                     [--weight-quant-calibration-type {stats,mse,hqo}]
+                     [--act-equalization {fx,layerwise,None}]
+                     [--act-quant-calibration-type {stats,mse}]
+                     [--act-scale-computation-type {static,dynamic}]
+                     [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
+                     [--learned-round {None,linear_round,hard_sigmoid_round,sigmoid_round}]
+                     [--learned-round-block-name LEARNED_ROUND_BLOCK_NAME]
+                     [--learned-round-loss {regularised_mse,mse}]
+                     [--learned-round-mode {layerwise,blockwise}]
+                     [--learned-round-iters LEARNED_ROUND_ITERS]
+                     [--learned-round-lr-scheduler {None,linear}]
+                     [--learned-round-lr LEARNED_ROUND_LR]
+                     [--learned-round-batch-size LEARNED_ROUND_BATCH_SIZE]
+                     [--act-quant-percentile ACT_QUANT_PERCENTILE]
+                     [--export-onnx-qcdq] [--export-torch-qcdq]
+                     [--bias-corr | --no-bias-corr]
+                     [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
+                     [--weight-narrow-range | --no-weight-narrow-range]
+                     [--gpfq-p GPFQ_P] [--quant-format {int,float,float_ocp}]
+                     [--layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH]
+                     [--layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH]
+                     [--weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH]
+                     [--weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH]
+                     [--act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH]
+                     [--act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH]
+                     [--gpxq-accumulator-bit-width GPXQ_ACCUMULATOR_BIT_WIDTH]
+                     [--gpxq-accumulator-tile-size GPXQ_ACCUMULATOR_TILE_SIZE]
+                     [--onnx-opset-version ONNX_OPSET_VERSION]
+                     [--channel-splitting-ratio CHANNEL_SPLITTING_RATIO]
+                     [--optimizer {adam,sign_sgd}] [--gptq | --no-gptq]
+                     [--gpfq | --no-gpfq]
+                     [--gpxq-act-order | --no-gpxq-act-order]
+                     [--gptq-use-quant-activations | --no-gptq-use-quant-activations]
+                     [--gpxq-create-weight-orig | --no-gpxq-create-weight-orig]
+                     [--calibrate-bn | --no-calibrate-bn]
+                     [--channel-splitting-split-input | --no-channel-splitting-split-input]
+                     [--merge-bn | --no-merge-bn]
+                     [--uint-sym-act-for-unsigned-values | --no-uint-sym-act-for-unsigned-values]
+                     [--compile | --no-compile]
 
 PyTorch ImageNet PTQ Validation
 
 options:
   -h, --help            show this help message and exit
+  --config CONFIG       Specify alternative default commandline args (e.g.,
+                        config/default_template.yml). Default: None.
   --calibration-dir CALIBRATION_DIR
                         Path to folder containing Imagenet calibration folder
   --validation-dir VALIDATION_DIR
@@ -167,9 +170,9 @@ options:
                         vgg16 | vgg16_bn | vgg19 | vgg19_bn | vit_b_16 |
                         vit_b_32 | vit_h_14 | vit_l_16 | vit_l_32 |
                         wide_resnet101_2 | wide_resnet50_2 (default: resnet18)
-  --dtype {float,bfloat16,float16)
-                        Data type to use (float for FP32, bfloat16 for BF16, or float16
-                        for FP16)
+  --dtype {float,bfloat16,float16}
+                        Data type to use (float for FP32, bfloat16 for BF16,
+                        or float16 for FP16)
   --target-backend {fx,layerwise,flexml}
                         Backend to target for quantization (default: fx)
   --scale-factor-type {float_scale,po2_scale}
@@ -316,6 +319,7 @@ options:
                         enabled)
   --compile             Enable Use torch.compile (default: disabled)
   --no-compile          Disable Use torch.compile (default: disabled)
+
 ```
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
