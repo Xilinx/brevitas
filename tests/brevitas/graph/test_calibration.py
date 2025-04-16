@@ -428,12 +428,6 @@ class TestDisableEnableQuantization():
             expected_output = model.output_quant(expected_output)
         return expected_output
 
-    def _set_training(self, model: nn.Module, is_training: bool) -> None:
-        if is_training:
-            model.train()
-        else:
-            model.eval()
-
     @pytest_cases.parametrize(
         'disable_weight_quant', [False, True],
         ids=lambda disable_quant: f"weight_quant={not disable_quant}")
@@ -462,7 +456,7 @@ class TestDisableEnableQuantization():
         _ACTIVATION_PROXIES = _ACC_PROXIES + (ActQuantProxyFromInjectorBase,)
         _QUANT_PROXIES = ((_WEIGHT_PROXIES if disable_weight_quant else tuple()) +
                           (_BIAS_PROXIES if disable_bias_quant else tuple()) +
-                          (_ACTIVATION_PROXIES if disable_act_quant else ()))
+                          (_ACTIVATION_PROXIES if disable_act_quant else tuple()))
         model = qnn.QuantLinear(
             in_features=3,
             out_features=1,
@@ -474,7 +468,7 @@ class TestDisableEnableQuantization():
             return_quant_tensor=True,
         )
         # Set model .training to the contrary of is_training
-        self._set_training(model, not is_training)
+        model.train(not is_training)
         # Context manager to be tested
         disable_quantization_cm = disable_enable_quantization(
             model=model,
@@ -491,12 +485,7 @@ class TestDisableEnableQuantization():
         # When pass_excluded_modules is True, no quantizers should be disabled
         # as [model] is passed to excluded_modules
         if pass_excluded_modules:
-            # The output needs to be computed in the same training
-            # mode as within the context manager
-            self._set_training(model, is_training)
             expected_output = model(input)
-            # Restore original state (not is_training)
-            self._set_training(model, not is_training)
         else:
             expected_output = self._evaluate_quant_linear(
                 model=model,
@@ -520,7 +509,7 @@ class TestDisableEnableQuantization():
         with disable_quantization_cm, pytest_raise_cm:
             # Verify .training was set appropiately
             assert all(
-                module.training == is_training
+                module.training == ((not is_training) if pass_excluded_modules else is_training)
                 for module in model.modules()
                 if isinstance(module, _QUANT_PROXIES))
             output = model(input)

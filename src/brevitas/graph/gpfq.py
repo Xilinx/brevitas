@@ -11,7 +11,7 @@ from torch import Tensor
 import torch.nn as nn
 import unfoldNd
 
-from brevitas.graph.calibrate import DisableEnableQuantization
+from brevitas.graph.calibrate import disable_enable_quantization
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -279,25 +279,11 @@ class gpfq_mode(gpxq_mode):
             pass
 
         # Disable quantization
-        self.return_quant_tensor_state = DisableEnableQuantization.disable_return_quant_tensor(
-            self.model)
-        DisableEnableQuantization.disable_param_quantization(self.model, is_training=False)
-        DisableEnableQuantization.disable_act_quantization(self.model, is_training=False)
-        # Collect float input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
-
-        # Re-enable quantization. If activation quantization is disabled,
-        # we also disable bias quantization
-        DisableEnableQuantization.enable_param_quantization(self.model, is_training=False)
-        if self.use_quant_activations:
-            DisableEnableQuantization.enable_act_quantization(self.model, is_training=False)
-        else:
-            DisableEnableQuantization.disable_bias_quantization(self.model, is_training=False)
-        DisableEnableQuantization.restore_return_quant_tensor(
-            self.model, self.return_quant_tensor_state)
+        with disable_enable_quantization(self.model, is_training=False):
+            try:
+                self.orig_forward(*args, **kwargs)
+            except StopFwdException:
+                pass
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks

@@ -72,6 +72,8 @@ class gpxq_mode(disable_enable_quantization):
             return_forward_output: bool = False) -> None:
         if not inplace:
             model = deepcopy(model)
+        # Note that if use_quant_activations = True, the super() context manager
+        # is equivalent to a nullcontext
         super().__init__(
             model=model,
             is_training=model.training,
@@ -81,6 +83,7 @@ class gpxq_mode(disable_enable_quantization):
             disable_return_quant_tensor=not use_quant_activations,
         )
         self.create_weight_orig = create_weight_orig
+        self.use_quant_activations = use_quant_activations
         self.hook_dict = dict()
         self.gpxq_layers = dict()
         # reference for each layer to update
