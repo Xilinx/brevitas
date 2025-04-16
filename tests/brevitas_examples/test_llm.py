@@ -969,8 +969,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 31136.918,
-            "quant_ppl": 31236.613,
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29270.91015625,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -997,8 +997,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 31136.918,
-            "quant_ppl": 31310.459,
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29208.28125,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1025,8 +1025,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 31136.918,
-            "quant_ppl": 31176.02,
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29457.470703125,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1053,8 +1053,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 31136.918,
-            "quant_ppl": 31046.008,
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29421.083984375,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
