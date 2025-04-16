@@ -8,7 +8,7 @@ from torch.nn import Module
 import torch.nn as nn
 
 from brevitas.export.manager import _set_proxy_export_handler
-from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import _set_proxy_export_mode, _set_layer_export_handler, _set_layer_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
@@ -103,10 +103,10 @@ class SharkWaveManager(BaseManager):
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
-        _set_proxy_export_mode(model, enabled)
+        _set_layer_export_mode(model, enabled)
         _set_recurrent_layer_export_mode(model, enabled)
 
     @classmethod
     def set_export_handler(cls, module: Module):
-        _set_proxy_export_handler(cls, module)
+        _set_layer_export_handler(cls, module)
         _set_recurrent_layer_export_handler(cls, module)
