@@ -7,8 +7,10 @@ import torch
 from torch.nn import Module
 import torch.nn as nn
 
+from brevitas.export.manager import _set_layer_export_handler
+from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.manager import _set_proxy_export_handler
-from brevitas.export.manager import _set_proxy_export_mode, _set_layer_export_handler, _set_layer_export_mode
+from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager

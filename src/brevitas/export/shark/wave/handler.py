@@ -57,7 +57,7 @@ class QuantLinearFp8Handler(InferenceHandler):
         #     input_feat, out_feat, quant_params, bias=False)
         # self.wave_linear.weight.data = module.weight.data
         # if module.bias is not None:
-        #     self.wave_linear.bias.data = module.bias.data 
+        #     self.wave_linear.bias.data = module.bias.data
         self.bias = module.bias
         self.weight = module.weight
         del module.weight
@@ -65,18 +65,21 @@ class QuantLinearFp8Handler(InferenceHandler):
 
     def forward(self, input):
         input_q = self.input_quant.quantize(input, self.input_quant.scale.to(input.device), None)
-        weight_q = self.weight_quant.quantize(self.weight, self.weight_quant.scale.to(input.device), None)
+        weight_q = self.weight_quant.quantize(
+            self.weight, self.weight_quant.scale.to(input.device), None)
 
         if len(input_q.shape) > 2:
             B = input_q.shape[0]
-            output_1 = torch.stack([torch._scaled_mm(
-                input_q[i].to(torch.float8_e4m3fnuz),
-                weight_q.t().to(torch.float8_e4m3fnuz),
-                scale_a=self.input_quant.scale.to(input.device),
-                scale_b=self.weight_quant.scale.to(input.device),
-                # bias=self.bias,
-                out_dtype=torch.float16
-                ) for i in range(B)], dim=0)
+            output_1 = torch.stack(
+                [
+                    torch._scaled_mm(
+                        input_q[i].to(torch.float8_e4m3fnuz),
+                        weight_q.t().to(torch.float8_e4m3fnuz),
+                        scale_a=self.input_quant.scale.to(input.device),
+                        scale_b=self.weight_quant.scale.to(input.device),
+                        # bias=self.bias,
+                        out_dtype=torch.float16) for i in range(B)],
+                dim=0)
         else:
             output_1 = torch._scaled_mm(
                 input_q.to(torch.float8_e4m3fnuz),
@@ -84,8 +87,7 @@ class QuantLinearFp8Handler(InferenceHandler):
                 scale_a=self.input_quant.scale.to(input.device),
                 scale_b=self.weight_quant.scale.to(input.device),
                 # bias=self.bias,
-                out_dtype=torch.float16
-                )
+                out_dtype=torch.float16)
 
         if self.bias is not None:
             output_1 += self.bias
