@@ -151,6 +151,9 @@ def model_export(model, ref_input, args):
                 do_validation=False)
     elif args.export_target == 'torch_qcdq':
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
+    elif args.export_target == 'params_only':
+        from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
+        export_quant_params(model, './', 'model_')
 
 
 def quantize_llm(args, extra_args=None):
@@ -168,7 +171,7 @@ def quantize_llm(args, extra_args=None):
     if quant_sdpa_fx:
         kwargs["attn_implementation"] = "sdpa"
 
-    if args.export_target == 'torch_qcdq':
+    if args.export_target in ['torch_qcdq', 'params_only']:
         kwargs['torchscript'] = True
 
     print("Model loading...")
@@ -606,7 +609,6 @@ def quantize_llm(args, extra_args=None):
         if args.export_target:
             print(f"Export to {args.export_target}")
             # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
-            model = model.to(dtype=torch.float32)
             model_export(model, calibration_loader[0], args)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
