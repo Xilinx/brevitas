@@ -22,8 +22,9 @@ class IntScaling(brevitas.jit.ScriptModule):
     def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
         is_signed = signed if signed is not None else self.signed
         if is_signed is None:
-            assert is_signed is not None, f"signed is not defined, signed={is_signed}"
-            is_signed = True
+            raise ValueError(f"signed is not defined, signed={is_signed}")
+            is_signed = True  # Workaround for JIT type inference
+        # Workaround: required for compatibility with the JIT for PT=2.2.2
         is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
         if is_signed:
             return -min_int(is_signed, self.narrow_range, bit_width)
@@ -42,8 +43,8 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
     def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
         is_signed = signed if signed is not None else self.signed
         if is_signed is None:
-            assert is_signed is not None, f"signed is not defined, signed={is_signed}"
-            is_signed = True
+            raise ValueError(f"signed is not defined, signed={is_signed}")
+            is_signed = True  # Workaround for JIT type inference
         # Workaround: required for compatibility with the JIT for PT=2.2.2
         is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
         return max_int(is_signed, False, bit_width) + 1
