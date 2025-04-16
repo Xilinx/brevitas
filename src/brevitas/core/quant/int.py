@@ -203,6 +203,46 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
 
 class TruncIntQuant(brevitas.jit.ScriptModule):
     """
+    ScriptModule that requantizes some integer quantization format to another integer quantization
+    format. The signed parameter is maintained from the previous format.
+
+    Args:
+        float_to_int_impl (Module): Module that performs the conversion from floating point to
+            integer representation.
+        bit_width_impl (Module): Module that returns a bit-width.
+        trunc_scaling_impl (Module): Module that returns the truncation scale, an extra
+            multiplicative factor that is applied before the truncation. Default: TruncMsbScaling()
+        narrow_range (bool): Flag that determines whether restrict quantization to a narrow range
+            or not. Default: False
+        tensor_clamp_impl (Module): Module that performs clamping. Default: TensorClamp()
+        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
+
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
+            zero-point, bit_width.
+
+    Examples:
+        >>> from brevitas.core.quant import TruncIntQuant
+        >>> from brevitas.core.function_wrapper import RoundSte
+        >>> from brevitas.core.bit_width import BitWidthConst
+        >>> trunc_quant = TruncIntQuant(RoundSte(), BitWidthConst(4))
+        >>> scale, zero_point, bit_width, signed = torch.tensor(0.01), torch.tensor(0.), torch.tensor(8.), torch.tensor(True)
+        >>> inp = torch.Tensor([0.04, -0.05, 0.31, -0.44])
+        >>> out, scale, zero_point, bit_width = trunc_quant(inp, scale, zero_point, bit_width, signed)
+        >>> out
+        >>> tensor([ 0.0000, -0.0000,  0.3200, -0.4800])
+        >>> scale
+        tensor(0.1600)
+        >>> zero_point
+        tensor(0.)
+        >>> bit_width
+        tensor(4.)
+
+    Note:
+        Maps to quant_type == QuantType.INT == 'INT' == 'int' in higher-level APIs.
+
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
     __constants__ = ['narrow_range']
