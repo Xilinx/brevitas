@@ -27,6 +27,6 @@ jobs:
         python-version: '3.10'
 
     - name: Run pre-commit
-      uses: pre-commit/action@v2.0.3
+      uses: pre-commit/action@v3.0.1
       with:
         extra_args: --verbose --all-files
