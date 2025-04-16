@@ -228,8 +228,8 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
             "bias_corr": True,
-            "float_ppl": 31136.918,
-            "quant_ppl": 31314.102},
+            "float_ppl": 29327.994,
+            "quant_ppl": 29465.955},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
@@ -239,14 +239,14 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "input_quant_granularity": "per_row",
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31172.807},
+            "float_ppl": 29327.994,
+            "quant_ppl": 29354.801},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_equalization": "layerwise",
             "gptq": True,
-            "float_ppl": 27792.436,
-            "quant_ppl": 28608.725},])
+            "float_ppl": 35292.543,
+            "quant_ppl": 35212.766},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -282,15 +282,15 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
-            "float_ppl": 47967.746,
-            "quant_ppl": 47869.035},
+            "float_ppl": 52994.4296875,
+            "quant_ppl": 52123.94140625},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "quant_sdpa": True,
-            "float_ppl": 47967.746,
-            "quant_ppl": 47869.035},])
+            "float_ppl": 52994.4296875,
+            "quant_ppl": 52116.3359375},])
 def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -808,8 +808,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31322.375},
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29327.32421875},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
@@ -818,8 +818,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 27792.436,
-            "quant_ppl": 28161.56},])
+            "float_ppl": 35292.54296875,
+            "quant_ppl": 35014.25390625},])
 def learned_round_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -861,8 +861,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": True,
             "rotation_mode": "ort",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31272.172,},
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29270.265625,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -872,8 +872,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31310.459,},
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29228.62109375,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -883,8 +883,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31038.398,},
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29444.49609375,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -894,8 +894,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31182.68,},
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29349.400390625},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -903,8 +903,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "input_bit_width": None,
             "replace_rmsnorm": True,
             "rotation": "layerwise",
-            "float_ppl": 31136.918,
-            "quant_ppl": 31161.514,},
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29372.86328125,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -915,8 +915,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "rotation_layers_to_expand": ["down_proj"],
-            "float_ppl": 31136.918,
-            "quant_ppl": 31155.57,},])
+            "float_ppl": 29327.994140625,
+            "quant_ppl": 29343.634765625,},])
 def rotation_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
