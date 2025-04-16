@@ -47,6 +47,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
+from brevitas_examples.llm.llm_quant.gpxq import apply_magr
 from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
@@ -320,6 +321,18 @@ def quantize_llm(args, extra_args=None):
             model, args.act_equalization, loader, alpha=args.act_equalization_alpha)
         print("Act equalization applied.")
         remove_hooks(model)
+
+    if args.magr and not args.load_checkpoint:
+        print("Applying MagR...")
+        model = offload_model(model)
+        apply_magr(
+            model,
+            calibration_loader,
+            create_weight_orig=args.gpxq_create_weight_orig or
+            args.gpfq,  # save original weights for GPxQ
+            alpha=args.magr_alpha)
+        remove_hooks(model)
+        print(f"MagR applied.")
 
     if not args.no_quantize:
         name_blacklist = []
