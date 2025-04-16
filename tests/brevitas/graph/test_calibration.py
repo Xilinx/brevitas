@@ -428,6 +428,12 @@ class TestDisableEnableQuantization():
             expected_output = model.output_quant(expected_output)
         return expected_output
 
+    def _set_training(self, model: nn.Module, is_training: bool) -> None:
+        if is_training:
+            model.train()
+        else:
+            model.eval()
+
     @pytest_cases.parametrize(
         'disable_weight_quant', [False, True],
         ids=lambda disable_quant: f"weight_quant={not disable_quant}")
@@ -451,6 +457,8 @@ class TestDisableEnableQuantization():
             disable_return_quant_tensor,
             pass_excluded_modules,
             is_training):
+        # _QUANT_PROXIES holds the quantizer classes whose state can potentially change
+        # when entering the disable_enable_quantization context manager
         _ACTIVATION_PROXIES = _ACC_PROXIES + (ActQuantProxyFromInjectorBase,)
         _QUANT_PROXIES = ((_WEIGHT_PROXIES if disable_weight_quant else tuple()) +
                           (_BIAS_PROXIES if disable_bias_quant else tuple()) +
@@ -465,11 +473,9 @@ class TestDisableEnableQuantization():
             output_quant=Int8ActPerTensorFloat,
             return_quant_tensor=True,
         )
-        # Set model to contrary of is_training
-        if is_training:
-            model.eval()
-        else:
-            model.train()
+        # Set model .training to the contrary of is_training
+        self._set_training(model, not is_training)
+        # Context manager to be tested
         disable_quantization_cm = disable_enable_quantization(
             model=model,
             is_training=is_training,
@@ -482,16 +488,18 @@ class TestDisableEnableQuantization():
         # Sample input, not relevant to the task
         input = torch.rand(size=(2, 3))
 
+        # When pass_excluded_modules is True, no quantizers should be disabled
+        # as [model] is passed to excluded_modules
         if pass_excluded_modules:
-            model_copy = deepcopy(model)
-            if is_training:
-                model_copy.train()
-            else:
-                model_copy.eval()
-            expected_output = model_copy(input)
+            # The output needs to be computed in the same training
+            # mode as within the context manager
+            self._set_training(model, is_training)
+            expected_output = model(input)
+            # Restore original state (not is_training)
+            self._set_training(model, not is_training)
         else:
             expected_output = self._evaluate_quant_linear(
-                model=deepcopy(model),
+                model=model,
                 input=input,
                 is_training=is_training,
                 disable_weight_quant=disable_weight_quant,
@@ -531,6 +539,5 @@ class TestDisableEnableQuantization():
         if not disable_return_quant_tensor:
             assert isinstance(output, QuantTensor)
             output = output.value
-
         # Verify outputs match
         assert torch.allclose(expected_output, output)
