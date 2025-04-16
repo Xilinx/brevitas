@@ -44,5 +44,6 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
         if is_signed is None:
             assert is_signed is not None, f"signed is not defined, signed={is_signed}"
             is_signed = True
+        # Workaround: required for compatibility with the JIT for PT=2.2.2
         is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
         return max_int(is_signed, False, bit_width) + 1
