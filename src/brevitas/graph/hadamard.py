@@ -101,7 +101,7 @@ def find_closest_hadamard_number(starting_dim, steps=1):
 def matmul_hadU(X, transpose=False):
     n = X.shape[-1]
     hadK, K = get_hadK(n, transpose)
-    input = X.clone().view(-1, n, 1)
+    input = X.clone().reshape(-1, n, 1)
     output = input.clone()
     while input.shape[1] > K:
         input = input.view(input.shape[0], input.shape[1] // 2, 2, input.shape[2])
