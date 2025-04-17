@@ -67,7 +67,6 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
         else:
             return self.kernel_size * self.kernel_size
 
-    # TODO: Replace with functional call
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
 
@@ -131,7 +130,6 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             stride_list.append(stride)
         return kernel_size_list, stride_list
 
-    # TODO: Replace with functional call
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
 
