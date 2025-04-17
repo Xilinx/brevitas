@@ -13,6 +13,7 @@ import itertools
 import multiprocessing
 from multiprocessing import Queue
 import os
+import random
 import sys
 import time
 import traceback
@@ -237,13 +238,22 @@ def parse_config_args(args: List[str]) -> Namespace:
         '--start-index',
         type=int,
         default=0,
-        help='Index from which to start current run (default: %(default)s).')
+        help=
+        'Index from which to start current run. Note, the index is inclusive, e.g., a value of 3 will allow all processes from 3 onwards to run (default: %(default)s).'
+    )
     parser.add_argument(
         '--end-index',
         type=int,
         default=-1,
         help=
-        'Index from which to end current run. A negative value runs all jobs from `--start-index` (default: %(default)s).'
+        'Index from which to end current run. Note, the index is exclusive, e.g., a value of 10 will allow all processes from 0-9 to run.0 A negative value runs all jobs from `--start-index` (default: %(default)s).'
+    )
+    parser.add_argument(
+        '--shuffle-seed',
+        type=int,
+        default=None,
+        help=
+        'The seed to use to shuffle the jobs. If None, no shuffling will be applied. Default: %(default)s.'
     )
     return parser.parse_args(args)
 
@@ -387,10 +397,6 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     parser_keys = set(action.dest for action in entrypoint_parser._actions)
     # Retrieve argument combinations that are valid for the entrypoint
     q = []
-    cur_index = 0
-    start_index = script_args.start_index
-    end_index = script_args.end_index if script_args.end_index > 0 else reduce(
-        lambda x, y: x * y, [len(v) for v in args_values])
     for v in itertools.product(*args_values):
         args_dict = dict(zip(args_keys, v))
         try:
@@ -406,12 +412,16 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
             args = SimpleNamespace(**args)
             # Only keep valid configurations
             entrypoint_utils.validate(args, extra_args)
-            if cur_index >= start_index and cur_index < end_index:
-                q.append((args, extra_args, args_dict))
-            cur_index += 1
+            q.append((args, extra_args, args_dict))
         except AssertionError:
             # Invalid configuration
             pass
+    if script_args.shuffle_seed is not None:
+        random.seed(script_args.shuffle_seed)
+        random.shuffle(q)
+    start_index = script_args.start_index
+    end_index = script_args.end_index if script_args.end_index > 0 else len(q)
+    q = q[start_index:end_index]
     # Show a summary of the configuration to be run in the benchmark execution
     print_benchmark_summary(q, script_args, entrypoint_parser)
     # In the case of a dry-run, just stop after the output of the benchmark summary
