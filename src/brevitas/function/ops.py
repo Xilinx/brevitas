@@ -6,6 +6,8 @@ Implementation of various core operations often performed as part of quantizatio
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
 
+from typing import Union
+
 import torch
 from torch import Tensor
 
@@ -128,12 +130,14 @@ def identity(x: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
-def max_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
+def max_int(
+        signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor],
+        bit_width: Tensor) -> Tensor:
     """ Compute the maximum integer representable by a given number of bits.
 
     Args:
-        signed (bool): Indicates whether the represented integer is signed or not.
-        narrow_range (bool): Indicates whether to narrow the maximum unsigned value represented by 1.
+        signed (Union[bool, Tensor]): Indicates whether the represented integer is signed or not.
+        narrow_range (Union[bool, Tensor]): Indicates whether to narrow the maximum unsigned value represented by 1.
         bit_width (Tensor): Number of bits available for the representation.
 
     Returns:
@@ -149,9 +153,12 @@ def max_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
         >>> max_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
         tensor(255)
     """
-    if not signed and not narrow_range:
+    # Workaround: required for compatibility with the JIT for PT=2.2.2
+    _signed = bool(signed.item()) if isinstance(signed, Tensor) else signed
+    _narrow_range = bool(narrow_range.item()) if isinstance(narrow_range, Tensor) else narrow_range
+    if not _signed and not _narrow_range:
         value = (2 ** bit_width) - 1
-    elif not signed and narrow_range:
+    elif not _signed and _narrow_range:
         value = (2 ** bit_width) - 2
     else:
         value = (2 ** (bit_width - 1)) - 1
@@ -159,12 +166,14 @@ def max_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
-def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
+def min_int(
+        signed: Union[bool, Tensor], narrow_range: Union[bool, Tensor],
+        bit_width: Tensor) -> Tensor:
     """ Compute the minimum integer representable by a given number of bits.
 
     Args:
-        signed (bool): Indicates whether the represented integer is signed or not.
-        narrow_range (bool): Indicates whether to narrow the minimum value represented by 1.
+        signed (Union[bool, Tensor]): Indicates whether the represented integer is signed or not.
+        narrow_range (Union[bool, Tensor]): Indicates whether to narrow the minimum value represented by 1.
         bit_width (Tensor): Number of bits available for the representation.
 
     Returns:
@@ -180,9 +189,12 @@ def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
         >>> min_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
         tensor(0)
     """
-    if signed and narrow_range:
+    # Workaround: required for compatibility with the JIT for PT=2.2.2
+    _signed = bool(signed.item()) if isinstance(signed, Tensor) else signed
+    _narrow_range = bool(narrow_range.item()) if isinstance(narrow_range, Tensor) else narrow_range
+    if _signed and _narrow_range:
         value = -(2 ** (bit_width - 1)) + 1
-    elif signed and not narrow_range:
+    elif _signed and not _narrow_range:
         value = -(2 ** (bit_width - 1))
     else:
         value = 0 * bit_width

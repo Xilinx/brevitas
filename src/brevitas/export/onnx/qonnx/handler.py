@@ -227,16 +227,23 @@ class BrevitasBiasQuantProxyHandler(BrevitasQuantProxyHandler):
 class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
     handled_layer = TruncQuantProxyFromInjector
 
+    def validate(self, module):
+        assert module.zero_point() == 0, "Zero-point export not supported for TruncQuant."
+
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
+        self.validate(module)
         self.symbolic_kwargs = {
-            'output_bit_width': module.bit_width(), 'rounding_mode': module.rounding_mode}
+            'narrow_range': module.is_narrow_range,
+            'output_scale': module.scale(),
+            'output_bit_width': module.bit_width(),
+            'rounding_mode': module.rounding_mode}
 
     def symbolic_execution(
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
             signed: Tensor):
         y = BrevitasTruncFn.apply(
-            x, scale, zero_point, input_bit_width, *self.symbolic_kwargs.values())
-        return y, scale, zero_point, self.symbolic_kwargs['output_bit_width']
+            x, scale, zero_point, input_bit_width, signed, *self.symbolic_kwargs.values())
+        return y, self.symbolic_kwargs['output_scale'], zero_point, self.symbolic_kwargs['output_bit_width']
 
 
 class BrevitasQuantLSTMLayerHandler(QuantLSTMLayerHandler):

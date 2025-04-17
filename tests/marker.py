@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from importlib.metadata import version
 import platform
 
 from packaging.version import parse
@@ -8,6 +9,16 @@ import pytest
 
 from brevitas import config
 from brevitas import torch_version
+
+
+def requires_package_ge(package_name: str, required_package_version: str):
+    skip = parse(required_package_version) > parse(version(package_name))
+
+    def skip_wrapper(f):
+        return pytest.mark.skipif(
+            skip, reason=f'Requires {package_name} >= {required_package_version}')(f)
+
+    return skip_wrapper
 
 
 def requires_pt_ge(pt_version: str, system: str = None):

@@ -33,10 +33,19 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             self,
             kernel_size: Union[int, Tuple[int, int]],
             stride: Union[int, Tuple[int, int]] = None,
+            ceil_mode: bool = False,
+            count_include_pad: bool = True,
+            divisor_override: Optional[int] = None,
             trunc_quant: Optional[AccQuantType] = RoundTo8bit,
             return_quant_tensor: bool = True,
             **kwargs):
-        AvgPool2d.__init__(self, kernel_size=kernel_size, stride=stride)
+        AvgPool2d.__init__(
+            self,
+            kernel_size=kernel_size,
+            stride=stride,
+            ceil_mode=ceil_mode,
+            count_include_pad=count_include_pad,
+            divisor_override=divisor_override)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
         self.cache_inference_quant_act = False
@@ -71,8 +80,6 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             if not isinstance(x, QuantTensor):
                 x = self.cache_class.quant_tensor.set(value=x)
             y = AvgPool2d.forward(self, x)
-            rescaled_value = y.value * self._avg_scaling
-            y = y.set(value=rescaled_value)
             y = self.trunc_quant(y)
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
@@ -139,10 +146,6 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             if not isinstance(x, QuantTensor):
                 x = self.cache_class.quant_tensor.set(value=x)
             y = AdaptiveAvgPool2d.forward(self, x)
-            k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
-            reduce_size = reduce(mul, k_size, 1)
-            rescaled_value = y.value * reduce_size  # remove avg scaling
-            y = y.set(value=rescaled_value)
             y = self.trunc_quant(y)
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
