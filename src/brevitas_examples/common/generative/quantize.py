@@ -386,7 +386,7 @@ def generate_quantizers(
 
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)
-        kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-2], shape[-1])
+        kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], shape[1], 1, shape[-1])
     elif quant_attn_mode == 'mha':
         kv_permute_dims = (0, 2, 1)
         kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], 1, shape[-1])
