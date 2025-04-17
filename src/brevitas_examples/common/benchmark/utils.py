@@ -238,13 +238,15 @@ def parse_config_args(args: List[str]) -> Namespace:
         '--start-index',
         type=int,
         default=0,
-        help='Index from which to start current run (default: %(default)s).')
+        help=
+        'Index from which to start current run. Note, the index is inclusive, e.g., a value of 3 will allow all processes from 3 onwards to run (default: %(default)s).'
+    )
     parser.add_argument(
         '--end-index',
         type=int,
         default=-1,
         help=
-        'Index from which to end current run. A negative value runs all jobs from `--start-index` (default: %(default)s).'
+        'Index from which to end current run. Note, the index is exclusive, e.g., a value of 10 will allow all processes from 0-9 to run.0 A negative value runs all jobs from `--start-index` (default: %(default)s).'
     )
     parser.add_argument(
         '--shuffle-seed',
