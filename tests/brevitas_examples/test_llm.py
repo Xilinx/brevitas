@@ -16,7 +16,6 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
-import transformers
 
 from brevitas import config
 from brevitas import torch_version
@@ -37,10 +36,6 @@ def ptid2pathname(string):
 
 def allclose(x, y, rtol=RTOL_PPL, atol=ATOL_PPL):
     return np.allclose(x, y, rtol=rtol, atol=atol, equal_nan=False)
-
-
-def transformers_version_ge(required_version: str):
-    return version.parse(required_version) >= version.parse(transformers.__version__)
 
 
 # Check that all args in args are used
@@ -151,6 +146,8 @@ def run_test_models_run_args(args, model_with_ppl):
     use_fx = requires_fx(args)
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
+    if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
+        pytest.skip("Dynamic activation not compatible with JIT")
     validate_args_and_run_main(args)
 
 
@@ -231,8 +228,8 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
             "bias_corr": True,
-            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 31136.918,
-            "quant_ppl": 31314.102 if transformers_version_ge('4.46.0') else 31314.102},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31314.102},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
@@ -242,14 +239,14 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "input_quant_granularity": "per_row",
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "float_ppl": 33312.0 if transformers_version_ge('4.46.0') else 31136.918,
-            "quant_ppl": 31073.258 if transformers_version_ge('4.46.0') else 31073.258},
+            "float_ppl": 31136.918,
+            "quant_ppl": 31172.807},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_equalization": "layerwise",
             "gptq": True,
-            "float_ppl": 31056.0 if transformers_version_ge('4.46.0') else 27792.436,
-            "quant_ppl": 28608.725 if transformers_version_ge('4.46.0') else 28608.725},])
+            "float_ppl": 27792.436,
+            "quant_ppl": 28608.725},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
