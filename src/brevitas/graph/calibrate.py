@@ -25,7 +25,7 @@ from .base import Transform
 
 __all__ = [
     'ClipFloatWeights',
-    'DisableEnableQuantization',
+    'QuantizationStatusManager',
     'disable_enable_quantization',
     'bias_correction_mode',
     'calibration_mode',
@@ -91,7 +91,7 @@ class bias_correction_mode:
             for module in self.model.modules():
                 # Disable output quant so that the bias correction can be merged in the bias
                 if hasattr(module, 'output_quant') and module.output_quant.is_quant_enabled:
-                    DisableEnableQuantization.disable_act_quantization(
+                    QuantizationStatusManager.disable_act_quantization(
                         module.output_quant, is_training=False)
                     self.output_quant_modules.append(module)
             self.bias_correction.register_hook_to_wbiol(self.model, self.hooks)
@@ -100,7 +100,7 @@ class bias_correction_mode:
         self.bias_correction.apply_correction(self.model)
         for module in self.output_quant_modules:
             # Re-enable output quantization
-            DisableEnableQuantization.enable_act_quantization(
+            QuantizationStatusManager.enable_act_quantization(
                 module.output_quant, is_training=False)
         for hook in self.hooks:
             hook.remove()
@@ -137,7 +137,7 @@ class ClipFloatWeights(Transform):
         return model
 
 
-class DisableEnableQuantization:
+class QuantizationStatusManager:
 
     @staticmethod
     def _set_act_quantization(
@@ -230,7 +230,7 @@ class DisableEnableQuantization:
             model: nn.Module,
             is_training: bool,
             call_act_quantizer_impl: bool = False) -> Dict[nn.Module, bool]:
-        return DisableEnableQuantization._set_act_quantization(
+        return QuantizationStatusManager._set_act_quantization(
             model=model,
             is_training=is_training,
             disable_quant=True,
@@ -239,7 +239,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def enable_act_quantization(model: nn.Module, is_training: bool) -> None:
-        DisableEnableQuantization._set_act_quantization(
+        QuantizationStatusManager._set_act_quantization(
             model=model,
             is_training=is_training,
             disable_quant=False,
@@ -248,7 +248,7 @@ class DisableEnableQuantization:
     @staticmethod
     def restore_act_quantization(
             model: nn.Module, is_training: bool, previous_state: Dict[nn.Module, bool]) -> None:
-        DisableEnableQuantization._restore_quantization_state(
+        QuantizationStatusManager._restore_quantization_state(
             model=model,
             is_training=is_training,
             previous_state=previous_state,
@@ -257,7 +257,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def disable_param_quantization(model: nn.Module, is_training: bool) -> Dict[nn.Module, bool]:
-        return DisableEnableQuantization._set_param_quantization(
+        return QuantizationStatusManager._set_param_quantization(
             model=model,
             is_training=is_training,
             disable_quant=True,
@@ -266,7 +266,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def enable_param_quantization(model: nn.Module, is_training: bool) -> None:
-        DisableEnableQuantization._set_param_quantization(
+        QuantizationStatusManager._set_param_quantization(
             model=model,
             is_training=is_training,
             disable_quant=False,
@@ -276,7 +276,7 @@ class DisableEnableQuantization:
     @staticmethod
     def restore_param_quantization(
             model: nn.Module, is_training: bool, previous_state: Dict[nn.Module, bool]) -> None:
-        DisableEnableQuantization._restore_quantization_state(
+        QuantizationStatusManager._restore_quantization_state(
             model=model,
             is_training=is_training,
             previous_state=previous_state,
@@ -285,7 +285,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def disable_weight_quantization(model: nn.Module, is_training: bool) -> Dict[nn.Module, bool]:
-        return DisableEnableQuantization._set_param_quantization(
+        return QuantizationStatusManager._set_param_quantization(
             model=model,
             is_training=is_training,
             disable_quant=True,
@@ -294,7 +294,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def enable_weight_quantization(model: nn.Module, is_training: bool) -> None:
-        DisableEnableQuantization._set_param_quantization(
+        QuantizationStatusManager._set_param_quantization(
             model=model,
             is_training=is_training,
             disable_quant=False,
@@ -304,7 +304,7 @@ class DisableEnableQuantization:
     @staticmethod
     def restore_weight_quantization(
             model: nn.Module, is_training: bool, previous_state: Dict[nn.Module, bool]) -> None:
-        DisableEnableQuantization._restore_quantization_state(
+        QuantizationStatusManager._restore_quantization_state(
             model=model,
             is_training=is_training,
             previous_state=previous_state,
@@ -313,7 +313,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def disable_bias_quantization(model: nn.Module, is_training: bool) -> Dict[nn.Module, bool]:
-        return DisableEnableQuantization._set_param_quantization(
+        return QuantizationStatusManager._set_param_quantization(
             model=model,
             is_training=is_training,
             disable_quant=True,
@@ -322,7 +322,7 @@ class DisableEnableQuantization:
 
     @staticmethod
     def enable_bias_quantization(model: nn.Module, is_training: bool) -> None:
-        DisableEnableQuantization._set_param_quantization(
+        QuantizationStatusManager._set_param_quantization(
             model=model,
             is_training=is_training,
             disable_quant=False,
@@ -332,7 +332,7 @@ class DisableEnableQuantization:
     @staticmethod
     def restore_bias_quantization(
             model: nn.Module, is_training: bool, previous_state: Dict[nn.Module, bool]) -> None:
-        DisableEnableQuantization._restore_quantization_state(
+        QuantizationStatusManager._restore_quantization_state(
             model=model,
             is_training=is_training,
             previous_state=previous_state,
@@ -388,46 +388,46 @@ class disable_enable_quantization:
 
     def disable_module_quantization(self, module: nn.Module) -> None:
         if self.disable_act_quant:
-            self.act_quant_state = DisableEnableQuantization.disable_act_quantization(
+            self.act_quant_state = QuantizationStatusManager.disable_act_quantization(
                 model=module,
                 is_training=self.is_training,
                 call_act_quantizer_impl=self.call_act_quantizer_impl,
             )
         if self.disable_weight_quant:
-            self.weight_quant_state = DisableEnableQuantization.disable_weight_quantization(
+            self.weight_quant_state = QuantizationStatusManager.disable_weight_quantization(
                 model=module,
                 is_training=self.is_training,
             )
         if self.disable_bias_quant:
-            self.bias_quant_state = DisableEnableQuantization.disable_bias_quantization(
+            self.bias_quant_state = QuantizationStatusManager.disable_bias_quantization(
                 model=module,
                 is_training=self.is_training,
             )
         if self.disable_return_quant_tensor:
-            self.return_quant_tensor_state = DisableEnableQuantization.disable_return_quant_tensor(
+            self.return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(
                 module)
 
     def enable_module_quantization(self, module: nn.Module) -> None:
         if self.disable_act_quant:
-            DisableEnableQuantization.restore_act_quantization(
+            QuantizationStatusManager.restore_act_quantization(
                 model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.act_quant_state,
             )
         if self.disable_weight_quant:
-            DisableEnableQuantization.restore_weight_quantization(
+            QuantizationStatusManager.restore_weight_quantization(
                 model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.weight_quant_state,
             )
         if self.disable_bias_quant:
-            DisableEnableQuantization.restore_bias_quantization(
+            QuantizationStatusManager.restore_bias_quantization(
                 model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.bias_quant_state,
             )
         if self.disable_return_quant_tensor:
-            DisableEnableQuantization.restore_return_quant_tensor(
+            QuantizationStatusManager.restore_return_quant_tensor(
                 module, self.return_quant_tensor_state)
 
     def __enter__(self):
@@ -549,7 +549,7 @@ class _BiasCorrection:
             out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         # Keep output quant disabled until further notice
-        DisableEnableQuantization.disable_act_quantization(
+        QuantizationStatusManager.disable_act_quantization(
             model=module.output_quant, is_training=False)
         out_quant = output
         self.compute_correct_bias(module, out_quant, name)

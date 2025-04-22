@@ -20,8 +20,8 @@ from brevitas.graph.calibrate import _WEIGHT_PROXIES
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import disable_enable_quantization
-from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import load_quant_model_mode
+from brevitas.graph.calibrate import QuantizationStatusManager
 from brevitas.inject.enum import RestrictValueType
 import brevitas.nn as qnn
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
@@ -346,7 +346,7 @@ def test_bias_correction_flag():
             assert m.bias is None
 
 
-class TestDisableEnableQuantization():
+class TestQuantizationStatusManager():
 
     @fixture
     def model(self):
@@ -375,7 +375,7 @@ class TestDisableEnableQuantization():
         assert isinstance(quant_out, QuantTensor) and quant_out.is_valid
 
         # (2) Disable activation quantisation
-        DisableEnableQuantization.disable_act_quantization(model=model, is_training=False)
+        QuantizationStatusManager.disable_act_quantization(model=model, is_training=False)
         # Verify that an error is raised when return_quant_tensor=True and
         # disable_return_quant_tensor is not applied
         with pytest.raises(
@@ -384,14 +384,14 @@ class TestDisableEnableQuantization():
             model(sample_input)
 
         # (3) Disable return quant tensor and verify no error is raised
-        return_quant_tensor_state = DisableEnableQuantization.disable_return_quant_tensor(model)
+        return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(model)
         fp_out = model(sample_input)
         assert isinstance(fp_out, torch.Tensor)
 
         # (4) Enable again activation quantisation and check that a QuantTensor
         # is returned
-        DisableEnableQuantization.restore_return_quant_tensor(model, return_quant_tensor_state)
-        DisableEnableQuantization.enable_act_quantization(model, is_training=False)
+        QuantizationStatusManager.restore_return_quant_tensor(model, return_quant_tensor_state)
+        QuantizationStatusManager.enable_act_quantization(model, is_training=False)
         quant_out = model(sample_input)
         assert isinstance(quant_out, QuantTensor) and quant_out.is_valid
 
