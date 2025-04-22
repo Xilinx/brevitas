@@ -47,7 +47,6 @@ def block_optimization(
         block_optimization_callback=_gpxq_block_optimization_callback):
     disable_quantization_cm = disable_enable_quantization(
         model=model,
-        is_training=model.training,
         disable_act_quant=not context_manager_kwargs.get('use_quant_activations', True),
         disable_weight_quant=False,
         disable_bias_quant=not context_manager_kwargs.get('use_quant_activations', True),

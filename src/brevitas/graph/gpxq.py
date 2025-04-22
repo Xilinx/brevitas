@@ -76,7 +76,6 @@ class gpxq_mode(disable_enable_quantization):
         # is equivalent to a nullcontext
         super().__init__(
             model=model,
-            is_training=model.training,
             disable_act_quant=not use_quant_activations,
             disable_weight_quant=False,
             disable_bias_quant=not use_quant_activations,

@@ -55,7 +55,7 @@ def unpack_input(inp: Union[Tuple[QuantTensor], QuantTensor]) -> torch.Tensor:
     inp = _unpack_quant_tensor(inp)
     # Unpack element in the collection
     if isinstance(inp, (tuple, list, dict)):
-        assert len(inp) == 1, "A collection with a single element was expected"
+        assert len(inp) == 1, "A collection with a single element is expected"
         # Return the single element in the iterable
         if isinstance(inp, (tuple, list)):
             return inp[0]
