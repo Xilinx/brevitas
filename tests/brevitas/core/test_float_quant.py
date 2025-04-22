@@ -29,7 +29,7 @@ from tests.marker import jit_disabled_for_mock
 def test_float_quant_defaults(minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
 
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
