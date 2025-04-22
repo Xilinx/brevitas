@@ -166,7 +166,7 @@ def run_test_models_run_args(args, model_with_ppl):
         "act_equalization=fx,gptq=True",
         "quant_sdpa_fx_per_row",
         "quant_sdpa_functional_per_row",
-        ],
+        "functional_sdpa_quant=True,rotation=fused_no_fx",],
     params=[
         {},
         {"weight_param_method": "hqo"},
@@ -179,7 +179,14 @@ def run_test_models_run_args(args, model_with_ppl):
         {"ln_affine_merge": True},
         {"act_equalization": "fx", "gptq": True},
         {"quant_sdpa": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
-        {"functional_sdpa_quant": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},])
+        {"functional_sdpa_quant": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
+        {
+            "functional_sdpa_quant": True,
+            "rotation": "fused_no_fx",
+            "rotation_sdpa_regions": True,
+            "input_scale_type": "dynamic",
+            "replace_rmsnorm": True
+        },])
 # yapf: enable
 def toggle_run_args(default_run_args, request):
     args = default_run_args
