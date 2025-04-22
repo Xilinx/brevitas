@@ -3,7 +3,6 @@
 
 from dependencies import value
 
-from brevitas.core.function_wrapper.misc import Identity
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.quant.base import MSESymmetricScale
