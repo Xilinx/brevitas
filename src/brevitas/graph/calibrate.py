@@ -357,8 +357,6 @@ class disable_enable_quantization:
         disable_weight_quant (bool): whether to disable weight quantization
         disable_bias_quant (bool): whether to disable bias quantization
         disable_return_quant_tensor (bool): whether to disable output quantization
-        excluded_modules (list): list of submodules of modules to be excluded
-            from quantization disabling
     """
 
     def __init__(
@@ -369,8 +367,7 @@ class disable_enable_quantization:
             disable_act_quant: bool = True,
             disable_weight_quant: bool = True,
             disable_bias_quant: bool = True,
-            disable_return_quant_tensor: bool = True,
-            excluded_modules: Optional[List[nn.Module]] = None):
+            disable_return_quant_tensor: bool = True):
         self.model = model
         self.is_training = is_training if is_training is not None else model.training
         self.prev_is_training_state = model.training
@@ -389,74 +386,55 @@ class disable_enable_quantization:
         self.disable_return_quant_tensor = disable_return_quant_tensor
         self.return_quant_tensor_state = {}
 
-        self.excluded_modules = excluded_modules if excluded_modules is not None else []
-
-    def __enter__(self):
+    def disable_module_quantization(self, module: nn.Module) -> None:
         if self.disable_act_quant:
             self.act_quant_state = DisableEnableQuantization.disable_act_quantization(
-                model=self.model,
+                model=module,
                 is_training=self.is_training,
                 call_act_quantizer_impl=self.call_act_quantizer_impl,
             )
         if self.disable_weight_quant:
             self.weight_quant_state = DisableEnableQuantization.disable_weight_quantization(
-                model=self.model,
+                model=module,
                 is_training=self.is_training,
             )
         if self.disable_bias_quant:
             self.bias_quant_state = DisableEnableQuantization.disable_bias_quantization(
-                model=self.model,
+                model=module,
                 is_training=self.is_training,
             )
         if self.disable_return_quant_tensor:
             self.return_quant_tensor_state = DisableEnableQuantization.disable_return_quant_tensor(
-                self.model)
-        # Re-enable quantization for excluded modules
-        for module in self.excluded_modules:
-            if self.disable_act_quant:
-                DisableEnableQuantization.restore_act_quantization(
-                    model=module,
-                    is_training=self.prev_is_training_state,
-                    previous_state=self.act_quant_state,
-                )
-            if self.disable_weight_quant:
-                DisableEnableQuantization.restore_weight_quantization(
-                    model=module,
-                    is_training=self.prev_is_training_state,
-                    previous_state=self.weight_quant_state,
-                )
-            if self.disable_bias_quant:
-                DisableEnableQuantization.restore_bias_quantization(
-                    model=module,
-                    is_training=self.prev_is_training_state,
-                    previous_state=self.bias_quant_state,
-                )
-            if self.disable_return_quant_tensor:
-                DisableEnableQuantization.restore_return_quant_tensor(
-                    module, self.return_quant_tensor_state)
+                module)
 
-    def __exit__(self, type, value, traceback):
+    def enable_module_quantization(self, module: nn.Module) -> None:
         if self.disable_act_quant:
             DisableEnableQuantization.restore_act_quantization(
-                model=self.model,
+                model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.act_quant_state,
             )
         if self.disable_weight_quant:
             DisableEnableQuantization.restore_weight_quantization(
-                model=self.model,
+                model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.weight_quant_state,
             )
         if self.disable_bias_quant:
             DisableEnableQuantization.restore_bias_quantization(
-                model=self.model,
+                model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.bias_quant_state,
             )
         if self.disable_return_quant_tensor:
             DisableEnableQuantization.restore_return_quant_tensor(
-                self.model, self.return_quant_tensor_state)
+                module, self.return_quant_tensor_state)
+
+    def __enter__(self):
+        self.disable_module_quantization(module=self.model)
+
+    def __exit__(self, type, value, traceback):
+        self.enable_module_quantization(module=self.model)
 
 
 class calibration_mode(disable_enable_quantization):

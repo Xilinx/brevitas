@@ -401,7 +401,6 @@ class TestDisableEnableQuantization():
             self,
             model: qnn.QuantLinear,
             input: torch.Tensor,
-            is_training: bool,
             disable_weight_quant: bool,
             disable_bias_quant: bool,
             disable_act_quant: bool) -> torch.Tensor:
@@ -440,8 +439,6 @@ class TestDisableEnableQuantization():
     @pytest_cases.parametrize(
         'disable_return_quant_tensor', [False, True],
         ids=lambda disable_quant: f"return_quant={not disable_quant}")
-    @pytest_cases.parametrize(
-        'pass_excluded_modules', [False, True], ids=lambda flag: f"exclude={flag}")
     @pytest_cases.parametrize('is_training', [False, True], ids=lambda flag: f"is_training={flag}")
     def test_disable_enable_quantization_context_manager(
             self,
@@ -449,7 +446,6 @@ class TestDisableEnableQuantization():
             disable_bias_quant,
             disable_act_quant,
             disable_return_quant_tensor,
-            pass_excluded_modules,
             is_training):
         # _QUANT_PROXIES holds the quantizer classes whose state can potentially change
         # when entering the disable_enable_quantization context manager
@@ -477,31 +473,23 @@ class TestDisableEnableQuantization():
             disable_weight_quant=disable_weight_quant,
             disable_bias_quant=disable_bias_quant,
             disable_return_quant_tensor=disable_return_quant_tensor,
-            excluded_modules=[model] if pass_excluded_modules else None,
         )
         # Sample input, not relevant to the task
         input = torch.rand(size=(2, 3))
 
-        # When pass_excluded_modules is True, no quantizers should be disabled
-        # as [model] is passed to excluded_modules
-        if pass_excluded_modules:
-            expected_output = model(input)
-        else:
-            expected_output = self._evaluate_quant_linear(
-                model=model,
-                input=input,
-                is_training=is_training,
-                disable_weight_quant=disable_weight_quant,
-                disable_bias_quant=disable_bias_quant,
-                disable_act_quant=disable_act_quant,
-            )
+        expected_output = self._evaluate_quant_linear(
+            model=model,
+            input=input,
+            disable_weight_quant=disable_weight_quant,
+            disable_bias_quant=disable_bias_quant,
+            disable_act_quant=disable_act_quant,
+        )
         output = None
         # Some configurations are expected to raise an error
-        if not pass_excluded_modules and (disable_act_quant and not disable_return_quant_tensor):
+        if disable_act_quant and not disable_return_quant_tensor:
             pytest_raise_cm = pytest.raises(
                 RuntimeError, match="QuantLayer is not correctly configured")
-        elif not pass_excluded_modules and (not disable_bias_quant and
-                                            (disable_act_quant or disable_weight_quant)):
+        elif not disable_bias_quant and (disable_act_quant or disable_weight_quant):
             pytest_raise_cm = pytest.raises(RuntimeError, match="Input scale required")
         else:
             pytest_raise_cm = nullcontext()
@@ -509,7 +497,7 @@ class TestDisableEnableQuantization():
         with disable_quantization_cm, pytest_raise_cm:
             # Verify .training was set appropiately
             assert all(
-                module.training == ((not is_training) if pass_excluded_modules else is_training)
+                module.training == is_training
                 for module in model.modules()
                 if isinstance(module, _QUANT_PROXIES))
             output = model(input)
