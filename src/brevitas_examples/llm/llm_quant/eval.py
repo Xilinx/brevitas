@@ -74,10 +74,6 @@ def compute_perplexity(
             if "past_key_values" in sample and isinstance(model, torch.fx.GraphModule):
                 subsample["past_key_values"] = sample["past_key_values"]
 
-            # Add BOS token.
-            if tokenizer.bos_token_id is not None:
-                subsample["input_ids"][:, 0] = tokenizer.bos_token_id
-
             use_accelerate = hasattr(model, "hf_device_map")
             if not use_accelerate or (use_accelerate and not hasattr(model, "_hf_hook")):
                 device = next(model.parameters()).device
