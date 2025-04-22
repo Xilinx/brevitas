@@ -80,7 +80,6 @@ class gpxq_mode(disable_enable_quantization):
             disable_act_quant=not use_quant_activations,
             disable_weight_quant=False,
             disable_bias_quant=not use_quant_activations,
-            disable_return_quant_tensor=not use_quant_activations,
         )
         self.create_weight_orig = create_weight_orig
         self.use_quant_activations = use_quant_activations
