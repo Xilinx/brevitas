@@ -15,10 +15,9 @@ from brevitas.export.inference.manager import _override_bias_caching_mode
 from brevitas.export.inference.manager import _override_weight_caching_mode
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
-from brevitas.export.manager import _set_recurrent_layer_export_handler
-from brevitas.export.manager import _set_recurrent_layer_export_mode
+
 from brevitas.export.manager import BaseManager
-from brevitas.export.shark.handler import SharkActFloatQuant
+from brevitas.export.shark.handler import SharkActFloatQuant, SharkWeightFloatQuant
 from brevitas.export.shark.handler import SharkActQuant
 from brevitas.export.shark.handler import SharkWeightQuant
 from brevitas.graph.equalize import EqualizedModule
@@ -46,7 +45,7 @@ def _quant_handler(layer, layer_name, quant_name, shared_dict):
 
 # Inheritance from BaseManager is not techincally needed
 class SharkManager(BaseManager):
-    handlers = [SharkWeightQuant, SharkActQuant, SharkActFloatQuant]
+    handlers = [SharkWeightQuant, SharkActQuant, SharkActFloatQuant, SharkWeightFloatQuant]
 
     def __init__(self, config=None):
         super().__init__()
@@ -72,8 +71,9 @@ class SharkManager(BaseManager):
         # - Populate layer_name and shared dict fields
         # - ...
         # - Profit (?)
-        sd = model.state_dict()
-        tensors = dict() #{name: DefaultPrimitiveTensor(name=name, data=sd[name]) for name in sd.keys()}
+
+        # sd = model.state_dict()
+        # tensors = dict() #{name: DefaultPrimitiveTensor(name=name, data=sd[name]) for name in sd.keys()}
 
         # shared_dict.update(tensors)
 
