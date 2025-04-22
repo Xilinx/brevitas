@@ -548,9 +548,12 @@ class _BiasCorrection:
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
         # Compute float reference
-        with disable_enable_quantization(model=module, is_training=False):
-            out_float = module.forward(*inp)  # Required to avoid infinite recursion
+        QuantizationStatusManager.disable_act_quantization(module, is_training=False)
+        QuantizationStatusManager.disable_param_quantization(module, is_training=False)
+        out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
+        QuantizationStatusManager.enable_act_quantization(module, is_training=False)
+        QuantizationStatusManager.enable_param_quantization(module, is_training=False)
         # Keep output quant disabled until further notice
         QuantizationStatusManager.disable_act_quantization(
             model=module.output_quant, is_training=False)
