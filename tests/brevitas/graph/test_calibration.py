@@ -4,7 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import math
-from typing import Union
+from typing import Optional, Union
 
 from hypothesis import given
 import pytest
@@ -28,7 +28,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int8Bias
+from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
@@ -437,15 +437,15 @@ class TestQuantizationStatusManager():
         'disable_act_quant', [False, True],
         ids=lambda disable_quant: f"act_quant={not disable_quant}")
     @pytest_cases.parametrize(
-        'disable_return_quant_tensor', [False, True],
-        ids=lambda disable_quant: f"return_quant={not disable_quant}")
+        'disable_out_quant', [False, True],
+        ids=lambda disable_quant: f"out_quant={not disable_quant}")
     @pytest_cases.parametrize('is_training', [False, True], ids=lambda flag: f"is_training={flag}")
     def test_disable_enable_quantization_context_manager(
             self,
             disable_weight_quant,
             disable_bias_quant,
             disable_act_quant,
-            disable_return_quant_tensor,
+            disable_out_quant,
             is_training):
         # _QUANT_PROXIES holds the quantizer classes whose state can potentially change
         # when entering the disable_enable_quantization context manager
@@ -458,9 +458,9 @@ class TestQuantizationStatusManager():
             out_features=1,
             bias=True,
             weight_quant=Int8WeightPerTensorFloat,
-            bias_quant=Int8Bias,
+            bias_quant=Int8BiasPerTensorFloatInternalScaling,
             input_quant=Int8ActPerTensorFloat,
-            output_quant=Int8ActPerTensorFloat,
+            output_quant=None if disable_out_quant else Int8ActPerTensorFloat,
             return_quant_tensor=True,
         )
         # Set model .training to the contrary of is_training
@@ -472,7 +472,6 @@ class TestQuantizationStatusManager():
             disable_act_quant=disable_act_quant,
             disable_weight_quant=disable_weight_quant,
             disable_bias_quant=disable_bias_quant,
-            disable_return_quant_tensor=disable_return_quant_tensor,
         )
         # Sample input, not relevant to the task
         input = torch.rand(size=(2, 3))
@@ -484,17 +483,8 @@ class TestQuantizationStatusManager():
             disable_bias_quant=disable_bias_quant,
             disable_act_quant=disable_act_quant,
         )
-        output = None
-        # Some configurations are expected to raise an error
-        if disable_act_quant and not disable_return_quant_tensor:
-            pytest_raise_cm = pytest.raises(
-                RuntimeError, match="QuantLayer is not correctly configured")
-        elif not disable_bias_quant and (disable_act_quant or disable_weight_quant):
-            pytest_raise_cm = pytest.raises(RuntimeError, match="Input scale required")
-        else:
-            pytest_raise_cm = nullcontext()
 
-        with disable_quantization_cm, pytest_raise_cm:
+        with disable_quantization_cm:
             # Verify .training was set appropiately
             assert all(
                 module.training == is_training
@@ -509,12 +499,5 @@ class TestQuantizationStatusManager():
             for module in model.modules()
             if isinstance(module, _QUANT_PROXIES))
 
-        # Early stop if an exception was raised when computing the output
-        if output is None:
-            return
-
-        if not disable_return_quant_tensor:
-            assert isinstance(output, QuantTensor)
-            output = output.value
-        # Verify outputs match
+        # Verify that output matches the expected
         assert torch.allclose(expected_output, output)

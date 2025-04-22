@@ -20,6 +20,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor.base_quant_tensor import _unpack_quant_tensor
 
 from .base import Transform
 
@@ -50,11 +51,17 @@ _LAYERS_TO_CLIP = (
 BN_LAYERS = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 
-def unpack_input(inp: Union[tuple, QuantTensor]) -> torch.Tensor:
-    if isinstance(inp, tuple):
-        inp = inp[0]
-    if isinstance(inp, QuantTensor):
-        inp = inp.value
+def unpack_input(inp: Union[Tuple[QuantTensor], QuantTensor]) -> torch.Tensor:
+    inp = _unpack_quant_tensor(inp)
+    # Unpack element in the collection
+    if isinstance(inp, (tuple, list, dict)):
+        assert len(inp) == 1, "A collection with a single element was expected"
+        # Return the single element in the iterable
+        if isinstance(inp, (tuple, list)):
+            return inp[0]
+        else:
+            return next(iter(inp.values()))
+
     return inp
 
 
@@ -356,7 +363,6 @@ class disable_enable_quantization:
         disable_quant_act (bool): whether to disable activation quantization
         disable_weight_quant (bool): whether to disable weight quantization
         disable_bias_quant (bool): whether to disable bias quantization
-        disable_return_quant_tensor (bool): whether to disable output quantization
     """
 
     def __init__(
@@ -366,8 +372,7 @@ class disable_enable_quantization:
             call_act_quantizer_impl: bool = False,
             disable_act_quant: bool = True,
             disable_weight_quant: bool = True,
-            disable_bias_quant: bool = True,
-            disable_return_quant_tensor: bool = True):
+            disable_bias_quant: bool = True):
         self.model = model
         self.is_training = is_training if is_training is not None else model.training
         self.prev_is_training_state = model.training
@@ -383,7 +388,7 @@ class disable_enable_quantization:
         self.disable_bias_quant = disable_bias_quant
         self.bias_quant_state = {}
         # Return QuantTensor
-        self.disable_return_quant_tensor = disable_return_quant_tensor
+        self.disable_return_quant_tensor = disable_act_quant or disable_weight_quant
         self.return_quant_tensor_state = {}
 
     def disable_module_quantization(self, module: nn.Module) -> None:
@@ -543,9 +548,7 @@ class _BiasCorrection:
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
         # Compute float reference
-        with disable_enable_quantization(model=module,
-                                         is_training=False,
-                                         disable_return_quant_tensor=False):
+        with disable_enable_quantization(model=module, is_training=False):
             out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         # Keep output quant disabled until further notice
