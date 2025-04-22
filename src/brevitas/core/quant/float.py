@@ -41,8 +41,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             raise RuntimeError("Exponent bit width cannot be 0.")
         self.exponent_bit_width = StatelessBuffer(
             torch.tensor(float(exponent_bit_width), device=device, dtype=dtype))
-        if mantissa_bit_width == 0:
-            raise RuntimeError("Mantissa bit width cannot be 0.")
+
         self.mantissa_bit_width = StatelessBuffer(
             (torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype)))
         self.exponent_bias = StatelessBuffer(

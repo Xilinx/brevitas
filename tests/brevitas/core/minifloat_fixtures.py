@@ -3,6 +3,7 @@
 
 import pytest_cases
 from pytest_cases import fixture_union
+import torch
 
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -19,6 +20,7 @@ def fp8e4m3(sat):
         saturating = sat
         # for hypothesis and DI
         hypothesis_internal_is_this_a_mock_check = True
+        tracked_parameter_list = [torch.nn.Parameter(torch.randn(5))]
 
     return Fp8e4m3
 
@@ -31,6 +33,7 @@ def fp8e5m2(sat):
         saturating = sat
         # for hypothesis and DI
         hypothesis_internal_is_this_a_mock_check = True
+        tracked_parameter_list = [torch.nn.Parameter(torch.randn(5))]
 
     return Fp8e5m2
 
@@ -40,6 +43,7 @@ class Fp8CustomMixin(ExtendedInjector):
     saturating = True
 
     hypothesis_internal_is_this_a_mock_check = True
+    tracked_parameter_list = [torch.nn.Parameter(torch.randn(5))]
 
     @value
     def mantissa_bit_width(bit_width, exponent_bit_width):

@@ -27,11 +27,11 @@ class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
         return 2 ** (exponent_bit_width - 1) - 1
 
 
-class FloatWeightBase(FloatBase):
+class FloatWeightBase(FloatBase, WeightQuantSolver):
     proxy_class = WeightFloatQuantProxyFromInjector
 
 
-class FloatActBase(FloatBase):
+class FloatActBase(FloatBase, ActQuantSolver):
     proxy_class = ActFloatQuantProxyFromInjector
 
 

@@ -50,6 +50,9 @@ FORMAT_MINVAL_MAP = {
     'minifloat, expected_max_val',
     ((format, max_val) for format, max_val in FORMAT_MAXVAL_MAP.items()))
 def test_max_value(minifloat, expected_max_val):
+    minifloat = minifloat.let(tracked_parameter_list=[torch.nn.Parameter(torch.randn(1, 5))])
+    # Instantiate quantizer to check that init is correct
+    obj = minifloat.tensor_quant
     max_mantissa = compute_max_mantissa(
         torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32))
     max_val = max_float(

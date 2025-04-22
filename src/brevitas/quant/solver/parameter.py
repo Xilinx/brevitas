@@ -91,7 +91,11 @@ class SolveParameterScalingInitFromEnum(ExtendedInjector):
 class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 
     @value
-    def scaling_impl(scaling_impl_type):
+    def scaling_impl(scaling_impl_type=None):
+
+        if scaling_impl_type is None:
+            return None
+
         if scaling_impl_type == ScalingImplType.PARAMETER:
             return ParameterScaling
         elif scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:

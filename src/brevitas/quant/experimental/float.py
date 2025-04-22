@@ -15,28 +15,28 @@ class Fp8e4m3Weight(Fp8e4m3Mixin, FloatWeightBase):
     """
     FP8 signed E3M4 weight quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class Fp8e5m2Weight(Fp8e5m2Mixin, FloatWeightBase):
     """
     FP8 signed E5M2 weight quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class Fp8e4m3Act(Fp8e4m3Mixin, FloatActBase):
     """
     FP8 signed E4M3 activation quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class Fp8e5m2Act(Fp8e5m2Mixin, FloatActBase):
     """
     FP8 signed E5M2 activation quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class Fp8e4m3WeightPerTensorFloat(Fp8e4m3Mixin, ScaledFloatWeightBase):
