@@ -24,7 +24,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from functools import partial
 import random
 from typing import Any, Iterable, List, Optional, Union
 
@@ -34,7 +33,6 @@ import torch
 from transformers import AutoConfig
 
 from .data import get_c4
-from .data import get_dataset_clm
 from .data import get_pile
 from .data import get_wikitext2
 
@@ -83,10 +81,12 @@ def get_dataset_for_model(
     seqlen: int = 2048,
     seed: int = 0,
     split: str = "train",
-    bos_preprocessing: bool = True,
+    bos_preprocessing: str = None,
     require_fx: bool = False,
     device: Optional[Union[str, torch.device]] = None,
 ):
+    assert bos_preprocessing is None or bos_preprocessing in {
+        "sentence", "sequence"}, f"bos_preprocessing should be either 'sentence' or 'sequence' but found {bos_preprocessing}"
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
@@ -105,6 +105,11 @@ def get_dataset_for_model(
         split=split,
         seed=seed,
         bos_preprocessing=bos_preprocessing)
+
+    # Add BOS token
+    if tokenizer.bos_token_id is not None and bos_preprocessing == "sequence":
+        for sample in data:
+            sample["input_ids"][:, 0] = tokenizer.bos_token_id
 
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:

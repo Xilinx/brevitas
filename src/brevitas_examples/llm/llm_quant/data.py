@@ -45,17 +45,18 @@ def get_pile(
         seqlen: int,
         nsamples: int,
         split: str = "train",
-        bos_preprocessing: bool = True,
+        bos_preprocessing: str = None,
         seed: int = 42):
     random.seed(seed)
-    assert bos_preprocessing, "The pile datasets requires bos_preprocessing"
+    assert bos_preprocessing == "sentence", "The pile dataset requires sentence-level BOS pre-processing"
     if split == 'train':
         data = _load_dataset('pile', split, seed)
         return get_dataset_clm(data, tokenizer, nsamples, seqlen)
-
-    if split == 'validation':
+    elif split == 'validation':
         warnings.warn(f"There is no available validation split for pile. Defaulting to wikitext2.")
-        return get_wikitext2(tokenizer, seqlen, nsamples, split, bos_preprocessing=False, seed=seed)
+        return get_wikitext2(tokenizer, seqlen, nsamples, split, bos_preprocessing, seed=seed)
+    else:
+        raise ValueError(f"{split} is invalid")
 
 
 def get_c4(
@@ -63,12 +64,12 @@ def get_c4(
         seqlen: int,
         nsamples: int,
         split: str = "train",
-        bos_preprocessing: bool = True,
+        bos_preprocessing: str = None,
         seed: int = 42):
     random.seed(seed)
     data = _load_dataset('c4', split, seed)
 
-    if bos_preprocessing and split == 'train':
+    if bos_preprocessing == "sentence":
         dataset = get_dataset_clm(data, tokenizer, nsamples, seqlen)
     else:
 
@@ -189,29 +190,25 @@ def get_wikitext2(
         seqlen: int,
         nsamples: int,
         split: str = 'train',
-        bos_preprocessing: bool = True,
+        bos_preprocessing: str = None,
         seed: int = 42):
     random.seed(seed)
-
+    data = _load_dataset('wikitext2', split, seed)
+    # sentence-level BOS pre-process adds a BOS token to every sentence before 
+    # concatenating and splitting it in equal-length sequences
+    if bos_preprocessing == "sentence":
+        return get_dataset_clm(data, tokenizer, nsamples, seqlen)
+    data = tokenizer("\n\n".join(data['text']), return_tensors='pt')
     if split == 'train':
-        data = _load_dataset('wikitext2', split, seed)
-        # BOS Preprocess adds a BOS token to every sentence before concatenating and splitting it
-        # in equal-length sentences
-        if bos_preprocessing:
-            return get_dataset_clm(data, tokenizer, nsamples, seqlen)
-        else:
-            trainenc = tokenizer("\n\n".join(data['text']), return_tensors='pt')
-            trainloader = []
-            for _ in tqdm(range(nsamples)):
-                i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-                j = i + seqlen
-                inp = trainenc.input_ids[:, i:j]
-                attention_mask = torch.ones_like(inp)
-                trainloader.append({'input_ids': inp, 'attention_mask': attention_mask})
-            return trainloader
+        trainloader = []
+        for _ in tqdm(range(nsamples)):
+            i = random.randint(0, data.input_ids.shape[1] - seqlen - 1)
+            j = i + seqlen
+            inp = data.input_ids[:, i:j]
+            attention_mask = torch.ones_like(inp)
+            trainloader.append({'input_ids': inp, 'attention_mask': attention_mask})
+        return trainloader
     elif split == 'validation':
-        data = _load_dataset('wikitext2', split, seed)
-        data = tokenizer("\n\n".join(data['text']), return_tensors='pt')
         nsamples = data['input_ids'].numel() // seqlen
         testloader = []
         for i in tqdm(range(nsamples)):

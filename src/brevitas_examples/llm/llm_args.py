@@ -375,9 +375,11 @@ def create_llm_args_parser():
         action="store_true",
         help='Whether to do zero or few shot eval. Default %(default)s)')
     parser.add_argument(
-        '--no-bos-preprocessing',
-        action="store_true",
-        help='Do not add BOS token during pre-processing. Default %(default)s)')
+        '--bos-preprocessing',
+        type=str,
+        default=None,
+        choices=['sentence', 'sequence'],
+        help='Type of BOS token pre-processing for training and evaluation datasets. Default %(default)s)')
     parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(
@@ -409,6 +411,8 @@ def validate(args, extra_args: Optional[List[str]] = None):
     elif args.rotation == 'fused_no_fx':
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
+    if args.bos_preprocessing is not None:
+        assert args.bos_preprocessing in ['sentence', 'sequence'], f"bos_preprocessing should be either 'sentence' or 'sequence' but found {args.bos_preprocessing}"
     if not args.no_quantize:
         if args.gptq and args.gpfq:
             warn("Both GPTQ and GPFQ are enabled.")
