@@ -73,7 +73,7 @@ def test_minifloat(minifloat_format):
 def test_float_to_quant_float(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
 
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
@@ -118,7 +118,7 @@ def test_scaling_impls_called_once(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.)
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: float_scaling_impl_return)
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
@@ -169,7 +169,7 @@ def test_inner_scale(inp, minifloat_format, scale):
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
     scaling_impl = mock.Mock(side_effect=lambda x, y: scale)
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
