@@ -169,13 +169,21 @@ def test_calibration_step_state():
             return self.act(x)
 
     model = TestModel()
+    inp = torch.rand((5))
     model.eval()
+    expected_out = model(inp)
     with torch.no_grad():
         with calibration_mode(model):
-            pass
+            assert not model.act.act_quant.disable_quant
+            assert model.act.act_quant.fused_activation_quant_proxy.tensor_quant.observer_only
+    out = model(inp)
 
     scale_impl = model.act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
     zero_point_impl = model.act.act_quant.fused_activation_quant_proxy.tensor_quant.zero_point_impl
+    # The output should not have changed, as no input was passed through the model within calibration_mode
+    assert torch.allclose(expected_out, out, rtol=0., atol=0.)
+    assert not model.act.act_quant.disable_quant
+    assert not model.act.act_quant.fused_activation_quant_proxy.tensor_quant.observer_only
     assert scale_impl.counter == scale_impl.collect_stats_steps + 1
     assert zero_point_impl.counter == zero_point_impl.collect_stats_steps + 1
 
