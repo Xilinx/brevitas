@@ -154,6 +154,7 @@ class QuantizationStatusManager:
             call_act_quantizer_impl: bool = False) -> Dict[nn.Module, bool]:
         # Save previous state of activation quantizers
         previous_state = {}
+        previous_observer_state = {}
         # If call_act_quantizer_impl is set to True, the quantization will be performed but the output
         # will be discarded through the hook. It is useful for collecting activation stats,
         # for example during activation calibration in PTQ
@@ -165,13 +166,13 @@ class QuantizationStatusManager:
             elif isinstance(module, ActQuantProxyFromInjectorBase):
                 module.train(is_training)
                 previous_state[module] = module.disable_quant
-                if disable_quant and call_act_quantizer_impl:
-                    for m in module.modules():
-                        if hasattr(m, 'observer_only'):
-                            m.observer_only = True
-                else:
-                    module.disable_quant = disable_quant
-        return previous_state
+                for m in module.modules():
+                    if hasattr(m, 'observer_only'):
+                        previous_observer_state[m] = m.observer_only
+                        m.observer_only = disable_quant and call_act_quantizer_impl
+                # When call_act_quantizer_impl=False, quantization is not disabled
+                module.disable_quant = disable_quant and not call_act_quantizer_impl
+        return previous_state, previous_observer_state
 
     @staticmethod
     def _set_param_quantization(
@@ -254,13 +255,21 @@ class QuantizationStatusManager:
 
     @staticmethod
     def restore_act_quantization(
-            model: nn.Module, is_training: bool, previous_state: Dict[nn.Module, bool]) -> None:
+            model: nn.Module,
+            is_training: bool,
+            previous_state: Dict[nn.Module, bool],
+            previous_observer_state: Dict[nn.Module, bool]) -> None:
         QuantizationStatusManager._restore_quantization_state(
             model=model,
             is_training=is_training,
             previous_state=previous_state,
             quant_proxies=_ACC_PROXIES + (ActQuantProxyFromInjectorBase,),
         )
+        for module in model.modules():
+            if isinstance(module, ActQuantProxyFromInjectorBase) and module in previous_state:
+                for m in module.modules():
+                    if hasattr(m, 'observer_only'):
+                        m.observer_only = previous_observer_state[m]
 
     @staticmethod
     def disable_param_quantization(model: nn.Module, is_training: bool) -> Dict[nn.Module, bool]:
@@ -381,6 +390,7 @@ class disable_enable_quantization:
         # Activations
         self.disable_act_quant = disable_act_quant
         self.act_quant_state = {}
+        self.act_quant_observer_state = {}
         # Weights
         self.disable_weight_quant = disable_weight_quant
         self.weight_quant_state = {}
@@ -393,7 +403,7 @@ class disable_enable_quantization:
 
     def disable_module_quantization(self, module: nn.Module) -> None:
         if self.disable_act_quant:
-            self.act_quant_state = QuantizationStatusManager.disable_act_quantization(
+            self.act_quant_state, self.act_quant_observer_state = QuantizationStatusManager.disable_act_quantization(
                 model=module,
                 is_training=self.is_training,
                 call_act_quantizer_impl=self.call_act_quantizer_impl,
@@ -418,6 +428,7 @@ class disable_enable_quantization:
                 model=module,
                 is_training=self.prev_is_training_state,
                 previous_state=self.act_quant_state,
+                previous_observer_state=self.act_quant_observer_state,
             )
         if self.disable_weight_quant:
             QuantizationStatusManager.restore_weight_quantization(
@@ -548,12 +559,9 @@ class _BiasCorrection:
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
         # Compute float reference
-        QuantizationStatusManager.disable_act_quantization(module, is_training=False)
-        QuantizationStatusManager.disable_param_quantization(module, is_training=False)
-        out_float = module.forward(*inp)  # Required to avoid infinite recursion
+        with disable_enable_quantization(module, is_training=False):
+            out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
-        QuantizationStatusManager.enable_act_quantization(module, is_training=False)
-        QuantizationStatusManager.enable_param_quantization(module, is_training=False)
         # Keep output quant disabled until further notice
         QuantizationStatusManager.disable_act_quantization(
             model=module.output_quant, is_training=False)
