@@ -12,11 +12,7 @@ from brevitas.graph.base import GraphModule
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import Transform
-from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _cross_layer_equalization
-from brevitas.graph.equalize import _extract_regions
-from brevitas.graph.equalize import _supported_layers
-from brevitas.graph.equalize import extract_sdpa_regions
 from brevitas.graph.equalize import Region
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
 

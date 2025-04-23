@@ -53,8 +53,9 @@ from brevitas_examples.llm.llm_quant.awq.graph import EqualizeAWQ
 from brevitas_examples.llm.llm_quant.awq.utils.calib_data import get_calib_dataset
 from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 from brevitas_examples.llm.llm_quant.awq.utils.region import retrieve_block_awq_regions
+from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
-__all__ = ["run_awq"]
+__all__ = ["apply_awq"]
 
 
 def _retrieve_per_block_regions(blocks: List[nn.Module]) -> List[List[RegionAWQ]]:
@@ -98,15 +99,12 @@ def intercept_input(
 
 
 @torch.no_grad()
-def run_awq(
+def apply_awq(
     model: nn.Module,
-    tokenizer,
+    calibration_loader: DatasetToDevice,
     args: Namespace,
-    n_samples: int = 512,
-    seqlen: int = 512,
     auto_scale: bool = True,
     mse_range: bool = True,
-    calib_data: str = "pileval",
 ):
     # Cache needs to be disabled for training
     cache_state = model.config.use_cache
@@ -114,9 +112,8 @@ def run_awq(
     # Retrive model blocks
     blocks = recurse_getattr(model, args.gpxq_block_name)
 
-    samples = get_calib_dataset(
-        data=calib_data, tokenizer=tokenizer, n_samples=n_samples, block_size=seqlen)
-    samples = torch.cat(samples, dim=0)
+    # Concatenate input_ids across the batch dimension
+    samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
 
     first_block = blocks[0]
     cached_args, cached_kwargs = [], []

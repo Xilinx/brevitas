@@ -4,7 +4,6 @@
 from contextlib import contextmanager
 from enum import Enum
 import functools
-from typing import List
 
 
 class AutoName(str, Enum):

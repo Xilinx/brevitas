@@ -40,6 +40,7 @@ from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 __all__ = ["auto_clip_block", "apply_clip"]
 
 
+# Auxiliar method to retrieve properties of the weight quantizer
 def _get_weight_quant_properties(sink: nn.Module, oc_batch_size: int = 256):
     if isinstance(sink.weight_quant, GroupwiseWeightQuantProxyFromInjector):
         num_output_channels, num_groups, group_size = sink.weight_quant.tensor_quant.int_quant.input_view_impl.expanded_groupwise_shape

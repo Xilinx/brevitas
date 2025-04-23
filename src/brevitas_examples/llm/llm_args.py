@@ -307,7 +307,6 @@ def create_llm_args_parser():
         default=0.5,
         type=float,
         help='If activation equalization is enabled, decide what alpha to use')
-    parser.add_argument('--load-awq', type=str, default=None, help="Load the awq search results.")
     parser.add_argument(
         '--export-target',
         default=None,
@@ -392,13 +391,11 @@ def create_llm_args_parser():
     parser.add_argument(
         "--awq-scale",
         action="store_true",
-        default=False,
         help="Whether to apply AWQ scaling (default: %(default)s).",
     )
     parser.add_argument(
         "--awq-clip",
         action="store_true",
-        default=False,
         help="Whether to apply AWQ clipping (default: %(default)s).",
     )
     return parser
