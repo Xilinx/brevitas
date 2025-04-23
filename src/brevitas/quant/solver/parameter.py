@@ -92,7 +92,7 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 
     @value
     def scaling_impl(scaling_impl_type=None):
-
+        # Needed for no-scale minifloat quantization
         if scaling_impl_type is None:
             return None
 
