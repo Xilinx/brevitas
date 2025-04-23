@@ -279,7 +279,11 @@ class gpfq_mode(gpxq_mode):
             pass
 
         # Disable quantization
-        with quantization_status_manager(self.model, is_training=False):
+        with quantization_status_manager(self.model,
+                                         is_training=False,
+                                         disable_act_quant=True,
+                                         disable_weight_quant=True,
+                                         disable_bias_quant=True):
             try:
                 self.orig_forward(*args, **kwargs)
             except StopFwdException:

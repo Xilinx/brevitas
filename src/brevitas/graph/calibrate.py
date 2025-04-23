@@ -379,9 +379,9 @@ class quantization_status_manager:
             model: nn.Module,
             is_training: Optional[bool] = None,
             call_act_quantizer_impl: bool = False,
-            disable_act_quant: bool = True,
-            disable_weight_quant: bool = True,
-            disable_bias_quant: bool = True):
+            disable_act_quant: bool = False,
+            disable_weight_quant: bool = False,
+            disable_bias_quant: bool = False):
         self.model = model
         self.is_training = is_training if is_training is not None else model.training
         self.prev_is_training_state = model.training
@@ -456,7 +456,13 @@ class quantization_status_manager:
 class calibration_mode(quantization_status_manager):
 
     def __init__(self, model, enabled=True):
-        super().__init__(model=model, is_training=True, call_act_quantizer_impl=True)
+        super().__init__(
+            model=model,
+            is_training=True,
+            call_act_quantizer_impl=True,
+            disable_act_quant=True,
+            disable_weight_quant=True,
+            disable_bias_quant=True)
         self.enabled = enabled
 
     def __enter__(self):
@@ -559,7 +565,11 @@ class _BiasCorrection:
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
         # Compute float reference
-        with quantization_status_manager(module, is_training=False):
+        with quantization_status_manager(module,
+                                         is_training=False,
+                                         disable_act_quant=True,
+                                         disable_weight_quant=True,
+                                         disable_bias_quant=True):
             out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         # Keep output quant disabled until further notice
