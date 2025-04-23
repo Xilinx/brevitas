@@ -183,14 +183,14 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         if isinstance(y, QuantTensor):
             y = y.value
 
-        if self.export_mode:
-            y = self.fused_activation_quant_proxy.activation_impl(y)
-            y = self.export_handler(y)
-        elif not self.is_quant_enabled:
+        if not self.is_quant_enabled:
             # A tuple helps later with control flows
             # The second None value is used later
             y = self.fused_activation_quant_proxy.activation_impl(y)
             y = (y, None)
+        elif self.export_mode:
+            y = self.fused_activation_quant_proxy.activation_impl(y)
+            y = self.export_handler(y)
         else:
             y = self.fused_activation_quant_proxy(y)
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
