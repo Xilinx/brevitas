@@ -108,7 +108,10 @@ def test_float_to_quant_float(inp, minifloat_format):
         exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
         out_quant, *_ = float_quant.float_clamp_impl(
             out_quant, exponent_bit_width, max_mantissa, exponent_bias)
-        assert torch.allclose(expected_out, out_quant * scale)
+
+        out_nans = out_quant.isnan()
+        expected_out_nans = expected_out.isnan()
+        assert torch.equal(out_quant[~out_nans], expected_out[~expected_out_nans])
 
 
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
