@@ -139,7 +139,6 @@ class QuantScaledDotProductAttention(Module):
         self.pre_process_q = pre_process_q
         self.pre_process_k = pre_process_k
         self.pre_process_v = pre_process_v
-        print(self.pre_process_q)
 
         def filter_kwargs(prefix):
             return {k[len(prefix):]: v for k, v in kwargs.items() if k.startswith(prefix)}
