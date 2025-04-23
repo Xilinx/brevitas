@@ -8,6 +8,7 @@ from datetime import timedelta
 import functools
 import pprint
 import sys
+from typing import Any
 
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
@@ -20,6 +21,7 @@ import yaml
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.export.shark.manager import SharkManager
 from brevitas.graph import load_quant_model_mode
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.equalize import fuse_parametrizations
@@ -63,8 +65,7 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-from brevitas.export.shark.manager import SharkManager
-from typing import Any
+
 
 def _optional_int_prop(p: dict[str, Any], name: str, default_value: int) -> int:
     value = p.get(name, default_value)
@@ -72,6 +73,8 @@ def _optional_int_prop(p: dict[str, Any], name: str, default_value: int) -> int:
         return int(value)
     except ValueError as e:
         raise ValueError(f"Property '{name}' expected to be an int and was not") from e
+
+
 def _float_prop(p: dict[str, Any], name: str) -> float:
     try:
         return float(p[name])
@@ -80,14 +83,16 @@ def _float_prop(p: dict[str, Any], name: str) -> float:
     except KeyError:
         raise KeyError(f"Property '{name}' not found (among keys {p.keys()})")
 
+
 def _get_dataset_props(config_json_struct) -> dict:
     # Separate meta parameters (prefixed with _) from hparams.
     meta_params = {k: v for k, v in config_json_struct.__dict__.items() if k.startswith("_")}
     hparams = {k: v for k, v in config_json_struct.__dict__.items() if not k.startswith("_")}
     return {
         "meta": meta_params,
-        "hparams": hparams,
-    }
+        "hparams": hparams,}
+
+
 def _int_prop(p: dict[str, Any], name: str) -> int:
     try:
         return int(p[name])
@@ -95,25 +100,30 @@ def _int_prop(p: dict[str, Any], name: str) -> int:
         raise ValueError(f"Property '{name}' expected to be an int and was not") from e
     except KeyError:
         raise KeyError(f"Property '{name}' not found (among keys {p.keys()})")
+
+
 def convert_hf_hparams_to_gguf(hf_hparams: dict[str, any]) -> dict[str, any]:
     hp = hf_hparams["hparams"]
     attention_head_count = _int_prop(hp, "num_attention_heads")
-    attn_head_dim = int(
-        _int_prop(hp, "hidden_size") // _int_prop(hp, "num_attention_heads")
-    )
+    attn_head_dim = int(_int_prop(hp, "hidden_size") // _int_prop(hp, "num_attention_heads"))
 
     return {
-        "llama.context_length": _int_prop(hp, "max_position_embeddings"),
-        "llama.embedding_length": _int_prop(hp, "hidden_size"),
-        "llama.block_count": _int_prop(hp, "num_hidden_layers"),
-        "llama.feed_forward_length": _int_prop(hp, "intermediate_size"),
-        "llama.rope.dimension_count": attn_head_dim,
-        "llama.attention.head_count": attention_head_count,
-        "llama.attention.layer_norm_rms_epsilon": _float_prop(hp, "rms_norm_eps"),
-        "llama.attention.head_count_kv": _optional_int_prop(
-            hp, "num_key_value_heads", attention_head_count
-        ),
-    }
+        "llama.context_length":
+            _int_prop(hp, "max_position_embeddings"),
+        "llama.embedding_length":
+            _int_prop(hp, "hidden_size"),
+        "llama.block_count":
+            _int_prop(hp, "num_hidden_layers"),
+        "llama.feed_forward_length":
+            _int_prop(hp, "intermediate_size"),
+        "llama.rope.dimension_count":
+            attn_head_dim,
+        "llama.attention.head_count":
+            attention_head_count,
+        "llama.attention.layer_norm_rms_epsilon":
+            _float_prop(hp, "rms_norm_eps"),
+        "llama.attention.head_count_kv":
+            _optional_int_prop(hp, "num_key_value_heads", attention_head_count),}
 
 
 def filter_results(results, tasks):
@@ -256,7 +266,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
+        require_fx=False,  #require_fx and args.export_target is not None,
         device=None)
 
     validation_loader = get_dataset_for_model(
@@ -268,7 +278,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="validation",
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
+        require_fx=False,  #require_fx and args.export_target is not None,
         device=None)
 
     if args.optimize_rotations:
@@ -302,13 +312,14 @@ def quantize_llm(args, extra_args=None):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
+        if False:  #model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
             model = get_fx(model, is_export=args.export_target is not None)
         else:
             with torch.no_grad():
                 model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
+    model.eval()
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
