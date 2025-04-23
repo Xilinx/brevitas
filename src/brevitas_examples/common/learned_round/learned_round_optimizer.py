@@ -207,7 +207,7 @@ from tqdm import tqdm
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
-from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -321,7 +321,7 @@ def save_inputs_output(
         keep_gpu: bool = True,
         disable_quant: bool = False) -> None:
     if disable_quant:
-        disable_quantization_cm = disable_enable_quantization(
+        disable_quantization_cm = quantization_status_manager(
             model=model,
             is_training=False,
         )

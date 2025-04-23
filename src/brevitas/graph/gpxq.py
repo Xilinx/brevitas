@@ -16,7 +16,7 @@ from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 
 from brevitas.fx import GraphModule
-from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
@@ -33,7 +33,7 @@ class LayerHandler:
     forward_count: int = 0
 
 
-class gpxq_mode(disable_enable_quantization):
+class gpxq_mode(quantization_status_manager):
     """
     Apply GPxQ algorithm.
 

@@ -8,7 +8,7 @@ from accelerate.utils.operations import send_to_device
 import torch
 from tqdm import tqdm
 
-from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
@@ -45,7 +45,7 @@ def block_optimization(
         context_manager_func,
         context_manager_kwargs,
         block_optimization_callback=_gpxq_block_optimization_callback):
-    disable_quantization_cm = disable_enable_quantization(
+    disable_quantization_cm = quantization_status_manager(
         model=model,
         disable_act_quant=not context_manager_kwargs.get('use_quant_activations', True),
         disable_weight_quant=False,

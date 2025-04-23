@@ -11,7 +11,7 @@ from torch import Tensor
 import torch.nn as nn
 import unfoldNd
 
-from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -279,7 +279,7 @@ class gpfq_mode(gpxq_mode):
             pass
 
         # Disable quantization
-        with disable_enable_quantization(self.model, is_training=False):
+        with quantization_status_manager(self.model, is_training=False):
             try:
                 self.orig_forward(*args, **kwargs)
             except StopFwdException:

@@ -19,8 +19,8 @@ from brevitas.graph.calibrate import _BIAS_PROXIES
 from brevitas.graph.calibrate import _WEIGHT_PROXIES
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
-from brevitas.graph.calibrate import disable_enable_quantization
 from brevitas.graph.calibrate import load_quant_model_mode
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.calibrate import QuantizationStatusManager
 from brevitas.inject.enum import RestrictValueType
 import brevitas.nn as qnn
@@ -374,7 +374,7 @@ class TestQuantizationStatusManager():
         model.eval()
         return model
 
-    def test_disable_enable_quantization(self, model):
+    def test_quantization_status_manager(self, model):
         # Sample input, not relevant to the task
         sample_input = torch.rand(size=(2, 3))
 
@@ -448,7 +448,7 @@ class TestQuantizationStatusManager():
         'disable_out_quant', [False, True],
         ids=lambda disable_quant: f"out_quant={not disable_quant}")
     @pytest_cases.parametrize('is_training', [False, True], ids=lambda flag: f"is_training={flag}")
-    def test_disable_enable_quantization_context_manager(
+    def test_quantization_status_manager_context_manager(
             self,
             disable_weight_quant,
             disable_bias_quant,
@@ -456,7 +456,7 @@ class TestQuantizationStatusManager():
             disable_out_quant,
             is_training):
         # _QUANT_PROXIES holds the quantizer classes whose state can potentially change
-        # when entering the disable_enable_quantization context manager
+        # when entering the quantization_status_manager context manager
         _ACTIVATION_PROXIES = _ACC_PROXIES + (ActQuantProxyFromInjectorBase,)
         _QUANT_PROXIES = ((_WEIGHT_PROXIES if disable_weight_quant else tuple()) +
                           (_BIAS_PROXIES if disable_bias_quant else tuple()) +
@@ -474,7 +474,7 @@ class TestQuantizationStatusManager():
         # Set model .training to the contrary of is_training
         model.train(not is_training)
         # Context manager to be tested
-        disable_quantization_cm = disable_enable_quantization(
+        disable_quantization_cm = quantization_status_manager(
             model=model,
             is_training=is_training,
             disable_act_quant=disable_act_quant,

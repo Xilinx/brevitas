@@ -27,7 +27,7 @@ from .base import Transform
 __all__ = [
     'ClipFloatWeights',
     'QuantizationStatusManager',
-    'disable_enable_quantization',
+    'quantization_status_manager',
     'bias_correction_mode',
     'calibration_mode',
     'load_quant_model_mode']
@@ -356,7 +356,7 @@ class QuantizationStatusManager:
         )
 
 
-class disable_enable_quantization:
+class quantization_status_manager:
     """
         Context manager to disable/enable quantization for a nn.Module,
         potentially excluding a set of submodules.
@@ -453,7 +453,7 @@ class disable_enable_quantization:
         self.enable_module_quantization(module=self.model)
 
 
-class calibration_mode(disable_enable_quantization):
+class calibration_mode(quantization_status_manager):
 
     def __init__(self, model, enabled=True):
         super().__init__(model=model, is_training=True, call_act_quantizer_impl=True)
@@ -461,13 +461,13 @@ class calibration_mode(disable_enable_quantization):
 
     def __enter__(self):
         if self.enabled:
-            # Call __enter__ on disable_enable_quantization context manager
+            # Call __enter__ on quantization_status_manager context manager
             super().__enter__()
             self.model.apply(extend_collect_stats_steps)
             self.model.apply(set_collect_stats_to_average)
 
     def __exit__(self, type, value, traceback):
-        # Call __exit__ on disable_enable_quantization context manager
+        # Call __exit__ on quantization_status_manager context manager
         super().__exit__(type, value, traceback)
         self.model.apply(finalize_collect_stats)
 
@@ -559,7 +559,7 @@ class _BiasCorrection:
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
         # Compute float reference
-        with disable_enable_quantization(module, is_training=False):
+        with quantization_status_manager(module, is_training=False):
             out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         # Keep output quant disabled until further notice
