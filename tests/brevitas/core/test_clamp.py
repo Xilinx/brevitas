@@ -7,12 +7,9 @@ import torch
 
 from brevitas.function.ops import compute_max_mantissa
 from brevitas.function.ops import max_float
-from brevitas.quant.experimental.float import Fp8e4m3Weight
-from brevitas.quant.experimental.float import Fp8e5m2Weight
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeight
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e5m2FNUZWeight
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeight
+from brevitas.quant.experimental.float import *
+from brevitas.quant.experimental.float_quant_fnuz import *
+from brevitas.quant.experimental.float_quant_ocp import *
 from brevitas.utils.float_quant_utils import get_max_available_float
 from brevitas.utils.float_quant_utils import get_min_available_float
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
@@ -33,23 +30,26 @@ FORMAT_MAXVAL_MAP = {
     Fp8e1m6Weight: 3.96875}
 
 FORMAT_MINVAL_MAP = {
-    Fp8e5m2OCPWeight: 2.0 ** -16,
-    Fp8e4m3OCPWeight: 2.0 ** -9,
-    Fp8e4m3Weight: 2.0 ** -9,
-    Fp8e5m2Weight: 2.0 ** -16,
-    Fp8e4m3FNUZWeight: 2.0 ** -10,
-    Fp8e5m2FNUZWeight: 2.0 ** -17,
-    Fp8e7m0Weight: 2.0 ** -63,  # Custom exponent_bit_width
-    Fp8e6m1Weight: 2.0 ** -31,
-    Fp8e3m4Weight: 2.0 ** -6,
-    Fp8e2m5Weight: 2.0 ** -5,
-    Fp8e1m6Weight: 2.0 ** -5}
+    Fp8e5m2OCPAct: 2.0 ** -16,
+    Fp8e4m3OCPAct: 2.0 ** -9,
+    Fp8e4m3Act: 2.0 ** -9,
+    Fp8e5m2Act: 2.0 ** -16,
+    Fp8e4m3FNUZAct: 2.0 ** -10,
+    Fp8e5m2FNUZAct: 2.0 ** -17,
+    Fp8e7m0Act: 2.0 ** -63,  # Custom exponent_bit_width
+    Fp8e6m1Act: 2.0 ** -31,
+    Fp8e3m4Act: 2.0 ** -6,
+    Fp8e2m5Act: 2.0 ** -5,
+    Fp8e1m6Act: 2.0 ** -5}
 
 
 @pytest.mark.parametrize(
     'minifloat, expected_max_val',
     ((format, max_val) for format, max_val in FORMAT_MAXVAL_MAP.items()))
 def test_max_value(minifloat, expected_max_val):
+    minifloat = minifloat.let(tracked_parameter_list=[torch.nn.Parameter(torch.randn(1, 5))])
+    # Instantiate quantizer to check that init is correct
+    obj = minifloat.tensor_quant
     max_mantissa = compute_max_mantissa(
         torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32))
     max_val = max_float(
@@ -73,6 +73,8 @@ def test_max_value(minifloat, expected_max_val):
     'minifloat, expected_min_val',
     ((format, min_val) for format, min_val in FORMAT_MINVAL_MAP.items()))
 def test_min_value(minifloat, expected_min_val):
+    # Instantiate quantizer to check that init is correct
+    obj = minifloat.tensor_quant
     min_val = get_min_available_float(
         minifloat.exponent_bit_width,
         minifloat.mantissa_bit_width,

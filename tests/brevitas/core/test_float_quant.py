@@ -29,7 +29,7 @@ from tests.marker import jit_disabled_for_mock
 def test_float_quant_defaults(minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
 
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
@@ -73,7 +73,7 @@ def test_minifloat(minifloat_format):
 def test_float_to_quant_float(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
 
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
@@ -108,7 +108,10 @@ def test_float_to_quant_float(inp, minifloat_format):
         exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
         out_quant, *_ = float_quant.float_clamp_impl(
             out_quant, exponent_bit_width, max_mantissa, exponent_bias)
-        assert torch.allclose(expected_out, out_quant * scale)
+
+        out_nans = out_quant.isnan()
+        expected_out_nans = expected_out.isnan()
+        assert torch.equal(out_quant[~out_nans], expected_out[~expected_out_nans])
 
 
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
@@ -118,7 +121,7 @@ def test_scaling_impls_called_once(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.)
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: float_scaling_impl_return)
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,
@@ -169,7 +172,7 @@ def test_inner_scale(inp, minifloat_format, scale):
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
     scaling_impl = mock.Mock(side_effect=lambda x, y: scale)
-    if exponent_bit_width == 0 or mantissa_bit_width == 0:
+    if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
                 bit_width=bit_width,

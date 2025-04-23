@@ -55,14 +55,14 @@ class FpOCPWeight(FpOCPMixin, FloatWeightBase):
     """
     OCP FP signed weight quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpOCPAct(FpOCPMixin, FloatActBase):
     """
     OCP FP signed activation quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpOCPWeightPerTensorFloat(FpOCPMixin, ScaledFloatWeightBase):

@@ -26,14 +26,14 @@ class FpFNUZWeight(FpFNUZMixin, FloatWeightBase):
     """
     FNUZ FP8 signed weight quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpFNUZAct(FpFNUZMixin, FloatActBase):
     """
     FP8 signed activation quantizer.
     """
-    pass
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpFNUZWeightPerTensorFloat(FpFNUZMixin, ScaledFloatWeightBase):
