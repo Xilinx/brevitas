@@ -16,9 +16,7 @@ from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 
 from brevitas.fx import GraphModule
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
-from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
@@ -35,7 +33,7 @@ class LayerHandler:
     forward_count: int = 0
 
 
-class gpxq_mode(ABC):
+class gpxq_mode(quantization_status_manager):
     """
     Apply GPxQ algorithm.
 
@@ -72,10 +70,16 @@ class gpxq_mode(ABC):
             use_quant_activations: bool = True,
             act_order: bool = False,
             return_forward_output: bool = False) -> None:
-
         if not inplace:
             model = deepcopy(model)
-        self.model = model
+        # Note that if use_quant_activations = True, the super() context manager
+        # is equivalent to a nullcontext
+        super().__init__(
+            model=model,
+            disable_act_quant=not use_quant_activations,
+            disable_weight_quant=False,
+            disable_bias_quant=not use_quant_activations,
+        )
         self.create_weight_orig = create_weight_orig
         self.use_quant_activations = use_quant_activations
         self.hook_dict = dict()
@@ -86,9 +90,6 @@ class gpxq_mode(ABC):
         self.num_layers = 0
         # Quantize following magnitude of activation
         self.act_order = act_order
-
-        self.disable_quant_inference = DisableEnableQuantization()
-        self.return_quant_tensor_state = dict()
 
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
@@ -110,6 +111,8 @@ class gpxq_mode(ABC):
             return False
 
     def __enter__(self):
+        # Disable quantization selectively
+        super().__enter__()
         # The user can specify on which layers to apply gptq in parallel.
         # All the others will be executed sequentially
         dict_of_layers = {
@@ -148,28 +151,16 @@ class gpxq_mode(ABC):
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gpxq_layers[name] = gpxq_module_optimizer
 
-        if not self.use_quant_activations:
-            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
-            self.disable_quant_inference.disable_act_quantization(
-                self.model, is_training=self.model.training)
-            self.disable_quant_inference.disable_bias_quantization(
-                self.model, is_training=self.model.training)
-
         self.num_layers = len(dict_of_layers)
         return self
 
     def __exit__(self, type, value, traceback):
+        # Restore original quantization configuration
+        super().__exit__(type, value, traceback)
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
             self.model.__class__.forward = self.orig_forward
         else:
             self.model.forward = self.orig_forward
-
-        if not self.use_quant_activations:
-            self.disable_quant_inference.enable_act_quantization(
-                self.model, is_training=self.model.training)
-            self.disable_quant_inference.enable_bias_quantization(
-                self.model, is_training=self.model.training)
-            restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
     def update(self):
         for name in self.current_layer.layer_names:

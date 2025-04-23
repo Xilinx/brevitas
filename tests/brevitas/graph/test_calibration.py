@@ -1,8 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from contextlib import nullcontext
+from copy import deepcopy
 import math
-from typing import Union
+from typing import Optional, Union
 
 from hypothesis import given
 import pytest
@@ -10,18 +12,24 @@ import pytest_cases
 from pytest_cases import fixture
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from brevitas.graph.calibrate import _ACC_PROXIES
+from brevitas.graph.calibrate import _BIAS_PROXIES
+from brevitas.graph.calibrate import _WEIGHT_PROXIES
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import load_quant_model_mode
-from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.calibrate import QuantizationStatusManager
 from brevitas.inject.enum import RestrictValueType
 import brevitas.nn as qnn
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
@@ -161,13 +169,21 @@ def test_calibration_step_state():
             return self.act(x)
 
     model = TestModel()
+    inp = torch.rand((5))
     model.eval()
+    expected_out = model(inp)
     with torch.no_grad():
         with calibration_mode(model):
-            pass
+            assert not model.act.act_quant.disable_quant
+            assert model.act.act_quant.fused_activation_quant_proxy.tensor_quant.observer_only
+    out = model(inp)
 
     scale_impl = model.act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
     zero_point_impl = model.act.act_quant.fused_activation_quant_proxy.tensor_quant.zero_point_impl
+    # The output should not have changed, as no input was passed through the model within calibration_mode
+    assert torch.allclose(expected_out, out, rtol=0., atol=0.)
+    assert not model.act.act_quant.disable_quant
+    assert not model.act.act_quant.fused_activation_quant_proxy.tensor_quant.observer_only
     assert scale_impl.counter == scale_impl.collect_stats_steps + 1
     assert zero_point_impl.counter == zero_point_impl.collect_stats_steps + 1
 
@@ -338,12 +354,12 @@ def test_bias_correction_flag():
             assert m.bias is None
 
 
-class TestDisableEnableQuantization():
+class TestQuantizationStatusManager():
 
     @fixture
     def model(self):
 
-        class TestQuantModel(nn.Module):
+        class TestActQuantModel(nn.Module):
 
             def __init__(self) -> None:
                 super().__init__()
@@ -354,12 +370,11 @@ class TestDisableEnableQuantization():
                                        QuantTensor]) -> Union[torch.Tensor, QuantTensor]:
                 return self.act(x)
 
-        model = TestQuantModel()
+        model = TestActQuantModel()
         model.eval()
         return model
 
-    def test_disable_enable_quantization(self, model):
-        disable_quant_class = DisableEnableQuantization()
+    def test_quantization_status_manager(self, model):
         # Sample input, not relevant to the task
         sample_input = torch.rand(size=(2, 3))
 
@@ -368,7 +383,7 @@ class TestDisableEnableQuantization():
         assert isinstance(quant_out, QuantTensor) and quant_out.is_valid
 
         # (2) Disable activation quantisation
-        disable_quant_class.disable_act_quantization(model, is_training=False)
+        QuantizationStatusManager.disable_act_quantization(model=model, is_training=False)
         # Verify that an error is raised when return_quant_tensor=True and
         # disable_return_quant_tensor is not applied
         with pytest.raises(
@@ -377,13 +392,120 @@ class TestDisableEnableQuantization():
             model(sample_input)
 
         # (3) Disable return quant tensor and verify no error is raised
-        return_quant_tensor_state = disable_return_quant_tensor(model)
+        return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(model)
         fp_out = model(sample_input)
         assert isinstance(fp_out, torch.Tensor)
 
         # (4) Enable again activation quantisation and check that a QuantTensor
         # is returned
-        restore_return_quant_tensor(model, return_quant_tensor_state)
-        disable_quant_class.enable_act_quantization(model, is_training=False)
+        QuantizationStatusManager.restore_return_quant_tensor(model, return_quant_tensor_state)
+        QuantizationStatusManager.enable_act_quantization(model, is_training=False)
         quant_out = model(sample_input)
         assert isinstance(quant_out, QuantTensor) and quant_out.is_valid
+
+    # Auxiliar method to evaluate the expected output of a QuantLinear module when quantization is disable
+    # in a fine-grained fashion
+    def _evaluate_quant_linear(
+            self,
+            model: qnn.QuantLinear,
+            input: torch.Tensor,
+            disable_weight_quant: bool,
+            disable_bias_quant: bool,
+            disable_act_quant: bool) -> torch.Tensor:
+        # Retrieve quantized/unquantized weights depending on the value of disable_weight_quant
+        if disable_weight_quant:
+            weight = model.weight
+        else:
+            weight = model.quant_weight().value
+
+        quant_input = model.input_quant(input)
+
+        if disable_bias_quant:
+            bias = model.bias
+        else:
+            bias = model.bias_quant(model.bias, quant_input, model.quant_weight())
+        # Retrieve quantized/unquantized input depending on the value of disable_act_quant
+        if not disable_act_quant:
+            input = quant_input
+
+        # Compute the expected output
+        expected_output = F.linear(input, weight, bias)
+        # Quantize the output when disable_act_quant=False
+        if not disable_act_quant:
+            expected_output = model.output_quant(expected_output)
+        return expected_output
+
+    @pytest_cases.parametrize(
+        'disable_weight_quant', [False, True],
+        ids=lambda disable_quant: f"weight_quant={not disable_quant}")
+    @pytest_cases.parametrize(
+        'disable_bias_quant', [False, True],
+        ids=lambda disable_quant: f"bias_quant={not disable_quant}")
+    @pytest_cases.parametrize(
+        'disable_act_quant', [False, True],
+        ids=lambda disable_quant: f"act_quant={not disable_quant}")
+    @pytest_cases.parametrize(
+        'disable_out_quant', [False, True],
+        ids=lambda disable_quant: f"out_quant={not disable_quant}")
+    @pytest_cases.parametrize('is_training', [False, True], ids=lambda flag: f"is_training={flag}")
+    def test_quantization_status_manager_context_manager(
+            self,
+            disable_weight_quant,
+            disable_bias_quant,
+            disable_act_quant,
+            disable_out_quant,
+            is_training):
+        # _QUANT_PROXIES holds the quantizer classes whose state can potentially change
+        # when entering the quantization_status_manager context manager
+        _ACTIVATION_PROXIES = _ACC_PROXIES + (ActQuantProxyFromInjectorBase,)
+        _QUANT_PROXIES = ((_WEIGHT_PROXIES if disable_weight_quant else tuple()) +
+                          (_BIAS_PROXIES if disable_bias_quant else tuple()) +
+                          (_ACTIVATION_PROXIES if disable_act_quant else tuple()))
+        model = qnn.QuantLinear(
+            in_features=3,
+            out_features=1,
+            bias=True,
+            weight_quant=Int8WeightPerTensorFloat,
+            bias_quant=Int8BiasPerTensorFloatInternalScaling,
+            input_quant=Int8ActPerTensorFloat,
+            output_quant=None if disable_out_quant else Int8ActPerTensorFloat,
+            return_quant_tensor=True,
+        )
+        # Set model .training to the contrary of is_training
+        model.train(not is_training)
+        # Context manager to be tested
+        disable_quantization_cm = quantization_status_manager(
+            model=model,
+            is_training=is_training,
+            disable_act_quant=disable_act_quant,
+            disable_weight_quant=disable_weight_quant,
+            disable_bias_quant=disable_bias_quant,
+        )
+        # Sample input, not relevant to the task
+        input = torch.rand(size=(2, 3))
+
+        expected_output = self._evaluate_quant_linear(
+            model=model,
+            input=input,
+            disable_weight_quant=disable_weight_quant,
+            disable_bias_quant=disable_bias_quant,
+            disable_act_quant=disable_act_quant,
+        )
+
+        with disable_quantization_cm:
+            # Verify .training was set appropiately
+            assert all(
+                module.training == is_training
+                for module in model.modules()
+                if isinstance(module, _QUANT_PROXIES))
+            output = model(input)
+
+        # Verify .training was modified appropiately when exiting the context
+        # manager
+        assert all(
+            module.training == (not is_training)
+            for module in model.modules()
+            if isinstance(module, _QUANT_PROXIES))
+
+        # Verify that output matches the expected
+        assert torch.allclose(expected_output, output)

@@ -8,9 +8,7 @@ from accelerate.utils.operations import send_to_device
 import torch
 from tqdm import tqdm
 
-from brevitas.graph.calibrate import disable_return_quant_tensor
-from brevitas.graph.calibrate import DisableEnableQuantization
-from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
@@ -47,7 +45,12 @@ def block_optimization(
         context_manager_func,
         context_manager_kwargs,
         block_optimization_callback=_gpxq_block_optimization_callback):
-    disable_quant_inference = DisableEnableQuantization()
+    disable_quantization_cm = quantization_status_manager(
+        model=model,
+        disable_act_quant=not context_manager_kwargs.get('use_quant_activations', True),
+        disable_weight_quant=False,
+        disable_bias_quant=not context_manager_kwargs.get('use_quant_activations', True),
+    )
     cache_state = model.config.use_cache
     model.config.use_cache = False
     blocks = recurse_getattr(model, block_name)
@@ -71,23 +74,14 @@ def block_optimization(
         raise StopFwdException
 
     # Collect input to first block
-    if not context_manager_kwargs.get('use_quant_activations', True):
-        return_quant_tensor_state = disable_return_quant_tensor(model)
-        disable_quant_inference.disable_act_quantization(model, is_training=model.training)
-        disable_quant_inference.disable_bias_quantization(model, is_training=model.training)
-
     hook = first_block.register_forward_pre_hook(intercept_input, with_kwargs=True)
-    for inps in dataloader:
-        try:
-            model(**inps)
-        except StopFwdException:
-            pass
+    with disable_quantization_cm:
+        for inps in dataloader:
+            try:
+                model(**inps)
+            except StopFwdException:
+                pass
     hook.remove()
-
-    if not context_manager_kwargs.get('use_quant_activations', True):
-        disable_quant_inference.enable_act_quantization(model, is_training=model.training)
-        disable_quant_inference.enable_bias_quantization(model, is_training=model.training)
-        restore_return_quant_tensor(model, return_quant_tensor_state)
 
     # Iterate through all the blocks
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
@@ -100,24 +94,14 @@ def block_optimization(
             cached_args = []
             hook = block.register_forward_hook(intercept_output, with_kwargs=True)
 
-            if not context_manager_kwargs.get('use_quant_activations', True):
-                return_quant_tensor_state = disable_return_quant_tensor(model)
-                disable_quant_inference.disable_act_quantization(model, is_training=model.training)
-                disable_quant_inference.disable_bias_quantization(model, is_training=model.training)
-
-            for args, kwargs in zip(past_cached_args, past_cached_kwargs):
-                try:
-                    args = send_to_device(args, 'cuda')
-                    kwargs = send_to_device(kwargs, 'cuda')
-                    block(*args, **kwargs)
-                except StopFwdException:
-                    pass
-
-            if not context_manager_kwargs.get('use_quant_activations', True):
-                disable_quant_inference.enable_act_quantization(model, is_training=model.training)
-                disable_quant_inference.enable_bias_quantization(model, is_training=model.training)
-                restore_return_quant_tensor(model, return_quant_tensor_state)
-
+            with disable_quantization_cm:
+                for args, kwargs in zip(past_cached_args, past_cached_kwargs):
+                    try:
+                        args = send_to_device(args, 'cuda')
+                        kwargs = send_to_device(kwargs, 'cuda')
+                        block(*args, **kwargs)
+                    except StopFwdException:
+                        pass
             hook.remove()
     # Restore cache state
     model.config.use_cache = cache_state
