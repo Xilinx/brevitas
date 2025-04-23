@@ -379,7 +379,9 @@ def create_llm_args_parser():
         type=str,
         default=None,
         choices=['sentence', 'sequence'],
-        help='Type of BOS token pre-processing for training and evaluation datasets. Default %(default)s)')
+        help=
+        'Type of BOS token pre-processing for training and evaluation datasets. Default %(default)s)'
+    )
     parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(

@@ -194,7 +194,7 @@ def get_wikitext2(
         seed: int = 42):
     random.seed(seed)
     data = _load_dataset('wikitext2', split, seed)
-    # sentence-level BOS pre-process adds a BOS token to every sentence before 
+    # sentence-level BOS pre-process adds a BOS token to every sentence before
     # concatenating and splitting it in equal-length sequences
     if bos_preprocessing == "sentence":
         return get_dataset_clm(data, tokenizer, nsamples, seqlen)
