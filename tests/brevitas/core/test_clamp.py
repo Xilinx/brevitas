@@ -73,6 +73,7 @@ def test_max_value(minifloat, expected_max_val):
     'minifloat, expected_min_val',
     ((format, min_val) for format, min_val in FORMAT_MINVAL_MAP.items()))
 def test_min_value(minifloat, expected_min_val):
+    # Instantiate quantizer to check that init is correct
     obj = minifloat.tensor_quant
     min_val = get_min_available_float(
         minifloat.exponent_bit_width,
