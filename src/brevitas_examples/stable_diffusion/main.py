@@ -58,8 +58,6 @@ from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.common.svd_quant import ErrorCorrectedModule
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
-from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
@@ -643,11 +641,13 @@ def main(args):
         if args.gptq:
             print("Applying GPTQ. It can take several hours")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
-                with gptq_mode(denoising_network,
-                               create_weight_orig=False,
-                               use_quant_activations=True,
-                               return_forward_output=False,
-                               act_order=True) as gptq:
+                with gptq_mode(
+                        denoising_network,
+                        create_weight_orig=args
+                        .bias_correction,  # if we use bias_corr, we need weight_orig
+                        use_quant_activations=True,
+                        return_forward_output=False,
+                        act_order=True) as gptq:
                     for _ in tqdm(range(gptq.num_layers)):
                         calibration_step(num_prompts=128)
                         gptq.update()
@@ -834,6 +834,9 @@ def main(args):
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
         if args.inference_pipeline == 'mlperf':
+            from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import \
+                compute_mlperf_fid
+
             print(f"Computing accuracy with MLPerf pipeline")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 # Perform a single forward pass before evenutally compiling
@@ -978,12 +981,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Stable Diffusion quantization')
-    parser.add_argument(
-        '-m',
-        '--model',
-        type=str,
-        default='/scratch/hf_models/stable-diffusion-2-1-base',
-        help='Path or name of the model.')
+    parser.add_argument('-m', '--model', type=str, default=None, help='Path or name of the model.')
     parser.add_argument(
         '-d', '--device', type=str, default='cuda:0', help='Target device for quantized model.')
     parser.add_argument(
