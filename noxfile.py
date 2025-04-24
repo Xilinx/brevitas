@@ -33,7 +33,12 @@ def install_pytorch_cmd(pytorch):
         if parse(pytorch) < parse('2.4.0'):
             cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
         else:
-            cmd = [f'torch=={pytorch}', '--index-url', PYTORCH_STABLE_WHEEL_SRC, '--extra-index-url', PIP_URL]
+            cmd = [
+                f'torch=={pytorch}',
+                '--index-url',
+                PYTORCH_STABLE_WHEEL_SRC,
+                '--extra-index-url',
+                PIP_URL]
 
     else:
         cmd = [f'torch=={pytorch}']
@@ -44,16 +49,14 @@ def install_torchvision_cmd(pytorch):
     torchvision = PARSED_TORCHVISION_VERSION_DICT[version.parse(pytorch)]
     if not IS_OSX:
         if parse(pytorch) < parse('2.4.0'):
-            cmd = [
-                f'torchvision=={torchvision}+cpu',
-                '-f',
-                PYTORCH_STABLE_WHEEL_SRC_LEGACY]
+            cmd = [f'torchvision=={torchvision}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
         else:
             cmd = [
                 f'torchvision=={torchvision}',
                 '--index-url',
                 PYTORCH_STABLE_WHEEL_SRC,
-                '--extra-index-url', PIP_URL]
+                '--extra-index-url',
+                PIP_URL]
     else:
         cmd = [f'torchvision=={torchvision}']
     return cmd
