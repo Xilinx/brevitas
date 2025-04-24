@@ -620,7 +620,7 @@ def main(args):
             if needs_calibration:
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(denoising_network):
-                    calibration_step()
+                    calibration_step(force_full_calibration=True)
 
         if args.svd_quant:
             print("Applying SVDQuant...")
@@ -656,7 +656,7 @@ def main(args):
             print("Applying bias correction")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
                 with bias_correction_mode(denoising_network):
-                    calibration_step()
+                    calibration_step(force_full_calibration=True)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
