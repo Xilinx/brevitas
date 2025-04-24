@@ -27,7 +27,7 @@ JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 PARSED_TORCHVISION_VERSION_DICT = {version.parse(k): v for k, v in TORCHVISION_VERSION_DICT.items()}
 
 
-def install_pytorch(pytorch, session):
+def install_pytorch_cmd(pytorch):
     if not IS_OSX:
         if parse(pytorch) < parse('2.4.0'):
             cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
@@ -36,27 +36,25 @@ def install_pytorch(pytorch, session):
 
     else:
         cmd = [f'torch=={pytorch}']
-    session.install(*cmd)
+    return cmd
 
 
-def install_torchvision(pytorch, session):
+def install_torchvision_cmd(pytorch):
     torchvision = PARSED_TORCHVISION_VERSION_DICT[version.parse(pytorch)]
     if not IS_OSX:
         if parse(pytorch) < parse('2.4.0'):
             cmd = [
-                f'torch=={pytorch}+cpu',  # make sure correct pytorch version is kept
                 f'torchvision=={torchvision}+cpu',
                 '-f',
                 PYTORCH_STABLE_WHEEL_SRC_LEGACY]
         else:
             cmd = [
-                f'torch=={pytorch}',
                 f'torchvision=={torchvision}',
                 '--index-url',
                 PYTORCH_STABLE_WHEEL_SRC]
     else:
-        cmd = [f'torch=={pytorch}', f'torchvision=={torchvision}']
-    session.install(*cmd)
+        cmd = [f'torchvision=={torchvision}']
+    return cmd
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -64,9 +62,10 @@ def install_torchvision(pytorch, session):
 @nox.parametrize('jit_status', JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test, export]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, export]', *cmd)
     if jit_status == 'jit_enabled':
         session.run('pytest', '-k', 'not _full', 'tests/brevitas/nn/test_nn_quantizers.py', '-v')
         session.run(
@@ -111,9 +110,10 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)  # For CV eval scripts
-    session.install('-e', '.[test, tts, stt, vision]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)  # For CV eval scripts
+    session.install('-e', '.[test, tts, stt, vision]', *cmd)
     session.run(
         'pytest',
         '-n',
@@ -129,18 +129,20 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_examples_llm(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
+    session.install('-e', '.[test, llm, export]', *cmd)
     session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_install_dev(session, pytorch):
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test]', *cmd)
     session.env['BREVITAS_VERBOSE'] = '1'
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas/test_brevitas_import.py')
 
@@ -148,18 +150,20 @@ def tests_brevitas_install_dev(session, pytorch):
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_examples_install_dev(session, pytorch):
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test, tts, stt]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, tts, stt]', *cmd)
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_examples/test_examples_import.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_finn_integration(session, pytorch):
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test, stt, finn_integration]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, stt, finn_integration]', *cmd)
     env = {'FINN_INST_NAME': 'finn'}
     session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
 
@@ -167,18 +171,20 @@ def tests_brevitas_finn_integration(session, pytorch):
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_ort_integration(session, pytorch):
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test, ort_integration]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, ort_integration]', *cmd)
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_ort')
 
 
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_notebook(session, pytorch):
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test, ort_integration, notebook]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, ort_integration, notebook]', *cmd)
     session.run(
         'pytest',
         '-n',
@@ -194,7 +200,8 @@ def tests_brevitas_notebook(session, pytorch):
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_end_to_end(session, pytorch):
-    install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)
-    session.install('-e', '.[test, ort_integration]')
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, ort_integration]', *cmd)
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_end_to_end')
