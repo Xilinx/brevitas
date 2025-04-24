@@ -19,6 +19,7 @@ from gen_github_actions import TORCHVISION_VERSION_DICT
 IS_OSX = system() == 'Darwin'
 PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/cpu'
 PYTORCH_STABLE_WHEEL_SRC_LEGACY = 'https://download.pytorch.org/whl/torch_stable.html'
+PIP_URL = 'https://pypi.org/simple'
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 EXAMPLES_LLM_PYTEST_PYTORCH_IDS = tuple([
     f'pytorch_{i}' for i in EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS])
@@ -32,7 +33,7 @@ def install_pytorch_cmd(pytorch):
         if parse(pytorch) < parse('2.4.0'):
             cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
         else:
-            cmd = [f'torch=={pytorch}', '--index-url', PYTORCH_STABLE_WHEEL_SRC]
+            cmd = [f'torch=={pytorch}', '--index-url', PYTORCH_STABLE_WHEEL_SRC, '--extra-index-url', PIP_URL]
 
     else:
         cmd = [f'torch=={pytorch}']
@@ -51,7 +52,8 @@ def install_torchvision_cmd(pytorch):
             cmd = [
                 f'torchvision=={torchvision}',
                 '--index-url',
-                PYTORCH_STABLE_WHEEL_SRC]
+                PYTORCH_STABLE_WHEEL_SRC,
+                '--extra-index-url', PIP_URL]
     else:
         cmd = [f'torchvision=={torchvision}']
     return cmd
