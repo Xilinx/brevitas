@@ -133,7 +133,7 @@ def test_torchvision_compile(torchvision_model_compile):
     if torchvision_model_compile is None:
         pytest.skip('Model not instantiated')
     if version.parse('2.2.0') <= torch_version <= version.parse('2.4.1'):
-        pytest.skip('torch.compile not compatible with torch versions between 2.2 and 2.3.1')
+        pytest.skip('torch.compile not compatible with torch versions between 2.2 and 2.4.1')
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
