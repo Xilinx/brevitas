@@ -66,7 +66,7 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '.[test, export]')
+    session.install('-e', '.[test, export]')
     if jit_status == 'jit_enabled':
         session.run('pytest', '-k', 'not _full', 'tests/brevitas/nn/test_nn_quantizers.py', '-v')
         session.run(
@@ -113,7 +113,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # For CV eval scripts
-    session.install('--upgrade', '.[test, tts, stt, vision]')
+    session.install('-e', '.[test, tts, stt, vision]')
     session.run(
         'pytest',
         '-n',
@@ -140,7 +140,7 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
 def tests_brevitas_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test]')
+    session.install('-e', '.[test]')
     session.env['BREVITAS_VERBOSE'] = '1'
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas/test_brevitas_import.py')
 
@@ -150,7 +150,7 @@ def tests_brevitas_install_dev(session, pytorch):
 def tests_brevitas_examples_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, tts, stt]')
+    session.install('-e', '.[test, tts, stt]')
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_examples/test_examples_import.py')
 
 
@@ -159,7 +159,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
 def tests_brevitas_finn_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, stt, finn_integration]')
+    session.install('-e', '.[test, stt, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
     session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
 
@@ -169,7 +169,7 @@ def tests_brevitas_finn_integration(session, pytorch):
 def tests_brevitas_ort_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, ort_integration]')
+    session.install('-e', '.[test, ort_integration]')
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_ort')
 
 
@@ -178,7 +178,7 @@ def tests_brevitas_ort_integration(session, pytorch):
 def tests_brevitas_notebook(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, ort_integration, notebook]')
+    session.install('-e', '.[test, ort_integration, notebook]')
     session.run(
         'pytest',
         '-n',
@@ -196,5 +196,5 @@ def tests_brevitas_notebook(session, pytorch):
 def tests_brevitas_end_to_end(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, ort_integration]')
+    session.install('-e', '.[test, ort_integration]')
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_end_to_end')
