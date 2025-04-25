@@ -58,6 +58,15 @@ from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 __all__ = ["apply_awq"]
 
 
+def get_blocks_attribute(model: nn.Module) -> str:
+    if model.__class__.__name__ == "LlamaForCausalLM":
+        return "model.layers"
+    elif model.__class__.__name__ == "OPTForCausalLM":
+        return "model.decoder.layers"
+
+    raise NotImplementedError(f"Blocks attribute for model {type(model)} is unknown")
+
+
 def _retrieve_per_block_regions(blocks: List[nn.Module]) -> List[List[RegionAWQ]]:
     regions_per_block = [retrieve_block_awq_regions(block) for block in blocks]
     # Incorporate the orphan regions
@@ -110,7 +119,9 @@ def apply_awq(
     cache_state = model.config.use_cache
     model.config.use_cache = False
     # Retrive model blocks
-    blocks = recurse_getattr(model, args.gpxq_block_name)
+    blocks = recurse_getattr(
+        model,
+        get_blocks_attribute(model) if args.gpxq_block_name is None else args.gpxq_block_name)
 
     # Concatenate input_ids across the batch dimension
     samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
