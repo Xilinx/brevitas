@@ -50,6 +50,7 @@ ACT_QUANTIZERS = {
     'mxfloat8': MXFloat8e4m3Act}
 
 
+@pytest.mark.compile
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.3.1')
@@ -58,8 +59,8 @@ def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
     if name == 'mxfloat8' and torch_version == version.parse('2.3.1'):
         pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
-    if platform.system() != "Linux":
-        pytest.skip("Skip tests for unknown failure with Windows/MacOS")
+    # if platform.system() != "Linux":
+    #     pytest.skip("Skip tests for unknown failure with Windows/MacOS")
     inp = torch.randn(8, 16)
     linear = qnn.QuantLinear(16, 8, weight_quant=quant)
     linear.weight.data = weight
@@ -74,6 +75,7 @@ def test_compile_weight(weight, weight_quantizer):
     assert torch.allclose(out, inference_out)
 
 
+@pytest.mark.compile
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.3.1')
@@ -84,10 +86,10 @@ def test_compile_act(inp, act_quantizer):
         extra_kwargs = {'group_dim': 1}
     else:
         extra_kwargs = {}
-    if platform.system() != "Linux":
-        pytest.skip("Skip tests for unknown failure with Windows/MacOS")
-    if platform.system() == "Linux" and torch_version >= version.parse('2.6.0'):
-        pytest.skip("Skip tests for unknown failure with Linux ")
+    # if platform.system() != "Linux":
+    #     pytest.skip("Skip tests for unknown failure with Windows/MacOS")
+    # if platform.system() == "Linux" and torch_version >= version.parse('2.6.0'):
+    #     pytest.skip("Skip tests for unknown failure with Linux ")
     identity = qnn.QuantIdentity(quant, **extra_kwargs)
     out = identity(inp)
     identity.eval()
