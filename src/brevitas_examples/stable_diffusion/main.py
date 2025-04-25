@@ -254,12 +254,13 @@ def main(args):
     is_flux = 'flux' in args.model.lower()
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
-    if is_flux:
-        extra_kwargs = {}
-    else:
-        extra_kwargs = {'variant': 'fp16' if dtype == torch.float16 else None}
 
-    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, use_safetensors=True)
+    extra_kwargs = {}
+    if not is_flux:
+        variant_dict = {torch.float16: 'fp16', torch.bfloat16: 'bf16'}
+        extra_kwargs = {'variant': variant_dict.get(dtype, None)}
+
+    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype, **extra_kwargs)
 
     # Detect if is unet-based pipeline
     is_unet = hasattr(pipe, 'unet')
@@ -314,7 +315,7 @@ def main(args):
             if counter[0] == args.calibration_steps:
                 counter[0] = 0
 
-        h = pipe.unet.register_forward_pre_hook(calib_hook, with_kwargs=True)
+        h = denoising_network.register_forward_pre_hook(calib_hook, with_kwargs=True)
 
         run_val_inference(
             pipe,
@@ -640,7 +641,7 @@ def main(args):
                     m.compile_quant()
         if args.gptq:
             print("Applying GPTQ. It can take several hours")
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 with gptq_mode(
                         denoising_network,
                         create_weight_orig=args
@@ -654,7 +655,7 @@ def main(args):
 
         if args.bias_correction:
             print("Applying bias correction")
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=True):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
                 with bias_correction_mode(denoising_network):
                     calibration_step(force_full_calibration=True)
 
