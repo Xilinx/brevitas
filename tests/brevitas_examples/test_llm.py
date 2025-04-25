@@ -20,10 +20,10 @@ import torch
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
-from brevitas_examples.llm.main import fx_required
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
@@ -31,12 +31,10 @@ from tests.marker import requires_pt_ge
 ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
 
-
 MODEL_PT_VERSION_REQUIREMENTS = {
     "hf-internal-testing/tiny-random-LlamaForCausalLM": "2.0",
     "hf-internal-testing/tiny-random-MistralForCausalLM": "2.0",
-    "hf-internal-testing/tiny-random-OPTForCausalLM": "2.4",
-}
+    "hf-internal-testing/tiny-random-OPTForCausalLM": "2.4",}
 
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
@@ -128,10 +126,8 @@ class ModelAndPpl:
     scope="session",
     ids=[
         "llama",
-        "mistral",
-        #"mixtral",
-        "opt",
-    ],
+        "mistral",  #"mixtral",
+        "opt",],
     params=[
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -152,8 +148,7 @@ class ModelAndPpl:
             name="hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             float_ppl=None,
             supports_fx=True,
-        ),
-    ])
+        ),])
 def small_models_with_ppl(request):
     yield request.param
 
@@ -430,7 +425,8 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
             "exp_layer_types": {
-                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},},  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
+                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},
+        },  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "svd_quant": True,
@@ -453,8 +449,7 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "quant_sdpa": True,
             "exp_layer_types": {
                 "scaled_dot_product_attention":
-                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
-    ])
+                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
