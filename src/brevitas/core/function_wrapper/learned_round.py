@@ -111,7 +111,6 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
         p = self.learned_round_impl(self.value)
         p = self.input_view_impl(p)
         p = self.tensor_slicer(p)
-        p = (p.to(x.dtype)).view_as(x)
         return self.learned_round_impl.round_forward(x, p)
 
     def _load_from_state_dict(
