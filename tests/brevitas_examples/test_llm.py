@@ -179,6 +179,7 @@ def default_run_args(request):
 
 @pytest_cases.fixture()
 def default_ppl_args(default_run_args):
+    args = default_run_args
     args.eval = True
     return args
 

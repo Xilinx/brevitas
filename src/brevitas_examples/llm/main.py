@@ -155,6 +155,7 @@ def model_export(model, ref_input, args):
 
 
 def fx_required(args):
+    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
     return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
 
 
