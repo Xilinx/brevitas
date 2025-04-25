@@ -133,6 +133,11 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
 
+    def init_zp(self):
+        if self.counter <= self.collect_stats_steps:
+            inplace_tensor_add(self.value.detach(), self.buffer)
+            self.counter = self.collect_stats_steps + 1
+
     @brevitas.jit.script_method
     def training_forward(self, x) -> Tensor:
         if self.counter < self.collect_stats_steps:
@@ -151,8 +156,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
             # work around find_unusued_parameters=True in DDP
             out = stats + 0. * self.value
         elif self.counter == self.collect_stats_steps:
-            inplace_tensor_add(self.value.detach(), self.buffer)
-            self.counter = self.counter + 1
+            self.init_zp()
             out = self.value
         else:
             out = self.value

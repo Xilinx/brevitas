@@ -606,5 +606,4 @@ class BackendPytorch:
                     latents=latents_input,
                 ).images
                 images[i:i + max_index] = generated.cpu()
-                # images.extend(generated)
         return images

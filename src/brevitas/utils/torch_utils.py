@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from dataclasses import dataclass
 from functools import wraps
 from typing import List, Optional, Tuple
 
@@ -9,6 +10,7 @@ import torch
 from torch.nn import Sequential
 
 import brevitas
+import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
 
@@ -111,12 +113,13 @@ def float_internal_scale(
 
 
 @brevitas.jit.ignore
+@brevitas_compiler.disable
 def padding_to_multiple(x: torch.Tensor, dim_to_expand: int, dim_multiple: int) -> torch.Tensor:
     # Given a tensor X, compute the padding along dim_multiple so that new dimension is a multiple of dim_multiple
     padding = [0, 0] * len(x.shape)
     size = x.shape
-    if size[dim_multiple] % dim_to_expand != 0:
-        padding[2 * dim_multiple] = dim_to_expand - size[dim_multiple] % dim_to_expand
+    if size[dim_to_expand] % dim_multiple != 0:
+        padding[2 * dim_to_expand] = dim_multiple - size[dim_to_expand] % dim_multiple
     padding = list(reversed(padding))
     x = torch.nn.functional.pad(x, padding, mode='constant', value=0.)
     return x

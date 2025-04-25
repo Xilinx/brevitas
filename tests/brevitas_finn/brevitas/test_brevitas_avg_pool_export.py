@@ -15,6 +15,8 @@ from brevitas.export import export_qonnx
 from brevitas.nn import TruncAvgPool2d
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_activation import QuantReLU
+from tests.conftest import MIN_QONNX_VERSION
+from tests.marker import requires_package_ge
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 
@@ -26,27 +28,42 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 @pytest.mark.parametrize("input_bit_width", [4, 8, 16])
 @pytest.mark.parametrize("channels", [2, 4])
 @pytest.mark.parametrize("idim", [7, 8])
+@pytest.mark.parametrize("restrict_scaling_type", ["log_fp", "power_of_two"])
+@requires_package_ge('qonnx', MIN_QONNX_VERSION)
 def test_brevitas_avg_pool_export(
-        kernel_size, stride, signed, bit_width, input_bit_width, channels, idim, request):
+        kernel_size,
+        stride,
+        signed,
+        bit_width,
+        input_bit_width,
+        channels,
+        idim,
+        restrict_scaling_type,
+        request):
     if signed:
         quant_node = QuantIdentity(
             bit_width=input_bit_width,
+            restrict_scaling_type=restrict_scaling_type,
             return_quant_tensor=True,
         )
     else:
         quant_node = QuantReLU(
             bit_width=input_bit_width,
+            restrict_scaling_type=restrict_scaling_type,
             return_quant_tensor=True,
         )
 
     quant_avgpool = TruncAvgPool2d(
         kernel_size=kernel_size, stride=stride, bit_width=bit_width, float_to_int_impl_type='floor')
     model_brevitas = torch.nn.Sequential(quant_node, quant_avgpool)
-    model_brevitas.eval()
 
     # determine input
     input_shape = (1, channels, idim, idim)
     inp = torch.randn(input_shape)
+    model_brevitas.train()
+    model_brevitas(inp)
+    model_brevitas.eval()
+    model_brevitas(inp)
 
     # export
     test_id = request.node.callspec.id
@@ -63,6 +80,11 @@ def test_brevitas_avg_pool_export(
     odict = oxe.execute_onnx(model, idict, True)
     finn_output = odict[model.graph.output[0].name]
     # compare outputs
-    assert np.isclose(ref_output_array, finn_output).all()
+    #if restrict_scaling_type == "power_of_two" and kernel_size == 2:
+    #    atol = 1e-8
+    #else:
+    #    atol = quant_avgpool.trunc_quant.scale().detach().numpy()  # Allow "off-by-1" errors
+    atol = 1e-8
+    assert np.isclose(ref_output_array, finn_output, atol=atol).all()
     # cleanup
     os.remove(export_path)

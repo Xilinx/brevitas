@@ -93,3 +93,12 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
                 x.signed,
                 self.training)
         return out
+
+
+class DynamicActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjector):
+
+    def scale(self, force_eval=True):
+        raise RuntimeError("Scale for Dynamic Act Quant is input-dependant")
+
+    def zero_point(self, force_eval=True):
+        raise RuntimeError("Zero point for Dynamic Act Quant is input-dependant")

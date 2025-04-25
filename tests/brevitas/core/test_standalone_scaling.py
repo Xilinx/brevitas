@@ -1,9 +1,11 @@
 import warnings
 
+import pytest_cases
 import torch
 
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
+from brevitas.core.scaling import FloatScaling
 from brevitas.core.scaling import ParameterFromRuntimeStatsScaling
 from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
 from brevitas.core.stats.stats_op import AbsMax
@@ -50,3 +52,14 @@ def test_scaling_min_val_param():
     pre_scale = scaling_op(inp)
     value_scale_converted = scaling_op(inp)
     assert not torch.isinf(scaling_op.value).any()
+
+
+@torch.no_grad()
+@pytest_cases.parametrize('dtype', [torch.float32, torch.float16, torch.bfloat16])
+def test_float_scaling_dtype(dtype):
+    float_scaling_impl = FloatScaling(dtype=dtype)
+    exp_bw = torch.tensor(4.)
+    mant_bw = torch.tensor(3.)
+    exp_bias = torch.tensor(0)
+    float_scaling = float_scaling_impl(exp_bw, mant_bw, exp_bias)
+    assert float_scaling.dtype == dtype

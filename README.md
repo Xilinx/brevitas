@@ -39,9 +39,9 @@ For more info, checkout our [getting started guide](https://xilinx.github.io/bre
 If you adopt Brevitas in your work, please cite it as:
 ```
 @software{brevitas,
-  author       = {Alessandro Pappalardo},
+  author       = {Franco, Giuseppe and Pappalardo, Alessandro and Fraser, Nicholas J},
   title        = {Xilinx/brevitas},
-  year         = {2023},
+  year         = {2025},
   publisher    = {Zenodo},
   doi          = {10.5281/zenodo.3333552},
   url          = {https://doi.org/10.5281/zenodo.3333552}

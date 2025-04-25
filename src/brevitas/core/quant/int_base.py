@@ -30,7 +30,7 @@ class IntQuant(brevitas.jit.ScriptModule):
         Tensor: Quantized output in de-quantized format.
 
     Examples:
-        >>> from brevitas.core.scaling import ConstScaling
+        >>> from brevitas.core.quant import IntQuant
         >>> int_quant = IntQuant(narrow_range=True, signed=True)
         >>> scale, zero_point, bit_width = torch.tensor(0.01), torch.tensor(0.), torch.tensor(4.)
         >>> inp = torch.Tensor([0.042, -0.053, 0.31, -0.44])

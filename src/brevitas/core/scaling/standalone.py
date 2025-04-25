@@ -12,6 +12,7 @@ import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
+from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import _RestrictValue
@@ -469,3 +470,103 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.counter = self.collect_stats_steps + 1
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
+
+
+class TruncMsbScaling(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of an integer scaling which calculates the scaling required to keep
+    the most significant bits of the input. Interface compatible with
+    :class:`~brevitas.core.quant.TruncIntQuant`'s `trunc_scaling_impl` member.
+
+    Args:
+
+    Returns:
+        Tensor: truncation scale factor wrapped in a float torch.tensor.
+
+    Examples:
+        >>> from brevitas.core.scaling import TruncMsbScaling
+        >>> trunc_scaling_impl = TruncMsbScaling()
+        >>> input_bit_width, output_bit_width, signed = torch.tensor(8.), torch.tensor(4.), torch.tensor(True)
+        >>> scaling_input = torch.Tensor([0.04, -0.05, 0.31, -0.44])
+        >>> trunc_scale = trunc_scaling_impl(scaling_input, input_bit_width, output_bit_width, signed)
+        >>> trunc_scale
+        tensor(16.)
+
+    Note:
+        The forward method accepts a multiple placeholder arguments: `scaling_input` and `signed`
+        to match the calling convention other `trunc_scaling_impl` modules. This is required by
+        (early versions of) TorchScript to be consistent across different scaling implementations.
+
+    Note:
+        Maps to trunc_scaling_impl == TruncScalingImplType.MSB == 'MSB' == 'msb' in higher-level APIs.
+    """
+
+    def __init__(self) -> None:
+        super(TruncMsbScaling, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(
+            self,
+            scaling_input: Tensor,
+            input_bit_width: Tensor,
+            output_bit_width: Tensor,
+            signed: Union[bool, Tensor]) -> Tensor:
+        return 2 ** (input_bit_width - output_bit_width)
+
+
+class TruncScalingWrapper(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper which maps the inferface requirements of
+    :class:`~brevitas.core.quant.TruncIntQuant`'s `trunc_scaling_impl` to standard scaling
+    implementations through `scaling_impl`.
+
+    Args:
+        trunc_int_scaling_impl (Module): Module that takes in a bit-width and returns an integer scale
+            factor, here interpreted as threshold on the integer range of quantization.
+        scaling_impl (Module): Module that takes in the input to quantize and returns a scale factor,
+            here interpreted as threshold on the floating-point range of quantization.
+        tensor_clamp_impl (Module): Module that performs clamping. Default: TensorClamp()
+
+    Returns:
+        Tensor: truncation scale factor wrapped in a float torch.tensor.
+
+    Examples:
+        >>> from brevitas.core.scaling import TruncScalingWrapper
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> from brevitas.core.scaling import PowerOfTwoIntScaling
+        >>> trunc_scaling_impl = TruncScalingWrapper(PowerOfTwoIntScaling(), ConstScaling(1.))
+        >>> input_bit_width, output_bit_width, signed = torch.tensor(8.), torch.tensor(4.), torch.tensor(True)
+        >>> scaling_input = torch.Tensor([0.04, -0.05, 0.31, -0.44])
+        >>> trunc_scale = trunc_scaling_impl(scaling_input, input_bit_width, output_bit_width, signed)
+        >>> trunc_scale
+        tensor(1.)
+
+    Note:
+        Maps to trunc_scaling_impl == TruncScalingImplType.WRAPPER == 'WRAPPER' == 'wrapper' in higher-level APIs.
+    """
+
+    def __init__(
+        self,
+        trunc_int_scaling_impl: Module,
+        scaling_impl: Module,
+        tensor_clamp_impl: Module = TensorClamp()) -> None:
+        super(TruncScalingWrapper, self).__init__()
+        self.trunc_int_scaling_impl = trunc_int_scaling_impl
+        self.scaling_impl = scaling_impl
+        self.tensor_clamp_impl = tensor_clamp_impl
+
+    @brevitas.jit.script_method
+    def forward(
+            self,
+            scaling_input: Tensor,
+            input_bit_width: Tensor,
+            output_bit_width: Tensor,
+            signed: Union[bool, Tensor]) -> Tensor:
+        threshold = self.trunc_int_scaling_impl(output_bit_width, signed)
+        scale = self.scaling_impl(scaling_input, threshold)
+        msb_scale = 2 ** (input_bit_width - output_bit_width)
+        unit_scale = torch.ones_like(msb_scale)
+        max_scale = torch.where(msb_scale > unit_scale, msb_scale, unit_scale)
+        min_scale = torch.where(msb_scale < unit_scale, msb_scale, unit_scale)
+        trunc_scale = self.tensor_clamp_impl(scale, min_scale, max_scale)
+        return trunc_scale

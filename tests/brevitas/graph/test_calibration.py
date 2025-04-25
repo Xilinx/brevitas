@@ -22,6 +22,7 @@ import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
@@ -146,6 +147,29 @@ def test_calibration_training_state():
 
     assert model.act.act_quant.training == False
     assert model.training == False
+
+
+def test_calibration_step_state():
+
+    class TestModel(nn.Module):
+
+        def __init__(self):
+            super(TestModel, self).__init__()
+            self.act = qnn.QuantIdentity(act_quant=ShiftedUint8ActPerTensorFloat)
+
+        def forward(self, x):
+            return self.act(x)
+
+    model = TestModel()
+    model.eval()
+    with torch.no_grad():
+        with calibration_mode(model):
+            pass
+
+    scale_impl = model.act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
+    zero_point_impl = model.act.act_quant.fused_activation_quant_proxy.tensor_quant.zero_point_impl
+    assert scale_impl.counter == scale_impl.collect_stats_steps + 1
+    assert zero_point_impl.counter == zero_point_impl.collect_stats_steps + 1
 
 
 class TestBiasCorrection():

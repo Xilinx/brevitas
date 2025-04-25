@@ -93,5 +93,5 @@ nbsphinx_link_target_root =  os.path.join(os.path.dirname(__file__), '..', '..')
 intersphinx_mapping = {
     "numpy": ("http://docs.scipy.org/doc/numpy/", None),
     "python": ("https://docs.python.org/", None),
-    "torch": ("https://pytorch.org/docs/master/", None),
+    "torch": ("https://pytorch.org/docs/main/", None),
 }

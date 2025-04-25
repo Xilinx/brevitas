@@ -13,7 +13,8 @@ from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
-DOMAIN_STRING = "onnx.brevitas"
+DOMAIN_STRING = "qonnx.custom_op.general"
+DOMAIN_VERSION = 2
 
 
 class BrevitasBinaryQuantFn(Function):
@@ -111,26 +112,50 @@ class BrevitasFloatQuantFn(Function):
 class BrevitasTruncFn(Function):
 
     @staticmethod
-    def symbolic(g, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
+    def symbolic(
+            g,
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            signed,
+            narrow_range,
+            output_scale,
+            output_bit_width,
+            rounding_mode):
         ret = g.op(
             f'{DOMAIN_STRING}::Trunc',
             x,
             scale,
             zero_point,
             input_bit_width,
+            output_scale,
             output_bit_width,
-            rounding_mode_s=rounding_mode)
+            rounding_mode_s=rounding_mode,
+            signed_i=int(signed),
+            narrow_i=int(narrow_range))
         ret.setType(x.type())
         return ret
 
     @staticmethod
-    def forward(ctx, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
-        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        trunc = TruncIntQuant(
-            float_to_int_impl=float_to_int_impl(),
-            bit_width_impl=BitWidthConst(int(output_bit_width)))
-        y_tuple = trunc(x, scale, zero_point, input_bit_width)
-        return y_tuple[0]
+    def forward(
+            ctx,
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            signed,
+            narrow_range,
+            output_scale,
+            output_bit_width,
+            rounding_mode):
+        # TODO: Restore this (fails when `signed` arg added)
+        #float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+        #trunc = TruncIntQuant(
+        #    float_to_int_impl=float_to_int_impl(),
+        #    bit_width_impl=BitWidthConst(int(output_bit_width)))
+        #y_tuple = trunc(x, scale, zero_point, input_bit_width, signed)
+        return x
 
 
 class BrevitasQuantLSTMCellFn(Function):

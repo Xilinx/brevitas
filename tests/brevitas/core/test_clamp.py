@@ -5,6 +5,7 @@ from hypothesis import given
 import pytest
 import torch
 
+from brevitas.function.ops import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.quant.experimental.float import Fp8e4m3Weight
 from brevitas.quant.experimental.float import Fp8e5m2Weight
@@ -49,9 +50,11 @@ FORMAT_MINVAL_MAP = {
     'minifloat, expected_max_val',
     ((format, max_val) for format, max_val in FORMAT_MAXVAL_MAP.items()))
 def test_max_value(minifloat, expected_max_val):
+    max_mantissa = compute_max_mantissa(
+        torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32))
     max_val = max_float(
         torch.tensor(minifloat.exponent_bit_width, dtype=torch.float32),
-        torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32),
+        max_mantissa,
         torch.tensor(minifloat.exponent_bias, dtype=torch.float32))
     max_available_float = get_max_available_float(
         minifloat.exponent_bit_width,
@@ -81,10 +84,11 @@ def test_min_value(minifloat, expected_min_val):
 
 @given(inp=float_tensor_random_shape_st())
 def test_float_clamp(inp, fp8_clamp):
-
+    max_mantissa = compute_max_mantissa(
+        torch.tensor(fp8_clamp.mantissa_bit_width, dtype=torch.float32))
     max_val = max_float(
         torch.tensor(fp8_clamp.exponent_bit_width, dtype=torch.float32),
-        torch.tensor(fp8_clamp.mantissa_bit_width, dtype=torch.float32),
+        max_mantissa,
         torch.tensor(fp8_clamp.exponent_bias, dtype=torch.float32))
     max_available_float = get_max_available_float(
         fp8_clamp.exponent_bit_width,
@@ -102,7 +106,7 @@ def test_float_clamp(inp, fp8_clamp):
     inp, *_ = fp8_clamp.float_clamp_impl(
         inp,
         torch.tensor(fp8_clamp.exponent_bit_width),
-        torch.tensor(fp8_clamp.mantissa_bit_width),
+        max_mantissa,
         torch.tensor(fp8_clamp.exponent_bias))
 
     if fp8_clamp.float_clamp_impl.saturating:

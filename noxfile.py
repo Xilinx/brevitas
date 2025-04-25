@@ -102,6 +102,8 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
             'tests/brevitas/nn/test_nn_quantizers.py')
         # run graph tests separately
         session.run('pytest', 'tests/brevitas/graph', '-n', 'logical', '-v')
+        session.env['BREVITAS_NATIVE_STE_BACKEND'] = '1'
+        session.run('pytest', '-n', 'logical', 'tests/brevitas/function/test_ops_ste.py', '-v')
 
 
 @nox.session(python=PYTHON_VERSIONS)

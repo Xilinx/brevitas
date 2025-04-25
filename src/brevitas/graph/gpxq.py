@@ -13,18 +13,20 @@ import warnings
 
 import torch
 from torch.fx import GraphModule as TorchGraphModule
+import torch.nn as nn
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
-SUPPORTED_TCONV_OP = (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)
-
-SUPPORTED_CONV_OP = (qnn.QuantConv1d, qnn.QuantConv2d, qnn.QuantConv3d, *SUPPORTED_TCONV_OP)
+SUPPORTED_CONV_OP = (
+    nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
 
 
 @dataclass
@@ -84,7 +86,6 @@ class gpxq_mode(ABC):
         self.num_layers = 0
         # Quantize following magnitude of activation
         self.act_order = act_order
-        # How many subblock to use during GPTQ for each layer
 
         self.disable_quant_inference = DisableEnableQuantization()
         self.return_quant_tensor_state = dict()
@@ -99,10 +100,12 @@ class gpxq_mode(ABC):
             self.model.forward = self.catch_stopfwd
 
     def _is_module_supported(self, module):
-        if isinstance(module, SUPPORTED_CONV_OP):
-            return True
-        elif isinstance(module, qnn.QuantLinear):
-            return True
+        if is_quant_module(module):
+            is_quant_enabled = module.weight_quant.is_quant_enabled
+        else:
+            is_quant_enabled = False
+        if isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP)):
+            return is_quant_enabled
         else:
             return False
 
@@ -138,7 +141,6 @@ class gpxq_mode(ABC):
                     gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
                         name,
-                        act_order=self.act_order,
                         len_parallel_layers=len(parallel_layers),
                         create_weight_orig=self.create_weight_orig)
                     hook_fn = partial(
@@ -187,6 +189,7 @@ class GPxQ(ABC):
         self.layer = layer
         self.name = name
         self.act_order = act_order
+        self.create_weight_orig = create_weight_orig
 
         weight_shape = torch.tensor(layer.weight.shape)
 
@@ -213,9 +216,11 @@ class GPxQ(ABC):
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
-        inp = self.layer.input_quant(inp)
-
-        is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+        if is_quant_module(self.layer):
+            inp = self.layer.input_quant(inp)
+            is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+        else:
+            is_quant_enabled = False
 
         # If using quantized activations, inp could be QuantTensor. In
         # this case, we overwrite the metadata.
@@ -255,7 +260,7 @@ class GPxQ(ABC):
             if self.layer.weight_quant.is_groupwise or with_quant_history:
                 # No slicing, not optimized
                 q = self.layer.quant_weight(quant_input=self.quant_metadata)
-                q = q.value.unsqueeze(0)  # [1, OC, IC]
+                q = _unpack_quant_tensor(q).unsqueeze(0)  # [1, OC, IC]
                 if with_quant_history:
                     return q[:, :, permutation_list[0][:i]]  # [1, OC, i]
                 index = permutation_list[0][i]  # only 1 group for linear layers
@@ -263,21 +268,20 @@ class GPxQ(ABC):
             else:
                 index = permutation_list[0][i]
                 subtensor_slice_list = [None, (index, index + 1)]
-                q = self.layer.quant_weight(
-                    subtensor_slice_list=subtensor_slice_list,
-                    quant_input=self.quant_metadata).value.unsqueeze(0)  # [1, OC, 1]
+                q = _unpack_quant_tensor(
+                    self.layer.quant_weight(
+                        subtensor_slice_list=subtensor_slice_list,
+                        quant_input=self.quant_metadata)).unsqueeze(0)  # [1, OC, 1]
         elif isinstance(self.layer, SUPPORTED_CONV_OP):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
             # and we quantize only the selected dimensions.
             if self.layer.weight_quant.is_groupwise or with_quant_history or self.groups > 1 or (
-                    self.groups == 1 and
-                    isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
-
+                    self.groups == 1 and is_conv_transposed(self.layer)):
                 quant_weight = self.layer.quant_weight(quant_input=self.quant_metadata)
-                quant_weight = quant_weight.value
+                quant_weight = _unpack_quant_tensor(quant_weight)
 
-                if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                if is_conv_transposed(self.layer):
                     quant_weight = quant_weight.transpose(1, 0)  # This performs a view
                 quant_weight = quant_weight.flatten(1)
                 quant_weight = quant_weight.view(self.groups, -1, quant_weight.shape[-1])
@@ -299,9 +303,10 @@ class GPxQ(ABC):
                     residual_index = residual_index // shape
                 index_2d_to_nd = index_2d_to_nd[::-1]
                 index_2d_to_nd.insert(0, None)
-                q = self.layer.quant_weight(
-                    subtensor_slice_list=index_2d_to_nd,
-                    quant_input=self.quant_metadata).value.flatten(1)  # [OC, 1]
+                q = _unpack_quant_tensor(
+                    self.layer.quant_weight(
+                        subtensor_slice_list=index_2d_to_nd,
+                        quant_input=self.quant_metadata)).flatten(1)  # [OC, 1]
                 q = q.unsqueeze(0)  # [1, OC, 1]
         # We need to remove the last dim
         q = q.squeeze(2)  # [groups, OC/groups] or [1, OC]

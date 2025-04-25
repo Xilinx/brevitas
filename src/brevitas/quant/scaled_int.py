@@ -28,6 +28,7 @@ __all__ = [
     'Int8WeightPerChannelFloatMSE',
     'TruncTo8bit',
     'RoundTo8bit',
+    'ShiftRoundSaturateTo8bit',
     'Int4WeightPerTensorFloatDecoupled',
     'Int8WeightPerChannelFloatDecoupled',
     'Uint8ActPerTensorFloatBatchQuant1d',
@@ -261,7 +262,7 @@ class Uint8ActPerTensorFloatMSE(MSESymmetricScale, Uint8ActPerTensorFloat):
 
 class TruncTo8bit(TruncQuantSolver):
     """
-    8-bit signed int truncator that preserves the input scale factor and zero-point.
+    8-bit int truncator that preserves most-significant bits and zero-point.
 
     Examples:
         >>> from brevitas.nn import TruncAvgPool2d
@@ -271,11 +272,12 @@ class TruncTo8bit(TruncQuantSolver):
     quant_type = 'int'
     bit_width_impl_type = 'const'
     float_to_int_impl_type = 'floor'
+    trunc_scaling_impl_type = 'msb'
 
 
 class RoundTo8bit(TruncQuantSolver):
     """
-    8-bit signed int truncator with rounding that preserves the input scale factor and zero-point.
+    8-bit int truncator with rounding that preserves most-significant bits and zero-point.
 
     Examples:
         >>> from brevitas.nn import TruncAvgPool2d
@@ -285,6 +287,25 @@ class RoundTo8bit(TruncQuantSolver):
     quant_type = 'int'
     bit_width_impl_type = 'const'
     float_to_int_impl_type = 'round'
+    trunc_scaling_impl_type = 'msb'
+
+
+class ShiftRoundSaturateTo8bit(TruncQuantSolver,
+                               ParamFromRuntimePercentileScaling,
+                               PerTensorPoTScaling8bit):
+    """
+    8-bit shift-round-saturate quantizer which uses statistics to calculate the amount of truncation
+    the lest-significant bits and most-significant bits. Zero-point is preserved.
+
+    Examples:
+        >>> from brevitas.nn import TruncAvgPool2d
+        >>> pool = TruncAvgPool2d(kernel_size=(3, 3), trunc_quant=ShiftRoundSaturateTo8bit)
+    """
+    bit_width = 8
+    quant_type = 'int'
+    bit_width_impl_type = 'const'
+    float_to_int_impl_type = 'round'
+    trunc_scaling_impl_type = 'wrapper'
 
 
 class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):

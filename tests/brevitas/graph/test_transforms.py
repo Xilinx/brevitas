@@ -25,7 +25,7 @@ from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
 from brevitas.nn.equalized_layer import RotatedModule
-from brevitas.utils.rotation_utils import RotationWeightParametrization
+from brevitas.utils.parametrization_utils import RotationWeightParametrization
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)

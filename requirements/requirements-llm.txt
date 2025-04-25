@@ -2,7 +2,7 @@ accelerate
 datasets
 lm_eval
 onnx
-onnxruntime
+onnxruntime<1.21
 optimum
 pandas
 tqdm

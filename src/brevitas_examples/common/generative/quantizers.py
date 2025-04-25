@@ -20,7 +20,7 @@ from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
@@ -32,6 +32,7 @@ from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.base import PerChannelPoTScaling8bit
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -66,6 +67,16 @@ class Fp8e4m3WeightSymmetricGroupQuant(Fp8e4m3WeightPerChannelFloat):
 
 
 class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
+    """
+    Symmetric quantizer with per tensor dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = 'min_max'
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
+
+
+class Fp8e4m3FNUZDynamicActPerTensorFloat(Fp8e4m3FNUZActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
     """
@@ -146,7 +157,7 @@ class Fp8e4m3DynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3ActPerTensorFl
     scaling_stats_op = 'min_max'
 
 
-class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3ActPerTensorFloat):
+class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
     """
     Symmetric quantizer with per row dynamic scale.
     """
@@ -156,11 +167,15 @@ class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3ActPerTensorFloat):
     scaling_per_output_channel = True
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = FloorSte
-    proxy_class = ActFloatQuantProxyFromInjector
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
-class FP8e4m3OCPDynamicActPerRowFloat(FP8e4m3OCPDynamicActPerRowFixedPoint):
-    restrict_scaling_type = RestrictValueType.FP
+class FP8e4m3OCPDynamicActPerRowFloat(Fp8e4m3OCPActPerTensorFloat):
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverOutputFeaturesView
+    scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class Fp8e4m3OCPDynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3OCPActPerTensorFloat):
@@ -190,3 +205,11 @@ class Fp8e4m3OCPWeightPerChannelFixedPointMSE(MSESymmetricScale,
 
 class Fp8e4m3OCPWeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3OCPWeightPerChannelFloat):
     pass
+
+
+class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverOutputFeaturesView
+    scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
+    proxy_class = DynamicActFloatQuantProxyFromInjector

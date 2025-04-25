@@ -1,3 +1,6 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import argparse
 from typing import List, Optional
 from warnings import warn
@@ -42,7 +45,7 @@ def create_llm_args_parser():
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikitext2', 'c4'],
+        choices=['wikitext2', 'c4', 'pile'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(
@@ -197,6 +200,9 @@ def create_llm_args_parser():
         '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
     parser.add_argument(
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
+    parser.add_argument('--magr', action='store_true', help='Apply MagR.')
+    parser.add_argument(
+        '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
@@ -278,6 +284,17 @@ def create_llm_args_parser():
         '--rotation-sdpa-regions',
         action="store_true",
         help='If GraphRotation is enabled, decide wheter to equalize across SDPA')
+    parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
+    parser.add_argument(
+        '--svd-quant-rank',
+        type=int,
+        default=32,
+        help='Rank to use for SVDQuant (default: %(default)s).')
+    parser.add_argument(
+        '--svd-quant-iters',
+        type=int,
+        default=1,
+        help='Number of iterations to use for SVDQuant (default: %(default)s).')
     parser.add_argument(
         '--act-equalization',
         default=None,
@@ -343,13 +360,24 @@ def create_llm_args_parser():
         help='Perform zero_shot evaluation with lm_eval or lighteval. Default %(default)s)')
     parser.add_argument('--few-shot-override-batch-size', type=int, default=None)
     parser.add_argument(
-        '--few-shot-compile',
+        '--compile-ptq',
+        default=False,
         action="store_true",
-        help='Compile during zero_shot evaluation. Default %(default)s)')
+        help='Compile for PTQ algorithms. Default %(default)s)')
+    parser.add_argument(
+        '--compile-eval',
+        default=False,
+        action="store_true",
+        help='Compile during evaluation. Default %(default)s)')
     parser.add_argument(
         '--few-shot-zeroshot',
+        default=False,
         action="store_true",
         help='Whether to do zero or few shot eval. Default %(default)s)')
+    parser.add_argument(
+        '--no-bos-preprocessing',
+        action="store_true",
+        help='Do not add BOS token during pre-processing. Default %(default)s)')
     parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(
@@ -430,10 +458,3 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
             else:
                 assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
-
-    if not args.fuse_sequences:
-        # 350 is approximately the 99% percentile for the sequence length in WikiText2 (train partition, using AutoTokenizer)
-        if args.seqlen >= 350:
-            warn(
-                "Data loading can take a long time or, potentially, enter an infinite loop. Consider setting --args.fuse_sequences "
-                "or decreasing the sequence length (seqlen)")
