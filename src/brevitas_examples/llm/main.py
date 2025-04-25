@@ -154,6 +154,10 @@ def model_export(model, ref_input, args):
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
 
+def fx_required(args):
+    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
+
+
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
     set_seed(args.seed)
@@ -186,7 +190,7 @@ def quantize_llm(args, extra_args=None):
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
+    require_fx = fx_required(args)
 
     # Load the data for calibration and evaluation.
     calibration_loader = get_dataset_for_model(

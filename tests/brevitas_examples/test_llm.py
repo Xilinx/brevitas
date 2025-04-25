@@ -23,6 +23,7 @@ from brevitas import torch_version
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
+from brevitas_examples.llm.main import fx_required
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
@@ -103,7 +104,7 @@ class UpdatableNamespace(Namespace):
 
 
 def requires_fx(args):
-    return args.act_equalization == "fx" or args.weight_equalization or args.ln_affine_merge or args.rotation == "fx"
+    return fx_required(args)
 
 
 @dataclass
