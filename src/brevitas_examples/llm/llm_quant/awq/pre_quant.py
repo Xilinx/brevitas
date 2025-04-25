@@ -38,7 +38,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.utils.python_utils import recurse_getattr
@@ -138,7 +138,7 @@ def apply_awq(
             raise_exception=True,
         ),
         with_kwargs=True)
-    with disable_enable_quantization(model):
+    with quantization_status_manager(model):
         try:
             model(samples)
         except StopFwdException:
@@ -178,7 +178,7 @@ def apply_awq(
         inps = inps.to(device)  # in case multi-gpu
         block_kwargs = send_to_device(block_kwargs, device)
         # get output as next layer's input
-        with disable_enable_quantization(model):
+        with quantization_status_manager(model):
             inps = block(inps, **block_kwargs)[0]
         for hook in hooks:
             hook.remove()

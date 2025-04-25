@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 
-from brevitas.graph.calibrate import disable_enable_quantization
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas_examples.llm.llm_quant.awq.graph import extract_sinks_scaling_factor
 from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 
@@ -64,7 +64,7 @@ def auto_scale_block(
         # w: co, ci
         # x: n, ci
         x = x.to(next(region_block.parameters()).device)
-        with disable_enable_quantization(region_block):
+        with quantization_status_manager(region_block):
             org_out = region_block(x, **kwargs)
             if isinstance(org_out, tuple):
                 org_out = org_out[0]
@@ -86,7 +86,11 @@ def auto_scale_block(
             scales = torch.reciprocal(scales / (scales.max() * scales.min()).sqrt())
             scaling_factor.data = scales
             # Capture quantized output from sinks
-            with disable_enable_quantization(region_block, excluded_modules=sinks):
+            quantization_status_manager_cm = quantization_status_manager(region_block)
+            with quantization_status_manager_cm:
+                # Restore quantization state of sinks
+                for sink in sinks:
+                    quantization_status_manager_cm.enable_module_quantization(module=sink)
                 out = region_block(x * scales, **kwargs)
             if isinstance(out, tuple):
                 out = out[0]
