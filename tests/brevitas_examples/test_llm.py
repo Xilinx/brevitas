@@ -148,7 +148,7 @@ def default_run_args(request):
     args.seqlen = 2
     args.model = "hf-internal-testing/tiny-random-MistralForCausalLM"
     args.dataset = "c4"
-    args.eval = True
+    args.eval = False
     #args.checkpoint = ptid2pathname(request.node.nodeid) + ".pth" # Example filename which won't clash
     args.export_prefix = ptid2pathname(request.node.nodeid)
     args.weight_bit_width = 8
@@ -157,6 +157,12 @@ def default_run_args(request):
     args.act_calibration = True
     args.dtype = "float32"
     args.no_bos_preprocessing = True
+    return args
+
+
+@pytest_cases.fixture()
+def default_ppl_args(default_run_args):
+    args.eval = True
     return args
 
 
@@ -283,8 +289,8 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "gptq": True,
             "float_ppl": 36796.984,
             "quant_ppl": 36910.191},])
-def acc_args_and_acc(default_run_args, request):
-    args = default_run_args
+def acc_args_and_acc(default_ppl_args, request):
+    args = default_ppl_args
     run_dict = request.param
     float_ppl = run_dict["float_ppl"]
     quant_ppl = run_dict["quant_ppl"]
@@ -327,8 +333,8 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "quant_sdpa": True,
             "float_ppl": 51649.797,
             "quant_ppl": 51688.922},])
-def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
-    args = default_run_args
+def acc_args_and_acc_pt_ge_2_4(default_ppl_args, request):
+    args = default_ppl_args
     run_dict = request.param
     float_ppl = run_dict["float_ppl"]
     quant_ppl = run_dict["quant_ppl"]
@@ -852,8 +858,10 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "gpxq_block_name": "model.layers",
             "float_ppl": 36796.984,
             "quant_ppl": 36821.664},])
-def learned_round_ppl_args_and_ppl(default_run_args, request):
-    args = default_run_args
+            "float_ppl": 35292.54296875,
+            "quant_ppl": 35014.25390625},])
+def learned_round_ppl_args_and_ppl(default_ppl_args, request):
+    args = default_ppl_args
     run_dict = request.param
     float_ppl = run_dict["float_ppl"]
     quant_ppl = run_dict["quant_ppl"]
@@ -949,8 +957,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_layers_to_expand": ["down_proj"],
             "float_ppl": 32428.475,
             "quant_ppl": 32515.525,},])
-def rotation_ppl_args_and_ppl(default_run_args, request):
-    args = default_run_args
+def rotation_ppl_args_and_ppl(default_ppl_args, request):
+    args = default_ppl_args
     run_dict = request.param
     float_ppl = run_dict["float_ppl"]
     quant_ppl = run_dict["quant_ppl"]
@@ -1092,8 +1100,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},])
-def rotation_optimization_args_layer_count_and_ppl(default_run_args, request):
-    args = default_run_args
+def rotation_optimization_args_layer_count_and_ppl(default_ppl_args, request):
+    args = default_ppl_args
     run_dict = copy.deepcopy(request.param)
     extra_args = run_dict["extra_args"]
     float_ppl = run_dict["float_ppl"]
