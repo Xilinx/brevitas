@@ -796,7 +796,8 @@ def _cross_layer_equalization(
     # AFTER we remove the HF hooks to prevent this error, thus the check isinstance(r, ModuleInstanceRegisterParametrization),
     # as the model passed to _cross_layer_equalization is potentially offloaded
     for r in rewriters:
-        if not isinstance(r, ModuleInstanceRegisterParametrization):
+        if not (hasattr(model, "_hf_hook") and
+                isinstance(r, ModuleInstanceRegisterParametrization)):
             model = r.apply(model)
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
