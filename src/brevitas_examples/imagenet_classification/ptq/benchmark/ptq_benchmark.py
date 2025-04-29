@@ -21,8 +21,13 @@ class ImagenetPTQBenchmarkUtils(BenchmarkUtils):
 
     @staticmethod
     def parse_log(job_log: str) -> Dict[str, Any]:
-        # TODO: Implement log parsing to extract quality metrics from entrypoint output
-        raise NotImplementedError("Log parsing for Imagenet PTQ entrypoint is not implemented yet.")
+        # Find the line containing Quant Top1 accuracy
+        quant_top1_line = re.search(r"Total:Avg acc@1 (\d+\.\d+)", job_log)
+        quant_top1 = float(quant_top1_line.group(1)) if quant_top1_line is not None else None
+        # Return the results from the log as a dictionary
+        job_log_results = {
+            "quant_top1": quant_top1,}
+        return job_log_results
 
     @staticmethod
     def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
