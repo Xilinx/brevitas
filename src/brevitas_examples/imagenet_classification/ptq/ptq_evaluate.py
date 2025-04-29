@@ -245,7 +245,7 @@ def quantize_ptq_imagenet(args, extra_args=None):
             block_name_attribute=args.learned_round_block_name,
             optimizer=args.optimizer,
             lr_scheduler=args.learned_round_lr_scheduler,
-            optimizer_lr=args.learned_round_lr,
+            optimizer_kwargs={'lr': args.learned_round_lr},
             batch_size=args.learned_round_batch_size,
             learned_round_mode=args.learned_round_mode,
         )

@@ -97,6 +97,10 @@ load_awq:
 - null
 load_checkpoint:
 - false
+magr:
+- false
+magr_alpha:
+- 0.01
 model:
 - facebook/opt-125m
 no_bos_preprocessing:
