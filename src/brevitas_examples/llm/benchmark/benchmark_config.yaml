@@ -19,7 +19,7 @@ dataset:
 dtype:
 - float16
 eval:
-- true
+- false
 export_prefix:
 - null
 export_target:
@@ -97,6 +97,10 @@ load_awq:
 - null
 load_checkpoint:
 - false
+magr:
+- false
+magr_alpha:
+- 0.01
 model:
 - facebook/opt-125m
 no_bos_preprocessing:
@@ -146,9 +150,6 @@ svd_quant_iters:
 svd_quant_rank:
 - 32
 weight_bit_width:
-- 5
-- 6
-- 7
 - 8
 weight_equalization:
 - false

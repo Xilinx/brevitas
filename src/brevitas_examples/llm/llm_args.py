@@ -8,7 +8,7 @@ from warnings import warn
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_llm_args_parser():
+def create_args_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--config',

@@ -50,6 +50,8 @@ learned_round_scale_momentum: 0.9
 ln_affine_merge: false
 load_awq: null
 load_checkpoint: false
+magr: false
+magr_alpha: 0.01
 model: facebook/opt-125m
 no_bos_preprocessing: false
 no_quantize: false
