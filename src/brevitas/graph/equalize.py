@@ -1799,11 +1799,9 @@ class GraphRotationEqualization(RotationEqualization):
             src_weight = get_weight_source(src_module)
             sink_eq_indexes = EqualizationIndexes(0, sink_weight.shape[0], 0)
             src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
+            # TODO: restore fusing of Value/Output regions
             region = Region(
-                srcs={'src_sdpa': src_eq_indexes},
-                sinks={'sink_sdpa': sink_eq_indexes},
-                name_to_module={
-                    'src_sdpa': src_module, 'sink_sdpa': sink_module})
+                sinks={'sink_sdpa': sink_eq_indexes}, name_to_module={'sink_sdpa': sink_module})
             regions.append(region)
             for m in graph_module.modules():
                 if isinstance(m, ScaledDotProductAttention):
