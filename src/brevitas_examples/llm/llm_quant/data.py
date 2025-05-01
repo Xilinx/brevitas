@@ -60,7 +60,7 @@ def group_texts(
                 (np.array([bos_token_id]),
                  seq[i:i + sequence_length])) if add_bos_token else seq[i:i + sequence_length]
             for seq in t
-            for i in range(0, len(seq) - sequence_length, sequence_length)] for k,
+            for i in range(0, len(seq) - sequence_length + 1, sequence_length)] for k,
         t in examples.items()}
     return result
 
@@ -72,7 +72,7 @@ def _tokenize_and_group_texts(
         filter_empty_sequences: bool = True,
         bos_preprocessing: Optional[str] = None,
         add_eos_token: bool = False,
-        fuse_documents: bool = True) -> Dict[str, List[np.ndarray]]:
+        fuse_documents: bool = False) -> Dict[str, List[np.ndarray]]:
     # Filter empty sequences
     if filter_empty_sequences:
         texts = [text for text in texts if len(text) > 0]
