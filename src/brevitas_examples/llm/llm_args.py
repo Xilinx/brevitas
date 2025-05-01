@@ -376,17 +376,6 @@ def create_llm_args_parser():
         'Type of BOS token pre-processing for training and evaluation datasets. Default %(default)s)'
     )
     parser.add_argument(
-        '--add-eos-token',
-        default=False,
-        action="store_true",
-        help='Whether to add the EOS token when processing the data. Default %(default)s)')
-    parser.add_argument(
-        '--fuse-documents',
-        default=False,
-        action="store_true",
-        help=
-        'Whether to allow the model sequences to exceed document boundaries. Default %(default)s)')
-    parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(
         '--few-shot-tasks',

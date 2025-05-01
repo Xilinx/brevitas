@@ -192,8 +192,6 @@ def quantize_llm(args, extra_args=None):
     calibration_loader = get_dataset_for_model(
         args.model,
         bos_preprocessing=args.bos_preprocessing,
-        add_eos_token=args.add_eos_token,
-        fuse_documents=args.fuse_documents,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
@@ -206,8 +204,6 @@ def quantize_llm(args, extra_args=None):
     validation_loader = get_dataset_for_model(
         args.model,
         bos_preprocessing=args.bos_preprocessing,
-        add_eos_token=args.add_eos_token,
-        fuse_documents=args.fuse_documents,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
@@ -240,7 +236,7 @@ def quantize_llm(args, extra_args=None):
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(
-            model, calibration_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
