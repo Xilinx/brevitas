@@ -26,7 +26,7 @@ SOFTWARE.
 
 from functools import partial
 import random
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import warnings
 
 from datasets import Dataset
@@ -45,13 +45,22 @@ def get_pile(
         seqlen: int,
         nsamples: int,
         split: str = "train",
-        bos_preprocessing: bool = True,
+        bos_preprocessing: Optional[str] = None,
+        add_eos_token: bool = False,
+        fuse_documents: bool = True,
         seed: int = 42):
     random.seed(seed)
-    assert bos_preprocessing, "The pile datasets requires bos_preprocessing"
     if split == 'train':
         data = _load_dataset('pile', split, seed)
-        return get_dataset_clm(data, tokenizer, nsamples, seqlen)
+        return get_dataset_clm(
+            data=data,
+            tokenizer=tokenizer,
+            nsamples=nsamples,
+            seqlen=seqlen,
+            filter_empty_sequences=True,
+            bos_preprocessing=bos_preprocessing,
+            add_eos_token=add_eos_token,
+            fuse_documents=fuse_documents)
 
     if split == 'validation':
         warnings.warn(f"There is no available validation split for pile. Defaulting to wikitext2.")
@@ -63,13 +72,24 @@ def get_c4(
         seqlen: int,
         nsamples: int,
         split: str = "train",
-        bos_preprocessing: bool = True,
+        bos_preprocessing: Optional[str] = None,
+        add_eos_token: bool = False,
+        fuse_documents: bool = True,
         seed: int = 42):
     random.seed(seed)
     data = _load_dataset('c4', split, seed)
 
-    if bos_preprocessing and split == 'train':
-        dataset = get_dataset_clm(data, tokenizer, nsamples, seqlen)
+    # TODO: Change
+    if split == 'train':
+        return get_dataset_clm(
+            data=data,
+            tokenizer=tokenizer,
+            nsamples=nsamples,
+            seqlen=seqlen,
+            filter_empty_sequences=True,
+            bos_preprocessing=bos_preprocessing,
+            add_eos_token=add_eos_token,
+            fuse_documents=fuse_documents)
     else:
 
         data = data.shuffle(seed=seed)[:10000]  # c4 is too big.
@@ -87,21 +107,28 @@ def get_c4(
     return dataset
 
 
-def group_texts(examples: Dict[str, List[np.ndarray]],
-                sequence_length: int) -> Dict[str, List[np.ndarray]]:
+def group_texts(
+        examples: Dict[str, List[np.ndarray]],
+        fuse_documents: bool,
+        sequence_length: int,
+        bos_token_id: Optional[int],
+        add_bos_token: bool) -> Dict[str, List[np.ndarray]]:
     # Concatenate all texts.
-    concatenated_examples = {k: np.concatenate(v) for k, v in examples.items()}
-    total_length = len(concatenated_examples[next(iter(examples.keys()))])
+    if fuse_documents:
+        examples = {k: [np.concatenate(v)] for k, v in examples.items()}
+    add_bos_token = add_bos_token and bos_token_id is not None
+    sequence_length = sequence_length - 1 if add_bos_token and bos_token_id is not None else sequence_length
+    # Split by chunks of sequence_length.
     # WARNING: We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
     # customize this part to your needs.
-    if total_length >= sequence_length:
-        total_length = ((total_length) // sequence_length) * sequence_length
-    # Split by chunks of sequence_length.
     result = {
         k: [
-            t[i:i + sequence_length]
-            for i in range(0, total_length - (sequence_length), sequence_length)] for k,
-        t in concatenated_examples.items()}
+            np.concatenate(
+                (np.array([bos_token_id]),
+                 seq[i:i + sequence_length])) if add_bos_token else seq[i:i + sequence_length]
+            for seq in t
+            for i in range(0, len(seq) - sequence_length, sequence_length)] for k,
+        t in examples.items()}
     return result
 
 
@@ -109,15 +136,34 @@ def _tokenize_and_group_texts(
         texts: List[str],
         tokenizer: PreTrainedTokenizerBase,
         sequence_length: int,
-        filter_empty_sequences: bool = True) -> Dict[str, List[np.ndarray]]:
+        filter_empty_sequences: bool = True,
+        bos_preprocessing: Optional[str] = "document",
+        add_eos_token: bool = False,
+        fuse_documents: bool = True) -> Dict[str, List[np.ndarray]]:
+    # TODO: bos_token possible choices [None, document, sequence]
     # Filter empty sequences
     if filter_empty_sequences:
-        texts = [text for text in texts if len(texts) > 0]
+        texts = [text for text in texts if len(text) > 0]
     tokenized_batch = tokenizer.batch_encode_plus(
-        texts, return_attention_mask=False, return_token_type_ids=False)
+        texts,
+        return_attention_mask=False,
+        return_token_type_ids=False,
+        add_special_tokens=bos_preprocessing == "document")
     tokenized_batch = {
-        k: [np.array(tokenized_texts) for tokenized_texts in v] for k, v in tokenized_batch.items()}
-    return group_texts(tokenized_batch, sequence_length)
+        k: [
+            np.array(
+                tokenized_texts + [tokenizer.eos_token_id] if (
+                    add_eos_token and tokenizer.eos_token_id is not None and
+                    tokenized_texts[-1] != tokenizer.eos_token_id) else tokenized_texts)
+            for tokenized_texts in v] for k,
+        v in tokenized_batch.items()}
+    return group_texts(
+        examples=tokenized_batch,
+        fuse_documents=fuse_documents,
+        sequence_length=sequence_length,
+        bos_token_id=tokenizer.bos_token_id,
+        add_bos_token=bos_preprocessing == "sequence",
+    )
 
 
 def _load_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
@@ -139,6 +185,7 @@ def _load_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
+            data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
     else:
         raise ValueError(f"Dataset {dataset_name} is not available.")
     return data
@@ -156,7 +203,10 @@ def get_dataset_clm(
     nsamples: int,
     seqlen: int,
     filter_empty_sequences: bool = True,
-    dataset_processing_num_proc_per_process: int = 1,
+    bos_preprocessing: Optional[str] = None,
+    add_eos_token: bool = False,
+    fuse_documents: bool = True,
+    dataset_processing_num_proc_per_process: int = 10,
     text_column_name: str = "text",
 ):
     # Preprocess dataset
@@ -165,7 +215,10 @@ def get_dataset_clm(
             _tokenize_and_group_texts,
             tokenizer=tokenizer,
             sequence_length=seqlen,
-            filter_empty_sequences=filter_empty_sequences),
+            filter_empty_sequences=filter_empty_sequences,
+            bos_preprocessing=bos_preprocessing,
+            add_eos_token=add_eos_token,
+            fuse_documents=fuse_documents),
         input_columns=text_column_name,
         remove_columns=data.column_names,
         features=Features({"input_ids": Sequence(feature=Value(dtype="int64"), length=seqlen)}),
@@ -189,7 +242,9 @@ def get_wikitext2(
         seqlen: int,
         nsamples: int,
         split: str = 'train',
-        bos_preprocessing: bool = True,
+        bos_preprocessing: Optional[str] = None,
+        add_eos_token: bool = False,
+        fuse_documents: bool = True,
         seed: int = 42):
     random.seed(seed)
 
@@ -197,8 +252,17 @@ def get_wikitext2(
         data = _load_dataset('wikitext2', split, seed)
         # BOS Preprocess adds a BOS token to every sentence before concatenating and splitting it
         # in equal-length sentences
-        if bos_preprocessing:
-            return get_dataset_clm(data, tokenizer, nsamples, seqlen)
+        # TODO: Change
+        if True:
+            return get_dataset_clm(
+                data=data,
+                tokenizer=tokenizer,
+                nsamples=nsamples,
+                seqlen=seqlen,
+                filter_empty_sequences=True,
+                bos_preprocessing=bos_preprocessing,
+                add_eos_token=add_eos_token,
+                fuse_documents=fuse_documents)
         else:
             trainenc = tokenizer("\n\n".join(data['text']), return_tensors='pt')
             trainloader = []

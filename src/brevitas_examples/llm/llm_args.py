@@ -336,13 +336,6 @@ def create_llm_args_parser():
         action="store_true",
         help='Boolean flag to load_checkpoint, uses checkpoint_name. Default %(default)s)')
     parser.add_argument(
-        "--fuse-sequences",
-        action="store_true",
-        default=False,
-        help=
-        "Whether to merge the dataset sequences in case they are shorter than the requested number of samples per sequence. This is useful in case you would like to quantize or evaluate on long sequences (default: %(default)s).",
-    )
-    parser.add_argument(
         '--learned-round',
         default=None,
         choices=[None, 'linear_round'],
@@ -375,9 +368,24 @@ def create_llm_args_parser():
         action="store_true",
         help='Whether to do zero or few shot eval. Default %(default)s)')
     parser.add_argument(
-        '--no-bos-preprocessing',
+        '--bos-preprocessing',
+        type=str,
+        default=None,
+        choices=[None, 'document', 'sequence'],
+        help=
+        'Type of BOS token pre-processing for training and evaluation datasets. Default %(default)s)'
+    )
+    parser.add_argument(
+        '--add-eos-token',
+        default=False,
         action="store_true",
-        help='Do not add BOS token during pre-processing. Default %(default)s)')
+        help='Whether to add the EOS token when processing the data. Default %(default)s)')
+    parser.add_argument(
+        '--fuse-documents',
+        default=False,
+        action="store_true",
+        help=
+        'Whether to allow the model sequences to exceed document boundaries. Default %(default)s)')
     parser.add_argument(
         '--few-shot-limit', type=int, default=None, help='Few shot limit. Default %(default)s)')
     parser.add_argument(

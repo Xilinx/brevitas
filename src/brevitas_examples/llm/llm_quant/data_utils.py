@@ -83,7 +83,9 @@ def get_dataset_for_model(
     seqlen: int = 2048,
     seed: int = 0,
     split: str = "train",
-    bos_preprocessing: bool = True,
+    bos_preprocessing: Optional[str] = None,
+    add_eos_token: bool = False,
+    fuse_documents: bool = True,
     require_fx: bool = False,
     device: Optional[Union[str, torch.device]] = None,
 ):
@@ -104,7 +106,9 @@ def get_dataset_for_model(
         seqlen=seqlen,
         split=split,
         seed=seed,
-        bos_preprocessing=bos_preprocessing)
+        bos_preprocessing=bos_preprocessing,
+        add_eos_token=add_eos_token,
+        fuse_documents=fuse_documents)
 
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:

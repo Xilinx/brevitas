@@ -10,9 +10,7 @@ fuse_documents:
 - true
 - false
 model:
-- HuggingFaceTB/SmolLM-1.7B
-- google/gemma-2-2b
-- meta-llama/Llama-3.2-1B
+- facebook/opt-125m
 bos_preprocessing:
 - null
 - sequence
@@ -23,10 +21,8 @@ add_eos_token:
 no_quantize:
 - true
 nsamples:
-- 128
+- 2
 seed:
 - 0
-- 10
-- 42
 seqlen:
-- 2048
+- 512
