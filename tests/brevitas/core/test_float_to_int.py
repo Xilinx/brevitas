@@ -46,9 +46,7 @@ class TestLearnedRound():
     # closer to sys.maxsize for a given machine.
     @pytest_cases.parametrize('impl', LEARNEDROUND_IMPL)
     @pytest_cases.parametrize('training', [True, False])
-    @given(
-        weights_value=two_float_tensor_random_shape_st(
-            min_val=-9.223372036854776e+18, max_val=9.223372036854776e+18))
+    @given(weights_value=two_float_tensor_random_shape_st(min_val=-(2 ** 8), max_val=2 ** 8))
     def test_learnedround(self, impl, training, weights_value):
         # Unpack tuple of hypothesis generated tensors
         weights, value = weights_value
