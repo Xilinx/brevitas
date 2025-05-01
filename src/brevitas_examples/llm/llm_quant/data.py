@@ -40,73 +40,6 @@ from tqdm import tqdm
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 
-def get_pile(
-        tokenizer: Any,
-        seqlen: int,
-        nsamples: int,
-        split: str = "train",
-        bos_preprocessing: Optional[str] = None,
-        add_eos_token: bool = False,
-        fuse_documents: bool = True,
-        seed: int = 42):
-    random.seed(seed)
-    if split == 'train':
-        data = _load_dataset('pile', split, seed)
-        return get_dataset_clm(
-            data=data,
-            tokenizer=tokenizer,
-            nsamples=nsamples,
-            seqlen=seqlen,
-            filter_empty_sequences=True,
-            bos_preprocessing=bos_preprocessing,
-            add_eos_token=add_eos_token,
-            fuse_documents=fuse_documents)
-
-    if split == 'validation':
-        warnings.warn(f"There is no available validation split for pile. Defaulting to wikitext2.")
-        return get_wikitext2(tokenizer, seqlen, nsamples, split, bos_preprocessing=False, seed=seed)
-
-
-def get_c4(
-        tokenizer: Any,
-        seqlen: int,
-        nsamples: int,
-        split: str = "train",
-        bos_preprocessing: Optional[str] = None,
-        add_eos_token: bool = False,
-        fuse_documents: bool = True,
-        seed: int = 42):
-    random.seed(seed)
-    data = _load_dataset('c4', split, seed)
-
-    # TODO: Change
-    if split == 'train':
-        return get_dataset_clm(
-            data=data,
-            tokenizer=tokenizer,
-            nsamples=nsamples,
-            seqlen=seqlen,
-            filter_empty_sequences=True,
-            bos_preprocessing=bos_preprocessing,
-            add_eos_token=add_eos_token,
-            fuse_documents=fuse_documents)
-    else:
-
-        data = data.shuffle(seed=seed)[:10000]  # c4 is too big.
-        full_text = "\n\n".join(data["text"])
-        tokenized_data = tokenizer(full_text, return_tensors="pt")
-
-        dataset = []
-        for _ in range(nsamples):
-            i = random.randint(0, tokenized_data.input_ids.shape[1] - seqlen - 1)
-            j = i + seqlen
-            inp = tokenized_data.input_ids[:, i:j]
-            attention_mask = torch.ones((1, seqlen), dtype=torch.int64)
-            dataset.append({"input_ids": inp, "attention_mask": attention_mask})
-
-    return dataset
-
-
 def group_texts(
         examples: Dict[str, List[np.ndarray]],
         fuse_documents: bool,
@@ -137,10 +70,9 @@ def _tokenize_and_group_texts(
         tokenizer: PreTrainedTokenizerBase,
         sequence_length: int,
         filter_empty_sequences: bool = True,
-        bos_preprocessing: Optional[str] = "document",
+        bos_preprocessing: Optional[str] = None,
         add_eos_token: bool = False,
         fuse_documents: bool = True) -> Dict[str, List[np.ndarray]]:
-    # TODO: bos_token possible choices [None, document, sequence]
     # Filter empty sequences
     if filter_empty_sequences:
         texts = [text for text in texts if len(text) > 0]
@@ -166,7 +98,90 @@ def _tokenize_and_group_texts(
     )
 
 
-def _load_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
+def _clm_dataset_to_list(row: np.ndarray,) -> Dict[str, torch.Tensor]:
+    input_ids = torch.tensor(row["input_ids"], dtype=torch.int64).unsqueeze(0)
+    attention_mask = torch.ones_like(input_ids)
+    return {"input_ids": input_ids, "attention_mask": attention_mask}
+
+
+def get_clm_dataset(
+    raw_dataset: Dataset,
+    tokenizer: PreTrainedTokenizerBase,
+    nsamples: int,
+    seqlen: int,
+    filter_empty_sequences: bool = True,
+    bos_preprocessing: Optional[str] = None,
+    add_eos_token: bool = False,
+    fuse_documents: bool = False,
+    dataset_processing_num_proc_per_process: int = 1,
+    text_column_name: str = "text",
+):
+    # Preprocess dataset
+    dataset = raw_dataset.map(
+        partial(
+            _tokenize_and_group_texts,
+            tokenizer=tokenizer,
+            sequence_length=seqlen,
+            filter_empty_sequences=filter_empty_sequences,
+            bos_preprocessing=bos_preprocessing,
+            add_eos_token=add_eos_token,
+            fuse_documents=fuse_documents),
+        input_columns=text_column_name,
+        remove_columns=raw_dataset.column_names,
+        features=Features({"input_ids": Sequence(feature=Value(dtype="int64"), length=seqlen)}),
+        batched=True,
+        num_proc=dataset_processing_num_proc_per_process,
+        load_from_cache_file=True,
+        desc=f"Grouping texts in chunks of {seqlen}",
+    )
+    # Retrieve a random subset of sequences
+    random_indices = [i for i in range(len(dataset))]
+    random.shuffle(random_indices)
+    random_indices = random_indices[:nsamples]
+    # Retrive random slice of dataset
+    dataset = dataset.select(random_indices)
+    # Now return the slice in a format that can be converted to a DatasetToDevice
+    return list(map(_clm_dataset_to_list, dataset))
+
+
+def get_wikitext2(
+        raw_dataset: Dataset,
+        tokenizer: PreTrainedTokenizerBase,
+        seqlen: int,
+        nsamples: int,
+        split: str = 'train',
+        add_bos_token: bool = False,
+        seed: int = 42) -> List[Dict[str, torch.Tensor]]:
+    random.seed(seed)
+    # Add BOS token to each sequence if add_bos_token is True and the tokenizer supports this token
+    if add_bos_token and tokenizer.bos_token_id is not None:
+        seqlen = seqlen - 1
+        sequence_process_fn = lambda inp: torch.cat([
+            torch.tensor([[tokenizer.bos_token_id]], dtype=inp.dtype, device=inp.device), inp],
+                                                    dim=1)
+    else:
+        # Identity, the BOS token is not added
+        sequence_process_fn = lambda inp: inp
+
+    data = tokenizer("\n\n".join(raw_dataset['text']), return_tensors='pt')
+    dataloader = []
+    if split == 'train':
+        for _ in tqdm(range(nsamples)):
+            i = random.randint(0, data.input_ids.shape[1] - seqlen - 1)
+            j = i + seqlen
+            inp = sequence_process_fn(data.input_ids[:, i:j])
+            attention_mask = torch.ones_like(inp)
+            dataloader.append({'input_ids': inp, 'attention_mask': attention_mask})
+    elif split == 'validation':
+        nsamples = data['input_ids'].numel() // seqlen
+        for i in tqdm(range(nsamples)):
+            batch = sequence_process_fn(data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)])
+            attention_mask = torch.ones_like(batch)
+            dataloader.append({'input_ids': batch, 'attention_mask': attention_mask})
+    return dataloader
+
+
+def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     if dataset_name == "wikitext2":
         data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "c4":
@@ -186,102 +201,10 @@ def _load_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
             data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
+        elif split == "validation":
+            warnings.warn(
+                f"There is no available validation split for pile. Defaulting to wikitext2.")
+            data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     else:
-        raise ValueError(f"Dataset {dataset_name} is not available.")
+        raise ValueError(f"Dataset {dataset_name} is not available")
     return data
-
-
-def _clm_dataset_to_list(row: np.ndarray,) -> Dict[str, torch.Tensor]:
-    input_ids = torch.tensor(row["input_ids"], dtype=torch.int64).unsqueeze(0)
-    attention_mask = torch.ones_like(input_ids)
-    return {"input_ids": input_ids, "attention_mask": attention_mask}
-
-
-def get_dataset_clm(
-    data: str,
-    tokenizer: PreTrainedTokenizerBase,
-    nsamples: int,
-    seqlen: int,
-    filter_empty_sequences: bool = True,
-    bos_preprocessing: Optional[str] = None,
-    add_eos_token: bool = False,
-    fuse_documents: bool = True,
-    dataset_processing_num_proc_per_process: int = 10,
-    text_column_name: str = "text",
-):
-    # Preprocess dataset
-    dataset = data.map(
-        partial(
-            _tokenize_and_group_texts,
-            tokenizer=tokenizer,
-            sequence_length=seqlen,
-            filter_empty_sequences=filter_empty_sequences,
-            bos_preprocessing=bos_preprocessing,
-            add_eos_token=add_eos_token,
-            fuse_documents=fuse_documents),
-        input_columns=text_column_name,
-        remove_columns=data.column_names,
-        features=Features({"input_ids": Sequence(feature=Value(dtype="int64"), length=seqlen)}),
-        batched=True,
-        num_proc=dataset_processing_num_proc_per_process,
-        load_from_cache_file=True,
-        desc=f"Grouping texts in chunks of {seqlen}",
-    )
-    # Retrieve a random subset of sequences
-    random_indices = [i for i in range(len(dataset))]
-    random.shuffle(random_indices)
-    random_indices = random_indices[:nsamples]
-    # Retrive random slice of dataset
-    dataset = dataset.select(random_indices)
-    # Now return the slice in a format that can be converted to a DatasetToDevice
-    return list(map(_clm_dataset_to_list, dataset))
-
-
-def get_wikitext2(
-        tokenizer: Any,
-        seqlen: int,
-        nsamples: int,
-        split: str = 'train',
-        bos_preprocessing: Optional[str] = None,
-        add_eos_token: bool = False,
-        fuse_documents: bool = True,
-        seed: int = 42):
-    random.seed(seed)
-
-    if split == 'train':
-        data = _load_dataset('wikitext2', split, seed)
-        # BOS Preprocess adds a BOS token to every sentence before concatenating and splitting it
-        # in equal-length sentences
-        # TODO: Change
-        if True:
-            return get_dataset_clm(
-                data=data,
-                tokenizer=tokenizer,
-                nsamples=nsamples,
-                seqlen=seqlen,
-                filter_empty_sequences=True,
-                bos_preprocessing=bos_preprocessing,
-                add_eos_token=add_eos_token,
-                fuse_documents=fuse_documents)
-        else:
-            trainenc = tokenizer("\n\n".join(data['text']), return_tensors='pt')
-            trainloader = []
-            for _ in tqdm(range(nsamples)):
-                i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
-                j = i + seqlen
-                inp = trainenc.input_ids[:, i:j]
-                attention_mask = torch.ones_like(inp)
-                trainloader.append({'input_ids': inp, 'attention_mask': attention_mask})
-            return trainloader
-    elif split == 'validation':
-        data = _load_dataset('wikitext2', split, seed)
-        data = tokenizer("\n\n".join(data['text']), return_tensors='pt')
-        nsamples = data['input_ids'].numel() // seqlen
-        testloader = []
-        for i in tqdm(range(nsamples)):
-            batch = data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)]
-            attention_mask = torch.ones_like(batch)
-            testloader.append({'input_ids': batch, 'attention_mask': attention_mask})
-        return testloader
-    else:
-        raise ValueError(f"{split} is invalid")
