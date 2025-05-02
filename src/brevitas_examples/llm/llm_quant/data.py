@@ -65,7 +65,7 @@ def group_texts(
     return result
 
 
-def _tokenize_and_group_texts(
+def tokenize_and_group_texts(
         texts: List[str],
         tokenizer: PreTrainedTokenizerBase,
         sequence_length: int,
@@ -116,10 +116,30 @@ def get_clm_dataset(
     dataset_processing_num_proc_per_process: int = 1,
     text_column_name: str = "text",
 ):
+    """
+    Methods group_texts, tokenize_and_group_texts and get_clm_dataset are adapted from
+    https://github.com/huggingface/nanotron/blob/main/src/nanotron/data/processing.py,
+    released under the following LICENSE:
+
+    Copyright 2022 The HuggingFace Team. All rights reserved.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+    """
     # Preprocess dataset
     dataset = raw_dataset.map(
         partial(
-            _tokenize_and_group_texts,
+            tokenize_and_group_texts,
             tokenizer=tokenizer,
             sequence_length=seqlen,
             filter_empty_sequences=filter_empty_sequences,

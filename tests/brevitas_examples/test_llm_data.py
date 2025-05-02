@@ -1,50 +1,35 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from argparse import Namespace
-import copy
-from dataclasses import dataclass
-import logging
-import os
-import platform
-import shutil
 from typing import Dict, List, Optional
 from unittest.mock import patch
 
 from datasets import Dataset
 import numpy as np
-import onnx
-from packaging import version
-import pytest
 import pytest_cases
 import torch
-from transformers import AutoTokenizer
 
-from brevitas import config
-from brevitas import torch_version
-from brevitas_examples.llm.llm_quant.data import _tokenize_and_group_texts
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
-from brevitas_examples.llm.main import main
-from brevitas_examples.llm.main import parse_args
-from brevitas_examples.llm.main import quantize_llm
-from tests.marker import jit_disabled_for_dynamic_quant_act
-from tests.marker import jit_disabled_for_export
-from tests.marker import requires_pt_ge
+from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
 
+# Identifiers for the special tokens of TestTokenizer
 BOS_TOKEN_ID = 0
 EOS_TOKEN_ID = 1
 
 
+# Mimics a part of the functionality of the class BatchEncoding in transformers.tokenization_utils_base,
+# since an instance of it is returned by the __call__of PreTrainedTokenizerBase
 class TestBatchEncoding:
 
     def __init__(self, input_ids: torch.Tensor) -> None:
         self.input_ids = input_ids
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> torch.Tensor:
         assert item == "input_ids"
         return self.input_ids
 
 
+# Sample tokenizer which maps to each character in a string to its integer representation
 class TestTokenizer:
 
     def __init__(
@@ -63,7 +48,6 @@ class TestTokenizer:
                            (self.bos_token_id is not None and add_special_tokens) else []) +
                           list(map(ord, text)) for text in texts]}
 
-    # Mimics the output of the tokenizer when called with return_tensors='pt'
     def __call__(self, text: str, **kwargs) -> torch.Tensor:
         return TestBatchEncoding(
             torch.tensor(
@@ -73,7 +57,7 @@ class TestTokenizer:
 
 # Expected results for test_clm_tokenization. The nesting order corresponds to bos_preprocessing,
 # fuse_documents, add_eos_token
-EXPECTED_TOKENIZED_TEXTS = {
+EXPECTED_CLM_TOKENIZED_TEXTS = {
     "none": {
         False: {
             False: [np.array([98, 98])],
@@ -124,7 +108,6 @@ EXPECTED_TOKENIZED_TEXTS = {
                 np.array([98, EOS_TOKEN_ID])],}}}
 
 
-@pytest.mark.llm
 @pytest_cases.parametrize("bos_token_id", [None, BOS_TOKEN_ID], ids=lambda x: f"bos={x}")
 @pytest_cases.parametrize("eos_token_id", [None, EOS_TOKEN_ID], ids=lambda x: f"eos={x}")
 @pytest_cases.parametrize(
@@ -132,19 +115,20 @@ EXPECTED_TOKENIZED_TEXTS = {
 @pytest_cases.parametrize("add_eos_token", [False, True], ids=lambda x: f"add_eos={x}")
 @pytest_cases.parametrize("fuse_documents", [False, True], ids=lambda x: f"fuse={x}")
 def test_clm_tokenization(
-        bos_token_id, eos_token_id, bos_preprocessing, fuse_documents, add_eos_token):
-    # Sample texts
+        bos_token_id: Optional[int],
+        eos_token_id: Optional[int],
+        bos_preprocessing: bool,
+        fuse_documents: bool,
+        add_eos_token: bool):
     texts = ["", "a", "", "bbb"]
-    # Instantiate test tokenizer
     tokenizer = TestTokenizer(
         bos_token_id=bos_token_id,
         eos_token_id=eos_token_id,
     )
-    # Expected results
-    expected_tokenized_text = EXPECTED_TOKENIZED_TEXTS[
+    expected_tokenized_text = EXPECTED_CLM_TOKENIZED_TEXTS[
         "none" if bos_token_id is None or bos_preprocessing is None else bos_preprocessing][
             fuse_documents][add_eos_token and eos_token_id is not None]
-    tokenized_text = _tokenize_and_group_texts(
+    tokenized_text = tokenize_and_group_texts(
         texts=texts,
         tokenizer=tokenizer,
         sequence_length=2,
@@ -155,10 +139,9 @@ def test_clm_tokenization(
     assert all(map(lambda x: np.array_equal(*x), zip(expected_tokenized_text, tokenized_text)))
 
 
-@pytest.mark.llm
 @pytest_cases.parametrize("add_bos_token", [False, True], ids=lambda x: f"add_bos={x}")
 @pytest_cases.parametrize("split", ["train", "validation"], ids=lambda x: f"split={x}")
-def test_wikitext2_tokenization(add_bos_token, split):
+def test_wikitext2_tokenization(add_bos_token: bool, split: str):
     # Texts following Wikitext2 format
     texts = ["=a=", "", "bb"]
     raw_dataset = Dataset.from_dict({
