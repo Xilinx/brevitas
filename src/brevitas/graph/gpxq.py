@@ -243,6 +243,13 @@ class GPxQ(ABC):
 
         return inp
 
+    def reshape_gpxq_weights(self, weight):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+                weight = weight.transpose(1, 0)  # This performs a view
+            weight = weight.flatten(1)
+        return weight
+
     @abstractmethod
     def update_batch(self):
         pass
@@ -422,44 +429,3 @@ class AXE:
         # note that we are assuming round-to-nearest here
         return torch.where(p2 > n2, p2, n2) + 0.5
 
-    def get_scales_and_thresholds(self, weight: Tensor):
-        # NOTE: assuming sign-magnitude here, which is sufficient to support both
-        # sign-magnitude and 2s complement accumulators
-        Z = (torch.exp2(self.max_accumulator_bit_width) -
-             2) / float(self.input_max - self.input_min)
-        n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
-
-        scales = self.layer.weight_quant.scale()
-        if scales.ndim > 0:
-            if isinstance(self.layer, SUPPORTED_CONV_OP):
-                if isinstance(self.layer, SUPPORTED_TCONV_OP):
-                    scales = scales.transpose(1, 0)  # This performs a view
-                scales = scales.flatten(1)
-
-        # translating into the quantized range; need to pad to get these thresholds
-        wT = pad_tensor_with_zeros(weight / scales, self.max_accumulator_tile_size).view(
-            -1, self.max_accumulator_tile_size)  # [OC * Tiles, IC / Tiles]
-        # calculate the thresholds after zero centering projection
-        thresholds = calc_average_nonzero_mag(
-            wT - wT.mean(axis=1, keepdim=True), Z)  # [Groups * OC * Tiles]
-        thresholds = thresholds.view(self.groups, -1,
-                                     n_tiles).transpose(1, 2)  # [Groups, Tiles, OC/Groups]
-        del wT
-        # supporting groupwise quantization where each tile has its own scaling factor
-        if self.layer.weight_quant.is_groupwise:
-            if (self.max_accumulator_tile_size != self.columns) and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
-                raise ValueError(
-                    "Error: only supporting accumulator-aware groupwise weight quantization"
-                    "when the group size is equal to the accumulator tile size or a monolithic" 
-                    "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
-            scales = pad_tensor_with_zeros(scales, self.max_accumulator_tile_size).view(
-                -1, self.max_accumulator_tile_size)  # [Groups, OC * Tiles, IC / Tiles]
-            scales = scales[:, 0]  # [Groups * OC * Tiles, 1]
-            scales = scales.view(self.groups, -1,
-                                 n_tiles).transpose(1, 2)  # [Groups, Tiles, OC/Groups]
-        # else each tile has the same scaling factor (per-tensor or per-channel)
-        else:
-            scales = scales.view(self.groups, 1, -1)  # [Groups, 1, OC/Groups]
-            scales = scales.repeat(1, n_tiles, 1)  # [Groups, Tiles, OC/Groups]
-        thresholds *= scales  # translating centers back to the float range
-        return thresholds, scales

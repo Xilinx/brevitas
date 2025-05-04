@@ -243,8 +243,15 @@ class A2GPFQ(AXE, GPFQ):
             self.max_accumulator_tile_size = self.columns
         assert self.max_accumulator_tile_size > 1, \
             "Error: accumulator tile size needs to be bigger than 1."
-        assert self.max_accumulator_bit_width > 1, \
-            "Error: accumulator bit width needs to be bigger than 1."
+        assert self.max_accumulator_bit_width > 2, \
+            "Error: accumulator bit width needs to be bigger than 2."
+        if self.layer.weight_quant.is_groupwise:
+            if (self.max_accumulator_tile_size != self.columns) \
+                and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
+                raise ValueError(
+                    "Error: only supporting accumulator-aware groupwise weight quantization"
+                    "when the group size is equal to the accumulator tile size or a monolithic" 
+                    "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
 
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -272,12 +279,16 @@ class A2GPFQ(AXE, GPFQ):
         # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
-                weight = weight.transpose(1, 0)  # This performs a view
-                weight_orig = weight_orig.transpose(1, 0)
-            weight = weight.flatten(1)
-            weight_orig = weight_orig.flatten(1)
+        scales = self.layer.quant_weight().scale
+        scales = scales.broadcast_to(weight.shape)
+        if scales.ndim > 0:
+            scales = self.reshape_gpxq_weights(scales)  # [OC, IC]
+        weight = self.reshape_gpxq_weights(weight)  # [OC, IC]
+        weight_orig = self.reshape_gpxq_weights(weight_orig)
+
+        weight_orig = weight_orig.view(self.groups, -1, weight.shape[-1])
+        scales = scales.view(self.groups, -1, weight.shape[-1])
+        weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
 
         # TODO: currently assuming round-to-nearest; need to handle other
         # rounding functions
@@ -285,13 +296,9 @@ class A2GPFQ(AXE, GPFQ):
         if rounding_mode.lower() != "round":
             raise NotImplementedError(f"{rounding_mode} not yet supported.")
 
-        thresholds, scales = self.get_scales_and_thresholds(weight)
-        weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
-        weight_orig = weight_orig.view(
-            self.groups, -1, weight_orig.shape[-1])  # [Groups, OC/Groups, IC]
-
         # Get the diagonals of the covariance matrices here
         permutation_list = []
+        # For groupwise convolution, these operations are groupwise so we iterate
         for group_index in range(self.groups):
             # If a diagonal element on either covariance matrix is zero, we can set to 0
             # the corresponding column in the weight matrix.
@@ -333,10 +340,22 @@ class A2GPFQ(AXE, GPFQ):
 
         del self.H, self.G  # memory management
 
+        n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
+        get_block_index = lambda bx: bx // self.max_accumulator_tile_size
+        if self.layer.weight_quant.is_groupwise:
+            if isinstance(self.layer, SUPPORTED_CONV_OP):
+                group_dim = self.layer.weight_quant.group_dim
+                assert group_dim == 1, \
+                    f"Error: only group_dim=1 is supported, not {group_dim}"
+                group_size = self.layer.weight_quant.group_size
+                n_tiles = math.prod(self.layer.kernel_size) * \
+                    math.ceil(self.layer.in_channels / group_size)
+                get_block_index = lambda bx: bx % n_tiles
+
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
-        pos_limits = torch.zeros_like(thresholds, device=dev, dtype=lim_dtype)  # positive limits
-        neg_limits = torch.zeros_like(thresholds, device=dev, dtype=lim_dtype)  # negative limits
+        pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]), device=dev, dtype=lim_dtype)  # positive limits
+        neg_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]), device=dev, dtype=lim_dtype)  # negative limits
         max_limits = ((2 ** (self.max_accumulator_bit_width.to(lim_dtype) - 1)) - 1)
 
         for t in range(weight.shape[-1]):
@@ -344,10 +363,10 @@ class A2GPFQ(AXE, GPFQ):
             for group_index in range(self.groups):
                 # t := time step (Lg, Lh, and Ds are re-ordered in time)
                 # i := input channel index (weight and error are not re-ordered)
-                # bx := block index (for accumulation)
+                # block_index := block index for accumulation
                 perm = permutation_list[group_index]
                 i = perm[t]
-                bx = i // self.max_accumulator_tile_size
+                block_index = get_block_index(i)
                 w = weight_orig[group_index, :, perm[:t]].to(torch.float32)
                 q = q_groups[group_index].to(torch.float32)
                 Lw = w.matmul(Lg[group_index, t, :t])
@@ -356,17 +375,15 @@ class A2GPFQ(AXE, GPFQ):
                 assert not torch.isnan(q_arg).any()
 
                 # calculate the q_max and q_min for the right group and right block
-                s = scales[group_index, bx].to(torch.float32)
-                n = neg_limits[group_index, bx]
-                p = pos_limits[group_index, bx]
+                s = scales[group_index, :, i].to(torch.float32)
+                n = neg_limits[group_index, block_index]
+                p = pos_limits[group_index, block_index]
                 u = self.upper_lim(n, p)
                 l = self.lower_lim(n, p)
                 assert (u - l + 1 >= 0).all()
                 q_max = s * torch.clamp_min(u, 0.0)  # [OC/groups]
                 q_min = s * torch.clamp_max(l, 0.0)  # [OC/groups]
-                # soft thresholding then clamping
-                q_arg = q_arg.sign() * torch.relu(
-                    q_arg.abs() - thresholds[group_index, bx])  # [OC/groups]
+                # TODO: soft thresholding then clamping
                 q_arg.clamp_(q_min, q_max)  # clamping to bounds
 
                 weight[group_index, :, i] = q_arg.to(dtype)
@@ -375,11 +392,11 @@ class A2GPFQ(AXE, GPFQ):
             q_groups = self.get_quant_weights(t, 0, permutation_list)  # [Groups, OC/groups]
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
-                bx = i // self.max_accumulator_tile_size  # block index
-                q = q_groups[group_index] / scales[group_index, bx]  # [OC/groups]
+                block_index = get_block_index(i)  # block index
+                q = q_groups[group_index] / scales[group_index, block_index]  # [OC/groups]
                 # increment cumulative l1-norm
-                pos_limits[group_index, bx, q >= 0] += q[q >= 0].to(lim_dtype)
-                neg_limits[group_index, bx, q <= 0] += q[q <= 0].to(lim_dtype)
+                pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
+                neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
                 assert (pos_limits >= 0).all()
                 assert (neg_limits <= 0).all()
                 pos_max_limit = ((self.input_max * pos_limits) + (self.input_min * neg_limits))
@@ -389,7 +406,7 @@ class A2GPFQ(AXE, GPFQ):
                     -((self.input_min * pos_limits) +
                       (self.input_max * neg_limits)) <= max_limits).all()
 
-        del thresholds, scales
+        del scales
 
 
 class gpfq_mode(gpxq_mode):
