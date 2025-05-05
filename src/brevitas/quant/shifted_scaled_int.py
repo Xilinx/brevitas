@@ -1,6 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import value
+
+from brevitas.core.stats import NegativeSigmaOrZero
+from brevitas.core.stats import SigmaStdInterval
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.quant.base import *
@@ -201,3 +205,13 @@ class ShiftedUint8WeightGroupQuantFloat(ShiftedUint8WeightPerChannelFloat):
     """
     proxy_class = GroupwiseWeightQuantProxyFromInjector
     scaling_per_output_type = ScalingPerOutputType.GROUP
+
+
+class GaussianUint8WeightPerChannelFloat(ShiftedUint8WeightPerChannelFloat):
+
+    @value
+    def sigma(bit_width):
+        return (1. + bit_width) / 2.
+
+    scaling_stats_impl = SigmaStdInterval
+    zero_point_stats_impl = NegativeSigmaOrZero
