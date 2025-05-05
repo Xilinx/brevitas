@@ -195,6 +195,11 @@ class Region:
         To perform equalization, we need that the number of output channel of the sources matches the
         number of input channel of the sinks. If that's not the case, the region is considered invalid
         """
+        # If max_shape_srcs is zero, it means we have no sources and only sinks
+        # In this case, the region is considered valid since a standalone op will be added to counterbalance
+        # this configuration.
+        if self.max_shape_srcs == 0 and self.max_shape_sinks > 0:
+            return True
         return self.max_shape_srcs == self.max_shape_sinks
 
 
@@ -1472,8 +1477,7 @@ def _apply_rotate(
     expanded_rot_mat, expanded_K, rot_mat, K = None, None, None, None
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
-
-        if not insert_rotation_module and not region.is_valid:
+        if not region.is_valid:
             continue
         hidden_dim = region.max_shape_sinks
         if not insert_rotation_module and full_rotation_method == 'ort':
@@ -1494,13 +1498,14 @@ def _apply_rotate(
                 expanded_rot_mat, expanded_K = get_hadK(int(hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
-                print(f"Incomptible shapes {hidden_dim}")
+                logging.info(f"Incompatible dim {hidden_dim} for hadamard rotation")
                 if not insert_rotation_module:
-                    print("Falling back to orthogonal matrices")
+                    logging.info("Falling back to orthogonal matrices")
                     rot_mat = random_orthogonal_matrix(hidden_dim)
                     rot_func = _apply_ort_device
-                print("Skipping layers")
-                continue
+                else:
+                    logging.info("Skipping region")
+                    continue
 
         # Cast rotation matrix to the weight dtype
         if rot_mat is not None:
@@ -1772,7 +1777,8 @@ class GraphRotationEqualization(RotationEqualization):
     def rotate_sdpa(self, graph_module):
         sdpa_nodes = list(graph_module.graph.nodes)
         sdpa_nodes = [
-            c for c in sdpa_nodes if 'scaled_dot_product' in str(c.meta.get('orig_target', 'None'))]
+            c for c in sdpa_nodes
+            if ('scaled_dot_product' in str(c.meta.get('orig_target', c.target)))]
         regions = []
 
         def find_src(node):
@@ -1798,11 +1804,14 @@ class GraphRotationEqualization(RotationEqualization):
             sink_weight = get_weight_sink(sink_module)
             src_weight = get_weight_source(src_module)
             sink_eq_indexes = EqualizationIndexes(0, sink_weight.shape[0], 0)
-            src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
+
             # TODO: restore fusing of Value/Output regions
+            # src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
+
             region = Region(
                 sinks={'sink_sdpa': sink_eq_indexes}, name_to_module={'sink_sdpa': sink_module})
             regions.append(region)
+
             for m in graph_module.modules():
                 if isinstance(m, ScaledDotProductAttention):
                     m.pre_process_q = functional_rotate_input
