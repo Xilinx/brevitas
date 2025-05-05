@@ -1478,7 +1478,7 @@ def _apply_rotate(
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
         if not region.is_valid:
-            continue
+            logging.info(f"Region not valid, skipping it")
         hidden_dim = region.max_shape_sinks
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
