@@ -45,251 +45,256 @@ from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
 
-# def test_resnet18_equalization():
-#     model = models.resnet18(pretrained=True)
 
-#     torch.manual_seed(SEED)
-#     inp = torch.randn(IN_SIZE_CONV)
-#     model.eval()
-#     model = symbolic_trace(model)
-#     expected_out = model(inp)
+def test_resnet18_equalization():
+    model = models.resnet18(pretrained=True)
 
-#     model_orig = copy.deepcopy(model)
-#     supported_sinks = list(_supported_layers)
-#     supported_sinks = tuple([
-#         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
-#     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
-#     _ = equalize_test(
-#         model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
-#     out = model(inp)
+    torch.manual_seed(SEED)
+    inp = torch.randn(IN_SIZE_CONV)
+    model.eval()
+    model = symbolic_trace(model)
+    expected_out = model(inp)
 
-#     regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
-#     resnet_18_regions = sorted(RESNET_18_REGIONS, key=lambda region: region[0][0])
-#     equalized_layers = set()
-#     for r in resnet_18_regions:
-#         equalized_layers.update(r[0])
-#         equalized_layers.update(r[1])
+    model_orig = copy.deepcopy(model)
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
+    _ = equalize_test(
+        model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+    out = model(inp)
 
-#     # Check that we found all the expected regions
-#     for region, expected_region in zip(regions, resnet_18_regions):
-#         srcs = region.srcs_names
-#         sources_check = set(srcs) == set(expected_region[0])
-#         sinks = region.sinks_names
-#         sinks_check = set(sinks) == set(expected_region[1])
-#         assert sources_check
-#         assert sinks_check
+    regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
+    resnet_18_regions = sorted(RESNET_18_REGIONS, key=lambda region: region[0][0])
+    equalized_layers = set()
+    for r in resnet_18_regions:
+        equalized_layers.update(r[0])
+        equalized_layers.update(r[1])
 
-#     # Check that all layers were equalized and weights changed
-#     for layer in equalized_layers:
-#         eq_module = get_module(model, layer)
-#         orig_module = get_module(model_orig, layer)
-#         assert not torch.allclose(eq_module.weight, orig_module.weight)
+    # Check that we found all the expected regions
+    for region, expected_region in zip(regions, resnet_18_regions):
+        srcs = region.srcs_names
+        sources_check = set(srcs) == set(expected_region[0])
+        sinks = region.sinks_names
+        sinks_check = set(sinks) == set(expected_region[1])
+        assert sources_check
+        assert sinks_check
 
-#     # Check that equalization is not introducing FP variations
-#     assert torch.allclose(expected_out, out, atol=ATOL)
+    # Check that all layers were equalized and weights changed
+    for layer in equalized_layers:
+        eq_module = get_module(model, layer)
+        orig_module = get_module(model_orig, layer)
+        assert not torch.allclose(eq_module.weight, orig_module.weight)
 
-# @pytest_cases.parametrize("merge_bias", [True, False])
-# def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool):
-#     model, coverage = model_coverage
+    # Check that equalization is not introducing FP variations
+    assert torch.allclose(expected_out, out, atol=ATOL)
 
-#     torch.manual_seed(SEED)
-#     inp = torch.randn(IN_SIZE_CONV)
-#     model.eval()
-#     # The isistance does not work after symbolic trace
-#     is_alexnet = isinstance(model, models.AlexNet)
-#     model = symbolic_trace(model)
-#     model = TorchFunctionalToModule().apply(model)
 
-#     expected_out = model(inp)
+@pytest_cases.parametrize("merge_bias", [True, False])
+def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool):
+    model, coverage = model_coverage
 
-#     supported_sinks = list(_supported_layers)
-#     supported_sinks = tuple([
-#         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
-#     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
-#     scale_factor_regions = equalize_test(
-#         model,
-#         regions,
-#         merge_bias=merge_bias,
-#         bias_shrinkage='vaiq',
-#         scale_computation_type='maxabs')
-#     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
+    torch.manual_seed(SEED)
+    inp = torch.randn(IN_SIZE_CONV)
+    model.eval()
+    # The isistance does not work after symbolic trace
+    is_alexnet = isinstance(model, models.AlexNet)
+    model = symbolic_trace(model)
+    model = TorchFunctionalToModule().apply(model)
 
-#     out = model(inp)
-#     srcs = set()
-#     sinks = set()
-#     for r in regions:
-#         srcs.update([x for x in list(r.srcs_names)])
-#         sinks.update([x for x in list(r.sinks_names)])
+    expected_out = model(inp)
 
-#     count_region_srcs = 0
-#     count_region_sinks = 0
-#     for n in model.graph.nodes:
-#         if _is_supported_module(model, n):
-#             count_region_srcs += 1
-#             if not isinstance(get_module(model, n.target), (nn.LayerNorm,) + _batch_norm):
-#                 count_region_sinks += 1
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
+    scale_factor_regions = equalize_test(
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
+    shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
-#     src_coverage = len(srcs) / count_region_srcs
-#     sink_coverage = len(sinks) / count_region_sinks
-#     assert src_coverage >= coverage[0]
-#     assert sink_coverage >= coverage[1]
-#     assert torch.allclose(expected_out, out, atol=ATOL)
-#     # Graph equalization can exit in case of shape mismatches or other error without performing any
-#     # equalization and returning a scalar value. We check that the equalized regions are as many as
-#     # expected
-#     if is_alexnet:
-#         # In AlexNet, we cannot equalize only through one region
-#         assert sum([shape == () for shape in shape_scale_regions]) == 1
-#     else:
-#         assert all([shape != () for shape in shape_scale_regions])
+    out = model(inp)
+    srcs = set()
+    sinks = set()
+    for r in regions:
+        srcs.update([x for x in list(r.srcs_names)])
+        sinks.update([x for x in list(r.sinks_names)])
 
-# @pytest_cases.parametrize("merge_bias", [True, False])
-# def test_models(toy_model, merge_bias, request):
-#     test_id = request.node.callspec.id
+    count_region_srcs = 0
+    count_region_sinks = 0
+    for n in model.graph.nodes:
+        if _is_supported_module(model, n):
+            count_region_srcs += 1
+            if not isinstance(get_module(model, n.target), (nn.LayerNorm,) + _batch_norm):
+                count_region_sinks += 1
 
-#     if 'mha' in test_id:
-#         in_shape = IN_SIZE_LINEAR
-#     else:
-#         in_shape = IN_SIZE_CONV
+    src_coverage = len(srcs) / count_region_srcs
+    sink_coverage = len(sinks) / count_region_sinks
+    assert src_coverage >= coverage[0]
+    assert sink_coverage >= coverage[1]
+    assert torch.allclose(expected_out, out, atol=ATOL)
+    # Graph equalization can exit in case of shape mismatches or other error without performing any
+    # equalization and returning a scalar value. We check that the equalized regions are as many as
+    # expected
+    if is_alexnet:
+        # In AlexNet, we cannot equalize only through one region
+        assert sum([shape == () for shape in shape_scale_regions]) == 1
+    else:
+        assert all([shape != () for shape in shape_scale_regions])
 
-#     model_class = toy_model
-#     model = model_class()
-#     inp = torch.randn(in_shape)
 
-#     model.eval()
-#     with torch.no_grad():
-#         expected_out = model(inp)
+@pytest_cases.parametrize("merge_bias", [True, False])
+def test_models(toy_model, merge_bias, request):
+    test_id = request.node.callspec.id
 
-#     model = symbolic_trace(model)
-#     supported_sinks = list(_supported_layers)
-#     supported_sinks = tuple([
-#         x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
-#     regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
-#     scale_factor_regions = equalize_test(
-#         model,
-#         regions,
-#         merge_bias=merge_bias,
-#         bias_shrinkage='vaiq',
-#         scale_computation_type='maxabs')
-#     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
+    if 'mha' in test_id:
+        in_shape = IN_SIZE_LINEAR
+    else:
+        in_shape = IN_SIZE_CONV
 
-#     with torch.no_grad():
-#         out = model(inp)
-#     assert len(regions) > 0
-#     assert torch.allclose(expected_out, out, atol=ATOL)
-#     # Check that at least one region performs "true" equalization
-#     # If all shapes are scalar, no equalization has been performed
-#     if 'convgroupconv' in test_id:
-#         with pytest.raises(AssertionError):
-#             assert all([shape != () for shape in shape_scale_regions])
-#     else:
-#         assert all([shape != () for shape in shape_scale_regions])
+    model_class = toy_model
+    model = model_class()
+    inp = torch.randn(in_shape)
 
-# @pytest_cases.parametrize("layerwise", [True, False])
-# @pytest_cases.parametrize("fuse_scaling", [True, False])
-# @pytest_cases.parametrize(
-#     "dtype", [torch.float32, torch.float16, torch.bfloat16],
-#     ids=lambda dtype: str(dtype).split(".")[-1])
-# @pytest_cases.parametrize(
-#     "device", ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"],
-#     ids=lambda dtype: str(dtype).split(".")[-1])
-# def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, device, request):
-#     if not fuse_scaling and parse('1.9.0') > torch_version:
-#         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
-#     if dtype in [torch.float16, torch.bfloat16] and parse('2.3.0') > torch_version:
-#         pytest.skip(
-#             "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
-#         )
-#     test_id = request.node.callspec.id
+    model.eval()
+    with torch.no_grad():
+        expected_out = model(inp)
 
-#     if 'mha' in test_id:
-#         in_shape = IN_SIZE_LINEAR
-#     else:
-#         in_shape = IN_SIZE_CONV
+    model = symbolic_trace(model)
+    supported_sinks = list(_supported_layers)
+    supported_sinks = tuple([
+        x for x in _supported_layers if x not in (torch.nn.LayerNorm, *_batch_norm)])
+    regions = _extract_regions(model, state_impl_kwargs={'supported_sinks': supported_sinks})
+    scale_factor_regions = equalize_test(
+        model,
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type='maxabs')
+    shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
-#     model_class = toy_model
-#     model = model_class()
-#     model.to(device=device, dtype=dtype)
-#     inp = torch.randn(in_shape, device=device, dtype=dtype)
+    with torch.no_grad():
+        out = model(inp)
+    assert len(regions) > 0
+    assert torch.allclose(expected_out, out, atol=ATOL)
+    # Check that at least one region performs "true" equalization
+    # If all shapes are scalar, no equalization has been performed
+    if 'convgroupconv' in test_id:
+        with pytest.raises(AssertionError):
+            assert all([shape != () for shape in shape_scale_regions])
+    else:
+        assert all([shape != () for shape in shape_scale_regions])
 
-#     model.eval()
-#     expected_out = model(inp)
-#     model = symbolic_trace(model)
-#     with torch.no_grad():
-#         with activation_equalization_mode(model,
-#                                           0.5,
-#                                           True,
-#                                           layerwise=layerwise,
-#                                           fuse_scaling=fuse_scaling) as aem:
-#             regions = aem.graph_act_eq.regions
-#             model(inp)
-#     scale_factor_regions = aem.scale_factors
-#     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
-#     out = model(inp)
-#     assert torch.allclose(expected_out, out, atol=ATOL_DICT[dtype])
+@pytest_cases.parametrize("layerwise", [True, False])
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+@pytest_cases.parametrize(
+    "dtype", [torch.float32, torch.float16, torch.bfloat16],
+    ids=lambda dtype: str(dtype).split(".")[-1])
+@pytest_cases.parametrize(
+    "device", ["cpu", "cuda"] if torch.cuda.is_available() else ["cpu"],
+    ids=lambda dtype: str(dtype).split(".")[-1])
+def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, device, request):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
+    if dtype in [torch.float16, torch.bfloat16] and parse('2.3.0') > torch_version:
+        pytest.skip(
+            "Some operations are not implemented for float16/bfloat16 in PyTorch versions below 2.3.0"
+        )
+    test_id = request.node.callspec.id
 
-#     # This region is made up of a residual branch, so no regions are found for act equalization
-#     if 'convgroupconv' in test_id:
-#         with pytest.raises(AssertionError):
-#             assert len(regions) > 0
-#             # Check that at least one region performs "true" equalization
-#             # If all shapes are scalar, no equalization has been performed
-#             assert all([shape != () for shape in shape_scale_regions])
-#     else:
-#         assert len(regions) > 0
-#         # Check that at least one region performs "true" equalization
-#         # If all shapes are scalar, no equalization has been performed
-#         assert all([shape != () for shape in shape_scale_regions])
+    if 'mha' in test_id:
+        in_shape = IN_SIZE_LINEAR
+    else:
+        in_shape = IN_SIZE_CONV
 
-# @pytest_cases.parametrize(
-#     "model_dict", [(model_name, coverage) for model_name, coverage in MODELS.items()],
-#     ids=[model_name for model_name, _ in MODELS.items()])
-# @pytest_cases.parametrize("layerwise", [True, False])
-# @pytest_cases.parametrize("fuse_scaling", [True, False])
-# def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, fuse_scaling: bool):
-#     if not fuse_scaling and parse('1.9.0') > torch_version:
-#         pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
-#     model, coverage = model_dict
+    model_class = toy_model
+    model = model_class()
+    model.to(device=device, dtype=dtype)
+    inp = torch.randn(in_shape, device=device, dtype=dtype)
 
-#     if model == 'googlenet' and torch_version == version.parse('1.8.1'):
-#         pytest.skip(
-#             'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
-#         )
-#     if 'vit' in model and torch_version < version.parse('1.13'):
-#         pytest.skip(
-#             f'ViT supported from torch version 1.13, current torch version is {torch_version}')
+    model.eval()
+    expected_out = model(inp)
+    model = symbolic_trace(model)
+    with torch.no_grad():
+        with activation_equalization_mode(model,
+                                          0.5,
+                                          True,
+                                          layerwise=layerwise,
+                                          fuse_scaling=fuse_scaling) as aem:
+            regions = aem.graph_act_eq.regions
+            model(inp)
+    scale_factor_regions = aem.scale_factors
+    shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
-#     try:
-#         model = getattr(models, model)(pretrained=True, transform_input=False)
-#     except TypeError:
-#         model = getattr(models, model)(pretrained=True)
+    out = model(inp)
+    assert torch.allclose(expected_out, out, atol=ATOL_DICT[dtype])
 
-#     torch.manual_seed(SEED)
-#     inp = torch.randn(IN_SIZE_CONV)
-#     model.eval()
+    # This region is made up of a residual branch, so no regions are found for act equalization
+    if 'convgroupconv' in test_id:
+        with pytest.raises(AssertionError):
+            assert len(regions) > 0
+            # Check that at least one region performs "true" equalization
+            # If all shapes are scalar, no equalization has been performed
+            assert all([shape != () for shape in shape_scale_regions])
+    else:
+        assert len(regions) > 0
+        # Check that at least one region performs "true" equalization
+        # If all shapes are scalar, no equalization has been performed
+        assert all([shape != () for shape in shape_scale_regions])
 
-#     model = symbolic_trace(model)
-#     model = TorchFunctionalToModule().apply(model)
-#     model = DuplicateSharedStatelessModule().apply(model)
-#     expected_out = model(inp)
 
-#     with torch.no_grad():
-#         with activation_equalization_mode(model,
-#                                           0.5,
-#                                           True,
-#                                           layerwise=layerwise,
-#                                           fuse_scaling=fuse_scaling) as aem:
-#             model(inp)
-#     scale_factor_regions = aem.scale_factors
-#     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
+@pytest_cases.parametrize(
+    "model_dict", [(model_name, coverage) for model_name, coverage in MODELS.items()],
+    ids=[model_name for model_name, _ in MODELS.items()])
+@pytest_cases.parametrize("layerwise", [True, False])
+@pytest_cases.parametrize("fuse_scaling", [True, False])
+def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, fuse_scaling: bool):
+    if not fuse_scaling and parse('1.9.0') > torch_version:
+        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
+    model, coverage = model_dict
 
-#     out = model(inp)
+    if model == 'googlenet' and torch_version == version.parse('1.8.1'):
+        pytest.skip(
+            'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
+        )
+    if 'vit' in model and torch_version < version.parse('1.13'):
+        pytest.skip(
+            f'ViT supported from torch version 1.13, current torch version is {torch_version}')
 
-#     assert torch.allclose(expected_out, out, atol=ATOL)
-#     # Check that at least one region performs "true" equalization
-#     # If all shapes are scalar, no equalization has been performed
-#     assert any([shape != () for shape in shape_scale_regions])
+    try:
+        model = getattr(models, model)(pretrained=True, transform_input=False)
+    except TypeError:
+        model = getattr(models, model)(pretrained=True)
+
+    torch.manual_seed(SEED)
+    inp = torch.randn(IN_SIZE_CONV)
+    model.eval()
+
+    model = symbolic_trace(model)
+    model = TorchFunctionalToModule().apply(model)
+    model = DuplicateSharedStatelessModule().apply(model)
+    expected_out = model(inp)
+
+    with torch.no_grad():
+        with activation_equalization_mode(model,
+                                          0.5,
+                                          True,
+                                          layerwise=layerwise,
+                                          fuse_scaling=fuse_scaling) as aem:
+            model(inp)
+    scale_factor_regions = aem.scale_factors
+    shape_scale_regions = [scale.shape for scale in scale_factor_regions]
+
+    out = model(inp)
+
+    assert torch.allclose(expected_out, out, atol=ATOL)
+    # Check that at least one region performs "true" equalization
+    # If all shapes are scalar, no equalization has been performed
+    assert any([shape != () for shape in shape_scale_regions])
 
 
 @requires_pt_ge('2.4')
