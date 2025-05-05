@@ -641,7 +641,7 @@ def main(args):
                     m.compile_quant()
         if args.gptq:
             print("Applying GPTQ. It can take several hours")
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 with gptq_mode(
                         denoising_network,
                         create_weight_orig=args
@@ -655,7 +655,7 @@ def main(args):
 
         if args.bias_correction:
             print("Applying bias correction")
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 with bias_correction_mode(denoising_network):
                     calibration_step(force_full_calibration=True)
 
@@ -839,7 +839,7 @@ def main(args):
                 compute_mlperf_fid
 
             print(f"Computing accuracy with MLPerf pipeline")
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 # Perform a single forward pass before evenutally compiling
                 run_val_inference(
                     pipe,
@@ -866,7 +866,7 @@ def main(args):
         elif args.inference_pipeline == 'samples':
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 run_val_inference(
                     pipe,
                     args.resolution, [calibration_prompts[0]],
@@ -935,7 +935,7 @@ def main(args):
                 fid.update(float_image.cuda(), real=True)
             del float_images_values
 
-            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 run_val_inference(
                     pipe,
                     args.resolution, [calibration_prompts[0]],
@@ -1374,6 +1374,11 @@ if __name__ == "__main__":
         'compile-eval',
         default=False,
         help='Compile proxies for evaluation. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'inference-mode',
+        default=True,
+        help='Use inference mode for PTQ and eval. Default: Enabled')
     add_bool_arg(
         parser,
         'deterministic',

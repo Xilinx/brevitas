@@ -242,7 +242,6 @@ class GPxQ(ABC):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
-        from brevitas.quant_tensor import _unpack_quant_tensor
 
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation

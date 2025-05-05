@@ -134,6 +134,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--vae-bias-correction | --no-vae-bias-correction]
                [--compile-ptq | --no-compile-ptq]
                [--compile-eval | --no-compile-eval]
+               [--inference-mode | --no-inference-mode]
                [--deterministic | --no-deterministic]
 
 Stable Diffusion quantization
@@ -383,6 +384,10 @@ options:
                         Disabled
   --no-compile-eval     Disable Compile proxies for evaluation. Default:
                         Disabled
+  --inference-mode      Enable Use inference mode for PTQ and eval. Default:
+                        Enabled
+  --no-inference-mode   Disable Use inference mode for PTQ and eval. Default:
+                        Enabled
   --deterministic       Enable Deterministic image generation. Default:
                         Enabled
   --no-deterministic    Disable Deterministic image generation. Default:
