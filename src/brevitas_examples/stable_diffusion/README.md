@@ -97,7 +97,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--weight-quant-format WEIGHT_QUANT_FORMAT]
                [--input-quant-format INPUT_QUANT_FORMAT]
                [--weight-quant-granularity {per_channel,per_tensor,per_group}]
-               [--input-quant-granularity {per_tensor,per_group}]
+               [--input-quant-granularity {per_tensor,per_group,per_row}]
                [--input-scale-type {static,dynamic}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--input-group-size INPUT_GROUP_SIZE]
@@ -116,6 +116,8 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--inference-pipeline {samples,reference_images,mlperf}]
                [--caption-path CAPTION_PATH]
                [--reference-images-path REFERENCE_IMAGES_PATH]
+               [--few-shot-calibration [FEW_SHOT_CALIBRATION ...]]
+               [--calibration-batch-size CALIBRATION_BATCH_SIZE]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
                [--exclude-blacklist-act-eq | --no-exclude-blacklist-act-eq]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
@@ -132,6 +134,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--vae-bias-correction | --no-vae-bias-correction]
                [--compile-ptq | --no-compile-ptq]
                [--compile-eval | --no-compile-eval]
+               [--inference-mode | --no-inference-mode]
                [--deterministic | --no-deterministic]
 
 Stable Diffusion quantization
@@ -251,7 +254,7 @@ options:
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
                         per_channel.
-  --input-quant-granularity {per_tensor,per_group}
+  --input-quant-granularity {per_tensor,per_group,per_row}
                         Granularity for scales/zero-point of inputs. Default:
                         per_tensor.
   --input-scale-type {static,dynamic}
@@ -307,6 +310,11 @@ options:
                         Inference pipeline for evaluation. Default: None
   --reference-images-path REFERENCE_IMAGES_PATH
                         Inference pipeline for evaluation. Default: None
+  --few-shot-calibration [FEW_SHOT_CALIBRATION ...]
+                        What timesteps to use for few-shot-calibration.
+                        Default: []
+  --calibration-batch-size CALIBRATION_BATCH_SIZE
+                        Batch size for few-shot-calibration. Default: 1
   --quantize-weight-zero-point
                         Enable Quantize weight zero-point. Default: Enabled
   --no-quantize-weight-zero-point
@@ -376,6 +384,10 @@ options:
                         Disabled
   --no-compile-eval     Disable Compile proxies for evaluation. Default:
                         Disabled
+  --inference-mode      Enable Use inference mode for PTQ and eval. Default:
+                        Enabled
+  --no-inference-mode   Disable Use inference mode for PTQ and eval. Default:
+                        Enabled
   --deterministic       Enable Deterministic image generation. Default:
                         Enabled
   --no-deterministic    Disable Deterministic image generation. Default:
