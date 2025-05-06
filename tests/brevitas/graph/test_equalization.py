@@ -71,7 +71,7 @@ def test_resnet18_equalization():
         equalized_layers.update(r[0])
         equalized_layers.update(r[1])
 
-    # Check that we found all the expected regions
+    Check that we found all the expected regions
     for region, expected_region in zip(regions, resnet_18_regions):
         srcs = region.srcs_names
         sources_check = set(srcs) == set(expected_region[0])
@@ -308,8 +308,7 @@ def test_models(rotation_fixtures, partial_had):
     inp = torch.ones(in_shape)
 
     model.eval()
-    # penultimate_weight = model.linear_1.weight.data
-    # last_weight = model.linear_2.weight.data
+
     with torch.no_grad():
         expected_out = model(inp)
 
