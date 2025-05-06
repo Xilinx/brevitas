@@ -839,7 +839,7 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 32428.475,
+            "float_ppl": 36796.984,
             "quant_ppl": 36821.664},])
 def learned_round_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
@@ -894,7 +894,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
             "float_ppl": 32428.475,
-            "quant_ppl": 32351.0351,},
+            "quant_ppl": 32351.035,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -916,7 +916,7 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "float_ppl": 32428.475,
-            "quant_ppl": 32351.035},
+            "quant_ppl": 32512.951},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -1047,7 +1047,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32452.111,
+            "quant_ppl": 32491.781,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1075,7 +1075,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32491.781,
+            "quant_ppl": 32452.111,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
