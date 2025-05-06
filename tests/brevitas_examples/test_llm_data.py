@@ -12,14 +12,14 @@ import torch
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
 
-# Identifiers for the special tokens of TestTokenizer
+# Identifiers for the special tokens of DummyTokenizer
 BOS_TOKEN_ID = 0
 EOS_TOKEN_ID = 1
 
 
 # Mimics a part of the functionality of the class BatchEncoding in transformers.tokenization_utils_base,
 # since an instance of it is returned by the __call__of PreTrainedTokenizerBase
-class TestBatchEncoding:
+class DummyBatchEncoding:
 
     def __init__(self, input_ids: torch.Tensor) -> None:
         self.input_ids = input_ids
@@ -30,7 +30,7 @@ class TestBatchEncoding:
 
 
 # Sample tokenizer which maps to each character in a string to its integer representation
-class TestTokenizer:
+class DummyTokenizer:
 
     def __init__(
         self,
@@ -49,7 +49,7 @@ class TestTokenizer:
                           list(map(ord, text)) for text in texts]}
 
     def __call__(self, text: str, **kwargs) -> torch.Tensor:
-        return TestBatchEncoding(
+        return DummyBatchEncoding(
             torch.tensor(
                 self.batch_encode_plus([text], add_special_tokens=False)["input_ids"],
                 dtype=torch.int64))
@@ -121,7 +121,7 @@ def test_clm_tokenization(
         fuse_documents: bool,
         add_eos_token: bool):
     texts = ["", "a", "", "bbb"]
-    tokenizer = TestTokenizer(
+    tokenizer = DummyTokenizer(
         bos_token_id=bos_token_id,
         eos_token_id=eos_token_id,
     )
@@ -147,7 +147,7 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
     raw_dataset = Dataset.from_dict({
         "text": texts,})
     # Instantiate test tokenizer
-    tokenizer = TestTokenizer(bos_token_id=BOS_TOKEN_ID,)
+    tokenizer = DummyTokenizer(bos_token_id=BOS_TOKEN_ID,)
     expected_tokenized_texts = {
         "train": {
             False: [
