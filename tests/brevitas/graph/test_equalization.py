@@ -71,7 +71,7 @@ def test_resnet18_equalization():
         equalized_layers.update(r[0])
         equalized_layers.update(r[1])
 
-    Check that we found all the expected regions
+    # Check that we found all the expected regions
     for region, expected_region in zip(regions, resnet_18_regions):
         srcs = region.srcs_names
         sources_check = set(srcs) == set(expected_region[0])
