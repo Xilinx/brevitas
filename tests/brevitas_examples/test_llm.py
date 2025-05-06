@@ -162,6 +162,8 @@ def run_test_models_run_args(args, model_with_ppl):
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
+    if torch_version < version.parse('2.4') and args.replace_rmsnorm::
+        pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
     validate_args_and_run_main(args)
 
 
