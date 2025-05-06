@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from contextlib import nullcontext
 from io import BytesIO
 from typing import Optional, Tuple, Union
 import warnings
@@ -109,6 +110,7 @@ class ONNXBaseManager(BaseManager, ABC):
             input_shape: Optional[Tuple[int, ...]],
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
+            patch_fp8_ops,
             **onnx_export_kwargs):
 
         if onnx is None or opt is None:
@@ -164,7 +166,8 @@ class ONNXBaseManager(BaseManager, ABC):
                         model_bytes = BytesIO()
                         export_target = model_bytes
 
-                    with PatchFp8Ops():
+                    patch_export = PatchFp8Ops if patch_fp8_ops else nullcontext
+                    with patch_export():
                         torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
@@ -192,6 +195,7 @@ class ONNXBaseManager(BaseManager, ABC):
             input_t: Optional[Union[Tensor,
                                     QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
+            patch_fp8_ops=False,
             **onnx_export_kwargs):
         return cls.export_onnx(
-            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+            module, args, export_path, input_shape, input_t, disable_warnings, patch_fp8_ops, **onnx_export_kwargs)

@@ -80,6 +80,7 @@ class QONNXManager(ONNXBaseManager):
             input_shape: Optional[Tuple[int, ...]],
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
+            patch_fp8_ops,
             **onnx_export_kwargs):
         key = "custom_opsets"
         if key in onnx_export_kwargs.keys():
@@ -90,4 +91,4 @@ class QONNXManager(ONNXBaseManager):
         else:
             onnx_export_kwargs[key] = {QONNX_DOMAIN_STRING: QONNX_DOMAIN_VERSION}
         return super(QONNXManager, cls).export_onnx(
-            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+            module, args, export_path, input_shape, input_t, disable_warnings, patch_fp8_ops, **onnx_export_kwargs)

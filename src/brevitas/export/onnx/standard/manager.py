@@ -41,8 +41,9 @@ class StdONNXBaseManager(ONNXBaseManager, ABC):
             input_shape: Optional[Tuple[int, ...]],
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
+            patch_fp8_ops,
             **onnx_export_kwargs):
         cls.solve_onnx_opset(onnx_export_kwargs)
         output = super().export_onnx(
-            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+            module, args, export_path, input_shape, input_t, disable_warnings, patch_fp8_ops, **onnx_export_kwargs)
         return output
