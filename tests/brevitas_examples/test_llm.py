@@ -164,6 +164,9 @@ def run_test_models_run_args(args, model_with_ppl):
         pytest.skip("Dynamic activation not compatible with JIT")
     if torch_version < version.parse('2.4') and args.replace_rmsnorm:
         pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
+    if platform.system() == 'Windows' and hasattr(args, 'rotation') and args.rotation in ['fx', 'fused_no_fx']:
+        pytest.skip("Skipping dynamo + Windows")
+
     validate_args_and_run_main(args)
 
 
