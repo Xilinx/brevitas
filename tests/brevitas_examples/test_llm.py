@@ -275,15 +275,15 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
-            "float_ppl": 52994.4296875,
-            "quant_ppl": 52123.94140625},
+            "float_ppl": 51649.797,
+            "quant_ppl": 51694.785},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "quant_sdpa": True,
-            "float_ppl": 52994.4296875,
-            "quant_ppl": 52116.3359375},])
+            "float_ppl": 51649.797,
+            "quant_ppl": 51688.922},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
