@@ -111,10 +111,6 @@ class UpdatableNamespace(Namespace):
         self.__dict__.update(**kwargs)
 
 
-def requires_fx(args):
-    return fx_required(args)
-
-
 @dataclass
 class ModelAndPpl:
     name: str
@@ -174,7 +170,7 @@ def default_run_args(request):
 
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
-    use_fx = requires_fx(args)
+    use_fx = fx_required(args)
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
