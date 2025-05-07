@@ -10,6 +10,7 @@ import platform
 import shutil
 from unittest.mock import patch
 
+from datasets import Dataset
 import numpy as np
 import onnx
 from packaging import version
@@ -30,6 +31,17 @@ ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
 
 
+def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
+    assert dataset_name == "c4", f"Expected dataset_name to be c4 but got {dataset_name} instead"
+    assert split in ["train", "validation"], f"Expected split to be 'train' or 'validation' but got "
+    # Contains information from allenai/c4 (https://huggingface.co/datasets/allenai/c4) which is made available under the ODC Attribution License.
+    C4_TEXTS = [
+        "Luxembourg's professional networking group for women will host a discussion about promoting Luxembourg abroad.\n(JB) Luxembourg's female only professional networking group will host a discussion about promoting Luxembourg abroad.\nSpeaker Carole Tompers, who is responsible for promoting the Made in Luxembourg products and services to foreign markets, will take guests on a whistle stop tour of the country's key assets.\nHer speech will explore the Nations Brand Index 2010, delve into what makes a Luxembourg brand and suggest ways of strengthening and promoting existing brands abroad.\nMs Tompers has a strong track record in marketing and communications. She currently serves as Secretary General at Luxembourg for Business.\nShe has previously worked on promotional projects with various ministries, the Chamber of Commerce, the Office Ducroire, the National Credit and Investment Corporation, the Chamber of Crafts and Luxembourg's Business Federation.\nThe event is organised by the Network at the Sofitel Kirchberg on November 16, from 7.30pm."
+    ]
+    return Dataset.from_dict({
+        "text": C4_TEXTS,})
+
+
 def ptid2pathname(string):
     return string.replace("/", "-").replace(":", "-")
 
@@ -44,11 +56,16 @@ def validate_args(args):
     da = vars(parse_args([])[0])
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
+    if args.replace_rmsnorm:
+        if torch_version < version.parse('2.4'):
+            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
 
 
 def validate_args_and_run_main(args, extra_args=None):
     validate_args(args)
-    results, model = quantize_llm(args, extra_args=extra_args)
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_load_raw_dataset):
+        results, model = quantize_llm(args, extra_args=extra_args)
     return results, model
 
 
@@ -148,6 +165,10 @@ def run_test_models_run_args(args, model_with_ppl):
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
+    if platform.system() == 'Windows' and hasattr(args, 'rotation') and args.rotation in [
+            'fx', 'fused_no_fx']:
+        pytest.skip("Skipping dynamo + Windows")
+
     validate_args_and_run_main(args)
 
 
@@ -235,8 +256,8 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
             "bias_corr": True,
-            "float_ppl": 29327.994,
-            "quant_ppl": 29465.955},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32327.721},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "fx",
@@ -246,14 +267,14 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "input_quant_granularity": "per_row",
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "float_ppl": 29327.994,
-            "quant_ppl": 29354.801},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32428.383},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_equalization": "layerwise",
             "gptq": True,
-            "float_ppl": 35292.543,
-            "quant_ppl": 35212.766},])
+            "float_ppl": 36796.984,
+            "quant_ppl": 36910.191},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -289,15 +310,15 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
-            "float_ppl": 52994.4296875,
-            "quant_ppl": 52123.94140625},
+            "float_ppl": 51649.797,
+            "quant_ppl": 51694.785},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "quant_sdpa": True,
-            "float_ppl": 52994.4296875,
-            "quant_ppl": 52116.3359375},])
+            "float_ppl": 51649.797,
+            "quant_ppl": 51688.922},])
 def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -449,8 +470,6 @@ def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
     if args.replace_rmsnorm:
-        if torch_version < version.parse('2.4'):
-            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
         if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
     _, model = validate_args_and_run_main(args)
@@ -621,8 +640,6 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
     caplog.set_level(logging.INFO)
     args, exp_layer_types_count = layer_args_types_count
     if args.replace_rmsnorm:
-        if torch_version < version.parse('2.4'):
-            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
         if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
     _, model = validate_args_and_run_main(args)
@@ -815,8 +832,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29327.32421875},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32533.578},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
@@ -825,8 +842,8 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "learned_round": "linear_round",
             "learned_round_iters": 1,
             "gpxq_block_name": "model.layers",
-            "float_ppl": 35292.54296875,
-            "quant_ppl": 35014.25390625},])
+            "float_ppl": 36796.984,
+            "quant_ppl": 36821.664},])
 def learned_round_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -868,8 +885,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": True,
             "rotation_mode": "ort",
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29270.265625,},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32405.289,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -879,8 +896,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29228.62109375,},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32351.035,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -890,8 +907,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29444.49609375,},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32410.234,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -901,8 +918,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation": "fused_no_fx",
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29349.400390625},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32512.951},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -910,8 +927,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "input_bit_width": None,
             "replace_rmsnorm": True,
             "rotation": "layerwise",
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29372.86328125,},
+            "float_ppl": 32428.475,
+            "quant_ppl": 32537.238,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -922,8 +939,8 @@ def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
             "rotation_orphan_sink": False,
             "rotation_mode": "had",
             "rotation_layers_to_expand": ["down_proj"],
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29343.634765625,},])
+            "float_ppl": 32428.475,
+            "quant_ppl": 32515.525,},])
 def rotation_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -976,8 +993,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29270.91015625,
+            "float_ppl": 32428.475,
+            "quant_ppl": 32414.531,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1004,8 +1021,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29208.28125,
+            "float_ppl": 32428.475,
+            "quant_ppl": 32342.799,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1032,8 +1049,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29457.470703125,
+            "float_ppl": 32428.475,
+            "quant_ppl": 32491.781,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -1060,8 +1077,8 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "1",
                 "--gradient_accumulation_steps",
                 "1"],
-            "float_ppl": 29327.994140625,
-            "quant_ppl": 29421.083984375,
+            "float_ppl": 32428.475,
+            "quant_ppl": 32452.111,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,

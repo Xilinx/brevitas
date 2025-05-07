@@ -42,7 +42,7 @@ class QuantBlock(nn.Module):
         return self.relu(out)
 
 
-class TestQuantModel(nn.Module):
+class DummyQuantModel(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, hidden_dim: int) -> None:
         super().__init__()
@@ -74,7 +74,7 @@ class Block(nn.Module):
         return self.relu(out)
 
 
-class TestModel(nn.Module):
+class DummyModel(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, hidden_dim: int) -> None:
         super().__init__()
@@ -91,7 +91,7 @@ class TestModel(nn.Module):
         return self.out_proj_mlp(out, block3_kwarg=0., **kwargs)
 
 
-class TestDataset(Dataset):
+class DummyDataset(Dataset):
 
     def __init__(self):
         self.data = [
@@ -108,7 +108,7 @@ class TestDataset(Dataset):
         return self.data[idx]
 
 
-class TestCache:
+class DummyCache:
 
     def __init__(self) -> None:
         self.args = []
@@ -148,15 +148,15 @@ class TestLearnedRound:
 
     @fixture
     def quant_model():
-        return TestQuantModel(in_features=2, out_features=1, hidden_dim=4)
+        return DummyQuantModel(in_features=2, out_features=1, hidden_dim=4)
 
     @fixture
     def model():
-        return TestModel(in_features=2, out_features=1, hidden_dim=4)
+        return DummyModel(in_features=2, out_features=1, hidden_dim=4)
 
     @fixture
     def data_loader():
-        return DataLoader(TestDataset(), batch_size=1, shuffle=False)
+        return DataLoader(DummyDataset(), batch_size=1, shuffle=False)
 
     def test_get_blocks(self, quant_model: nn.Module):
 
@@ -255,7 +255,7 @@ class TestLearnedRound:
                 fp_outs.append(fp_out)
 
         # Prepare to capture inputs/outputs using DataSaverHook
-        cache = TestCache()
+        cache = DummyCache()
 
         # Retrieve module from quant_model
         module = quant_model.hidden_mlp

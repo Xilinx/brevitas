@@ -24,19 +24,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from functools import partial
 import random
 from typing import Any, Iterable, List, Optional, Union
+import warnings
 
 import numpy as np
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from transformers import AutoConfig
 
-from .data import get_c4
-from .data import get_dataset_clm
-from .data import get_pile
-from .data import get_wikitext2
+from brevitas_examples.llm.llm_quant.data import get_clm_dataset
+from brevitas_examples.llm.llm_quant.data import get_wikitext2
+from brevitas_examples.llm.llm_quant.data import load_raw_dataset
 
 
 class DatasetToDevice(torch.utils.data.Dataset):
@@ -83,28 +82,50 @@ def get_dataset_for_model(
     seqlen: int = 2048,
     seed: int = 0,
     split: str = "train",
-    bos_preprocessing: bool = True,
+    bos_preprocessing: Optional[str] = None,
+    add_eos_token: bool = False,
+    fuse_documents: bool = True,
     require_fx: bool = False,
     device: Optional[Union[str, torch.device]] = None,
 ):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
-    get_dataset_map = {"wikitext2": get_wikitext2, "c4": get_c4, "pile": get_pile}
+
     if split not in ["train", "validation"]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
-    if dataset_name not in get_dataset_map:
-        raise ValueError(
-            f"Expected a value in {list(get_dataset_map.keys())} but found {dataset_name}")
-    get_dataset_fn = get_dataset_map[dataset_name]
 
-    data = get_dataset_fn(
-        tokenizer=tokenizer,
-        nsamples=nsamples,
-        seqlen=seqlen,
+    raw_dataset = load_raw_dataset(
+        dataset_name=dataset_name,
         split=split,
         seed=seed,
-        bos_preprocessing=bos_preprocessing)
+    )
+    if dataset_name == "wikitext2" or (dataset_name == "pile" and split == "validation"):
+        # Document level BOS preprocessing is not supported for Wikitext2 as each row does not belong to
+        # a single document
+        if bos_preprocessing == "document":
+            bos_preprocessing = "sequence"
+            warnings.warn(
+                "Wikitext2 does not support document-level BOS. Default to sequence-level.")
+        # Wikitext2 preprocessing matches the preprocessing in https://github.com/IST-DASLab/gptq/blob/main/datautils.py
+        data = get_wikitext2(
+            raw_dataset=raw_dataset,
+            tokenizer=tokenizer,
+            seqlen=seqlen,
+            nsamples=nsamples,
+            split=split,
+            add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
+            seed=seed,
+        )
+    else:
+        data = get_clm_dataset(
+            raw_dataset=raw_dataset,
+            tokenizer=tokenizer,
+            nsamples=nsamples,
+            seqlen=seqlen,
+            bos_preprocessing=bos_preprocessing,
+            add_eos_token=add_eos_token,
+            fuse_documents=fuse_documents)
 
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:
