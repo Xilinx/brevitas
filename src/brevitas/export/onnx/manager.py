@@ -39,7 +39,7 @@ class PatchFp8Ops():
     def __enter__(self):
         import numpy as np
 
-        if torch_version >= version.parse('2.1.0') and torch.version < version.parse('2.5'):
+        if torch_version >= version.parse('2.1.0') and torch_version < version.parse('2.5'):
             self.lib = torch.library.Library("aten", "IMPL")
 
             def equal_cpu(self, other):
