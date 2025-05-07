@@ -566,6 +566,8 @@ class _BiasCorrection:
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
         # Compute float reference
+        # TODO: Ensure that removing is_training=False does not cause any regression and remove,
+        # if that is the case
         with quantization_status_manager(
                 module,
                 disable_act_quant=True,
