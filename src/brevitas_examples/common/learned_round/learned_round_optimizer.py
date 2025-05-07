@@ -323,10 +323,10 @@ def save_inputs_output(
     if disable_quant:
         disable_quantization_cm = quantization_status_manager(
             model=model,
-            is_training=False,
             disable_act_quant=True,
             disable_weight_quant=True,
             disable_bias_quant=True,
+            is_training=False,
         )
     else:
         disable_quantization_cm = nullcontext()

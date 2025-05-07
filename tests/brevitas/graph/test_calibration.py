@@ -476,10 +476,10 @@ class TestQuantizationStatusManager():
         # Context manager to be tested
         disable_quantization_cm = quantization_status_manager(
             model=model,
-            is_training=is_training,
             disable_act_quant=disable_act_quant,
             disable_weight_quant=disable_weight_quant,
             disable_bias_quant=disable_bias_quant,
+            is_training=is_training,
         )
         # Sample input, not relevant to the task
         input = torch.rand(size=(2, 3))
