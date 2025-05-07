@@ -37,10 +37,13 @@ class PatchFp8Ops():
         self.lib = None
 
     def __enter__(self):
-        if torch_version >= version.parse('2.1.0'):
+        import numpy as np
+
+        if torch_version >= version.parse('2.1.0') and torch.version < version.parse('2.5'):
             self.lib = torch.library.Library("aten", "IMPL")
 
             def equal_cpu(self, other):
+
                 if (isinstance(self, Tensor) and
                         self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)) or (
                             isinstance(other, Tensor) and
@@ -49,16 +52,15 @@ class PatchFp8Ops():
                     other = other.to(torch.float32)
                     return torch.equal(self, other)
                 else:
-                    res = True
-                    if not isinstance(self, Tensor):
-                        self = torch.tensor(self)
-                    if not isinstance(other, Tensor):
-                        other = torch.tensor(other)
-                    if self.dim() > 0:
-                        for x, y in zip(self.flatten(), other.flatten()):
-                            res &= x == y
+                    if isinstance(self, Tensor):
+                        self = self.cpu().numpy()
                     else:
-                        res = self.item() == other.item()
+                        self = np.array(self)
+                    if isinstance(other, Tensor):
+                        other = other.cpu().numpy
+                    else:
+                        other = np.array(other)
+                    res = bool(np.equal(self, other).all())
                     return torch.tensor([res])
 
             self.lib.impl("equal", equal_cpu, "CPU")
@@ -195,7 +197,14 @@ class ONNXBaseManager(BaseManager, ABC):
             input_t: Optional[Union[Tensor,
                                     QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
-            patch_fp8_ops=False,
+            patch_fp8_ops=True,
             **onnx_export_kwargs):
         return cls.export_onnx(
-            module, args, export_path, input_shape, input_t, disable_warnings, patch_fp8_ops, **onnx_export_kwargs)
+            module,
+            args,
+            export_path,
+            input_shape,
+            input_t,
+            disable_warnings,
+            patch_fp8_ops,
+            **onnx_export_kwargs)
