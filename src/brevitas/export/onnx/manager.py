@@ -197,7 +197,7 @@ class ONNXBaseManager(BaseManager, ABC):
             input_t: Optional[Union[Tensor,
                                     QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
-            patch_fp8_ops=True,
+            patch_fp8_ops=False,
             **onnx_export_kwargs):
         return cls.export_onnx(
             module,
