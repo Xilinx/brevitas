@@ -96,6 +96,7 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
             self,
             learned_round_impl: torch.nn.Module,
             learned_round_init: torch.Tensor,
+            input_view_impl: torch.nn.Module,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None) -> None:
         super(LearnedRoundSte, self).__init__()
@@ -103,12 +104,13 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
         learned_round_init = learned_round_init.to(device=device, dtype=dtype)
         self.tensor_slicer = SliceTensor()
         self.value = torch.nn.Parameter(learned_round_init)
+        self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         p = self.learned_round_impl(self.value)
+        p = self.input_view_impl(p)
         p = self.tensor_slicer(p)
-        p = (p.to(x.dtype)).view_as(x)
         return self.learned_round_impl.round_forward(x, p)
 
     def _load_from_state_dict(
