@@ -56,6 +56,9 @@ def validate_args(args):
     da = vars(parse_args([])[0])
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
+    if args.replace_rmsnorm:
+        if torch_version < version.parse('2.4'):
+            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
 
 
 def validate_args_and_run_main(args, extra_args=None):
@@ -162,8 +165,6 @@ def run_test_models_run_args(args, model_with_ppl):
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
-    if torch_version < version.parse('2.4') and args.replace_rmsnorm:
-        pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
     if platform.system() == 'Windows' and hasattr(args, 'rotation') and args.rotation in [
             'fx', 'fused_no_fx']:
         pytest.skip("Skipping dynamo + Windows")
@@ -469,8 +470,6 @@ def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
     if args.replace_rmsnorm:
-        if torch_version < version.parse('2.4'):
-            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
         if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
     _, model = validate_args_and_run_main(args)
@@ -641,8 +640,6 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
     caplog.set_level(logging.INFO)
     args, exp_layer_types_count = layer_args_types_count
     if args.replace_rmsnorm:
-        if torch_version < version.parse('2.4'):
-            pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
         if hasattr(args, 'rotation') and args.rotation == 'fx' and platform.system() == 'Windows':
             pytest.skip("Skipping dynamo + windows")
     _, model = validate_args_and_run_main(args)
