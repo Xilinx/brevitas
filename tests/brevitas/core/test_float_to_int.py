@@ -6,6 +6,7 @@ from hypothesis.strategies import floats
 import pytest
 import pytest_cases
 import torch
+import torch.nn as nn
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
@@ -96,7 +97,7 @@ class TestLearnedRound():
     @pytest_cases.parametrize('impl', LEARNEDROUND_IMPL)
     def learnedround_float_to_int_impl(self, impl):
         sample_weight = torch.randn(OUT_CH, IN_CH, KERNEL_SIZE, KERNEL_SIZE)
-        impl = LearnedRoundSte(impl, torch.full(sample_weight.shape, 0.))
+        impl = LearnedRoundSte(impl, torch.full(sample_weight.shape, 0.), nn.Identity())
 
         # Simulate learned parameter
         value = torch.randn_like(impl.value)
