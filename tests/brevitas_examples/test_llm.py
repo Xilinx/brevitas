@@ -20,6 +20,7 @@ import torch
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
@@ -29,6 +30,11 @@ from tests.marker import requires_pt_ge
 
 ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
+
+MODEL_PT_VERSION_REQUIREMENTS = {
+    "hf-internal-testing/tiny-random-LlamaForCausalLM": "2.0",
+    "hf-internal-testing/tiny-random-MistralForCausalLM": "2.0",
+    "hf-internal-testing/tiny-random-OPTForCausalLM": "2.4",}
 
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
@@ -56,6 +62,9 @@ def validate_args(args):
     da = vars(parse_args([])[0])
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
+    req_pt = MODEL_PT_VERSION_REQUIREMENTS[args.model]
+    if torch_version < version.parse(req_pt):
+        pytest.skip(f"{args.model} requires PyTorch version {req_pt}")
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
@@ -102,10 +111,6 @@ class UpdatableNamespace(Namespace):
         self.__dict__.update(**kwargs)
 
 
-def requires_fx(args):
-    return args.act_equalization == "fx" or args.weight_equalization or args.ln_affine_merge
-
-
 @dataclass
 class ModelAndPpl:
     name: str
@@ -118,7 +123,7 @@ class ModelAndPpl:
     ids=[
         "llama",
         "mistral",  #"mixtral",
-    ],
+        "opt",],
     params=[
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -135,7 +140,11 @@ class ModelAndPpl:
         #    float_ppl=None,
         #    supports_fx=True,
         #),
-    ])
+        ModelAndPpl(
+            name="hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            float_ppl=None,
+            supports_fx=True,
+        ),])
 def small_models_with_ppl(request):
     yield request.param
 
@@ -160,7 +169,7 @@ def default_run_args(request):
 
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
-    use_fx = requires_fx(args)
+    use_fx = fx_required(args)
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
@@ -184,6 +193,9 @@ def run_test_models_run_args(args, model_with_ppl):
         "weight_equalization=True",
         "gptq=True",
         "ln_affine_merge=True",
+        "rotation=layerwise",
+        "rotation=fx",
+        "rotation=fused_no_fx",
         "act_equalization=fx,gptq=True",
         "quant_sdpa_fx_per_row",
         "quant_sdpa_functional_per_row",
@@ -198,6 +210,9 @@ def run_test_models_run_args(args, model_with_ppl):
         {"weight_equalization": True},
         {"gptq": True},
         {"ln_affine_merge": True},
+        {"rotation": "layerwise"},
+        {"rotation": "fx", "ln_affine_merge": True, "replace_rmsnorm": True, "convert_layernorm_to_rmsnorm": True},
+        {"rotation": "fused_no_fx", "replace_rmsnorm": True},
         {"act_equalization": "fx", "gptq": True},
         {"quant_sdpa": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
         {"functional_sdpa_quant": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
@@ -225,32 +240,12 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
 
 
 @pytest_cases.fixture(
-    scope="session",
-    ids=[
-        "opt",],
-    params=[
-        ModelAndPpl(
-            name="hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            float_ppl=None,
-            supports_fx=True,
-        ),])
-def small_models_with_ppl_pt_ge_2_4(request):
-    yield request.param
-
-
-@pytest.mark.llm
-@requires_pt_ge('2.4')
-def test_small_models_toggle_run_args_pt_ge_2_4(
-        caplog, toggle_run_args, small_models_with_ppl_pt_ge_2_4):
-    caplog.set_level(logging.INFO)
-    run_test_models_run_args(toggle_run_args, small_models_with_ppl_pt_ge_2_4)
-
-
-@pytest_cases.fixture(
     ids=[
         "llama",
         "llama_float_dynamic_input",
-        "mistral",],
+        "mistral",
+        "opt-replace-mha",
+        "opt-quant-sdpa",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -274,7 +269,21 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
             "act_equalization": "layerwise",
             "gptq": True,
             "float_ppl": 36796.984,
-            "quant_ppl": 36910.191},])
+            "quant_ppl": 36910.191},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            "weight_equalization": True,
+            "ln_affine_merge": True,
+            "replace_mha": True,
+            "float_ppl": 51649.797,
+            "quant_ppl": 51694.785},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            "weight_equalization": True,
+            "ln_affine_merge": True,
+            "quant_sdpa": True,
+            "float_ppl": 51649.797,
+            "quant_ppl": 51688.922},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -302,48 +311,6 @@ def test_small_models_acc(caplog, acc_args_and_acc):
 
 @pytest_cases.fixture(
     ids=[
-        "opt-replace-mha",
-        "opt-quant-sdpa",],
-    params=[
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "weight_equalization": True,
-            "ln_affine_merge": True,
-            "replace_mha": True,
-            "float_ppl": 51649.797,
-            "quant_ppl": 51694.785},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "weight_equalization": True,
-            "ln_affine_merge": True,
-            "quant_sdpa": True,
-            "float_ppl": 51649.797,
-            "quant_ppl": 51688.922},])
-def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
-    args = default_run_args
-    run_dict = request.param
-    float_ppl = run_dict["float_ppl"]
-    quant_ppl = run_dict["quant_ppl"]
-    del run_dict["float_ppl"]
-    del run_dict["quant_ppl"]
-    args.update(**run_dict)
-    yield args, float_ppl, quant_ppl
-
-
-@pytest.mark.llm
-@requires_pt_ge('2.4')
-def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
-    caplog.set_level(logging.INFO)
-    args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc_pt_ge_2_4
-    results, _ = validate_args_and_run_main(args)
-    float_ppl = results["float_ppl"].detach().cpu().numpy()
-    quant_ppl = results["quant_ppl"].detach().cpu().numpy()
-    assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
-
-
-@pytest_cases.fixture(
-    ids=[
         "mistral-int8",
         "mistral-weight-only",
         "mistral-fp8_ocp",
@@ -351,7 +318,9 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         "llama-mxfp8",
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
-        "llama-int8-svd_quant",],
+        "llama-int8-svd_quant",
+        "opt-replace-mha",
+        "opt-quant-sdpa",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -444,7 +413,8 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
             "exp_layer_types": {
-                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},},
+                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},
+        },  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "svd_quant": True,
@@ -454,7 +424,20 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
                     "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>",
                 "model.layers.0.self_attn.q_proj.layer":
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
-    ])  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            "replace_mha": True,
+            "exp_layer_types": {
+                "model.decoder.layers.0.self_attn":
+                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
+                "model.decoder.layers.0.self_attn.mha":
+                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+            "quant_sdpa": True,
+            "exp_layer_types": {
+                "scaled_dot_product_attention":
+                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
@@ -711,43 +694,6 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
         assert len(quant_sdpa) > 1
     elif args.functional_sdpa_quant:
         assert len(quant_sdpa) == 1
-
-
-@pytest_cases.fixture(
-    ids=[
-        "opt-replace-mha",
-        "opt-quant-sdpa",],
-    params=[
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "replace_mha": True,
-            "exp_layer_types": {
-                "model.decoder.layers.0.self_attn":
-                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
-                "model.decoder.layers.0.self_attn.mha":
-                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "quant_sdpa": True,
-            "exp_layer_types": {
-                "scaled_dot_product_attention":
-                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},])
-def layer_args_pt_ge_2_4(default_run_args, request):
-    args = default_run_args
-    layer_dict = request.param
-    exp_layer_types = layer_dict["exp_layer_types"]
-    del layer_dict["exp_layer_types"]
-    args.update(**layer_dict)
-    yield args, exp_layer_types
-
-
-@pytest.mark.llm
-@requires_pt_ge('2.4')
-def test_small_models_quant_layer_pt_ge_2_4(caplog, layer_args_pt_ge_2_4):
-    caplog.set_level(logging.INFO)
-    args, exp_layer_types = layer_args_pt_ge_2_4
-    _, model = validate_args_and_run_main(args)
-    assert_layer_types(model, exp_layer_types)
 
 
 @pytest_cases.fixture(
