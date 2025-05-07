@@ -443,9 +443,7 @@ def quantize_llm(args, extra_args=None):
     with quantization_cm:
         # We initialize weights scale factor pre-GPTQ
         with torch.no_grad():
-            model(
-                **calibration_loader[0]
-            )  # If this is remove, please set `eval=True` in `default_run_args` in `test/brevitas_examples/test_llm.py`
+            model(**calibration_loader[0])
 
         if args.compile_ptq:
             for m in model.modules():
