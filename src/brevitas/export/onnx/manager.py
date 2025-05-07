@@ -9,6 +9,9 @@ import warnings
 
 from packaging import version
 
+from brevitas.export.onnx.qonnx.handler import BrevitasFloatQuantProxyHandler
+from brevitas.export.onnx.standard.qcdq.handler import StdFloatQCDQCastONNXMixin
+
 try:
     import onnx
     import onnxoptimizer as opt
@@ -112,7 +115,6 @@ class ONNXBaseManager(BaseManager, ABC):
             input_shape: Optional[Tuple[int, ...]],
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
-            patch_fp8_ops,
             **onnx_export_kwargs):
 
         if onnx is None or opt is None:
@@ -168,9 +170,17 @@ class ONNXBaseManager(BaseManager, ABC):
                         model_bytes = BytesIO()
                         export_target = model_bytes
 
-                    patch_export = PatchFp8Ops if patch_fp8_ops else nullcontext
+                    # Check if we attached Float-related handlers, then we need to patch export
+                    fp8_export_patch = False
+                    for m in module.modules():
+                        if isinstance(m,
+                                      (StdFloatQCDQCastONNXMixin, BrevitasFloatQuantProxyHandler)):
+                            fp8_export_patch = True
+
+                    patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
                     with patch_export():
                         torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
                     cls.set_export_mode(module, enabled=False)
@@ -197,14 +207,6 @@ class ONNXBaseManager(BaseManager, ABC):
             input_t: Optional[Union[Tensor,
                                     QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
-            patch_fp8_ops=False,
             **onnx_export_kwargs):
         return cls.export_onnx(
-            module,
-            args,
-            export_path,
-            input_shape,
-            input_t,
-            disable_warnings,
-            patch_fp8_ops,
-            **onnx_export_kwargs)
+            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
