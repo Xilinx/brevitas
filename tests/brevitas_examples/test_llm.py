@@ -164,7 +164,6 @@ def default_run_args(request):
     args.input_bit_width = 8
     args.act_calibration = True
     args.dtype = "float32"
-    args.no_bos_preprocessing = True
     return args
 
 
