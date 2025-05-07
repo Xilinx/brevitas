@@ -29,7 +29,7 @@ LEARNEDROUND_IMPL = [
 class TestLearnedRound():
 
     def instantiate_learnedround_float_to_int_impl(self, impl, weights, value):
-        impl = LearnedRoundSte(impl, torch.full(weights.shape, 0.))
+        impl = LearnedRoundSte(impl, torch.full(weights.shape, 0.), nn.Identity())
         if isinstance(impl.learned_round_impl, LearnedRoundIdentity):
             min_value, max_value = torch.min(value), torch.max(value)
             # Prevent division by zero when all the elements of the tensor are the same
