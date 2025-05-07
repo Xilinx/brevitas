@@ -785,18 +785,11 @@ def _cross_layer_equalization(
     for module in chain(src_axes.values(), sink_axes.values()):
         rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
-    # When a model is dispatched to multiple devices by invoking offload_model, a map (weights_map) is generated
-    # with its keys being the names of the attributes under which the module parameters are registered
-    # (i.e. the keys of the dictionary _parameters). When a parametrization is added to the attribute "weight"
-    # of a model, for instance, its entry is removed from _parameters for that given module. However,
-    # when calling remove_hooks, the method set_module_tensor_to_device (accelerate.utils.modeling) iterates
-    # over the keys of weights_map, trying to retrieve the corresponding tensors from _parameters. Therefore,
-    # when trying to get _parameters["weight"], a KeyError is raised, as "weight" was removed from
-    # _parameters when registering its parametrization. Consequently, we need to register parametrizations
-    # AFTER we remove the HF hooks to prevent this error, thus the check isinstance(r, ModuleInstanceRegisterParametrization),
-    # as the model passed to _cross_layer_equalization is potentially offloaded
+    # If the model is dispatched using offload_model, parametrizations cannot be registered before calling
+    # remove_hooks, since parametrization alter the state_dict of the model. Therefore, the end-user has to
+    # apply the parametrization rewriters AFTER calling remove_hooks.
     for r in rewriters:
-        if not (hasattr(model, "_hf_hook") and
+        if not (hasattr(model, "offload_params") and
                 isinstance(r, ModuleInstanceRegisterParametrization)):
             model = r.apply(model)
 
