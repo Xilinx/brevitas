@@ -279,6 +279,8 @@ class gpfq_mode(gpxq_mode):
             pass
 
         # Disable quantization
+        # TODO: Ensure that removing is_training=False does not cause any regression and remove,
+        # if that is the case
         with quantization_status_manager(
                 self.model,
                 disable_act_quant=True,
