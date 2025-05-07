@@ -68,6 +68,11 @@ def validate_args(args):
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
+    if args.gpxq_block_name == "model.layers" and args.learned_round is not None and "opt" in args.model.lower(
+    ):
+        pytest.skip(
+            f"OPT-style model {args.model} not support with learned_round={args.learned_round} with block module named {args.gpxq_block_name}"
+        )
 
 
 def validate_args_and_run_main(args, extra_args=None):
