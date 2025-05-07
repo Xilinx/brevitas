@@ -64,7 +64,7 @@ def validate_args(args):
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
     req_pt = MODEL_PT_VERSION_REQUIREMENTS[args.model]
     if torch_version < version.parse(req_pt):
-        pytest.skip(f"{model} requires PyTorch version {req_pt}")
+        pytest.skip(f"{args.model} requires PyTorch version {req_pt}")
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
