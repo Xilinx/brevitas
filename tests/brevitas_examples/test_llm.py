@@ -791,8 +791,6 @@ def test_small_models_torch_export(caplog, torch_export_args):
             "gpxq_block_name": "model.layers",
             "float_ppl": 36796.984,
             "quant_ppl": 36821.664},])
-            "float_ppl": 35292.54296875,
-            "quant_ppl": 35014.25390625},])
 def learned_round_ppl_args_and_ppl(default_run_args, request):
     args = default_run_args
     run_dict = request.param
