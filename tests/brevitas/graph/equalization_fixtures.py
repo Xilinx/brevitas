@@ -531,7 +531,40 @@ def linear_rms():
     return LinearRMSModel
 
 
-list_of_rotation_mixtures = ['linear_rms']
+@pytest_cases.fixture
+def attention_sdpa():
+
+    class AttentionSDPA(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+
+            self.q_proj = nn.Linear(3, 4, bias=False)
+            self.k_proj = nn.Linear(3, 4, bias=False)
+            self.v_proj = nn.Linear(3, 4, bias=False)
+            self.o_proj = nn.Linear(4, 4, bias=False)
+
+        def forward(self, x):
+            hidden_shape = (1, 224, 4, -1, 1)
+            query_states = self.q_proj(x).view(hidden_shape).transpose(1, 2)
+
+            key_states = self.k_proj(x).view(hidden_shape).transpose(1, 2)
+            value_states = self.v_proj(x).view(hidden_shape).transpose(1, 2)
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                query_states,
+                key_states,
+                value_states,
+            )
+
+            attn_output = attn_output.reshape(1, 224, 4).contiguous()
+            attn_output = self.o_proj(attn_output)
+
+            return attn_output
+
+    return AttentionSDPA
+
+
+list_of_rotation_mixtures = ['linear_rms', 'attention_sdpa']
 
 rotation_fixtures = fixture_union(
     'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)
