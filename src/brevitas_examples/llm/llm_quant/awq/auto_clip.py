@@ -33,6 +33,9 @@ from typing import Dict, List
 import torch
 import torch.nn as nn
 
+from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_parameter_quant import \
+    GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
@@ -40,20 +43,29 @@ from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 __all__ = ["auto_clip_block", "apply_clip"]
 
 
+def _get_greatest_po2_divisor(num: int):
+    return (num & (~(num - 1)))
+
+
 # Auxiliar method to retrieve properties of the weight quantizer
 def _get_weight_quant_properties(sink: nn.Module, oc_batch_size: int = 256):
-    if isinstance(sink.weight_quant, GroupwiseWeightQuantProxyFromInjector):
+    if isinstance(
+            sink.weight_quant,
+        (GroupwiseWeightQuantProxyFromInjector, GroupwiseWeightFloatQuantProxyFromInjector)):
         num_output_channels, num_groups, group_size = sink.weight_quant.tensor_quant.int_quant.input_view_impl.expanded_groupwise_shape
-        oc_batch_size = oc_batch_size if num_output_channels % 256 == 0 else 64
+        oc_batch_size = oc_batch_size if num_output_channels % oc_batch_size == 0 else _get_greatest_po2_divisor(
+            num_output_channels)
         quant_injector_properties = {
             "stats_output_shape": (num_output_channels, num_groups, 1),
             "expanded_groupwise_shape": (num_output_channels, num_groups, group_size),}
         batch_quant_injector_properties = {
             "stats_output_shape": (oc_batch_size, num_groups, 1),
             "expanded_groupwise_shape": (oc_batch_size, num_groups, group_size),}
-    elif isinstance(sink.weight_quant, WeightQuantProxyFromInjector):
+    elif isinstance(sink.weight_quant,
+                    (WeightQuantProxyFromInjector, WeightFloatQuantProxyFromInjector)):
         num_output_channels, num_groups, group_size = sink.weight.shape[0], 1, sink.weight.shape[1]
-        oc_batch_size = oc_batch_size if num_output_channels % 256 == 0 else 64
+        oc_batch_size = oc_batch_size if num_output_channels % oc_batch_size == 0 else _get_greatest_po2_divisor(
+            num_output_channels)
         quant_injector_properties = {
             "scaling_per_output_channel_shape": (num_output_channels, 1),}
         batch_quant_injector_properties = {

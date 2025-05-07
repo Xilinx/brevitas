@@ -381,8 +381,7 @@ def generate_quantizers(
 
     weight_quant = weight_quant.let(scaling_impl_type=weight_scaling_impl_type)
     # weight zero-point is converted to a standalone parameter
-    # This is done already by default in the per_group quantizer
-    if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group' and weight_scaling_impl_type == 'parameter_from_stats':
+    if weight_scaling_impl_type == 'parameter_from_stats':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
     if quant_attn_mode == 'sdpa':
