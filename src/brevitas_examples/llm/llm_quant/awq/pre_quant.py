@@ -50,7 +50,6 @@ from brevitas_examples.llm.llm_quant.awq.auto_clip import auto_clip_block
 from brevitas_examples.llm.llm_quant.awq.auto_scale import apply_scale
 from brevitas_examples.llm.llm_quant.awq.auto_scale import auto_scale_block
 from brevitas_examples.llm.llm_quant.awq.graph import EqualizeAWQ
-from brevitas_examples.llm.llm_quant.awq.utils.calib_data import get_calib_dataset
 from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 from brevitas_examples.llm.llm_quant.awq.utils.region import retrieve_block_awq_regions
 from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
@@ -125,14 +124,7 @@ def apply_awq(
         get_blocks_attribute(model) if args.gpxq_block_name is None else args.gpxq_block_name)
 
     # Concatenate input_ids across the batch dimension
-    # samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
-    samples = get_calib_dataset(
-        data="pileval",
-        tokenizer=tokenizer,
-        n_samples=128,
-        block_size=512,
-    )
-    samples = torch.cat(samples, dim=0)
+    samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
 
     first_block = blocks[0]
     cached_args, cached_kwargs = [], []
