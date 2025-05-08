@@ -21,12 +21,13 @@ from quant_utils import apply_act_equalization
 SEED = 123456
 batch_size=200
 subset_size=400 # Use 'None' if you want to use the entire dataset
+device="cuda:0"
 
 verbose=False # Validate model after every step
 
-act_eq = True
-cal_bn = False
-bias_corr = True
+act_eq = True # Apply act equalization
+cal_bn = False # Recalibrate batchnorm
+bias_corr = True # Apply bias correction
 
 # Configure datasets
 imagenet_datadir = "imagenet_symlink"
@@ -35,14 +36,14 @@ valid_loader = get_dataloader(f"{imagenet_datadir}", "val", batch_size=batch_siz
 
 # Load model
 model = mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
-model.to(device="cuda:0")
+model.to(device=device)
 model.eval()
 # Test float model
 print("Float Validation Accuracy")
 results = test(model, valid_loader)
 
 # Modify network to assist the quantization process
-x = next(iter(calib_loader))[0].to(device="cuda:0") # Resolve the shape of the AveragePool
+x = next(iter(calib_loader))[0].to(device=device) # Resolve the shape of the AveragePool
 model = preprocess_for_finn_quantize(model, x=x)
 # Test preprocessed model
 if verbose:
@@ -51,7 +52,7 @@ if verbose:
 
 # Pre-quantization transformations
 if act_eq:
-    print("Starting Activation Equalization:")
+    print("Applying Activation Equalization:")
     apply_bias_correction(calib_loader, model)
     if verbose:
         print("Equalized Model Validation Accuracy")
@@ -60,24 +61,24 @@ if act_eq:
 # Quantize Model
 finn_quant_maps = default_quantize_maps_finn()
 model = quantize_finn(model)
-model.to(device="cuda:0") # TODO: fix this
+model.to(device=device) # TODO: fix this
 
 # Post-quantization transformations
-print("Starting activation calibration:")
+print("Applying activation calibration:")
 calibrate(calib_loader, model)
 if verbose:
     print("Quantized Model Validation Accuracy")
     results = test(model, valid_loader)
 
 if cal_bn:
-    print("Starting BatchNorm Calibration:")
+    print("Applying BatchNorm Calibration:")
     calibrate_bn(calib_loader, model)
     if verbose:
         print("Quantized Model Validation Accuracy")
         results = test(model, valid_loader)
 
 if bias_corr:
-    print("Starting Apply Bias Correction:")
+    print("Applying Apply Bias Correction:")
     apply_bias_correction(calib_loader, model)
     if verbose:
         print("Quantized Model Validation Accuracy")
