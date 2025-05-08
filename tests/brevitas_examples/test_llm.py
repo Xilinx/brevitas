@@ -22,8 +22,9 @@ import transformers
 from brevitas import config
 from brevitas import torch_version
 from brevitas_examples.llm.main import fx_required
+from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
+from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.main import main
-from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
@@ -47,6 +48,11 @@ def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Data
     ]
     return Dataset.from_dict({
         "text": C4_TEXTS,})
+
+
+def parse_args(args):
+    parser = create_args_parser()
+    return parse_args_utils(parser, args)
 
 
 def ptid2pathname(string):

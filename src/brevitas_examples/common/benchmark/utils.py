@@ -18,12 +18,7 @@ import sys
 import time
 import traceback
 from types import SimpleNamespace
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Tuple
-from typing import Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import pandas as pd
 import yaml
@@ -43,7 +38,9 @@ class BenchmarkUtils(ABC):
 
     @staticmethod
     @abstractmethod
-    def entrypoint_main(args: Namespace, extra_args: List[str]) -> Tuple[Dict, Any]:
+    def entrypoint_main(args: Namespace,
+                        extra_args: List[str],
+                        job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
         pass
 
     @property
@@ -167,7 +164,7 @@ def run_args_bucket_process(
             # Record the wall-clock elapsed time when running the LLM entrypoint
             start_time = time.time()
             try:
-                results, _ = main_entrypoint(args, extra_args)
+                results, _ = main_entrypoint(args, extra_args, job_folder)
                 results = {k: _make_float(v) for k, v in results.items()}
             except Exception:
                 # Print exception to stderr, so it can be checked in log

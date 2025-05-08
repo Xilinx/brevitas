@@ -1,23 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+<<<<<<< HEAD
 import argparse
 from typing import List
 from typing import Optional
+=======
+from argparse import Namespace
+from typing import List, Optional
+>>>>>>> Entrypoint refactor
 from warnings import warn
 
+from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_llm_args_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
-    )
+def create_args_parser():
+    parser = create_entrypoint_args_parser(description="LLM quantization")
     parser.add_argument(
         '--model',
         type=str,
@@ -453,7 +452,7 @@ def create_llm_args_parser():
     return parser
 
 
-def validate(args, extra_args: Optional[List[str]] = None):
+def validate(args: Namespace, extra_args: Optional[List[str]] = None):
     if args.optimize_rotations:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
     else:
