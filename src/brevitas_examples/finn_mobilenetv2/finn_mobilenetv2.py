@@ -60,7 +60,9 @@ if act_eq:
 
 # Quantize Model
 finn_quant_maps = default_quantize_maps_finn()
-model = quantize_finn(model)
+#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = 4
+#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = lambda module: 8 if module.groups == 1 else 4
+model = quantize_finn(model, **finn_quant_maps)
 model.to(device=device) # TODO: fix this
 
 # Post-quantization transformations
