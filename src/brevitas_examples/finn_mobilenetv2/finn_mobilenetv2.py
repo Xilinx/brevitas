@@ -20,15 +20,15 @@ from quant_utils import calibrate
 # Global settings
 SEED = 123456
 batch_size=200
-subset_size=400 # Use 'None' if you want to use the entire dataset
+subset_size=None # Use 'None' if you want to use the entire dataset
 device="cuda:0"
 
 verbose=False # Validate model after every step
 
-act_eq = True # Apply act equalization
+act_eq = False # Apply act equalization
 act_eq_alpha = 0.5 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
-bias_corr = True # Apply bias correction
-gptq = True # Apply GPTQ
+bias_corr = False # Apply bias correction
+gptq = False # Apply GPTQ
 
 # Configure datasets
 imagenet_datadir = "imagenet_symlink"
@@ -61,10 +61,9 @@ if act_eq:
 
 # Quantize Model
 finn_quant_maps = default_quantize_maps_finn()
-#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = 4
-#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = lambda module: 8 if module.groups != 1 else 4
-finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = lambda module, name: 8 if module.groups != 1 or name == "features.0.0" else 4 # Keep first conv in 8-bits
-finn_quant_maps["compute_layer_map"][nn.Linear][1]['weight_bit_width'] = 8 # Keep last (only) linear in 8 bits
+#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = 4 # 1. Override Conv2d weights to have 4-bits
+#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = lambda module: 8 if module.groups != 1 else 4 # 2. Groupwise Conv2ds @ 8-bits, the rest @ 4-bits
+#finn_quant_maps["compute_layer_map"][nn.Conv2d][1]['weight_bit_width'] = lambda module, name: 8 if module.groups != 1 or name == "features.0.0" else 4 # 3. Keep first conv in 8-bits otherwise same as above
 model = quantize_finn(model, **finn_quant_maps)
 model.to(device=device) # TODO: fix this
 
@@ -75,16 +74,16 @@ if verbose:
     print("Quantized Model Validation Accuracy")
     results = test(model, valid_loader)
 
-if bias_corr:
-    print("Applying Bias Correction:")
-    apply_bias_correction(calib_loader, model)
+if gptq:
+    print("Applying GPTQ:")
+    apply_gptq(calib_loader, model)
     if verbose:
         print("Quantized Model Validation Accuracy")
         results = test(model, valid_loader)
 
-if gptq:
-    print("Applying GPTQ:")
-    apply_gptq(calib_loader, model)
+if bias_corr:
+    print("Applying Bias Correction:")
+    apply_bias_correction(calib_loader, model)
     if verbose:
         print("Quantized Model Validation Accuracy")
         results = test(model, valid_loader)

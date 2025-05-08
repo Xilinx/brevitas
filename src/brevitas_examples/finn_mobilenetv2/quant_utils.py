@@ -54,7 +54,7 @@ def apply_gptq(
         calib_loader,
         model,
         act_order=True,
-        use_quant_activations=True,
+        use_quant_activations=False,
         create_weight_orig=False):
     model.eval()
     dtype = next(model.parameters()).dtype
