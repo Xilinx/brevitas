@@ -28,6 +28,7 @@ class QuantWBIOLCases:
 
         weight_quant, io_quant = quantizers
         is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+        is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
         if is_fp8:
             if weight_bit_width < 8 or input_bit_width < 8 or output_bit_width < 8:
                 pytest.skip('FP8 export requires total bitwidth equal to 8')
@@ -41,7 +42,7 @@ class QuantWBIOLCases:
             layer_kwargs = {
                 'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-        bias_quantizer = None if is_fp8 else Int32Bias
+        bias_quantizer = None if (is_fp8 or is_dynamic) else Int32Bias
         # Required because of numpy error with FP8 data type. Export iself works fine.
         return_quant_tensor = False if is_fp8 else True
 

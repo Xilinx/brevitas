@@ -88,7 +88,7 @@ def compute_ort(export_name, np_input):
     sess_opt.use_deterministic_compute = True  # Deterministic execution
     sess_opt.log_severity_level = 0  # Highest verbosity
     sess_opt.log_verbosity_level = 0  # Highest verbosity
-
+    sess_opt.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
     run_opt = ort.RunOptions()
     run_opt.log_severity_level = 0  # Highest verbosity
     run_opt.log_verbosity_level = 0  # Highest verbosity
