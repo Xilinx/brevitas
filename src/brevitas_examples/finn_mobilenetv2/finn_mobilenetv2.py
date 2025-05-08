@@ -14,21 +14,21 @@ from utils import get_dataloader
 from utils import test
 from quant_utils import apply_act_equalization
 from quant_utils import apply_bias_correction
+from quant_utils import apply_gpfq
 from quant_utils import apply_gptq
 from quant_utils import calibrate
 
 # Global settings
-SEED = 123456
 batch_size=200
 subset_size=None # Use 'None' if you want to use the entire dataset
 device="cuda:0"
-
 verbose=False # Validate model after every step
 
-act_eq = False # Apply act equalization
+act_eq = False # Apply act equalization - not very useful for MNv2
 act_eq_alpha = 0.5 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
 bias_corr = False # Apply bias correction
 gptq = False # Apply GPTQ
+gpfq = False # Apply GPFQ
 
 # Configure datasets
 imagenet_datadir = "imagenet_symlink"
@@ -77,6 +77,13 @@ if verbose:
 if gptq:
     print("Applying GPTQ:")
     apply_gptq(calib_loader, model)
+    if verbose:
+        print("Quantized Model Validation Accuracy")
+        results = test(model, valid_loader)
+
+if gpfq:
+    print("Applying GPFQ:")
+    apply_gpfq(calib_loader, model)
     if verbose:
         print("Quantized Model Validation Accuracy")
         results = test(model, valid_loader)

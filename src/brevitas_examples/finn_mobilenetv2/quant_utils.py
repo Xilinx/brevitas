@@ -6,6 +6,7 @@ import torch
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 
 def calibrate(calib_loader, model):
@@ -71,3 +72,25 @@ def apply_gptq(
                     images = images.to(dtype)
                     gptq_model(images)
                 gptq.update()
+
+
+def apply_gpfq(
+        calib_loader,
+        model,
+        act_order=True,
+        create_weight_orig=True):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with gpfq_mode(model,
+                       create_weight_orig=create_weight_orig,
+                       use_quant_activations=True,
+                       act_order=act_order) as gpfq:
+            gpfq_model = gpfq.model
+            for i in tqdm(range(gpfq.num_layers)):
+                for i, (images, target) in enumerate(calib_loader):
+                    images = images.to(device)
+                    images = images.to(dtype)
+                    gpfq_model(images)
+                gpfq.update()
