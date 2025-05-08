@@ -110,6 +110,7 @@ def intercept_input(
 @torch.no_grad()
 def apply_awq(
     model: nn.Module,
+    tokenizer,
     calibration_loader: DatasetToDevice,
     args: Namespace,
     auto_scale: bool = True,
@@ -124,7 +125,14 @@ def apply_awq(
         get_blocks_attribute(model) if args.gpxq_block_name is None else args.gpxq_block_name)
 
     # Concatenate input_ids across the batch dimension
-    samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
+    # samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
+    samples = get_calib_dataset(
+        data="pileval",
+        tokenizer=tokenizer,
+        n_samples=128,
+        block_size=512,
+    )
+    samples = torch.cat(samples, dim=0)
 
     first_block = blocks[0]
     cached_args, cached_kwargs = [], []
@@ -138,18 +146,23 @@ def apply_awq(
             raise_exception=True,
         ),
         with_kwargs=True)
-    with quantization_status_manager(model):
+    model = offload_model(model)
+    with quantization_status_manager(model,
+                                     disable_act_quant=True,
+                                     disable_weight_quant=True,
+                                     disable_bias_quant=True):
         try:
             model(samples)
         except StopFwdException:
             pass
     hook.remove()
+    remove_hooks(model)
 
     # Retrieve AWQ regions
     regions_per_block = _retrieve_per_block_regions(blocks)
     # Add scaling modules for optimization
     if auto_scale:
-        eq = EqualizeAWQ(add_parametrizations_inplace=True,)
+        eq = EqualizeAWQ()
         model, _, _ = eq.apply(model=model, regions=sum(regions_per_block, []))
 
     # Prepare inputs
@@ -178,7 +191,10 @@ def apply_awq(
         inps = inps.to(device)  # in case multi-gpu
         block_kwargs = send_to_device(block_kwargs, device)
         # get output as next layer's input
-        with quantization_status_manager(model):
+        with quantization_status_manager(model,
+                                         disable_act_quant=True,
+                                         disable_weight_quant=True,
+                                         disable_bias_quant=True):
             inps = block(inps, **block_kwargs)[0]
         for hook in hooks:
             hook.remove()

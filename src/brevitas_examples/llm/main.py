@@ -408,6 +408,7 @@ def quantize_llm(args, extra_args=None):
     if args.awq_scale or args.awq_clip:
         apply_awq(
             model=model,
+            tokenizer=tokenizer,
             calibration_loader=calibration_loader,
             args=args,
             auto_scale=args.awq_scale,

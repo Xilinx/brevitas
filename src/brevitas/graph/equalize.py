@@ -785,13 +785,8 @@ def _cross_layer_equalization(
     for module in chain(src_axes.values(), sink_axes.values()):
         rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
-    # If the model is dispatched using offload_model, parametrizations cannot be registered before calling
-    # remove_hooks, since parametrization alter the state_dict of the model. Therefore, the end-user has to
-    # apply the parametrization rewriters AFTER calling remove_hooks.
     for r in rewriters:
-        if not (hasattr(model, "offload_params") and
-                isinstance(r, ModuleInstanceRegisterParametrization)):
-            model = r.apply(model)
+        model = r.apply(model)
 
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):

@@ -64,7 +64,10 @@ def auto_scale_block(
         # w: co, ci
         # x: n, ci
         x = x.to(next(region_block.parameters()).device)
-        with quantization_status_manager(region_block):
+        with quantization_status_manager(region_block,
+                                         disable_act_quant=True,
+                                         disable_weight_quant=True,
+                                         disable_bias_quant=True):
             org_out = region_block(x, **kwargs)
             if isinstance(org_out, tuple):
                 org_out = org_out[0]
@@ -86,7 +89,11 @@ def auto_scale_block(
             scales = torch.reciprocal(scales / (scales.max() * scales.min()).sqrt())
             scaling_factor.data = scales
             # Capture quantized output from sinks
-            quantization_status_manager_cm = quantization_status_manager(region_block)
+            quantization_status_manager_cm = quantization_status_manager(
+                region_block,
+                disable_act_quant=True,
+                disable_weight_quant=True,
+                disable_bias_quant=True)
             with quantization_status_manager_cm:
                 # Restore quantization state of sinks
                 for sink in sinks:

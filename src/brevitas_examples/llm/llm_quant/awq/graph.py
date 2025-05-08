@@ -56,16 +56,15 @@ def extract_sinks_scaling_factor(sinks: List[nn.Module]) -> nn.Parameter:
 
 class EqualizeAWQ(GraphTransform):
 
-    def __init__(self, add_parametrizations_inplace: bool = False) -> None:
+    def __init__(self) -> None:
         super(EqualizeAWQ, self).__init__()
-        self.add_parametrizations_inplace = add_parametrizations_inplace
         # These attributes are only kept to reuse the _cross_layer_equalization method
         self._merge_bias = True
         self._bias_shrinkage = 'vaiq'
         self._scale_computation_type = 'maxabs'
 
-    def _retrieve_scaling_rewriters(self, model: Union[GraphModule, nn.Module],
-                                    region: Region) -> List[Transform]:
+    def _apply_scaling_rewriters(self, model: Union[GraphModule, nn.Module],
+                                 region: Region) -> List[Transform]:
         _, rewriters = _cross_layer_equalization(
             model,
             region,
@@ -88,8 +87,5 @@ class EqualizeAWQ(GraphTransform):
         regions = [region for region in regions if len(region.srcs) > 0]
         rewriters = []
         for region in regions:
-            rewriters.extend(self._retrieve_scaling_rewriters(model, region))
-        if self.add_parametrizations_inplace:
-            for r in rewriters:
-                model = r.apply(model)
+            rewriters.extend(self._apply_scaling_rewriters(model, region))
         return model, regions, rewriters
