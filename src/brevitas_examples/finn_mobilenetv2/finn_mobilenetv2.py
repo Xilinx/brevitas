@@ -37,17 +37,10 @@ SHARED_SIGNED_ACT_QUANT = Int8ActPerTensorFloat
 SHARED_RELU6_QUANT = Uint8ActPerTensorFloatMaxInit
 
 FINN_COMPUTE_LAYER_MAP = {
-    nn.Conv1d: (
-        qnn.QuantConv1d,
-        {
-            'weight_quant': SHARED_WEIGHT_QUANT,
-            'bias_quant': SHARED_BIAS_QUANT,
-            'return_quant_tensor': True}),
     nn.Conv2d: (
         qnn.QuantConv2d,
         {
             'weight_quant': SHARED_WEIGHT_QUANT,
-            'bias_quant': SHARED_BIAS_QUANT,
             'return_quant_tensor': True}),
     nn.Linear: (
         qnn.QuantLinear,
