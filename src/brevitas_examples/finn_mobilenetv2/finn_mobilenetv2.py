@@ -227,7 +227,7 @@ print("Float Validation Accuracy")
 results = test(model, valid_loader)
 
 # Modify network to assist the quantization process
-x = calib_loader.dataset[0][0].unsqueeze(0).to(device="cuda:0") # Resolve the shape of the AveragePool
+x = next(iter(calib_loader))[0].to(device="cuda:0") # Resolve the shape of the AveragePool
 model = preprocess_for_finn_quantize(model, x=x)
 
 # Test preprocessed model
