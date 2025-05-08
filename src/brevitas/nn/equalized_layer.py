@@ -55,7 +55,7 @@ class EqualizedModule(torch.nn.Module):
 
 class RotatedModule(torch.nn.Module):
 
-    def __init__(self, layer, had_mat=None, k=None, expand=False) -> None:
+    def __init__(self, layer, had_mat=None, k=None, expansion_step=0) -> None:
         super().__init__()
         if had_mat is not None:
             self.had_mat = torch.nn.Parameter(had_mat).cpu()
@@ -63,15 +63,16 @@ class RotatedModule(torch.nn.Module):
             self.had_mat = None
         self.layer = layer
         self.k = k
-        self.expand = expand
+        self.expansion_step = expansion_step
 
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
-        if self.expand:
+        if self.expansion_step > 0:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
             featured_dim = inp.dim() - 1
             num_features = inp.shape[-1]
-            expanded_num_features = find_closest_hadamard_number(num_features)
+            expanded_num_features = find_closest_hadamard_number(
+                num_features, steps=self.expansion_step)
             inp = pad_to_dim(inp, featured_dim, expanded_num_features)
 
         if is_cuda and fast_hadamard_transform is not None:

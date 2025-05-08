@@ -389,6 +389,13 @@ def create_llm_args_parser():
         default=[],
         nargs='*',
         help='A list of module names to expand with hadamard rotation. Default: %(default)s')
+    parser.add_argument(
+        '--expansion-step',
+        type=int,
+        default=0,
+        help=
+        'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
+    )
     return parser
 
 
