@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from contextlib import nullcontext
 from io import BytesIO
 from typing import Optional, Tuple, Union
 import warnings
 
 from packaging import version
+
+from brevitas.export.onnx.qonnx.handler import BrevitasFloatQuantProxyHandler
+from brevitas.export.onnx.standard.qcdq.handler import StdFloatQCDQCastONNXMixin
 
 try:
     import onnx
@@ -36,10 +40,13 @@ class PatchFp8Ops():
         self.lib = None
 
     def __enter__(self):
-        if torch_version >= version.parse('2.1.0'):
+        import numpy as np
+
+        if torch_version >= version.parse('2.1.0') and torch_version < version.parse('2.5'):
             self.lib = torch.library.Library("aten", "IMPL")
 
             def equal_cpu(self, other):
+
                 if (isinstance(self, Tensor) and
                         self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)) or (
                             isinstance(other, Tensor) and
@@ -48,16 +55,15 @@ class PatchFp8Ops():
                     other = other.to(torch.float32)
                     return torch.equal(self, other)
                 else:
-                    res = True
-                    if not isinstance(self, Tensor):
-                        self = torch.tensor(self)
-                    if not isinstance(other, Tensor):
-                        other = torch.tensor(other)
-                    if self.dim() > 0:
-                        for x, y in zip(self.flatten(), other.flatten()):
-                            res &= x == y
+                    if isinstance(self, Tensor):
+                        self = self.cpu().numpy()
                     else:
-                        res = self.item() == other.item()
+                        self = np.array(self)
+                    if isinstance(other, Tensor):
+                        other = other.cpu().numpy
+                    else:
+                        other = np.array(other)
+                    res = bool(np.equal(self, other).all())
                     return torch.tensor([res])
 
             self.lib.impl("equal", equal_cpu, "CPU")
@@ -164,8 +170,17 @@ class ONNXBaseManager(BaseManager, ABC):
                         model_bytes = BytesIO()
                         export_target = model_bytes
 
-                    with PatchFp8Ops():
+                    # Check if we attached Float-related handlers, then we need to patch export
+                    fp8_export_patch = False
+                    for m in module.modules():
+                        if isinstance(m,
+                                      (StdFloatQCDQCastONNXMixin, BrevitasFloatQuantProxyHandler)):
+                            fp8_export_patch = True
+
+                    patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
+                    with patch_export():
                         torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
                     cls.set_export_mode(module, enabled=False)

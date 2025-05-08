@@ -88,7 +88,7 @@ def compute_ort(export_name, np_input):
     sess_opt.use_deterministic_compute = True  # Deterministic execution
     sess_opt.log_severity_level = 0  # Highest verbosity
     sess_opt.log_verbosity_level = 0  # Highest verbosity
-
+    sess_opt.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
     run_opt = ort.RunOptions()
     run_opt.log_severity_level = 0  # Highest verbosity
     run_opt.log_verbosity_level = 0  # Highest verbosity
@@ -132,8 +132,11 @@ def is_brevitas_ort_close(
         onnx_opset=14,
         export_q_weight=False):
     input_t = torch.from_numpy(np_input)
+    inference_inp = torch.randn_like(input_t)
+    numpy_inference_inp = inference_inp.numpy()
+
     with torch.no_grad():
-        brevitas_output = model(input_t)
+        brevitas_output = model(inference_inp)
     if isinstance(brevitas_output, QuantTensor):
         computed_out = brevitas_output.value
         scale = brevitas_output.scale
@@ -148,7 +151,7 @@ def is_brevitas_ort_close(
         exported_model = export_qonnx(model, input_t, export_path=export_name)
         exported_model = ModelWrapper(exported_model)
         exported_model = exported_model.transform(InferShapes())
-        idict = {exported_model.graph.input[0].name: np_input}
+        idict = {exported_model.graph.input[0].name: numpy_inference_inp}
         odict = oxe.execute_onnx(exported_model, idict, True)
         ort_output = odict[exported_model.graph.output[0].name]
     else:
@@ -164,7 +167,7 @@ def is_brevitas_ort_close(
         else:
             raise RuntimeError(f"Export type {export_type} not recognized.")
 
-        ort_output = compute_ort(export_name, np_input)
+        ort_output = compute_ort(export_name, numpy_inference_inp)
 
     if first_output_only:
         if isinstance(ort_output, (tuple, list)):
