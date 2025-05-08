@@ -100,13 +100,16 @@ act_eq = False # Apply act equalization
 act_eq_alpha = 0.5 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
 bias_corr = False # Apply bias correction
 gptq = False # Apply GPTQ
+gpfq = False # Apply GPFQ
 ```
 
 These flags enable the application of:
  - [activation equalization](https://arxiv.org/abs/2211.10438);
- - [bias correction](https://arxiv.org/abs/1906.04721); and
- - [GPTQ](https://arxiv.org/abs/2210.17323).
+ - [bias correction](https://arxiv.org/abs/1906.04721);
+ - [GPTQ](https://arxiv.org/abs/2210.17323); and
+ - [GPFQ](https://arxiv.org/abs/2201.11113).
 
 We leave the explanation of these techniques to their respective papers,
-but a good starting point is to set all techniques to `True` and adjust `act_eq_alpha` until the accuracy is maximised.
+but a good starting point is to set `gptq=True`, `bias_corr=True` until the accuracy is maximised.
+GPTQ & GPFQ cannot likely be applied at the same time.
 Brevitas has many more PTQ algorithms not included here, please see the [imagenet](../imagenet_classification) and [LLM](../llm) examples to see how they are applied.
