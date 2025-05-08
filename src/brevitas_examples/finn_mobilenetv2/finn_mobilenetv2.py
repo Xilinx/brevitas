@@ -4,6 +4,7 @@ from tqdm import tqdm
 import torch
 from torch.fx import symbolic_trace
 import torch.nn as nn
+import torch.nn.functional as F
 
 from torchvision.models import mobilenet_v2, MobileNet_V2_Weights
 import torchvision.datasets as datasets
@@ -17,6 +18,8 @@ from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.quantize import UNSIGNED_ACT_TUPLE
+from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
+from brevitas.graph.standardize import TorchFunctionalToModule
 import brevitas.nn as qnn
 import brevitas.onnx as bo
 from brevitas.quant import Int8WeightPerChannelFloat, Int8ActPerTensorFloat, Uint8ActPerTensorFloat, Uint8ActPerTensorFloatMaxInit, Int32Bias
@@ -34,8 +37,6 @@ SHARED_SIGNED_ACT_QUANT = Int8ActPerTensorFloat
 SHARED_RELU6_QUANT = Uint8ActPerTensorFloatMaxInit
 
 FINN_COMPUTE_LAYER_MAP = {
-    nn.AvgPool2d: (qnn.TruncAvgPool2d, {
-        'return_quant_tensor': True}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
@@ -131,6 +132,8 @@ def preprocess_for_finn_quantize(
 
     if trace_model:
         model = symbolic_trace(model)
+    model = MeanMethodToAdaptiveAvgPool2d().apply(model)
+    model = TorchFunctionalToModule(fn_to_module_map=((F.adaptive_avg_pool2d, nn.AdaptiveAvgPool2d),)).apply(model)
     model = AdaptiveAvgPoolToAvgPool().apply(model, *model_args, **model_kwargs)
     model = preprocess_for_quantize(
         model,
