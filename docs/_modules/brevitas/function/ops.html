@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.function.ops &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.function.ops &#8212; Brevitas 0.11.1.dev160+ge52ed4b documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>
+    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -415,6 +415,8 @@ document.write(`
 <span class="sd">Implementation of various core operations often performed as part of quantization.</span>
 <span class="sd">The implemented functions adheres to the restriction imposed by Pytorch 1.1.0&#39;s TorchScript compiler.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
@@ -538,12 +540,14 @@ document.write(`
 
 
 <div class="viewcode-block" id="max_int"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops.max_int">[docs]</a><span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span>
-<span class="k">def</span> <span class="nf">max_int</span><span class="p">(</span><span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">max_int</span><span class="p">(</span>
+        <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span> <span class="n">narrow_range</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute the maximum integer representable by a given number of bits.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        signed (bool): Indicates whether the represented integer is signed or not.</span>
-<span class="sd">        narrow_range (bool): Indicates whether to narrow the maximum unsigned value represented by 1.</span>
+<span class="sd">        signed (Union[bool, Tensor]): Indicates whether the represented integer is signed or not.</span>
+<span class="sd">        narrow_range (Union[bool, Tensor]): Indicates whether to narrow the maximum unsigned value represented by 1.</span>
 <span class="sd">        bit_width (Tensor): Number of bits available for the representation.</span>
 
 <span class="sd">    Returns:</span>
@@ -559,9 +563,12 @@ document.write(`
 <span class="sd">        &gt;&gt;&gt; max_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))</span>
 <span class="sd">        tensor(255)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">signed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">narrow_range</span><span class="p">:</span>
+    <span class="c1"># Workaround: required for compatibility with the JIT for PT=2.2.2</span>
+    <span class="n">_signed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">signed</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">signed</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">signed</span>
+    <span class="n">_narrow_range</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">narrow_range</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">narrow_range</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_signed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_narrow_range</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">bit_width</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-    <span class="k">elif</span> <span class="ow">not</span> <span class="n">signed</span> <span class="ow">and</span> <span class="n">narrow_range</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">_signed</span> <span class="ow">and</span> <span class="n">_narrow_range</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">bit_width</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">bit_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span>
@@ -569,12 +576,14 @@ document.write(`
 
 
 <div class="viewcode-block" id="min_int"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops.min_int">[docs]</a><span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span>
-<span class="k">def</span> <span class="nf">min_int</span><span class="p">(</span><span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">min_int</span><span class="p">(</span>
+        <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span> <span class="n">narrow_range</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute the minimum integer representable by a given number of bits.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        signed (bool): Indicates whether the represented integer is signed or not.</span>
-<span class="sd">        narrow_range (bool): Indicates whether to narrow the minimum value represented by 1.</span>
+<span class="sd">        signed (Union[bool, Tensor]): Indicates whether the represented integer is signed or not.</span>
+<span class="sd">        narrow_range (Union[bool, Tensor]): Indicates whether to narrow the minimum value represented by 1.</span>
 <span class="sd">        bit_width (Tensor): Number of bits available for the representation.</span>
 
 <span class="sd">    Returns:</span>
@@ -590,25 +599,25 @@ document.write(`
 <span class="sd">        &gt;&gt;&gt; min_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))</span>
 <span class="sd">        tensor(0)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">signed</span> <span class="ow">and</span> <span class="n">narrow_range</span><span class="p">:</span>
+    <span class="c1"># Workaround: required for compatibility with the JIT for PT=2.2.2</span>
+    <span class="n">_signed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">signed</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">signed</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">signed</span>
+    <span class="n">_narrow_range</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">narrow_range</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">narrow_range</span>
+    <span class="k">if</span> <span class="n">_signed</span> <span class="ow">and</span> <span class="n">_narrow_range</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">bit_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
-    <span class="k">elif</span> <span class="n">signed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">narrow_range</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">_signed</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_narrow_range</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">bit_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">value</span> <span class="o">=</span> <span class="mi">0</span> <span class="o">*</span> <span class="n">bit_width</span>
     <span class="k">return</span> <span class="n">value</span></div>
 
 
+<div class="viewcode-block" id="compute_max_mantissa"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops.compute_max_mantissa">[docs]</a><span class="k">def</span> <span class="nf">compute_max_mantissa</span><span class="p">(</span><span class="n">mantissa_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="mf">2.</span> <span class="o">**</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span> <span class="o">*</span> <span class="n">mantissa_bit_width</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">)))</span></div>
+
+
 <div class="viewcode-block" id="max_float"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops.max_float">[docs]</a><span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ignore</span>
-<span class="k">def</span> <span class="nf">max_float</span><span class="p">(</span><span class="n">exponent_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">mantissa_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">exponent_bias</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">max_float</span><span class="p">(</span><span class="n">exponent_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_mantissa</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">exponent_bias</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
     <span class="n">max_exponent</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">**</span> <span class="n">exponent_bit_width</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.</span> <span class="o">-</span> <span class="n">exponent_bias</span>
-    <span class="n">max_mantissa</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span>
-        <span class="mf">2.</span> <span class="o">**</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
-            <span class="mi">0</span><span class="p">,</span>
-            <span class="o">-</span><span class="mf">1.</span> <span class="o">*</span> <span class="n">mantissa_bit_width</span> <span class="o">-</span> <span class="mf">1.</span><span class="p">,</span>
-            <span class="o">-</span><span class="mf">1.</span><span class="p">,</span>
-            <span class="n">dtype</span><span class="o">=</span><span class="n">mantissa_bit_width</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
-            <span class="n">device</span><span class="o">=</span><span class="n">mantissa_bit_width</span><span class="o">.</span><span class="n">device</span><span class="p">)))</span>
     <span class="n">max_val</span> <span class="o">=</span> <span class="n">max_mantissa</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">max_exponent</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">max_val</span></div>
 

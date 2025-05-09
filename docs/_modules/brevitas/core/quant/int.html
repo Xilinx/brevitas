@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.quant.int &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.core.quant.int &#8212; Brevitas 0.11.1.dev160+ge52ed4b documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -411,15 +411,19 @@ document.write(`
 <span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">TensorClamp</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.quant.delay</span> <span class="kn">import</span> <span class="n">DelayWrapper</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.scaling</span> <span class="kn">import</span> <span class="n">TruncMsbScaling</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">max_int</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">min_int</span>
 <span class="kn">from</span> <span class="nn">brevitas.function.ops_ste</span> <span class="kn">import</span> <span class="n">round_ste</span>
 
 
@@ -609,30 +613,98 @@ document.write(`
 
 <div class="viewcode-block" id="TruncIntQuant"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant">[docs]</a><span class="k">class</span> <span class="nc">TruncIntQuant</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule that requantizes some integer quantization format to another integer quantization</span>
+<span class="sd">    format. The signed parameter is maintained from the previous format.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        float_to_int_impl (Module): Module that performs the conversion from floating point to</span>
+<span class="sd">            integer representation.</span>
+<span class="sd">        bit_width_impl (Module): Module that returns a bit-width.</span>
+<span class="sd">        trunc_scaling_impl (Module): Module that returns the truncation scale, an extra</span>
+<span class="sd">            multiplicative factor that is applied before the truncation. Default: TruncMsbScaling()</span>
+<span class="sd">        narrow_range (bool): Flag that determines whether restrict quantization to a narrow range</span>
+<span class="sd">            or not. Default: False</span>
+<span class="sd">        tensor_clamp_impl (Module): Module that performs clamping. Default: TensorClamp()</span>
+<span class="sd">        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,</span>
+<span class="sd">            zero-point, bit_width.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.quant import TruncIntQuant</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.function_wrapper import RoundSte</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.bit_width import BitWidthConst</span>
+<span class="sd">        &gt;&gt;&gt; trunc_quant = TruncIntQuant(RoundSte(), BitWidthConst(4))</span>
+<span class="sd">        &gt;&gt;&gt; scale, zero_point, bit_width, signed = torch.tensor(0.01), torch.tensor(0.), torch.tensor(8.), torch.tensor(True)</span>
+<span class="sd">        &gt;&gt;&gt; inp = torch.Tensor([0.04, -0.05, 0.31, -0.44])</span>
+<span class="sd">        &gt;&gt;&gt; out, scale, zero_point, bit_width = trunc_quant(inp, scale, zero_point, bit_width, signed)</span>
+<span class="sd">        &gt;&gt;&gt; out</span>
+<span class="sd">        &gt;&gt;&gt; tensor([ 0.0000, -0.0000,  0.3200, -0.4800])</span>
+<span class="sd">        &gt;&gt;&gt; scale</span>
+<span class="sd">        tensor(0.1600)</span>
+<span class="sd">        &gt;&gt;&gt; zero_point</span>
+<span class="sd">        tensor(0.)</span>
+<span class="sd">        &gt;&gt;&gt; bit_width</span>
+<span class="sd">        tensor(4.)</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Maps to quant_type == QuantType.INT == &#39;INT&#39; == &#39;int&#39; in higher-level APIs.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;narrow_range&#39;</span><span class="p">]</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">float_to_int_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">quant_delay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">float_to_int_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">trunc_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">TruncMsbScaling</span><span class="p">(),</span>
+            <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">tensor_clamp_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">TensorClamp</span><span class="p">(),</span>
+            <span class="n">quant_delay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">TruncIntQuant</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span> <span class="o">=</span> <span class="n">narrow_range</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trunc_scaling_impl</span> <span class="o">=</span> <span class="n">trunc_scaling_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">float_to_int_impl</span> <span class="o">=</span> <span class="n">float_to_int_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tensor_clamp_impl</span> <span class="o">=</span> <span class="n">tensor_clamp_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">delay_wrapper</span> <span class="o">=</span> <span class="n">DelayWrapper</span><span class="p">(</span><span class="n">quant_delay_steps</span><span class="p">)</span>
 
+<div class="viewcode-block" id="TruncIntQuant.min_int"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant.min_int">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">min_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="n">min_int</span><span class="p">(</span><span class="n">signed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TruncIntQuant.max_int"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant.max_int">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">max_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]):</span>
+        <span class="k">return</span> <span class="n">max_int</span><span class="p">(</span><span class="n">signed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="TruncIntQuant.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-                <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">scale</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">zero_point</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">round_ste</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>  <span class="c1"># clean up floating point error</span>
         <span class="n">output_bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">()</span>
-        <span class="n">trunc_bit_width</span> <span class="o">=</span> <span class="n">input_bit_width</span> <span class="o">-</span> <span class="n">output_bit_width</span>
-        <span class="n">trunc_scale</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">**</span> <span class="n">trunc_bit_width</span>
+        <span class="n">trunc_scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trunc_scaling_impl</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">input_bit_width</span><span class="p">,</span> <span class="n">output_bit_width</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">/</span> <span class="n">trunc_scale</span>
+        <span class="n">min_int_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_int</span><span class="p">(</span><span class="n">output_bit_width</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
+        <span class="n">max_int_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_int</span><span class="p">(</span><span class="n">output_bit_width</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">float_to_int_impl</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">zero_point</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">*</span> <span class="n">scale</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tensor_clamp_impl</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=</span><span class="n">min_int_val</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="n">max_int_val</span><span class="p">)</span>
+        <span class="n">output_scale</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">trunc_scale</span>
+        <span class="n">output_zero_point</span> <span class="o">=</span> <span class="n">zero_point</span> <span class="o">/</span> <span class="n">trunc_scale</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">output_zero_point</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">*</span> <span class="n">output_scale</span>
         <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delay_wrapper</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">output_bit_width</span></div></div>
+        <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">output_scale</span><span class="p">,</span> <span class="n">output_zero_point</span><span class="p">,</span> <span class="n">output_bit_width</span></div></div>
 
 
 <div class="viewcode-block" id="DecoupledRescalingIntQuantWithInput"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput">[docs]</a><span class="k">class</span> <span class="nc">DecoupledRescalingIntQuantWithInput</span><span class="p">(</span><span class="n">DecoupledRescalingIntQuant</span><span class="p">):</span>

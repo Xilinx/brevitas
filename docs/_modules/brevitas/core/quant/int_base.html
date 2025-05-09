@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.quant.int_base &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.core.quant.int_base &#8212; Brevitas 0.11.1.dev160+ge52ed4b documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -440,7 +440,7 @@ document.write(`
 <span class="sd">        Tensor: Quantized output in de-quantized format.</span>
 
 <span class="sd">    Examples:</span>
-<span class="sd">        &gt;&gt;&gt; from brevitas.core.scaling import ConstScaling</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.quant import IntQuant</span>
 <span class="sd">        &gt;&gt;&gt; int_quant = IntQuant(narrow_range=True, signed=True)</span>
 <span class="sd">        &gt;&gt;&gt; scale, zero_point, bit_width = torch.tensor(0.01), torch.tensor(0.), torch.tensor(4.)</span>
 <span class="sd">        &gt;&gt;&gt; inp = torch.Tensor([0.042, -0.053, 0.31, -0.44])</span>
