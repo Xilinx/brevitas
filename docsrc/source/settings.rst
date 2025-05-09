@@ -26,3 +26,7 @@ Controls whether loading a state dict triggers re-initialization of the quantize
 The default behaviour is for quantizers to be re-initialized, so that any quantization parameter that is initialized based on floating-point
 parameters can be recomputed, e.g. a learned `torch.nn.Parameter` weight scale initialized from the absmax of the weight float tensor.
 Disable at your own risk if it's appropriate for your use case.
+
+`BREVITAS_LOGGING` (Default: CRITICAL) - `brevitas.config.BREVITAS_LOGGING`
+Controls how much feedback the various operations within Brevitas will provide to the user.
+From most to least verbose the current available options are: DEBUG, INFO, CRITICAL.
