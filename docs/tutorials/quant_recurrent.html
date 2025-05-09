@@ -540,7 +540,7 @@ involved in their computation.</p>
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:55: UserWarning: Keyword arguments are being passed but they not being used.
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
 </div>
@@ -748,15 +748,6 @@ Hidden states size: torch.Size([1, 2, 20])
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:216: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  return torch.cat(outputs, dim=seq_dim)
-</pre></div></div>
-</div>
 <div class="nboutput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
@@ -801,7 +792,7 @@ Hidden states size: torch.Size([1, 2, 20])
           [-0.0290, -0.1738,  0.0695,  0.3765,  0.1738,  0.0579, -0.4054,
            -0.2664,  0.4923,  0.2143, -0.4170,  0.4112,  0.5502,  0.7066,
            -0.6024,  0.7356,  0.0348,  0.1043, -0.1911, -0.4518]]],
-        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0058, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
+        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0058, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
 </pre></div></div>
 </div>
 <p>Similarly, a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> can be passed in as input. However, whenever <code class="docutils literal notranslate"><span class="pre">io_quant</span></code> is set (which it is by default), the input is gonna be re-quantized:</p>
@@ -869,7 +860,7 @@ Hidden states size: torch.Size([1, 2, 20])
           [ 0.3479,  0.5974, -0.3939,  0.1444, -0.6762,  0.1969, -0.6499,
             0.4136,  0.5383, -0.3085,  0.4070,  0.4070,  0.6630, -0.0263,
             0.2823, -0.1510,  0.1313, -0.5186,  0.4464, -0.0066]]],
-        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0066, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
+        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0066, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
 </pre></div></div>
 </div>
 <p>As with <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>, by default the initial hidden state is initialized to 0, but a custom hidden state of shape <code class="docutils literal notranslate"><span class="pre">(num_directions</span> <span class="pre">*</span> <span class="pre">num_layers,</span> <span class="pre">batch,</span> <span class="pre">hidden_size)</span></code> can be passed in:</p>
@@ -925,7 +916,7 @@ Hidden states size: torch.Size([1, 2, 20])
           [-0.6449,  0.5856, -0.0263, -0.0197,  0.8357, -0.5856,  0.0395,
            -0.3422,  0.8028,  0.0855, -0.7238, -0.6317,  0.2764, -0.0461,
            -0.4211, -0.5988,  0.2632,  0.4014, -0.7501, -0.5659]]],
-        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0066, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
+        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0066, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
 </pre></div></div>
 </div>
 <p>As with other Brevitas layers, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> can be initialized from a pretrained floating-point <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>. For the purpose of this tutorial, can simulate it from an untrained <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>. As for other quantized layers, setting <code class="docutils literal notranslate"><span class="pre">brevitas.config.IGNORE_MISSING_KEYS</span></code> might be necessary (depending on which quantizers are set). With the default quantizers, an error on activation scale keys would be triggered, so we set it to true:</p>
@@ -1221,7 +1212,7 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
 </div>
 <p>Note that the model can then be accelerated in <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
@@ -1239,12 +1230,12 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-2024-09-12 12:18:52.692518968 [W:onnxruntime:, graph.cc:1283 Graph] Initializer onnx::LSTM_93 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
+2025-05-09 15:50:53.160701448 [W:onnxruntime:, graph.cc:1283 Graph] Initializer onnx::LSTM_93 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
 </pre></div></div>
 </div>
 <p>CIFG is also supported in a way that follows the semantics of <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -1291,7 +1282,7 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 </div>
 <p>As before we can run it with <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
@@ -1309,12 +1300,12 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-2024-09-12 12:18:53.086326293 [W:onnxruntime:, graph.cc:1283 Graph] Initializer onnx::LSTM_87 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
+2025-05-09 15:50:53.687943522 [W:onnxruntime:, graph.cc:1283 Graph] Initializer onnx::LSTM_87 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
 </pre></div></div>
 </div>
 <p>For the 2 layers, 2 directions use case:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -1334,7 +1325,7 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:55: UserWarning: Keyword arguments are being passed but they not being used.
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
 </div>
@@ -1370,7 +1361,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://l
 </div>
 <p>Shared input-hidden weights are also supported:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -1390,7 +1381,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://l
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:55: UserWarning: Keyword arguments are being passed but they not being used.
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
 </div>
@@ -1426,7 +1417,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; a
 </div>
 <p>We can observe how setting <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_weight_quant=True</span></code> affects the network. Now, for each layer and for each direction within a layer, all weight quantizers share the same scale/zp/bit-width:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -1446,7 +1437,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; a
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:55: UserWarning: Keyword arguments are being passed but they not being used.
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
 </div>
@@ -1482,7 +1473,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at
 </div>
 <p>Alternatively, if we set both <code class="docutils literal notranslate"><span class="pre">shared_input_hidden_weights=True</span></code> and <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_weight_quant=True</span></code>, the side effect is that all quantizers among both directions in a given layer are gonna have the same scale/zp/bit-width.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
@@ -1503,7 +1494,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:55: UserWarning: Keyword arguments are being passed but they not being used.
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
 </div>
@@ -1542,7 +1533,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;
 <h3>QuantLSTM full quantization export<a class="headerlink" href="#QuantLSTM-full-quantization-export" title="Permalink to this heading">#</a></h3>
 <p>For use case (2) we export to QONNX. Weight quantization is represented with <code class="docutils literal notranslate"><span class="pre">Quant</span></code> nodes, while a custom quantized LSTM operator <code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> operator is generated for the recurrent cell. Note that currently <code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> is not yet supported for execution in the <code class="docutils literal notranslate"><span class="pre">qonnx</span></code> library. In a future version of Brevitas, <code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> will instead be lowered to a series of standard ops + <code class="docutils literal notranslate"><span class="pre">Quant</span></code> nodes. For the purpose example, we keep all quantizers at default:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>

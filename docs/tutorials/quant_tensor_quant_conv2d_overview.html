@@ -586,8 +586,6 @@ Is output quant enabled: False
 /proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/_tensor.py:1255: UserWarning: Named tensors and all their associated APIs are an experimental feature and subject to change. Please do not use them for anything important until they are released as stable. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/c10/core/TensorImpl.h:1758.)
   return super(Tensor, self).rename(names)
 [W NNPACK.cpp:53] Could not initialize NNPACK! Reason: Unsupported hardware.
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/nn/modules/conv.py:459: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  return F.conv2d(input, weight, bias, self.stride,
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
@@ -748,8 +746,8 @@ True
 <div class="highlight"><pre>
 True
 True
-tensor(0.0211, grad_fn=&lt;DivBackward0&gt;)
-tensor(0.0162, grad_fn=&lt;DivBackward0&gt;)
+tensor(0.0211, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)
+tensor(0.0162, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)
 </pre></div></div>
 </div>
 <p>Both QuantTensor are valid but since the quantized activation is in training mode by default, their scale factors are going to be different. It is important to note that the behaviour is different at evaluation time, where the two scale factors will be the same.</p>
@@ -824,7 +822,7 @@ IntQuantTensor(value=tensor([[[[0.5191, 0.6402],
           [1.2631, 0.3980]],
 
          [[0.7959, 0.5191],
-          [0.8132, 1.3496]]]], grad_fn=&lt;MaxPool2DWithIndicesBackward0&gt;), scale=tensor(0.0173, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+          [0.8132, 1.3496]]]], grad_fn=&lt;MaxPool2DWithIndicesBackward0&gt;), scale=tensor(0.0173, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>For ops that are not invariant to quantization, a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> decays into a floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>. Example:</p>
@@ -835,15 +833,6 @@ IntQuantTensor(value=tensor([[[[0.5191, 0.6402],
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">quant_tensor</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-/tmp/ipykernel_81376/1377665000.py:1: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  torch.tanh(quant_tensor)
-</pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
@@ -925,7 +914,7 @@ True
 the affine quantization invariant is always respected.</p>
 <p>We could have obtained a similar result by directly passing as input a QuantTensor. In this example we are directly defining a QuantTensor ourselves, but it could also be the output of a previous layer.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant_tensor</span> <span class="kn">import</span> <span class="n">IntQuantTensor</span>
@@ -947,7 +936,7 @@ the affine quantization invariant is always respected.</p>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -966,7 +955,7 @@ IntQuantTensor(value=tensor([[[[ 7.2000e-03, -3.7000e-03,  7.7000e-03, -2.4000e-
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
@@ -984,7 +973,7 @@ True
 <p><strong>Note</strong>: how we are explicitly forcing <code class="docutils literal notranslate"><span class="pre">value</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> and <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> to be floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>, as this is expected by Brevitas but it’s currently not enforced automatically at initialization time.</p>
 <p>If we now pass in <code class="docutils literal notranslate"><span class="pre">quant_tensor_input</span></code> to <code class="docutils literal notranslate"><span class="pre">return_quant_conv</span></code>, we will see that indeed the output is a valid 21-bit <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
@@ -995,7 +984,8 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1013,7 +1003,7 @@ IntQuantTensor(value=tensor([[[[-0.0019,  0.0049, -0.0012],
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
@@ -1030,7 +1020,7 @@ True
 </div>
 <p>We can also pass in an input <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to a layer that has <code class="docutils literal notranslate"><span class="pre">input_quant</span></code> enabled. In that case, the input gets re-quantized:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">input_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
@@ -1038,7 +1028,8 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1060,7 +1051,7 @@ IntQuantTensor(value=tensor([[[[-0.0073,  0.0040, -0.0011],
 <h2>Output Quantization<a class="headerlink" href="#Output-Quantization" title="Permalink to this heading">#</a></h2>
 <p>Let’s now look at would have happened if we instead enabled output quantization:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
@@ -1074,7 +1065,8 @@ IntQuantTensor(value=tensor([[[[-0.0073,  0.0040, -0.0011],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1088,11 +1080,11 @@ IntQuantTensor(value=tensor([[[[-0.2117, -0.4811,  0.0385],
 
          [[ 1.0873,  0.2406, -0.2887],
           [-0.4330, -0.4907, -0.2021],
-          [ 0.6447,  0.4811,  0.1347]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0096, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+          [ 0.6447,  0.4811,  0.1347]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0096, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
@@ -1119,7 +1111,7 @@ True
 <p>There is an important scenario where the various options we just saw make a practical difference, and it’s quantization of <em>bias</em>. In many contexts, such as in the ONNX standard opset and in FINN, bias is assumed to be quantized with scale factor equal to <em>input scale</em> weight scale*, which means that we need a valid quantized input somehow. A predefined bias quantizer that reflects that assumption is <code class="docutils literal notranslate"><span class="pre">brevitas.quant.scaled_int.Int8Bias</span></code>. If we simply tried to set it to a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>
 without any sort of input quantization, we would get an error:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8Bias</span>
@@ -1172,7 +1164,7 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 </div>
 <p>We can solve the issue by passing in a valid <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>, e.g. the <code class="docutils literal notranslate"><span class="pre">quant_tensor_input</span></code> we defined above:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">bias_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
@@ -1180,7 +1172,8 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1200,7 +1193,7 @@ IntQuantTensor(value=tensor([[[[-2.4238e-03, -5.6598e-03,  5.1882e-03],
 </div>
 <p>Or by enabling input quantization and then passing in a float a <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code> or a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">input_bias_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
@@ -1211,7 +1204,8 @@ IntQuantTensor(value=tensor([[[[-2.4238e-03, -5.6598e-03,  5.1882e-03],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1229,7 +1223,7 @@ IntQuantTensor(value=tensor([[[[-0.2816, -0.5271, -0.1748],
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">input_bias_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
@@ -1237,7 +1231,8 @@ IntQuantTensor(value=tensor([[[[-0.2816, -0.5271, -0.1748],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1257,7 +1252,7 @@ IntQuantTensor(value=tensor([[[[-0.0058,  0.0030,  0.0030],
 <p>Notice how the output <code class="docutils literal notranslate"><span class="pre">bit_width=tensor(22.)</span></code>. This is because, in the worst-case, summing a <em>21-bit</em> integer (the size of the accumulator before bias is added) and an <em>8-bit</em> integer (the size of quantized bias) gives a <em>22-bit</em> integer.</p>
 <p>Let’s try now to enable output quantization instead of input quantization. That wouldn’t have solved the problem with bias quantization, as output quantization is performed after bias is added:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_bias_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
@@ -1272,7 +1267,7 @@ IntQuantTensor(value=tensor([[[[-0.0058,  0.0030,  0.0030],
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/parameter_quant.py:154: UserWarning: No quant bias cache found, set cache_inference_quant_bias=True and run an inference pass first
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/parameter_quant.py:190: UserWarning: No quant bias cache found, set cache_inference_quant_bias=True and run an inference pass first
   warn(
 </pre></div></div>
 </div>
@@ -1318,19 +1313,19 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <span class="ansi-green-intense-fg ansi-bold">   1195</span> <span style="color: rgb(95,135,135)"># Do not call functions when jit is used</span>
 <span class="ansi-green-intense-fg ansi-bold">   1196</span> full_backward_hooks, non_full_backward_hooks <span style="color: rgb(98,98,98)">=</span> [], []
 
-File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/parameter_quant.py:330</span>, in <span class="ansi-cyan-fg">BiasQuantProxyFromInjector.forward</span><span class="ansi-blue-fg">(self, x, input, weight)</span>
-<span class="ansi-green-intense-fg ansi-bold">    328</span>     input_scale <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>scale()
-<span class="ansi-green-intense-fg ansi-bold">    329</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> input_scale <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>:
-<span class="ansi-green-fg">--&gt; 330</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">RuntimeError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Input scale required</span><span style="color: rgb(175,0,0)">&#34;</span>)
-<span class="ansi-green-intense-fg ansi-bold">    331</span> <span class="ansi-bold" style="color: rgb(0,135,0)">elif</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>requires_input_scale <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> input_scale <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>is_quant_enabled:
-<span class="ansi-green-intense-fg ansi-bold">    332</span>     input_scale <span style="color: rgb(98,98,98)">=</span> input_scale<span style="color: rgb(98,98,98)">.</span>view(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">1</span>)
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/parameter_quant.py:364</span>, in <span class="ansi-cyan-fg">BiasQuantProxyFromInjector.forward</span><span class="ansi-blue-fg">(self, x, input, weight)</span>
+<span class="ansi-green-intense-fg ansi-bold">    362</span>     input_scale <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>scale()
+<span class="ansi-green-intense-fg ansi-bold">    363</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> input_scale <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>:
+<span class="ansi-green-fg">--&gt; 364</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">RuntimeError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Input scale required</span><span style="color: rgb(175,0,0)">&#34;</span>)
+<span class="ansi-green-intense-fg ansi-bold">    365</span> <span class="ansi-bold" style="color: rgb(0,135,0)">elif</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>requires_input_scale <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> input_scale <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>is_quant_enabled:
+<span class="ansi-green-intense-fg ansi-bold">    366</span>     input_scale <span style="color: rgb(98,98,98)">=</span> input_scale<span style="color: rgb(98,98,98)">.</span>view(<span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">1</span>)
 
 <span class="ansi-red-fg">RuntimeError</span>: Input scale required
 </pre></div></div>
 </div>
 <p>Not all scenarios require bias quantization to depend on the scale factor of the input. In those cases, biases can be quantized the same way weights are quantized, and have their own scale factor. In Brevitas, a predefined quantizer that reflects this other scenario is <code class="docutils literal notranslate"><span class="pre">Int8BiasPerTensorFloatInternalScaling</span></code>. In this case then a valid quantized input is not required:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8BiasPerTensorFloatInternalScaling</span>
@@ -1343,7 +1338,8 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1363,7 +1359,7 @@ tensor([[[[-0.4360, -0.2674, -0.4194],
 <p>There are a couple of situations to be aware of concerning bias quantization that can lead to changes in the output <code class="docutils literal notranslate"><span class="pre">zero_point</span></code>.</p>
 <p>Let’s consider the scenario where we compute the convolution between a quantized input tensor and quantized weights. In the first case, we then add an <em>unquantized</em> bias on top of the output. In the second one, we add a bias quantized with its own scale factor, e.g. with the <code class="docutils literal notranslate"><span class="pre">Int8BiasPerTensorFloatInternalScaling</span></code> quantizer. In both cases, in order to make sure the output <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is valid (i.e. the affine quantization invariant is respected), the output <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> becomes non-zero:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">unquant_bias_input_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
@@ -1375,7 +1371,8 @@ tensor([[[[-0.4360, -0.2674, -0.4194],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
@@ -1397,7 +1394,7 @@ IntQuantTensor(value=tensor([[[[-0.6912,  0.0086,  0.1628],
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
@@ -1414,7 +1411,7 @@ True
 </div>
 <p>Finally, an important point about <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. With the exception of learned bit-width (which will be the subject of a separate tutorial) and some of the bias quantization scenarios we have just seen, usually returing a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is not necessary and can create extra complexity. This is why currently <code class="docutils literal notranslate"><span class="pre">return_quant_tensor</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>. We can easily see it in an example:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">bias_input_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
@@ -1425,7 +1422,8 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+</pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
