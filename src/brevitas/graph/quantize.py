@@ -371,7 +371,7 @@ def quantize(
     graph_model = act_handler(graph_model, layer_map=quant_act_map)
     graph_model = add_output_quant_handler(
         graph_model, quant_identity_map, quant_act_map, unsigned_act_tuple)
-    # The call to esidual_handler has to be performed before layer_handler
+    # The call to residual_handler has to be performed before layer_handler
     # so that all requantization steps are correctly inserted and aligned.
     graph_model = residual_handler(
         graph_model, quant_identity_map, quant_act_map, unsigned_act_tuple, align_input_quant)
