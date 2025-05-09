@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Index &#8212; Brevitas 0.11.0 documentation</title>
+    <title>Index &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -397,6 +397,7 @@ document.write(`
  | <a href="#N"><strong>N</strong></a>
  | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
+ | <a href="#Q"><strong>Q</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
@@ -674,22 +675,14 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.CeilSteFn">CeilSteFn (class in brevitas.ops.autograd_ste_ops)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.binary.ClampedBinaryQuant">ClampedBinaryQuant (class in brevitas.core.quant.binary)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.binary.ClampedBinaryQuant">ClampedBinaryQuant (class in brevitas.core.quant.binary)</a>
+</li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.ClampMin">ClampMin (class in brevitas.core.function_wrapper.clamp)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.combine_scale_threshold">combine_scale_threshold() (brevitas.core.restrict_val.FloatRestrictValue method)</a>
-
-      <ul>
-        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.combine_scale_threshold">(brevitas.core.restrict_val.IntRestrictValue method)</a>
+      <li><a href="api_reference/brevitas.function.html#brevitas.function.ops.compute_max_mantissa">compute_max_mantissa() (in module brevitas.function.ops)</a>
 </li>
-        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.combine_scale_threshold">(brevitas.core.restrict_val.LogFloatRestrictValue method)</a>
-</li>
-        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.combine_scale_threshold">(brevitas.core.restrict_val.PowerOfTwoRestrictValue method)</a>
-</li>
-      </ul></li>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ConstScaling">ConstScaling (class in brevitas.core.scaling.standalone)</a>
 </li>
   </ul></td>
@@ -843,6 +836,8 @@ document.write(`
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward">(brevitas.core.restrict_val.PowerOfTwoRestrictValue method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.forward">(brevitas.core.restrict_val.QuantRestrictValue method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.IntScaling.forward">(brevitas.core.scaling.int_scaling.IntScaling method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling.forward">(brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling method)</a>
@@ -860,6 +855,10 @@ document.write(`
         <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromStatsFromParameterScaling.forward">(brevitas.core.scaling.standalone.ParameterFromStatsFromParameterScaling method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterScaling.forward">(brevitas.core.scaling.standalone.ParameterScaling method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncMsbScaling.forward">(brevitas.core.scaling.standalone.TruncMsbScaling method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncScalingWrapper.forward">(brevitas.core.scaling.standalone.TruncScalingWrapper method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsAve.forward">(brevitas.core.stats.stats_op.AbsAve method)</a>
 </li>
@@ -952,14 +951,18 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.FloatClamp.inf_nan_clamp">inf_nan_clamp() (brevitas.core.function_wrapper.clamp.FloatClamp method)</a>
 </li>
+      <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.init_scale">init_scale() (brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling method)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.init_zp">init_zp() (brevitas.core.zero_point.ParameterFromRuntimeZeroPoint method)</a>
+</li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.inplace_momentum_update">inplace_momentum_update() (in module brevitas.core.utils)</a>
 </li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.inplace_tensor_add">inplace_tensor_add() (in module brevitas.core.utils)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.inplace_tensor_mul">inplace_tensor_mul() (in module brevitas.core.utils)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.inplace_tensor_mul">inplace_tensor_mul() (in module brevitas.core.utils)</a>
+</li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.InplaceLogTwo">InplaceLogTwo (class in brevitas.core.function_wrapper.misc)</a>
 </li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.InplaceTensorClampSte">InplaceTensorClampSte (class in brevitas.core.function_wrapper.ops_ste)</a>
@@ -1006,9 +1009,11 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.function.html#brevitas.function.ops.max_float">max_float() (in module brevitas.function.ops)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.DecoupledIntQuant.max_int">max_int() (brevitas.core.quant.int_base.DecoupledIntQuant method)</a>
+      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant.max_int">max_int() (brevitas.core.quant.int.TruncIntQuant method)</a>
 
       <ul>
+        <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.DecoupledIntQuant.max_int">(brevitas.core.quant.int_base.DecoupledIntQuant method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.IntQuant.max_int">(brevitas.core.quant.int_base.IntQuant method)</a>
 </li>
         <li><a href="api_reference/brevitas.function.html#brevitas.function.ops.max_int">(in module brevitas.function.ops)</a>
@@ -1018,9 +1023,11 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanSigmaStd">MeanSigmaStd (class in brevitas.core.stats.stats_op)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.DecoupledIntQuant.min_int">min_int() (brevitas.core.quant.int_base.DecoupledIntQuant method)</a>
+      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant.min_int">min_int() (brevitas.core.quant.int.TruncIntQuant method)</a>
 
       <ul>
+        <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.DecoupledIntQuant.min_int">(brevitas.core.quant.int_base.DecoupledIntQuant method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int_base.IntQuant.min_int">(brevitas.core.quant.int_base.IntQuant method)</a>
 </li>
         <li><a href="api_reference/brevitas.function.html#brevitas.function.ops.min_int">(in module brevitas.function.ops)</a>
@@ -1212,6 +1219,14 @@ document.write(`
   </ul></td>
 </tr></table>
 
+<h2 id="Q">Q</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue">QuantRestrictValue (class in brevitas.core.restrict_val)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -1228,6 +1243,8 @@ document.write(`
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_float">(brevitas.core.restrict_val.PowerOfTwoRestrictValue method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_float">(brevitas.core.restrict_val.QuantRestrictValue method)</a>
+</li>
       </ul></li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module">restrict_init_inplace_module() (brevitas.core.restrict_val.FloatRestrictValue method)</a>
 
@@ -1238,6 +1255,8 @@ document.write(`
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_inplace_module">(brevitas.core.restrict_val.PowerOfTwoRestrictValue method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_inplace_module">(brevitas.core.restrict_val.QuantRestrictValue method)</a>
+</li>
       </ul></li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_module">restrict_init_module() (brevitas.core.restrict_val.FloatRestrictValue method)</a>
 
@@ -1247,6 +1266,8 @@ document.write(`
         <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_module">(brevitas.core.restrict_val.LogFloatRestrictValue method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_module">(brevitas.core.restrict_val.PowerOfTwoRestrictValue method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_module">(brevitas.core.restrict_val.QuantRestrictValue method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -1260,7 +1281,11 @@ document.write(`
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_tensor">(brevitas.core.restrict_val.PowerOfTwoRestrictValue method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_tensor">(brevitas.core.restrict_val.QuantRestrictValue method)</a>
+</li>
       </ul></li>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.retrocompatibility_op">retrocompatibility_op() (brevitas.core.restrict_val.QuantRestrictValue method)</a>
+</li>
       <li><a href="api_reference/brevitas.function.html#brevitas.function.ops_ste.round_ste">round_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.round_ste_impl">round_ste_impl() (in module brevitas.ops.autograd_ste_ops)</a>
@@ -1359,10 +1384,10 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.TensorClampSteFn">TensorClampSteFn (class in brevitas.ops.autograd_ste_ops)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">ternary_sign_ste() (in module brevitas.function.ops_ste)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl">ternary_sign_ste_impl() (in module brevitas.ops.autograd_ste_ops)</a>
 </li>
       <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.ternary.TernaryQuant">TernaryQuant (class in brevitas.core.quant.ternary)</a>
@@ -1382,6 +1407,10 @@ document.write(`
 </li>
       </ul></li>
       <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant">TruncIntQuant (class in brevitas.core.quant.int)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncMsbScaling">TruncMsbScaling (class in brevitas.core.scaling.standalone)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncScalingWrapper">TruncScalingWrapper (class in brevitas.core.scaling.standalone)</a>
 </li>
   </ul></td>
 </tr></table>

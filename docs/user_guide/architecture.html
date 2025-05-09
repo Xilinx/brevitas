@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Architecture &#8212; Brevitas 0.10.3.dev95+g9932b92 documentation</title>
+    <title>Architecture &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -19,37 +19,37 @@
   </script>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link href="../_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
 
   
-  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
 
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
-  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
 
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-    <script src="_static/jquery.js"></script>
-    <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="_static/doctools.js"></script>
-    <script src="_static/sphinx_highlight.js"></script>
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'architecture';</script>
-    <link rel="author" title="About these documents" href="about.html" />
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="F.A.Q." href="faq.html" />
-    <link rel="prev" title="brevitas.core.stats package" href="api_reference/brevitas.core.stats.html" />
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/architecture';</script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Brevitas and Compile" href="compile.html" />
+    <link rel="prev" title="User Guides" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -86,7 +86,7 @@
     <div class="search-button__overlay"></div>
     <div class="search-button__search-container">
 <form class="bd-search d-flex align-items-center"
-      action="search.html"
+      action="../search.html"
       method="get">
   <i class="fa-solid fa-magnifying-glass"></i>
   <input type="search"
@@ -115,7 +115,7 @@
       <div class="navbar-item">
   
 
-<a class="navbar-brand logo" href="index.html">
+<a class="navbar-brand logo" href="../index.html">
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.3.dev95+g9932b92 documentation - Home"/>
-    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.3.dev95+g9932b92 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -148,56 +148,56 @@
   <ul class="bd-navbar-elements navbar-nav">
     
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="setup.html">
+                      <a class="nav-link nav-internal" href="../setup.html">
                         Setup
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="getting_started.html">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
                         Getting Started
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="tutorials/index.html">
+                      <a class="nav-link nav-internal" href="../tutorials/index.html">
                         Tutorials
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="settings.html">
+                      <a class="nav-link nav-internal" href="../settings.html">
                         Settings
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="api_reference/index.html">
+                      <a class="nav-link nav-internal" href="../api_reference/index.html">
                         API reference
                       </a>
                     </li>
                 
 
                     <li class="nav-item current active">
-                      <a class="nav-link nav-internal" href="#">
-                        Architecture
+                      <a class="nav-link nav-internal" href="index.html">
+                        User Guides
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="faq.html">
+                      <a class="nav-link nav-internal" href="../faq.html">
                         FAQ
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="about.html">
+                      <a class="nav-link nav-internal" href="../about.html">
                         About
                       </a>
                     </li>
@@ -265,7 +265,7 @@ document.write(`
   <div class="bd-container">
     <div class="bd-container__inner bd-page-width">
       
-      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+      <div class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -284,56 +284,56 @@ document.write(`
   <ul class="bd-navbar-elements navbar-nav">
     
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="setup.html">
+                      <a class="nav-link nav-internal" href="../setup.html">
                         Setup
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="getting_started.html">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
                         Getting Started
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="tutorials/index.html">
+                      <a class="nav-link nav-internal" href="../tutorials/index.html">
                         Tutorials
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="settings.html">
+                      <a class="nav-link nav-internal" href="../settings.html">
                         Settings
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="api_reference/index.html">
+                      <a class="nav-link nav-internal" href="../api_reference/index.html">
                         API reference
                       </a>
                     </li>
                 
 
                     <li class="nav-item current active">
-                      <a class="nav-link nav-internal" href="#">
-                        Architecture
+                      <a class="nav-link nav-internal" href="index.html">
+                        User Guides
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="faq.html">
+                      <a class="nav-link nav-internal" href="../faq.html">
                         FAQ
                       </a>
                     </li>
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="about.html">
+                      <a class="nav-link nav-internal" href="../about.html">
                         About
                       </a>
                     </li>
@@ -361,6 +361,18 @@ document.write(`
       </div>
     
   </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compile.html">Brevitas and Compile</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
@@ -390,10 +402,13 @@ document.write(`
   <ul class="bd-breadcrumbs">
     
     <li class="breadcrumb-item breadcrumb-home">
-      <a href="index.html" class="nav-link" aria-label="Home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guides</a></li>
+    
     <li class="breadcrumb-item active" aria-current="page">Architecture</li>
   </ul>
 </nav>
@@ -531,7 +546,7 @@ had been previously quantized and is now in dequantized format. The <cite>QuantT
 to derive its quantized representation back. A valid QuantTensor carries <em>scale</em>, <em>zero-point</em>, <em>bit-width</em>, <em>sign</em>,
 and whether it was generated in training or inference mode.</p>
 <p>The arithmetic of QuantTensors implments a generalized version of fixed-point arithmetic, with the main assumption
-being that only two QuantTensor with the same scale factor can be summed together. This constrain is enforced
+being that only two QuantTensor with the same scale factor can be summed together. This constraint is enforced
 when the QuantTensors involved in a sum have been generated in inference mode, but it’s not enforced in training mode.
 This is because when dealing with e.g. <cite>ScalingImplType.PARAMETER_FROM_STATS</cite>, the activation tensors in a residual topology
 can have different scale factors along the skip connection at training time, but not at inference time.</p>
@@ -562,7 +577,7 @@ time a WeightQuantProxy starts tracking a new weight tensor, the underlying quan
 <h2>Quant Layers and Mixins<a class="headerlink" href="#quant-layers-and-mixins" title="Permalink to this heading">#</a></h2>
 <p>A <cite>QuantLayer</cite> is the quantized variant of a <cite>torch.nn</cite> layer, and can be found under <cite>brevitas.nn</cite>.
 Typically a QuantLayer inherits from both its floating-point variant (e.g. <cite>QuantConv2d</cite> inherits from <cite>Conv2d</cite>),
-plus a serie of mixins, each responsibile for instantiating a proxy within the QuantLayer.
+plus a series of mixins, each responsibile for instantiating a proxy within the QuantLayer.
 A mixin is more specialized than a proxy, so for example both <cite>QuantInputMixin</cite> and <cite>QuantOutputMixin</cite>
 instantiate an activation quantization proxy. So-called _QuantWBIOL_ layers (such as <cite>QuantConv2d</cite>)
 inherit from <cite>QuantWeightMixin</cite>, <cite>QuantBiasMixin</cite>, <cite>QuantInputMixin</cite> and <cite>QuantOutputMixin</cite>.
@@ -617,20 +632,20 @@ That means that QuantLayers can be easily mixed with standard <cite>torch.nn</ci
                   <!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="api_reference/brevitas.core.stats.html"
+       href="index.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">brevitas.core.stats package</p>
+        <p class="prev-next-title">User Guides</p>
       </div>
     </a>
     <a class="right-next"
-       href="faq.html"
+       href="compile.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">F.A.Q.</p>
+        <p class="prev-next-title">Brevitas and Compile</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -664,7 +679,7 @@ That means that QuantLayers can be easily mixed with standard <cite>torch.nn</ci
 
   <div class="sidebar-secondary-item">
   <div class="tocsection sourcelink">
-    <a href="_sources/architecture.rst.txt">
+    <a href="../_sources/user_guide/architecture.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
@@ -683,8 +698,8 @@ That means that QuantLayers can be easily mixed with standard <cite>torch.nn</ci
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+  <script src="../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">

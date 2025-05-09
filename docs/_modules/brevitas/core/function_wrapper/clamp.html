@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.function_wrapper.clamp &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.core.function_wrapper.clamp &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -551,10 +551,10 @@ document.write(`
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
             <span class="n">exponent_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-            <span class="n">mantissa_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">pre_compute_max_mantissa</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
             <span class="n">exponent_bias</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
 
-        <span class="n">max_value</span> <span class="o">=</span> <span class="n">max_float</span><span class="p">(</span><span class="n">exponent_bit_width</span><span class="p">,</span> <span class="n">mantissa_bit_width</span><span class="p">,</span> <span class="n">exponent_bias</span><span class="p">)</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="n">max_float</span><span class="p">(</span><span class="n">exponent_bit_width</span><span class="p">,</span> <span class="n">pre_compute_max_mantissa</span><span class="p">,</span> <span class="n">exponent_bias</span><span class="p">)</span>
         <span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_available_float</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span>
             <span class="n">max_value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_available_float</span><span class="p">())</span>
         <span class="n">min_value</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="k">else</span> <span class="o">-</span><span class="n">max_value</span>
@@ -562,7 +562,7 @@ document.write(`
         <span class="c1"># Compute masks</span>
         <span class="n">inf_mask</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">isinf</span><span class="p">()</span>
         <span class="n">p_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">max_value</span>
-        <span class="n">n_max_val_mask</span> <span class="o">=</span> <span class="o">-</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">max_value</span>
+        <span class="n">n_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">min_value</span>
 
         <span class="c1"># first clamp everything to +- max_value, basically the saturating case</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saturating_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">min_value</span><span class="p">)</span>

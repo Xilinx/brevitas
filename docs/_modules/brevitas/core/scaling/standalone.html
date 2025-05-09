@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.scaling.standalone &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.core.scaling.standalone &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -422,6 +422,7 @@ document.write(`
 <span class="kn">import</span> <span class="nn">brevitas.config</span> <span class="k">as</span> <span class="nn">config</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">Identity</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">OverBatchOverTensorView</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">TensorClamp</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_ClampValue</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_RestrictClampValue</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_RestrictValue</span>
@@ -472,20 +473,27 @@ document.write(`
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">scaling_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
+            <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ConstScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Ensure retro-compatibility with shared threshold/scaling restrict</span>
+        <span class="k">if</span> <span class="n">restrict_threshold_impl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">restrict_threshold_impl</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_threshold_impl</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
             <span class="n">scaling_init</span> <span class="o">=</span> <span class="n">scaling_init</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
             <span class="n">scaling_init</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_tensor</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">restrict_init_module</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">scaling_init</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">scaling_init</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_float</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">restrict_init_module</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span> <span class="o">=</span> <span class="n">restrict_threshold_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
 
 <div class="viewcode-block" id="ConstScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ConstScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">placeholder</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
@@ -493,7 +501,7 @@ document.write(`
             <span class="n">threshold</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">placeholder</span><span class="p">)</span>
         <span class="c1"># We first apply any restriction to scaling</span>
         <span class="c1"># For IntQuant, this is no-op, retrocompatible.</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
         <span class="n">restricted_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">())</span>
         <span class="n">restricted_value</span> <span class="o">=</span> <span class="n">restricted_value</span> <span class="o">/</span> <span class="n">threshold</span>
         <span class="k">return</span> <span class="n">restricted_value</span></div></div>
@@ -543,10 +551,15 @@ document.write(`
             <span class="n">scaling_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
             <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
+            <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ParameterScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Ensure retro-compatibility with shared threshold/scaling restrict</span>
+        <span class="k">if</span> <span class="n">restrict_threshold_impl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">restrict_threshold_impl</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="n">scaling_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span>
                 <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">SCALAR_SHAPE</span> <span class="ow">and</span> <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">scaling_shape</span><span class="p">):</span>
@@ -559,12 +572,14 @@ document.write(`
             <span class="n">scaling_init</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
         <span class="n">scaling_init</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_tensor</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_init_module</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">SCALAR_SHAPE</span> <span class="ow">and</span> <span class="n">scaling_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">scaling_init</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="n">scaling_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_threshold_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span> <span class="o">=</span> <span class="n">restrict_threshold_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
 
 <div class="viewcode-block" id="ParameterScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">placeholder</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
@@ -572,7 +587,8 @@ document.write(`
             <span class="n">threshold</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">placeholder</span><span class="p">)</span>
         <span class="c1"># We first apply any restriction to scaling</span>
         <span class="c1"># For IntQuant, this is no-op, retrocompatible.</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+        <span class="c1"># We can clamp after restrict val since the learned parameter is already in log-domain</span>
         <span class="n">value</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">value</span> <span class="o">/</span> <span class="n">threshold</span></div>
 
@@ -602,7 +618,9 @@ document.write(`
             <span class="n">scaling_stats_input_concat_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
             <span class="n">tracked_parameter_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">],</span>
             <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+            <span class="n">force_parameter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
+            <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -612,39 +630,56 @@ document.write(`
             <span class="n">scaling_shape</span><span class="p">,</span>
             <span class="n">scaling_stats_input_view_shape_impl</span><span class="p">,</span>
             <span class="n">scaling_stats_input_concat_dim</span><span class="p">,</span>
-            <span class="n">tracked_parameter_list</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span>
+            <span class="n">tracked_parameter_list</span><span class="p">,</span>
+            <span class="n">force_parameter</span><span class="p">)</span>
+
+        <span class="c1"># Ensure retro-compatibility with shared threshold/scaling restrict</span>
+        <span class="k">if</span> <span class="n">restrict_threshold_impl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">restrict_threshold_impl</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span> <span class="o">=</span> <span class="n">_StatsScaling</span><span class="p">(</span>
-            <span class="n">restrict_scaling_impl</span><span class="p">,</span> <span class="n">scaling_shape</span><span class="p">,</span> <span class="n">scaling_min_val</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+            <span class="n">restrict_scaling_impl</span><span class="p">,</span>
+            <span class="n">restrict_threshold_impl</span><span class="p">,</span>
+            <span class="n">scaling_shape</span><span class="p">,</span>
+            <span class="n">scaling_min_val</span><span class="p">,</span>
+            <span class="kc">False</span><span class="p">,</span>
+            <span class="kc">False</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span> <span class="o">=</span> <span class="n">restrict_threshold_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_scaling_pre</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_inplace_module</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span> <span class="o">=</span> <span class="n">_ClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">init_done</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_inplace_module</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
 
 <div class="viewcode-block" id="ParameterFromStatsFromParameterScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromStatsFromParameterScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ignored</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">threshold</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">ignored</span><span class="p">)</span>
-        <span class="c1"># Threshold division must happen after we update self.value, but before we apply restrict_preproces</span>
-        <span class="c1"># This is because we don&#39;t want to store a parameter dependant on a runtime value (threshold)</span>
-        <span class="c1"># And because restrict needs to happen after we divide by threshold</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_done</span><span class="p">:</span>
-            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="n">threshold</span>
             <span class="k">return</span> <span class="n">value</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_list_stats</span><span class="p">()</span>
+            <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_list_stats</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="c1"># workaround to avoid find_ununsed_parameter=True in DDP</span>
             <span class="n">stats</span> <span class="o">=</span> <span class="n">stats</span> <span class="o">+</span> <span class="mf">0.</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span>
+                <span class="c1"># Scaling implementation before/after restrict_val is performed in stats_scaling_impl</span>
                 <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-            <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
-            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
+            <span class="c1"># Clamping avoids eventual log(0) with restrict_val</span>
+            <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+            <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_scaling_pre</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
             <span class="n">inplace_tensor_mul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="n">stats</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="n">threshold</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">init_done</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">return</span> <span class="n">value</span></div>
 
@@ -722,12 +757,18 @@ document.write(`
             <span class="n">scaling_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">OverBatchOverTensorView</span><span class="p">(),</span>
             <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">SCALAR_SHAPE</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
+            <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_stats_momentum</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_MOMENTUM</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">assert</span> <span class="n">collect_stats_steps</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Steps should be more than 0&#39;</span>
+
+        <span class="c1"># Ensure retro-compatibility with shared threshold/scaling restrict</span>
+        <span class="k">if</span> <span class="n">restrict_threshold_impl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">restrict_threshold_impl</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">collect_stats_steps</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_input_view_shape_impl</span> <span class="o">=</span> <span class="n">scaling_stats_input_view_shape_impl</span>
@@ -736,19 +777,23 @@ document.write(`
             <span class="n">scaling_stats_momentum</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s1">&#39;buffer&#39;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span> <span class="o">=</span> <span class="n">_RestrictValue</span><span class="p">(</span><span class="n">restrict_scaling_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold</span> <span class="o">=</span> <span class="n">_RestrictValue</span><span class="p">(</span><span class="n">restrict_threshold_impl</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span> <span class="o">=</span> <span class="n">_ClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span>
             <span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>  <span class="c1"># required to support MSE eval or variants</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_inplace_module</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span> <span class="o">=</span> <span class="n">restrict_threshold_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ParameterFromRuntimeStatsScaling.init_scale"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.init_scale">[docs]</a>    <span class="k">def</span> <span class="nf">init_scale</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="n">inplace_tensor_mul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span> <span class="o">+</span> <span class="mi">1</span></div>
 
 <div class="viewcode-block" id="ParameterFromRuntimeStatsScaling.training_forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training_forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">training_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_input</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="c1"># Threshold division must happen after we update self.value, but before we apply restrict_preproces</span>
-        <span class="c1"># This is because we don&#39;t want to store a parameter dependent on a runtime value (threshold)</span>
-        <span class="c1"># And because restrict needs to happen after we divide by threshold</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
             <span class="n">stats_input</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_input_view_shape_impl</span><span class="p">(</span><span class="n">stats_input</span><span class="p">)</span>
             <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="n">stats_input</span><span class="p">)</span>
@@ -768,16 +813,16 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">new_counter</span>
             <span class="k">return</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="n">clamped_stats</span> <span class="o">/</span> <span class="n">threshold</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
-            <span class="n">inplace_tensor_mul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
-            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span>
-            <span class="k">return</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">init_scale</span><span class="p">()</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="n">threshold</span>
+            <span class="k">return</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span></div>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="n">threshold</span>
+            <span class="k">return</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ParameterFromRuntimeStatsScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_input</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
@@ -788,12 +833,16 @@ document.write(`
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">training_forward</span><span class="p">(</span><span class="n">stats_input</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
-                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">/</span> <span class="n">threshold</span>
-                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span>
+                <span class="c1"># No clamping is necessary since statistics are already clamped in training_forward</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
-                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">combine_scale_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-            <span class="n">out</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span><span class="p">(</span><span class="n">out</span><span class="p">)))</span>
+                <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">out</span> <span class="o">/</span> <span class="n">threshold</span>
+            <span class="c1"># We can clamp after restrict val since the learned parameter is already in log-domain</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">out</span></div>
 
 <div class="viewcode-block" id="ParameterFromRuntimeStatsScaling.state_dict"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.state_dict">[docs]</a>    <span class="k">def</span> <span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -806,7 +855,7 @@ document.write(`
             <span class="k">del</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span><span class="p">]</span>
         <span class="c1"># Save buffer into value for any non-zero number of collection steps</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
-            <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_dict</span></div>
 
     <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span>
@@ -831,6 +880,106 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span> <span class="o">+</span> <span class="mi">1</span>
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="ow">and</span> <span class="n">value_key</span> <span class="ow">in</span> <span class="n">missing_keys</span><span class="p">:</span>
             <span class="n">missing_keys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">value_key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TruncMsbScaling"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncMsbScaling">[docs]</a><span class="k">class</span> <span class="nc">TruncMsbScaling</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule implementation of an integer scaling which calculates the scaling required to keep</span>
+<span class="sd">    the most significant bits of the input. Interface compatible with</span>
+<span class="sd">    :class:`~brevitas.core.quant.TruncIntQuant`&#39;s `trunc_scaling_impl` member.</span>
+
+<span class="sd">    Args:</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor: truncation scale factor wrapped in a float torch.tensor.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.scaling import TruncMsbScaling</span>
+<span class="sd">        &gt;&gt;&gt; trunc_scaling_impl = TruncMsbScaling()</span>
+<span class="sd">        &gt;&gt;&gt; input_bit_width, output_bit_width, signed = torch.tensor(8.), torch.tensor(4.), torch.tensor(True)</span>
+<span class="sd">        &gt;&gt;&gt; scaling_input = torch.Tensor([0.04, -0.05, 0.31, -0.44])</span>
+<span class="sd">        &gt;&gt;&gt; trunc_scale = trunc_scaling_impl(scaling_input, input_bit_width, output_bit_width, signed)</span>
+<span class="sd">        &gt;&gt;&gt; trunc_scale</span>
+<span class="sd">        tensor(16.)</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The forward method accepts a multiple placeholder arguments: `scaling_input` and `signed`</span>
+<span class="sd">        to match the calling convention other `trunc_scaling_impl` modules. This is required by</span>
+<span class="sd">        (early versions of) TorchScript to be consistent across different scaling implementations.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Maps to trunc_scaling_impl == TruncScalingImplType.MSB == &#39;MSB&#39; == &#39;msb&#39; in higher-level APIs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">TruncMsbScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="TruncMsbScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncMsbScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">scaling_input</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">output_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">input_bit_width</span> <span class="o">-</span> <span class="n">output_bit_width</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TruncScalingWrapper"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncScalingWrapper">[docs]</a><span class="k">class</span> <span class="nc">TruncScalingWrapper</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule wrapper which maps the inferface requirements of</span>
+<span class="sd">    :class:`~brevitas.core.quant.TruncIntQuant`&#39;s `trunc_scaling_impl` to standard scaling</span>
+<span class="sd">    implementations through `scaling_impl`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        trunc_int_scaling_impl (Module): Module that takes in a bit-width and returns an integer scale</span>
+<span class="sd">            factor, here interpreted as threshold on the integer range of quantization.</span>
+<span class="sd">        scaling_impl (Module): Module that takes in the input to quantize and returns a scale factor,</span>
+<span class="sd">            here interpreted as threshold on the floating-point range of quantization.</span>
+<span class="sd">        tensor_clamp_impl (Module): Module that performs clamping. Default: TensorClamp()</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor: truncation scale factor wrapped in a float torch.tensor.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.scaling import TruncScalingWrapper</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.scaling import ConstScaling</span>
+<span class="sd">        &gt;&gt;&gt; from brevitas.core.scaling import PowerOfTwoIntScaling</span>
+<span class="sd">        &gt;&gt;&gt; trunc_scaling_impl = TruncScalingWrapper(PowerOfTwoIntScaling(), ConstScaling(1.))</span>
+<span class="sd">        &gt;&gt;&gt; input_bit_width, output_bit_width, signed = torch.tensor(8.), torch.tensor(4.), torch.tensor(True)</span>
+<span class="sd">        &gt;&gt;&gt; scaling_input = torch.Tensor([0.04, -0.05, 0.31, -0.44])</span>
+<span class="sd">        &gt;&gt;&gt; trunc_scale = trunc_scaling_impl(scaling_input, input_bit_width, output_bit_width, signed)</span>
+<span class="sd">        &gt;&gt;&gt; trunc_scale</span>
+<span class="sd">        tensor(1.)</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Maps to trunc_scaling_impl == TruncScalingImplType.WRAPPER == &#39;WRAPPER&#39; == &#39;wrapper&#39; in higher-level APIs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">trunc_int_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">tensor_clamp_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">TensorClamp</span><span class="p">())</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">TruncScalingWrapper</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trunc_int_scaling_impl</span> <span class="o">=</span> <span class="n">trunc_int_scaling_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">scaling_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tensor_clamp_impl</span> <span class="o">=</span> <span class="n">tensor_clamp_impl</span>
+
+<div class="viewcode-block" id="TruncScalingWrapper.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncScalingWrapper.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">scaling_input</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">output_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+            <span class="n">signed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trunc_int_scaling_impl</span><span class="p">(</span><span class="n">output_bit_width</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">scaling_input</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+        <span class="n">msb_scale</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">input_bit_width</span> <span class="o">-</span> <span class="n">output_bit_width</span><span class="p">)</span>
+        <span class="n">unit_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">msb_scale</span><span class="p">)</span>
+        <span class="n">max_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">msb_scale</span> <span class="o">&gt;</span> <span class="n">unit_scale</span><span class="p">,</span> <span class="n">msb_scale</span><span class="p">,</span> <span class="n">unit_scale</span><span class="p">)</span>
+        <span class="n">min_scale</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">msb_scale</span> <span class="o">&lt;</span> <span class="n">unit_scale</span><span class="p">,</span> <span class="n">msb_scale</span><span class="p">,</span> <span class="n">unit_scale</span><span class="p">)</span>
+        <span class="n">trunc_scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tensor_clamp_impl</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">min_scale</span><span class="p">,</span> <span class="n">max_scale</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">trunc_scale</span></div></div>
 </pre></div>
 
                 </article>

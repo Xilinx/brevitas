@@ -5,9 +5,7 @@ About
 Author
 ------
 
-Alessandro Pappalardo (@volcacius) @ Xilinx Research Labs. For private
-communications, you can reach me at *alessand at name_of_my_employer dot
-com*.
+AMD Research and Advanced Development.
 
 Cite as
 -------
@@ -15,8 +13,9 @@ Cite as
 ::
 
    @software{brevitas,
-     author       = {Alessandro Pappalardo},
+     author       = {Franco, Giuseppe and Pappalardo, Alessandro and Fraser, Nicholas J},
      title        = {Xilinx/brevitas},
+     year         = {2025},
      publisher    = {Zenodo},
      doi          = {10.5281/zenodo.3333552},
      url          = {https://doi.org/10.5281/zenodo.3333552}

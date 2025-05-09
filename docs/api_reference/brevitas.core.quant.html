@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core.quant package &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.core.quant package &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -183,8 +183,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -319,8 +319,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -447,7 +447,7 @@ document.write(`
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.binary.BinaryQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.binary.</span></span><span class="sig-name descname"><span class="pre">BinaryQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/binary.html#BinaryQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.binary.BinaryQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scaled uniform binary quantization of an input tensor.
 Quantization is performed with <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a>.</p>
 <dl class="field-list simple">
@@ -490,9 +490,9 @@ Quantization is performed with <a class="reference internal" href="brevitas.func
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.binary.BinaryQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/binary.html#BinaryQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.binary.BinaryQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -507,7 +507,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.binary.ClampedBinaryQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.binary.</span></span><span class="sig-name descname"><span class="pre">ClampedBinaryQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/binary.html#ClampedBinaryQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.binary.ClampedBinaryQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scaled uniform binary quantization of an input tensor. Before
 going through quantization, the input tensor is clamped between (- scale, scale), which
 on the backward pass zeroes gradients corresponding to inputs outside that range.
@@ -559,9 +559,9 @@ Quantization is performed with <a class="reference internal" href="brevitas.func
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.binary.ClampedBinaryQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/binary.html#ClampedBinaryQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.binary.ClampedBinaryQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -579,13 +579,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.delay.DelayWrapper">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.delay.</span></span><span class="sig-name descname"><span class="pre">DelayWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/delay.html#DelayWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.delay.DelayWrapper" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.delay.DelayWrapper.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/delay.html#DelayWrapper.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.delay.DelayWrapper.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+:rtype: <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -603,13 +603,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.DecoupledRescalingIntQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">DecoupledRescalingIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">decoupled_int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#DecoupledRescalingIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.DecoupledRescalingIntQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.DecoupledRescalingIntQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#DecoupledRescalingIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.DecoupledRescalingIntQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -628,9 +628,9 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_is_signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#DecoupledRescalingIntQuantWithInput.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -645,13 +645,13 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.PrescaledRestrictIntQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">PrescaledRestrictIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#PrescaledRestrictIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.PrescaledRestrictIntQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.PrescaledRestrictIntQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#PrescaledRestrictIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.PrescaledRestrictIntQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -666,7 +666,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">PrescaledRestrictIntQuantWithInputBitWidth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#PrescaledRestrictIntQuantWithInputBitWidth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that wraps around an integer quantization implementation like
 <code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code>. Zero-point is set to zero, scale is taken as input,
 bit-width is computed from an input bit-width.</p>
@@ -715,9 +715,9 @@ to be used for quantization.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#PrescaledRestrictIntQuantWithInputBitWidth.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -732,7 +732,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.RescalingIntQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">RescalingIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int_scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#RescalingIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.RescalingIntQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that wraps around an integer quantization implementation like
 <code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code>. Scale, zero-point and bit-width are returned from their
 respective implementations and passed on to the integer quantization implementation.</p>
@@ -794,9 +794,9 @@ factor, here interpreted as threshold on the integer range of quantization.</p><
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.RescalingIntQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#RescalingIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.RescalingIntQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -810,14 +810,67 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">TruncIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int.</span></span><span class="sig-name descname"><span class="pre">TruncIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trunc_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TruncMsbScaling()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<p>ScriptModule that requantizes some integer quantization format to another integer quantization
+format. The signed parameter is maintained from the previous format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>float_to_int_impl</strong> (<em>Module</em>) – Module that performs the conversion from floating point to
+integer representation.</p></li>
+<li><p><strong>bit_width_impl</strong> (<em>Module</em>) – Module that returns a bit-width.</p></li>
+<li><p><strong>trunc_scaling_impl</strong> (<em>Module</em>) – Module that returns the truncation scale, an extra
+multiplicative factor that is applied before the truncation. Default: TruncMsbScaling()</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Flag that determines whether restrict quantization to a narrow range
+or not. Default: False</p></li>
+<li><p><strong>tensor_clamp_impl</strong> (<em>Module</em>) – Module that performs clamping. Default: TensorClamp()</p></li>
+<li><p><strong>quant_delay_steps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number of training steps to delay quantization for. Default: 0</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Quantized output in de-quantized format, scale,</dt><dd><p>zero-point, bit_width.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Tensor, Tensor, Tensor, Tensor]</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">TruncIntQuant</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">RoundSte</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">brevitas.core.bit_width</span> <span class="kn">import</span> <span class="n">BitWidthConst</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">trunc_quant</span> <span class="o">=</span> <span class="n">TruncIntQuant</span><span class="p">(</span><span class="n">RoundSte</span><span class="p">(),</span> <span class="n">BitWidthConst</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">signed</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.01</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">8.</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">0.04</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.31</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.44</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span> <span class="o">=</span> <span class="n">trunc_quant</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tensor</span><span class="p">([</span> <span class="mf">0.0000</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.0000</span><span class="p">,</span>  <span class="mf">0.3200</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.4800</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scale</span>
+<span class="go">tensor(0.1600)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zero_point</span>
+<span class="go">tensor(0.)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bit_width</span>
+<span class="go">tensor(4.)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Maps to quant_type == QuantType.INT == ‘INT’ == ‘int’ in higher-level APIs.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.</p>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant.forward">
-<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -827,6 +880,16 @@ registered hooks while the latter silently ignores them.</p>
 </div>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant.max_int">
+<span class="sig-name descname"><span class="pre">max_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.max_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.max_int" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.quant.int.TruncIntQuant.min_int">
+<span class="sig-name descname"><span class="pre">min_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int.html#TruncIntQuant.min_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int.TruncIntQuant.min_int" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </section>
@@ -835,7 +898,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int_base.DecoupledIntQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int_base.</span></span><span class="sig-name descname"><span class="pre">DecoupledIntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_view_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#DecoupledIntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.DecoupledIntQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scale, shifted, uniform integer quantization of an input tensor,
 according to an input pre-scale, scale, pre-zero-point, zero-point and bit-width.</p>
 <dl class="field-list simple">
@@ -874,9 +937,9 @@ integer representation. Default: RoundSte()</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int_base.DecoupledIntQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pre_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#DecoupledIntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.DecoupledIntQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+:rtype: <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -901,7 +964,7 @@ registered hooks while the latter silently ignores them.</p>
 <span class="sig-name descname"><span class="pre">to_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pre_scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#DecoupledIntQuant.to_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.DecoupledIntQuant.to_int" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -911,7 +974,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.int_base.IntQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.int_base.</span></span><span class="sig-name descname"><span class="pre">IntQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_view_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float_to_int_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">RoundSte()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor_clamp_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">TensorClamp()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#IntQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.IntQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scale, shifted, uniform integer quantization of an input tensor,
 according to an input scale, zero-point and bit-width.</p>
 <dl class="field-list simple">
@@ -933,7 +996,7 @@ integer representation. Default: RoundSte()</p></li>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">brevitas.core.scaling</span> <span class="kn">import</span> <span class="n">ConstScaling</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">IntQuant</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">int_quant</span> <span class="o">=</span> <span class="n">IntQuant</span><span class="p">(</span><span class="n">narrow_range</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">signed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.01</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">4.</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">0.042</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.053</span><span class="p">,</span> <span class="mf">0.31</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.44</span><span class="p">])</span>
@@ -953,9 +1016,9 @@ integer representation. Default: RoundSte()</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.int_base.IntQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#IntQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.IntQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+:rtype: <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -980,7 +1043,7 @@ registered hooks while the latter silently ignores them.</p>
 <span class="sig-name descname"><span class="pre">to_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/int_base.html#IntQuant.to_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.int_base.IntQuant.to_int" title="Permalink to this definition">#</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -993,7 +1056,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.quant.ternary.TernaryQuant">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.quant.ternary.</span></span><span class="sig-name descname"><span class="pre">TernaryQuant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_delay_steps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/ternary.html#TernaryQuant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.ternary.TernaryQuant" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule that implements scaled uniform ternary quantization of an input tensor.
 Quantization is performed with <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste" title="brevitas.function.ops_ste.ternary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a>.</p>
 <dl class="field-list simple">
@@ -1041,9 +1104,9 @@ Quantization is performed with <a class="reference internal" href="brevitas.func
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.quant.ternary.TernaryQuant.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/quant/ternary.html#TernaryQuant.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.quant.ternary.TernaryQuant.forward" title="Permalink to this definition">#</a></dt>
-<dd><p>Define the computation performed at every call.</p>
+<dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.
-:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
+:rtype: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>, <a class="reference external" href="https://docs.pytorch.org/docs/main/tensors.html#torch.Tensor" title="(in PyTorch vmain (2.8.0a0+git20e2ca3 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>]</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Although the recipe for forward pass needs to be defined within
@@ -1146,6 +1209,8 @@ registered hooks while the latter silently ignores them.</p>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant.forward"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant.max_int"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant.max_int()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.quant.int.TruncIntQuant.min_int"><code class="docutils literal notranslate"><span class="pre">TruncIntQuant.min_int()</span></code></a></li>
 </ul>
 </li>
 </ul>

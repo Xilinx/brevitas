@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.scaling.int_scaling &#8212; Brevitas 0.11.0 documentation</title>
+    <title>brevitas.core.scaling.int_scaling &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.0 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.0 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -180,8 +180,8 @@
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -312,8 +312,8 @@ document.write(`
                 
 
                     <li class="nav-item">
-                      <a class="nav-link nav-internal" href="../../../../architecture.html">
-                        Architecture
+                      <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+                        User Guides
                       </a>
                     </li>
                 
@@ -411,6 +411,8 @@ document.write(`
 <span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
 <span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
@@ -421,29 +423,41 @@ document.write(`
 <div class="viewcode-block" id="IntScaling"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.IntScaling">[docs]</a><span class="k">class</span> <span class="nc">IntScaling</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;signed&#39;</span><span class="p">,</span> <span class="s1">&#39;narrow_range&#39;</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">narrow_range</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">IntScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="o">=</span> <span class="n">signed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span> <span class="o">=</span> <span class="n">narrow_range</span>
 
 <div class="viewcode-block" id="IntScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.IntScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">signed</span><span class="p">:</span>
-            <span class="k">return</span> <span class="o">-</span><span class="n">min_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">is_signed</span> <span class="o">=</span> <span class="n">signed</span> <span class="k">if</span> <span class="n">signed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">signed</span>
+        <span class="k">if</span> <span class="n">is_signed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;signed is not defined, signed=</span><span class="si">{</span><span class="n">is_signed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">is_signed</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Workaround for JIT type inference</span>
+        <span class="c1"># Workaround: required for compatibility with the JIT for PT=2.2.2</span>
+        <span class="n">is_signed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">is_signed</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">is_signed</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">is_signed</span>
+        <span class="k">if</span> <span class="n">is_signed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">min_int</span><span class="p">(</span><span class="n">is_signed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">max_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span></div></div>
+            <span class="k">return</span> <span class="n">max_int</span><span class="p">(</span><span class="n">is_signed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">narrow_range</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="PowerOfTwoIntScaling"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling">[docs]</a><span class="k">class</span> <span class="nc">PowerOfTwoIntScaling</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;signed&#39;</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">PowerOfTwoIntScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="o">=</span> <span class="n">signed</span>
 
 <div class="viewcode-block" id="PowerOfTwoIntScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">max_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signed</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span></div></div>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">signed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">is_signed</span> <span class="o">=</span> <span class="n">signed</span> <span class="k">if</span> <span class="n">signed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">signed</span>
+        <span class="k">if</span> <span class="n">is_signed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;signed is not defined, signed=</span><span class="si">{</span><span class="n">is_signed</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">is_signed</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Workaround for JIT type inference</span>
+        <span class="c1"># Workaround: required for compatibility with the JIT for PT=2.2.2</span>
+        <span class="n">is_signed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">is_signed</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">is_signed</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">is_signed</span>
+        <span class="k">return</span> <span class="n">max_int</span><span class="p">(</span><span class="n">is_signed</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span></div></div>
 </pre></div>
 
                 </article>
