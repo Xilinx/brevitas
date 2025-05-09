@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.zero_point &#8212; Brevitas 0.11.1.dev160+ge52ed4b documentation</title>
+    <title>brevitas.core.zero_point &#8212; Brevitas 0.12.0 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>
-    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.11.1.dev160+ge52ed4b documentation - Home"/>`);</script>
+    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.0 documentation - Home"/>
+    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.0 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -543,6 +543,11 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">scale_shift_zero_point</span> <span class="o">=</span> <span class="n">_ScaleShiftZeroPoint</span><span class="p">(</span><span class="n">int_quant</span><span class="p">,</span> <span class="n">quantize_zero_point</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
 
+<div class="viewcode-block" id="ParameterFromRuntimeZeroPoint.init_zp"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.init_zp">[docs]</a>    <span class="k">def</span> <span class="nf">init_zp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
+            <span class="n">inplace_tensor_add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span> <span class="o">+</span> <span class="mi">1</span></div>
+
 <div class="viewcode-block" id="ParameterFromRuntimeZeroPoint.training_forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.training_forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">training_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
@@ -561,8 +566,7 @@ document.write(`
             <span class="c1"># work around find_unusued_parameters=True in DDP</span>
             <span class="n">out</span> <span class="o">=</span> <span class="n">stats</span> <span class="o">+</span> <span class="mf">0.</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
-            <span class="n">inplace_tensor_add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">init_zp</span><span class="p">()</span>
             <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>

@@ -13,8 +13,8 @@ If you like this project please consider ⭐ this repo, as it is the simplest an
 
 ## Requirements
 
-* Python >= 3.8.
-* [Pytorch](https://pytorch.org) >= 1.9.1, <= 2.1 (more recent versions would be untested).
+* Python >= 3.9.
+* [Pytorch](https://pytorch.org) >= 1.9.1, <= 2.4 (more recent versions would be untested).
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
 
@@ -50,6 +50,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2025/05/09* - Release version 0.12.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.12.0).
 - *2024/10/10* - Release version 0.11.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.11.0).
 - *2024/07/23* - Minor release version 0.10.3, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.10.3).
 - *2024/02/19* - Minor release version 0.10.2, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.10.2).
