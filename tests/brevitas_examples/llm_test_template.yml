@@ -1,6 +1,8 @@
 act_calibration: false
 act_equalization: null
 act_equalization_alpha: 0.5
+awq_clip: false
+awq_scale: false
 bias_corr: false
 checkpoint_name: null
 convert_layernorm_to_rmsnorm: false
@@ -41,7 +43,6 @@ learned_round_scale: false
 learned_round_scale_lr: 0.01
 learned_round_scale_momentum: 0.9
 ln_affine_merge: false
-load_awq: null
 load_checkpoint: false
 model: facebook/opt-125m
 dtype: float32

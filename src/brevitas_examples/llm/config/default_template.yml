@@ -1,6 +1,8 @@
 act_calibration: false
 act_equalization: null
 act_equalization_alpha: 0.5
+awq_clip: false
+awq_scale: false
 bias_corr: false
 checkpoint_name: null
 compile_eval: false

@@ -4,6 +4,10 @@ act_equalization:
 - null
 act_equalization_alpha:
 - 0.5
+awq_clip:
+- false
+awq_scale:
+- false
 bias_corr:
 - false
 checkpoint_name:
@@ -19,7 +23,7 @@ dataset:
 dtype:
 - float16
 eval:
-- true
+- false
 export_prefix:
 - null
 export_target:
@@ -146,9 +150,6 @@ svd_quant_iters:
 svd_quant_rank:
 - 32
 weight_bit_width:
-- 5
-- 6
-- 7
 - 8
 weight_equalization:
 - false

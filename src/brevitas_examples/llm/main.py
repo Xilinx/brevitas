@@ -37,6 +37,7 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
+from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
@@ -58,7 +59,6 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
-from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
@@ -184,12 +184,6 @@ def quantize_llm(args, extra_args=None):
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     float_ppl = None
     quant_ppl = None
-
-    if args.load_awq:
-        from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
-        awq_results = torch.load(args.load_awq, map_location="cpu")
-        with CastFloat16ToFloat32():
-            apply_awq(model, awq_results)
 
     require_fx = fx_required(args)
 
@@ -342,6 +336,10 @@ def quantize_llm(args, extra_args=None):
     if not args.no_quantize:
         name_blacklist = []
         print("Applying model quantization...")
+        # When AWQ is enabled, the scaling_impl_type for the weights needs to be 'stats', as the
+        # scaling factor that multiplies the weights is optimized
+        weight_scaling_impl_type = 'stats' if (
+            args.awq_scale or args.awq_clip) else 'parameter_from_stats'
         linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
             dtype=dtype,
             weight_bit_width=args.weight_bit_width,
@@ -351,6 +349,7 @@ def quantize_llm(args, extra_args=None):
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
             weight_group_dim=args.weight_group_dim,
+            weight_scaling_impl_type=weight_scaling_impl_type,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             weight_quant_format=args.weight_quant_format,
             input_bit_width=args.input_bit_width,
@@ -405,6 +404,16 @@ def quantize_llm(args, extra_args=None):
         model.eval()
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
+
+    if args.awq_scale or args.awq_clip:
+        apply_awq(
+            model=model,
+            tokenizer=tokenizer,
+            calibration_loader=calibration_loader,
+            args=args,
+            auto_scale=args.awq_scale,
+            mse_range=args.awq_clip,
+        )
 
     # If any equalization has taken places, the embedding layer and the fully connected one are
     # not tied anymore, and they need to be treated as standalone, separate layers.

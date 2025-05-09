@@ -785,7 +785,6 @@ def _cross_layer_equalization(
     for module in chain(src_axes.values(), sink_axes.values()):
         rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
-    # Apply rewriters before offloading
     for r in rewriters:
         model = r.apply(model)
 
@@ -1618,7 +1617,7 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
     for module in model.modules():
         if parametrize.is_parametrized(module):
             # Names of the tensors that can potentially be parametrized
-            tensor_names = ["weight", "in_proj_weight", "bias"]
+            tensor_names = list(module.parametrizations.keys())
             # Remove parametrizations from each tensor
             for tensor_name in tensor_names:
                 if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
