@@ -609,8 +609,6 @@ Float output:
 <div class="highlight"><pre>
 /proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/_tensor.py:1255: UserWarning: Named tensors and all their associated APIs are an experimental feature and subject to change. Please do not use them for anything important until they are released as stable. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/c10/core/TensorImpl.h:1758.)
   return super(Tensor, self).rename(names)
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/quant_linear.py:69: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  output_tensor = linear(x, quant_weight, quant_bias)
 </pre></div></div>
 </div>
 <p>In general operations involving quantized tensors are always computed through standard torch operators (here <code class="docutils literal notranslate"><span class="pre">torch.nn.functional.linear</span></code> called internally by the module) on the dequantized representation, the so-called fake-quantization approach.</p>
@@ -674,7 +672,7 @@ Weight QuantTensor:
  IntQuantTensor(value=tensor([[-0.1000,  0.1000],
         [-0.1000, -0.1000],
         [-0.1000,  0.1000],
-        [-0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;), scale=0.10000000149011612, zero_point=0.0, bit_width=1.0, signed_t=True, training_t=True)
+        [-0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.1000]), zero_point=0.0, bit_width=1.0, signed_t=True, training_t=True)
 </pre></div></div>
 </div>
 </section>
@@ -1129,7 +1127,7 @@ Quant output:
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
+<div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
@@ -1153,15 +1151,6 @@ Quant output:
 
         [[ 0.7272,  0.8529,  0.9646,  0.0542],
          [ 0.5478, -0.3937, -0.6817, -0.9807]]], grad_fn=&lt;TanhBackward0&gt;)
-</pre></div></div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-/tmp/ipykernel_1328/661358273.py:7: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  quant_output = torch.tanh(quant_input)
 </pre></div></div>
 </div>
 </section>
@@ -1192,7 +1181,7 @@ Quant output:
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
+<div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
@@ -1208,17 +1197,6 @@ Eval mode concat quant output:
  IntQuantTensor(value=tensor([[ 1.5335, -0.2875,  0.3994,  0.8307],
         [-2.0447,  0.5751, -0.7188, -0.3994],
         [-1.0863, -1.4057, -0.5910,  0.1757]]), scale=0.015974320471286774, zero_point=0.0, bit_width=8.0, signed_t=True, training_t=False)
-</pre></div></div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-/tmp/ipykernel_1328/3932472163.py:8: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  train_mode_cat = torch.cat([quant_identity(float_inp1), quant_identity(float_inp2)], dim=1)
-/tmp/ipykernel_1328/3932472163.py:14: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  eval_mode_cat = torch.cat([eval_quant_inp1, eval_quant_inp2], dim=1)
 </pre></div></div>
 </div>
 </section>
@@ -1380,7 +1358,7 @@ IntQuantTensor(value=tensor([[1.5294, 0.0000],
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
+<div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
@@ -1394,15 +1372,6 @@ Per-channel quant output:
          [-1.1285, -0.4937, -0.1901]]], grad_fn=&lt;ConvolutionBackward0&gt;), scale=tensor([[[0.0021],
          [0.0013]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor([[[-254.0000],
          [ 406.0000]]], grad_fn=&lt;DivBackward0&gt;), bit_width=17.0, signed_t=True, training_t=True)
-</pre></div></div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/nn/modules/conv.py:309: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  return F.conv1d(input, weight, bias, self.stride,
 </pre></div></div>
 </div>
 </section>
@@ -1770,11 +1739,15 @@ QuantReLU(
           (restrict_scaling): _RestrictValue(
             (restrict_value_impl): FloatRestrictValue()
           )
+          (restrict_threshold): _RestrictValue(
+            (restrict_value_impl): FloatRestrictValue()
+          )
           (clamp_scaling): _ClampValue(
             (clamp_min_ste): ScalarClampMinSte()
           )
           (restrict_inplace_preprocess): Identity()
-          (restrict_preprocess): Identity()
+          (restrict_scaling_pre): Identity()
+          (restrict_threshold_pre): Identity()
         )
         (int_scaling_impl): IntScaling()
         (zero_point_impl): ZeroZeroPoint(
@@ -2050,7 +2023,7 @@ Serving &#39;brevitas_onnx_conv4b8b.onnx&#39; at http://localhost:8083
 </div>
 <p>In the <code class="docutils literal notranslate"><span class="pre">Quant</span></code> nodes above, arbitrary scale, zero-point and bit-widths are supported. This way we can support exporting scenarios where, for example, we are quantizing only weights to 4b, which a QLinearConv wouldn’t be able to capture:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[41]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[40]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
@@ -2107,8 +2080,8 @@ transformations under <code class="docutils literal notranslate"><span class="pr
 <p>The idea of calibration-based quantization is to performs forward passes only with a small set of data and collect statistics to determine scale factors and zero-points.</p>
 <p>Any Brevitas quantizer that is based on statistics can be used for this purpose, with the caveat that don’t want quantization to be enabled while statistics are being collected, or the data wouldn’t be representative of what the floating-point model does, so we temporarely disabling quantization while doing so. Afterwards, we re-enable calibration and apply bias correction.</p>
 <p>Assuming <code class="docutils literal notranslate"><span class="pre">quant_model</span></code> is a quantized model, with pretrained floating-point weights loaded on top, we can do as follows:</p>
-<div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[43]:
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[41]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.graph.calibrate</span> <span class="kn">import</span> <span class="n">bias_correction_mode</span>
@@ -2131,6 +2104,15 @@ transformations under <code class="docutils literal notranslate"><span class="pr
     <span class="k">return</span> <span class="n">quant_model</span>
 </pre></div>
 </div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/graph/equalize.py:61: UserWarning: fast_hadamard_transform package not found, using standard pytorch kernels
+  warnings.warn(&#34;fast_hadamard_transform package not found, using standard pytorch kernels&#34;)
+</pre></div></div>
 </div>
 </section>
 

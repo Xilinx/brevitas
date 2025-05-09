@@ -564,7 +564,7 @@ interval is perfectly symmetric (otherwise, the minimum integer would be -128), 
 <h3>Complete Model<a class="headerlink" href="#Complete-Model" title="Permalink to this heading">#</a></h3>
 <p>A similar approach can be used with entire Pytorch models, rather than single layer.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">QuantModel</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
@@ -628,7 +628,7 @@ Serving &#39;quant_model_qcdq.onnx&#39; at http://localhost:8083
 <p>In Brevitas however, if a quantized layer with bit-width &lt;= 8 is exported, the Clip node will be automatically inserted, with the min/max values computed based on the particular type of quantized performed (i.e., signed vs unsigned, narrow range vs no narrow range, etc.).</p>
 <p>Even though the Tensor data type will still be a Int8 or UInt8, its values are restricted to the desired bit-width.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
@@ -698,7 +698,7 @@ Serving &#39;quant_model_3b_4b_qcdq.onnx&#39; at http://localhost:8084
 <h3>QCDQ<a class="headerlink" href="#QCDQ" title="Permalink to this heading">#</a></h3>
 <p>Since for QCDQ we are only using standard ONNX operation, it is possible to run the exported model using ONNX Runtime.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
@@ -747,9 +747,7 @@ True
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-2024-09-12 12:18:03.405472924 [W:onnxruntime:, graph.cc:1283 Graph] Initializer linear.bias appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
-/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/quant_linear.py:69: UserWarning: Defining your `__torch_function__` as a plain method is deprecated and will be an error in future, please define it as a classmethod. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/torch/csrc/utils/python_arg_parser.cpp:350.)
-  output_tensor = linear(x, quant_weight, quant_bias)
+2025-05-09 15:50:06.990808285 [W:onnxruntime:, graph.cc:1283 Graph] Initializer linear.bias appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
 </pre></div></div>
 </div>
 <section id="QGEMM-vs-GEMM">
@@ -759,7 +757,7 @@ True
 <p>We did not observe a similar behavior for other operations such as <code class="docutils literal notranslate"><span class="pre">QuantConvNd</span></code>.</p>
 <p>An example of a layer that will match this definition is the following:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int32Bias</span>
@@ -782,7 +780,7 @@ True
 <p>You can also export dynamically quantized models to ONNX, but there are some limitations. The ONNX DynamicQuantizeLinear requires the following settings: - Asymmetric quantization (and therefore <em>unsigned</em>) - Min-max scaling - Rounding to nearest - Per tensor scaling - Bit width set to 8</p>
 <p>This is shown in the following example:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas_examples.common.generative.quantizers</span> <span class="kn">import</span> <span class="n">ShiftedUint8DynamicActPerTensorFloat</span>
@@ -813,7 +811,7 @@ True
 </div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="s2">&quot;dynamic_quant_model_qcdq.onnx&quot;</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
@@ -829,7 +827,7 @@ Serving &#39;dynamic_quant_model_qcdq.onnx&#39; at http://localhost:8086
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">

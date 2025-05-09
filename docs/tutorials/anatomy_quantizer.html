@@ -503,11 +503,15 @@ RescalingIntQuant(
     (restrict_scaling): _RestrictValue(
       (restrict_value_impl): FloatRestrictValue()
     )
+    (restrict_threshold): _RestrictValue(
+      (restrict_value_impl): FloatRestrictValue()
+    )
     (clamp_scaling): _ClampValue(
       (clamp_min_ste): ScalarClampMinSte()
     )
     (restrict_inplace_preprocess): Identity()
-    (restrict_preprocess): Identity()
+    (restrict_scaling_pre): Identity()
+    (restrict_threshold_pre): Identity()
   )
   (int_scaling_impl): IntScaling()
   (zero_point_impl): ZeroZeroPoint(
@@ -656,7 +660,7 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
          [ 0.1000,  0.1000, -0.1000, -0.1000],
          [ 0.1000, -0.1000,  0.1000,  0.1000],
          [ 0.1000,  0.1000,  0.1000, -0.1000]], grad_fn=&lt;MulBackward0&gt;),
- tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
+ tensor([0.1000], grad_fn=&lt;DivBackward0&gt;),
  tensor(0.),
  tensor(1.))
 </pre></div></div>
@@ -692,7 +696,7 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
          [ 0.1000, -0.1000, -0.1000,  0.1000],
          [ 0.1000, -0.1000, -0.1000,  0.1000],
          [ 0.1000,  0.1000,  0.1000, -0.1000]], grad_fn=&lt;MulBackward0&gt;),
- tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
+ tensor([0.1000], grad_fn=&lt;DivBackward0&gt;),
  tensor(0.),
  tensor(1.))
 </pre></div></div>
@@ -725,7 +729,7 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
          [ 1.,  1.,  1.,  1.],
          [-1.,  1., -1.,  1.],
          [ 1.,  1., -1., -1.]], grad_fn=&lt;MulBackward0&gt;),
- tensor(1., grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
+ tensor([1.], grad_fn=&lt;DivBackward0&gt;),
  tensor(0.),
  tensor(1.))
 </pre></div></div>
@@ -760,7 +764,7 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
          [-0.1000, -0.1000,  0.1000, -0.1000],
          [-0.1000,  0.1000,  0.1000,  0.1000],
          [-0.1000, -0.1000,  0.1000, -0.1000]], grad_fn=&lt;MulBackward0&gt;),
- tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
+ tensor([0.1000], grad_fn=&lt;DivBackward0&gt;),
  tensor(0.),
  tensor(1.))
 </pre></div></div>
@@ -841,7 +845,7 @@ IntQuantTensor(value=tensor([[[[ 0.1000,  0.1000, -0.1000],
 
          [[ 0.1000, -0.1000,  0.1000],
           [-0.1000, -0.1000,  0.1000],
-          [-0.1000,  0.1000,  0.1000]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+          [-0.1000,  0.1000,  0.1000]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.1000], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
@@ -900,7 +904,7 @@ IntQuantTensor(value=tensor([[[[-0.1000, -0.1000,  0.1000],
 
          [[ 0.1000,  0.1000,  0.1000],
           [-0.1000,  0.1000, -0.1000],
-          [-0.1000, -0.1000, -0.1000]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+          [-0.1000, -0.1000, -0.1000]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.1000], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>What we did was to take the name of the attribute <code class="docutils literal notranslate"><span class="pre">signed</span></code>, add the prefix <code class="docutils literal notranslate"><span class="pre">weight_</span></code>, and pass it as a keyword argument to <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>. What happens in the background is that the keyword arguments prefixed with <code class="docutils literal notranslate"><span class="pre">weight_</span></code> are set as attributes of <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code>, possibly overriding any pre-existing value. The same principle applies to <code class="docutils literal notranslate"><span class="pre">input_</span></code>, <code class="docutils literal notranslate"><span class="pre">output_</span></code> and <code class="docutils literal notranslate"><span class="pre">bias_</span></code>.</p>
@@ -943,7 +947,7 @@ IntQuantTensor(value=tensor([[[[-0.1000, -0.1000,  0.1000],
 IntQuantTensor(value=tensor([[-0.1000,  0.1000, -0.1000, -0.1000],
         [ 0.1000,  0.1000,  0.1000,  0.1000],
         [-0.1000, -0.1000,  0.1000, -0.1000],
-        [-0.1000,  0.1000, -0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [-0.1000,  0.1000, -0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.1000], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>So there isn’t really much difference between a quantizer for weights and a quantizer for activations, they are just wrapped by different proxies. Also, with activations a prefix is not required when passing keyword arguments. For example, when can override the existing <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> defined in <code class="docutils literal notranslate"><span class="pre">MyBinaryQuantizer</span></code> with a new value passed in as a keywork argument:</p>
@@ -966,7 +970,7 @@ IntQuantTensor(value=tensor([[-0.1000,  0.1000, -0.1000, -0.1000],
 IntQuantTensor(value=tensor([[ 0.0010, -0.0010, -0.0010,  0.0010],
         [ 0.0010,  0.0010,  0.0010,  0.0010],
         [ 0.0010, -0.0010,  0.0010,  0.0010],
-        [ 0.0010, -0.0010, -0.0010, -0.0010]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0010, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [ 0.0010, -0.0010, -0.0010, -0.0010]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.0010], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 </section>
@@ -1028,7 +1032,7 @@ IntQuantTensor(value=tensor([[[[ 0.1820, -0.1820, -0.1820],
 
          [[-0.1820, -0.1820, -0.1820],
           [ 0.1820, -0.1820,  0.1820],
-          [ 0.1820, -0.1820,  0.1820]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1820, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+          [ 0.1820, -0.1820,  0.1820]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.1820], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Indeed we can verify that <code class="docutils literal notranslate"><span class="pre">weight_quant.scale()</span></code> is equal to <code class="docutils literal notranslate"><span class="pre">weight.abs().max()</span></code>:</p>
@@ -1161,7 +1165,7 @@ IntQuantTensor(value=tensor([[[[ 0.1924,  0.1924, -0.1924],
 
          [[ 0.1924,  0.1924, -0.1924],
           [-0.1924, -0.1924, -0.1924],
-          [ 0.1924, -0.1924, -0.1924]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1924, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+          [ 0.1924, -0.1924, -0.1924]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([0.1924], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>We see that, as expected, the scale factor has been updated to the new <code class="docutils literal notranslate"><span class="pre">weight.abs().max()</span></code>.</p>
@@ -1441,7 +1445,7 @@ IntQuantTensor(value=tensor([[[[ 0.1612, -0.1612, -0.1612],
           [ 0.1924, -0.1924,  0.1924]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[[[0.1612]]],
 
 
-        [[[0.1924]]]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [[[0.1924]]]], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>As expected the weight scale is now a vector. Everything we said so far about quantizers still applies, so for example we can load the floating-point state dict we defined before and observe how it triggers an update of the weight scale:</p>
@@ -1486,7 +1490,7 @@ IntQuantTensor(value=tensor([[[[ 0.1924,  0.1924, -0.1924],
           [ 0.1899, -0.1899, -0.1899]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[[[0.1924]]],
 
 
-        [[[0.1899]]]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [[[0.1899]]]], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>In this case we have a per-channel quantizer, so the original floating-point weight tensor is now quantized per channel.</p>
@@ -1579,23 +1583,23 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <span class="ansi-green-intense-fg ansi-bold">     73</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">prefixed_kwargs</span><span class="ansi-yellow-bg">,</span>
 <span class="ansi-green-intense-fg ansi-bold">     74</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
 
-File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:48</span>, in <span class="ansi-cyan-fg">QuantProxyMixin.__init__</span><span class="ansi-blue-fg">(self, quant, proxy_protocol, none_quant_injector, proxy_prefix, kwargs_prefix, **kwargs)</span>
-<span class="ansi-green-intense-fg ansi-bold">     46</span>     quant_injector <span style="color: rgb(98,98,98)">=</span> quant
-<span class="ansi-green-intense-fg ansi-bold">     47</span>     quant_injector <span style="color: rgb(98,98,98)">=</span> quant_injector<span style="color: rgb(98,98,98)">.</span>let(<span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>filter_kwargs(kwargs_prefix, kwargs))
-<span class="ansi-green-fg">---&gt; 48</span>     quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">proxy_class</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">     49</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
-<span class="ansi-green-intense-fg ansi-bold">     50</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span style="color: rgb(0,135,0)">isinstance</span>(quant, proxy_protocol):
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:52</span>, in <span class="ansi-cyan-fg">QuantProxyMixin.__init__</span><span class="ansi-blue-fg">(self, quant, proxy_protocol, none_quant_injector, proxy_prefix, kwargs_prefix, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">     50</span>     quant_injector <span style="color: rgb(98,98,98)">=</span> quant
+<span class="ansi-green-intense-fg ansi-bold">     51</span>     quant_injector <span style="color: rgb(98,98,98)">=</span> quant_injector<span style="color: rgb(98,98,98)">.</span>let(<span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>filter_kwargs(kwargs_prefix, kwargs))
+<span class="ansi-green-fg">---&gt; 52</span>     quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">proxy_class</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     53</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">     54</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span style="color: rgb(0,135,0)">isinstance</span>(quant, proxy_protocol):
 
-File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:198</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjector.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
-<span class="ansi-green-intense-fg ansi-bold">    197</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, quant_layer, quant_injector):
-<span class="ansi-green-fg">--&gt; 198</span>     <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">super</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">    199</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>cache_class <span style="color: rgb(98,98,98)">=</span> _CachedIO
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:221</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjector.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
+<span class="ansi-green-intense-fg ansi-bold">    220</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, quant_layer, quant_injector):
+<span class="ansi-green-fg">--&gt; 221</span>     <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">super</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    222</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>cache_class <span style="color: rgb(98,98,98)">=</span> _CachedIO
 
-File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:93</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjectorBase.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
-<span class="ansi-green-intense-fg ansi-bold">     92</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, quant_layer, quant_injector):
-<span class="ansi-green-fg">---&gt; 93</span>     <span class="ansi-yellow-bg">QuantProxyFromInjector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-intense-fg ansi-bold">     94</span>     ActQuantProxyProtocol<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>)
-<span class="ansi-green-intense-fg ansi-bold">     95</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>is_passthrough_act <span style="color: rgb(98,98,98)">=</span> _is_passthrough_act(quant_injector)
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:94</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjectorBase.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
+<span class="ansi-green-intense-fg ansi-bold">     93</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, quant_layer, quant_injector):
+<span class="ansi-green-fg">---&gt; 94</span>     <span class="ansi-yellow-bg">QuantProxyFromInjector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     95</span>     ActQuantProxyProtocol<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>)
+<span class="ansi-green-intense-fg ansi-bold">     96</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>is_passthrough_act <span style="color: rgb(98,98,98)">=</span> _is_passthrough_act(quant_injector)
 
 File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/quant_proxy.py:80</span>, in <span class="ansi-cyan-fg">QuantProxyFromInjector.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
 <span class="ansi-green-intense-fg ansi-bold">     78</span> <span style="color: rgb(95,135,135)"># Use a normal list and not a ModuleList since this is a pointer to parent modules</span>
@@ -1611,11 +1615,11 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <span class="ansi-green-intense-fg ansi-bold">    121</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
 <span class="ansi-green-intense-fg ansi-bold">    122</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">RuntimeError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Trying to add None as a parent module.</span><span style="color: rgb(175,0,0)">&#34;</span>)
 
-File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:127</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjectorBase.init_tensor_quant</span><span class="ansi-blue-fg">(self)</span>
-<span class="ansi-green-intense-fg ansi-bold">    126</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">init_tensor_quant</span>(<span style="color: rgb(0,135,0)">self</span>):
-<span class="ansi-green-fg">--&gt; 127</span>     tensor_quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">tensor_quant</span>
-<span class="ansi-green-intense-fg ansi-bold">    128</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">act_impl</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>quant_injector:
-<span class="ansi-green-intense-fg ansi-bold">    129</span>         act_impl <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>quant_injector<span style="color: rgb(98,98,98)">.</span>act_impl
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:149</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjectorBase.init_tensor_quant</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    148</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">init_tensor_quant</span>(<span style="color: rgb(0,135,0)">self</span>):
+<span class="ansi-green-fg">--&gt; 149</span>     tensor_quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">tensor_quant</span>
+<span class="ansi-green-intense-fg ansi-bold">    150</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">act_impl</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>quant_injector:
+<span class="ansi-green-intense-fg ansi-bold">    151</span>         act_impl <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>quant_injector<span style="color: rgb(98,98,98)">.</span>act_impl
 
     <span class="ansi-red-fg">[... skipping hidden 1 frame]</span>
 
@@ -1663,7 +1667,7 @@ IntQuantTensor(value=tensor([[ 0.0100,  0.0100,  0.0100, -0.0100],
         [ 0.0100,  0.0100,  0.0100,  0.0100]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[0.0100],
         [0.0100],
         [0.0100],
-        [0.0100]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [0.0100]], grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>We have seen how powerful dependency injection is. In a way, it’s even too expressive. For users that are not interesting in building completely custom quantizers, it can be hard to make sense of how the various components available under <code class="docutils literal notranslate"><span class="pre">brevitas.core</span></code> can be assembled together according to best practices.</p>
