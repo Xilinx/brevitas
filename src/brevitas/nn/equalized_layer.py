@@ -55,7 +55,13 @@ class EqualizedModule(torch.nn.Module):
 
 class RotatedModule(torch.nn.Module):
 
-    def __init__(self, layer, had_mat=None, k=None, expansion_step=0) -> None:
+    def __init__(
+            self,
+            layer,
+            had_mat=None,
+            k=None,
+            expansion_step=1,
+            expand_region: bool = False) -> None:
         super().__init__()
         if had_mat is not None:
             self.had_mat = torch.nn.Parameter(had_mat).cpu()
@@ -64,10 +70,11 @@ class RotatedModule(torch.nn.Module):
         self.layer = layer
         self.k = k
         self.expansion_step = expansion_step
+        self.expand_region = expand_region
 
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
-        if self.expansion_step is not None:
+        if self.expansion_region:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
             featured_dim = inp.dim() - 1
             num_features = inp.shape[-1]
