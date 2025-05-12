@@ -1472,7 +1472,7 @@ def _apply_rotate(
         full_rotation_method='had',
         fuse_rotations: bool = True,
         apply_inplace_rotations: bool = True,
-        expansion_step: int = 0):
+        expansion_step: Optional[int] = None):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1738,7 +1738,7 @@ class GraphRotationEqualization(RotationEqualization):
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
-            expansion_step: int = 0,
+            expansion_step: Optional[int] = None,
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 

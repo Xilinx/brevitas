@@ -67,7 +67,7 @@ class RotatedModule(torch.nn.Module):
 
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
-        if self.expansion_step > 0:
+        if self.expansion_step is not None:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
             featured_dim = inp.dim() - 1
             num_features = inp.shape[-1]
