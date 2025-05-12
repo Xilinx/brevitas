@@ -1,4 +1,5 @@
 from inspect import signature
+from typing import Optional
 
 import torch
 
@@ -57,10 +58,10 @@ class RotatedModule(torch.nn.Module):
 
     def __init__(
             self,
-            layer,
-            had_mat=None,
-            k=None,
-            expansion_step=1,
+            layer: torch.nn.Module,
+            had_mat: Optional[torch.Tensor] = None,
+            k: Optional[int] = None,
+            expansion_step: int = 1,
             expand_input: bool = False) -> None:
         super().__init__()
         if had_mat is not None:
