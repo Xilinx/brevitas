@@ -1742,7 +1742,7 @@ class GraphRotationEqualization(RotationEqualization):
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
-            expansion_step: Optional[int] = None,
+            expansion_step: int = None,
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 
