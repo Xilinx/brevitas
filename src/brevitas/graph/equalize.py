@@ -1472,7 +1472,7 @@ def _apply_rotate(
         full_rotation_method='had',
         fuse_rotations: bool = True,
         apply_inplace_rotations: bool = True,
-        expansion_step: Optional[int] = None):
+        expansion_step: int = 1):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1576,8 +1576,12 @@ def _apply_rotate(
                 rewriter = ModuleInstanceWrapModule(
                     module,
                     RotatedModule,
-                    "layer", {
-                        "had_mat": rot_mat, "k": K, "expansion_step": expansion_step})
+                    "layer",
+                    {
+                        "had_mat": rot_mat,
+                        "k": K,
+                        "expansion_step": expansion_step,
+                        "expand_input": region.expand_region})
                 rewriters.append(rewriter)
     if apply_inplace_rotations:
         for r in rewriters:
