@@ -437,7 +437,7 @@ def create_llm_args_parser():
     parser.add_argument(
         '--expansion-step',
         type=int,
-        default=None,
+        default=1,
         help=
         'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
     )
