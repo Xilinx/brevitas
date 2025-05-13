@@ -25,7 +25,7 @@ device="cuda:0"
 verbose=False # Validate model after every step
 
 act_eq = False # Apply act equalization - not very useful for MNv2
-act_eq_alpha = 0.5 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
+act_eq_alpha = 0.7 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
 bias_corr = False # Apply bias correction
 gptq = False # Apply GPTQ
 gpfq = False # Apply GPFQ
