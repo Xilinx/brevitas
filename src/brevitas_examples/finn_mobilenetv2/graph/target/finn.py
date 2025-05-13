@@ -9,10 +9,10 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.quantize import UNSIGNED_ACT_TUPLE
 from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph.standardize import TorchFunctionalToModule
-from brevitas.quant import Int8WeightPerChannelFloat, Int8ActPerTensorFloat, Uint8ActPerTensorFloat, Uint8ActPerTensorFloatMaxInit, Int32Bias
+from brevitas.quant import Int8WeightPerChannelFloatMSE, Int8ActPerTensorFloat, Uint8ActPerTensorFloat, Uint8ActPerTensorFloatMaxInit, Int32Bias
 import brevitas.nn as qnn
 
-SHARED_WEIGHT_QUANT = Int8WeightPerChannelFloat
+SHARED_WEIGHT_QUANT = Int8WeightPerChannelFloatMSE
 SHARED_BIAS_QUANT = Int32Bias
 SHARED_UNSIGNED_ACT_QUANT = Uint8ActPerTensorFloat
 SHARED_SIGNED_ACT_QUANT = Int8ActPerTensorFloat
