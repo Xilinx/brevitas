@@ -11,6 +11,7 @@ from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.quant import Int8WeightPerChannelFloatMSE, Int8ActPerTensorFloat, Uint8ActPerTensorFloat, Uint8ActPerTensorFloatMaxInit, Int32Bias
 import brevitas.nn as qnn
+from brevitas_examples.finn_mobilenetv2.nn.target.finn import QuantReLU6
 
 SHARED_WEIGHT_QUANT = Int8WeightPerChannelFloatMSE
 SHARED_BIAS_QUANT = Int32Bias
@@ -36,9 +37,8 @@ FINN_QUANT_ACT_MAP = {
         (qnn.QuantReLU, {
             'act_quant': SHARED_UNSIGNED_ACT_QUANT, 'return_quant_tensor': True}),
     nn.ReLU6: (
-        qnn.QuantReLU, {
-            'act_quant': SHARED_RELU6_QUANT,
-            'max_val': 6.,
+        QuantReLU6, {
+            'act_quant': SHARED_UNSIGNED_ACT_QUANT,
             'return_quant_tensor': True}),}
 
 FINN_QUANT_IDENTITY_MAP = {
