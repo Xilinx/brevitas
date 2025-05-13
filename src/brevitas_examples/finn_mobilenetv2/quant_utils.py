@@ -61,6 +61,7 @@ def apply_gptq(
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
+        model(next(iter(calib_loader))[0].to(device=device,dtype=dtype)) # Harden weight scale factors if not done already
         with gptq_mode(model,
                        act_order=act_order,
                        use_quant_activations=use_quant_activations,
@@ -83,6 +84,7 @@ def apply_gpfq(
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
+        model(next(iter(calib_loader))[0].to(device=device,dtype=dtype)) # Harden weight scale factors if not done already
         with gpfq_mode(model,
                        create_weight_orig=create_weight_orig,
                        use_quant_activations=True,
