@@ -53,8 +53,8 @@ if verbose:
 
 # Pre-quantization transformations
 if act_eq:
-    print("Applying Activation Equalization:")
-    apply_act_equalization(calib_loader, model)
+    print(f"Applying Activation Equalization (alpha={act_eq_alpha}):")
+    apply_act_equalization(calib_loader, model, alpha=act_eq_alpha)
     if verbose:
         print("Equalized Model Validation Accuracy")
         results = test(model, valid_loader)
