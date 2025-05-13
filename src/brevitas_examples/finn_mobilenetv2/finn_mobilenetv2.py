@@ -96,8 +96,9 @@ if bias_corr:
         results = test(model, valid_loader)
 
 # Test Quantized model
-print("Quantized Model Validation Accuracy")
-results = test(model, valid_loader)
+if not verbose: # Not require, since model accuracy is already measured after each step
+    print("Quantized Model Validation Accuracy")
+    results = test(model, valid_loader)
 
 # Export model to QONNX
 with torch.no_grad():
