@@ -176,9 +176,10 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
 class QuantRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, restrict_value_float_to_int_impl: Module):
+    def __init__(self, restrict_value_float_to_int_impl: Module, scaling_shape: int):
         super(QuantRestrictValue, self).__init__()
         self.float_to_int_impl = restrict_value_float_to_int_impl
+        self.scaling_shape = scaling_shape
 
     def restrict_init_float(self, x: float):
         return Identity()
@@ -198,4 +199,5 @@ class QuantRestrictValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         o, *_ = self.float_to_int_impl(x)
+        o = o.view(self.scaling_shape)
         return o

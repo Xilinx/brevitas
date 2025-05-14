@@ -35,6 +35,7 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
@@ -63,6 +64,116 @@ from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
+ZP_BIT_WIDTH = 6
+SCALE_BIT_WIDTH = 6
+
+from brevitas.quant.base import FloatRestrictValue
+from dependencies import this
+from dependencies import value
+import torch
+from brevitas.core.quant.int import RescalingIntQuant
+from brevitas.core.restrict_val import QuantRestrictValue
+from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.inject.enum import ScalingPerOutputType
+import brevitas.nn as qnn
+from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+
+class QuantScalingInt(Int8WeightPerTensorFloat):
+    bit_width = SCALE_BIT_WIDTH
+    module = (this << 1).module
+    tracked_parameter_list = (this << 1).tracked_parameter_list
+    upstream_scaling = (this << 1).scaling_per_output_type
+    rescaling_int_quant = RescalingIntQuant
+    group_size = 8
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    upstream_scaling_shape = (this << 1).scaling_shape
+    dtype = (this << 1).dtype
+
+    @value
+    def tracked_parameter_list(upstream_scaling_shape):
+        return [torch.empty(upstream_scaling_shape)]
+
+    @value
+    def scaling_shape(
+            scaling_per_output,
+            scaling_per_output_channel_shape,
+            expanded_groupwise_shape,
+            group_dim):
+        if scaling_per_output == ScalingPerOutputType.TENSOR:
+            scaling = SCALAR_SHAPE
+        elif scaling_per_output == ScalingPerOutputType.CHANNEL:
+            scaling = scaling_per_output_channel_shape
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            # Scaling shape is like expanded_groupwise_shape but has 1 in position group_dim + 1
+            assert expanded_groupwise_shape is not None, "Per Group scaling not correctly configured"
+            assert group_dim is not None, "Per Group scaling not correctly configured"
+            size = list(expanded_groupwise_shape)
+            size[group_dim + 1] = 1
+            return tuple(size)
+
+        return scaling
+
+
+
+
+class QuantZPInt(Int8WeightPerTensorFloat):
+    module = (this << 1).module
+    tracked_parameter_list = (this << 1).tracked_parameter_list
+    upstream_scaling = (this << 1).scaling_per_output_type
+    rescaling_int_quant = RescalingIntQuant
+    restrict_threshold_impl = FloatRestrictValue
+    bit_width = ZP_BIT_WIDTH
+    quantize_zero_point = True
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = 8
+    upstream_zero_point_shape = (this << 1).zero_point_shape
+    dtype = (this << 1).dtype
+
+    @value
+    def tracked_parameter_list(upstream_zero_point_shape):
+        return [torch.empty(upstream_zero_point_shape)]
+
+    @value
+    def scaling_shape(
+            scaling_per_output,
+            scaling_per_output_channel_shape,
+            expanded_groupwise_shape,
+            group_dim):
+        if scaling_per_output == ScalingPerOutputType.TENSOR:
+            scaling = SCALAR_SHAPE
+        elif scaling_per_output == ScalingPerOutputType.CHANNEL:
+            scaling = scaling_per_output_channel_shape
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            # Scaling shape is like expanded_groupwise_shape but has 1 in position group_dim + 1
+            assert expanded_groupwise_shape is not None, "Per Group scaling not correctly configured"
+            assert group_dim is not None, "Per Group scaling not correctly configured"
+            size = list(expanded_groupwise_shape)
+            size[group_dim + 1] = 1
+            return tuple(size)
+        return scaling
+
+
+class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat):
+    proxy_class = GroupwiseWeightQuantProxyFromInjector
+    scaling_int_quant = QuantScalingInt
+    zp_int = QuantZPInt
+    restrict_scaling_impl = QuantRestrictValue
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    restrict_threshold_impl = FloatRestrictValue
+    scale_shift_zero_point_impl = _ScaleShiftQuantZeroPoint
+    group_size = 32
+    bit_width = 4
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_int_quant.rescaling_int_quant
+
+    @value
+    def zp_int_quant():
+        return this.zp_int.rescaling_int_quant
 
 def filter_results(results, tasks):
     # filter out what we actually want to track
@@ -152,6 +263,8 @@ def model_export(model, ref_input, args):
                 do_validation=False)
     elif args.export_target == 'torch_qcdq':
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
+    elif 'gguf' in args.export_target:
+        save_quantized_as_gguf('.', model=model.cpu(), backend=args.export_target)
 
 
 def fx_required(args):
@@ -398,10 +511,12 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
+        layer_map[torch.nn.Linear] = (qnn.QuantLinear, {'weight_quant': QuantScaleQuantZPInt8WeightPerTensorFloat})
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
         model.eval()
+        model = model.to(dtype)
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
