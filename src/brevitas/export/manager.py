@@ -18,7 +18,10 @@ from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import patch
+
+logging = setup_logger(__name__)
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -110,7 +113,7 @@ def _set_export_handler(manager_cls, module: Module, instance_type, no_inheritan
             module.export_handler is None):
         handler = manager_cls.handler_from_module(module, no_inheritance)
         if handler is None and module.requires_export_handler:
-            raise RuntimeError(f"Module {module.__class__} not supported for export.")
+            logging.debug(f"Module {module.__class__} not supported for export.")
         elif handler is None and not module.requires_export_handler:
             pass
         else:

@@ -49,7 +49,6 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayer
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler(quant_input)
-            self._set_global_is_quant_layer(False)
             return out
         out = self.act_quant(quant_input)
         out = self.pack_output(out)
@@ -141,7 +140,6 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler(inp)
-            self._set_global_is_quant_layer(False)
             return out
 
         quant_input = self.input_quant(inp)
@@ -159,8 +157,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             quant_bias = None
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
-        quant_output = self.output_quant(output_tensor)
-        return self.pack_output(quant_output)
+        # quant_output = self.output_quant(output_tensor)
+        return self.pack_output(output_tensor)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

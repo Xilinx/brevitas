@@ -41,10 +41,12 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 import math
+import os
 from typing import Optional
 from typing import Tuple
 from typing import Union
 
+SHARK_ATTN = os.environ.get('SHARK_ATTN', False)
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -53,6 +55,7 @@ import torch.nn.functional as F
 
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.function import identity
+from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 
@@ -122,7 +125,7 @@ class ScaledDotProductAttention(Module):
             **kwargs)
 
 
-class QuantScaledDotProductAttention(Module):
+class QuantScaledDotProductAttention(Module, QuantLayerMixin):
 
     def __init__(
             self,
@@ -137,6 +140,7 @@ class QuantScaledDotProductAttention(Module):
             sdpa_output_quant=None,
             **kwargs) -> None:
         super(QuantScaledDotProductAttention, self).__init__()
+        QuantLayerMixin.__init__(self, return_quant_tensor=False)
 
         self.pre_process_q = pre_process_q
         self.pre_process_k = pre_process_k
@@ -144,6 +148,11 @@ class QuantScaledDotProductAttention(Module):
 
         def filter_kwargs(prefix):
             return {k[len(prefix):]: v for k, v in kwargs.items() if k.startswith(prefix)}
+
+        self.pre_scale_q = True
+        if SHARK_ATTN:
+            softmax_input_quant = attn_output_weights_quant = sdpa_output_quant = None
+            self.pre_scale_q = False
 
         self.q_scaled_quant = QuantIdentity(act_quant=q_scaled_quant, **filter_kwargs('q_scaled_'))
         self.k_transposed_quant = QuantIdentity(
@@ -155,6 +164,32 @@ class QuantScaledDotProductAttention(Module):
             act_quant=attn_output_weights_quant, **filter_kwargs('attn_output_weights_'))
         self.sdpa_output_quant = QuantIdentity(
             act_quant=sdpa_output_quant, **filter_kwargs('sdpa_output_'))
+
+    @property
+    def channelwise_separable(self) -> bool:
+        return False
+
+    def pre_forward(self, query, key, value, attn_mask=None, scale=None, is_causal=False):
+        L, S = query.size(-2), key.size(-2)
+        scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
+        if attn_mask is None:
+            attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
+        else:
+            attn_bias = torch.zeros(size=attn_mask.shape, dtype=query.dtype, device=query.device)
+        if is_causal:
+            assert attn_mask is None
+            temp_mask = torch.ones(L, S, dtype=torch.bool, device=query.device).tril(diagonal=0)
+            attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
+            attn_bias.to(dtype=query.dtype, device=query.device)
+
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
+            else:
+                attn_bias += attn_mask
+        query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
+
+        return query, key, value, attn_bias, scale_factor
 
     def forward(
             self,
@@ -196,25 +231,15 @@ class QuantScaledDotProductAttention(Module):
             - :math:`Hq: \text{Number of heads of query}`
             - :math:`H: \text{Number of heads of key and value}`
         """
-        L, S = query.size(-2), key.size(-2)
-        scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
-        if attn_mask is None:
-            attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
-        else:
-            attn_bias = torch.zeros(size=attn_mask.shape, dtype=query.dtype, device=query.device)
-        if is_causal:
-            assert attn_mask is None
-            temp_mask = torch.ones(L, S, dtype=torch.bool, device=query.device).tril(diagonal=0)
-            attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
-            attn_bias.to(dtype=query.dtype, device=query.device)
+        if self.export_mode:
+            out = self.export_handler(query, key, value, attn_mask, scale, is_causal)
+            return out
 
-        if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
-            else:
-                attn_bias += attn_mask
-        query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
-        q_scaled = self.q_scaled_quant(query * scale_factor)
+        query, key, value, attn_bias, scale_factor = self.pre_forward(query, key, value, attn_mask, scale, is_causal)
+        if self.pre_scale_q:
+            q_scaled = self.q_scaled_quant(query * scale_factor)
+        else:
+            q_scaled = self.q_scaled_quant(query) * scale_factor
         k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
         attn_weight = q_scaled @ k_transpose
         attn_weight += attn_bias

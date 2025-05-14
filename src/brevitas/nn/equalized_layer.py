@@ -3,10 +3,12 @@ from typing import Optional
 
 import torch
 
+from brevitas.common import ExportMixin
 from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
+from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.utils.torch_utils import pad_to_dim
 
@@ -18,12 +20,17 @@ except:
 INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
 
-class EqualizedModule(torch.nn.Module):
+class EqualizedModule(torch.nn.Module, QuantLayerMixin):
 
     def __init__(self, scale_module, layer) -> None:
         super().__init__()
+        QuantLayerMixin.__init__(self, return_quant_tensor=False)
         self.scale = scale_module
         self.layer = layer
+
+    @property
+    def channelwise_separable(self) -> bool:
+        return False
 
     def forward(self, *args, **kwargs):
         # Convert args + kwargs + defaults into kwargs
@@ -40,6 +47,10 @@ class EqualizedModule(torch.nn.Module):
                 raise ValueError(
                     "Cross MHA is not supported for activation equalization."
                     "Replace kwargs with positional args to avoid this exception.")
+
+        if self.export_mode:
+            # The export handler here is pass-through rather than intercept and redirect
+            self.export_handler(out)
         out = self.scale(out)
 
         kwargs[input_kwarg] = out

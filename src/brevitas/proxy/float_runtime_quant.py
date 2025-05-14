@@ -14,6 +14,22 @@ from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
+def float_to_standard_float(obj):
+
+    if obj.is_ocp:
+        if obj.exponent_bit_width() == 4 and obj.mantissa_bit_width() == 3:
+            return torch.float8_e4m3fn
+        elif obj.exponent_bit_width() == 5 and obj.mantissa_bit_width() == 2:
+            return torch.float8_e5m2
+    elif obj.is_fnuz:
+        if obj.exponent_bit_width() == 4 and obj.mantissa_bit_width() == 3:
+            return torch.float8_e4m3fnuz
+        elif obj.exponent_bit_width() == 5 and obj.mantissa_bit_width() == 2:
+            return torch.float8_e5m2fnuz
+    else:
+        return None
+
+
 class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
 
     def scale(self, force_eval=True):
@@ -48,26 +64,43 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
             return Identity()
 
     @property
-    def is_ocp(self):
-        is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
-        is_ocp_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values() == (('111',))
-
+    def is_ocp_e5m2(self):
         is_e5m2 = self.mantissa_bit_width() == 2 and self.exponent_bit_width() == 5
         is_ocp_e5m2 = is_e5m2 and self.inf_values() == (
             ('00',)) and self.nan_values() == ('01', '11', '10')
-
-        return is_ocp_e4m3 or is_ocp_e5m2
+        return is_ocp_e5m2
 
     @property
-    def is_fnuz(self):
+    def is_ocp_e4m3(self):
         is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
-        is_fnuz_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values(
-        ) is None and self.exponent_bias() == 8
+        is_ocp_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values() == (('111',))
+        return is_ocp_e4m3
 
+    @property
+    def is_ocp(self):
+        return self.is_ocp_e4m3 or self.is_ocp_e5m2
+
+    @property
+    def is_fnuz_e5m2(self):
         is_e5m2 = self.mantissa_bit_width() == 2 and self.exponent_bit_width() == 5
         is_fnuz_e5m2 = is_e5m2 and self.inf_values() is None and self.nan_values(
         ) is None and self.exponent_bias() == 16
-        return is_fnuz_e4m3 or is_fnuz_e5m2
+        return is_fnuz_e5m2
+
+    @property
+    def is_fnuz_e4m3(self):
+        is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
+        is_fnuz_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values(
+        ) is None and self.exponent_bias() == 8
+        return is_fnuz_e4m3
+
+    @property
+    def is_fnuz(self):
+        return self.is_fnuz_e4m3 or self.is_fnuz_e5m2
+
+    @property
+    def standard_float_dtype(self):
+        return float_to_standard_float(self)
 
 
 class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
