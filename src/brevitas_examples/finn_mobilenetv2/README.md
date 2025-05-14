@@ -98,6 +98,7 @@ The demo has the following parameters to control which PTQ algorithms are applie
 ```python
 act_eq = False # Apply act equalization
 act_eq_alpha = 0.5 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
+act_eq_add_mul_node = False # Add extra elementwise mul nodes before activation quantization. If True, lower `alpha` seems to work better (`alpha=0.175`)
 bias_corr = False # Apply bias correction
 gptq = False # Apply GPTQ
 gpfq = False # Apply GPFQ
@@ -110,6 +111,9 @@ These flags enable the application of:
  - [GPFQ](https://arxiv.org/abs/2201.11113).
 
 We leave the explanation of these techniques to their respective papers,
-but a good starting point is to set `gptq=True`, `bias_corr=True` until the accuracy is maximised.
+but a good starting point is to set `act_eq=True`, `gpfq=True`, `bias_corr=True`.
+Afterwhich, finding the combination of PTQ flags / settings if left to the user to maximise the accuracy.
+If `act_eq_add_mul_node=True`, the compute graph will be augmented to include a channelwise multiplication before many activation quantization functions,
+which may help to increase accuracy at the cost of passing that complexity to downstream tools (i.e., FINN).
 GPTQ & GPFQ cannot likely be applied at the same time.
 Brevitas has many more PTQ algorithms not included here, please see the [imagenet](../imagenet_classification) and [LLM](../llm) examples to see how they are applied.
