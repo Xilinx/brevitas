@@ -399,6 +399,11 @@ def create_llm_args_parser():
         action="store_true",
         help="Whether to apply AWQ clipping (default: %(default)s).",
     )
+    parser.add_argument(
+        "--quantize-output-qkv",
+        action="store_true",
+        help="Whether to apply output QKV quant (default: %(default)s).",
+    )
     return parser
 
 

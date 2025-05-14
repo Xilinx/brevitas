@@ -4,6 +4,7 @@
 from functools import partial
 from pathlib import Path
 
+
 from sharktank.types import Dataset
 from sharktank.types import DefaultPrimitiveTensor
 from sharktank.types import Theta
@@ -28,10 +29,11 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 
 def _quant_wbiol_handler(layer, layer_name, shared_dict):
     if layer.weight_quant.is_quant_enabled:
-        _quant_handler(layer, layer_name, 'weight_quant', shared_dict)
+        _quant_handler(layer, layer_name + '.weight', 'weight_quant', shared_dict)
     if layer.input_quant.is_quant_enabled:
-        _quant_handler(layer, layer_name, 'input_quant', shared_dict)
-
+        _quant_handler(layer, layer_name + '.q_input', 'input_quant', shared_dict)
+    if layer.output_quant.is_quant_enabled:
+        _quant_handler(layer, layer_name + '.q_output', 'output_quant', shared_dict)
 
 def _quant_act_handler(layer, layer_name, shared_dict):
     if layer.act_quant.is_quant_enabled:
@@ -104,6 +106,7 @@ class SharkManager(BaseManager):
         return model_instance
 
     def export(self, model, *model_args, **model_kwargs):
+        from brevitas_examples.llm.main import offload_model, remove_hooks
 
         shared_dict = {}
         # TODO:
@@ -123,8 +126,9 @@ class SharkManager(BaseManager):
         model.apply(lambda m: _override_bias_caching_mode(m, enabled=True, metadata_only=True))
         model.apply(lambda m: _override_act_caching_mode(m, enabled=True))
         model.apply(lambda m: _override_weight_caching_mode(m, enabled=True, metadata_only=False))
+        offload_model(model)
         model(*model_args, **model_kwargs)
-
+        remove_hooks(model)
         model.apply(lambda m: _override_bias_caching_mode(m, enabled=False))
         model.apply(lambda m: _override_act_caching_mode(m, enabled=False))
         model.apply(lambda m: _override_weight_caching_mode(m, enabled=False))
@@ -174,6 +178,9 @@ class SharkManager(BaseManager):
             if k.endswith('.q_input'):
                 prefix = k.removesuffix('.q_input')
                 suffix = '.q_input'
+            elif k.endswith('.q_output'):
+                prefix = k.removesuffix('.q_output')
+                suffix = '.q_output'
             else:
                 prefix = k
                 suffix = ''
