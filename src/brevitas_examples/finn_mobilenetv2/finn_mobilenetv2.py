@@ -25,7 +25,8 @@ device="cuda:0"
 verbose=False # Validate model after every step
 
 act_eq = False # Apply act equalization - not very useful for MNv2
-act_eq_alpha = 0.7 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
+act_eq_alpha = 0.5 # [0.0 -> 1.0] Intuition: higher makes weights easier to quantize, lower makes the activations easier to quantize
+act_eq_add_mul_node = False # Add extra elementwise mul nodes before activation quantization. If True, lower `alpha` seems to work better (`alpha=0.175`)
 bias_corr = False # Apply bias correction
 gptq = False # Apply GPTQ
 gpfq = False # Apply GPFQ
@@ -53,8 +54,8 @@ if verbose:
 
 # Pre-quantization transformations
 if act_eq:
-    print(f"Applying Activation Equalization (alpha={act_eq_alpha}):")
-    apply_act_equalization(calib_loader, model, alpha=act_eq_alpha)
+    print(f"Applying Activation Equalization (alpha={act_eq_alpha},add_mul_node={act_eq_add_mul_node}):")
+    apply_act_equalization(calib_loader, model, alpha=act_eq_alpha, add_mul_node=act_eq_add_mul_node)
     if verbose:
         print("Equalized Model Validation Accuracy")
         results = test(model, valid_loader)

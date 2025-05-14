@@ -36,7 +36,7 @@ def apply_bias_correction(calib_loader, model):
                 model(images)
 
 
-def apply_act_equalization(calib_loader, model, alpha=0.5):
+def apply_act_equalization(calib_loader, model, alpha=0.5, add_mul_node=False):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
@@ -44,7 +44,7 @@ def apply_act_equalization(calib_loader, model, alpha=0.5):
         with activation_equalization_mode(model,
                                           alpha=alpha,
                                           layerwise=False,
-                                          add_mul_node=False):
+                                          add_mul_node=add_mul_node):
             for i, (images, target) in enumerate(tqdm(calib_loader)):
                 images = images.to(device)
                 images = images.to(dtype)
@@ -55,7 +55,7 @@ def apply_gptq(
         calib_loader,
         model,
         act_order=True,
-        use_quant_activations=False,
+        use_quant_activations=True,
         create_weight_orig=True):
     model.eval()
     dtype = next(model.parameters()).dtype
