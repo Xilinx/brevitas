@@ -433,7 +433,6 @@ class ModelBase:
 
     def prepare_tensors(self):
         max_name_len = max(len(s) for _, s in self.tensor_map.mapping.values()) + len(".weight,")
-        print("preparing")
         for name, data_torch in chain(self.generate_extra_tensors(), self.get_tensor_from_model()):
             # we don't need these
             if name.endswith(
@@ -462,7 +461,6 @@ class ModelBase:
                     f"{f'%-{max_name_len}s' % f'{new_name},'} {old_dtype} --> {data_qtype.name}, shape = {shape_str}"
                 )
 
-                print(new_name, data_qtype)
                 self.gguf_writer.add_tensor(new_name, data, raw_dtype=data_qtype)
 
     def set_type(self):

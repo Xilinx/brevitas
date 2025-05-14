@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
+from pathlib import Path
 
 from sharktank.types import Dataset
 from sharktank.types import DefaultPrimitiveTensor
@@ -15,10 +16,10 @@ from brevitas.export.inference.manager import _override_bias_caching_mode
 from brevitas.export.inference.manager import _override_weight_caching_mode
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
-
 from brevitas.export.manager import BaseManager
-from brevitas.export.shark.handler import SharkActFloatQuant, SharkWeightFloatQuant
+from brevitas.export.shark.handler import SharkActFloatQuant
 from brevitas.export.shark.handler import SharkActQuant
+from brevitas.export.shark.handler import SharkWeightFloatQuant
 from brevitas.export.shark.handler import SharkWeightQuant
 from brevitas.graph.equalize import EqualizedModule
 from brevitas.nn.quant_layer import QuantNonLinearActLayer
@@ -60,6 +61,47 @@ class SharkManager(BaseManager):
     @classmethod
     def set_export_handler(cls, module: Module):
         _set_proxy_export_handler(cls, module)
+
+    def gguf_preprocess(self, model):
+        import sys
+
+        import gguf
+
+        from brevitas_examples.llm.gguf_export.convert import ModelBase
+        """Export the model to gguf format."""
+        output_type = gguf.LlamaFileType.ALL_F32
+
+        config = model.config
+
+        tmp_work_dir = Path('./tmp_dir')
+        config.save_pretrained(tmp_work_dir)
+
+        with torch.no_grad():
+            hparams = ModelBase.load_hparams(tmp_work_dir)
+            model_architecture = hparams["architectures"][0]
+            try:
+                model_class = ModelBase.from_model_architecture(model_architecture)
+            except NotImplementedError:
+                sys.exit(1)
+            model_class = ModelBase.from_model_architecture(model_architecture)
+            model_name = model.name_or_path.split('/')
+            if len(model_name[-1]) == 0:
+                model_name = model_name[-2]
+            else:
+                model_name = model_name[-1]
+
+            model_instance = model_class(
+                model,
+                dir_model=tmp_work_dir,
+                ftype=output_type,
+                fname_out=tmp_work_dir,
+                is_big_endian=False,
+                model_name=model_name,
+                split_max_tensors=False,
+                split_max_size=0,
+                dry_run=False,
+                small_first_shard=False)
+        return model_instance
 
     def export(self, model, *model_args, **model_kwargs):
 
@@ -103,7 +145,7 @@ class SharkManager(BaseManager):
                 if isinstance(m.layer, QuantWeightBiasInputOutputLayer):
                     wbiol_id.add(id(m.layer))
                     _quant_wbiol_handler(m.layer, n, shared_dict)
-                else: #isinstance(m.layer, torch.nn.Module) and len(list(m.children())) == 0:
+                else:  #isinstance(m.layer, torch.nn.Module) and len(list(m.children())) == 0:
                     wbiol_id.add(id(m))
                     for n_p, p in m.layer.named_parameters():
                         param_name = n + '.' + n_p
@@ -114,7 +156,8 @@ class SharkManager(BaseManager):
 
             elif isinstance(m, QuantNonLinearActLayer):
                 _quant_act_handler(m, n, shared_dict)
-            elif isinstance(m, torch.nn.Module) and len(list(m.children())) == 0 and id(m) not in wbiol_id:
+            elif isinstance(m, torch.nn.Module) and len(list(
+                    m.children())) == 0 and id(m) not in wbiol_id:
                 for n_p, p in m.named_parameters():
                     param_name = n + '.' + n_p
                     shared_dict[param_name] = DefaultPrimitiveTensor(name=param_name, data=p)
@@ -125,6 +168,17 @@ class SharkManager(BaseManager):
 
         theta = Theta(shared_dict)
         theta = theta.flatten()
-        ds = Dataset(self.config, Theta(theta))
+        updated_theta = dict()
+        gguf_model = self.gguf_preprocess(model)
+        for k, v in theta.items():
+            if k.endswith('.q_input'):
+                prefix = k.removesuffix('.q_input')
+                suffix = '.q_input'
+            else:
+                prefix = k
+                suffix = ''
+            new_k = gguf_model.map_tensor_name(prefix)
+            updated_theta[new_k + suffix] = v
+        ds = Dataset(self.config, Theta(updated_theta))
 
         return ds
