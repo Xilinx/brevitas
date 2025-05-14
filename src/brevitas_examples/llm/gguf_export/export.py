@@ -20,7 +20,7 @@ import torch
 
 from brevitas.utils.logging import setup_logger
 
-from .convert import Model
+from .convert import ModelBase
 
 logger = setup_logger(__name__)
 from pathlib import Path
@@ -55,14 +55,14 @@ def save_quantized_as_gguf(output_dir, backend="gguf:q4_0", **kwargs):
     config.save_pretrained(tmp_work_dir)
 
     with torch.no_grad():
-        hparams = Model.load_hparams(tmp_work_dir)
+        hparams = ModelBase.load_hparams(tmp_work_dir)
         model_architecture = hparams["architectures"][0]
         try:
-            model_class = Model.from_model_architecture(model_architecture)
+            model_class = ModelBase.from_model_architecture(model_architecture)
         except NotImplementedError:
             logger.error(f"Model {model_architecture} is not supported")
             sys.exit(1)
-        model_class = Model.from_model_architecture(model_architecture)
+        model_class = ModelBase.from_model_architecture(model_architecture)
         model_name = model.name_or_path.split('/')
         if len(model_name[-1]) == 0:
             model_name = model_name[-2]

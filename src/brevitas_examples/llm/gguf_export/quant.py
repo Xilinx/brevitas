@@ -98,55 +98,6 @@ def ggml_quant(
     return new_data
 
 
-def ggml_quant1(
-        data: np.array, ggml_type, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
-    block_size, type_size = GGML_QUANT_SIZES[ggml_type]
-
-    data = data.astype(np.float32, copy=False)
-    shape = data.shape
-    n_blocks = data.size // block_size
-    blocks = data.reshape((n_blocks, block_size))
-    # scale = scale.reshape((n_blocks, block_size))
-    if ggml_type.endswith("_k"):
-        worker = 16
-    else:
-        worker = 0
-
-    if worker > 0:
-        n_groups = (data.shape[0] // worker) or 1
-        blocks = np.array_split(blocks, n_groups, axis=0)
-        scale = np.array_split(scale, n_groups, axis=0) if scale is not None else [None] * n_groups
-        zp = np.array_split(zp, n_groups, axis=0) if zp is not None else [None] * n_groups
-        wmin_m = np.array_split(
-            wmin_m, n_groups, axis=0) if wmin_m is not None else [None] * n_groups
-        d_scale = np.array_split(
-            d_scale, n_groups, axis=0) if d_scale is not None else [None] * n_groups
-        d_wmin_m = np.array_split(
-            d_wmin_m, n_groups, axis=0) if d_wmin_m is not None else [None] * n_groups
-
-        quant_func = GGML_QUANT_BLOCK[ggml_type]
-        if ggml_type.endswith("_k"):
-            with ProcessPoolExecutor(worker) as executor:
-                result = executor.map(quant_func, blocks, scale, zp, wmin_m, d_scale, d_wmin_m)
-            new_data = np.array(list(result), dtype=np.uint8)
-        else:
-            with ProcessPoolExecutor(n_groups) as executor:
-                result = executor.map(quant_func, blocks, scale, zp)
-            new_data = np.array(list(result), dtype=np.uint8)
-    else:
-        quant_func = GGML_QUANT_BLOCK[ggml_type]
-        if ggml_type.endswith("_k"):
-            new_data = quant_func(
-                blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
-        else:
-            new_data = quant_func(blocks, scale, zp)
-
-    assert new_data.dtype == np.uint8
-    assert new_data.shape[-1] == type_size
-    new_data = new_data.reshape(*shape[:-1], shape[-1] // block_size * type_size)
-    return new_data
-
-
 def np_roundf(n: np.ndarray) -> np.ndarray:
     a = abs(n)
     floored = np.floor(a)
