@@ -4,7 +4,6 @@
 from functools import partial
 from pathlib import Path
 
-
 from sharktank.types import Dataset
 from sharktank.types import DefaultPrimitiveTensor
 from sharktank.types import Theta
@@ -34,6 +33,7 @@ def _quant_wbiol_handler(layer, layer_name, shared_dict):
         _quant_handler(layer, layer_name + '.q_input', 'input_quant', shared_dict)
     if layer.output_quant.is_quant_enabled:
         _quant_handler(layer, layer_name + '.q_output', 'output_quant', shared_dict)
+
 
 def _quant_act_handler(layer, layer_name, shared_dict):
     if layer.act_quant.is_quant_enabled:
@@ -106,7 +106,8 @@ class SharkManager(BaseManager):
         return model_instance
 
     def export(self, model, *model_args, **model_kwargs):
-        from brevitas_examples.llm.main import offload_model, remove_hooks
+        from brevitas_examples.llm.main import offload_model
+        from brevitas_examples.llm.main import remove_hooks
 
         shared_dict = {}
         # TODO:
@@ -170,11 +171,9 @@ class SharkManager(BaseManager):
 
         self.set_export_mode(model, enabled=False)
 
-        theta = Theta(shared_dict)
-        theta = theta.flatten()
         updated_theta = dict()
         gguf_model = self.gguf_preprocess(model)
-        for k, v in theta.items():
+        for k, v in shared_dict.items():
             if k.endswith('.q_input'):
                 prefix = k.removesuffix('.q_input')
                 suffix = '.q_input'
@@ -185,7 +184,8 @@ class SharkManager(BaseManager):
                 prefix = k
                 suffix = ''
             new_k = gguf_model.map_tensor_name(prefix)
+            v.name = new_k + suffix
             updated_theta[new_k + suffix] = v
         ds = Dataset(self.config, Theta(updated_theta))
-
+        ds.save('test_dataset_.irpa', io_report_callback=None)
         return ds

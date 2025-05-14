@@ -219,7 +219,6 @@ def model_export(model, ref_input, args, config=None):
 
         with torch.no_grad():
             ds = export.export(model, **ref_input)
-        ds.save('test_dataset.irpa', io_report_callback=None)
 
 
 def fx_required(args):
@@ -472,7 +471,7 @@ def quantize_llm(args, extra_args=None):
             quant_class, linear_map = list(layer_map[torch.nn.Linear])
             linear_input_quant = linear_map['input_quant']
             linear_map['output_quant'] = lambda module, name: linear_input_quant if (name.endswith('q_proj') or name.endswith('k_proj') or name.endswith('v_proj')) else None
-            layer_map[torch.nn.Linear] = tuple([quant_class,linear_map])
+            layer_map[torch.nn.Linear] = tuple([quant_class, linear_map])
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
