@@ -106,7 +106,7 @@ def convert_hf_hparams_to_gguf(hf_hparams: dict[str, any]) -> dict[str, any]:
     hp = hf_hparams["hparams"]
     attention_head_count = _int_prop(hp, "num_attention_heads")
     attn_head_dim = int(_int_prop(hp, "hidden_size") // _int_prop(hp, "num_attention_heads"))
-
+    attn_head_dim = int(_optional_int_prop(hp, "head_dim", attn_head_dim))
     return {
         "llama.context_length":
             _int_prop(hp, "max_position_embeddings"),
@@ -637,7 +637,7 @@ def quantize_llm(args, extra_args=None):
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-        save_quantized_as_gguf('./tmp', model=model.cpu(), tokenizer=tokenizer)
+        # save_quantized_as_gguf('./tmp', model=model.cpu(), tokenizer=tokenizer)
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -707,7 +707,7 @@ def quantize_llm(args, extra_args=None):
         if args.export_target:
             print(f"Export to {args.export_target}")
             # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
-            model = model.to(dtype=torch.float32)
+            # model = model.to(dtype=torch.float32)
             model_export(model, calibration_loader[0], args, config)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model

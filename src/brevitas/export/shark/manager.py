@@ -124,15 +124,16 @@ class SharkManager(BaseManager):
         # shared_dict.update(tensors)
 
         # Cache quant metadata
-        model.apply(lambda m: _override_bias_caching_mode(m, enabled=True, metadata_only=True))
-        model.apply(lambda m: _override_act_caching_mode(m, enabled=True))
-        model.apply(lambda m: _override_weight_caching_mode(m, enabled=True, metadata_only=False))
-        offload_model(model)
-        model(*model_args, **model_kwargs)
-        remove_hooks(model)
-        model.apply(lambda m: _override_bias_caching_mode(m, enabled=False))
-        model.apply(lambda m: _override_act_caching_mode(m, enabled=False))
-        model.apply(lambda m: _override_weight_caching_mode(m, enabled=False))
+        # model.apply(lambda m: _override_bias_caching_mode(m, enabled=True, metadata_only=True))
+        # model.apply(lambda m: _override_act_caching_mode(m, enabled=True))
+        # model.apply(lambda m: _override_weight_caching_mode(m, enabled=True, metadata_only=False))
+        # offload_model(model)
+        # with torch.no_grad():
+        #     model(*model_args, **model_kwargs)
+        # remove_hooks(model)
+        # model.apply(lambda m: _override_bias_caching_mode(m, enabled=False))
+        # model.apply(lambda m: _override_act_caching_mode(m, enabled=False))
+        # model.apply(lambda m: _override_weight_caching_mode(m, enabled=False))
 
         model.apply(self.set_export_handler)
         self.set_export_mode(model, enabled=True)
@@ -166,8 +167,12 @@ class SharkManager(BaseManager):
                 for n_p, p in m.named_parameters():
                     param_name = n + '.' + n_p
                     shared_dict[param_name] = DefaultPrimitiveTensor(name=param_name, data=p)
-
-        model(*model_args, **model_kwargs)
+        print("Forward starts")
+        offload_model(model)
+        with torch.no_grad():
+            model(*model_args, **model_kwargs)
+        remove_hooks(model)
+        print("Forward ends")
 
         self.set_export_mode(model, enabled=False)
 
