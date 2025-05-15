@@ -155,8 +155,8 @@ class SharkWeightFloatQuant(nn.Module):
 
         weight_quant = StaticScaledQuantizer(
             name=self.layer_name,
-            scale=torch.reciprocal(self.scale),
-            reciprocal_scale=self.scale,
+            scale=torch.reciprocal(self.scale).to(device=x.device),
+            reciprocal_scale=self.scale.to(device=x.device),
             offset=self.zero_point,
             dtype=torch.float8_e4m3fnuz)
         quant_weight = weight_quant.quantize(x, name=self.layer_name)
