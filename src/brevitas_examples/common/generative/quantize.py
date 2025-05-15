@@ -263,7 +263,7 @@ def generate_quantizers(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
-        attn_quant_config="qkvs", # choices: "kv", "qkvs"
+        attn_quant_config="qkvs",  # choices: "kv", "qkvs"
         attn_bit_width=None,
         attn_quant_format=None,
         attn_scale_precision=None,
@@ -283,16 +283,19 @@ def generate_quantizers(
     """
     Replace float layers with quant layers in the target model
     """
+
     # Retrive base quantizer, match against custom float format, or return as-is
     def quant_format_from_string(quant_format):
         quant_format_re = re.compile(r'e[1-8]m[1-8]')
         if quant_format_re.findall(quant_format):
             float_type = quant_format_re.findall(quant_format)[0]
             quant_format = quant_format.replace('_' + float_type, '')
-            float_format = {'exponent_bit_width': int(float_type[1]), 'mantissa_bit_width': int(float_type[3])}
+            float_format = {
+                'exponent_bit_width': int(float_type[1]), 'mantissa_bit_width': int(float_type[3])}
         else:
             float_format = {}
         return quant_format, float_format
+
     weight_quant_format, weight_float_format = quant_format_from_string(weight_quant_format)
     input_quant_format, input_float_format = quant_format_from_string(input_quant_format)
 
@@ -313,8 +316,8 @@ def generate_quantizers(
         input_kwargs = {**input_kwargs, **{'scaling_min_val': scaling_min_val}}
 
     if input_bit_width is not None and input_scale_type == 'no_scale':
-        input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
-            input_scale_type][input_quant_type]
+        input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+            input_quant_type]
     elif input_bit_width is not None:
         input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][input_scale_precision][
             input_param_method][input_quant_granularity][input_quant_type]
@@ -339,13 +342,16 @@ def generate_quantizers(
         attn_override_kwargs = {
             'bit_width': attn_bit_width if attn_bit_width is not None else input_bit_width,
             **attn_float_format,
-            **attn_kwargs,
-        }
+            **attn_kwargs,}
 
         input_quant = input_quant.let(**input_kwargs)
         linear_input_quant = linear_input_quant.let(**input_kwargs)
-        k_transposed_quant = k_transposed_quant.let(**input_kwargs)  # later we define v_quant=k_transposed_quant, so don't instantiate it here
-        k_transposed_quant = k_transposed_quant.let(**attn_override_kwargs)  # later we define v_quant=k_transposed_quant, so don't instantiate it here
+        k_transposed_quant = k_transposed_quant.let(
+            **input_kwargs
+        )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
+        k_transposed_quant = k_transposed_quant.let(
+            **attn_override_kwargs
+        )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
         if attn_quant_config == "qkvs":
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
         else:
@@ -535,7 +541,7 @@ def quantize_model(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
-        attn_quant_config="qkvs", # choices: "kv", "qkvs"
+        attn_quant_config="qkvs",  # choices: "kv", "qkvs"
         attn_bit_width=None,
         attn_quant_format=None,
         attn_scale_precision=None,
