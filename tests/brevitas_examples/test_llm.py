@@ -655,6 +655,7 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_quant_type": "sym",
             "quant_sdpa": True,
             "functional_sdpa_quant": False,
+            "attn_quant_config": "kv",
             "attn_quant_type": "asym"},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -666,6 +667,7 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_quant_type": "sym",
             "quant_sdpa": False,
             "functional_sdpa_quant": True,
+            "attn_quant_config": "kv",
             "attn_quant_type": "asym"},])
 def layer_args_hyperparam(default_run_args, request):
     args = default_run_args
