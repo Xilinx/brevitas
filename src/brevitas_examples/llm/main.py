@@ -358,10 +358,17 @@ def quantize_llm(args, extra_args=None):
             input_scale_type=args.input_scale_type,
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
-            kv_quant_type=args.kv_quant_type,
-            kv_quant_granularity=args.kv_quant_granularity,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
+            attn_quant_config=args.attn_quant_config,
+            attn_bit_width=args.attn_bit_width,
+            attn_quant_format=args.attn_quant_format,
+            attn_scale_precision=args.attn_scale_precision,
+            attn_scale_type=args.attn_scale_type,
+            attn_param_method=args.attn_param_method,
+            attn_quant_type=args.attn_quant_type,
+            attn_quant_granularity=args.attn_quant_granularity,
+            attn_group_size=args.attn_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
             quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
@@ -377,7 +384,6 @@ def quantize_llm(args, extra_args=None):
             attn_output_weights_quant=attn_output_weights_quant,
             dtype=dtype,
             device=device,
-            input_quant_format=args.input_quant_format,
             quantize_embedding=False)
         if not args.quantize_last_layer:
             # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
