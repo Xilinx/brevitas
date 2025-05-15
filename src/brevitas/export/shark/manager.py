@@ -192,5 +192,5 @@ class SharkManager(BaseManager):
             v.name = new_k + suffix
             updated_theta[new_k + suffix] = v
         ds = Dataset(self.config, Theta(updated_theta))
-        ds.save('test_dataset_.irpa', io_report_callback=None)
+        ds.save('test_dataset.irpa', io_report_callback=None)
         return ds
