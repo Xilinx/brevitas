@@ -275,22 +275,18 @@ def generate_quantizers(
     """
     Replace float layers with quant layers in the target model
     """
-    # Retrive base input and weight quantizers
-    # match against custom float format
-    if re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format):
-        format = re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format)[0]
-        weight_quant_format = weight_quant_format.replace('_' + format, '')
-        weight_float_format = {
-            'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
-    else:
-        weight_float_format = {}
-    if re.compile(r'e[1-8]m[1-8]').findall(input_quant_format):
-        format = re.compile(r'e[1-8]m[1-8]').findall(input_quant_format)[0]
-        input_quant_format = input_quant_format.replace('_' + format, '')
-        input_float_format = {
-            'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
-    else:
-        input_float_format = {}
+    # Retrive base quantizer, match against custom float format, or return as-is
+    def quant_format_from_string(quant_format):
+        quant_format_re = re.compile(r'e[1-8]m[1-8]')
+        if quant_format_re.findall(quant_format):
+            float_type = quant_format_re.findall(quant_format)[0]
+            quant_format = quant_format.replace('_' + float_type, '')
+            float_format = {'exponent_bit_width': int(float_type[1]), 'mantissa_bit_width': int(float_type[3])}
+        else:
+            float_format = {}
+        return quant_format, float_format
+    weight_quant_format, weight_float_format = quant_format_from_string(weight_quant_format)
+    input_quant_format, input_float_format = quant_format_from_string(input_quant_format)
 
     weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
         weight_param_method][weight_quant_granularity][weight_quant_type]
@@ -413,11 +409,6 @@ def generate_quantizers(
                                                         shape: x.view(*shape[:-1], 1),
                     'permute_dims': None,
                     'stats_reduce_dim': 1}) if q_scaled_quant is not None else None
-            v_quant = v_quant.let(
-                **{
-                    'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
-                    'permute_dims': kv_permute_dims,
-                    'stats_reduce_dim': 1})
             k_transposed_quant = k_transposed_quant.let(
                 **{
                     'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
@@ -428,7 +419,6 @@ def generate_quantizers(
                 **{
                     'group_dim': -1, 'group_size': input_group_size
                 }) if q_scaled_quant is not None else None
-            v_quant = v_quant.let(**{'group_dim': -1, 'group_size': input_group_size})
             k_transposed_quant = k_transposed_quant.let(
                 **{
                     'group_dim': -2, 'group_size': input_group_size})
@@ -567,17 +557,16 @@ def quantize_model(
         weight_kwargs=weight_kwargs,
         input_kwargs=input_kwargs)
     layer_map = generate_quant_maps(
-        linear_input_quant,
-        weight_quant,
-        input_quant,
-        q_scaled_quant,
-        k_transposed_quant,
-        v_quant,
-        attn_output_weights_quant,
-        dtype,
-        device,
-        input_quant_format,
-        quantize_embedding)
+        linear_input_quant=linear_input_quant,
+        weight_quant=weight_quant,
+        input_quant=input_quant,
+        q_scaled_quant=q_scaled_quant,
+        k_transposed_quant=k_transposed_quant,
+        v_quant=v_quant,
+        attn_output_weights_quant=attn_output_weights_quant,
+        dtype=dtype,
+        device=device,
+        quantize_embedding=quantize_embedding)
     model = layerwise_quantize(
         model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
     return model
