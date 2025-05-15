@@ -182,9 +182,7 @@ def create_llm_args_parser():
         type=str,
         default=None,
         choices=['stats', 'mse'],
-        help=
-        'How scales/zero-point are determined. Default: None (same as input).'
-    )
+        help='How scales/zero-point are determined. Default: None (same as input).')
     parser.add_argument(
         '--attn-scale-precision',
         type=str,
