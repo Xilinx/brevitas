@@ -438,7 +438,9 @@ def generate_quantizers(
                     'group_dim': -2, 'group_size': input_group_size})
         v_quant = k_transposed_quant
         attn_output_weights_quant = q_scaled_quant
-        if attn_quant_type == "sym" and not "float" in attn_quant_format:
+        if (attn_quant_type == "sym") and \
+            (not "float" in attn_quant_format) and \
+            (attn_output_weights_quant is not None):
             attn_output_weights_quant = attn_output_weights_quant.let(**{'signed': False})
 
         # Input to Linear Layer Quant
