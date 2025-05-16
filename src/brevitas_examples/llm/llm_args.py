@@ -404,6 +404,12 @@ def create_llm_args_parser():
         action="store_true",
         help="Whether to apply output QKV quant (default: %(default)s).",
     )
+    parser.add_argument(
+        "--attn-only-quant",
+        action="store_true",
+        help="Whether to quantize only attention. Works only with quantize-output-qkv (default: %(default)s).",
+    )
+
     return parser
 
 

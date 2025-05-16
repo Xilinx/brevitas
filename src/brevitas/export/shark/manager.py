@@ -28,11 +28,13 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 
 def _quant_wbiol_handler(layer, layer_name, shared_dict):
     if layer.weight_quant.is_quant_enabled:
-        _quant_handler(layer, layer_name + '.weight', 'weight_quant', shared_dict)
+        _quant_handler(layer, 'weight', 'weight_quant', shared_dict)
+    else:
+        shared_dict[layer_name + '.' + 'weight'] = DefaultPrimitiveTensor(name=layer_name + '.' + 'weight', data=layer.weight)
     if layer.input_quant.is_quant_enabled:
-        _quant_handler(layer, layer_name + '.q_input', 'input_quant', shared_dict)
+        _quant_handler(layer, 'q_input', 'input_quant', shared_dict)
     if layer.output_quant.is_quant_enabled:
-        _quant_handler(layer, layer_name + '.q_output', 'output_quant', shared_dict)
+        _quant_handler(layer, 'q_output', 'output_quant', shared_dict)
 
 
 def _quant_act_handler(layer, layer_name, shared_dict):
