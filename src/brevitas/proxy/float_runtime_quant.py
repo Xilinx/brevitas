@@ -11,6 +11,22 @@ from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
+def float_to_standard_float(obj):
+
+    if obj.is_ocp:
+        if obj.exponent_bit_width() == 4 and obj.mantissa_bit_width() == 3:
+            return torch.float8_e4m3fn
+        elif obj.exponent_bit_width() == 5 and obj.mantissa_bit_width() == 2:
+            return torch.float8_e5m2
+    elif obj.is_fnuz:
+        if obj.exponent_bit_width() == 4 and obj.mantissa_bit_width() == 3:
+            return torch.float8_e4m3fnuz
+        elif obj.exponent_bit_width() == 5 and obj.mantissa_bit_width() == 2:
+            return torch.float8_e5m2fnuz
+    else:
+        return None
+
+
 class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
 
     def scale(self, force_eval=True):
@@ -65,6 +81,10 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
         is_fnuz_e5m2 = is_e5m2 and self.inf_values() is None and self.nan_values(
         ) is None and self.exponent_bias() == 16
         return is_fnuz_e4m3 or is_fnuz_e5m2
+
+    @property
+    def standard_float_dtype(self):
+        return float_to_standard_float(self)
 
 
 class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
