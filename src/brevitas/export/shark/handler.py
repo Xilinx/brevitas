@@ -97,6 +97,7 @@ class SharkActFloatQuant(nn.Module):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
+            self.skip = False
             # Continguous is used to be extra-safe with torch.compile
 
             self.dtype = module.standard_float_dtype
@@ -110,8 +111,12 @@ class SharkActFloatQuant(nn.Module):
             self.exponent_bit_width = module.mantissa_bit_width()
             self.exponent_bias = module.mantissa_bit_width()
             self.mantissa_bit_width = module.mantissa_bit_width()
+        else:
+            self.skip = True
 
     def forward(self, x):
+        if self.skip:
+            return x
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
@@ -138,6 +143,7 @@ class SharkWeightFloatQuant(nn.Module):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
+            self.skip = False
             # Continguous is used to be extra-safe with torch.compile
             self.scale = module.scale().contiguous()
             zero_point = module.zero_point().contiguous().to(torch.float32)
@@ -148,8 +154,12 @@ class SharkWeightFloatQuant(nn.Module):
             self.exponent_bit_width = module.mantissa_bit_width()
             self.exponent_bias = module.mantissa_bit_width()
             self.mantissa_bit_width = module.mantissa_bit_width()
+        else:
+            self.skip = True
 
     def forward(self, x):
+        if self.skip:
+            return x
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
