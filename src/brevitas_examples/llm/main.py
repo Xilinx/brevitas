@@ -569,7 +569,7 @@ def quantize_llm(args, extra_args=None):
         if args.eval and not args.no_quantize:
 
             print("Model eval...")
-            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval, enabled=False):
                 model(**calibration_loader[0])
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
@@ -579,7 +579,7 @@ def quantize_llm(args, extra_args=None):
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
             from lm_eval.models.huggingface import HFLM
-            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval, enabled=False):
                 model(**calibration_loader[0])
 
                 wrapped_model = HFLM(
@@ -608,7 +608,7 @@ def quantize_llm(args, extra_args=None):
             from lighteval.pipeline import PipelineParameters
             from lighteval.utils.utils import EnvConfig
 
-            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
+            with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval, enabled=False):
                 model(**calibration_loader[0])
                 remove_hooks(model)
                 # expects a list
