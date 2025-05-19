@@ -22,7 +22,7 @@ from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.export.shark.manager import SharkManager
-from brevitas.graph import load_quant_model_mode
+from brevitas.graph import ModuleToModuleByClass, load_quant_model_mode
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -65,6 +65,69 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+
+class MistralAttentionQ(torch.nn.Module):
+    """Multi-headed attention from 'Attention Is All You Need' paper"""
+
+    def __init__(self, config, layer_idx: int):
+        super().__init__()
+        self.config = config
+        self.layer_idx = layer_idx
+        self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
+        self.num_key_value_groups = config.num_attention_heads // config.num_key_value_heads
+        self.scaling = self.head_dim**-0.5
+        self.attention_dropout = config.attention_dropout
+        self.is_causal = True
+        self.q_proj = torch.nn.Linear(config.hidden_size, config.num_attention_heads * self.head_dim, bias=False)
+        self.k_proj = torch.nn.Linear(config.hidden_size, config.num_key_value_heads * self.head_dim, bias=False)
+        self.v_proj = torch.nn.Linear(config.hidden_size, config.num_key_value_heads * self.head_dim, bias=False)
+        self.o_proj = torch.nn.Linear(config.num_attention_heads * self.head_dim, config.hidden_size, bias=False)
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        position_embeddings,
+        attention_mask,
+        past_key_value,
+        cache_position,
+        **kwargs,
+    ):
+        from transformers.models.mistral.modeling_mistral import apply_rotary_pos_emb, eager_attention_forward
+        input_shape = hidden_states.shape[:-1]
+        hidden_shape = (*input_shape, -1, self.head_dim)
+
+        query_states = self.q_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        key_states = self.k_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+
+        cos, sin = position_embeddings
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+
+        if past_key_value is not None:
+            # sin and cos are specific to RoPE models; cache_position needed for the static cache
+            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+
+        attention_interface = eager_attention_forward
+        if hasattr(self.q_proj, 'output_quant'):
+            query_states = self.q_proj.output_quant(query_states)
+            key_states = self.k_proj.output_quant(key_states)
+        attn_output, attn_weights = attention_interface(
+            self,
+            query_states,
+            key_states,
+            value_states,
+            attention_mask,
+            dropout=0.0 if not self.training else self.attention_dropout,
+            scaling=self.scaling,
+            sliding_window=getattr(self.config, "sliding_window", None),  # main diff with Llama
+            **kwargs,
+        )
+
+        attn_output = attn_output.reshape(*input_shape, -1).contiguous()
+        attn_output = self.o_proj(attn_output)
+        return attn_output, attn_weights
 
 
 def _optional_int_prop(p: dict[str, Any], name: str, default_value: int) -> int:
@@ -227,6 +290,7 @@ def fx_required(args):
 
 
 def quantize_llm(args, extra_args=None):
+    from transformers.models.mistral.modeling_mistral import MistralAttention
     validate(args, extra_args)
     set_seed(args.seed)
     if args.export_prefix is None:
@@ -247,8 +311,12 @@ def quantize_llm(args, extra_args=None):
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     config = model.config
+
+    r = ModuleToModuleByClass(MistralAttention, MistralAttentionQ)
+    model = r.apply(model)
     print("Model loaded.")
     model.eval()
+    model.config._attn_implementation = 'eager'
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     float_ppl = None
     quant_ppl = None
