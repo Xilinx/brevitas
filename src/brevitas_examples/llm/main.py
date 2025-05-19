@@ -113,6 +113,7 @@ class MistralAttentionQ(torch.nn.Module):
         if hasattr(self.q_proj, 'output_quant'):
             query_states = self.q_proj.output_quant(query_states)
             key_states = self.k_proj.output_quant(key_states)
+            value_states = self.v_proj.output_quant(value_states)
         attn_output, attn_weights = attention_interface(
             self,
             query_states,
