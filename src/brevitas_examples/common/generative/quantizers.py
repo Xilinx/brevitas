@@ -294,3 +294,12 @@ class QuantScaleIntWeightSymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     @value
     def restrict_value_float_to_int_impl():
         return this.scaling_int_quant.int_quant
+
+
+class QuantScaleIntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymmetricGroupQuant):
+    scaling_int_quant = QuantWeightScalingFixed
+    restrict_scaling_impl = QuantRestrictValue
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_int_quant.int_quant
