@@ -1,7 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Type, Union
+from typing import Optional
+from typing import Type
+from typing import Union
 
 from torch.nn import Module
 

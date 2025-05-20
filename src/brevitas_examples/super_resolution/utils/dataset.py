@@ -42,7 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 import os
 import tarfile
-from typing import Tuple, Type
+from typing import Tuple
+from typing import Type
 
 from PIL import Image
 from six.moves import urllib

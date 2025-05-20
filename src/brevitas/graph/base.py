@@ -5,7 +5,9 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
-from typing import Any, Dict, Type
+from typing import Any
+from typing import Dict
+from typing import Type
 
 import torch
 from torch.nn import Module

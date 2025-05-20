@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
-from typing import Dict, Mapping, Optional, Union
+from typing import Dict
+from typing import Mapping
+from typing import Optional
+from typing import Union
 
 from accelerate import dispatch_model
 from accelerate import infer_auto_device_map

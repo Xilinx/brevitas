@@ -1,7 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Callable, Tuple
+from typing import Callable
+from typing import Tuple
 
 from hypothesis import given
 import mock

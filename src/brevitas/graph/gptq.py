@@ -3,7 +3,8 @@
 
 from copy import deepcopy
 import math
-from typing import List, Optional
+from typing import List
+from typing import Optional
 import warnings
 
 from packaging import version

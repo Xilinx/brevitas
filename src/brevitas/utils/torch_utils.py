@@ -4,7 +4,9 @@
 import copy
 from dataclasses import dataclass
 from functools import wraps
-from typing import List, Optional, Tuple
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import torch
 from torch.nn import Sequential

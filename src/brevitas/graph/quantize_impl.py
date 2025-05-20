@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from inspect import isclass
 import operator
-from typing import Dict, List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
 
 import torch
 import torch.nn as nn

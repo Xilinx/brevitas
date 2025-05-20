@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
-from typing import Tuple, Type
+from typing import Tuple
+from typing import Type
 
 import numpy as np
 import torch

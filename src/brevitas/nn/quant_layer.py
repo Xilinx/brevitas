@@ -3,7 +3,9 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Optional, Type, Union
+from typing import Optional
+from typing import Type
+from typing import Union
 
 import torch
 from torch import Tensor

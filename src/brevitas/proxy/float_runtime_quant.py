@@ -1,5 +1,8 @@
 from abc import ABC
-from typing import Any, Optional, Tuple, Union
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 import torch.nn as nn

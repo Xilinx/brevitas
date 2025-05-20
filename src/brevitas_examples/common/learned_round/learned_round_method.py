@@ -3,7 +3,13 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Callable, Dict, Generator, List, Optional, Tuple, Type
+from typing import Callable
+from typing import Dict
+from typing import Generator
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 import torch
 from torch import nn

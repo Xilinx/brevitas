@@ -5,9 +5,11 @@ import torch
 from brevitas.core.quant.int import RescalingIntQuant
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 from brevitas.inject.enum import ScalingPerOutputType
 import brevitas.nn as qnn
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.quant.base import FloatRestrictValue
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 

@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from inspect import signature
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any
+from typing import Dict
+from typing import Iterable
+from typing import Tuple
 
 import torch
 from torch import nn
