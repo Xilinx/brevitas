@@ -61,6 +61,8 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import DynamicQuantScaleMXFloat8e4m3Act
+from brevitas_examples.common.generative.quantizers import Int8DynamicQuantScaleActPerRowFixed
+from brevitas_examples.common.generative.quantizers import Int8DynamicQuantScaleActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3FNUZDynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
@@ -78,6 +80,8 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTens
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3Weight
 from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3WeightMSE
+from brevitas_examples.common.generative.quantizers import QuantScaleIntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import QuantScaleIntWeightSymmetricGroupQuantMSE
 from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
@@ -85,6 +89,13 @@ from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicAc
 
 WEIGHT_QUANT_MAP = {
     'int': {
+        'fixed_quant_scale': {
+            'stats': {
+                'per_group': {
+                    'sym': QuantScaleIntWeightSymmetricGroupQuant}},
+            'mse': {
+                'per_group': {
+                    'sym': QuantScaleIntWeightSymmetricGroupQuantMSE}}},
         'float_scale': {
             'stats': {
                 'per_tensor': {
@@ -189,6 +200,10 @@ INPUT_QUANT_MAP = {
                     'per_tensor': {
                         'sym': Int8ActPerTensorFixedPointMSE}}}},
         'dynamic': {
+            'fixed_quant_scale': {
+                'stats': {
+                    'per_row': {
+                        'sym': Int8DynamicQuantScaleActPerRowFixed}}},
             'float_scale': {
                 'stats': {
                     'per_tensor': {
