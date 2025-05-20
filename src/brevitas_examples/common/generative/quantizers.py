@@ -241,6 +241,20 @@ class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
         return this.scaling_float_quant.float_quant
 
 
+class QuantActScalingFixed(QuantScaleScaleShapeMixin, UInt8ActPerTensorFixed):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
+
+
+class Int8DynamicQuantScaleActPerTensorFloat(Int8DynamicActPerTensorFloat):
+    scaling_int_quant = QuantActScalingFixed
+    restrict_scaling_impl = QuantRestrictValue
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_int_quant.int_quant
+
+
 class QuantScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
     module = (this << 1).module
     tracked_parameter_list = (this << 1).tracked_parameter_list
@@ -264,3 +278,19 @@ class QuantScaleMXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
     @value
     def restrict_value_float_to_int_impl():
         return this.scaling_float_quant.float_quant
+
+
+class QuantWeightScalingFixed(QuantScaleScaleShapeMixin, Int8WeightPerTensorFloat):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
+    tracked_parameter_list = (this << 1).tracked_parameter_list
+    signed = False
+
+
+class QuantScaleIntWeightSymmetricGroupQuant(IntWeightSymmetricGroupQuant):
+    scaling_int_quant = QuantWeightScalingFixed
+    restrict_scaling_impl = QuantRestrictValue
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_int_quant.int_quant
