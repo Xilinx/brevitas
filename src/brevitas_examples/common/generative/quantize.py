@@ -60,6 +60,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQ
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
+from brevitas_examples.common.generative.quantizers import DynamicQuantScaleMXFloat8e4m3Act
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3FNUZDynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
@@ -75,6 +76,8 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowF
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3Weight
+from brevitas_examples.common.generative.quantizers import QuantScaleMXFloat8e4m3WeightMSE
 from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
@@ -143,6 +146,13 @@ WEIGHT_QUANT_MAP = {
             'mse': {
                 'per_channel': {
                     'sym': Fp8e4m3OCPWeightPerChannelFloatMSE}}},
+        'float_quant_scale': {
+            'stats': {
+                'per_group': {
+                    'sym': QuantScaleMXFloat8e4m3Weight}},
+            'mse': {
+                'per_group': {
+                    'sym': QuantScaleMXFloat8e4m3WeightMSE}}},
         'po2_scale': {
             'stats': {
                 'per_group': {
@@ -222,6 +232,10 @@ INPUT_QUANT_MAP = {
                         'sym': FP8e4m3OCPDynamicActPerRowFloat},
                     'per_group': {
                         'sym': Fp8e4m3OCPDynamicActPerGroupFloat}}},
+            'float_quant_scale': {
+                'stats': {
+                    'per_group': {
+                        'sym': DynamicQuantScaleMXFloat8e4m3Act}}},
             'po2_scale': {
                 'stats': {
                     'per_row': {
@@ -277,20 +291,41 @@ def generate_quantizers(
     """
     # Retrive base input and weight quantizers
     # match against custom float format
-    if re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format):
-        format = re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format)[0]
+    fpre = re.compile(r'e[1-8]m[1-8]')
+    if fpre.findall(weight_quant_format):
+        format = fpre.findall(weight_quant_format)[0]
         weight_quant_format = weight_quant_format.replace('_' + format, '')
         weight_float_format = {
             'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
     else:
         weight_float_format = {}
-    if re.compile(r'e[1-8]m[1-8]').findall(input_quant_format):
-        format = re.compile(r'e[1-8]m[1-8]').findall(input_quant_format)[0]
+    if fpre.findall(input_quant_format):
+        format = fpre.findall(input_quant_format)[0]
         input_quant_format = input_quant_format.replace('_' + format, '')
         input_float_format = {
             'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
     else:
         input_float_format = {}
+    if fpre.findall(weight_scale_precision):
+        format = fpre.findall(weight_scale_precision)[0]
+        weight_scale_precision_format = weight_scale_precision.replace('_' + format, '')
+        weight_scale_precision_format = {
+            'exponent_bit_width': int(format[1]),
+            'mantissa_bit_width': int(format[3]),
+            'bit_width': int(format[1]) + int(format[3]) + 1}
+        weight_scale_precision = "float_quant_scale"
+    else:
+        weight_scale_precision_format = {}
+    if fpre.findall(input_scale_precision):
+        format = fpre.findall(input_scale_precision)[0]
+        input_scale_precision_format = input_scale_precision.replace('_' + format, '')
+        input_scale_precision_format = {
+            'exponent_bit_width': int(format[1]),
+            'mantissa_bit_width': int(format[3]),
+            'bit_width': int(format[1]) + int(format[3]) + 1}
+        input_scale_precision = "float_quant_scale"
+    else:
+        input_scale_precision_format = {}
 
     weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
         weight_param_method][weight_quant_granularity][weight_quant_type]
@@ -345,7 +380,30 @@ def generate_quantizers(
         q_scaled_quant = q_scaled_quant.let(**input_kwargs) if q_scaled_quant is not None else None
         attn_output_weights_quant = attn_output_weights_quant.let(
             **input_kwargs) if attn_output_weights_quant is not None else None
-
+        if input_scale_precision == "float_quant_scale":
+            # Set the format of the input's quantized scale
+            input_quant = input_quant.let(
+                scaling_float_quant=input_quant.scaling_float_quant.let(
+                    **input_scale_precision_format))
+            sym_input_quant = sym_input_quant.let(
+                scaling_float_quant=sym_input_quant.scaling_float_quant.let(
+                    **input_scale_precision_format))
+            linear_input_quant = linear_input_quant.let(
+                scaling_float_quant=linear_input_quant.scaling_float_quant.let(
+                    **input_scale_precision_format))
+            v_quant = v_quant.let(
+                scaling_float_quant=v_quant.scaling_float_quant.let(**input_scale_precision_format))
+            k_transposed_quant = k_transposed_quant.let(
+                scaling_float_quant=k_transposed_quant.scaling_float_quant.let(
+                    **input_scale_precision_format))
+            if q_scaled_quant is not None:
+                q_scaled_quant = q_scaled_quant.let(
+                    scaling_float_quant=q_scaled_quant.scaling_float_quant.let(
+                        **input_scale_precision_format))
+            if attn_output_weights_quant is not None:
+                attn_output_weights_quant = attn_output_weights_quant.let(
+                    scaling_float_quant=attn_output_weights_quant.scaling_float_quant.let(
+                        **input_scale_precision_format))
     else:
         input_quant = None
         sym_input_quant = None
@@ -384,6 +442,12 @@ def generate_quantizers(
     # This is done already by default in the per_group quantizer
     if weight_quant_type == 'asym' and weight_scaling_impl_type == 'parameter_from_stats':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+
+    # Set the format of the weight's quantized scale
+    if weight_scale_precision == "float_quant_scale":
+        weight_quant = weight_quant.let(
+            scaling_float_quant=weight_quant.scaling_float_quant.let(
+                **weight_scale_precision_format))
 
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)
