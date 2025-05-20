@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import numpy as np
 
 QK_K = 256
@@ -88,8 +87,7 @@ def ggml_quant(
     # else:
     quant_func = GGML_QUANT_BLOCK[ggml_type]
     if ggml_type.endswith("_k"):
-        new_data = quant_func(
-            blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
+        new_data = quant_func(blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
     else:
         new_data = quant_func(blocks, scale, zp)
 
@@ -167,8 +165,10 @@ def q8_0_quant_block(blocks: np.array, scale=None, zp=None) -> np.ndarray:
 
     return np.concatenate([d, blocks], axis=1)
 
+
 @register_block("q4_k")
-def q4_k_quant_block(blocks: np.array, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
+def q4_k_quant_block(
+        blocks: np.array, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
     nb = blocks.shape[0]
     blocks = blocks.reshape(nb, QK_K // 32, 32)  # (nb, 8, 32)
 

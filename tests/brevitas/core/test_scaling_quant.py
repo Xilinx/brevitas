@@ -1,9 +1,8 @@
-from brevitas.quant.base import FloatRestrictValue
-from brevitas_examples.llm.gguf_export.quant import ggml_quant
 from dependencies import this
 from dependencies import value
-import torch
 import gguf
+import torch
+
 from brevitas.core.quant.int import RescalingIntQuant
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
@@ -11,9 +10,10 @@ from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 from brevitas.inject.enum import ScalingPerOutputType
 import brevitas.nn as qnn
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.quant.base import FloatRestrictValue
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+from brevitas_examples.llm.gguf_export.quant import ggml_quant
 
 ZP_BIT_WIDTH = 6
 SCALE_BIT_WIDTH = 6
@@ -28,15 +28,14 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
     group_size = 8
     scaling_per_output_type = ScalingPerOutputType.GROUP
     upstream_scaling_shape = (this << 1).scaling_shape
+
     @value
     def tracked_parameter_list(upstream_scaling_shape):
         return [torch.empty(upstream_scaling_shape)]
 
     @value
     def scaling_shape(
-            scaling_per_output,
-            scaling_per_output_channel_shape,
-            expanded_groupwise_shape,
+            scaling_per_output, scaling_per_output_channel_shape, expanded_groupwise_shape,
             group_dim):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             scaling = SCALAR_SHAPE
@@ -64,15 +63,14 @@ class QuantZPInt(Int8WeightPerTensorFloat):
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = 8
     upstream_zero_point_shape = (this << 1).zero_point_shape
+
     @value
     def tracked_parameter_list(upstream_zero_point_shape):
         return [torch.empty(upstream_zero_point_shape)]
 
     @value
     def scaling_shape(
-            scaling_per_output,
-            scaling_per_output_channel_shape,
-            expanded_groupwise_shape,
+            scaling_per_output, scaling_per_output_channel_shape, expanded_groupwise_shape,
             group_dim):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             scaling = SCALAR_SHAPE
@@ -122,8 +120,6 @@ def test_quant_scale():
         assert bit_width == ZP_BIT_WIDTH
         assert torch.allclose(quant_scale / scale, torch.round(quant_scale / scale))
 
-    
-
     linear = qnn.QuantLinear(512, 768, weight_quant=QuantScaleQuantZPInt8WeightPerTensorFloat)
     for module in linear.modules():
         if isinstance(module, QuantRestrictValue):
@@ -134,10 +130,9 @@ def test_quant_scale():
 
     linear(torch.randn(1, 512))
 
-
     quant_weight = linear.quant_weight()
     weight_quant = linear.weight_quant
-    
+
     scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
 
     # if isinstance(scale, torch.Tensor):
@@ -147,7 +142,7 @@ def test_quant_scale():
     quant_data = quant_weight.int()
 
     quant_scale_module = None
-    
+
     for m in weight_quant.modules():
         if isinstance(m, QuantRestrictValue):
             quant_scale_module = m
@@ -156,7 +151,8 @@ def test_quant_scale():
     scale = quant_scale
 
     quant_zero_point_module = None
-    zp = quant_weight.zero_point_ if hasattr(quant_weight, 'zero_point_') else quant_weight.zero_point
+    zp = quant_weight.zero_point_ if hasattr(
+        quant_weight, 'zero_point_') else quant_weight.zero_point
 
     for m in weight_quant.modules():
         if isinstance(m, _ScaleShiftQuantZeroPoint):

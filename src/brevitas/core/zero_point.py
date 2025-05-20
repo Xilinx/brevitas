@@ -76,7 +76,7 @@ class _ScaleShiftQuantZeroPoint(brevitas.jit.ScriptModule):
         min_int = self.int_quant.min_int(bit_width)
         quant_zp, scale_zp, zp, *_ = self.zp_int_quant(zero_point)
         quant_zp = quant_zp.view(self.zero_point_shape)
-        quant_zp = quant_zp/scale + min_int
+        quant_zp = quant_zp / scale + min_int
         return quant_zp
 
 

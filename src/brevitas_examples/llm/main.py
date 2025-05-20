@@ -67,19 +67,21 @@ from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 ZP_BIT_WIDTH = 6
 SCALE_BIT_WIDTH = 6
 
-from brevitas.quant.base import FloatRestrictValue
 from dependencies import this
 from dependencies import value
 import torch
+
 from brevitas.core.quant.int import RescalingIntQuant
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 from brevitas.inject.enum import ScalingPerOutputType
 import brevitas.nn as qnn
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.quant.base import FloatRestrictValue
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+
 
 class QuantScalingInt(Int8WeightPerTensorFloat):
     bit_width = SCALE_BIT_WIDTH
@@ -98,9 +100,7 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
 
     @value
     def scaling_shape(
-            scaling_per_output,
-            scaling_per_output_channel_shape,
-            expanded_groupwise_shape,
+            scaling_per_output, scaling_per_output_channel_shape, expanded_groupwise_shape,
             group_dim):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             scaling = SCALAR_SHAPE
@@ -115,8 +115,6 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
             return tuple(size)
 
         return scaling
-
-
 
 
 class QuantZPInt(Int8WeightPerTensorFloat):
@@ -138,9 +136,7 @@ class QuantZPInt(Int8WeightPerTensorFloat):
 
     @value
     def scaling_shape(
-            scaling_per_output,
-            scaling_per_output_channel_shape,
-            expanded_groupwise_shape,
+            scaling_per_output, scaling_per_output_channel_shape, expanded_groupwise_shape,
             group_dim):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             scaling = SCALAR_SHAPE
@@ -174,6 +170,7 @@ class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat
     @value
     def zp_int_quant():
         return this.zp_int.rescaling_int_quant
+
 
 def filter_results(results, tasks):
     # filter out what we actually want to track
@@ -511,7 +508,9 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
-        layer_map[torch.nn.Linear] = (qnn.QuantLinear, {'weight_quant': QuantScaleQuantZPInt8WeightPerTensorFloat})
+        layer_map[torch.nn.Linear] = (
+            qnn.QuantLinear, {
+                'weight_quant': QuantScaleQuantZPInt8WeightPerTensorFloat})
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
