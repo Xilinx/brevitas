@@ -246,7 +246,7 @@ class QuantActScalingFixed(QuantScaleScaleShapeMixin, UInt8ActPerTensorFixed):
     upstream_scaling = (this << 1).scaling_per_output_type
 
 
-class Int8DynamicQuantScaleActPerTensorFloat(Int8DynamicActPerTensorFloat):
+class Int8DynamicQuantScaleActPerRowFixed(Int8DynamicActPerRowFloat):
     scaling_int_quant = QuantActScalingFixed
     restrict_scaling_impl = QuantRestrictValue
 
