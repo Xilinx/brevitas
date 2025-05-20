@@ -9,6 +9,7 @@ from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.quant.float import FloatQuant
+from brevitas.core.quant import RescalingIntQuant
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import AbsMinMax
@@ -40,9 +41,11 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChann
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.fixed_point import Uint8ActPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 
@@ -241,20 +244,6 @@ class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
         return this.scaling_float_quant.float_quant
 
 
-class QuantActScalingFixed(QuantScaleScaleShapeMixin, UInt8ActPerTensorFixed):
-    module = (this << 1).module
-    upstream_scaling = (this << 1).scaling_per_output_type
-
-
-class Int8DynamicQuantScaleActPerRowFixed(Int8DynamicActPerRowFloat):
-    scaling_int_quant = QuantActScalingFixed
-    restrict_scaling_impl = QuantRestrictValue
-
-    @value
-    def restrict_value_float_to_int_impl():
-        return this.scaling_int_quant.int_quant
-
-
 class QuantScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
     module = (this << 1).module
     tracked_parameter_list = (this << 1).tracked_parameter_list
@@ -285,6 +274,7 @@ class QuantWeightScalingFixed(QuantScaleScaleShapeMixin, Int8WeightPerTensorFloa
     upstream_scaling = (this << 1).scaling_per_output_type
     tracked_parameter_list = (this << 1).tracked_parameter_list
     signed = False
+    scaling_quant = RescalingIntQuant
 
 
 class QuantScaleIntWeightSymmetricGroupQuant(IntWeightSymmetricGroupQuant):
@@ -293,7 +283,7 @@ class QuantScaleIntWeightSymmetricGroupQuant(IntWeightSymmetricGroupQuant):
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_int_quant.int_quant
+        return this.scaling_int_quant.scaling_quant
 
 
 class QuantScaleIntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymmetricGroupQuant):
@@ -302,4 +292,4 @@ class QuantScaleIntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymm
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_int_quant.int_quant
+        return this.scaling_int_quant.scaling_quant

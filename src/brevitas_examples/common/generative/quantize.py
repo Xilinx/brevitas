@@ -61,8 +61,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import DynamicQuantScaleMXFloat8e4m3Act
-from brevitas_examples.common.generative.quantizers import Int8DynamicQuantScaleActPerRowFixed
-from brevitas_examples.common.generative.quantizers import Int8DynamicQuantScaleActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3FNUZDynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
@@ -200,10 +198,6 @@ INPUT_QUANT_MAP = {
                     'per_tensor': {
                         'sym': Int8ActPerTensorFixedPointMSE}}}},
         'dynamic': {
-            'fixed_quant_scale': {
-                'stats': {
-                    'per_row': {
-                        'sym': Int8DynamicQuantScaleActPerRowFixed}}},
             'float_scale': {
                 'stats': {
                     'per_tensor': {
