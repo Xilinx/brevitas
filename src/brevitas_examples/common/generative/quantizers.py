@@ -274,7 +274,6 @@ class QuantWeightScalingFixed(QuantScaleScaleShapeMixin, Int8WeightPerTensorFloa
     upstream_scaling = (this << 1).scaling_per_output_type
     tracked_parameter_list = (this << 1).tracked_parameter_list
     signed = False
-    scaling_quant = RescalingIntQuant
 
 
 class QuantScaleIntWeightSymmetricGroupQuant(IntWeightSymmetricGroupQuant):
@@ -283,7 +282,7 @@ class QuantScaleIntWeightSymmetricGroupQuant(IntWeightSymmetricGroupQuant):
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_int_quant.scaling_quant
+        return this.scaling_int_quant.tensor_quant
 
 
 class QuantScaleIntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymmetricGroupQuant):
@@ -292,4 +291,4 @@ class QuantScaleIntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymm
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_int_quant.scaling_quant
+        return this.scaling_int_quant.tensor_quant
