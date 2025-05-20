@@ -93,6 +93,7 @@ class MistralAttentionQ(torch.nn.Module):
         **kwargs,
     ):
         from transformers.models.mistral.modeling_mistral import apply_rotary_pos_emb, eager_attention_forward
+        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
         input_shape = hidden_states.shape[:-1]
         hidden_shape = (*input_shape, -1, self.head_dim)
 
@@ -110,10 +111,12 @@ class MistralAttentionQ(torch.nn.Module):
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         attention_interface = eager_attention_forward
+        if self.config._attn_implementation != "eager":
+            attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
         if hasattr(self.q_proj, 'output_quant'):
-            query_states = self.q_proj.output_quant(query_states)
-            key_states = self.k_proj.output_quant(key_states)
-            value_states = self.v_proj.output_quant(value_states)
+            query_states = self.q_proj.output_quant(query_states)[0]
+            key_states = self.k_proj.output_quant(key_states)[0]
+            value_states = self.v_proj.output_quant(value_states)[0]
         attn_output, attn_weights = attention_interface(
             self,
             query_states,
@@ -315,9 +318,9 @@ def quantize_llm(args, extra_args=None):
 
     r = ModuleToModuleByClass(MistralAttention, MistralAttentionQ)
     model = r.apply(model)
+    model = model.to(dtype)
     print("Model loaded.")
     model.eval()
-    model.config._attn_implementation = 'eager'
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     float_ppl = None
     quant_ppl = None
