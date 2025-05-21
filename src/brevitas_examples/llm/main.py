@@ -114,9 +114,16 @@ class MistralAttentionQ(torch.nn.Module):
         if self.config._attn_implementation != "eager":
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
         if hasattr(self.q_proj, 'output_quant'):
-            query_states = self.q_proj.output_quant(query_states)[0]
-            key_states = self.k_proj.output_quant(key_states)[0]
-            value_states = self.v_proj.output_quant(value_states)[0]
+            query_states = self.q_proj.output_quant(query_states)
+            if isinstance(query_states, tuple):
+                query_states = query_states[0]
+            key_states = self.k_proj.output_quant(key_states)
+            if isinstance(key_states, tuple):
+                key_states = key_states[0]
+            value_states = self.v_proj.output_quant(value_states)
+            if isinstance(value_states, tuple):
+                value_states = value_states[0]
+
         attn_output, attn_weights = attention_interface(
             self,
             query_states,
