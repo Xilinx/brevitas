@@ -508,7 +508,7 @@ def main(args):
             input_kwargs=input_kwargs)
 
         layer_map = generate_quant_maps(
-            *quantizers, dtype, args.device, args.input_quant_format, False)
+            *quantizers, dtype=dtype, device=args.device, quantize_embedding=False)
 
         linear_qkwargs = layer_map[torch.nn.Linear][1]
         linear_qkwargs[
@@ -723,7 +723,7 @@ def main(args):
             scaling_min_val=1e-3)
 
         layer_map = generate_quant_maps(
-            *quantizers, dtype, args.device, args.input_quant_format, False)
+            *quantizers, dtype=dtype, device=args.device, quantize_embedding=False)
 
         linear_qkwargs = layer_map[torch.nn.Linear][1]
         linear_qkwargs[
