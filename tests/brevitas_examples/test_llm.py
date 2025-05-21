@@ -649,24 +649,26 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
             "input_quant_granularity": "per_row",
-            "kv_quant_granularity": "per_group",
+            "attn_quant_granularity": "per_group",
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
             "quant_sdpa": True,
             "functional_sdpa_quant": False,
-            "kv_quant_type": "asym"},
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
             "input_quant_granularity": "per_row",
-            "kv_quant_granularity": "per_group",
+            "attn_quant_granularity": "per_group",
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
             "quant_sdpa": False,
             "functional_sdpa_quant": True,
-            "kv_quant_type": "asym"},])
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},])
 def layer_args_hyperparam(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
