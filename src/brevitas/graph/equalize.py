@@ -1471,7 +1471,8 @@ def _apply_rotate(
         regions: List[Region],
         full_rotation_method='had',
         fuse_rotations: bool = True,
-        apply_inplace_rotations: bool = True):
+        apply_inplace_rotations: bool = True,
+        expansion_step: int = 1):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1501,7 +1502,7 @@ def _apply_rotate(
             try:
                 # Build hadamard rotation matrix
                 rot_mat, K = get_hadK(hidden_dim)
-                hidden_dim = find_closest_hadamard_number(hidden_dim)
+                hidden_dim = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
                 expanded_rot_mat, expanded_K = get_hadK(int(hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
@@ -1551,7 +1552,7 @@ def _apply_rotate(
                 rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
                 hidden_dim = module.weight.shape[1]
-                new_hidden = find_closest_hadamard_number(hidden_dim)
+                new_hidden = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
                 new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
                 # Modify the weights in-place
                 setattr(module, 'weight', torch.nn.Parameter(new_weights))
@@ -1575,8 +1576,12 @@ def _apply_rotate(
                 rewriter = ModuleInstanceWrapModule(
                     module,
                     RotatedModule,
-                    "layer", {
-                        "had_mat": rot_mat, "k": K, "expand": region.expand_region})
+                    "layer",
+                    {
+                        "had_mat": rot_mat,
+                        "k": K,
+                        "expansion_step": expansion_step,
+                        "expand_input": region.expand_region})
                 rewriters.append(rewriter)
     if apply_inplace_rotations:
         for r in rewriters:
@@ -1737,6 +1742,7 @@ class GraphRotationEqualization(RotationEqualization):
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
+            expansion_step: int = None,
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 
@@ -1752,6 +1758,7 @@ class GraphRotationEqualization(RotationEqualization):
         self.full_rotation_method = full_rotation_method
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
+        self.expansion_step = expansion_step
         if use_parametrized_rotations:
             # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
@@ -1871,8 +1878,10 @@ class GraphRotationEqualization(RotationEqualization):
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
             first_set, second_set = regions, expanded_regions
+            first_exp_step, second_exp_step = 1, self.expansion_step
         else:
             first_set, second_set = expanded_regions, regions
+            first_exp_step, second_exp_step = self.expansion_step, 1
 
         # We update mergeable regions to include also non-mergeable ones
         for o_r in orphan_regions:
@@ -1889,13 +1898,15 @@ class GraphRotationEqualization(RotationEqualization):
                     graph_model,
                     first_set,
                     self.full_rotation_method,
-                    fuse_rotations=not self.use_parametrized_rotations))
+                    fuse_rotations=not self.use_parametrized_rotations,
+                    expansion_step=first_exp_step))
             rewriters.extend(
                 _apply_rotate(
                     graph_model,
                     second_set,
                     self.full_rotation_method,
-                    fuse_rotations=not self.use_parametrized_rotations))
+                    fuse_rotations=not self.use_parametrized_rotations,
+                    expansion_step=second_exp_step))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
@@ -1989,9 +2000,13 @@ class MergeLnAffine(GraphTransform):
 
 class LayerwiseActivationRotation(RotationEqualization):
 
-    def __init__(self, blacklist_layer=None, layers_to_expand=None):
+    def __init__(
+            self,
+            blacklist_layer: Optional[List] = None,
+            layers_to_expand: Optional[List] = None,
+            expansion_step: int = 0):
         super().__init__(blacklist_layer, layers_to_expand)
-
+        self.expansion_step = expansion_step
         self.supported_sinks = (nn.Linear)
 
     def apply(self, model: nn.Module) -> nn.Module:
@@ -2005,5 +2020,5 @@ class LayerwiseActivationRotation(RotationEqualization):
         if len(expanded_regions) > 0:
             regions.extend(expanded_regions)
         if len(regions) > 0:
-            _apply_rotate(model, regions)
+            _apply_rotate(model, regions, expansion_step=self.expansion_step)
         return model

@@ -397,7 +397,13 @@ def create_llm_args_parser():
     parser.add_argument(
         "--awq-clip",
         action="store_true",
-        help="Whether to apply AWQ clipping (default: %(default)s).",
+        help="Whether to apply AWQ clipping (default: %(default)s).")
+    parser.add_argument(
+        '--expansion-step',
+        type=int,
+        default=1,
+        help=
+        'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
     )
     return parser
 
