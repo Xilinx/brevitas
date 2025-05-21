@@ -157,8 +157,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             quant_bias = None
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
-        quant_output = self.output_quant(output_tensor)
-        return self.pack_output(quant_output)
+        # quant_output = self.output_quant(output_tensor)
+        return self.pack_output(output_tensor)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

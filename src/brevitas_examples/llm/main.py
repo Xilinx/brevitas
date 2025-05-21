@@ -8,6 +8,7 @@ from datetime import timedelta
 import functools
 import pprint
 import sys
+from typing import Any
 
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
@@ -20,7 +21,8 @@ import yaml
 from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas.graph import load_quant_model_mode
+from brevitas.export.shark.manager import SharkManager
+from brevitas.graph import ModuleToModuleByClass, load_quant_model_mode
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -35,6 +37,7 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
@@ -62,6 +65,139 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+
+class MistralAttentionQ(torch.nn.Module):
+    """Multi-headed attention from 'Attention Is All You Need' paper"""
+
+    def __init__(self, config, layer_idx: int):
+        super().__init__()
+        self.config = config
+        self.layer_idx = layer_idx
+        self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
+        self.num_key_value_groups = config.num_attention_heads // config.num_key_value_heads
+        self.scaling = self.head_dim**-0.5
+        self.attention_dropout = config.attention_dropout
+        self.is_causal = True
+        self.q_proj = torch.nn.Linear(config.hidden_size, config.num_attention_heads * self.head_dim, bias=False)
+        self.k_proj = torch.nn.Linear(config.hidden_size, config.num_key_value_heads * self.head_dim, bias=False)
+        self.v_proj = torch.nn.Linear(config.hidden_size, config.num_key_value_heads * self.head_dim, bias=False)
+        self.o_proj = torch.nn.Linear(config.num_attention_heads * self.head_dim, config.hidden_size, bias=False)
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        position_embeddings,
+        attention_mask,
+        past_key_value,
+        cache_position,
+        **kwargs,
+    ):
+        from transformers.models.mistral.modeling_mistral import apply_rotary_pos_emb, eager_attention_forward
+        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+        input_shape = hidden_states.shape[:-1]
+        hidden_shape = (*input_shape, -1, self.head_dim)
+
+        query_states = self.q_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        key_states = self.k_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+
+        cos, sin = position_embeddings
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+
+        if past_key_value is not None:
+            # sin and cos are specific to RoPE models; cache_position needed for the static cache
+            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+
+        attention_interface = eager_attention_forward
+        if self.config._attn_implementation != "eager":
+            attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+        if hasattr(self.q_proj, 'output_quant'):
+            query_states = self.q_proj.output_quant(query_states)
+            if isinstance(query_states, tuple):
+                query_states = query_states[0]
+            key_states = self.k_proj.output_quant(key_states)
+            if isinstance(key_states, tuple):
+                key_states = key_states[0]
+            value_states = self.v_proj.output_quant(value_states)
+            if isinstance(value_states, tuple):
+                value_states = value_states[0]
+
+        attn_output, attn_weights = attention_interface(
+            self,
+            query_states,
+            key_states,
+            value_states,
+            attention_mask,
+            dropout=0.0 if not self.training else self.attention_dropout,
+            scaling=self.scaling,
+            sliding_window=getattr(self.config, "sliding_window", None),  # main diff with Llama
+            **kwargs,
+        )
+
+        attn_output = attn_output.reshape(*input_shape, -1).contiguous()
+        attn_output = self.o_proj(attn_output)
+        return attn_output, attn_weights
+
+
+def _optional_int_prop(p: dict[str, Any], name: str, default_value: int) -> int:
+    value = p.get(name, default_value)
+    try:
+        return int(value)
+    except ValueError as e:
+        raise ValueError(f"Property '{name}' expected to be an int and was not") from e
+
+
+def _float_prop(p: dict[str, Any], name: str) -> float:
+    try:
+        return float(p[name])
+    except ValueError as e:
+        raise ValueError(f"Property '{name}' expected to be a float and was not") from e
+    except KeyError:
+        raise KeyError(f"Property '{name}' not found (among keys {p.keys()})")
+
+
+def _get_dataset_props(config_json_struct) -> dict:
+    # Separate meta parameters (prefixed with _) from hparams.
+    meta_params = {k: v for k, v in config_json_struct.__dict__.items() if k.startswith("_")}
+    hparams = {k: v for k, v in config_json_struct.__dict__.items() if not k.startswith("_")}
+    return {
+        "meta": meta_params,
+        "hparams": hparams,}
+
+
+def _int_prop(p: dict[str, Any], name: str) -> int:
+    try:
+        return int(p[name])
+    except ValueError as e:
+        raise ValueError(f"Property '{name}' expected to be an int and was not") from e
+    except KeyError:
+        raise KeyError(f"Property '{name}' not found (among keys {p.keys()})")
+
+
+def convert_hf_hparams_to_gguf(hf_hparams: dict[str, any]) -> dict[str, any]:
+    hp = hf_hparams["hparams"]
+    attention_head_count = _int_prop(hp, "num_attention_heads")
+    attn_head_dim = int(_int_prop(hp, "hidden_size") // _int_prop(hp, "num_attention_heads"))
+    attn_head_dim = int(_optional_int_prop(hp, "head_dim", attn_head_dim))
+    return {
+        "llama.context_length":
+            _int_prop(hp, "max_position_embeddings"),
+        "llama.embedding_length":
+            _int_prop(hp, "hidden_size"),
+        "llama.block_count":
+            _int_prop(hp, "num_hidden_layers"),
+        "llama.feed_forward_length":
+            _int_prop(hp, "intermediate_size"),
+        "llama.rope.dimension_count":
+            attn_head_dim,
+        "llama.attention.head_count":
+            attention_head_count,
+        "llama.attention.layer_norm_rms_epsilon":
+            _float_prop(hp, "rms_norm_eps"),
+        "llama.attention.head_count_kv":
+            _optional_int_prop(hp, "num_key_value_heads", attention_head_count),}
 
 
 def filter_results(results, tasks):
@@ -127,7 +263,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def model_export(model, ref_input, args):
+def model_export(model, ref_input, args, config=None):
     if args.export_target == 'sharded_torchmlir_group_weight':
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
@@ -152,6 +288,11 @@ def model_export(model, ref_input, args):
                 do_validation=False)
     elif args.export_target == 'torch_qcdq':
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
+    elif args.export_target == 'shark':
+        export = SharkManager(config=convert_hf_hparams_to_gguf(_get_dataset_props(config)))
+
+        with torch.no_grad():
+            ds = export.export(model, **ref_input)
 
 
 def fx_required(args):
@@ -160,6 +301,7 @@ def fx_required(args):
 
 
 def quantize_llm(args, extra_args=None):
+    from transformers.models.mistral.modeling_mistral import MistralAttention
     validate(args, extra_args)
     set_seed(args.seed)
     if args.export_prefix is None:
@@ -179,6 +321,11 @@ def quantize_llm(args, extra_args=None):
 
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
+    config = model.config
+
+    r = ModuleToModuleByClass(MistralAttention, MistralAttentionQ)
+    model = r.apply(model)
+    model = model.to(dtype)
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -197,7 +344,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
+        require_fx=False,  #require_fx and args.export_target is not None,
         device=None)
 
     validation_loader = get_dataset_for_model(
@@ -209,7 +356,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="validation",
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
+        require_fx=False,  #require_fx and args.export_target is not None,
         device=None)
 
     if args.optimize_rotations:
@@ -243,13 +390,14 @@ def quantize_llm(args, extra_args=None):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
+        if False:  #model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
             model = get_fx(model, is_export=args.export_target is not None)
         else:
             with torch.no_grad():
                 model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
+    model.eval()
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
@@ -398,6 +546,14 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
+        if args.quantize_output_qkv:
+            quant_class, linear_map = list(layer_map[torch.nn.Linear])
+            linear_input_quant = linear_map['input_quant']
+            linear_map['output_quant'] = lambda module, name: linear_input_quant if (name.endswith('q_proj') or name.endswith('k_proj') or name.endswith('v_proj')) else None
+            if args.attn_only_quant:
+                linear_map['input_quant'] = None
+                linear_map['weight_quant'] = None
+            layer_map[torch.nn.Linear] = tuple([quant_class, linear_map])
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
@@ -563,7 +719,7 @@ def quantize_llm(args, extra_args=None):
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-
+        # save_quantized_as_gguf('./tmp', model=model.cpu(), tokenizer=tokenizer)
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -633,8 +789,8 @@ def quantize_llm(args, extra_args=None):
         if args.export_target:
             print(f"Export to {args.export_target}")
             # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
-            model = model.to(dtype=torch.float32)
-            model_export(model, calibration_loader[0], args)
+            # model = model.to(dtype=torch.float32)
+            model_export(model, calibration_loader[0], args, config)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 
