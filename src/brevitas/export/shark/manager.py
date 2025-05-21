@@ -191,8 +191,12 @@ class SharkManager(BaseManager):
                 prefix = k
                 suffix = ''
             new_k = gguf_model.map_tensor_name(prefix)
-            v.name = new_k + suffix
+            if new_k is None:
+                raise
+            # v.name = new_k + suffix
             updated_theta[new_k + suffix] = v
-        ds = Dataset(self.config, Theta(updated_theta))
+        theta = Theta(updated_theta)
+        theta.rename_tensors_to_paths()
+        ds = Dataset(self.config, theta)
         ds.save('test_dataset.irpa', io_report_callback=None)
         return ds
