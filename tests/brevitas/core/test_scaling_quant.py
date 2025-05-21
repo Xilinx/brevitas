@@ -9,7 +9,6 @@ from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 from brevitas.inject.enum import ScalingPerOutputType
 import brevitas.nn as qnn
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
-from brevitas.quant.base import FloatRestrictValue
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
@@ -51,7 +50,6 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
         return scaling
 
 
-from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
 
 
 class QuantZPInt(Int8WeightPerTensorFloat):
