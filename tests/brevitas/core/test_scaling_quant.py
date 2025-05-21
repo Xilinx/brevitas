@@ -22,8 +22,7 @@ SCALE_BIT_WIDTH = 6
 class QuantScalingInt(Int8WeightPerTensorFloat):
     bit_width = SCALE_BIT_WIDTH
     module = (this << 1).module
-    tracked_parameter_list = (this << 1).tracked_parameter_list
-    upstream_scaling = (this << 1).scaling_per_output_type
+
     rescaling_int_quant = RescalingIntQuant
     group_size = 8
     scaling_per_output_type = ScalingPerOutputType.GROUP
@@ -54,8 +53,7 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
 
 class QuantZPInt(Int8WeightPerTensorFloat):
     module = (this << 1).module
-    tracked_parameter_list = (this << 1).tracked_parameter_list
-    upstream_scaling = (this << 1).scaling_per_output_type
+
     rescaling_int_quant = RescalingIntQuant
     restrict_threshold_impl = FloatRestrictValue
     bit_width = ZP_BIT_WIDTH
