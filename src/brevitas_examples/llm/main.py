@@ -561,11 +561,6 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
-        if args.eval_dtype is not None:
-            remove_hooks(model)
-            model = model.to(dtype=getattr(torch, args.eval_dtype))
-            model = offload_model(model)
-
         if args.eval and not args.no_quantize:
 
             print("Model eval...")
