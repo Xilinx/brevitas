@@ -50,8 +50,6 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
         return scaling
 
 
-
-
 class QuantZPInt(Int8WeightPerTensorFloat):
     module = (this << 1).module
     tracked_parameter_list = (this << 1).tracked_parameter_list
