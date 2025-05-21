@@ -2,7 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import functools
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Union
 
 from accelerate.utils.operations import send_to_device
 import torch

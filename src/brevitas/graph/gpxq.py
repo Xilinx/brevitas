@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
 from operator import attrgetter
-from typing import List, Optional, Set
+from typing import List
+from typing import Optional
+from typing import Set
 import warnings
 
 import torch

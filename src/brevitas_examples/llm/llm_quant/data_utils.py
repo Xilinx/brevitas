@@ -25,7 +25,11 @@ SOFTWARE.
 """
 
 import random
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import Union
 import warnings
 
 import numpy as np

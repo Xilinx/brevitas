@@ -4,7 +4,8 @@
 from abc import ABC
 from abc import abstractmethod
 from io import BytesIO
-from typing import Tuple, Union
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn

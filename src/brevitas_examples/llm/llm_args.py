@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-from typing import List, Optional
+from typing import List
+from typing import Optional
 from warnings import warn
 
 from brevitas_examples.common.parse_utils import quant_format_validator

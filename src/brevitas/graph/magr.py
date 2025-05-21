@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-from typing import List, Optional
+from typing import List
+from typing import Optional
 
 import torch
 import torch.nn as nn

@@ -4,7 +4,8 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 # yapf: disable
-from typing import List, Tuple
+from typing import List
+from typing import Tuple
 
 import torch
 import torch.utils.cpp_extension

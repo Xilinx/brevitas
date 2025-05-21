@@ -26,7 +26,10 @@ SOFTWARE.
 
 from functools import partial
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
 import warnings
 
 from datasets import Dataset

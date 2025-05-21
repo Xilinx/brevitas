@@ -5,7 +5,9 @@ from abc import ABCMeta
 from abc import abstractmethod
 from functools import partial
 import math
-from typing import List, Optional, Tuple
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import torch
 from torch import nn
