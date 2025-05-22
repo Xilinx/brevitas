@@ -16,17 +16,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gguf
 import numpy as np
 
 QK_K = 256
 K_SCALE_SIZE = 12
 GGML_QUANT_SIZES = {
-    "bf16": (1, 2),
-    "q4_0": (32, 2 + 16),
-    "q4_1": (32, 2 + 2 + 16),
-    "q4_k": (256, 2 + 2 + QK_K // 2 + 12),
-    "q2_k": (256, 2 + 2 + QK_K // 16 + QK_K // 4),
-    "q8_0": (32, 2 + 32)}
+    gguf.GGMLQuantizationType.BF16: (1, 2),
+    gguf.GGMLQuantizationType.Q4_0: (32, 2 + 16),
+    gguf.GGMLQuantizationType.Q4_1: (32, 2 + 2 + 16),
+    gguf.GGMLQuantizationType.Q4_K: (256, 2 + 2 + QK_K // 2 + 12),
+    # "q2_k": (256, 2 + 2 + QK_K // 16 + QK_K // 4),
+    gguf.GGMLQuantizationType.Q8_0: (32, 2 + 32)}
 
 GGML_QUANT_BLOCK = {}
 
@@ -49,10 +50,9 @@ def ggml_quant(
     wmin_m = wmin_m.detach().numpy() if isinstance(wmin_m, torch.Tensor) else wmin_m
     d_scale = d_scale.detach().numpy() if isinstance(d_scale, torch.Tensor) else d_scale
     d_wmin_m = d_wmin_m.detach().numpy() if isinstance(d_wmin_m, torch.Tensor) else d_wmin_m
-
     block_size, type_size = GGML_QUANT_SIZES[ggml_type]
 
-    data = data.astype(np.float32, copy=False)
+    # data = data.astype(np.float32, copy=False)
     shape = data.shape
     n_blocks = data.size // block_size
     blocks = data.reshape((n_blocks, block_size))
@@ -86,18 +86,18 @@ def ggml_quant(
     #         new_data = np.array(list(result), dtype=np.uint8)
     # else:
     quant_func = GGML_QUANT_BLOCK[ggml_type]
-    if ggml_type.endswith("_k"):
+    if ggml_type == gguf.gguf.GGMLQuantizationType.Q4_K:
         new_data = quant_func(blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
     else:
         new_data = quant_func(blocks, scale, zp)
 
-    assert new_data.dtype == np.uint8
-    assert new_data.shape[-1] == type_size
+    assert new_data.dtype == np.uint8, "No uint8"
+    assert new_data.shape[-1] == type_size, "No correct shape"
     new_data = new_data.reshape(*shape[:-1], shape[-1] // block_size * type_size)
     return new_data
 
 
-@register_block("bf16")
+@register_block(gguf.GGMLQuantizationType.BF16)
 def bf16_quant_block(blocks: np.array, scale=None, zp=None):
     n = blocks.view(np.uint32)
     # force nan to quiet
@@ -108,7 +108,7 @@ def bf16_quant_block(blocks: np.array, scale=None, zp=None):
     return n.astype(np.uint16).view(np.uint8)
 
 
-@register_block("q4_0")
+@register_block(gguf.GGMLQuantizationType.Q4_0)
 def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
     if scale is not None:
         d = scale.reshape((-1, 1))
@@ -118,16 +118,16 @@ def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
         d = max / -8
 
     n_blocks = blocks.shape[0]
-    block_size = GGML_QUANT_SIZES["q4_0"][0]
+    block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_0][0]
+    blocks = (blocks.astype(np.float32) + np.float32(8)).astype(np.uint8).clip(0, 15)
     blocks = blocks.reshape((n_blocks, 2, block_size // 2))
     blocks = blocks[..., 0, :] | (blocks[..., 1, :] << np.uint8(4))
-
     d = d.astype(np.float16).view(np.uint8)
 
     return np.concatenate([d, blocks], axis=-1)
 
 
-@register_block("q4_1")
+@register_block(gguf.GGMLQuantizationType.Q4_1)
 def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
     if scale is not None:
         d = scale.reshape((-1, 1))
@@ -140,16 +140,16 @@ def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
         id = np.where(d == 0, 0, 1 / d)
 
     n_blocks = blocks.shape[0]
-    block_size = GGML_QUANT_SIZES["q4_1"][0]
+    block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_1][0]
     blocks = blocks.reshape((n_blocks, 2, block_size // 2))
     blocks = blocks[..., 0, :] | (blocks[..., 1, :] << np.uint8(4))
 
     d = d.astype(np.float16).view(np.uint8)
     m = min.astype(np.float16).view(np.uint8)
-    return np.concatenate([d, m, qs], axis=-1)
+    return np.concatenate([d, m, blocks], axis=-1)
 
 
-@register_block("q8_0")
+@register_block(gguf.GGMLQuantizationType.Q8_0)
 def q8_0_quant_block(blocks: np.array, scale=None, zp=None) -> np.ndarray:
     if scale is not None:
         d = scale.reshape((-1, 1))
@@ -166,7 +166,7 @@ def q8_0_quant_block(blocks: np.array, scale=None, zp=None) -> np.ndarray:
     return np.concatenate([d, blocks], axis=1)
 
 
-@register_block("q4_k")
+@register_block(gguf.GGMLQuantizationType.Q4_K)
 def q4_k_quant_block(
         blocks: np.array, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
     nb = blocks.shape[0]

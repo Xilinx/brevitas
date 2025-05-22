@@ -318,46 +318,43 @@ class ModelBase:
                 if hasattr(module, "weight_quant") and module.weight_quant.is_quant_enabled:
                     quant_weight = module.quant_weight()
                     weight_quant = module.weight_quant
-
+                    quant_data = quant_weight.int()
                     scale = quant_weight.scale_ if hasattr(
                         quant_weight, 'scale_') else quant_weight.scale
-
-                    # if isinstance(scale, torch.Tensor):
-                    #     scale = scale.numpy()
-                    # if isinstance(zp, torch.Tensor):
-                    #     zp = zp.numpy()
-                    quant_data = quant_weight.int()
-
-                    quant_scale_module = None
-
-                    for m in weight_quant.modules():
-                        if isinstance(m, QuantRestrictValue):
-                            quant_scale_module = m
-                            break
-                    quant_scale, scale_scale, zp, bit_width = quant_scale_module.float_to_int_impl(scale)
-                    scale = quant_scale
-
-                    quant_zero_point_module = None
                     zp = quant_weight.zero_point_ if hasattr(
                         quant_weight, 'zero_point_') else quant_weight.zero_point
+                    if data_qtype == gguf.GGMLQuantizationType.Q4_K:
 
-                    for m in weight_quant.modules():
-                        if isinstance(m, _ScaleShiftQuantZeroPoint):
-                            quant_zero_point_module = m
-                            break
-                    quant_zero_point, scale_zp, _, bit_width = quant_zero_point_module.zp_int_quant(zp)
-                    zp = quant_zero_point
-                    data = ggml_quant(
-                        quant_data,
-                        gguf.GGMLQuantizationType.Q4_K.name.lower(),
-                        scale,
-                        zp,
-                        wmin_m=zp,
-                        d_scale=scale_scale,
-                        d_wmin_m=scale_zp)
+                        quant_scale_module = None
+
+                        for m in weight_quant.modules():
+                            if isinstance(m, QuantRestrictValue):
+                                quant_scale_module = m
+                                break
+                        quant_scale, scale_scale, *_ = quant_scale_module.float_to_int_impl(scale)
+                        orig_scale = scale
+                        scale = quant_scale
+
+                        quant_zero_point_module = None
+
+                        for m in weight_quant.modules():
+                            if isinstance(m, _ScaleShiftQuantZeroPoint):
+                                quant_zero_point_module = m
+                                break
+                        quant_zero_point, scale_zp, *_= quant_zero_point_module.zp_int_quant(zp * orig_scale)
+                        zp = quant_zero_point
+                        data = ggml_quant(
+                            quant_data,
+                            data_qtype,
+                            scale,
+                            zp,
+                            wmin_m=zp,
+                            d_scale=scale_scale,
+                            d_wmin_m=scale_zp)
+
+                    else:
+                        data = ggml_quant(quant_data, data_qtype, scale, zp)
                 else:
-                    print(module)
-                    print("No quant?")
                     data_qtype = gguf.GGMLQuantizationType.F32
             except Exception as e:
                 print(e)
@@ -455,7 +452,6 @@ class ModelBase:
 
     def prepare_tensors(self):
         max_name_len = max(len(s) for _, s in self.tensor_map.mapping.values()) + len(".weight,")
-        print("preparing")
         for name, data_torch in chain(self.generate_extra_tensors(), self.get_tensor_from_model()):
             # we don't need these
             if name.endswith(
@@ -484,7 +480,6 @@ class ModelBase:
                     f"{f'%-{max_name_len}s' % f'{new_name},'} {old_dtype} --> {data_qtype.name}, shape = {shape_str}"
                 )
 
-                print(new_name, data_qtype)
                 self.gguf_writer.add_tensor(new_name, data, raw_dtype=data_qtype)
 
     def set_type(self):

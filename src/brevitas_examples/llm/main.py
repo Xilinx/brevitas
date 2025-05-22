@@ -154,7 +154,8 @@ def model_export(model, ref_input, args):
     elif args.export_target == 'torch_qcdq':
         export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
     elif 'gguf' in args.export_target:
-        save_quantized_as_gguf('.', model=model.cpu(), backend=args.export_target)
+        save_quantized_as_gguf(
+            '.', model=model.cpu(), backend=args.export_target, tokenizer=tokenizer)
 
 
 def fx_required(args):
@@ -640,7 +641,7 @@ def quantize_llm(args, extra_args=None):
             print(f"Export to {args.export_target}")
             # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
-            model_export(model, calibration_loader[0], args)
+            model_export(model, tokenizer, calibration_loader[0], args)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 

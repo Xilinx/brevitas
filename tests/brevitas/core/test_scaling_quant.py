@@ -27,6 +27,7 @@ class QuantScalingInt(Int8WeightPerTensorFloat):
     group_size = 8
     scaling_per_output_type = ScalingPerOutputType.GROUP
     upstream_scaling_shape = (this << 1).scaling_shape
+    signed = False
 
     @value
     def tracked_parameter_list(upstream_scaling_shape):
@@ -61,6 +62,7 @@ class QuantZPInt(Int8WeightPerTensorFloat):
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = 8
     upstream_zero_point_shape = (this << 1).zero_point_shape
+    signed = False
 
     @value
     def tracked_parameter_list(upstream_zero_point_shape):
@@ -146,11 +148,13 @@ def test_quant_scale():
             quant_scale_module = m
             break
     quant_scale, scale_scale, zp, bit_width = quant_scale_module.float_to_int_impl(scale)
+    orig_scale = scale
     scale = quant_scale
 
     quant_zero_point_module = None
     zp = quant_weight.zero_point_ if hasattr(
         quant_weight, 'zero_point_') else quant_weight.zero_point
+    zp = zp * orig_scale
 
     for m in weight_quant.modules():
         if isinstance(m, _ScaleShiftQuantZeroPoint):
@@ -158,11 +162,17 @@ def test_quant_scale():
             break
     quant_zero_point, scale_zp, _, bit_width = quant_zero_point_module.zp_int_quant(zp)
     zp = quant_zero_point
+
+    quant_data = quant_data.cpu().numpy()
+    n_blocks = quant_data.size // 256
+    quant_data = quant_data.reshape((n_blocks, 256))
     data = ggml_quant(
         quant_data,
-        gguf.GGMLQuantizationType.Q4_K.name.lower(),
+        gguf.GGMLQuantizationType.Q4_K,
         scale,
         zp,
         wmin_m=zp,
         d_scale=scale_scale,
         d_wmin_m=scale_zp)
+    print(quant_weight.value)
+    print(Q4_K.dequantize_blocks(data))
