@@ -315,6 +315,10 @@ def create_llm_args_parser():
             None,
             'onnx_qcdq',
             'torch_qcdq',
+            'gguf:q8_0',
+            'gguf:q4_0',
+            'gguf:q4_1',
+            'gguf:q4_k_s',
             'sharded_torchmlir_group_weight',
             'sharded_packed_torchmlir_group_weight'],
         help='Model export.')
