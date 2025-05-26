@@ -23,13 +23,19 @@ sys.path.insert(0, os.path.abspath(brevitas.__file__))
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
-copyright = '2023 - Advanced Micro Devices, Inc.'
-author = 'Alessandro Pappalardo'
+copyright = '2025 - Advanced Micro Devices, Inc.'
+author = 'AMD Research and Advanced Development'
 
 # The full version, including alpha/beta/rc tags
 release = brevitas.__version__
 
 
+current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
+
+if current_version is not None and 'dev' in current_version:
+    current_version = 'dev'
+
+print(current_version)
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -47,6 +53,7 @@ extensions = [
     'nbsphinx_link',
     'sphinx_gallery.load_style',
     "sphinx.ext.githubpages",
+    "sphinx_multiversion",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -77,7 +84,12 @@ html_theme_options = {
    "logo": {
       "image_light": "brevitas_logo_black.svg",
       "image_dark": "brevitas_logo_white.svg",
-   }
+   },
+    "switcher": {
+        "json_url": "xilinx.github.io/brevitas/dev/_static/versions.json",
+        "version_match": current_version,
+    },
+    "footer_end": ["version-switcher"]
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -95,3 +107,12 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "torch": ("https://pytorch.org/docs/main/", None),
 }
+
+smv_tag_whitelist = r'^v\d+\.\d+\.\d$'                  # Include all tags
+
+# smv_branch_whitelist = r'^.*$'                # Include all branches
+smv_branch_whitelist = r'^dev$'      # Include all branches except "master"
+
+smv_remote_whitelist = None                   # Only use local branches
+# smv_remote_whitelist = r'^.*$'                # Use branches from all remotes
+# smv_remote_whitelist = r'^(origin|upstream)$' # Use branches from origin and upstream

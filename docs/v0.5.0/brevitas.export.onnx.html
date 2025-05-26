@@ -1,0 +1,864 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>brevitas.export.onnx package &#8212; Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'brevitas.export.onnx';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.5.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>
+    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.core.html">brevitas.core package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html">brevitas.core.bit_width package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html">brevitas.core.function_wrapper package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html">brevitas.core.quant package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html">brevitas.core.scaling package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html">brevitas.core.stats package</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="brevitas.export.html">brevitas.export package</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.common.html">brevitas.export.common package</a></li>
+<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">brevitas.export.onnx package</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.finn.html">brevitas.export.onnx.finn package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html">brevitas.export.onnx.finn.function package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html">brevitas.export.onnx.finn.handler package</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.generic.html">brevitas.export.onnx.generic package</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.pyxir.html">brevitas.export.onnx.pyxir package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html">brevitas.export.onnx.pyxir.dpuv1 package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html">brevitas.export.onnx.pyxir.dpuv2 package</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.standard.html">brevitas.export.onnx.standard package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html">brevitas.export.onnx.standard.handler package</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.export.pytorch.html">brevitas.export.pytorch package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.pytorch.handler.html">brevitas.export.pytorch.handler package</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.xir.html">brevitas.export.xir package</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.function.html">brevitas.function package</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.graph.html">brevitas.graph package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.graph.tracer.html">brevitas.graph.tracer package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.backport.html">brevitas.graph.tracer.backport package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html">brevitas.graph.tracer.wrapper package</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.loss.html">brevitas.loss package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.onnx.html">brevitas.onnx package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.quant.html">brevitas.quant package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.utils.html">brevitas.utils package</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">brevitas.exp...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="brevitas-export-onnx-package">
+<h1>brevitas.export.onnx package<a class="headerlink" href="#brevitas-export-onnx-package" title="Permalink to this heading">#</a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.export.onnx.finn.html">brevitas.export.onnx.finn package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.finn.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.finn.function.html">brevitas.export.onnx.finn.function package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html#brevitas-export-onnx-finn-function-acc-module">brevitas.export.onnx.finn.function.acc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html#brevitas-export-onnx-finn-function-act-module">brevitas.export.onnx.finn.function.act module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html#brevitas-export-onnx-finn-function-parameter-module">brevitas.export.onnx.finn.function.parameter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html">brevitas.export.onnx.finn.handler package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html#brevitas-export-onnx-finn-handler-acc-module">brevitas.export.onnx.finn.handler.acc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html#brevitas-export-onnx-finn-handler-act-module">brevitas.export.onnx.finn.handler.act module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html#brevitas-export-onnx-finn-handler-base-module">brevitas.export.onnx.finn.handler.base module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html#brevitas-export-onnx-finn-handler-parameter-module">brevitas.export.onnx.finn.handler.parameter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.finn.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.finn.html#brevitas-export-onnx-finn-manager-module">brevitas.export.onnx.finn.manager module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.finn.html#brevitas-export-onnx-finn-transform-module">brevitas.export.onnx.finn.transform module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.finn.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.export.onnx.generic.html">brevitas.export.onnx.generic package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.generic.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.export.onnx.pyxir.html">brevitas.export.onnx.pyxir package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.pyxir.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html">brevitas.export.onnx.pyxir.dpuv1 package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html#brevitas-export-onnx-pyxir-dpuv1-function-module">brevitas.export.onnx.pyxir.dpuv1.function module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html#brevitas-export-onnx-pyxir-dpuv1-handler-module">brevitas.export.onnx.pyxir.dpuv1.handler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html#brevitas-export-onnx-pyxir-dpuv1-manager-module">brevitas.export.onnx.pyxir.dpuv1.manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html">brevitas.export.onnx.pyxir.dpuv2 package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html#brevitas-export-onnx-pyxir-dpuv2-function-module">brevitas.export.onnx.pyxir.dpuv2.function module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html#brevitas-export-onnx-pyxir-dpuv2-handler-module">brevitas.export.onnx.pyxir.dpuv2.handler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html#brevitas-export-onnx-pyxir-dpuv2-manager-module">brevitas.export.onnx.pyxir.dpuv2.manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.pyxir.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.pyxir.html#brevitas-export-onnx-pyxir-function-module">brevitas.export.onnx.pyxir.function module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.pyxir.html#brevitas-export-onnx-pyxir-handler-module">brevitas.export.onnx.pyxir.handler module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.pyxir.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.export.onnx.standard.html">brevitas.export.onnx.standard package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.standard.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html">brevitas.export.onnx.standard.handler package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html#brevitas-export-onnx-standard-handler-act-module">brevitas.export.onnx.standard.handler.act module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html#brevitas-export-onnx-standard-handler-base-module">brevitas.export.onnx.standard.handler.base module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html#brevitas-export-onnx-standard-handler-parameter-module">brevitas.export.onnx.standard.handler.parameter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html#brevitas-export-onnx-standard-handler-pool-module">brevitas.export.onnx.standard.handler.pool module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.standard.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.standard.html#module-brevitas.export.onnx.standard.function">brevitas.export.onnx.standard.function module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.CastFn"><code class="docutils literal notranslate"><span class="pre">CastFn</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.CastFn.forward"><code class="docutils literal notranslate"><span class="pre">CastFn.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.CastFn.symbolic"><code class="docutils literal notranslate"><span class="pre">CastFn.symbolic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.DequantizeLinearFn"><code class="docutils literal notranslate"><span class="pre">DequantizeLinearFn</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.DequantizeLinearFn.forward"><code class="docutils literal notranslate"><span class="pre">DequantizeLinearFn.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.DequantizeLinearFn.symbolic"><code class="docutils literal notranslate"><span class="pre">DequantizeLinearFn.symbolic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.DynamicQuantizeLinearFn"><code class="docutils literal notranslate"><span class="pre">DynamicQuantizeLinearFn</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.DynamicQuantizeLinearFn.forward"><code class="docutils literal notranslate"><span class="pre">DynamicQuantizeLinearFn.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.DynamicQuantizeLinearFn.symbolic"><code class="docutils literal notranslate"><span class="pre">DynamicQuantizeLinearFn.symbolic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.IntClipFn"><code class="docutils literal notranslate"><span class="pre">IntClipFn</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.IntClipFn.forward"><code class="docutils literal notranslate"><span class="pre">IntClipFn.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.IntClipFn.symbolic"><code class="docutils literal notranslate"><span class="pre">IntClipFn.symbolic()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.QuantizeLinearFn"><code class="docutils literal notranslate"><span class="pre">QuantizeLinearFn</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.QuantizeLinearFn.forward"><code class="docutils literal notranslate"><span class="pre">QuantizeLinearFn.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.function.QuantizeLinearFn.symbolic"><code class="docutils literal notranslate"><span class="pre">QuantizeLinearFn.symbolic()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.standard.html#module-brevitas.export.onnx.standard.manager">brevitas.export.onnx.standard.manager module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.manager.StdONNXBaseManager"><code class="docutils literal notranslate"><span class="pre">StdONNXBaseManager</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.manager.StdONNXBaseManager.export_onnx"><code class="docutils literal notranslate"><span class="pre">StdONNXBaseManager.export_onnx()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.manager.StdONNXBaseManager.solve_enable_onnx_checker"><code class="docutils literal notranslate"><span class="pre">StdONNXBaseManager.solve_enable_onnx_checker()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.html#brevitas.export.onnx.standard.manager.StdONNXBaseManager.solve_onnx_opset"><code class="docutils literal notranslate"><span class="pre">StdONNXBaseManager.solve_onnx_opset()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.onnx.standard.html#module-brevitas.export.onnx.standard">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="brevitas-export-onnx-base-module">
+<h2>brevitas.export.onnx.base module<a class="headerlink" href="#brevitas-export-onnx-base-module" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="module-brevitas.export.onnx.debug">
+<span id="brevitas-export-onnx-debug-module"></span><h2>brevitas.export.onnx.debug module<a class="headerlink" href="#module-brevitas.export.onnx.debug" title="Permalink to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.DebugMarkerFunction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.debug.</span></span><span class="sig-name descname"><span class="pre">DebugMarkerFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#DebugMarkerFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.DebugMarkerFunction" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/main/autograd.html#torch.autograd.Function" title="(in PyTorch vmain (2.8.0a0+gitb04852e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.DebugMarkerFunction.forward">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ctx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">export_debug_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#DebugMarkerFunction.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.DebugMarkerFunction.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the forward of the custom autograd Function.</p>
+<p>This function is to be overridden by all subclasses.
+There are two ways to define forward:</p>
+<p>Usage 1 (Combined forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p></li>
+<li><p>See <a class="reference external" href="https://docs.pytorch.org/docs/main/notes/extending.html#combining-forward-context" title="(in PyTorch vmain (2.8.0a0+gitb04852e ))"><span>Combined or separate forward() and setup_context()</span></a> for more details</p></li>
+</ul>
+<p>Usage 2 (Separate forward and ctx):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+<span class="nd">@staticmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_context</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The forward no longer accepts a ctx argument.</p></li>
+<li><p>Instead, you must also override the <code class="xref py py-meth docutils literal notranslate"><span class="pre">torch.autograd.Function.setup_context()</span></code>
+staticmethod to handle setting up the <code class="docutils literal notranslate"><span class="pre">ctx</span></code> object.
+<code class="docutils literal notranslate"><span class="pre">output</span></code> is the output of the forward, <code class="docutils literal notranslate"><span class="pre">inputs</span></code> are a Tuple of inputs
+to the forward.</p></li>
+<li><p>See <a class="reference external" href="https://docs.pytorch.org/docs/main/notes/extending.html#extending-autograd" title="(in PyTorch vmain (2.8.0a0+gitb04852e ))"><span>Extending torch.autograd</span></a> for more details</p></li>
+</ul>
+<p>The context can be used to store arbitrary data that can be then
+retrieved during the backward pass. Tensors should not be stored
+directly on <cite>ctx</cite> (though this is not currently enforced for
+backward compatibility). Instead, tensors should be saved either with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_backward()</span></code> if they are intended to be used in
+<code class="docutils literal notranslate"><span class="pre">backward</span></code> (equivalently, <code class="docutils literal notranslate"><span class="pre">vjp</span></code>) or <code class="xref py py-func docutils literal notranslate"><span class="pre">ctx.save_for_forward()</span></code>
+if they are intended to be used for in <code class="docutils literal notranslate"><span class="pre">jvp</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.DebugMarkerFunction.symbolic">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">symbolic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">export_debug_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#DebugMarkerFunction.symbolic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.DebugMarkerFunction.symbolic" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.ONNXDebugHook">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.debug.</span></span><span class="sig-name descname"><span class="pre">ONNXDebugHook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_enabled</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_enabled</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#ONNXDebugHook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.ONNXDebugHook" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.ONNXDebugHook.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#ONNXDebugHook.clear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.ONNXDebugHook.clear" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.ONNXDebugHook.unpack">
+<span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#ONNXDebugHook.unpack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.ONNXDebugHook.unpack" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.export.onnx.debug.enable_debug">
+<span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.debug.</span></span><span class="sig-name descname"><span class="pre">enable_debug</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">proxy_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/debug.html#enable_debug"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.debug.enable_debug" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-brevitas.export.onnx.handler">
+<span id="brevitas-export-onnx-handler-module"></span><h2>brevitas.export.onnx.handler module<a class="headerlink" href="#module-brevitas.export.onnx.handler" title="Permalink to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel1dApplHandlerMixin">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.handler.</span></span><span class="sig-name descname"><span class="pre">Kernel1dApplHandlerMixin</span></span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel1dApplHandlerMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.dilation">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dilation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel1dApplHandlerMixin.dilation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.dilation" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.kernel_shape">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel1dApplHandlerMixin.kernel_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.kernel_shape" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.padding">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">padding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel1dApplHandlerMixin.padding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.padding" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.stride">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stride</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel1dApplHandlerMixin.stride"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.stride" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel2dApplHandlerMixin">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.handler.</span></span><span class="sig-name descname"><span class="pre">Kernel2dApplHandlerMixin</span></span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel2dApplHandlerMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.dilation">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dilation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel2dApplHandlerMixin.dilation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.dilation" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.kernel_shape">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">kernel_shape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel2dApplHandlerMixin.kernel_shape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.kernel_shape" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.padding">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">padding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel2dApplHandlerMixin.padding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.padding" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.stride">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stride</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#Kernel2dApplHandlerMixin.stride"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.stride" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.ONNXBaseHandler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.handler.</span></span><span class="sig-name descname"><span class="pre">ONNXBaseHandler</span></span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#ONNXBaseHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.ONNXBaseHandler" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseHandler</span></code>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.ONNXBaseHandler.attach_debug_info">
+<span class="sig-name descname"><span class="pre">attach_debug_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#ONNXBaseHandler.attach_debug_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.ONNXBaseHandler.attach_debug_info" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.ONNXBaseHandler.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inp</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#ONNXBaseHandler.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.ONNXBaseHandler.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.ONNXBaseHandler.symbolic_execution">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">symbolic_execution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#ONNXBaseHandler.symbolic_execution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.ONNXBaseHandler.symbolic_execution" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.QuantLSTMLayerHandler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.handler.</span></span><span class="sig-name descname"><span class="pre">QuantLSTMLayerHandler</span></span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#QuantLSTMLayerHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.export.onnx.handler.ONNXBaseHandler" title="brevitas.export.onnx.handler.ONNXBaseHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">ONNXBaseHandler</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.QuantLSTMLayerHandler.handled_layer">
+<span class="sig-name descname"><span class="pre">handled_layer</span></span><a class="headerlink" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.handled_layer" title="Permalink to this definition">#</a></dt>
+<dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">_QuantLSTMLayer</span></code></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.QuantLSTMLayerHandler.prepare_for_export">
+<span class="sig-name descname"><span class="pre">prepare_for_export</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#QuantLSTMLayerHandler.prepare_for_export"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.prepare_for_export" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.QuantLSTMLayerHandler.quantized_cell_symbolic_execution">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">quantized_cell_symbolic_execution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quant_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_hidden_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_cell_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_ii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_if</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_ic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_io</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_hi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_hf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_hc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_ho</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_forget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#QuantLSTMLayerHandler.quantized_cell_symbolic_execution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.quantized_cell_symbolic_execution" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.export.onnx.handler.QuantLSTMLayerHandler.symbolic_execution">
+<span class="sig-name descname"><span class="pre">symbolic_execution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quant_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_hidden_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_cell_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_ii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_if</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_ic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_io</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_hi</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_hf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_hc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_weight_ho</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_input</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_forget</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_cell</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_bias_output</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx/handler.html#QuantLSTMLayerHandler.symbolic_execution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.symbolic_execution" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="brevitas-export-onnx-transform-module">
+<h2>brevitas.export.onnx.transform module<a class="headerlink" href="#brevitas-export-onnx-transform-module" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="module-brevitas.export.onnx">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas.export.onnx" title="Permalink to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.export.onnx.onnx_export_opset">
+<span class="sig-prename descclassname"><span class="pre">brevitas.export.onnx.</span></span><span class="sig-name descname"><span class="pre">onnx_export_opset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/export/onnx.html#onnx_export_opset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.export.onnx.onnx_export_opset" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas-export-onnx-base-module">brevitas.export.onnx.base module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.export.onnx.debug">brevitas.export.onnx.debug module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.DebugMarkerFunction"><code class="docutils literal notranslate"><span class="pre">DebugMarkerFunction</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.DebugMarkerFunction.forward"><code class="docutils literal notranslate"><span class="pre">DebugMarkerFunction.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.DebugMarkerFunction.symbolic"><code class="docutils literal notranslate"><span class="pre">DebugMarkerFunction.symbolic()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.ONNXDebugHook"><code class="docutils literal notranslate"><span class="pre">ONNXDebugHook</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.ONNXDebugHook.clear"><code class="docutils literal notranslate"><span class="pre">ONNXDebugHook.clear()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.ONNXDebugHook.unpack"><code class="docutils literal notranslate"><span class="pre">ONNXDebugHook.unpack()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.debug.enable_debug"><code class="docutils literal notranslate"><span class="pre">enable_debug()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.export.onnx.handler">brevitas.export.onnx.handler module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin"><code class="docutils literal notranslate"><span class="pre">Kernel1dApplHandlerMixin</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.dilation"><code class="docutils literal notranslate"><span class="pre">Kernel1dApplHandlerMixin.dilation()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.kernel_shape"><code class="docutils literal notranslate"><span class="pre">Kernel1dApplHandlerMixin.kernel_shape()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.padding"><code class="docutils literal notranslate"><span class="pre">Kernel1dApplHandlerMixin.padding()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel1dApplHandlerMixin.stride"><code class="docutils literal notranslate"><span class="pre">Kernel1dApplHandlerMixin.stride()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin"><code class="docutils literal notranslate"><span class="pre">Kernel2dApplHandlerMixin</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.dilation"><code class="docutils literal notranslate"><span class="pre">Kernel2dApplHandlerMixin.dilation()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.kernel_shape"><code class="docutils literal notranslate"><span class="pre">Kernel2dApplHandlerMixin.kernel_shape()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.padding"><code class="docutils literal notranslate"><span class="pre">Kernel2dApplHandlerMixin.padding()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.Kernel2dApplHandlerMixin.stride"><code class="docutils literal notranslate"><span class="pre">Kernel2dApplHandlerMixin.stride()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.ONNXBaseHandler"><code class="docutils literal notranslate"><span class="pre">ONNXBaseHandler</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.ONNXBaseHandler.attach_debug_info"><code class="docutils literal notranslate"><span class="pre">ONNXBaseHandler.attach_debug_info()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.ONNXBaseHandler.forward"><code class="docutils literal notranslate"><span class="pre">ONNXBaseHandler.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.ONNXBaseHandler.symbolic_execution"><code class="docutils literal notranslate"><span class="pre">ONNXBaseHandler.symbolic_execution()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler"><code class="docutils literal notranslate"><span class="pre">QuantLSTMLayerHandler</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.handled_layer"><code class="docutils literal notranslate"><span class="pre">QuantLSTMLayerHandler.handled_layer</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.prepare_for_export"><code class="docutils literal notranslate"><span class="pre">QuantLSTMLayerHandler.prepare_for_export()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.quantized_cell_symbolic_execution"><code class="docutils literal notranslate"><span class="pre">QuantLSTMLayerHandler.quantized_cell_symbolic_execution()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.handler.QuantLSTMLayerHandler.symbolic_execution"><code class="docutils literal notranslate"><span class="pre">QuantLSTMLayerHandler.symbolic_execution()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas-export-onnx-transform-module">brevitas.export.onnx.transform module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.export.onnx">Module contents</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.export.onnx.onnx_export_opset"><code class="docutils literal notranslate"><span class="pre">onnx_export_opset()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="_sources/brevitas.export.onnx.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
