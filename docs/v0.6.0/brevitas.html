@@ -1,0 +1,918 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>brevitas package &#8212; Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'brevitas';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.14.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://giuseppe5.github.io/brevitas/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.6.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>
+    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.core.html">brevitas.core package</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html">brevitas.core.bit_width package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html">brevitas.core.function_wrapper package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html">brevitas.core.quant package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html">brevitas.core.scaling package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html">brevitas.core.stats package</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.export.html">brevitas.export package</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.common.html">brevitas.export.common package</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.export.onnx.html">brevitas.export.onnx package</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.finn.html">brevitas.export.onnx.finn package</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html">brevitas.export.onnx.finn.function package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html">brevitas.export.onnx.finn.handler package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.generic.html">brevitas.export.onnx.generic package</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.pyxir.html">brevitas.export.onnx.pyxir package</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html">brevitas.export.onnx.pyxir.dpuv1 package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html">brevitas.export.onnx.pyxir.dpuv2 package</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.standard.html">brevitas.export.onnx.standard package</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html">brevitas.export.onnx.standard.handler package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.export.pytorch.html">brevitas.export.pytorch package</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.pytorch.handler.html">brevitas.export.pytorch.handler package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.xir.html">brevitas.export.xir package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.function.html">brevitas.function package</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.graph.html">brevitas.graph package</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.graph.tracer.html">brevitas.graph.tracer package</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.backport.html">brevitas.graph.tracer.backport package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html">brevitas.graph.tracer.wrapper package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.loss.html">brevitas.loss package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.onnx.html">brevitas.onnx package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.quant.html">brevitas.quant package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.utils.html">brevitas.utils package</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">brevitas package</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="brevitas-package">
+<h1>brevitas package<a class="headerlink" href="#brevitas-package" title="Permalink to this heading">#</a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.core.html">brevitas.core package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.bit_width.html">brevitas.core.bit_width package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.bit_width.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.bit_width.html#module-brevitas.core.bit_width.const">brevitas.core.bit_width.const module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.bit_width.html#module-brevitas.core.bit_width.parameter">brevitas.core.bit_width.parameter module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.bit_width.html#module-brevitas.core.bit_width">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html">brevitas.core.function_wrapper package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.clamp">brevitas.core.function_wrapper.clamp module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.misc">brevitas.core.function_wrapper.misc module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.ops_ste">brevitas.core.function_wrapper.ops_ste module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.shape">brevitas.core.function_wrapper.shape module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.quant.html">brevitas.core.quant package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.binary">brevitas.core.quant.binary module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.delay">brevitas.core.quant.delay module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.int">brevitas.core.quant.int module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.int_base">brevitas.core.quant.int_base module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.ternary">brevitas.core.quant.ternary module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.scaling.html">brevitas.core.scaling package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.int_scaling">brevitas.core.scaling.int_scaling module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.runtime">brevitas.core.scaling.runtime module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.standalone">brevitas.core.scaling.standalone module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.stats.html">brevitas.core.stats package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.stats_op">brevitas.core.stats.stats_op module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.stats_wrapper">brevitas.core.stats.stats_wrapper module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.view_wrapper">brevitas.core.stats.view_wrapper module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.html#module-brevitas.core.restrict_val">brevitas.core.restrict_val module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.restrict_init_float()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.restrict_init_inplace_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_module"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.restrict_init_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_tensor"><code class="docutils literal notranslate"><span class="pre">FloatRestrictValue.restrict_init_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.restrict_init_float()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.restrict_init_inplace_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_module"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.restrict_init_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.IntRestrictValue.restrict_init_tensor"><code class="docutils literal notranslate"><span class="pre">IntRestrictValue.restrict_init_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.restrict_init_float()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.restrict_init_inplace_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_module"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.restrict_init_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_tensor"><code class="docutils literal notranslate"><span class="pre">LogFloatRestrictValue.restrict_init_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.restrict_init_float()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.restrict_init_inplace_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_module"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.restrict_init_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_tensor"><code class="docutils literal notranslate"><span class="pre">PowerOfTwoRestrictValue.restrict_init_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.forward"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_float"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue.restrict_init_float()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_inplace_module"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue.restrict_init_inplace_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_module"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue.restrict_init_module()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.restrict_init_tensor"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue.restrict_init_tensor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.QuantRestrictValue.retrocompatibility_op"><code class="docutils literal notranslate"><span class="pre">QuantRestrictValue.retrocompatibility_op()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.html#module-brevitas.core.utils">brevitas.core.utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.ParameterWrapper"><code class="docutils literal notranslate"><span class="pre">ParameterWrapper</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.ParameterWrapper.forward"><code class="docutils literal notranslate"><span class="pre">ParameterWrapper.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.SingleArgStatelessBuffer"><code class="docutils literal notranslate"><span class="pre">SingleArgStatelessBuffer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.SingleArgStatelessBuffer.forward"><code class="docutils literal notranslate"><span class="pre">SingleArgStatelessBuffer.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.SliceTensor"><code class="docutils literal notranslate"><span class="pre">SliceTensor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.SliceTensor.eager_forward"><code class="docutils literal notranslate"><span class="pre">SliceTensor.eager_forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.SliceTensor.forward"><code class="docutils literal notranslate"><span class="pre">SliceTensor.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.StatelessBuffer"><code class="docutils literal notranslate"><span class="pre">StatelessBuffer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.StatelessBuffer.forward"><code class="docutils literal notranslate"><span class="pre">StatelessBuffer.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.StatelessBuffer.state_dict"><code class="docutils literal notranslate"><span class="pre">StatelessBuffer.state_dict()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.inplace_momentum_update"><code class="docutils literal notranslate"><span class="pre">inplace_momentum_update()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.inplace_tensor_add"><code class="docutils literal notranslate"><span class="pre">inplace_tensor_add()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.utils.inplace_tensor_mul"><code class="docutils literal notranslate"><span class="pre">inplace_tensor_mul()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.html#module-brevitas.core.zero_point">brevitas.core.zero_point module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint"><code class="docutils literal notranslate"><span class="pre">ParameterFromRuntimeZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">ParameterFromRuntimeZeroPoint.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.init_zp"><code class="docutils literal notranslate"><span class="pre">ParameterFromRuntimeZeroPoint.init_zp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.state_dict"><code class="docutils literal notranslate"><span class="pre">ParameterFromRuntimeZeroPoint.state_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.training_forward"><code class="docutils literal notranslate"><span class="pre">ParameterFromRuntimeZeroPoint.training_forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint"><code class="docutils literal notranslate"><span class="pre">ParameterFromStatsFromParameterZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">ParameterFromStatsFromParameterZeroPoint.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterFromStatsFromParameterZeroPoint.state_dict"><code class="docutils literal notranslate"><span class="pre">ParameterFromStatsFromParameterZeroPoint.state_dict()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterZeroPoint"><code class="docutils literal notranslate"><span class="pre">ParameterZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ParameterZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">ParameterZeroPoint.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.PreZeroCenterZeroPoint"><code class="docutils literal notranslate"><span class="pre">PreZeroCenterZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.PreZeroCenterZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">PreZeroCenterZeroPoint.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.PreZeroCenterZeroPoint.get_zero_center"><code class="docutils literal notranslate"><span class="pre">PreZeroCenterZeroPoint.get_zero_center()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.StatsFromParameterZeroPoint"><code class="docutils literal notranslate"><span class="pre">StatsFromParameterZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.StatsFromParameterZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">StatsFromParameterZeroPoint.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ZeroZeroPoint"><code class="docutils literal notranslate"><span class="pre">ZeroZeroPoint</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.html#brevitas.core.zero_point.ZeroZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">ZeroZeroPoint.forward()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.html#module-brevitas.core">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.export.html">brevitas.export package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.common.html">brevitas.export.common package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.common.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.common.html#module-brevitas.export.common.handler">brevitas.export.common.handler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.common.html#module-brevitas.export.common">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.html">brevitas.export.onnx package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#brevitas-export-onnx-base-module">brevitas.export.onnx.base module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#module-brevitas.export.onnx.debug">brevitas.export.onnx.debug module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#module-brevitas.export.onnx.handler">brevitas.export.onnx.handler module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#brevitas-export-onnx-transform-module">brevitas.export.onnx.transform module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.html#module-brevitas.export.onnx">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.pytorch.html">brevitas.export.pytorch package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.pytorch.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.pytorch.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.pytorch.html#brevitas-export-pytorch-manager-module">brevitas.export.pytorch.manager module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.pytorch.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.xir.html">brevitas.export.xir package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.xir.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.html#brevitas-export-base-module">brevitas.export.base module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.html#module-brevitas.export">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.function.html">brevitas.function package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.function.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.function.html#brevitas-function-autograd-ste-ops-module">brevitas.function.autograd_ste_ops module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.function.html#module-brevitas.function.ops">brevitas.function.ops module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.binary_sign"><code class="docutils literal notranslate"><span class="pre">binary_sign()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.compute_max_mantissa"><code class="docutils literal notranslate"><span class="pre">compute_max_mantissa()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.dpu_round"><code class="docutils literal notranslate"><span class="pre">dpu_round()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.get_upper_bound_on_l1_norm"><code class="docutils literal notranslate"><span class="pre">get_upper_bound_on_l1_norm()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.identity"><code class="docutils literal notranslate"><span class="pre">identity()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.max_float"><code class="docutils literal notranslate"><span class="pre">max_float()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.max_int"><code class="docutils literal notranslate"><span class="pre">max_int()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.min_int"><code class="docutils literal notranslate"><span class="pre">min_int()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.round_to_zero"><code class="docutils literal notranslate"><span class="pre">round_to_zero()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.tensor_clamp"><code class="docutils literal notranslate"><span class="pre">tensor_clamp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops.tensor_clamp_"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.function.html#module-brevitas.function.ops_ste">brevitas.function.ops_ste module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.abs_binary_sign_grad"><code class="docutils literal notranslate"><span class="pre">abs_binary_sign_grad()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste"><code class="docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste"><code class="docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.dpu_round_ste"><code class="docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.floor_ste"><code class="docutils literal notranslate"><span class="pre">floor_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_ste"><code class="docutils literal notranslate"><span class="pre">round_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_to_zero_ste"><code class="docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_min_ste"><code class="docutils literal notranslate"><span class="pre">scalar_clamp_min_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste"><code class="docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_ste()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste_"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_ste_()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste"><code class="docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.function.html#module-brevitas.function.shape">brevitas.function.shape module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_batch_over_output_channels"><code class="docutils literal notranslate"><span class="pre">over_batch_over_output_channels()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_batch_over_tensor"><code class="docutils literal notranslate"><span class="pre">over_batch_over_tensor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_output_channels"><code class="docutils literal notranslate"><span class="pre">over_output_channels()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_output_features"><code class="docutils literal notranslate"><span class="pre">over_output_features()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_tensor"><code class="docutils literal notranslate"><span class="pre">over_tensor()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.function.html#module-brevitas.function">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.graph.html">brevitas.graph package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.html">brevitas.graph.tracer package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.html#brevitas-graph-tracer-patch-module">brevitas.graph.tracer.patch module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.html#brevitas-graph-tracer-trace-module">brevitas.graph.tracer.trace module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.html#brevitas-graph-tracer-tracer-module">brevitas.graph.tracer.tracer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#brevitas-graph-generator-module">brevitas.graph.generator module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#brevitas-graph-module-module">brevitas.graph.module module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#brevitas-graph-quantizer-module">brevitas.graph.quantizer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#brevitas-graph-rewriter-module">brevitas.graph.rewriter module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#module-brevitas.graph.utils">brevitas.graph.utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.del_module"><code class="docutils literal notranslate"><span class="pre">del_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.get_module"><code class="docutils literal notranslate"><span class="pre">get_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.get_module_name_and_parent"><code class="docutils literal notranslate"><span class="pre">get_module_name_and_parent()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.get_output_channel_dim"><code class="docutils literal notranslate"><span class="pre">get_output_channel_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.get_output_channels"><code class="docutils literal notranslate"><span class="pre">get_output_channels()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.is_subseq"><code class="docutils literal notranslate"><span class="pre">is_subseq()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.matches_module_pattern"><code class="docutils literal notranslate"><span class="pre">matches_module_pattern()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.module_class_name"><code class="docutils literal notranslate"><span class="pre">module_class_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.name_from_module"><code class="docutils literal notranslate"><span class="pre">name_from_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.replace_all_uses_except"><code class="docutils literal notranslate"><span class="pre">replace_all_uses_except()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.replace_module"><code class="docutils literal notranslate"><span class="pre">replace_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.set_module"><code class="docutils literal notranslate"><span class="pre">set_module()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.html#brevitas.graph.utils.signature_keys"><code class="docutils literal notranslate"><span class="pre">signature_keys()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.html#module-brevitas.graph">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.loss.html">brevitas.loss package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.loss.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.loss.html#module-brevitas.loss.base_loss">brevitas.loss.base_loss module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss"><code class="docutils literal notranslate"><span class="pre">SimpleBaseLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.log"><code class="docutils literal notranslate"><span class="pre">SimpleBaseLoss.log()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.register_hooks"><code class="docutils literal notranslate"><span class="pre">SimpleBaseLoss.register_hooks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.retrieve"><code class="docutils literal notranslate"><span class="pre">SimpleBaseLoss.retrieve()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.zero_accumulated_values"><code class="docutils literal notranslate"><span class="pre">SimpleBaseLoss.zero_accumulated_values()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.loss.html#module-brevitas.loss.weighted_bit_width">brevitas.loss.weighted_bit_width module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.ActivationBitWidthWeightedBySize"><code class="docutils literal notranslate"><span class="pre">ActivationBitWidthWeightedBySize</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.ActivationBitWidthWeightedBySize.register_hooks"><code class="docutils literal notranslate"><span class="pre">ActivationBitWidthWeightedBySize.register_hooks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted"><code class="docutils literal notranslate"><span class="pre">BitWidthWeighted</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.log"><code class="docutils literal notranslate"><span class="pre">BitWidthWeighted.log()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.register_hooks"><code class="docutils literal notranslate"><span class="pre">BitWidthWeighted.register_hooks()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.retrieve"><code class="docutils literal notranslate"><span class="pre">BitWidthWeighted.retrieve()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.zero_accumulated_values"><code class="docutils literal notranslate"><span class="pre">BitWidthWeighted.zero_accumulated_values()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.QuantLayerOutputBitWidthWeightedByOps"><code class="docutils literal notranslate"><span class="pre">QuantLayerOutputBitWidthWeightedByOps</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.QuantLayerOutputBitWidthWeightedByOps.register_hooks"><code class="docutils literal notranslate"><span class="pre">QuantLayerOutputBitWidthWeightedByOps.register_hooks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.WeightBitWidthWeightedBySize"><code class="docutils literal notranslate"><span class="pre">WeightBitWidthWeightedBySize</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.loss.html#brevitas.loss.weighted_bit_width.WeightBitWidthWeightedBySize.register_hooks"><code class="docutils literal notranslate"><span class="pre">WeightBitWidthWeightedBySize.register_hooks()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.loss.html#module-brevitas.loss">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.onnx.html">brevitas.onnx package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.onnx.html#module-brevitas.onnx">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.quant.html">brevitas.quant package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.quant.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.quant.html#module-brevitas.quant.base">brevitas.quant.base module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.quant.html#module-brevitas.quant.scaled_int">brevitas.quant.scaled_int module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.quant.html#module-brevitas.quant.shifted_scaled_int">brevitas.quant.shifted_scaled_int module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.quant.html#module-brevitas.quant">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.utils.html">brevitas.utils package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#module-brevitas.utils.jit_utils">brevitas.utils.jit_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.jit_utils.clear_class_registry"><code class="docutils literal notranslate"><span class="pre">clear_class_registry()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#module-brevitas.utils.logging">brevitas.utils.logging module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.LogActivationBitWidth"><code class="docutils literal notranslate"><span class="pre">LogActivationBitWidth</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.LogActivationBitWidth.register_hooks"><code class="docutils literal notranslate"><span class="pre">LogActivationBitWidth.register_hooks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth"><code class="docutils literal notranslate"><span class="pre">LogBitWidth</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth.register_hooks"><code class="docutils literal notranslate"><span class="pre">LogBitWidth.register_hooks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.LogWeightBitWidth"><code class="docutils literal notranslate"><span class="pre">LogWeightBitWidth</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.LogWeightBitWidth.register_hooks"><code class="docutils literal notranslate"><span class="pre">LogWeightBitWidth.register_hooks()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.logging.setup_logger"><code class="docutils literal notranslate"><span class="pre">setup_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#module-brevitas.utils.python_utils">brevitas.utils.python_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName"><code class="docutils literal notranslate"><span class="pre">AutoName</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.hooked_on_a_function"><code class="docutils literal notranslate"><span class="pre">hooked_on_a_function()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.islambda"><code class="docutils literal notranslate"><span class="pre">islambda()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.patch"><code class="docutils literal notranslate"><span class="pre">patch()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.recurse_getattr"><code class="docutils literal notranslate"><span class="pre">recurse_getattr()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#module-brevitas.utils.quant_utils">brevitas.utils.quant_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.quant_utils.float_to_int_impl_to_enum"><code class="docutils literal notranslate"><span class="pre">float_to_int_impl_to_enum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.quant_utils.groupwise_dequant_expand"><code class="docutils literal notranslate"><span class="pre">groupwise_dequant_expand()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.quant_utils.has_learned_activation_bit_width"><code class="docutils literal notranslate"><span class="pre">has_learned_activation_bit_width()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.quant_utils.has_learned_weight_bit_width"><code class="docutils literal notranslate"><span class="pre">has_learned_weight_bit_width()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#module-brevitas.utils.torch_utils">brevitas.utils.torch_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.KwargsForwardHook"><code class="docutils literal notranslate"><span class="pre">KwargsForwardHook</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.KwargsForwardHook.forward"><code class="docutils literal notranslate"><span class="pre">KwargsForwardHook.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.StopFwdException"><code class="docutils literal notranslate"><span class="pre">StopFwdException</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.TupleSequential"><code class="docutils literal notranslate"><span class="pre">TupleSequential</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.TupleSequential.forward"><code class="docutils literal notranslate"><span class="pre">TupleSequential.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.TupleSequential.output"><code class="docutils literal notranslate"><span class="pre">TupleSequential.output()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.compute_channel_view_shape"><code class="docutils literal notranslate"><span class="pre">compute_channel_view_shape()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.float_internal_scale"><code class="docutils literal notranslate"><span class="pre">float_internal_scale()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.is_broadcastable"><code class="docutils literal notranslate"><span class="pre">is_broadcastable()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.is_parametrized"><code class="docutils literal notranslate"><span class="pre">is_parametrized()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.kthvalue"><code class="docutils literal notranslate"><span class="pre">kthvalue()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.pad_to_dim"><code class="docutils literal notranslate"><span class="pre">pad_to_dim()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.padding_to_multiple"><code class="docutils literal notranslate"><span class="pre">padding_to_multiple()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.torch_dtype"><code class="docutils literal notranslate"><span class="pre">torch_dtype()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.torch_partial_deepcopy"><code class="docutils literal notranslate"><span class="pre">torch_partial_deepcopy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.utils.html#brevitas.utils.torch_utils.type_before_parametrizations"><code class="docutils literal notranslate"><span class="pre">type_before_parametrizations()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.utils.html#module-brevitas.utils">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="module-brevitas.config">
+<span id="brevitas-config-module"></span><h2>brevitas.config module<a class="headerlink" href="#module-brevitas.config" title="Permalink to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.config.env_to_bool">
+<span class="sig-prename descclassname"><span class="pre">brevitas.config.</span></span><span class="sig-name descname"><span class="pre">env_to_bool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/config.html#env_to_bool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.config.env_to_bool" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-brevitas.jit">
+<span id="brevitas-jit-module"></span><h2>brevitas.jit module<a class="headerlink" href="#module-brevitas.jit" title="Permalink to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.jit.Attribute">
+<span class="sig-prename descclassname"><span class="pre">brevitas.jit.</span></span><span class="sig-name descname"><span class="pre">Attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.jit.Attribute" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.jit.ignore">
+<span class="sig-prename descclassname"><span class="pre">brevitas.jit.</span></span><span class="sig-name descname"><span class="pre">ignore</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.jit.ignore" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.jit.script">
+<span class="sig-prename descclassname"><span class="pre">brevitas.jit.</span></span><span class="sig-name descname"><span class="pre">script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.jit.script" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.jit.script_method">
+<span class="sig-prename descclassname"><span class="pre">brevitas.jit.</span></span><span class="sig-name descname"><span class="pre">script_method</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.jit.script_method" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-brevitas.quant_tensor">
+<span id="brevitas-quant-tensor-module"></span><h2>brevitas.quant_tensor module<a class="headerlink" href="#module-brevitas.quant_tensor" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="module-brevitas">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas" title="Permalink to this heading">#</a></h2>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.config">brevitas.config module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.config.env_to_bool"><code class="docutils literal notranslate"><span class="pre">env_to_bool()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.jit">brevitas.jit module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.jit.Attribute"><code class="docutils literal notranslate"><span class="pre">Attribute()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.jit.ignore"><code class="docutils literal notranslate"><span class="pre">ignore()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.jit.script"><code class="docutils literal notranslate"><span class="pre">script()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.jit.script_method"><code class="docutils literal notranslate"><span class="pre">script_method()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.quant_tensor">brevitas.quant_tensor module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas">Module contents</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="_sources/brevitas.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,632 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>brevitas.graph package &#8212; Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'brevitas.graph';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.14.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://giuseppe5.github.io/brevitas/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.7.0';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>
+    <script>document.write(`<img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.core.html">brevitas.core package</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html">brevitas.core.bit_width package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html">brevitas.core.function_wrapper package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html">brevitas.core.quant package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html">brevitas.core.scaling package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html">brevitas.core.stats package</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.export.html">brevitas.export package</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.common.html">brevitas.export.common package</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.export.onnx.html">brevitas.export.onnx package</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.finn.html">brevitas.export.onnx.finn package</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.function.html">brevitas.export.onnx.finn.function package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.finn.handler.html">brevitas.export.onnx.finn.handler package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.onnx.generic.html">brevitas.export.onnx.generic package</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.pyxir.html">brevitas.export.onnx.pyxir package</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv1.html">brevitas.export.onnx.pyxir.dpuv1 package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.pyxir.dpuv2.html">brevitas.export.onnx.pyxir.dpuv2 package</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="brevitas.export.onnx.standard.html">brevitas.export.onnx.standard package</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.export.onnx.standard.handler.html">brevitas.export.onnx.standard.handler package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.export.pytorch.html">brevitas.export.pytorch package</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.export.pytorch.handler.html">brevitas.export.pytorch.handler package</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.export.xir.html">brevitas.export.xir package</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.function.html">brevitas.function package</a></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">brevitas.graph package</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="brevitas.graph.tracer.html">brevitas.graph.tracer package</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.backport.html">brevitas.graph.tracer.backport package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html">brevitas.graph.tracer.wrapper package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.loss.html">brevitas.loss package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.onnx.html">brevitas.onnx package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.quant.html">brevitas.quant package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.utils.html">brevitas.utils package</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">brevitas.gra...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="brevitas-graph-package">
+<h1>brevitas.graph package<a class="headerlink" href="#brevitas-graph-package" title="Permalink to this heading">#</a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.graph.tracer.html">brevitas.graph.tracer package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.tracer.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.backport.html">brevitas.graph.tracer.backport package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.backport.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.backport.html#brevitas-graph-tracer-backport-signatures-module">brevitas.graph.tracer.backport.signatures module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.backport.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html">brevitas.graph.tracer.wrapper package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html#brevitas-graph-tracer-wrapper-builtin-module">brevitas.graph.tracer.wrapper.builtin module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html#brevitas-graph-tracer-wrapper-scriptmodule-module">brevitas.graph.tracer.wrapper.scriptmodule module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.graph.tracer.wrapper.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.tracer.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.tracer.html#brevitas-graph-tracer-patch-module">brevitas.graph.tracer.patch module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.tracer.html#brevitas-graph-tracer-trace-module">brevitas.graph.tracer.trace module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.tracer.html#brevitas-graph-tracer-tracer-module">brevitas.graph.tracer.tracer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.graph.tracer.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="brevitas-graph-generator-module">
+<h2>brevitas.graph.generator module<a class="headerlink" href="#brevitas-graph-generator-module" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="brevitas-graph-module-module">
+<h2>brevitas.graph.module module<a class="headerlink" href="#brevitas-graph-module-module" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="brevitas-graph-quantizer-module">
+<h2>brevitas.graph.quantizer module<a class="headerlink" href="#brevitas-graph-quantizer-module" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="brevitas-graph-rewriter-module">
+<h2>brevitas.graph.rewriter module<a class="headerlink" href="#brevitas-graph-rewriter-module" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="module-brevitas.graph.utils">
+<span id="brevitas-graph-utils-module"></span><h2>brevitas.graph.utils module<a class="headerlink" href="#module-brevitas.graph.utils" title="Permalink to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.del_module">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">del_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fully_qualified_module_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#del_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.del_module" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.get_module">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">get_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fully_qualified_module_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#get_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.get_module" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.get_module_name_and_parent">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">get_module_name_and_parent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fully_qualified_module_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#get_module_name_and_parent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.get_module_name_and_parent" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.get_output_channel_dim">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">get_output_channel_dim</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#get_output_channel_dim"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.get_output_channel_dim" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.get_output_channels">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">get_output_channels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#get_output_channels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.get_output_channels" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.is_subseq">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">is_subseq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subseq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#is_subseq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.is_subseq" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.matches_module_pattern">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">matches_module_pattern</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">modules</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#matches_module_pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.matches_module_pattern" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.module_class_name">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">module_class_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#module_class_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.module_class_name" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.name_from_module">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">name_from_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#name_from_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.name_from_module" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.replace_all_uses_except">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">replace_all_uses_except</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">to_replace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">replace_with</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exceptions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#replace_all_uses_except"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.replace_all_uses_except" title="Permalink to this definition">#</a></dt>
+<dd><p>Replace all users of <code class="docutils literal notranslate"><span class="pre">to_replace</span></code> with the Node <code class="docutils literal notranslate"><span class="pre">replace_with</span></code>, except when
+the user is in exceptions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>to_replace</strong> (<em>Node</em>) – The node to replace all uses of.</p></li>
+<li><p><strong>replace_with</strong> (<em>Node</em>) – The node to replace all uses of <code class="docutils literal notranslate"><span class="pre">to_replace</span></code> with.</p></li>
+<li><p><strong>exceptions</strong> (<em>List</em><em>[</em><em>Node</em><em>]</em>) – The user nodes that should be affected.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The list of Nodes on which this change was made.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.replace_module">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">replace_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_module</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#replace_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.replace_module" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.set_module">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">set_module</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fully_qualified_module_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#set_module"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.set_module" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.graph.utils.signature_keys">
+<span class="sig-prename descclassname"><span class="pre">brevitas.graph.utils.</span></span><span class="sig-name descname"><span class="pre">signature_keys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">module_class</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/brevitas/graph/utils.html#signature_keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.graph.utils.signature_keys" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-brevitas.graph">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas.graph" title="Permalink to this heading">#</a></h2>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas-graph-generator-module">brevitas.graph.generator module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas-graph-module-module">brevitas.graph.module module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas-graph-quantizer-module">brevitas.graph.quantizer module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas-graph-rewriter-module">brevitas.graph.rewriter module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.graph.utils">brevitas.graph.utils module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.del_module"><code class="docutils literal notranslate"><span class="pre">del_module()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.get_module"><code class="docutils literal notranslate"><span class="pre">get_module()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.get_module_name_and_parent"><code class="docutils literal notranslate"><span class="pre">get_module_name_and_parent()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.get_output_channel_dim"><code class="docutils literal notranslate"><span class="pre">get_output_channel_dim()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.get_output_channels"><code class="docutils literal notranslate"><span class="pre">get_output_channels()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.is_subseq"><code class="docutils literal notranslate"><span class="pre">is_subseq()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.matches_module_pattern"><code class="docutils literal notranslate"><span class="pre">matches_module_pattern()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.module_class_name"><code class="docutils literal notranslate"><span class="pre">module_class_name()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.name_from_module"><code class="docutils literal notranslate"><span class="pre">name_from_module()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.replace_all_uses_except"><code class="docutils literal notranslate"><span class="pre">replace_all_uses_except()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.replace_module"><code class="docutils literal notranslate"><span class="pre">replace_module()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.set_module"><code class="docutils literal notranslate"><span class="pre">set_module()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.graph.utils.signature_keys"><code class="docutils literal notranslate"><span class="pre">signature_keys()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.graph">Module contents</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="_sources/brevitas.graph.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
