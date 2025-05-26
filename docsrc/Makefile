@@ -15,7 +15,7 @@ help:
 .PHONY: help Makefile
 
 github:
-	@make build/html
+	@make html
 	@cp -a build/html/. ../docs
 
 livehtml:
