@@ -86,7 +86,7 @@ html_theme_options = {
       "image_dark": "brevitas_logo_white.svg",
    },
     "switcher": {
-        "json_url": "https://giuseppe5.github.io/brevitas/_static/versions.json",
+        "json_url": "https://giuseppe5.github.io/brevitas/dev/_static/versions.json",
         "version_match": current_version,
     },
     "footer_end": ["version-switcher"]
