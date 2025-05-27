@@ -27,6 +27,7 @@ from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
@@ -58,6 +59,8 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+
+logging = setup_logger(__name__)
 
 
 def filter_results(results, tasks):
@@ -149,7 +152,7 @@ def model_export(model, ref_input, args):
 
 
 def fx_required(args):
-    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa else False
+    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa_fx else False
 
 
 def quantize_llm(args, extra_args=None):
@@ -161,7 +164,7 @@ def quantize_llm(args, extra_args=None):
     # Whether to quantize SDPA with FX
 
     kwargs = {"torch_dtype": args.dtype}
-    if args.quant_sdpa:
+    if args.quant_sdpa_fx or args.quant_sdpa:
         kwargs["attn_implementation"] = "sdpa"
 
     print("Model loading...")
@@ -249,7 +252,7 @@ def quantize_llm(args, extra_args=None):
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if args.quant_sdpa:
+    if args.quant_sdpa_fx:
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
@@ -259,6 +262,30 @@ def quantize_llm(args, extra_args=None):
         with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
             model(**calibration_loader[0])
         remove_hooks(model)
+    elif args.quant_sdpa is not None:
+        # We rely on the following:
+        # - Attention functions accepts the current module as input
+        # - We can add a new entry in the dict of supported attention functions
+        # - Attention Modules' name end with `Attention`. The user can also override this
+        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+
+        from brevitas_examples.llm.llm_quant.mha_layers import quant_sdpa_attention_forward
+        ALL_ATTENTION_FUNCTIONS['quant_sdpa'] = quant_sdpa_attention_forward
+        model.config._attn_implementation = 'quant_sdpa'
+        for n, m in model.named_modules():
+            if args.quant_sdpa == 'auto':
+                print(type(m).__name__)
+                if type(m).__name__.lower().endswith('attention'):
+                    quant_block_type = type(m)
+                    break
+            else:
+                if type(m).__name__.lower() == args.quant_sdpa.lower():
+                    quant_block_type = type(m)
+                    break
+        logging.info(f"Attention module is {quant_block_type}")
+        for m in model.modules():
+            if isinstance(m, quant_block_type):
+                m.attn = ScaledDotProductAttention()
 
     layers_to_expand = []
     if args.rotation is not None:

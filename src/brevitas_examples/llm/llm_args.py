@@ -278,9 +278,14 @@ def create_llm_args_parser():
         default=1e-4,
         help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
     parser.add_argument(
-        '--quant-sdpa',
+        '--quant-sdpa-fx',
         action='store_true',
-        help='Quantize `F.scaled_dot_product_attention` (default: %(default)s)')
+        help='Quantize `F.scaled_dot_product_attention` using FX (default: %(default)s)')
+    parser.add_argument(
+        '--quant-sdpa',
+        type=str,
+        default=None,
+        help='Quantize `F.scaled_dot_product_attention` without FX (default: %(default)s)')
     parser.add_argument(
         '--functional-sdpa-quant',
         action='store_true',
