@@ -111,7 +111,7 @@ These flags enable the application of:
  - [GPFQ](https://arxiv.org/abs/2201.11113).
 
 We leave the explanation of these techniques to their respective papers,
-but a good starting point is to set `act_eq=True`, `gpfq=True`, `bias_corr=True`.
+but a good starting point is to set `act_eq=True`, `gpfq=True`.
 Afterwhich, finding the combination of PTQ flags / settings if left to the user to maximise the accuracy.
 If `act_eq_add_mul_node=True`, the compute graph will be augmented to include a channelwise multiplication before many activation quantization functions,
 which may help to increase accuracy at the cost of passing that complexity to downstream tools (i.e., FINN).
