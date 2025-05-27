@@ -1,0 +1,10 @@
+name: brevitas_finn
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - setuptools<70.0
+  - pip:
+    - brevitas[finn-integration] @ git+https://github.com/Xilinx/brevitas.git@dev
+    - torchvision
+    - tqdm
