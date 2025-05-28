@@ -83,12 +83,13 @@ def find_closest_hadamard_number(starting_dim, steps=0):
 
     for step in range(steps):
         next_dim = starting_dim + 1
+        best_value = None
         for v in values_to_check:
             m = torch.tensor(math.ceil(next_dim / v))
             floor_po2_m = torch.pow(2, torch.log2(m).floor())
             ceil_po2_m = torch.pow(2, torch.log2(m).ceil())
             m = floor_po2_m * v if floor_po2_m > starting_dim else ceil_po2_m * v
-            if best_value == starting_dim:
+            if best_value is None:
                 best_value = m
             else:
                 best_value = m if (
