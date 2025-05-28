@@ -224,11 +224,10 @@ class SharkQuantSDPA(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
             enable_gqa: bool = False):
         assert self.layer_name is not None
         assert self.shared_dict is not None
-        query, key, value, _, scale = self.pre_forward(query, key, value, attn_mask, scale, is_causal)
 
         query = self.act_quant(query, self.q_scaled_quant)
-        key = self.act_quant(key, self.q_scaled_quant)
-        value = self.act_quant(value, self.q_scaled_quant)
+        key = self.act_quant(key, self.k_transposed_quant)
+        value = self.act_quant(value, self.v_quant)
 
         kwargs = {}
         if scale is not None:
