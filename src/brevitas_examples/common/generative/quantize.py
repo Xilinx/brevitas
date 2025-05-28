@@ -333,7 +333,7 @@ def generate_quantizers(
 
         extra_kwargs = {
             'bit_width': input_bit_width,
-            'quantize_zero_point': quantize_input_zero_point}
+            'quantize_zero_point': quantize_input_zero_point,}
         input_kwargs = {**input_kwargs, **extra_kwargs, **input_float_format}
         attn_override_kwargs = {
             'bit_width': attn_bit_width if attn_bit_width is not None else input_bit_width,
