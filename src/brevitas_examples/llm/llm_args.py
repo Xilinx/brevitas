@@ -278,9 +278,14 @@ def create_llm_args_parser():
         default=1e-4,
         help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
     parser.add_argument(
-        '--quant-sdpa',
+        '--quant-sdpa-fx',
         action='store_true',
-        help='Quantize `F.scaled_dot_product_attention` (default: %(default)s)')
+        help='Quantize `F.scaled_dot_product_attention` using FX (default: %(default)s)')
+    parser.add_argument(
+        '--quant-sdpa',
+        type=str,
+        default=None,
+        help='Quantize `F.scaled_dot_product_attention` without FX (default: %(default)s)')
     parser.add_argument(
         '--functional-sdpa-quant',
         action='store_true',
@@ -352,6 +357,7 @@ def create_llm_args_parser():
         default=None,
         choices=[
             None,
+            'shark',
             'onnx_qcdq',
             'torch_qcdq',
             'sharded_torchmlir_group_weight',
@@ -438,6 +444,17 @@ def create_llm_args_parser():
         action="store_true",
         help="Whether to apply AWQ clipping (default: %(default)s).",
     )
+    parser.add_argument(
+        "--quantize-output-qkv",
+        action="store_true",
+        help="Whether to apply output QKV quant (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--attn-only-quant",
+        action="store_true",
+        help="Whether to quantize only attention. Works only with quantize-output-qkv (default: %(default)s).",
+    )
+
     return parser
 
 
@@ -472,8 +489,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 if args.input_quant_granularity == 'per_group':
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
-        if args.export_target is not None:
-            assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
+
         if args.export_target is not None and args.input_bit_width is not None:
             assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
