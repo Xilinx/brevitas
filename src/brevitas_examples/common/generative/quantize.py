@@ -244,7 +244,6 @@ INPUT_QUANT_MAP = {
 
 
 def generate_quantizers(
-        dtype,
         weight_bit_width,
         weight_param_method,
         weight_scale_precision,
@@ -274,7 +273,6 @@ def generate_quantizers(
         attn_group_size=None,
         quantize_input_zero_point=False,
         scale_rounding_func_type=None,
-        device=None,
         weight_kwargs=None,
         input_kwargs=None,
         attn_kwargs=None,
@@ -335,9 +333,7 @@ def generate_quantizers(
 
         extra_kwargs = {
             'bit_width': input_bit_width,
-            'quantize_zero_point': quantize_input_zero_point,
-            'dtype': dtype,
-            'device': device}
+            'quantize_zero_point': quantize_input_zero_point}
         input_kwargs = {**input_kwargs, **extra_kwargs, **input_float_format}
         attn_override_kwargs = {
             'bit_width': attn_bit_width if attn_bit_width is not None else input_bit_width,
@@ -562,7 +558,6 @@ def quantize_model(
         input_kwargs=None):
 
     linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
-        dtype=dtype,
         weight_bit_width=weight_bit_width,
         weight_param_method=weight_param_method,
         weight_scale_precision=weight_scale_precision,
@@ -589,7 +584,6 @@ def quantize_model(
         attn_quant_granularity=attn_quant_granularity,
         attn_group_size=attn_group_size,
         quantize_input_zero_point=quantize_input_zero_point,
-        device=device,
         weight_kwargs=weight_kwargs,
         input_kwargs=input_kwargs)
     layer_map = generate_quant_maps(

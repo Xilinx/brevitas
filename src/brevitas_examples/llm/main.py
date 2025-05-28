@@ -341,7 +341,6 @@ def quantize_llm(args, extra_args=None):
         weight_scaling_impl_type = 'stats' if (
             args.awq_scale or args.awq_clip) else 'parameter_from_stats'
         linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
-            dtype=dtype,
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
@@ -372,7 +371,6 @@ def quantize_llm(args, extra_args=None):
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
             quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
-            device=device,
             scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,

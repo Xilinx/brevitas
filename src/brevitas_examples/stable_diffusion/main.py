@@ -699,8 +699,6 @@ def main(args):
                     pipe.vae.decode(*inp_args, **inp_kwargs)
 
         quantizers = generate_quantizers(
-            dtype=dtype,
-            device=args.device,
             scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
