@@ -30,7 +30,7 @@ def get_hadK(n, transpose=False):
         assert (is_pow2(n // 156))
         K = 156
         hadK = tensors['get_had156'].T if transpose else tensors['get_had156']
-    elif n % 152 == 0:  # Qwen 3
+    elif n % 152 == 0:  # Qwen 3 4B intermediate size
         assert (is_pow2(n // 152))
         K = 152
         hadK = tensors['get_had152'].T if transpose else tensors['get_had152']
