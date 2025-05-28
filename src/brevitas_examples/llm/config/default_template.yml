@@ -22,6 +22,7 @@ dataset: wikitext2
 dtype: auto
 eager_quant_sdpa_class: auto
 eval: false
+expansion_step: 1
 export_prefix: null
 export_target: null
 few_shot_eval: null
