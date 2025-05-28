@@ -4,6 +4,7 @@ act_equalization_alpha: 0.5
 awq_clip: false
 awq_scale: false
 bias_corr: false
+bos_preprocessing: null
 checkpoint_name: null
 compile_eval: false
 compile_ptq: false
@@ -11,6 +12,7 @@ convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
 dtype: float16
 eval: false
+expansion_step: 1
 export_prefix: null
 export_target: null
 few_shot_eval: null
@@ -23,7 +25,6 @@ few_shot_tasks:
 - piqa
 few_shot_zeroshot: false
 functional_sdpa_quant: false
-fuse_sequences: false
 gpfq: false
 gptq: false
 gpxq_act_order: false
@@ -50,10 +51,10 @@ learned_round_scale: false
 learned_round_scale_lr: 0.01
 learned_round_scale_momentum: 0.9
 ln_affine_merge: false
-load_awq: null
 load_checkpoint: false
+magr: false
+magr_alpha: 0.01
 model: facebook/opt-125m
-no_bos_preprocessing: false
 no_quantize: false
 nsamples: 128
 nsamples_rot_calibration: 800
