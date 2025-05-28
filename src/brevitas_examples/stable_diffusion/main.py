@@ -508,7 +508,7 @@ def main(args):
             input_kwargs=input_kwargs)
 
         layer_map = generate_quant_maps(
-            *quantizers, dtype, args.device, args.input_quant_format, False)
+            *quantizers, dtype=dtype, device=args.device, quantize_embedding=False)
 
         linear_qkwargs = layer_map[torch.nn.Linear][1]
         linear_qkwargs[
@@ -699,8 +699,6 @@ def main(args):
                     pipe.vae.decode(*inp_args, **inp_kwargs)
 
         quantizers = generate_quantizers(
-            dtype=dtype,
-            device=args.device,
             scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
@@ -723,7 +721,7 @@ def main(args):
             scaling_min_val=1e-3)
 
         layer_map = generate_quant_maps(
-            *quantizers, dtype, args.device, args.input_quant_format, False)
+            *quantizers, dtype=dtype, device=args.device, quantize_embedding=False)
 
         linear_qkwargs = layer_map[torch.nn.Linear][1]
         linear_qkwargs[

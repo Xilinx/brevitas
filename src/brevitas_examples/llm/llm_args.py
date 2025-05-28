@@ -147,32 +147,71 @@ def create_llm_args_parser():
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
     parser.add_argument(
-        '--kv-quant-type',
-        type=str,
-        default=None,
-        choices=['sym', 'asym'],
-        help=
-        'KV quantization type. If None, it will follow input quant type. If set, will perform only KV cache quantization. Default: None'
-    )
-    parser.add_argument(
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
         choices=['per_tensor', 'per_row', 'per_group'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
     parser.add_argument(
-        '--kv-quant-granularity',
-        type=str,
-        default=None,
-        choices=['per_tensor', 'per_row', 'per_group'],
-        help=
-        'Granularity for scales/zero-point of KV cache. If not set, it will use input-quant-granularity. Default: %(default)s'
-    )
-    parser.add_argument(
         '--input-group-size',
         type=int,
         default=64,
         help='Group size for per_group input quantization. Default: 64.')
+    parser.add_argument(
+        '--attn-quant-config',
+        type=str,
+        default='qkvs',
+        choices=['qkvs', 'kv'],
+        help=
+        'Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: either --functional-sdpa-quant, --quant-sdpa or --replace-mha need to also be applied for this to have an effect. Default: %(default)s'
+    )
+    parser.add_argument(
+        '--attn-bit-width',
+        type=int,
+        default=None,
+        help='Attention bit width. Default: None (same as input).')
+    parser.add_argument(
+        '--attn-quant-format',
+        type=attn_quant_format_validator,
+        default=None,
+        help=
+        'Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: None (same as input).'
+    )
+    parser.add_argument(
+        '--attn-param-method',
+        type=str,
+        default=None,
+        choices=['stats', 'mse'],
+        help='How scales/zero-point are determined. Default: None (same as input).')
+    parser.add_argument(
+        '--attn-scale-precision',
+        type=str,
+        default=None,
+        choices=['float_scale', 'po2_scale'],
+        help='Whether input scale is a float value or a po2. Default: (same as input).')
+    parser.add_argument(
+        '--attn-scale-type',
+        type=None,
+        default=None,
+        choices=['static', 'dynamic', 'no_scale'],
+        help='Whether input scale is a static value or a dynamic value. Default: (same as input).')
+    parser.add_argument(
+        '--attn-quant-type',
+        type=str,
+        default=None,
+        choices=['sym', 'asym'],
+        help='Input quantization type. Default: (same as input).')
+    parser.add_argument(
+        '--attn-quant-granularity',
+        type=str,
+        default=None,
+        choices=['per_tensor', 'per_row', 'per_group'],
+        help='Granularity for scales/zero-point of inputs. Default: (same as input).')
+    parser.add_argument(
+        '--attn-group-size',
+        type=int,
+        default=None,
+        help='Group size for per_group input quantization. Default: (same as input).')
     parser.add_argument(
         '--learned-round-lr',
         type=float,
@@ -465,3 +504,10 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
             else:
                 assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
+
+
+def attn_quant_format_validator(value):
+    if value is None:
+        return True
+    else:
+        return quant_format_validator(value)
