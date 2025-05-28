@@ -354,8 +354,11 @@ def generate_quantizers(
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
         if attn_quant_config == "qkvs":
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
-        else:
+        elif attn_quant_config == "kv":
             q_scaled_quant = None
+        else:
+            raise ValueError(
+                f"Unknown option for attn_quant_config. attn_quant_config={attn_quant_config}")
 
     else:
         input_quant = None
