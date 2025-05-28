@@ -743,6 +743,44 @@ def test_small_models_onnx_export(caplog, onnx_export_args):
 
 
 @pytest_cases.fixture(
+    ids=["auto", "float16", "bfloat16"],
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "dtype": "auto"},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "dtype": "float16"},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "dtype": "float16"},])
+def dtype_args(default_run_args, request):
+    args = default_run_args
+    export_dict = request.param
+    args.update(**export_dict)
+    yield args
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.2')
+def test_small_models_dtype(caplog, dtype_args):
+    caplog.set_level(logging.INFO)
+    args = dtype_args
+    _, model = validate_args_and_run_main(args)
+    # "auto" dtype for "hf-internal-testing/tiny-random-LlamaForCausalLM" is float32
+    expected_dtype = torch.float32 if dtype_args.dtype == "auto" else getattr(
+        torch, dtype_args.dtype)
+    dtype = next(model.parameters()).dtype
+    assert expected_dtype == dtype, f"Expected dtype of the model parameters to be {expected_dtype} but got {dtype}."
+
+
+@pytest_cases.fixture(
     ids=[
         "qcdq-asym",
         "qcdq-sym",],
