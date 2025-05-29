@@ -26,8 +26,8 @@ def create_llm_args_parser():
     parser.add_argument(
         '--dtype',
         type=str,
-        default="float16",
-        choices=["float32", "float16", "bfloat16"],
+        default="auto",
+        choices=["auto", "float32", "float16", "bfloat16"],
         help='Data type for model. Default: %(default)s')
     parser.add_argument(
         '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')

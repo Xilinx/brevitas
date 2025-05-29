@@ -165,12 +165,10 @@ def quantize_llm(args, extra_args=None):
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
-    dtype = getattr(torch, args.dtype)
-
     # Whether to quantize SDPA with FX
     quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
 
-    kwargs = {"torch_dtype": dtype}
+    kwargs = {"torch_dtype": args.dtype}
     if quant_sdpa_fx:
         kwargs["attn_implementation"] = "sdpa"
 
@@ -179,6 +177,7 @@ def quantize_llm(args, extra_args=None):
 
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
+    dtype = next(model.parameters()).dtype
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
