@@ -242,7 +242,10 @@ def quantize_llm(args, extra_args=None):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
+        from packaging import version
+        import transformers
+        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm and version.parse(
+                transformers.__version__) < version.parse('4.48.0'):
             model = get_fx(model, is_export=args.export_target is not None)
         else:
             with torch.no_grad():
