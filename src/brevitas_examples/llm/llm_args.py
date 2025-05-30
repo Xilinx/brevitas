@@ -486,16 +486,8 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
-        if args.export_target == 'torch_qcdq':
-            assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
-            if args.weight_quant_type == 'asym':
-                assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-            if args.input_bit_width is not None and args.input_quant_type == 'asym':
-                assert args.quantize_input_zero_point, "Quantized input zero point required."
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
-        if (args.weight_equalization or args.act_equalization == 'fx'):
-            assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
 
 
 def attn_quant_format_validator(value):

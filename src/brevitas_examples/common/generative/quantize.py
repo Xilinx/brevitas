@@ -430,11 +430,11 @@ def generate_quantizers(
         elif attn_quant_granularity == 'per_group':
             q_scaled_quant = q_scaled_quant.let(
                 **{
-                    'group_dim': -1, 'group_size': input_group_size
+                    'group_dim': -1, 'group_size': attn_group_size
                 }) if q_scaled_quant is not None else None
             k_transposed_quant = k_transposed_quant.let(
                 **{
-                    'group_dim': -2, 'group_size': input_group_size})
+                    'group_dim': -2, 'group_size': attn_group_size})
         v_quant = k_transposed_quant
         attn_output_weights_quant = q_scaled_quant
         if (attn_quant_type == "sym") and \
