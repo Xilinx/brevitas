@@ -19,7 +19,8 @@ QUANTIZABLE_MHA_MAP = {
     OPTAttention: (QuantizableOPTAttention, {
         'batch_first': True}),}
 
-if version.parse(transformers.__version__) >= version.parse('4.46.0'):
+if version.parse(transformers.__version__) >= version.parse('4.46.0') and version.parse(
+        transformers.__version__) < version.parse('4.48.0'):
     from transformers.models.opt.modeling_opt import OPTSdpaAttention
     QUANTIZABLE_MHA_MAP[OPTSdpaAttention] = (QuantizableOPTAttention, {'batch_first': True})
 
