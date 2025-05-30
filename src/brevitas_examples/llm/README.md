@@ -16,7 +16,7 @@ When using `--optimize-rotations`, the rotation training procedure relies on the
 
 ```bash
 usage: main.py [-h] [--config CONFIG] [--model MODEL]
-               [--dtype {float32,float16,bfloat16}] [--seed SEED]
+               [--dtype {auto,float32,float16,bfloat16}] [--seed SEED]
                [--nsamples NSAMPLES]
                [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION]
                [--seqlen SEQLEN] [--eval] [--dataset {wikitext2,c4,pile}]
@@ -61,7 +61,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
                [--no-quantize] [--scaling-min-val SCALING_MIN_VAL]
-               [--quant-sdpa] [--functional-sdpa-quant] [--replace-mha]
+               [--quant-sdpa] [--functional-sdpa-quant]
                [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
                [--optimize-rotations] [--rotation-mode {had,ort}]
                [--rotation-orphan-sink] [--rotation-sdpa-regions]
@@ -69,7 +69,7 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--svd-quant-iters SVD_QUANT_ITERS]
                [--act-equalization {None,layerwise,fx}]
                [--act-equalization-alpha ACT_EQUALIZATION_ALPHA]
-               [--export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
+               [--export-target {None,onnx_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}]
                [--export-prefix EXPORT_PREFIX]
                [--checkpoint-name CHECKPOINT_NAME] [--load-checkpoint]
                [--learned-round {None,linear_round}]
@@ -88,8 +88,8 @@ options:
   --config CONFIG       Specify alternative default commandline args (e.g.,
                         config/default_template.yml). Default: None.
   --model MODEL         HF model name. Default: facebook/opt-125m.
-  --dtype {float32,float16,bfloat16}
-                        Data type for model. Default: float16
+  --dtype {auto,float32,float16,bfloat16}
+                        Data type for model. Default: auto
   --seed SEED           Seed for sampling the calibration data. Default: 0.
   --nsamples NSAMPLES   Number of calibration data samples. Default: 128.
   --nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION
@@ -231,8 +231,6 @@ options:
   --functional-sdpa-quant
                         Quantize `F.scaled_dot_product_attention` with
                         stateless module and torch_function (default: False)
-  --replace-mha         Replace HuggingFace Attention with a quantizable
-                        version
   --weight-equalization
                         Apply weight equalization. Relevant to ReLU based
                         models (e.g. OPT).
@@ -262,7 +260,7 @@ options:
   --act-equalization-alpha ACT_EQUALIZATION_ALPHA
                         If activation equalization is enabled, decide what
                         alpha to use
-  --export-target {None,onnx_qcdq,torch_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}
+  --export-target {None,onnx_qcdq,sharded_torchmlir_group_weight,sharded_packed_torchmlir_group_weight}
                         Model export.
   --export-prefix EXPORT_PREFIX
                         Path prefix to use for the various export flows. If
