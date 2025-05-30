@@ -349,7 +349,6 @@ def create_llm_args_parser():
         choices=[
             None,
             'onnx_qcdq',
-            'torch_qcdq',
             'sharded_torchmlir_group_weight',
             'sharded_packed_torchmlir_group_weight'],
         help='Model export.')

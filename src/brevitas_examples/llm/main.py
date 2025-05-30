@@ -16,7 +16,6 @@ from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 import yaml
 
-from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
@@ -147,8 +146,6 @@ def model_export(model, ref_input, args):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
-    elif args.export_target == 'torch_qcdq':
-        export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
 
 def fx_required(args):
@@ -168,9 +165,6 @@ def quantize_llm(args, extra_args=None):
     kwargs = {"torch_dtype": args.dtype}
     if quant_sdpa_fx:
         kwargs["attn_implementation"] = "sdpa"
-
-    if args.export_target == 'torch_qcdq':
-        kwargs['torchscript'] = True
 
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
@@ -227,7 +221,6 @@ def quantize_llm(args, extra_args=None):
     print("Data loaded.")
 
     if args.eval:
-        assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(

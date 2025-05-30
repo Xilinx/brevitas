@@ -768,42 +768,6 @@ def test_small_models_dtype(caplog, dtype_args):
 
 @pytest_cases.fixture(
     ids=[
-        "qcdq-asym",
-        "qcdq-sym",],
-    params=[
-        {
-            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-            "eval": False,
-            "quantize_weight_zero_point": True,
-            "quantize_input_zero_point": True,
-            "export_target": "torch_qcdq",},
-        {
-            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-            "eval": False,
-            "weight_quant_type": "sym",
-            "input_quant_type": "sym",
-            "export_target": "torch_qcdq",},])
-def torch_export_args(default_run_args, request):
-    args = default_run_args
-    export_dict = request.param
-    args.update(**export_dict)
-    yield args
-
-
-@pytest.mark.llm
-@jit_disabled_for_export()
-@requires_pt_ge('2.2')
-def test_small_models_torch_export(caplog, torch_export_args):
-    caplog.set_level(logging.INFO)
-    args = torch_export_args
-    validate_args_and_run_main(args)
-    filepath = args.export_prefix + ".pt"
-    torch.jit.load(filepath)
-    os.remove(filepath)
-
-
-@pytest_cases.fixture(
-    ids=[
         "llama",
         "mistral",],
     params=[
