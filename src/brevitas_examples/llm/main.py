@@ -152,7 +152,7 @@ def model_export(model, ref_input, args):
 
 
 def fx_required(args):
-    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
+    quant_sdpa_fx = args.quant_sdpa
     return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
 
 
@@ -163,7 +163,7 @@ def quantize_llm(args, extra_args=None):
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
     # Whether to quantize SDPA with FX
-    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
+    quant_sdpa_fx = args.quant_sdpa
 
     kwargs = {"torch_dtype": args.dtype}
     if quant_sdpa_fx:

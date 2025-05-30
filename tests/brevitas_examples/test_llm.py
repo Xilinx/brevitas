@@ -257,7 +257,6 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
         "llama",
         "llama_float_dynamic_input",
         "mistral",
-        "opt-replace-mha",
         "opt-quant-sdpa",],
     params=[
         {
@@ -283,13 +282,6 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
             "gptq": True,
             "float_ppl": 36796.984,
             "quant_ppl": 36910.191},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "weight_equalization": True,
-            "ln_affine_merge": True,
-            "replace_mha": True,
-            "float_ppl": 51649.797,
-            "quant_ppl": 51694.785},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
@@ -332,7 +324,6 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
         "llama-int8-svd_quant",
-        "opt-replace-mha",
         "opt-quant-sdpa",],
     params=[
         {
@@ -437,14 +428,6 @@ def test_small_models_acc(caplog, acc_args_and_acc):
                     "<class 'brevitas_examples.common.svd_quant.ErrorCorrectedModule'>",
                 "model.layers.0.self_attn.q_proj.layer":
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "replace_mha": True,
-            "exp_layer_types": {
-                "model.decoder.layers.0.self_attn":
-                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
-                "model.decoder.layers.0.self_attn.mha":
-                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "quant_sdpa": True,

@@ -496,10 +496,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
         if (args.weight_equalization or args.act_equalization == 'fx'):
-            if args.replace_mha:
-                assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
-            else:
-                assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
+            assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
 
 
 def attn_quant_format_validator(value):
