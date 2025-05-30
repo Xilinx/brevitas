@@ -305,8 +305,11 @@ def acc_args_and_acc(default_run_args, request):
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
+    use_fx = fx_required(args)
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
+    if platform.system() == 'Windows' and use_fx:
+        pytest.skip("Skipping dynamo + Windows")
     results, _ = validate_args_and_run_main(args)
     float_ppl = results["float_ppl"].detach().cpu().numpy()
     quant_ppl = results["quant_ppl"].detach().cpu().numpy()
