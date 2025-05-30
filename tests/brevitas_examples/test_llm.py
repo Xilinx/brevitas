@@ -222,9 +222,9 @@ def run_test_models_run_args(args, model_with_ppl):
         {"rotation": "fused_no_fx", "replace_rmsnorm": True},
         {"act_equalization": "fx", "gptq": True},
         {"quant_sdpa": "fx", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
-        {"functional_sdpa_quant": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
+        {"quant_sdpa": "functional", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
         {
-            "functional_sdpa_quant": True,
+            "quant_sdpa": "functional",
             "rotation": "fused_no_fx",
             "rotation_sdpa_regions": True,
             "input_scale_type": "dynamic",
@@ -637,7 +637,6 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
             "quant_sdpa": "fx",
-            "functional_sdpa_quant": False,
             "attn_quant_config": "kv",
             "attn_quant_type": "asym"},
         {
@@ -648,8 +647,7 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "quant_sdpa": None,
-            "functional_sdpa_quant": True,
+            "quant_sdpa": "functional",
             "attn_quant_config": "kv",
             "attn_quant_type": "asym"},])
 def layer_args_hyperparam(default_run_args, request):
