@@ -328,6 +328,7 @@ def generate_quantizers(
         attn_param_method = attn_param_method if attn_param_method is not None else input_param_method
         attn_quant_granularity = attn_quant_granularity if attn_quant_granularity is not None else input_quant_granularity
         attn_quant_type = attn_quant_type if attn_quant_type is not None else input_quant_type
+        attn_group_size = attn_group_size if attn_group_size is not None else input_group_size
         k_transposed_quant = INPUT_QUANT_MAP[attn_quant_format][attn_scale_type][
             attn_scale_precision][attn_param_method][attn_quant_granularity][attn_quant_type]
 
