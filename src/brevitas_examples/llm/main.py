@@ -14,10 +14,8 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-from transformers.utils.fx import _SUPPORTED_MODELS
 import yaml
 
-from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
@@ -54,13 +52,11 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affi
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
-from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
-from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
 
@@ -150,13 +146,10 @@ def model_export(model, ref_input, args):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
-    elif args.export_target == 'torch_qcdq':
-        export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
 
 def fx_required(args):
-    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
-    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
+    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa else False
 
 
 def quantize_llm(args, extra_args=None):
@@ -166,14 +159,10 @@ def quantize_llm(args, extra_args=None):
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
     # Whether to quantize SDPA with FX
-    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
 
     kwargs = {"torch_dtype": args.dtype}
-    if quant_sdpa_fx:
+    if args.quant_sdpa:
         kwargs["attn_implementation"] = "sdpa"
-
-    if args.export_target == 'torch_qcdq':
-        kwargs['torchscript'] = True
 
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
@@ -230,7 +219,6 @@ def quantize_llm(args, extra_args=None):
     print("Data loaded.")
 
     if args.eval:
-        assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(
@@ -242,11 +230,8 @@ def quantize_llm(args, extra_args=None):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
-            model = get_fx(model, is_export=args.export_target is not None)
-        else:
-            with torch.no_grad():
-                model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+        with torch.no_grad():
+            model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
 
@@ -264,11 +249,7 @@ def quantize_llm(args, extra_args=None):
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if args.replace_mha:
-        print("Replace HF MHA with quantizable variants...")
-        model = replace_mha_with_quantizable_layers(model, dtype)
-        print("Replacing done.")
-    elif quant_sdpa_fx:
+    if args.quant_sdpa:
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
@@ -369,7 +350,7 @@ def quantize_llm(args, extra_args=None):
             attn_group_size=args.attn_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
-            quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
+            quant_attn_mode='sdpa',
             scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,

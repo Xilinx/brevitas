@@ -328,6 +328,7 @@ def generate_quantizers(
         attn_param_method = attn_param_method if attn_param_method is not None else input_param_method
         attn_quant_granularity = attn_quant_granularity if attn_quant_granularity is not None else input_quant_granularity
         attn_quant_type = attn_quant_type if attn_quant_type is not None else input_quant_type
+        attn_group_size = attn_group_size if attn_group_size is not None else input_group_size
         k_transposed_quant = INPUT_QUANT_MAP[attn_quant_format][attn_scale_type][
             attn_scale_precision][attn_param_method][attn_quant_granularity][attn_quant_type]
 
@@ -430,11 +431,11 @@ def generate_quantizers(
         elif attn_quant_granularity == 'per_group':
             q_scaled_quant = q_scaled_quant.let(
                 **{
-                    'group_dim': -1, 'group_size': input_group_size
+                    'group_dim': -1, 'group_size': attn_group_size
                 }) if q_scaled_quant is not None else None
             k_transposed_quant = k_transposed_quant.let(
                 **{
-                    'group_dim': -2, 'group_size': input_group_size})
+                    'group_dim': -2, 'group_size': attn_group_size})
         v_quant = k_transposed_quant
         attn_output_weights_quant = q_scaled_quant
         if (attn_quant_type == "sym") and \

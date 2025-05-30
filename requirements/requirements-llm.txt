@@ -6,4 +6,4 @@ onnxruntime<1.21
 optimum
 pandas
 tqdm
-transformers[sentencepiece]==4.47.1
+transformers[sentencepiece]==4.50.0

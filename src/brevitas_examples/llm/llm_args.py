@@ -288,10 +288,6 @@ def create_llm_args_parser():
         'Quantize `F.scaled_dot_product_attention` with stateless module and torch_function (default: %(default)s)'
     )
     parser.add_argument(
-        '--replace-mha',
-        action='store_true',
-        help='Replace HuggingFace Attention with a quantizable version')
-    parser.add_argument(
         '--weight-equalization',
         action='store_true',
         help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
@@ -353,7 +349,6 @@ def create_llm_args_parser():
         choices=[
             None,
             'onnx_qcdq',
-            'torch_qcdq',
             'sharded_torchmlir_group_weight',
             'sharded_packed_torchmlir_group_weight'],
         help='Model export.')
@@ -491,19 +486,8 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
-        if args.export_target == 'torch_qcdq':
-            assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
-            if args.weight_quant_type == 'asym':
-                assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-            if args.input_bit_width is not None and args.input_quant_type == 'asym':
-                assert args.quantize_input_zero_point, "Quantized input zero point required."
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
-        if (args.weight_equalization or args.act_equalization == 'fx'):
-            if args.replace_mha:
-                assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
-            else:
-                assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
 
 
 def attn_quant_format_validator(value):

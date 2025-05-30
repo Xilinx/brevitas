@@ -17,6 +17,7 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
+import transformers
 
 from brevitas import config
 from brevitas import torch_version
@@ -172,15 +173,15 @@ def default_run_args(request):
     return args
 
 
+@requires_pt_ge('2.3')
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
-    use_fx = fx_required(args)
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
-    if platform.system() == 'Windows' and hasattr(args, 'rotation') and args.rotation in [
-            'fx', 'fused_no_fx']:
+    if platform.system() == 'Windows' and use_fx:
         pytest.skip("Skipping dynamo + Windows")
 
     validate_args_and_run_main(args)
@@ -245,7 +246,6 @@ def toggle_run_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     caplog.set_level(logging.INFO)
     run_test_models_run_args(toggle_run_args, small_models_with_ppl)
@@ -256,7 +256,6 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
         "llama",
         "llama_float_dynamic_input",
         "mistral",
-        "opt-replace-mha",
         "opt-quant-sdpa",],
     params=[
         {
@@ -286,13 +285,6 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
-            "replace_mha": True,
-            "float_ppl": 51649.797,
-            "quant_ppl": 51694.785},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "weight_equalization": True,
-            "ln_affine_merge": True,
             "quant_sdpa": True,
             "float_ppl": 51649.797,
             "quant_ppl": 51688.922},])
@@ -308,12 +300,14 @@ def acc_args_and_acc(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx' or args.rotation == 'fused_no_fx'
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
+    if platform.system() == 'Windows' and use_fx:
+        pytest.skip("Skipping dynamo + Windows")
     results, _ = validate_args_and_run_main(args)
     float_ppl = results["float_ppl"].detach().cpu().numpy()
     quant_ppl = results["quant_ppl"].detach().cpu().numpy()
@@ -331,7 +325,6 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
         "llama-int8-svd_quant",
-        "opt-replace-mha",
         "opt-quant-sdpa",],
     params=[
         {
@@ -438,18 +431,10 @@ def test_small_models_acc(caplog, acc_args_and_acc):
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "replace_mha": True,
-            "exp_layer_types": {
-                "model.decoder.layers.0.self_attn":
-                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
-                "model.decoder.layers.0.self_attn.mha":
-                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "quant_sdpa": True,
             "exp_layer_types": {
-                "scaled_dot_product_attention":
-                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},])
+                "attn_output": "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
+    ])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
@@ -460,7 +445,6 @@ def layer_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
@@ -631,7 +615,6 @@ def layer_args_types_count(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
     caplog.set_level(logging.INFO)
     args, exp_layer_types_count = layer_args_types_count
@@ -677,13 +660,17 @@ def layer_args_hyperparam(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 @jit_disabled_for_dynamic_quant_act()
 def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
     from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
     caplog.set_level(logging.INFO)
     args = layer_args_hyperparam
+
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
+
+    if platform.system() == 'Windows' and use_fx:
+        pytest.skip("Skipping dynamo + Windows")
 
     _, model = validate_args_and_run_main(args)
     quant_sdpa = []
@@ -735,7 +722,7 @@ def onnx_export_args(default_run_args, request):
 
 @pytest.mark.llm
 @jit_disabled_for_export()
-@requires_pt_ge('2.2')
+@requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args):
     caplog.set_level(logging.INFO)
     args = onnx_export_args
@@ -770,7 +757,6 @@ def dtype_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_dtype(caplog, dtype_args):
     caplog.set_level(logging.INFO)
     args = dtype_args
@@ -780,42 +766,6 @@ def test_small_models_dtype(caplog, dtype_args):
         torch, dtype_args.dtype)
     dtype = next(model.parameters()).dtype
     assert expected_dtype == dtype, f"Expected dtype of the model parameters to be {expected_dtype} but got {dtype}."
-
-
-@pytest_cases.fixture(
-    ids=[
-        "qcdq-asym",
-        "qcdq-sym",],
-    params=[
-        {
-            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-            "eval": False,
-            "quantize_weight_zero_point": True,
-            "quantize_input_zero_point": True,
-            "export_target": "torch_qcdq",},
-        {
-            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-            "eval": False,
-            "weight_quant_type": "sym",
-            "input_quant_type": "sym",
-            "export_target": "torch_qcdq",},])
-def torch_export_args(default_run_args, request):
-    args = default_run_args
-    export_dict = request.param
-    args.update(**export_dict)
-    yield args
-
-
-@pytest.mark.llm
-@jit_disabled_for_export()
-@requires_pt_ge('2.2')
-def test_small_models_torch_export(caplog, torch_export_args):
-    caplog.set_level(logging.INFO)
-    args = torch_export_args
-    validate_args_and_run_main(args)
-    filepath = args.export_prefix + ".pt"
-    torch.jit.load(filepath)
-    os.remove(filepath)
 
 
 @pytest_cases.fixture(
@@ -855,7 +805,6 @@ def learned_round_ppl_args_and_ppl(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = learned_round_ppl_args_and_ppl

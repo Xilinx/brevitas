@@ -19,7 +19,7 @@ compile_eval: false
 compile_ptq: false
 convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
-dtype: float16
+dtype: auto
 eval: false
 export_prefix: null
 export_target: null
@@ -69,7 +69,6 @@ quant_sdpa: false
 quantize_input_zero_point: false
 quantize_last_layer: false
 quantize_weight_zero_point: false
-replace_mha: false
 replace_rmsnorm: false
 rotation: null
 rotation_layers_to_expand: []
