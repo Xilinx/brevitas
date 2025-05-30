@@ -176,7 +176,7 @@ def default_run_args(request):
 @requires_pt_ge('2.3')
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
-    use_fx = fx_required(args)
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
@@ -305,7 +305,7 @@ def acc_args_and_acc(default_run_args, request):
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
-    use_fx = fx_required(args)
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx' or args.rotation == 'fused_no_fx'
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
     if platform.system() == 'Windows' and use_fx:
@@ -671,6 +671,11 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
     caplog.set_level(logging.INFO)
     args = layer_args_hyperparam
+
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
+
+    if platform.system() == 'Windows' and use_fx:
+        pytest.skip("Skipping dynamo + Windows")
 
     _, model = validate_args_and_run_main(args)
     quant_sdpa = []
