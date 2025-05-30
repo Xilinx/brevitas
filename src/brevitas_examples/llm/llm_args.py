@@ -288,10 +288,6 @@ def create_llm_args_parser():
         'Quantize `F.scaled_dot_product_attention` with stateless module and torch_function (default: %(default)s)'
     )
     parser.add_argument(
-        '--replace-mha',
-        action='store_true',
-        help='Replace HuggingFace Attention with a quantizable version')
-    parser.add_argument(
         '--weight-equalization',
         action='store_true',
         help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')

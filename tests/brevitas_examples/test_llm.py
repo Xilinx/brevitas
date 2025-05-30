@@ -17,6 +17,7 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
+import transformers
 
 from brevitas import config
 from brevitas import torch_version
@@ -448,8 +449,8 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "quant_sdpa": True,
             "exp_layer_types": {
-                "scaled_dot_product_attention":
-                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},])
+                "attn_output": "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
+    ])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
