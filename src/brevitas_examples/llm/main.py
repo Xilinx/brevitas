@@ -455,7 +455,7 @@ def quantize_llm(args, extra_args=None):
 
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
-    if args.functional_sdpa_quant:
+    if args.quant_sdpa == "functional":
         quantization_cm = functional_quantization_mode(
             model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention})
     else:
