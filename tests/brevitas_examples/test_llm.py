@@ -173,6 +173,7 @@ def default_run_args(request):
     return args
 
 
+@requires_pt_ge('2.3')
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
     use_fx = fx_required(args)
@@ -180,8 +181,7 @@ def run_test_models_run_args(args, model_with_ppl):
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
-    if platform.system() == 'Windows' and hasattr(args, 'rotation') and args.rotation in [
-            'fx', 'fused_no_fx']:
+    if platform.system() == 'Windows' and use_fx:
         pytest.skip("Skipping dynamo + Windows")
 
     validate_args_and_run_main(args)
