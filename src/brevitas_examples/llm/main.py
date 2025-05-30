@@ -149,8 +149,7 @@ def model_export(model, ref_input, args):
 
 
 def fx_required(args):
-    quant_sdpa_fx = args.quant_sdpa
-    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
+    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa else False
 
 
 def quantize_llm(args, extra_args=None):
@@ -160,10 +159,9 @@ def quantize_llm(args, extra_args=None):
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
     # Whether to quantize SDPA with FX
-    quant_sdpa_fx = args.quant_sdpa
 
     kwargs = {"torch_dtype": args.dtype}
-    if quant_sdpa_fx:
+    if args.quant_sdpa:
         kwargs["attn_implementation"] = "sdpa"
 
     print("Model loading...")
@@ -251,7 +249,7 @@ def quantize_llm(args, extra_args=None):
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if quant_sdpa_fx:
+    if args.quant_sdpa:
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
@@ -352,7 +350,7 @@ def quantize_llm(args, extra_args=None):
             attn_group_size=args.attn_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
-            quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
+            quant_attn_mode='sdpa' if (args.quant_sdpa or args.functional_sdpa_quant) else 'mha',
             scaling_min_val=args.scaling_min_val)
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,
