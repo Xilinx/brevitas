@@ -719,7 +719,7 @@ def onnx_export_args(default_run_args, request):
 
 @pytest.mark.llm
 @jit_disabled_for_export()
-@requires_pt_ge('2.2')
+@requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args):
     caplog.set_level(logging.INFO)
     args = onnx_export_args
