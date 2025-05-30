@@ -278,20 +278,17 @@ def create_llm_args_parser():
         default=1e-4,
         help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
     parser.add_argument(
-        '--quant-sdpa-fx',
-        action='store_true',
-        help='Quantize `F.scaled_dot_product_attention` using FX (default: %(default)s)')
-    parser.add_argument(
         '--quant-sdpa',
         type=str,
+        choices=['eager', 'functional', 'fx'],
         default=None,
-        help='Quantize `F.scaled_dot_product_attention` without FX (default: %(default)s)')
+        help='Define how to quantize SDPA. (default: %(default)s)')
     parser.add_argument(
-        '--functional-sdpa-quant',
-        action='store_true',
+        '--eager-quant-sdpa-class',
+        type=str,
+        default='auto',
         help=
-        'Quantize `F.scaled_dot_product_attention` with stateless module and torch_function (default: %(default)s)'
-    )
+        'If quant_sdpa is eager, specify the name of the attention class. (default: %(default)s)')
     parser.add_argument(
         '--weight-equalization',
         action='store_true',
