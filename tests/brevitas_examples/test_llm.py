@@ -246,7 +246,6 @@ def toggle_run_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     caplog.set_level(logging.INFO)
     run_test_models_run_args(toggle_run_args, small_models_with_ppl)
@@ -301,7 +300,6 @@ def acc_args_and_acc(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
@@ -447,7 +445,6 @@ def layer_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
@@ -618,7 +615,6 @@ def layer_args_types_count(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
     caplog.set_level(logging.INFO)
     args, exp_layer_types_count = layer_args_types_count
@@ -664,7 +660,6 @@ def layer_args_hyperparam(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 @jit_disabled_for_dynamic_quant_act()
 def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
@@ -762,7 +757,6 @@ def dtype_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_dtype(caplog, dtype_args):
     caplog.set_level(logging.INFO)
     args = dtype_args
@@ -811,7 +805,6 @@ def learned_round_ppl_args_and_ppl(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = learned_round_ppl_args_and_ppl
