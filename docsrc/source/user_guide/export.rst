@@ -6,12 +6,12 @@ In order to accelerate a quantized model, Brevitas requires to export the model 
 Brevitas can currently export to:
 
 -  FINN - for dataflow acceleration on Xilinx FPGAs.
--  PyXIR (*experimental*) - for DPU acceleration on Xilinx FPGAs.
 -  Standard ONNX (*experimental*) - for acceleration with e.g.
    onnxruntime, or any other ONNX-compliant toolchain.
 -  Pytorch's *quantized.functional* operators (*experimental*) - for
    acceleration through Pytorch itself, or any additional downstream
    toolchains supported by Pytorch (e.g. TVM).
+- GGUF - Used for LLM optimized inference
 
 Because Brevitas implements a super-set of layers and datatypes
 supported by various downstream toolchains and hardware platforms, the
