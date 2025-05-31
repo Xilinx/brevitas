@@ -61,7 +61,8 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--act-calibration] [--bias-corr] [--ln-affine-merge]
                [--convert-layernorm-to-rmsnorm] [--replace-rmsnorm]
                [--no-quantize] [--scaling-min-val SCALING_MIN_VAL]
-               [--quant-sdpa] [--functional-sdpa-quant]
+               [--quant-sdpa {eager,functional,fx}]
+               [--eager-quant-sdpa-class EAGER_QUANT_SDPA_CLASS]
                [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
                [--optimize-rotations] [--rotation-mode {had,ort}]
                [--rotation-orphan-sink] [--rotation-sdpa-regions]
@@ -158,9 +159,8 @@ options:
                         Decide which parts of attention should be quantized.
                         "kv" will only quantize KV, "qkvs" will quantize all
                         MatMuls in attention (QKV & Softmax output). Note:
-                        either --functional-sdpa-quant, --quant-sdpa or
-                        --replace-mha need to also be applied for this to have
-                        an effect. Default: qkvs
+                        --quant-sdpa needs be set for this to have an effect.
+                        Default: qkvs
   --attn-bit-width ATTN_BIT_WIDTH
                         Attention bit width. Default: None (same as input).
   --attn-quant-format ATTN_QUANT_FORMAT
@@ -226,11 +226,11 @@ options:
   --scaling-min-val SCALING_MIN_VAL
                         Minimum value to clamp scale to when using bf16 or
                         fp16 quantization.
-  --quant-sdpa          Quantize `F.scaled_dot_product_attention` (default:
-                        False)
-  --functional-sdpa-quant
-                        Quantize `F.scaled_dot_product_attention` with
-                        stateless module and torch_function (default: False)
+  --quant-sdpa {eager,functional,fx}
+                        Define how to quantize SDPA. (default: None)
+  --eager-quant-sdpa-class EAGER_QUANT_SDPA_CLASS
+                        If quant_sdpa is eager, specify the name of the
+                        attention class. (default: auto)
   --weight-equalization
                         Apply weight equalization. Relevant to ReLU based
                         models (e.g. OPT).
