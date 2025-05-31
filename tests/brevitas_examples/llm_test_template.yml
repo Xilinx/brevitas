@@ -18,7 +18,6 @@ few_shot_tasks:
 - winogrande
 - piqa
 few_shot_zeroshot: false
-functional_sdpa_quant: false
 gpfq: false
 gptq: false
 gpxq_act_order: false
@@ -49,7 +48,7 @@ dtype: float32
 no_quantize: false
 nsamples: 128
 optimize_rotations: false
-quant_sdpa: false
+quant_sdpa: null
 quantize_input_zero_point: false
 quantize_last_layer: false
 quantize_weight_zero_point: false

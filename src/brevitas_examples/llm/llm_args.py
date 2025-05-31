@@ -163,7 +163,7 @@ def create_llm_args_parser():
         default='qkvs',
         choices=['qkvs', 'kv'],
         help=
-        'Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: either --functional-sdpa-quant, --quant-sdpa or --replace-mha need to also be applied for this to have an effect. Default: %(default)s'
+        'Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: --quant-sdpa needs be set for this to have an effect. Default: %(default)s'
     )
     parser.add_argument(
         '--attn-bit-width',
@@ -279,14 +279,16 @@ def create_llm_args_parser():
         help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
     parser.add_argument(
         '--quant-sdpa',
-        action='store_true',
-        help='Quantize `F.scaled_dot_product_attention` (default: %(default)s)')
+        type=str,
+        choices=['eager', 'functional', 'fx'],
+        default=None,
+        help='Define how to quantize SDPA. (default: %(default)s)')
     parser.add_argument(
-        '--functional-sdpa-quant',
-        action='store_true',
+        '--eager-quant-sdpa-class',
+        type=str,
+        default='auto',
         help=
-        'Quantize `F.scaled_dot_product_attention` with stateless module and torch_function (default: %(default)s)'
-    )
+        'If quant_sdpa is eager, specify the name of the attention class. (default: %(default)s)')
     parser.add_argument(
         '--weight-equalization',
         action='store_true',
@@ -441,8 +443,6 @@ def validate(args, extra_args: Optional[List[str]] = None):
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
     else:
         assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
-    if args.functional_sdpa_quant:
-        assert args.input_scale_type == 'dynamic' or args.input_bit_width is None, "Functional SDPA Quant requires dynamic activation quantization"
     if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'

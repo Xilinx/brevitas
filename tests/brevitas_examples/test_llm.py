@@ -221,10 +221,10 @@ def run_test_models_run_args(args, model_with_ppl):
         {"rotation": "fx", "ln_affine_merge": True, "replace_rmsnorm": True, "convert_layernorm_to_rmsnorm": True},
         {"rotation": "fused_no_fx", "replace_rmsnorm": True},
         {"act_equalization": "fx", "gptq": True},
-        {"quant_sdpa": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
-        {"functional_sdpa_quant": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
+        {"quant_sdpa": "fx", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
+        {"quant_sdpa": "functional", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
         {
-            "functional_sdpa_quant": True,
+            "quant_sdpa": "functional",
             "rotation": "fused_no_fx",
             "rotation_sdpa_regions": True,
             "input_scale_type": "dynamic",
@@ -285,7 +285,7 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
-            "quant_sdpa": True,
+            "quant_sdpa": "fx",
             "float_ppl": 51649.797,
             "quant_ppl": 51688.922},])
 def acc_args_and_acc(default_run_args, request):
@@ -303,7 +303,7 @@ def acc_args_and_acc(default_run_args, request):
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
-    use_fx = fx_required(args) or args.rotation == 'fused_no_fx' or args.rotation == 'fused_no_fx'
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx' or args.rotation == 'fx'
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
     if platform.system() == 'Windows' and use_fx:
@@ -431,7 +431,7 @@ def test_small_models_acc(caplog, acc_args_and_acc):
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "quant_sdpa": True,
+            "quant_sdpa": "fx",
             "exp_layer_types": {
                 "attn_output": "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
     ])
@@ -626,7 +626,10 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
 
 
 @pytest_cases.fixture(
-    ids=["mistral-kv-quant-fx-sdpa", "mistral-kv-quant-functional-sdpa"],
+    ids=[
+        "mistral-kv-quant-fx-sdpa",
+        "mistral-kv-quant-functional-sdpa",
+        "mistral-kv-quant-eager-sdpa"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -636,8 +639,7 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "quant_sdpa": True,
-            "functional_sdpa_quant": False,
+            "quant_sdpa": "fx",
             "attn_quant_config": "kv",
             "attn_quant_type": "asym"},
         {
@@ -648,8 +650,18 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "quant_sdpa": False,
-            "functional_sdpa_quant": True,
+            "quant_sdpa": "functional",
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_calibration": False,
+            "input_quant_granularity": "per_row",
+            "attn_quant_granularity": "per_group",
+            "input_group_size": 32,
+            "input_scale_type": "dynamic",
+            "input_quant_type": "sym",
+            "quant_sdpa": "eager",
             "attn_quant_config": "kv",
             "attn_quant_type": "asym"},])
 def layer_args_hyperparam(default_run_args, request):
@@ -692,9 +704,9 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
     assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
     # Functional quantization uses one shared quant block for everything
-    if args.quant_sdpa:
-        assert len(quant_sdpa) > 1
-    elif args.functional_sdpa_quant:
+    if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
+        assert len(quant_sdpa) == 2
+    elif args.quant_sdpa == "functional":
         assert len(quant_sdpa) == 1
 
 

@@ -149,7 +149,7 @@ def model_export(model, ref_input, args):
 
 
 def fx_required(args):
-    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa else False
+    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
 
 
 def quantize_llm(args, extra_args=None):
@@ -249,22 +249,26 @@ def quantize_llm(args, extra_args=None):
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if args.quant_sdpa:
+    if args.quant_sdpa == 'fx':
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
-    elif args.functional_sdpa_quant:
+    elif args.quant_sdpa == 'functional':
         print("Inserting SDPA quantizable module")
         model = offload_model(model)
         with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
             model(**calibration_loader[0])
         remove_hooks(model)
+    elif args.quant_sdpa == 'eager':
+        model = replace_sdpa_with_quantizable_layers(
+            model, is_fx=False, eager_quant_sdpa_class=args.eager_quant_sdpa_class)
 
     layers_to_expand = []
     if args.rotation is not None:
         for name, _ in model.named_modules():
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
+
     if args.rotation == 'fx':
         model = offload_model(model)
         eq = GraphRotationEqualization(
@@ -427,7 +431,7 @@ def quantize_llm(args, extra_args=None):
 
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
-    if args.functional_sdpa_quant:
+    if args.quant_sdpa == "functional":
         quantization_cm = functional_quantization_mode(
             model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention})
     else:
