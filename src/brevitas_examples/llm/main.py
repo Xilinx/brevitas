@@ -27,7 +27,6 @@ from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
-from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
@@ -59,8 +58,6 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-
-logging = setup_logger(__name__)
 
 
 def filter_results(results, tasks):
@@ -263,29 +260,8 @@ def quantize_llm(args, extra_args=None):
             model(**calibration_loader[0])
         remove_hooks(model)
     elif args.quant_sdpa == 'eager':
-        # We rely on the following:
-        # - Attention functions accepts the current module as input
-        # - We can add a new entry in the dict of supported attention functions
-        # - Attention Modules' name end with `Attention`. The user can also override this
-        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-
-        from brevitas_examples.llm.llm_quant.mha_layers import quant_sdpa_attention_forward
-        ALL_ATTENTION_FUNCTIONS['quant_sdpa'] = quant_sdpa_attention_forward
-        model.config._attn_implementation = 'quant_sdpa'
-        for n, m in model.named_modules():
-            if args.eager_quant_sdpa_class == 'auto':
-                print(type(m).__name__)
-                if type(m).__name__.lower().endswith('attention'):
-                    quant_block_type = type(m)
-                    break
-            else:
-                if type(m).__name__.lower() == args.quant_sdpa.lower():
-                    quant_block_type = type(m)
-                    break
-        logging.info(f"Attention module is {quant_block_type}")
-        for m in model.modules():
-            if isinstance(m, quant_block_type):
-                m.attn = ScaledDotProductAttention()
+        model = replace_sdpa_with_quantizable_layers(
+            model, is_fx=False, eager_quant_sdpa_class=args.eager_quant_sdpa_class)
 
     layers_to_expand = []
     if args.rotation is not None:

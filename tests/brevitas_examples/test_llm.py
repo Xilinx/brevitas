@@ -626,7 +626,10 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
 
 
 @pytest_cases.fixture(
-    ids=["mistral-kv-quant-fx-sdpa", "mistral-kv-quant-functional-sdpa"],
+    ids=[
+        "mistral-kv-quant-fx-sdpa",
+        "mistral-kv-quant-functional-sdpa",
+        "mistral-kv-quant-eager-sdpa"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -648,6 +651,17 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
             "quant_sdpa": "functional",
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_calibration": False,
+            "input_quant_granularity": "per_row",
+            "attn_quant_granularity": "per_group",
+            "input_group_size": 32,
+            "input_scale_type": "dynamic",
+            "input_quant_type": "sym",
+            "quant_sdpa": "eager",
             "attn_quant_config": "kv",
             "attn_quant_type": "asym"},])
 def layer_args_hyperparam(default_run_args, request):
@@ -690,8 +704,8 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
     assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
     # Functional quantization uses one shared quant block for everything
-    if args.quant_sdpa == "fx":
-        assert len(quant_sdpa) > 1
+    if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
+        assert len(quant_sdpa) == 2
     elif args.quant_sdpa == "functional":
         assert len(quant_sdpa) == 1
 
