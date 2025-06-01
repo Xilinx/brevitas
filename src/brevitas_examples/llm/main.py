@@ -148,6 +148,8 @@ def model_export(model, tokenizer, ref_input, args):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
+    elif 'gguf' in args.export_target:
+        save_quantized_as_gguf('.', model, tokenizer, args.export_target)
 
 
 def fx_required(args):
@@ -627,7 +629,7 @@ def quantize_llm(args, extra_args=None):
 
         if args.export_target:
             print(f"Export to {args.export_target}")
-            # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
+            # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, calibration_loader[0], args)
 
