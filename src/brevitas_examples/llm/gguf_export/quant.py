@@ -44,8 +44,15 @@ def ggml_quant(
         data: np.array, ggml_type, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
     import torch
     data = data.squeeze().cpu().detach().numpy() if isinstance(data, torch.Tensor) else data
+
+    if scale.dtype not in (torch.float16, torch.float32):
+        scale = scale.to(torch.float32)
     scale = scale.detach().numpy() if isinstance(scale, torch.Tensor) else scale
+
+    if zp.dtype not in (torch.float16, torch.float32):
+        zp = zp.to(torch.float32)
     zp = zp.detach().numpy() if isinstance(zp, torch.Tensor) else zp
+
     wmin_m = wmin_m.detach().numpy() if isinstance(wmin_m, torch.Tensor) else wmin_m
     d_scale = d_scale.detach().numpy() if isinstance(d_scale, torch.Tensor) else d_scale
     d_wmin_m = d_wmin_m.detach().numpy() if isinstance(d_wmin_m, torch.Tensor) else d_wmin_m
@@ -94,7 +101,6 @@ def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
     blocks = blocks.reshape((n_blocks, 2, block_size // 2))
     blocks = blocks[..., 0, :] | (blocks[..., 1, :] << np.uint8(4))
     d = d.astype(np.float16).view(np.uint8)
-
     return np.concatenate([d, blocks], axis=-1)
 
 

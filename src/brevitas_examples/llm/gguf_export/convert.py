@@ -45,6 +45,7 @@ from typing import Literal
 from typing import Optional
 from typing import Sequence
 from typing import Set
+from typing import TypeVar
 from typing import Union
 
 import gguf
@@ -338,7 +339,8 @@ class ModelBase:
         from brevitas.utils.python_utils import recurse_getattr
         from brevitas_examples.llm.gguf_export.quant import ggml_quant
         suffix = '.weight'
-        fallback_gguf_dtype = TORCH_GGUF_MAPPING[old_dtype]
+        fallback_gguf_dtype = data_qtype if data_qtype == gguf.GGMLQuantizationType.F32 else TORCH_GGUF_MAPPING[
+            old_dtype]
 
         # Weight not in name, no quantization
         if suffix not in name:
@@ -356,7 +358,6 @@ class ModelBase:
         # If the layer is not quantized, no quantization
         if not hasattr(module, "weight_quant") or not module.weight_quant.is_quant_enabled:
             return data, fallback_gguf_dtype
-
         quant_weight = module.quant_weight()
         weight_quant = module.weight_quant
         quant_data = quant_weight.int()
