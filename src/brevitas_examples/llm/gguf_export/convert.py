@@ -45,10 +45,9 @@ from typing import Literal
 from typing import Optional
 from typing import Sequence
 from typing import Set
-from typing import TYPE_CHECKING
-from typing import TypeVar
 from typing import Union
 
+import gguf
 import numpy as np
 import torch
 from torch import Tensor
@@ -56,15 +55,14 @@ from transformers import AutoConfig
 
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+from brevitas.utils.logging import setup_logger
 
-if TYPE_CHECKING:
-    from torch import Tensor
+logger = setup_logger(__name__)
 
-if 'NO_LOCAL_GGUF' not in os.environ:
-    sys.path.insert(1, str(Path(__file__).parent / 'gguf-py'))
-import gguf
-
-logger = logging.getLogger("hf-to-gguf")
+TORCH_GGUF_MAPPING = {
+    torch.float32: gguf.GGMLQuantizationType.F32,
+    torch.float16: gguf.GGMLQuantizationType.F16,
+    torch.bfloat16: gguf.GGMLQuantizationType.BF16}
 
 ###### MODEL DEFINITIONS ######
 
@@ -336,59 +334,68 @@ class ModelBase:
     def generate_extra_tensors(self) -> Iterable[tuple[str, Tensor]]:
         return ()
 
-    def quantize(self, name, data, data_qtype):
+    def quantize(self, name, data, data_qtype, old_dtype):
         from brevitas.utils.python_utils import recurse_getattr
         from brevitas_examples.llm.gguf_export.quant import ggml_quant
         suffix = '.weight'
-        if suffix in name:
-            layer_name = name[:-len(suffix)]
-            try:
-                module = recurse_getattr(self.model, layer_name)
-                if hasattr(module, "weight_quant") and module.weight_quant.is_quant_enabled:
-                    quant_weight = module.quant_weight()
-                    weight_quant = module.weight_quant
-                    quant_data = quant_weight.int()
-                    scale = quant_weight.scale_ if hasattr(
-                        quant_weight, 'scale_') else quant_weight.scale
-                    zp = quant_weight.zero_point_ if hasattr(
-                        quant_weight, 'zero_point_') else quant_weight.zero_point
-                    if data_qtype == gguf.GGMLQuantizationType.Q4_K:
+        fallback_gguf_dtype = TORCH_GGUF_MAPPING[old_dtype]
 
-                        quant_scale_module = None
+        # Weight not in name, no quantization
+        if suffix not in name:
+            return data, fallback_gguf_dtype
 
-                        for m in weight_quant.modules():
-                            if isinstance(m, QuantRestrictValue):
-                                quant_scale_module = m
-                                break
-                        quant_scale, scale_scale, *_ = quant_scale_module.float_to_int_impl(scale)
-                        orig_scale = scale
-                        scale = quant_scale
+        layer_name = name[:-len(suffix)]
 
-                        quant_zero_point_module = None
+        # If the module cannot be found, no quantization
+        try:
+            module = recurse_getattr(self.model, layer_name)
+        except Exception as e:
+            logging.info(f"Module not found {e}, falling back to {fallback_gguf_dtype}")
+            return data, fallback_gguf_dtype
 
-                        for m in weight_quant.modules():
-                            if isinstance(m, _ScaleShiftQuantZeroPoint):
-                                quant_zero_point_module = m
-                                break
-                        quant_zero_point, scale_zp, *_= quant_zero_point_module.zp_int_quant(zp * orig_scale)
-                        zp = quant_zero_point
-                        data = ggml_quant(
-                            quant_data,
-                            data_qtype,
-                            scale,
-                            zp,
-                            wmin_m=zp,
-                            d_scale=scale_scale,
-                            d_wmin_m=scale_zp)
+        # If the layer is not quantized, no quantization
+        if not hasattr(module, "weight_quant") or not module.weight_quant.is_quant_enabled:
+            return data, fallback_gguf_dtype
 
-                    else:
-                        data = ggml_quant(quant_data, data_qtype, scale, zp)
-                else:
-                    data_qtype = gguf.GGMLQuantizationType.F32
-            except Exception as e:
-                data_qtype = gguf.GGMLQuantizationType.F32
+        quant_weight = module.quant_weight()
+        weight_quant = module.weight_quant
+        quant_data = quant_weight.int()
+        scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
+        zp = quant_weight.zero_point_ if hasattr(
+            quant_weight, 'zero_point_') else quant_weight.zero_point
+
+        if data_qtype == gguf.GGMLQuantizationType.Q4_K:
+
+            quant_scale_module = None
+
+            for m in weight_quant.modules():
+                if isinstance(m, QuantRestrictValue):
+                    quant_scale_module = m
+                    break
+            quant_scale, scale_scale, *_ = quant_scale_module.float_to_int_impl(scale)
+            orig_scale = scale
+            scale = quant_scale
+
+            quant_zero_point_module = None
+
+            for m in weight_quant.modules():
+                if isinstance(m, _ScaleShiftQuantZeroPoint):
+                    quant_zero_point_module = m
+                    break
+            quant_zero_point, scale_zp, *_ = quant_zero_point_module.zp_int_quant(zp * orig_scale)
+            zp = quant_zero_point
+            data = ggml_quant(
+                quant_data,
+                data_qtype,
+                scale,
+                zp,
+                wmin_m=zp,
+                d_scale=scale_scale,
+                d_wmin_m=scale_zp)
+
         else:
-            data_qtype = gguf.GGMLQuantizationType.F32
+            data = ggml_quant(quant_data, data_qtype, scale, zp)
+
         return data, data_qtype
 
     def get_name_and_qtype(self, data_torch, name):
@@ -485,17 +492,11 @@ class ModelBase:
             if name.endswith(
                 (".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq", '.value')):
                 continue
+            old_dtype = data_torch.dtype
             return_data, return_qtype, return_new_name = self.get_name_and_qtype(data_torch, name)
 
-            old_dtype = data_torch.dtype
             for data, data_qtype, new_name in zip(return_data, return_qtype, return_new_name):
-                data, data_qtype = self.quantize(name, data, data_qtype)
-                # try:
-                #     data = gguf.quants.quantize(data, data_qtype)
-                # except gguf.QuantError as e:
-                #     logger.warning("%s, %s", e, "falling back to F16")
-                #     data_qtype = gguf.GGMLQuantizationType.F16
-                #     data = gguf.quants.quantize(data, data_qtype)
+                data, data_qtype = self.quantize(name, data, data_qtype, old_dtype)
 
                 shape = gguf.quant_shape_from_byte_shape(
                     data.shape, data_qtype) if data.dtype == np.uint8 else data.shape
