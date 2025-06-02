@@ -1,6 +1,5 @@
 from dependencies import this
 from dependencies import value
-import gguf
 import torch
 
 from brevitas.core.quant.int import RescalingIntQuant
@@ -14,7 +13,6 @@ from brevitas.quant.base import ExtendedInjector
 from brevitas.quant.base import FloatRestrictValue
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas_examples.llm.gguf_export.quant import ggml_quant
 
 ZP_BIT_WIDTH = 6
 SCALE_BIT_WIDTH = 6
