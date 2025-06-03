@@ -15,6 +15,7 @@ from brevitas.core.restrict_val import RoundSte
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
@@ -80,6 +81,11 @@ from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicAc
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
+
+class IntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymmetricGroupQuant):
+    pass
+
+
 WEIGHT_QUANT_MAP = {
     'int': {
         'float_scale': {
@@ -97,7 +103,9 @@ WEIGHT_QUANT_MAP = {
                     'asym': ShiftedUint8WeightPerTensorFloatMSE},
                 'per_channel': {
                     'sym': Int8WeightPerChannelFloatMSE,
-                    'asym': ShiftedUint8WeightPerChannelFloatMSE}},
+                    'asym': ShiftedUint8WeightPerChannelFloatMSE},
+                'per_group': {
+                    'sym': IntWeightSymmetricGroupQuantMSE}},
             'hqo': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFloatHQO,
