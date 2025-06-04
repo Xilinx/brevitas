@@ -552,8 +552,7 @@ def quantize_llm(args, extra_args=None):
                     limit=args.few_shot_limit,
                     num_fewshot=0 if args.few_shot_zeroshot else None,
                     log_samples=False,
-                    batch_size=None,
-                    verbosity="ERROR")
+                    batch_size=None)
             few_shot_eval_results = filter_results(few_shot_eval_results, args.few_shot_tasks)
             print("Few shot eval results")
             pprint.pprint(few_shot_eval_results)

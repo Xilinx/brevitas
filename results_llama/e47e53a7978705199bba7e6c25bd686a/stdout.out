@@ -1,0 +1,35 @@
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+Float perplexity (wikitext2): 8.781
+Applying model quantization...
+Model quantization applied.
+{'loss': 6352.7297, 'grad_norm': 16524.033203125, 'learning_rate': 0.09755282581475769, 'epoch': 0.1}
+{'loss': 9700.2422, 'grad_norm': 12720.1748046875, 'learning_rate': 0.09045084971874738, 'epoch': 0.2}
+{'loss': 6896.4961, 'grad_norm': 5239.416015625, 'learning_rate': 0.07938926261462366, 'epoch': 0.3}
+{'loss': 1642.4713, 'grad_norm': 157.4700164794922, 'learning_rate': 0.06545084971874737, 'epoch': 0.4}
+{'loss': 1325.7967, 'grad_norm': 137.95233154296875, 'learning_rate': 0.05, 'epoch': 0.5}
+{'loss': 1332.6385, 'grad_norm': 164.49954223632812, 'learning_rate': 0.03454915028125263, 'epoch': 0.6}
+{'loss': 1182.8894, 'grad_norm': 116.66310119628906, 'learning_rate': 0.02061073738537635, 'epoch': 0.7}
+{'loss': 1008.4898, 'grad_norm': 85.15491485595703, 'learning_rate': 0.009549150281252633, 'epoch': 0.8}
+{'loss': 846.5101, 'grad_norm': 2213.249755859375, 'learning_rate': 0.0024471741852423235, 'epoch': 0.9}
+{'loss': 740.1767, 'grad_norm': 51.31519317626953, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 2768.5854, 'train_samples_per_second': 0.289, 'train_steps_per_second': 0.036, 'train_loss': 3102.8440380859374, 'epoch': 1.0}
+Model eval...
+Quantized perplexity (wikitext2): inf
+Few shot eval results
+{'arc_challenge_acc,none': 0.21416382252559726,
+ 'arc_challenge_acc_norm,none': 0.26109215017064846,
+ 'arc_challenge_acc_norm_stderr,none': 0.012835523909473835,
+ 'arc_challenge_acc_stderr,none': 0.011988383205966497,
+ 'arc_easy_acc,none': 0.24579124579124578,
+ 'arc_easy_acc_norm,none': 0.26052188552188554,
+ 'arc_easy_acc_norm_stderr,none': 0.009006435890336591,
+ 'arc_easy_acc_stderr,none': 0.008834809366391486,
+ 'piqa_acc,none': 0.5228509249183896,
+ 'piqa_acc_norm,none': 0.4885745375408052,
+ 'piqa_acc_norm_stderr,none': 0.011662778026451675,
+ 'piqa_acc_stderr,none': 0.011653634832401179,
+ 'winogrande_acc,none': 0.5074980268350434,
+ 'winogrande_acc_stderr,none': 0.014050905521228577}

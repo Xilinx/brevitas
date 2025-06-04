@@ -1,0 +1,35 @@
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+Float perplexity (wikitext2): 8.781
+Applying model quantization...
+Model quantization applied.
+{'loss': 1.5533, 'grad_norm': 5.699594974517822, 'learning_rate': 0.4877641290737884, 'epoch': 0.1}
+{'loss': 1.5189, 'grad_norm': 5.939818382263184, 'learning_rate': 0.45225424859373686, 'epoch': 0.2}
+{'loss': 1.3397, 'grad_norm': 11.944269180297852, 'learning_rate': 0.3969463130731183, 'epoch': 0.3}
+{'loss': 1.2605, 'grad_norm': 2.460388422012329, 'learning_rate': 0.32725424859373686, 'epoch': 0.4}
+{'loss': 1.1491, 'grad_norm': 3.7206003665924072, 'learning_rate': 0.25, 'epoch': 0.5}
+{'loss': 1.0483, 'grad_norm': 1.7567191123962402, 'learning_rate': 0.17274575140626316, 'epoch': 0.6}
+{'loss': 0.9587, 'grad_norm': 5.646203517913818, 'learning_rate': 0.10305368692688174, 'epoch': 0.7}
+{'loss': 0.925, 'grad_norm': 2.7246816158294678, 'learning_rate': 0.047745751406263165, 'epoch': 0.8}
+{'loss': 0.8877, 'grad_norm': 0.6702398061752319, 'learning_rate': 0.012235870926211617, 'epoch': 0.9}
+{'loss': 0.8699, 'grad_norm': 0.4418881833553314, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 2797.2329, 'train_samples_per_second': 0.286, 'train_steps_per_second': 0.036, 'train_loss': 1.1511223888397217, 'epoch': 1.0}
+Model eval...
+Quantized perplexity (wikitext2): 5470.776
+Few shot eval results
+{'arc_challenge_acc,none': 0.20051194539249148,
+ 'arc_challenge_acc_norm,none': 0.25,
+ 'arc_challenge_acc_norm_stderr,none': 0.012653835621466646,
+ 'arc_challenge_acc_stderr,none': 0.011700318050499382,
+ 'arc_easy_acc,none': 0.2478956228956229,
+ 'arc_easy_acc_norm,none': 0.26136363636363635,
+ 'arc_easy_acc_norm_stderr,none': 0.009015838366608193,
+ 'arc_easy_acc_stderr,none': 0.008860162361464032,
+ 'piqa_acc,none': 0.5228509249183896,
+ 'piqa_acc_norm,none': 0.5114254624591947,
+ 'piqa_acc_norm_stderr,none': 0.011662778026451666,
+ 'piqa_acc_stderr,none': 0.011653634832401174,
+ 'winogrande_acc,none': 0.4861878453038674,
+ 'winogrande_acc_stderr,none': 0.014047122916440415}

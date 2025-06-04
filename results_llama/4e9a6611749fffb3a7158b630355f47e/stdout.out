@@ -1,0 +1,35 @@
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+Float perplexity (wikitext2): 8.781
+Applying model quantization...
+Model quantization applied.
+{'loss': 0.9867, 'grad_norm': 4.496366500854492, 'learning_rate': 1.4632923872213652, 'epoch': 0.1}
+{'loss': 0.7403, 'grad_norm': 2.922114610671997, 'learning_rate': 1.3567627457812106, 'epoch': 0.2}
+{'loss': 0.6863, 'grad_norm': 2.4562392234802246, 'learning_rate': 1.1908389392193548, 'epoch': 0.3}
+{'loss': 0.6515, 'grad_norm': 1.782384991645813, 'learning_rate': 0.9817627457812106, 'epoch': 0.4}
+{'loss': 0.6363, 'grad_norm': 2.1329548358917236, 'learning_rate': 0.75, 'epoch': 0.5}
+{'loss': 0.6316, 'grad_norm': 1.509549617767334, 'learning_rate': 0.5182372542187895, 'epoch': 0.6}
+{'loss': 0.6194, 'grad_norm': 1.3305506706237793, 'learning_rate': 0.3091610607806452, 'epoch': 0.7}
+{'loss': 0.6087, 'grad_norm': 1.234339714050293, 'learning_rate': 0.1432372542187895, 'epoch': 0.8}
+{'loss': 0.6073, 'grad_norm': 1.1075425148010254, 'learning_rate': 0.03670761277863485, 'epoch': 0.9}
+{'loss': 0.6092, 'grad_norm': 1.3274527788162231, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 2784.7185, 'train_samples_per_second': 0.287, 'train_steps_per_second': 0.036, 'train_loss': 0.6777355766296387, 'epoch': 1.0}
+Model eval...
+Quantized perplexity (wikitext2): 13.843
+Few shot eval results
+{'arc_challenge_acc,none': 0.25426621160409557,
+ 'arc_challenge_acc_norm,none': 0.2960750853242321,
+ 'arc_challenge_acc_norm_stderr,none': 0.013340916085246258,
+ 'arc_challenge_acc_stderr,none': 0.012724999945157751,
+ 'arc_easy_acc,none': 0.42297979797979796,
+ 'arc_easy_acc_norm,none': 0.390993265993266,
+ 'arc_easy_acc_norm_stderr,none': 0.01001299223254062,
+ 'arc_easy_acc_stderr,none': 0.010137328382209094,
+ 'piqa_acc,none': 0.6349292709466812,
+ 'piqa_acc_norm,none': 0.6262241566920566,
+ 'piqa_acc_norm_stderr,none': 0.011287972563201023,
+ 'piqa_acc_stderr,none': 0.01123302183055483,
+ 'winogrande_acc,none': 0.5564325177584846,
+ 'winogrande_acc_stderr,none': 0.0139626949076204}

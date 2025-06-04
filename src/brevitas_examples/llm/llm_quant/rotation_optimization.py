@@ -6,6 +6,7 @@ from typing import List, Optional, Union
 
 from accelerate.utils import DistributedType
 from datasets import Dataset
+import geoopt
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -19,10 +20,11 @@ from brevitas.utils.parametrization_utils import extract_trainable_rotation_matr
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 from brevitas.graph.calibrate import disable_enable_quantization
-from trl import GKDConfig, GKDTrainer
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
+    # Stiefel manifold optimizer
+    stiefel_optimizer: str = field(default="cailey_sgd")
     # By default, arguments are saved in the current working directory
     output_dir: Optional[str] = field(default=os.getcwd())
     # NOTE: Currently, there is no infrastructure to resume training
@@ -242,6 +244,18 @@ class TeacherModelWrapper(nn.Module):
         with torch.no_grad(), disable_enable_quantization(self.model):
             return self.model(**inputs)
 
+def instantiate_optimizer(params: List[nn.Parameter], args: TrainingArguments) -> torch.optim.Optimizer:
+    if args.stiefel_optimizer == "cailey_sgd":
+        optimizer = CaileySGD(params, lr=args.learning_rate, stiefel=True)
+    elif args.stiefel_optimizer == "riemann_sgd":
+        optimizer = geoopt.optim.RiemannianSGD(params, lr=args.learning_rate, weight_decay=args.weight_decay, stabilize=10)
+    elif args.stiefel_optimizer == "riemann_adam":
+        optimizer = geoopt.optim.RiemannianAdam(params, lr=args.learning_rate, weight_decay=args.weight_decay, stabilize=10)
+    else:
+        raise ValueError(f"Optimizer {args.stiefel_optimizer} is not available.")
+    return optimizer
+
+
 def apply_rotation_optimization(
     model: torch.nn.Module,
     tokenizer: PreTrainedTokenizerBase,
@@ -265,7 +279,7 @@ def apply_rotation_optimization(
     trainable_rotations = extract_trainable_rotation_matrices(model)
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
-    optimizer = CaileySGD(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
+    optimizer = instantiate_optimizer(params=trainable_rotations, args=training_args)
     trainer = DistilledTrainer(
         model=model,
         tokenizer=tokenizer,

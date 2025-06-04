@@ -1,0 +1,35 @@
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+Float perplexity (wikitext2): 8.781
+Applying model quantization...
+Model quantization applied.
+{'loss': 3.3454, 'grad_norm': 8.42514419555664, 'learning_rate': 0.048776412907378844, 'epoch': 0.1}
+{'loss': 2.9801, 'grad_norm': 7.138659477233887, 'learning_rate': 0.04522542485937369, 'epoch': 0.2}
+{'loss': 2.895, 'grad_norm': 5.385280132293701, 'learning_rate': 0.03969463130731183, 'epoch': 0.3}
+{'loss': 2.7904, 'grad_norm': 5.094400405883789, 'learning_rate': 0.032725424859373686, 'epoch': 0.4}
+{'loss': 2.6703, 'grad_norm': 3.824665069580078, 'learning_rate': 0.025, 'epoch': 0.5}
+{'loss': 2.7749, 'grad_norm': 3.471331834793091, 'learning_rate': 0.017274575140626316, 'epoch': 0.6}
+{'loss': 2.7025, 'grad_norm': 3.029252529144287, 'learning_rate': 0.010305368692688175, 'epoch': 0.7}
+{'loss': 2.6974, 'grad_norm': 2.8642940521240234, 'learning_rate': 0.004774575140626317, 'epoch': 0.8}
+{'loss': 2.6954, 'grad_norm': 2.6334195137023926, 'learning_rate': 0.0012235870926211618, 'epoch': 0.9}
+{'loss': 2.6846, 'grad_norm': 2.78340482711792, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 2771.4736, 'train_samples_per_second': 0.289, 'train_steps_per_second': 0.036, 'train_loss': 2.8236078453063964, 'epoch': 1.0}
+Model eval...
+Quantized perplexity (wikitext2): 13.291
+Few shot eval results
+{'arc_challenge_acc,none': 0.25,
+ 'arc_challenge_acc_norm,none': 0.295221843003413,
+ 'arc_challenge_acc_norm_stderr,none': 0.013329750293382316,
+ 'arc_challenge_acc_stderr,none': 0.012653835621466646,
+ 'arc_easy_acc,none': 0.4187710437710438,
+ 'arc_easy_acc_norm,none': 0.39730639730639733,
+ 'arc_easy_acc_norm_stderr,none': 0.01004105307888428,
+ 'arc_easy_acc_stderr,none': 0.010123487160167812,
+ 'piqa_acc,none': 0.6381936887921654,
+ 'piqa_acc_norm,none': 0.6131664853101197,
+ 'piqa_acc_norm_stderr,none': 0.011363095931902852,
+ 'piqa_acc_stderr,none': 0.011211397313020377,
+ 'winogrande_acc,none': 0.5445935280189423,
+ 'winogrande_acc_stderr,none': 0.013996485037729779}

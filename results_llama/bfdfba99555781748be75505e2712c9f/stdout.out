@@ -1,0 +1,35 @@
+Model loading...
+Model loaded.
+Data loaded.
+Float model eval...
+Float perplexity (wikitext2): 8.781
+Applying model quantization...
+Model quantization applied.
+{'loss': 3.0423, 'grad_norm': 5.3698835372924805, 'learning_rate': 1.4632923872213652, 'epoch': 0.1}
+{'loss': 2.6656, 'grad_norm': 3.747368812561035, 'learning_rate': 1.3567627457812106, 'epoch': 0.2}
+{'loss': 2.5953, 'grad_norm': 3.262878656387329, 'learning_rate': 1.1908389392193548, 'epoch': 0.3}
+{'loss': 2.5118, 'grad_norm': 2.986769437789917, 'learning_rate': 0.9817627457812106, 'epoch': 0.4}
+{'loss': 2.4208, 'grad_norm': 3.182825803756714, 'learning_rate': 0.75, 'epoch': 0.5}
+{'loss': 2.5178, 'grad_norm': 2.8962271213531494, 'learning_rate': 0.5182372542187895, 'epoch': 0.6}
+{'loss': 2.4621, 'grad_norm': 2.7810418605804443, 'learning_rate': 0.3091610607806452, 'epoch': 0.7}
+{'loss': 2.4555, 'grad_norm': 2.764131784439087, 'learning_rate': 0.1432372542187895, 'epoch': 0.8}
+{'loss': 2.4559, 'grad_norm': 2.5579187870025635, 'learning_rate': 0.03670761277863485, 'epoch': 0.9}
+{'loss': 2.442, 'grad_norm': 2.761380434036255, 'learning_rate': 0.0, 'epoch': 1.0}
+{'train_runtime': 2790.9702, 'train_samples_per_second': 0.287, 'train_steps_per_second': 0.036, 'train_loss': 2.5569099807739257, 'epoch': 1.0}
+Model eval...
+Quantized perplexity (wikitext2): 13.064
+Few shot eval results
+{'arc_challenge_acc,none': 0.24744027303754265,
+ 'arc_challenge_acc_norm,none': 0.2935153583617747,
+ 'arc_challenge_acc_norm_stderr,none': 0.013307250444941118,
+ 'arc_challenge_acc_stderr,none': 0.012610352663292673,
+ 'arc_easy_acc,none': 0.4271885521885522,
+ 'arc_easy_acc_norm,none': 0.3918350168350168,
+ 'arc_easy_acc_norm_stderr,none': 0.010016835016834992,
+ 'arc_easy_acc_stderr,none': 0.010150415974210875,
+ 'piqa_acc,none': 0.6474428726877041,
+ 'piqa_acc_norm,none': 0.6245919477693145,
+ 'piqa_acc_norm_stderr,none': 0.01129783958977666,
+ 'piqa_acc_stderr,none': 0.011147074365010461,
+ 'winogrande_acc,none': 0.5572217837411207,
+ 'winogrande_acc_stderr,none': 0.013960157350784987}
