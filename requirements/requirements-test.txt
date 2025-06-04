@@ -1,7 +1,7 @@
 hypothesis
 mock
 psutil
-pytest==8.3.5
+pytest<8.4
 pytest-mock
 pytest-xdist
 pytest_cases
