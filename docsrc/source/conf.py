@@ -86,7 +86,7 @@ autodoc_mock_imports = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = 'pydata_sphinx_theme'
-
+html_title = f'Brevitas Documentation - {current_version}'
 # Dictionary of theme options
 # html_logo is broken on sphinx 6
 # https://github.com/pydata/pydata-sphinx-theme/issues/1094

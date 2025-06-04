@@ -20,7 +20,8 @@ html:
 	@export VERSION=$(BUILD_VERSION) && $(MULTIVERSION) "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
 
 github:
-
+	@$(MAKE) html
+	@cp -a "$(BUILDDIR)/html/." ../docs
 	@cp -a "$(SOURCEDIR)/index.html" ../docs
 	@touch .nojekyll ../docs
 
