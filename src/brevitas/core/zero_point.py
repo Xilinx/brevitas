@@ -189,7 +189,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
                 out = self.buffer
             else:
                 out = self.value
-        # out = abs_binary_sign_grad(out)
+        out = abs_binary_sign_grad(out)
         out = self.scale_shift_zero_point(out, scale, bit_width)
         return out
 
@@ -256,8 +256,8 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        # out = abs_binary_sign_grad(self.value)
-        out = self.scale_shift_zero_point(self.value, scale, bit_width)
+        out = abs_binary_sign_grad(self.value)
+        out = self.scale_shift_zero_point(out, scale, bit_width)
         return out
 
     def _load_from_state_dict(
@@ -302,8 +302,8 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
         if self.init_done:
-            # value = abs_binary_sign_grad(self.value)
-            value = self.scale_shift_zero_point(self.value, scale, bit_width)
+            value = abs_binary_sign_grad(self.value)
+            value = self.scale_shift_zero_point(value, scale, bit_width)
             return value
         else:
             stats = self.parameter_list_stats(x)
@@ -312,8 +312,8 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             if self.local_loss_mode:
                 return self.scale_shift_zero_point(-stats, scale, bit_width)
             inplace_tensor_add(self.value.detach(), stats)
-            # value = abs_binary_sign_grad(self.value)
-            value = self.scale_shift_zero_point(self.value, scale, bit_width)
+            value = abs_binary_sign_grad(self.value)
+            value = self.scale_shift_zero_point(value, scale, bit_width)
             self.init_done = True
             return value
 
