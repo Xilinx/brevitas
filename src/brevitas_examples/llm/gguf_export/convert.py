@@ -87,7 +87,7 @@ AnyModel = TypeVar("AnyModel", bound="type[ModelBase]")
 
 
 class ModelBase:
-    _model_classes: dict[ModelType, dict[str, type[ModelBase]]] = {
+    _model_classes: dict[ModelType, dict[str, Any]] = {
         ModelType.TEXT: {},
         ModelType.MMPROJ: {},}
 
@@ -138,8 +138,7 @@ class ModelBase:
                 type(self) is MmprojModel:
             raise TypeError(f"{type(self).__name__!r} should not be directly instantiated")
 
-        from transformers import AutoModel
-        self.model = model  #AutoModel.from_pretrained('meta-llama/Llama-3.2-1B')
+        self.model = model
         self.dir_model = dir_model
         self.ftype = ftype
         self.fname_out = fname_out
@@ -337,7 +336,7 @@ class ModelBase:
         for name, tensor in self.model.named_parameters():
             yield name, tensor.detach()
 
-    def quantize(self, name, data, data_qtype, old_dtype):
+    def quantize(self, name, data, data_qtype, old_dtype, bid):
 
         suffix = '.weight'
         fallback_gguf_dtype = data_qtype if data_qtype == gguf.GGMLQuantizationType.F32 else TORCH_GGUF_MAPPING[
@@ -365,6 +364,7 @@ class ModelBase:
         scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
         zp = quant_weight.zero_point_ if hasattr(
             quant_weight, 'zero_point_') else quant_weight.zero_point
+        _, quant_data = self.modify_tensors(quant_data, name, bid)[0]
 
         if data_qtype == gguf.GGMLQuantizationType.Q4_K:
 
@@ -386,6 +386,10 @@ class ModelBase:
                     break
             quant_zero_point, scale_zp, *_ = quant_zero_point_module.zp_int_quant(zp * orig_scale)
             zp = quant_zero_point
+            _, scale_scale = self.modify_tensors(scale_scale, name, bid)[0]
+            _, scale_zp = self.modify_tensors(scale_zp, name, bid)[0]
+            _, scale = self.modify_tensors(scale, name, bid)[0]
+            _, zp = self.modify_tensors(zp, name, bid)[0]
             data = ggml_quant(
                 quant_data,
                 data_qtype,
@@ -396,6 +400,8 @@ class ModelBase:
                 d_wmin_m=scale_zp)
 
         else:
+            _, scale = self.modify_tensors(scale, name, bid)[0]
+            _, zp = self.modify_tensors(zp, name, bid)[0]
             data = ggml_quant(quant_data, data_qtype, scale, zp)
 
         return data, data_qtype
@@ -403,9 +409,10 @@ class ModelBase:
     def prepare_tensors(self):
         max_name_len = max(len(s) for _, s in self.tensor_map.mapping.values()) + len(".weight,")
 
-        for name, data_torch in chain(self.generate_extra_tensors(), self.get_tensors()):
+        for name, data_torch in chain(self.generate_extra_tensors(), self.get_tensor_from_model()):
             # we don't need these
-            if name.endswith((".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq")):
+            if name.endswith(
+                (".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq", ".value")):
                 continue
 
             old_dtype = data_torch.dtype
@@ -483,14 +490,15 @@ class ModelBase:
                         data_qtype = gguf.GGMLQuantizationType.Q8_0
                     elif self.ftype == gguf.LlamaFileType.MOSTLY_Q4_0:
                         data_qtype = gguf.GGMLQuantizationType.Q4_0
+                    elif self.ftype == gguf.LlamaFileType.MOSTLY_Q4_K_S:
+                        data_qtype = gguf.GGMLQuantizationType.Q4_K
                     elif self.ftype == gguf.LlamaFileType.MOSTLY_TQ1_0:
                         data_qtype = gguf.GGMLQuantizationType.TQ1_0
                     elif self.ftype == gguf.LlamaFileType.MOSTLY_TQ2_0:
                         data_qtype = gguf.GGMLQuantizationType.TQ2_0
                     else:
                         raise ValueError(f"Unknown file type: {self.ftype.name}")
-
-                data, data_qtype = self.quantize(name, data, data_qtype, old_dtype)
+                data, data_qtype = self.quantize(name, data, data_qtype, old_dtype, bid)
 
                 shape = gguf.quant_shape_from_byte_shape(
                     data.shape, data_qtype) if data.dtype == np.uint8 else data.shape
@@ -600,7 +608,7 @@ class ModelBase:
                 logger.error(f"  - {name}")
 
     @classmethod
-    def from_model_architecture(cls, arch: str, model_type=ModelType.TEXT) -> type[ModelBase]:
+    def from_model_architecture(cls, arch: str, model_type=ModelType.TEXT):
         try:
             return cls._model_classes[model_type][arch]
         except KeyError:
@@ -6701,7 +6709,7 @@ def parse_args() -> argparse.Namespace:
         "--outtype",
         type=str,
         choices=["f32", "f16", "bf16", "q8_0", "q4_0", "tq1_0", "tq2_0", "auto"],
-        default="f16",
+        default="q4_0",
         help=
         "output format - use f32 for float32, f16 for float16, bf16 for bfloat16, q8_0 for Q8_0, tq1_0 or tq2_0 for ternary, and auto for the highest-fidelity 16-bit float type depending on the first loaded tensor type",
     )
