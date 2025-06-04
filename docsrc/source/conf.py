@@ -118,11 +118,9 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "torch": ("https://pytorch.org/docs/main/", None),
 }
-smv_tag_whitelist = version_to_build
 
-# smv_branch_whitelist = r'^.*$'                # Include all branches
-smv_branch_whitelist = r'^dev$'      # Include all branches except "master"
+smv_tag_whitelist = version_to_build            # Select which tag to build
 
-smv_remote_whitelist = None                   # Only use local branches
-# smv_remote_whitelist = r'^.*$'                # Use branches from all remotes
-# smv_remote_whitelist = r'^(origin|upstream)$' # Use branches from origin and upstream
+smv_branch_whitelist = r'^dev$'                 # Include "dev" branch
+
+smv_remote_whitelist = None                     # Only use local branches
