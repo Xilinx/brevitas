@@ -77,7 +77,10 @@ def get_hadK(n, transpose=False):
     return hadK, K
 
 
-def find_closest_hadamard_number(starting_dim, steps=0):
+def find_closest_hadamard_number(starting_dim, steps=1):
+
+    if steps == 0:
+        return starting_dim
 
     values_to_check = [172, 156, 152, 140, 108, 60, 52, 40, 36, 28, 20, 12]
 
