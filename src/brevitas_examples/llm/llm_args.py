@@ -322,6 +322,19 @@ def create_llm_args_parser():
         '--rotation-sdpa-regions',
         action="store_true",
         help='If GraphRotation is enabled, decide wheter to equalize across SDPA')
+    parser.add_argument(
+        '--rotation-layers-to-expand',
+        type=str,
+        default=[],
+        nargs='*',
+        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
+    parser.add_argument(
+        '--expansion-step',
+        type=int,
+        default=1,
+        help=
+        'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
+    )
     parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
     parser.add_argument(
         '--svd-quant-rank',
@@ -420,12 +433,6 @@ def create_llm_args_parser():
         nargs='*',
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
     parser.add_argument(
-        '--rotation-layers-to-expand',
-        type=str,
-        default=[],
-        nargs='*',
-        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
-    parser.add_argument(
         "--awq-scale",
         action="store_true",
         help="Whether to apply AWQ scaling (default: %(default)s).",
@@ -433,8 +440,7 @@ def create_llm_args_parser():
     parser.add_argument(
         "--awq-clip",
         action="store_true",
-        help="Whether to apply AWQ clipping (default: %(default)s).",
-    )
+        help="Whether to apply AWQ clipping (default: %(default)s).")
     return parser
 
 

@@ -66,7 +66,9 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--weight-equalization] [--rotation {fx,layerwise,fused_no_fx}]
                [--optimize-rotations] [--rotation-mode {had,ort}]
                [--rotation-orphan-sink] [--rotation-sdpa-regions]
-               [--svd-quant] [--svd-quant-rank SVD_QUANT_RANK]
+               [--rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]]
+               [--expansion-step EXPANSION_STEP] [--svd-quant]
+               [--svd-quant-rank SVD_QUANT_RANK]
                [--svd-quant-iters SVD_QUANT_ITERS]
                [--act-equalization {None,layerwise,fx}]
                [--act-equalization-alpha ACT_EQUALIZATION_ALPHA]
@@ -80,9 +82,8 @@ usage: main.py [-h] [--config CONFIG] [--model MODEL]
                [--compile-ptq] [--compile-eval] [--few-shot-zeroshot]
                [--bos-preprocessing {None,document,sequence}]
                [--few-shot-limit FEW_SHOT_LIMIT]
-               [--few-shot-tasks [FEW_SHOT_TASKS ...]]
-               [--rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]]
-               [--awq-scale] [--awq-clip]
+               [--few-shot-tasks [FEW_SHOT_TASKS ...]] [--awq-scale]
+               [--awq-clip]
 
 options:
   -h, --help            show this help message and exit
@@ -247,6 +248,12 @@ options:
   --rotation-sdpa-regions
                         If GraphRotation is enabled, decide wheter to equalize
                         across SDPA
+  --rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]
+                        A list of module names to expand with hadamard
+                        rotation. Default: []
+  --expansion-step EXPANSION_STEP
+                        When layer expansion is set, decide how much to
+                        increase the layer sizes. Default: 1
   --svd-quant           Apply SVDQuant.
   --svd-quant-rank SVD_QUANT_RANK
                         Rank to use for SVDQuant (default: 32).
@@ -292,9 +299,7 @@ options:
   --few-shot-tasks [FEW_SHOT_TASKS ...]
                         A list of tasks for zero_shot evaluation. Default:
                         ['arc_challenge', 'arc_easy', 'winogrande', 'piqa']
-  --rotation-layers-to-expand [ROTATION_LAYERS_TO_EXPAND ...]
-                        A list of module names to expand with hadamard
-                        rotation. Default: []
   --awq-scale           Whether to apply AWQ scaling (default: False).
   --awq-clip            Whether to apply AWQ clipping (default: False).
+
 ```
