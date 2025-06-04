@@ -35,7 +35,18 @@ current_version = os.environ.get('SPHINX_MULTIVERSION_NAME')
 if current_version is not None and 'dev' in current_version:
     current_version = 'dev'
 
-print(current_version)
+version_to_build = os.environ.get('VERSION', '')
+if version_to_build == '':
+    # This select all versions above v0.9
+    # ^v: Starts with v
+    # ([1-9][0-9]*\.\d+\.\d+): Matches v1.0.0, v2.3.4, etc. (major version ≥ 1)
+    # |: OR
+    # 0\.(1[0-9]|\d{2,})\.\d+: Matches v0.10.0, v0.11.0, ..., v0.99.0, etc. (minor version ≥ 10)
+    # |: OR
+    # 0\.9\.(?!0+$)\d+: Matches v0.9.1, v0.9.2, ..., but not v0.9.0
+    # $: End of string
+    version_to_build = r'^v([1-9][0-9]*\.\d+\.\d+|0\.(1[0-9]|\d{2,})\.\d+|0\.9\.(?!0+$)\d+)$'
+
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -107,8 +118,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "torch": ("https://pytorch.org/docs/main/", None),
 }
-
-smv_tag_whitelist = r'^v\d+\.\d+\.\d$'                  # Include all tags
+smv_tag_whitelist = version_to_build
 
 # smv_branch_whitelist = r'^.*$'                # Include all branches
 smv_branch_whitelist = r'^dev$'      # Include all branches except "master"

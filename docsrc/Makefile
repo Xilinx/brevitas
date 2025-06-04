@@ -1,27 +1,28 @@
-# Minimal makefile for Sphinx documentation
-#
+# Minimal Makefile for Sphinx documentation with sphinx-multiversion
 
-# You can set these variables from the command line, and also
-# from the environment for the first two.
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
+MULTIVERSION  ?= sphinx-multiversion
 SOURCEDIR     = source
 BUILDDIR      = build
+BUILD_VERSION ?=
 
-# Put it first so that "make" without argument is like "make help".
+.PHONY: help html github livehtml
+
 help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@echo "Available targets:"
+	@echo "  html       Build documentation for all versions using sphinx-multiversion"
+	@echo "  github     Build and copy HTML docs to ../docs"
+	@echo "  livehtml   Live-reload documentation (single version, not multiversion)"
+	@echo "  help       Show this message"
 
-.PHONY: help Makefile
+html:
+	@export VERSION=$(BUILD_VERSION) && $(MULTIVERSION) "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
 
 github:
-	@make html
-	@cp -a build/html/. ../docs
+
+	@cp -a "$(SOURCEDIR)/index.html" ../docs
+	@touch .nojekyll ../docs
 
 livehtml:
-	sphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	sphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)/livehtml" $(SPHINXOPTS)
