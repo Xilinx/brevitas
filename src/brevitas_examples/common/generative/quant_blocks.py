@@ -71,6 +71,7 @@ class RuntimeDynamicStatsZeroPoint(nn.Module):
         x = self.zero_point_stats_input_view_shape_impl(x)
         x = self.zero_point_stats_impl(x)
         x = self.dynamic_scaling_broadcastable_fn(x, shape)
-        x = abs_binary_sign_grad(x)
+        # TODO: Change?
+        # x = abs_binary_sign_grad(x)
         x = self.scale_shift_zero_point(x, scale, bit_width)
         return x

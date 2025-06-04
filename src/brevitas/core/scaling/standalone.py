@@ -182,7 +182,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         # For IntQuant, this is no-op, retrocompatible.
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
         # We can clamp after restrict val since the learned parameter is already in log-domain
-        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+        # value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+        value = self.restrict_clamp_scaling(self.value)
         return value / threshold
 
     def _load_from_state_dict(
@@ -255,7 +256,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            # value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = self.stats_scaling_impl.restrict_clamp_scaling(self.value)
             value = value / threshold
             return value
         else:
@@ -271,7 +273,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
             inplace_tensor_mul(self.value.detach(), stats)
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            # value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = self.stats_scaling_impl.restrict_clamp_scaling(self.value)
             value = value / threshold
             self.init_done = True
             return value
@@ -397,25 +400,29 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             # Whenever we are in local loss mode, we don't update the counter nor the buffer
             if self.local_loss_mode:
                 # Local loss mode, we early exit and divide by threshold
-                return abs_binary_sign_grad(clamped_stats / threshold)
+                # return abs_binary_sign_grad(clamped_stats / threshold)
+                return clamped_stats / threshold
             if self.counter == 0:
                 inplace_tensor_mul(self.buffer, clamped_stats.detach())
             else:
                 inplace_momentum_update(
                     self.buffer, clamped_stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            return abs_binary_sign_grad(clamped_stats / threshold)
+            # return abs_binary_sign_grad(clamped_stats / threshold)
+            return clamped_stats / threshold
         elif self.counter == self.collect_stats_steps:
             self.init_scale()
             value = self.clamp_scaling(self.restrict_scaling(self.value))
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = value / threshold
-            return abs_binary_sign_grad(value)
+            # return abs_binary_sign_grad(value)
+            return value
         else:
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = self.clamp_scaling(self.restrict_scaling(self.value))
             value = value / threshold
-            return abs_binary_sign_grad(value)
+            # return abs_binary_sign_grad(value)
+            return value
 
     @brevitas.jit.script_method
     def forward(self, stats_input: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
@@ -435,7 +442,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             out = self.restrict_scaling(out)
             out = out / threshold
             # We can clamp after restrict val since the learned parameter is already in log-domain
-            out = abs_binary_sign_grad(self.clamp_scaling(out))
+            # out = abs_binary_sign_grad(self.clamp_scaling(out))
+            out = self.clamp_scaling(out)
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
