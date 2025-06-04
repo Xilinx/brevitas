@@ -6,10 +6,20 @@ from typing import Tuple
 
 from hypothesis import given
 import mock
+import numpy as np
 import pytest
+from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
+from qonnx.transformation.fold_constants import FoldConstants
+from qonnx.transformation.general import GiveUniqueNodeNames
+from qonnx.transformation.general import RemoveStaticGraphInputs
+from qonnx.transformation.infer_shapes import InferShapes
+import torch
 from torch import Tensor
 from torch import tensor
 
+from brevitas.export import export_qonnx
 from brevitas.ops.autograd_ste_ops import *
 from tests.brevitas.common import assert_allclose
 from tests.brevitas.common import assert_zero_or_none
@@ -19,6 +29,7 @@ from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
 from tests.brevitas.hyp_helper import scalar_float_tensor_st
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
+from tests.marker import jit_disabled_for_export
 
 # brevitas.ops.autograd_ste_ops. and not brevitas.function.ops.
 # in order to mock where it's used, not where it's defined
@@ -120,6 +131,16 @@ class TestScalarClampSte:
         assert_allclose(val_grad, val.grad)
 
 
+class ScalarClampMinModule(torch.nn.Module):
+
+    def __init__(self, min_val: Tensor) -> None:
+        super().__init__()
+        self.min_val = min_val
+
+    def forward(self, x) -> Tensor:
+        return scalar_clamp_min_ste_impl(x, self.min_val)
+
+
 class TestScalarClampMinSte:
 
     @given(x=tensor_clamp_ste_test_st())
@@ -143,6 +164,41 @@ class TestScalarClampMinSte:
         output = scalar_clamp_min_ste_impl(val, min_val)
         output.backward(val_grad, retain_graph=True)
         assert_allclose(val_grad, val.grad)
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_fwd_gt(self, x):
+        """
+        Test that values are correctly clamped
+        """
+        min_val, val, _ = x
+        output = scalar_clamp_min_ste_impl(val, min_val)
+        expected_output = torch.where(val < min_val, min_val, val)
+        assert_allclose(output, expected_output)
+
+    @jit_disabled_for_export()
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_symbolic(self, x):
+        """
+        Test the symbolic tracing
+        """
+        min_val, val, _ = x
+        clamp_min_onnx = "scalar_clamp_min_ste_impl.onnx"
+        # ScalarClampMinModule uses ScalarClampMinSte in forward
+        model = ScalarClampMinModule(min_val)
+        expected_output = Tensor.numpy(scalar_clamp_min_ste_impl(val, min_val))
+        # Export model to ONNX and run forward in traced model
+        export_qonnx(model, input_shape=val.shape, export_path=clamp_min_onnx)
+        model = ModelWrapper(clamp_min_onnx)
+        model = model.transform(GiveUniqueNodeNames())
+        model = model.transform(DoubleToSingleFloat())
+        model = model.transform(InferShapes())
+        model = model.transform(FoldConstants())
+        model = model.transform(RemoveStaticGraphInputs())
+        input_dict = {model.graph.input[0].name: Tensor.numpy(val)}
+        output_dict = oxe.execute_onnx(model, input_dict)
+        output = output_dict[list(output_dict.keys())[0]]
+
+        assert np.isclose(expected_output, output).all()
 
 
 class TestAbsBinarySignGrad:

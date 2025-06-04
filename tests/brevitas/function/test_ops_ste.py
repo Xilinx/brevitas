@@ -3,6 +3,7 @@
 
 from typing import Tuple
 
+from hypothesis import assume
 from hypothesis import given
 import mock
 import pytest
@@ -11,8 +12,10 @@ import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper.ops_ste import ScalarSignedClampMinSte
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
+from tests.brevitas.common import assert_allclose
 from tests.brevitas.common import BOOLS
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
@@ -182,3 +185,33 @@ def test_scalar_clamp_min_ste_backend(prefix_and_status: Tuple[str, bool], x):
         else:
             # If (config.JIT_ENABLED and brevitas.NATIVE_STE_BACKEND_LOADED) we expect the prefix won't be called
             python_backend.assert_not_called()
+
+
+class TestScalarSignedClampMinSte:
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_bwd(self, x):
+        """
+        Test that gradients are correctly passed through to val only
+        """
+        # min_val must be set to a value greater than zero
+        assume(abs(x[0]) > 0.0)
+        min_val, val, val_grad = x
+        module = ScalarSignedClampMinSte(min_val)
+        val.requires_grad_(True)
+        output = module(val)
+        output.backward(val_grad, retain_graph=True)
+        assert_allclose(val_grad, val.grad)
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_fwd(self, x):
+        """
+        Test that values are correctly clamped
+        """
+        min_val, val, _ = x
+        module = ScalarSignedClampMinSte(min_val)
+        output = module(val)
+        # Compute reference output
+        mask = (val > -abs(min_val)) & (val < abs(min_val))
+        ref_output = torch.copysign(torch.where(mask, abs(min_val), torch.abs(val)), val)
+        assert_allclose(output, ref_output)
