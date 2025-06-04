@@ -1,6 +1,6 @@
 accelerate
 datasets
-gguf==0.16.3
+gguf==0.17.0
 lm_eval
 onnx
 onnxruntime<1.21
