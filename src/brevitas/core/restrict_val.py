@@ -180,7 +180,7 @@ class QuantRestrictValue(brevitas.jit.ScriptModule):
     def __init__(
             self,
             restrict_value_float_to_int_impl: Module,
-            scaling_shape: int,
+            scaling_shape: Tuple[int, ...],
             scale_dequantized_shape: Optional[Tuple[int]]):
         super(QuantRestrictValue, self).__init__()
         self.float_to_int_impl = restrict_value_float_to_int_impl
