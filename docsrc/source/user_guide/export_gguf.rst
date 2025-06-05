@@ -172,7 +172,7 @@ In order to construct these two classes through dependency injection, we need to
 `zp_int_quant`, which is done through two `value` functions, a detail of the dependency injection package we use in Brevitas 
 (for more info about this, check our `Anatomy of a quantizer tutorial`).
 
-These value functions pick up the object to instantiate from two other variables defined in the main quantizer, `scaling_quant` and `zp_quant`.
+These value functions select the object to instantiate from two other variables defined in the main quantizer, `scaling_quant` and `zp_quant`.
 
 These two variables contain the scale and zero point quantizer, respectively:
 
