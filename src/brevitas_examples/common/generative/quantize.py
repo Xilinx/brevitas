@@ -81,11 +81,6 @@ from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicAc
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
-
-class IntWeightSymmetricGroupQuantMSE(MSESymmetricScale, IntWeightSymmetricGroupQuant):
-    pass
-
-
 WEIGHT_QUANT_MAP = {
     'int': {
         'float_scale': {
@@ -103,9 +98,7 @@ WEIGHT_QUANT_MAP = {
                     'asym': ShiftedUint8WeightPerTensorFloatMSE},
                 'per_channel': {
                     'sym': Int8WeightPerChannelFloatMSE,
-                    'asym': ShiftedUint8WeightPerChannelFloatMSE},
-                'per_group': {
-                    'sym': IntWeightSymmetricGroupQuantMSE}},
+                    'asym': ShiftedUint8WeightPerChannelFloatMSE}},
             'hqo': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFloatHQO,
