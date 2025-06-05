@@ -235,7 +235,7 @@ FAQ
 
 If you want to quantize and export in GGUF format that is not currently supported, feel free to open an issue.
 In general, the indications above, combined with the export code itself, should provide a solid
-blueprint to add new export formats, especially similar ones like Q3_K etc.
+blueprint to add new export formats, especially similar ones like Q3_K, etc.
 
 
 * *How to export in Q4_K but still do PTQ?*
