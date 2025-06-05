@@ -86,7 +86,7 @@ def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
-    if torch_version >= version.parse('2.6.0') and torch.version < ('2.7.0'):
+    if torch_version >= version.parse('2.6.0') and torch.version < version.parse('2.7.0'):
         pytest.skip("Segfault with torch 2.6")
     if 'mx' in name:
         extra_kwargs = {'group_dim': 1}
