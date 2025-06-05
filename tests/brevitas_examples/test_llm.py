@@ -561,7 +561,8 @@ def test_small_models_quant_layer(caplog, layer_args):
             "convert_layernorm_to_rmsnorm": True,
             "rotation": "fx",
             "exp_layer_types_count": {
-                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,  # Sinks: Down proj
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>":
+                    4,  # Sinks: O proj + Down proj
                 "<class 'torch.nn.modules.linear.Linear'>":
                     15,  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
                 "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,
@@ -591,8 +592,7 @@ def test_small_models_quant_layer(caplog, layer_args):
             "rotation_sdpa_regions": True,
             "rotation": "fx",
             "exp_layer_types_count": {
-                "<class 'brevitas.nn.equalized_layer.RotatedModule'>":
-                    4,  # Sinks: Out proj + Down proj
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,  # Sinks: Down proj
                 "<class 'torch.nn.modules.linear.Linear'>":
                     15,  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
                 "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,
