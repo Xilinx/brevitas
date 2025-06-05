@@ -224,7 +224,7 @@ After the model is quantized, it is possible to export it with the following:
 
     from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
 
-    save_quantized_as_gguf(/path/to/exported/model, model=model.cpu(), backend=gguf:q4_k_s, tokenizer=tokenizer)
+    save_quantized_as_gguf("/path/to/exported/model", model=model.cpu(), backend="gguf:q4_k_s", tokenizer=tokenizer)
 
 
 FAQ
