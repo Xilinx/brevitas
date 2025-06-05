@@ -24,7 +24,7 @@ Currently the supported formats are:
 The first three modes can be obtained through our LLM entrypoint (`brevitas_ptq_llm`),
 while it is possible to target all the formats through direct quantization.
 
-The specific for these formats can be found `here <https://huggingface.co/docs/hub/gguf>`_.
+The specification for these formats can be found `here <https://huggingface.co/docs/hub/gguf>`_.
 
 LLM Entrypoint
 ==============
