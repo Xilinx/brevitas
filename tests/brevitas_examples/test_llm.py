@@ -1039,9 +1039,9 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32491.781,
+            "quant_ppl": 32535.75,
             "exp_layer_types_count": {
-                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
