@@ -1,27 +1,37 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from functools import partial
+
 import pytest
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.magr import magr_mode
+from brevitas.graph.qronos import Qronos
 
 from .equalization_fixtures import *
 
 
 def apply_gpfq(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        gpfq_class: nn.Module = GPFQ):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gpfq_mode(model, use_quant_activations=use_quant_activations,
-                       act_order=act_order) as gpfq:
+        with gpfq_mode(model,
+                       use_quant_activations=use_quant_activations,
+                       act_order=act_order,
+                       gpfq_class=gpfq_class) as gpfq:
             gpfq_model = gpfq.model
             for _ in range(gpfq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
@@ -48,7 +58,8 @@ def apply_gptq(
                 gptq.update()
 
 
-apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
+apply_gpxq_func_map = {
+    "gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": partial(apply_gpfq, gpfq_class=Qronos)}
 
 
 @pytest.mark.parametrize("act_order", [True, False])
