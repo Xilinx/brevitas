@@ -546,6 +546,7 @@ def quantize_llm(args, extra_args=None):
             apply_qronos(
                 model,
                 calibration_loader,
+                alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,

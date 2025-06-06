@@ -213,8 +213,10 @@ def apply_qronos(
         act_order=True,
         group_of_parallel_layers=None,
         block_name=None,
+        alpha=1e-6,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None):
+    assert alpha > 0, "Error: alpha needs to be strictly positive"
     if max_accumulator_bit_width is not None:
         raise NotImplementedError("Qronos implementation does not support AXE yet.")
     # We use the GPFQ callback, which uses two forward passes
@@ -226,7 +228,7 @@ def apply_qronos(
         block_name=block_name,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
-        gpfq_class=Qronos)
+        gpfq_class=partial(Qronos, percdamp=alpha))
 
 
 @torch.no_grad()
