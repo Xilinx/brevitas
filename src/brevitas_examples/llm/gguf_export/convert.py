@@ -66,6 +66,19 @@ TORCH_GGUF_MAPPING = {
     torch.float16: gguf.GGMLQuantizationType.F16,
     torch.bfloat16: gguf.GGMLQuantizationType.BF16}
 
+GGUF_FILE_QUANTIZATION_MAPPING = {
+    gguf.LlamaFileType.ALL_F32: gguf.GGMLQuantizationType.F32,
+    gguf.LlamaFileType.MOSTLY_F16: gguf.GGMLQuantizationType.F16,
+    gguf.LlamaFileType.MOSTLY_BF16: gguf.GGMLQuantizationType.BF16,
+    gguf.LlamaFileType.MOSTLY_Q8_0: gguf.GGMLQuantizationType.Q8_0,
+    gguf.LlamaFileType.MOSTLY_Q4_0: gguf.GGMLQuantizationType.Q4_0,
+    gguf.LlamaFileType.MOSTLY_Q4_1: gguf.GGMLQuantizationType.Q4_1,
+    gguf.LlamaFileType.MOSTLY_Q4_K_S: gguf.GGMLQuantizationType.Q4_K,
+    gguf.LlamaFileType.MOSTLY_TQ1_0: gguf.GGMLQuantizationType.TQ1_0,
+    gguf.LlamaFileType.MOSTLY_TQ2_0: gguf.GGMLQuantizationType.TQ2_0,}
+
+_TENSOR_SUFFIXES_TO_SKIP = (
+    ".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq", ".value")
 ###### MODEL DEFINITIONS ######
 
 
@@ -411,8 +424,7 @@ class ModelBase:
 
         for name, data_torch in chain(self.generate_extra_tensors(), self.get_tensor_from_model()):
             # we don't need these
-            if name.endswith(
-                (".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq", ".value")):
+            if name.endswith(_TENSOR_SUFFIXES_TO_SKIP):
                 continue
 
             old_dtype = data_torch.dtype
@@ -479,25 +491,8 @@ class ModelBase:
                         data_qtype = gguf.GGMLQuantizationType.F16
 
                 # No override (data_qtype is False), or wants to be quantized (data_qtype is True)
-                if isinstance(data_qtype, bool):
-                    if self.ftype == gguf.LlamaFileType.ALL_F32:
-                        data_qtype = gguf.GGMLQuantizationType.F32
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_F16:
-                        data_qtype = gguf.GGMLQuantizationType.F16
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_BF16:
-                        data_qtype = gguf.GGMLQuantizationType.BF16
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_Q8_0:
-                        data_qtype = gguf.GGMLQuantizationType.Q8_0
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_Q4_0:
-                        data_qtype = gguf.GGMLQuantizationType.Q4_0
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_Q4_K_S:
-                        data_qtype = gguf.GGMLQuantizationType.Q4_K
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_TQ1_0:
-                        data_qtype = gguf.GGMLQuantizationType.TQ1_0
-                    elif self.ftype == gguf.LlamaFileType.MOSTLY_TQ2_0:
-                        data_qtype = gguf.GGMLQuantizationType.TQ2_0
-                    else:
-                        raise ValueError(f"Unknown file type: {self.ftype.name}")
+                data_qtype = GGUF_FILE_QUANTIZATION_MAPPING[self.ftype]
+
                 data, data_qtype = self.quantize(name, data, data_qtype, old_dtype, bid)
 
                 shape = gguf.quant_shape_from_byte_shape(
