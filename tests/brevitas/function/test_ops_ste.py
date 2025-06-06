@@ -21,6 +21,7 @@ from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
+from tests.marker import requires_pt_ge
 
 AUTOGRAD_OPS_PREFIX = 'brevitas.ops.autograd_ste_ops.'
 NATIVE_PREFIX = 'torch.ops.autograd_ste_ops.'
@@ -203,6 +204,7 @@ class TestScalarSignedClampMinSte:
         output.backward(val_grad, retain_graph=True)
         assert_allclose(val_grad, val.grad)
 
+    @requires_pt_ge('2.0.1')
     @given(x=scalar_clamp_min_ste_test_st())
     def test_fwd(self, x):
         """
