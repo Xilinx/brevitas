@@ -17,11 +17,6 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-<<<<<<< HEAD
-=======
-from transformers.integrations.sdpa_attention import repeat_kv
-from transformers.utils.fx import _SUPPORTED_MODELS
->>>>>>> Shark LLM export
 import yaml
 
 from brevitas.export.inference.manager import quant_inference_mode
@@ -221,16 +216,6 @@ def model_export(model, ref_input, args, config=None):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
-<<<<<<< HEAD
-=======
-    elif args.export_target == 'torch_qcdq':
-        export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
-    elif args.export_target == 'shark':
-        export = SharkManager(config=convert_hf_hparams_to_gguf(_get_dataset_props(config)))
-
-        with torch.no_grad():
-            ds = export.export(model, **ref_input)
->>>>>>> Shark LLM export
 
 
 def fx_required(args):
@@ -317,16 +302,8 @@ def quantize_llm(args, extra_args=None):
         model = replace_rmsnorm_with_torch(model, model.config)
 
     if require_fx:
-<<<<<<< HEAD
         with torch.no_grad():
             model, guards = torch._dynamo.export(model)(**calibration_loader[0])
-=======
-        if False:  #model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
-            model = get_fx(model, is_export=args.export_target is not None)
-        else:
-            with torch.no_grad():
-                model, guards = torch._dynamo.export(model)(**calibration_loader[0])
->>>>>>> Shark LLM export
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
     model.eval()
