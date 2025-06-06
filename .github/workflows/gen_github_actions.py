@@ -5,14 +5,14 @@ from utils import combine_od_list
 from utils import generate_exclusion_list
 
 TORCHVISION_VERSION_DICT = {
-    '1.13.0': '0.14.0',
     '2.0.1': '0.15.2',
     '2.1.0': '0.16.0',
     '2.2.2': '0.17.2',
     '2.3.1': '0.18.1',
     '2.4.1': '0.19.1',
     '2.5.1': '0.20.1',
-    '2.6.0': '0.21.0',}
+    '2.6.0': '0.21.0',
+    '2.7.1': '0.22.1'}
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 BASE_YML_REDUCED_TEMPLATE = 'base_reduced.yml.template'
@@ -28,7 +28,7 @@ ENDTOEND_YML = 'end_to_end.yml'
 # Reduced Test for PRs, except when a review is requested
 PYTHON_VERSIONS_REDUCED = ('3.9',)
 
-PYTORCH_LIST_REDUCED = ["1.13.0", "2.0.1", "2.6.0"]
+PYTORCH_LIST_REDUCED = ["2.0.1", "2.4.1", "2.6.0"]
 
 PLATFORM_LIST_REDUCED = ['ubuntu-latest']
 
@@ -50,7 +50,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 PYTHON_VERSIONS = ('3.9', '3.10')
 
-PYTORCH_VERSIONS = ('1.13.0', '2.0.1', '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0')
+PYTORCH_VERSIONS = ('2.0.1', '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
 JIT_STATUSES = ('jit_disabled', 'jit_enabled')
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
@@ -72,7 +72,7 @@ END_TO_END_EXCLUDE_LIST = generate_exclusion_list([[['platform', [
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)), ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
 
-EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.3.1', '2.4.1')
+EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
 EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                                  ('pytorch_version', list(EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS)),
                                  ('platform', PLATFORM_LIST)])
