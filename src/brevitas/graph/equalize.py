@@ -1813,17 +1813,19 @@ class GraphRotationEqualization(RotationEqualization):
 
             value_node = find_src(value_input)
             output_node = find_sink(value_input)
-            sink_module = get_module(graph_module, output_node.target)
-            src_module = get_module(graph_module, value_node.target)
-            sink_weight = get_weight_sink(sink_module)
-            src_weight = get_weight_source(src_module)
-            sink_eq_indexes = EqualizationIndexes(0, sink_weight.shape[0], 0)
+            value_module = get_module(graph_module, output_node.target)
+            output_module = get_module(graph_module, value_node.target)
+            value_weight = get_weight_source(value_module)
+            output_weight = get_weight_sink(output_module)
+            value_index = EqualizationIndexes(0, value_weight.shape[0], 0)
 
-            # TODO: restore fusing of Value/Output regions
-            # src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
+            output_index = EqualizationIndexes(0, output_weight.shape[0], 0)
 
             region = Region(
-                sinks={'sink_sdpa': sink_eq_indexes}, name_to_module={'sink_sdpa': sink_module})
+                srcs={'output_sdpa': output_index},
+                sinks={'value_sdpa': value_index},
+                name_to_module={
+                    'value_sdpa': value_module, 'output_sdpa': output_module})
             regions.append(region)
 
             for m in graph_module.modules():

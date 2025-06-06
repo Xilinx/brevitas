@@ -592,8 +592,7 @@ def test_small_models_quant_layer(caplog, layer_args):
             "rotation_sdpa_regions": True,
             "rotation": "fx",
             "exp_layer_types_count": {
-                "<class 'brevitas.nn.equalized_layer.RotatedModule'>":
-                    4,  # Sinks: Out proj + Down proj
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,  # Sinks: Down proj
                 "<class 'torch.nn.modules.linear.Linear'>":
                     15,  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
                 "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,
@@ -930,6 +929,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
         "llama_rotation_optimization_ort",
         "llama_rotation_optimization_ort_no_orphan",
         "llama_rotation_optimization_had",
+        "llama_rotation_optimization_had_sdpa",
         "llama_rotation_optimization_had_no_orphan",],
     params=[
         {
@@ -1013,6 +1013,35 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "quant_ppl": 32491.781,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "rotation_sdpa_regions": True,
+            "optimize_rotations": True,
+            "rotation_orphan_sink": True,
+            "rotation_mode": "had",
+            "nsamples_rot_calibration": 2,
+            "dtype": "float32",
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 32428.475,
+            "quant_ppl": 32535.75,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
