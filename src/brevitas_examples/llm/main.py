@@ -47,6 +47,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
+from brevitas_examples.llm.llm_quant.gpxq import apply_qronos
 from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
@@ -311,11 +312,14 @@ def quantize_llm(args, extra_args=None):
     if args.magr and not args.load_checkpoint:
         print("Applying MagR...")
         model = offload_model(model)
+        # save original weights for GPFQ or Qronos since they both require optimizing
+        # a mismatched objective function (see https://arxiv.org/abs/2505.11695), or
+        # if explicitly specified in the CLI
+        _create_weight_orig = args.gpfq or args.qronos or args.gpxq_create_weight_orig
         apply_magr(
             model,
             calibration_loader,
-            create_weight_orig=args.gpxq_create_weight_orig or
-            args.gpfq,  # save original weights for GPxQ
+            create_weight_orig=_create_weight_orig,
             alpha=args.magr_alpha)
         remove_hooks(model)
         print(f"MagR applied.")
@@ -441,7 +445,7 @@ def quantize_llm(args, extra_args=None):
         quantization_cm = nullcontext()
 
     with quantization_cm:
-        # We initialize weights scale factor pre-GPTQ
+        # We initialize weights scale factor
         with torch.no_grad():
             model(**calibration_loader[0])
 
@@ -536,6 +540,17 @@ def quantize_llm(args, extra_args=None):
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
+
+        if args.qronos and not args.load_checkpoint:
+            print("Applying Qronos...")
+            apply_qronos(
+                model,
+                calibration_loader,
+                act_order=args.gpxq_act_order,
+                block_name=args.gpxq_block_name,
+                max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
+                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+            print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")

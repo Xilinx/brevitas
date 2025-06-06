@@ -243,6 +243,7 @@ def create_llm_args_parser():
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
     parser.add_argument(
         '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
+    parser.add_argument('--qronos', action='store_true', help='Apply Qronos.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
