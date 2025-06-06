@@ -13,7 +13,7 @@ quantization options, but it also has some limitations, such as:
 * Mostly focused on weight-only quantization
 * Limited optimization possibilities during QAT and/or PTQ
 
-In Brevitas, we are progressively adding better support for GGUF export;
+In Brevitas, we are progressively adding better support for GGUF export.
 Currently the supported formats are:
 
 * Q8_0
