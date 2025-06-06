@@ -69,7 +69,7 @@ class _ScaleShiftQuantZeroPoint(brevitas.jit.ScriptModule):
             self,
             zp_int_quant: Module,
             int_quant,
-            zero_point_shape: Tuple[int],
+            zero_point_shape: Tuple[int, ...],
             zero_point_dequantized_shape: Optional[Tuple[int]]) -> None:
         super(_ScaleShiftQuantZeroPoint, self).__init__()
         self.zp_int_quant = zp_int_quant
