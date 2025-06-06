@@ -161,7 +161,7 @@ def create_llm_args_parser():
         '--attn-quant-config',
         type=str,
         default='qkvs',
-        choices=['qkvs', 'kv'],
+        choices=['qkvs', 'qkv', 'kv'],
         help=
         'Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: --quant-sdpa needs be set for this to have an effect. Default: %(default)s'
     )
