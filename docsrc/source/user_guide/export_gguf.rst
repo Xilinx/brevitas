@@ -79,17 +79,19 @@ This looks like:
 
 .. code-block:: python
 
-    class ShapeMixin:
+    class ShapeMixin(ExtendedInjector):
 
         @value
         def scaling_shape(
-                scaling_per_output, scaling_per_output_channel_shape, expanded_groupwise_shape,
+                scaling_per_output_type,
+                scaling_per_output_channel_shape,
+                expanded_groupwise_shape,
                 group_dim):
-            if scaling_per_output == ScalingPerOutputType.TENSOR:
+            if scaling_per_output_type == ScalingPerOutputType.TENSOR:
                 scaling = SCALAR_SHAPE
-            elif scaling_per_output == ScalingPerOutputType.CHANNEL:
+            elif scaling_per_output_type == ScalingPerOutputType.CHANNEL:
                 scaling = scaling_per_output_channel_shape
-            elif scaling_per_output == ScalingPerOutputType.GROUP:
+            elif scaling_per_output_type == ScalingPerOutputType.GROUP:
                 # Scaling shape is like expanded_groupwise_shape but has 1 in position group_dim + 1
                 assert expanded_groupwise_shape is not None, "Per Group scaling not correctly configured"
                 assert group_dim is not None, "Per Group scaling not correctly configured"
@@ -98,13 +100,6 @@ This looks like:
                 return tuple(size)
 
             return scaling
-
-        @value
-        def dequantized_shape(scaling_per_output, scaling_shape, upstream_shape):
-            if scaling_per_output == ScalingPerOutputType.TENSOR or scaling_per_output == ScalingPerOutputType.CHANNEL:
-                return scaling_shape
-            elif scaling_per_output == ScalingPerOutputType.GROUP:
-                return upstream_shape
 
 
     class QuantScalingInt(Int8WeightPerTensorFloat, ShapeMixin):
@@ -138,7 +133,6 @@ This looks like:
             return [torch.empty(upstream_shape)]
 
 
-
     class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat):
         proxy_class = GroupwiseWeightQuantProxyFromInjector
         scaling_quant = QuantScalingInt
@@ -158,6 +152,19 @@ This looks like:
         def zp_int_quant():
             return this.zp_quant.rescaling_int_quant
 
+        @value
+        def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+            if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+                return None
+            elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+                return scaling_shape
+
+        @value
+        def zero_point_dequantized_shape(scaling_per_output_type, zero_point_shape):
+            if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+                return None
+            elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+                return zero_point_shape
 
 
 The intuition behind these quantizers is as follows:

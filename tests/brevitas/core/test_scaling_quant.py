@@ -99,7 +99,7 @@ class QuantScaleQuantZPInt8WeightPerTensorFloat(ShiftedUint8WeightPerTensorFloat
             return scaling_shape
 
     @value
-    def zp_dequantized_shape(scaling_per_output_type, zero_point_shape):
+    def zero_point_dequantized_shape(scaling_per_output_type, zero_point_shape):
         if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
             return None
         elif scaling_per_output_type == ScalingPerOutputType.GROUP:
