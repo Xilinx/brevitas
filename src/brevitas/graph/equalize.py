@@ -1819,7 +1819,6 @@ class GraphRotationEqualization(RotationEqualization):
             output_weight = get_weight_sink(output_module)
             value_index = EqualizationIndexes(0, value_weight.shape[0], 0)
 
-            # TODO: restore fusing of Value/Output regions
             output_index = EqualizationIndexes(0, output_weight.shape[0], 0)
 
             region = Region(
