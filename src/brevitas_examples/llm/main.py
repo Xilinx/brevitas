@@ -33,6 +33,7 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
 from brevitas_examples.llm.llm_args import create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
@@ -124,7 +125,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def model_export(model, ref_input, args):
+def model_export(model, tokenizer, ref_input, args):
     if args.export_target == 'sharded_torchmlir_group_weight':
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
@@ -147,6 +148,8 @@ def model_export(model, ref_input, args):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
+    elif 'gguf' in args.export_target:
+        save_quantized_as_gguf('.', model, tokenizer, args.export_target)
 
 
 def fx_required(args):
@@ -389,10 +392,13 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
+
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
         model.eval()
+        model = model.to(dtype)
+
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
@@ -623,9 +629,9 @@ def quantize_llm(args, extra_args=None):
 
         if args.export_target:
             print(f"Export to {args.export_target}")
-            # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
+            # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
-            model_export(model, calibration_loader[0], args)
+            model_export(model, tokenizer, calibration_loader[0], args)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 
