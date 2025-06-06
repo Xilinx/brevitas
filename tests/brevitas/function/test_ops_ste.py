@@ -215,5 +215,6 @@ class TestScalarSignedClampMinSte:
         output = module(val)
         # Compute reference output
         mask = (val > -abs(min_val)) & (val < abs(min_val))
-        ref_output = torch.where(x >= 0, 1., -1.) * torch.where(mask, abs(min_val), torch.abs(val))
+        ref_output = torch.where(val >= 0, 1., -1.) * torch.where(
+            mask, abs(min_val), torch.abs(val))
         assert_allclose(output, ref_output)
