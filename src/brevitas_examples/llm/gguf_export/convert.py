@@ -11,17 +11,16 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import (
-    Any,
-    Callable,
-    cast,
-    ContextManager,
-    Iterable,
-    Iterator,
-    Literal,
-    Sequence,
-    TYPE_CHECKING,
-    TypeVar)
+from typing import Any
+from typing import Callable
+from typing import cast
+from typing import ContextManager
+from typing import Iterable
+from typing import Iterator
+from typing import Literal
+from typing import Sequence
+from typing import TYPE_CHECKING
+from typing import TypeVar
 
 import numpy as np
 import torch
