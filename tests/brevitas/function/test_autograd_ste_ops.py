@@ -182,7 +182,7 @@ class TestScalarClampMinSte:
         Test the symbolic tracing
         """
         min_val, val, _ = x
-        clamp_min_onnx = "scalar_clamp_min_ste_impl.onnx"
+        clamp_min_onnx = 'scalar_clamp_min_ste_impl.onnx'
         # ScalarClampMinModule uses ScalarClampMinSte in forward
         model = ScalarClampMinModule(min_val)
         expected_output = Tensor.numpy(scalar_clamp_min_ste_impl(val, min_val))

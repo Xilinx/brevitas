@@ -208,10 +208,12 @@ class TestScalarSignedClampMinSte:
         """
         Test that values are correctly clamped
         """
+        # min_val must be set to a value greater than zero
+        assume(abs(x[0]) > 0.0)
         min_val, val, _ = x
         module = ScalarSignedClampMinSte(min_val)
         output = module(val)
         # Compute reference output
         mask = (val > -abs(min_val)) & (val < abs(min_val))
-        ref_output = torch.copysign(torch.where(mask, abs(min_val), torch.abs(val)), val)
+        ref_output = torch.where(x >= 0, 1., -1.) * torch.where(mask, abs(min_val), torch.abs(val))
         assert_allclose(output, ref_output)
