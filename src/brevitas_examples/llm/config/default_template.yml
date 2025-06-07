@@ -66,6 +66,7 @@ no_quantize: false
 nsamples: 128
 nsamples_rot_calibration: 800
 optimize_rotations: false
+qronos: false
 quant_sdpa: null
 quantize_input_zero_point: false
 quantize_last_layer: false
