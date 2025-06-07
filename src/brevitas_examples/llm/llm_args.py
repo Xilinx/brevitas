@@ -460,7 +460,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
-        if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) <= 1:
+        if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
             warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
         if args.gpxq_max_accumulator_bit_width is not None:
             assert args.weight_quant_format == 'int', "AXE only supports integer formats."
