@@ -1806,7 +1806,12 @@ class GraphRotationEqualization(RotationEqualization):
         # If we reach the Linear layer without encoutering a view, we use the weights' shapes
         def find_head_dim(node):
             if node.target == 'view':
-                return node.args[-1][-1]
+                shapes = node.args[-1]
+                # Shapes can be a tuple a series of integers
+                # If tuple, extract the last element
+                if isinstance(shapes, tuple):
+                    shapes = shapes[-1]
+                return shapes
             if node.op == 'call_module':
                 return -1
             else:

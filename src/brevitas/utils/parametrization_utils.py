@@ -35,8 +35,8 @@ class RotationWeightParametrization(torch.nn.Module):
         rot_mat: Callable[[Tensor, Tensor, Optional[int]], Tensor],
         rot_func: Callable,
         axis: int,
-        hidden_dim: int,
         K: Optional[int] = None,
+        hidden_dim: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.rot_mat = rot_mat
@@ -48,18 +48,21 @@ class RotationWeightParametrization(torch.nn.Module):
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         if self.axis == 0:
             init_shape = tensor.t().shape
-            had_shape = self.hidden_dim
-            # This allows us to perform hadamard on a subset of the channel dimension
-            # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
-            tensor = tensor.t().reshape(-1, init_shape[-1] // had_shape, had_shape).squeeze()
+            tensor = tensor.t()
+            if self.hidden_dim is not None:
+                # This allows us to perform hadamard on a subset of the channel dimension
+                # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+                tensor = tensor.reshape(-1, init_shape[-1] // self.hidden_dim,
+                                        self.hidden_dim).squeeze()
             tensor = self.rot_func(tensor, self.rot_mat, self.K)
             tensor = tensor.reshape(init_shape).t()
         elif self.axis == 1:
             init_shape = tensor.shape
-            had_shape = self.hidden_dim
-            # This allows us to perform hadamard on a subset of the channel dimension
-            # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
-            tensor = tensor.reshape(-1, init_shape[-1] // had_shape, had_shape).squeeze()
+            if self.hidden_dim is not None:
+                # This allows us to perform hadamard on a subset of the channel dimension
+                # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+                tensor = tensor.reshape(-1, init_shape[-1] // self.hidden_dim,
+                                        self.hidden_dim).squeeze()
             tensor = self.rot_func(tensor, self.rot_mat, self.K)
             tensor = tensor.reshape(init_shape)
         else:
