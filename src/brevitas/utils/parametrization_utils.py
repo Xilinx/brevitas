@@ -35,6 +35,7 @@ class RotationWeightParametrization(torch.nn.Module):
         rot_mat: Callable[[Tensor, Tensor, Optional[int]], Tensor],
         rot_func: Callable,
         axis: int,
+        hidden_dim: int,
         K: Optional[int] = None,
     ) -> None:
         super().__init__()
@@ -42,13 +43,25 @@ class RotationWeightParametrization(torch.nn.Module):
         self.rot_func = rot_func
         self.axis = axis
         self.K = K
+        self.hidden_dim = hidden_dim
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-
         if self.axis == 0:
-            tensor = self.rot_func(tensor.t(), self.rot_mat, self.K).t()
-        elif self.axis == 1:
+            init_shape = tensor.t().shape
+            had_shape = self.hidden_dim
+            # This allows us to perform hadamard on a subset of the channel dimension
+            # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+            tensor = tensor.t().reshape(-1, init_shape[-1] // had_shape, had_shape).squeeze()
             tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = tensor.reshape(init_shape).t()
+        elif self.axis == 1:
+            init_shape = tensor.shape
+            had_shape = self.hidden_dim
+            # This allows us to perform hadamard on a subset of the channel dimension
+            # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+            tensor = tensor.reshape(-1, init_shape[-1] // had_shape, had_shape).squeeze()
+            tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = tensor.reshape(init_shape)
         else:
             raise RuntimeError("Not supported yet")
 
