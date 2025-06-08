@@ -31,9 +31,17 @@ class SharkActEqualization(nn.Module):
         pass
 
     def prepare_for_export(self, module: nn.Module):
+        # We need to flatten out the structure of EqualizedLayer + Wrapped layer
+        # To do this, we change the name (i.e., state dict prefix) of the wrapped layer to match
+        # the name of the EqualizedLayer.
+        # Similarly, we lift the activation equalization weight from the scale layer
+        # The result is:
+        # from: name.scale.weight, name.layer.weight, name.bias
+        # to : name.premul_input, name.weight, name.bias
         if hasattr(module.layer, 'export_handler') and module.layer.export_handler is not None:
             module.layer.export_handler.layer_name = self.layer_name
         self.premul_input = module.scale.weight.contiguous()
+        self.premul_module = module.scale
 
     def forward(self, x):
         assert self.layer_name is not None
@@ -44,7 +52,7 @@ class SharkActEqualization(nn.Module):
             data=self.premul_input,
         )
         self.shared_dict[premul_input.name] = premul_input
-        return premul_input
+        return self.premul_module(x)
 
 
 class SharkWeightQuantMixin:

@@ -21,9 +21,7 @@ import yaml
 
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas.export.shark.manager import SharkManager
 from brevitas.graph import load_quant_model_mode
-from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -67,6 +65,14 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+
+logging = setup_logger(__name__)
+
+try:
+    from brevitas.export.shark.manager import SharkManager
+except:
+    SharkManager = None
+    logging.debug("Shark-AI not installed, cannot export to Shark")
 
 
 def _optional_int_prop(p: dict[str, Any], name: str, default_value: int) -> int:
@@ -126,9 +132,6 @@ def convert_hf_hparams_to_gguf(hf_hparams: dict[str, any]) -> dict[str, any]:
             _float_prop(hp, "rms_norm_eps"),
         "llama.attention.head_count_kv":
             _optional_int_prop(hp, "num_key_value_heads", attention_head_count),}
-
-
-logging = setup_logger(__name__)
 
 
 def filter_results(results, tasks):
@@ -220,11 +223,13 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 do_validation=False)
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
+
     elif args.export_target == 'shark':
+        assert SharkManager is not None, "Please install shark-ai to export to Shark"
         export = SharkManager(config=convert_hf_hparams_to_gguf(_get_dataset_props(config)))
+
         with torch.no_grad():
             ds = export.export(model, **ref_input)
-
 
 
 def fx_required(args):
