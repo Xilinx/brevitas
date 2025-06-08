@@ -78,15 +78,12 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
             'tests/brevitas',
             '-n',
             'logical',
-            '-m',
-            'not compile',
             '-v',
             '--ignore',
             'tests/brevitas/graph',
             '--ignore',
             'tests/brevitas/nn/test_nn_quantizers.py')
         session.run('pytest', 'tests/brevitas/graph', '-n', 'logical', '-v')
-        session.run('pytest', '-m', 'compile', '-n', '1', '-v', 'tests/brevitas')
     else:
         session.run(
             'pytest',
