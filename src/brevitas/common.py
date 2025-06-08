@@ -3,7 +3,11 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
+from typing import Any
+from typing import Protocol
 import warnings
+
+from typing_extensions import runtime_checkable
 
 from brevitas import config
 from brevitas.utils.logging import setup_logger
@@ -40,7 +44,7 @@ class ExportMixin(object):
             raise RuntimeError("Can't enter export mode during training, only during inference")
         if value and self.requires_export_handler and self.export_handler is None:
             self.export_mode = False
-            logging.debug("Can't enable export mode on a layer without an export handler")
+            warnings.warn(f"Skipping {type(self)} because it does not have an export handler")
         elif value and not self.requires_export_handler and self.export_handler is None:
             return  # don't set export mode when it's not required and there is no handler
         elif value and not self._export_mode and self.export_handler is not None:
@@ -49,3 +53,11 @@ class ExportMixin(object):
         elif not value and self.export_handler is not None:
             self.export_handler = None
         self._export_mode = value
+
+
+# Protocol class for layer-wise export
+@runtime_checkable
+class LayerProtocol(Protocol):
+
+    def forward(self, *args, **kwargs) -> Any:
+        ...

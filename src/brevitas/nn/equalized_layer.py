@@ -8,7 +8,7 @@ from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
-from brevitas.nn.mixin.base import QuantLayerMixin
+from brevitas.nn.mixin.base import LayerProtocol
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.utils.torch_utils import pad_to_dim
 
@@ -20,11 +20,10 @@ except:
 INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
 
-class EqualizedModule(torch.nn.Module, QuantLayerMixin):
+class EqualizedModule(torch.nn.Module, LayerProtocol):
 
     def __init__(self, scale_module, layer) -> None:
         super().__init__()
-        QuantLayerMixin.__init__(self, return_quant_tensor=False)
         self.scale = scale_module
         self.layer = layer
 
@@ -50,8 +49,9 @@ class EqualizedModule(torch.nn.Module, QuantLayerMixin):
 
         if self.export_mode:
             # The export handler here is pass-through rather than intercept and redirect
-            self.export_handler(out)
-        out = self.scale(out)
+            out = self.export_handler(out)
+        else:
+            out = self.scale(out)
 
         kwargs[input_kwarg] = out
         # QuantMultiheadAttention is not a subclass of MultiheadAttention

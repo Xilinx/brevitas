@@ -10,17 +10,15 @@ from typing import Tuple
 from typing import Union
 from warnings import warn
 
-import packaging.version
 import torch
 from torch import nn
 from torch import Tensor
 import torch.jit
 from torch.nn.utils.rnn import PackedSequence
 
-from brevitas import config
 from brevitas import is_dynamo_compiling
-from brevitas import torch_version
 from brevitas.common import ExportMixin
+from brevitas.common import LayerProtocol
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.quant_tensor import _unpack_quant_tensor
@@ -62,7 +60,7 @@ class QuantProxyMixin(object):
         setattr(self, proxy_name, quant)
 
 
-class QuantLayerMixin(ExportMixin):
+class QuantLayerMixin(ExportMixin, LayerProtocol):
     __metaclass__ = ABCMeta
 
     def __init__(self, return_quant_tensor: bool):
@@ -106,7 +104,7 @@ class QuantLayerMixin(ExportMixin):
             return _unpack_quant_tensor(quant_output)
 
 
-class QuantRecurrentLayerMixin(ExportMixin):
+class QuantRecurrentLayerMixin(ExportMixin, LayerProtocol):
     __metaclass__ = ABCMeta
 
     def __init__(
