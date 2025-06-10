@@ -52,8 +52,8 @@ class RotationWeightParametrization(torch.nn.Module):
             if self.hidden_dim is not None:
                 # This allows us to perform hadamard on a subset of the channel dimension
                 # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
-                tensor = tensor.reshape(*init_shape[:-1], init_shape[-1] // self.hidden_dim,
-                                        self.hidden_dim).squeeze()
+                tensor = tensor.reshape(
+                    *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
             tensor = self.rot_func(tensor, self.rot_mat, self.K)
             tensor = tensor.reshape(init_shape).t()
         elif self.axis == 1:
@@ -61,8 +61,8 @@ class RotationWeightParametrization(torch.nn.Module):
             if self.hidden_dim is not None:
                 # This allows us to perform hadamard on a subset of the channel dimension
                 # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
-                tensor = tensor.reshape(*init_shape[:-1], init_shape[-1] // self.hidden_dim,
-                                        self.hidden_dim).squeeze()
+                tensor = tensor.reshape(
+                    *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
             tensor = self.rot_func(tensor, self.rot_mat, self.K)
             tensor = tensor.reshape(init_shape)
         else:
