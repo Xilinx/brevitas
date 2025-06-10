@@ -120,7 +120,11 @@ so not only inference time, which for some algorithms is definitely interesting.
 As in the previous case, the user is responsible for compiling the model,
 although we provide some functions in our quantizers to simplify the process.
 NB: this interface might (and very likely will) change in the future.
-This approach is also compatible with ``quant_inference_mode``, because the compilation status is reset.
+This approach is also compatible with ``quant_inference_mode`` for some versions of torch.
+In particular, for torch 2.4.1 and torch 2.6, the compilation status is reset before entering inference mode.
+
+In other versions of torch, a segmentation fault error is observed.
+For this reason, combining PTQ and inference compile is not recommended.
 
 
 Some results

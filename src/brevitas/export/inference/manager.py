@@ -76,7 +76,11 @@ class quant_inference_mode:
                 lambda m: _override_weight_caching_mode(
                     m, enabled=True, metadata_only=not self.cache_quant_weight))
 
-            torch._dynamo.reset()
+            # Disabled because of segmentation fault: https://github.com/pytorch/pytorch/issues/155057
+            # TODO: Restore when fix is available
+            if torch_version == versioning.parse('2.4.1') or torch_version == versioning.parse(
+                    '2.6.0'):
+                torch._dynamo.reset()
 
     def __exit__(self, type, value, traceback):
         # Disable all caching

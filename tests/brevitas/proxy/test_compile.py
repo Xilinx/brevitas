@@ -67,6 +67,7 @@ def test_compile_weight(weight, weight_quantizer):
     linear.weight.data = weight
     linear.eval()
     out = linear.quant_weight().value
+
     linear.weight_quant.compile_quant()
     quant_out = linear.quant_weight().value
     with quant_inference_mode(linear, compile=True):
