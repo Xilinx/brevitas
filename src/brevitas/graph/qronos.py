@@ -35,10 +35,10 @@ class Qronos(GPFQ):
             len_parallel_layers,
             create_weight_orig,
             num_blocks: int = 100,
-            percdamp: float = 1e-6) -> None:
+            alpha: float = 1e-6) -> None:
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
         self.blocksize = math.ceil(self.columns / num_blocks)
-        self.percdamp = percdamp
+        self.alpha = alpha
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -116,7 +116,7 @@ class Qronos(GPFQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
-    def single_layer_update(self, c: int = 1e4):
+    def single_layer_update(self, beta: int = 1e4):
         from brevitas.graph.magr import _power_iteration
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: Qronos does not support weight quantizers that require metadata from input quantizers."
@@ -188,7 +188,7 @@ class Qronos(GPFQ):
         try:
             for group_index in range(self.groups):
                 # using power iteration to estimate the maximum singular value
-                damp[group_index] = self.percdamp * _power_iteration(self.H[group_index], 30)
+                damp[group_index] = self.alpha * _power_iteration(self.H[group_index], 30)
                 self.iH[group_index, diag, diag] += damp[group_index]
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])
@@ -243,8 +243,9 @@ class Qronos(GPFQ):
         self.L = self.iH.clone()
         try:
             for group_index in range(self.groups):
+                # stabilizing the Cholesky decomposition with a fairly large constant, beta
                 self.L[group_index] = torch.linalg.cholesky(
-                    self.iH[group_index] * c, upper=True) / math.sqrt(c)
+                    self.iH[group_index] * beta, upper=True) / math.sqrt(beta)
         except LinAlgError:
             warnings.warn(
                 f'Failed to compute Cholesky decomposition for layer {self.name} '

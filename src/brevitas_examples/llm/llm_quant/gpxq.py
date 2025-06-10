@@ -228,7 +228,7 @@ def apply_qronos(
         block_name=block_name,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
-        gpfq_class=partial(Qronos, percdamp=alpha))
+        gpfq_class=partial(Qronos, alpha=alpha))
 
 
 @torch.no_grad()
