@@ -586,9 +586,15 @@ class LearnedRoundOptimizer:
         # Make sure no updates are received in the progress bar
         pbar.close()
         if self.use_best_model:
+            # Prevent quantizer from reiniting when restoring the best
+            # quantizaiton parameters
+            prev_config_reinit = config.REINIT_ON_STATE_DICT_LOAD
+            config.REINIT_ON_STATE_DICT_LOAD = False
             self._load_saved_params(block, optimal_rounding_params)
             if self.learn_scale:
                 self._load_saved_params(block, optimal_scale_params)
+            # Restore previous setting
+            config.REINIT_ON_STATE_DICT_LOAD = prev_config_reinit
         else:
             # Override if the model with the lowest training error is not used
             best_loss = curr_loss
