@@ -197,7 +197,7 @@ A non-comprehensive list can be found below:
 
 * We definitely tested very few compile + PTQ cases
 
-* Some torch versions might have regressions, like segmentation fault with torch 2.6
+* Some torch versions might have regressions, like segmentation fault with torch 2.7
 
 
 FAQ
