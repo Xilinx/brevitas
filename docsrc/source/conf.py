@@ -153,7 +153,7 @@ nbsphinx_link_target_root =  os.path.join(os.path.dirname(__file__), '..', '..')
 intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/1.26/", None),
     "python": ("https://docs.python.org/3.10", None),
-    "torch": ("https://pytorch.org/docs/2.4.1/", None),
+    "torch": ("https://pytorch.org/docs/2.4/", None),
 }
 
 smv_tag_whitelist = version_to_build            # Select which tag to build
