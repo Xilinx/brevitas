@@ -13,12 +13,9 @@ except:
 
 import warnings
 
-import unfoldNd
-
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
-import brevitas.nn as qnn
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -46,45 +43,11 @@ class Qronos(GPFQ):
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        inp = self.process_input(input)
-        batch_size = inp.shape[0]
+        batch_size = input.shape[0]
+        inp_processed = self.process_input(input)
+        inp_processed = inp_processed.to(torch.float32)
 
         is_quant_enabled = module.weight_quant.is_quant_enabled
-
-        # Preprocess the input to compute the covariance
-        if isinstance(self.layer, qnn.QuantLinear):
-            if len(inp.shape) > 2:
-                inp = inp.reshape((-1, sum(inp.shape[2:])))
-            inp = inp.t()
-            # For QuantLinear layer, groups will be 1
-            inp_processed = inp.unsqueeze(0)
-
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            # Pick the correct unfoldNd class
-            if is_conv_transposed(self.layer):
-                unfold_impl = unfoldNd.UnfoldTransposeNd
-            else:
-                unfold_impl = unfoldNd.UnfoldNd
-
-            unfold = unfold_impl(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride)
-
-            # Split input based on how many groups in convolution
-            inp_by_group = torch.chunk(inp, self.groups, 1)
-            inp_processed = []
-            # Preprocess input by group
-            for inp in inp_by_group:
-                inp = unfold(inp)
-                inp = inp.transpose(1, 0)
-                inp = inp.flatten(1)
-                inp_processed.append(inp)
-            inp_processed = torch.stack(inp_processed)
-
-        # Normalizing by the sequence length for numerical stability
-        inp_processed = inp_processed.to(torch.float32)
 
         # NOTE: in the gpfq_mode context manager (which we use for this), we first
         # collect quant inputs, then we collect float inputs for the same batch. We
