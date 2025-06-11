@@ -362,6 +362,24 @@ def save_inputs_output(
     handle.remove()
 
 
+def collate_fn(batch):
+    # Keyword arguments
+    kwargs = {}
+    for curr_dict in batch:
+        for key, value in curr_dict.items():
+            if isinstance(value, torch.Tensor):
+                if key not in kwargs:
+                    kwargs[key] = []
+                kwargs[key].append(value)
+            else:
+                if key not in kwargs:
+                    kwargs[key] = value
+    for key, value in kwargs.items():
+        if isinstance(value, list) and len(value) > 0:
+            kwargs[key] = torch.cat(kwargs[key], dim=0)
+    return kwargs
+
+
 class LearnedRoundOptimizer:
 
     def __init__(
@@ -600,7 +618,7 @@ class LearnedRoundOptimizer:
             model: nn.Module,
             model_forward: Callable,
             block_forward: Callable,
-            data_loader: DataLoader,
+            data_loader: Dataset,
             cache: Cache,
             get_blocks_fn: Callable,
             model_prepare_fn: Optional[Callable] = None,
@@ -620,8 +638,13 @@ class LearnedRoundOptimizer:
         print(f"Total Iterations per block {self.iters}")
         print(f"Number of blocks {len(blocks)}")
 
+        # Initialize data_loader
+        # data_loader = DataLoader(dataset=data_loader, batch_size=self.batch_size, collate_fn=collate_fn)
+
         # Initialize cache to store partial inputs and outputs for each block
         cache.initialize_cache()
+        #from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
+        #new_cache = CacheLLMDataset()
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
             # Distribute the model across devices to run a forward pass to capture
@@ -641,24 +664,22 @@ class LearnedRoundOptimizer:
                     capture_quant_input=True,
                     capture_quant_output=False,
                 )
-                """
-                from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
-                new_cache = CacheLLMDataset()
-                self._populate_cache(
-                    new_cache,
-                    model,
-                    model_forward,
-                    block,
-                    data_loader,
-                    keep_gpu=keep_gpu,
-                    capture_quant_input=True,
-                    capture_quant_output=False,
-                )
-                random_sampler = torch.utils.data.RandomSampler(new_cache, replacement=True, num_samples=self.batch_size * self.iters)
-                data_loader = DataLoader(new_cache, batch_size=self.batch_size, sampler=random_sampler, collate_fn=new_cache.collate_fn)
-                """
+                #self._populate_cache(
+                #    new_cache,
+                #    model,
+                #    model_forward,
+                #    block,
+                #    DataLoader(data_loader, batch_size=self.batch_size, collate_fn=collate_fn),
+                #    keep_gpu=keep_gpu,
+                #    capture_quant_input=True,
+                #    capture_quant_output=False,
+                #)
+                #random_sampler = torch.utils.data.RandomSampler(new_cache, replacement=True, num_samples=self.batch_size * self.iters)
+
+                #data_loader = DataLoader(new_cache, batch_size=self.batch_size, sampler=random_sampler, collate_fn=new_cache.collate_fn)
+
                 # Remove hooks needed to offload the model blocks to cpu
-                remove_hooks(model)
+                # remove_hooks(model)
 
             # Retrieve scales
             scale_params = return_scale_parameters(block)
@@ -716,18 +737,81 @@ class LearnedRoundOptimizer:
             block.cpu()
 
             if block_idx + 1 < len(blocks) and fast_update:
-                cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
+                cache = self.skip_full_execution_old(
+                    block, blocks[block_idx + 1], block_forward, cache)
+                # new_cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, new_cache)
 
         # The original configuration of the model is restored after finishing the optimization
         if model_finish_fn is not None:
             model_finish_fn(model, model_dict)
 
-    def skip_full_execution(self, block, next_block, block_forward, cache):
+    def skip_full_execution(
+            self, block: nn.Module, next_block: nn.Module, block_forward: Callable,
+            cache: CacheDataset):
+        # We need to compute two inputs, one is a floating point one to compute float out
+        # The second is a quantized one to create the quantized input of the next blocks
+
+        # Temporary caches
+        cache_fp_out = type(cache)()
+        cache_quant_inp = type(cache)()
+
+        # Prepare floating point inputs for next block
+        fp_out_data_loader = DataLoader(
+            cache, batch_size=self.batch_size, collate_fn=cache_fp_out.collate_fn_fp_out_next)
+
+        # We compute the floating point output of the upcoming block
+        #if torch.cuda.is_available():
+        #    next_block.cuda()
+
+        # Save floating point output of next block in cache_fp_out
+        save_inputs_output(
+            next_block,
+            block_forward,
+            next_block,
+            fp_out_data_loader,
+            cache_fp_out,
+            store_inputs=False,
+            store_output=True,
+            keep_gpu=False,
+            disable_quant=True,
+        )
+        next_block.cpu()
+
+        # Prepare quant inputs to current block
+        quant_inp_data_loader = DataLoader(
+            cache, batch_size=self.batch_size, collate_fn=cache_quant_inp.collate_fn_quant_inp_next)
+
+        # Finally (!), we compute the quantized input of the next block
+        block.eval()
+        #if torch.cuda.is_available():
+        #    block.cuda()
+
+        save_inputs_output(
+            block,
+            block_forward,
+            block,
+            quant_inp_data_loader,
+            cache_quant_inp,
+            store_inputs=False,
+            store_output=True,
+            keep_gpu=False,
+            disable_quant=False,
+        )
+
+        block.cpu()
+
+        # Update the cache with the (args, outputs) in the temporary caches
+        cache.args = list(map(lambda x: (x,), cache_quant_inp.outputs))
+        cache.outputs = cache_fp_out.outputs
+
+        return cache
+
+    def skip_full_execution_old(self, block, next_block, block_forward, cache):
 
         # We need to compute two inputs, one is a floating point one to compute float out
         # The second is a quantized one to create the quantized input of the next blocks
 
-        # We use the cache output to generate a new temporary dataloder for the next block
+        # We use the cache output to generate a new temporary dataloader for the next block
         tmp_data_loader = []
         for i in range(len(cache)):
             (args, kwargs), output = cache.sample_batch([i])
