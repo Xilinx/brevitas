@@ -43,9 +43,11 @@ class Qronos(GPFQ):
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        batch_size = input.shape[0]
         inp_processed = self.process_input(input)
-        inp_processed = inp_processed.to(torch.float32)
+        # NOTE: batch_size = seqlen for language models here
+        inp_processed = self.process_input(input).to(
+            torch.float32)  # [groups, in_features, batch_size]
+        batch_size = inp_processed.shape[-1]
 
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
