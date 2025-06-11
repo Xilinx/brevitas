@@ -58,11 +58,12 @@ class GPFQ(GPxQ):
         current_layer.layer_names.add(self.name)
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
-        inp_processed = self.process_input(input)
+        # NOTE: batch_size = seqlen for language models here
+        inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
+        batch_size = inp_processed.shape[-1]
 
-        # Normalizing by the sequence length for numerical stability
-        n = inp_processed.size(1)
-        inp_processed = math.sqrt(1 / n) * inp_processed.to(torch.float32)
+        # Normalizing for numerical stability
+        inp_processed = math.sqrt(1 / batch_size) * inp_processed.to(torch.float32)
 
         # NOTE: in the gpfq_mode context manager, we first collect quant inputs, then
         # we collect float inputs for the same batch. We assume this pattern here, but
