@@ -7,6 +7,8 @@ SOURCEDIR     = source
 BUILDDIR      = build
 BUILD_VERSION ?=
 
+export VERSION=$(BUILD_VERSION)
+
 .PHONY: help html github livehtml
 
 help:
@@ -17,7 +19,7 @@ help:
 	@echo "  help       Show this message"
 
 html:
-	@export VERSION=$(BUILD_VERSION) && $(MULTIVERSION) "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
+	@$(MULTIVERSION) "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
 
 github: html
 	@cp -a "$(BUILDDIR)/html/." ../docs
