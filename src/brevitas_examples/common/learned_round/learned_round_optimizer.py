@@ -209,6 +209,7 @@ except:
 
 from torch import nn
 from torch.optim.optimizer import Optimizer
+from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -286,6 +287,17 @@ class Cache(ABC):
 
     @abstractmethod
     def clear_cache(self) -> None:
+        pass
+
+
+class CacheDataset(Dataset):
+
+    @abstractmethod
+    def store_inputs(self, args: Any, kwargs: Any) -> None:
+        pass
+
+    @abstractmethod
+    def store_output(self, output: Any) -> None:
         pass
 
 
@@ -629,6 +641,22 @@ class LearnedRoundOptimizer:
                     capture_quant_input=True,
                     capture_quant_output=False,
                 )
+                """
+                from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
+                new_cache = CacheLLMDataset()
+                self._populate_cache(
+                    new_cache,
+                    model,
+                    model_forward,
+                    block,
+                    data_loader,
+                    keep_gpu=keep_gpu,
+                    capture_quant_input=True,
+                    capture_quant_output=False,
+                )
+                random_sampler = torch.utils.data.RandomSampler(new_cache, replacement=True, num_samples=self.batch_size * self.iters)
+                data_loader = DataLoader(new_cache, batch_size=self.batch_size, sampler=random_sampler, collate_fn=new_cache.collate_fn)
+                """
                 # Remove hooks needed to offload the model blocks to cpu
                 remove_hooks(model)
 

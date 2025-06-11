@@ -494,6 +494,9 @@ def quantize_llm(args, extra_args=None):
                 iters = args.learned_round_iters
                 loader = calibration_loader
             remove_hooks(model)
+            from brevitas_examples.common.learned_round.learned_round_args import \
+                parse_args_to_dataclass
+            auto_round_args = parse_args_to_dataclass(args=args)
             apply_learned_round(
                 model,
                 loader,
