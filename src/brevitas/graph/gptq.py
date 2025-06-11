@@ -68,9 +68,9 @@ class GPTQ(GPxQ):
     def compute_iterative_covariance(self, module, input, current_layer):
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        inp = self.process_input(input)
+        inp_processed = self.process_input(input)
         # Calcuate the covariance matrix
-        batch_size = inp.shape[0]
+        batch_size = inp_processed.shape[0]
         self.H *= self.nsamples / (self.nsamples + batch_size)
         self.nsamples += batch_size
         inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(torch.float32)
