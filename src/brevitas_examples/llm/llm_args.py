@@ -462,6 +462,11 @@ def validate(args, extra_args: Optional[List[str]] = None):
     if not args.no_quantize:
         if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
             warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
+        if args.magr and (args.gpfq or args.qronos):
+            warn(
+                "When composing MagR with either GPFQ or Qronos, it is recommended to also save original weights since"
+                "they both require optimizing a mismatched objective function (see https://arxiv.org/abs/2505.11695)"
+            )
         if args.gpxq_max_accumulator_bit_width is not None:
             assert args.weight_quant_format == 'int', "AXE only supports integer formats."
             assert args.input_quant_format == 'int', "AXE only supports integer formats."

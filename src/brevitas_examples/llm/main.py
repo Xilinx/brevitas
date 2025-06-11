@@ -312,14 +312,10 @@ def quantize_llm(args, extra_args=None):
     if args.magr and not args.load_checkpoint:
         print("Applying MagR...")
         model = offload_model(model)
-        # save original weights for GPFQ or Qronos since they both require optimizing
-        # a mismatched objective function (see https://arxiv.org/abs/2505.11695), or
-        # if explicitly specified in the CLI
-        _create_weight_orig = args.gpfq or args.qronos or args.gpxq_create_weight_orig
         apply_magr(
             model,
             calibration_loader,
-            create_weight_orig=_create_weight_orig,
+            create_weight_orig=args.gpxq_create_weight_orig,
             alpha=args.magr_alpha)
         remove_hooks(model)
         print(f"MagR applied.")
