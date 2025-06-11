@@ -1487,7 +1487,11 @@ def _apply_rotate(
         insert_rotation_module = len(region.srcs) == 0
         if not region.is_valid:
             logging.info(f"Region not valid, skipping it")
+
+        # Initialize variables
         hidden_dim = region.max_shape_sinks
+        expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
+
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
             rot_func = _apply_ort_device
@@ -1502,8 +1506,8 @@ def _apply_rotate(
             try:
                 # Build hadamard rotation matrix
                 rot_mat, K = get_hadK(hidden_dim)
-                hidden_dim = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
-                expanded_rot_mat, expanded_K = get_hadK(int(hidden_dim))
+                expanded_hidden_dim = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
+                expanded_rot_mat, expanded_K = get_hadK(int(expanded_hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
                 logging.info(f"Incompatible dim {hidden_dim} for hadamard rotation")
@@ -1540,7 +1544,7 @@ def _apply_rotate(
                         rot_func=rot_func,
                         axis=axis,
                         K=K,
-                    ))
+                        hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
                 rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
@@ -1569,7 +1573,7 @@ def _apply_rotate(
                     rot_func=rot_func,
                     axis=weight_axis,
                     K=K,
-                ))
+                    hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
             rewriters.append(rewriter)
             # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
@@ -1795,6 +1799,24 @@ class GraphRotationEqualization(RotationEqualization):
             if ('scaled_dot_product' in str(c.meta.get('orig_target', c.target)))]
         regions = []
 
+        # SDPA might have a view to perform matmul across attention heads
+        # Because of this, we cannot use directly the weights' shapes
+        # We detect the view by walking the graph, and we pick-up the correct number of feature channels
+        # as the last dimension of the view
+        # If we reach the Linear layer without encoutering a view, we use the weights' shapes
+        def find_head_dim(node):
+            if node.target == 'view':
+                shapes = node.args[-1]
+                # Shapes can be a tuple a series of integers
+                # If tuple, extract the last element
+                if isinstance(shapes, tuple):
+                    shapes = shapes[-1]
+                return shapes
+            if node.op == 'call_module':
+                return -1
+            else:
+                return find_head_dim(node.args[0])
+
         def find_src(node):
             if node.op != 'call_module':
                 return find_src(node.args[0])
@@ -1813,17 +1835,21 @@ class GraphRotationEqualization(RotationEqualization):
 
             value_node = find_src(value_input)
             output_node = find_sink(value_input)
-            value_module = get_module(graph_module, output_node.target)
-            output_module = get_module(graph_module, value_node.target)
+            head_dim = find_head_dim(value_input)
+
+            value_module = get_module(graph_module, value_node.target)
+            output_module = get_module(graph_module, output_node.target)
             value_weight = get_weight_source(value_module)
             output_weight = get_weight_sink(output_module)
-            value_index = EqualizationIndexes(0, value_weight.shape[0], 0)
+            end_index = head_dim if head_dim != -1 else value_weight.shape[0]
+            value_index = EqualizationIndexes(0, end_index, 0)
 
-            output_index = EqualizationIndexes(0, output_weight.shape[0], 0)
+            end_index = head_dim if head_dim != -1 else output_weight.shape[0]
+            output_index = EqualizationIndexes(0, end_index, 0)
 
             region = Region(
-                srcs={'output_sdpa': output_index},
-                sinks={'value_sdpa': value_index},
+                srcs={'value_sdpa': value_index},
+                sinks={'output_sdpa': output_index},
                 name_to_module={
                     'value_sdpa': value_module, 'output_sdpa': output_module})
             regions.append(region)
@@ -1877,6 +1903,13 @@ class GraphRotationEqualization(RotationEqualization):
             if id_sink in eq_layers:
                 overlap = True
 
+        # We update mergeable regions to include also non-mergeable ones
+        for o_r in orphan_regions:
+            # Layerwise have only a single sink named 'sinks0'
+            id_sink = id(o_r.get_module_from_name('sinks0'))
+            if id_sink not in eq_layers:
+                regions.append(o_r)
+
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
             first_set, second_set = regions, expanded_regions
@@ -1885,15 +1918,9 @@ class GraphRotationEqualization(RotationEqualization):
             first_set, second_set = expanded_regions, regions
             first_exp_step, second_exp_step = self.expansion_step, 1
 
-        # We update mergeable regions to include also non-mergeable ones
-        for o_r in orphan_regions:
-            # Layerwise have only a single sink named 'sinks0'
-            id_sink = id(o_r.get_module_from_name('sinks0'))
-            if id_sink not in eq_layers:
-                regions.append(o_r)
-
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
+
         if len(regions) > 0:
             rewriters.extend(
                 _apply_rotate(
