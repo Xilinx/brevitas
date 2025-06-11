@@ -3,10 +3,12 @@
 
 from functools import partial
 
+from packaging import version
 import torch
 from torch.nn import Module
 import torch.nn as nn
 
+from brevitas import torch_version
 from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 from brevitas.export.inference.handler import DynamicIntInferenceHandler
 from brevitas.export.inference.handler import FloatInferencetHandler
@@ -78,8 +80,7 @@ class quant_inference_mode:
 
             # Disabled because of segmentation fault: https://github.com/pytorch/pytorch/issues/155057
             # TODO: Restore when fix is available
-            if torch_version == versioning.parse('2.4.1') or torch_version == versioning.parse(
-                    '2.6.0'):
+            if torch_version == version.parse('2.4.1') or torch_version == version.parse('2.6.0'):
                 torch._dynamo.reset()
 
     def __exit__(self, type, value, traceback):
