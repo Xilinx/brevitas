@@ -132,6 +132,39 @@ class CacheLLMDataset(CacheDataset):
         outs = torch.cat(outs, dim=0)
         return args, kwargs, outs
 
+    # Auxiliar functions
+    def collate_fn_fp_out_next(self, batch):
+        _, kwargs, outputs = self.collate_fn(batch)
+        return (outputs,), kwargs
+
+    def collate_fn_quant_inp_next(self, batch):
+        args, kwargs, _ = self.collate_fn(batch)
+        return args, kwargs
+
+    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
+        cache_args, cache_kwargs, cache_outs = self.args, self.kwargs, self.outputs
+        # Positional arguments
+        args = [cache_args[i] for i in indices]
+        args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
+        # Keyword arguments
+        kwargs_dict = [cache_kwargs[i] for i in indices]
+        kwargs = {}
+        for curr_dict in kwargs_dict:
+            for key, value in curr_dict.items():
+                if isinstance(value, torch.Tensor):
+                    if key not in kwargs:
+                        kwargs[key] = []
+                    kwargs[key].append(value)
+                else:
+                    if key not in kwargs:
+                        kwargs[key] = value
+        for key, value in kwargs.items():
+            if isinstance(value, list) and len(value) > 0:
+                kwargs[key] = torch.cat(kwargs[key], dim=0)
+        # FP outputs
+        outs = torch.cat([cache_outs[i] for i in indices], dim=0)
+        return (args, kwargs), outs
+
     def __len__(self):
         return len(self.args)
 
