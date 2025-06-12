@@ -245,6 +245,53 @@ def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
     return blocks
 
 
+def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+    if isinstance(module, LearnedRoundSte):
+        for param_name, param in module.named_parameters():
+            state_dict[f"{prefix}.{param_name}"] = param
+        # Early stoppping
+        return True
+    return False
+
+
+def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+    if isinstance(module, WeightQuantProxyFromInjectorBase):
+        for param_name, param in module.named_parameters():
+            if param_name.endswith('scaling_impl.value'):
+                state_dict[f"{prefix}.{param_name}"] = param
+        # Early stoppping
+        return True
+    return False
+
+
+def get_target_parameters(
+        model: nn.Module,
+        get_target: Callable[[nn.Module, OrderedDict, str], bool],
+        state_dict: Optional[OrderedDict] = None) -> 'OrderedDict[str, nn.Parameter]':
+    state_dict = OrderedDict() if state_dict is None else state_dict
+
+    def _get_target_parameters(module: nn.Module, prefix: str = "") -> None:
+        # Base case
+        if get_target(module, state_dict, prefix):
+            # Early stoppping
+            return
+        for child_name, child_module in module.named_children():
+            _get_target_parameters(
+                child_module, f"{prefix}.{child_name}" if len(prefix) > 0 else f"{child_name}")
+
+    # Run recursion from model
+    _get_target_parameters(model)
+    return state_dict
+
+
+def load_params(model: nn.Module, state_dict: OrderedDict) -> None:
+    prev = config.REINIT_ON_STATE_DICT_LOAD
+    config.REINIT_ON_STATE_DICT_LOAD = False
+    _incompatible_keys = model.load_state_dict(state_dict=state_dict, strict=False)
+    assert len(_incompatible_keys.unexpected_keys) == 0, f"The following unexpected keys were found when loading the model parameters: {_incompatible_keys.unexpected_keys}."
+    config.REINIT_ON_STATE_DICT_LOAD = prev
+
+
 def return_scale_parameters(block: nn.Module) -> List[nn.Parameter]:
 
     scale_parameters = []
@@ -451,14 +498,179 @@ class LearnedRoundOptimizer:
             if lr_scheduler:
                 lr_scheduler.step()
 
-    def _step(self, optimizers: List[Optimizer], lr_schedulers: List[Any]) -> None:
-        for optimizer in optimizers:
-            if optimizer:
-                optimizer.step()
-                optimizer.zero_grad()
-        for lr_scheduler in lr_schedulers:
-            if lr_scheduler:
+    def _step(
+            self,
+            optim_lr_schedulers: List[Tuple[Optimizer, Any]],
+            scaler: Optional[GradScaler] = None) -> None:
+        for optim, lr_scheduler in optim_lr_schedulers:
+            if scaler is not None:
+                scaler.step(optim)
+            else:
+                optim.step()
+            if lr_scheduler is not None:
                 lr_scheduler.step()
+            optim.zero_grad()
+        # Update ths scaler
+        if scaler is not None:
+            scaler.update()
+
+    def _training_step(
+        self,
+        model: nn.Module,
+        forward: Callable,
+        loss_fn: Callable,
+        inputs: Any,
+        use_amp: bool,
+        scaler: Optional[GradScaler] = None,
+    ) -> Tuple[torch.Tensor, Any]:
+        # Compute loss
+        loss, loss_components = self._compute_loss(
+            model,
+            forward,
+            loss_fn,
+            inputs,
+            use_amp,
+        )
+        # Run backward, optionally scaling the loss
+        if scaler:
+            scaler.scale(loss).backward()
+        else:
+            loss = loss * self.loss_scaling_factor
+            loss.backward()
+
+        return loss.detach().cpu().item(), loss_components
+
+    def _compute_loss(
+        self,
+        model: nn.Module,
+        forward: Callable,
+        loss_fn: Callable,
+        inputs: Any,
+        use_amp: bool,
+    ) -> Tuple[torch.Tensor, Any]:
+        # Unpack inputs to model
+        quant_inps, fp_outs = inputs
+
+        if use_amp:
+            with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
+                          dtype=self.amp_dtype):
+                # Run block forward to obtain quant outputs
+                quant_outs = forward(model, quant_inps)
+                fp_outs = send_to_device(fp_outs, quant_outs.device)
+                loss, loss_components = loss_fn(quant_outs, fp_outs)
+        else:
+            # Run block forward to obtain quant outputs
+            quant_outs = forward(model, quant_inps)
+            fp_outs = send_to_device(fp_outs, quant_outs.device)
+            loss, loss_components = loss_fn(quant_outs.to(torch.float32), fp_outs.to(torch.float32))
+
+        return loss, loss_components
+
+    def _save_target_params(self, model: nn.Module) -> OrderedDict:
+        state_dict = OrderedDict()
+        # Iterate over the target parameters
+        # TODO: for get_target_param_fn in [get_round_parameters, get_scale_parameters]:
+        for get_target_param_fn in [get_round_parameters]:
+            state_dict = copy.deepcopy(
+                get_target_parameters(model, get_target_param_fn, state_dict))
+        return state_dict
+
+    def _training_loop(
+        self,
+        model: nn.Module,
+        forward: Callable,
+        cache: Cache,
+        loss_fn: Callable,
+    ) -> Tuple[float, int, int]:
+
+        # Move model to GPU if available
+        if torch.cuda.is_available():
+            try:
+                model.cuda()
+            except RuntimeError as exc:
+                if 'out of memory' in str(exc):
+                    warnings.warn(
+                        "Out of memory error was raised when moving the model to GPU. Defaulting to CPU."
+                    )
+                else:
+                    raise exc
+
+        # TODO: Consolidate into a single function
+        optim_lr_schedulers: List[Tuple[Optimizer, Any]] = []
+        # Initialize optimizer and lr scheduler for the learned round parameters
+        learned_round_params_dict = get_target_parameters(model, get_round_parameters)
+        optimizer = self.optimizer_class(
+            learned_round_params_dict.values(), **self.optimizer_kwargs)
+        lr_scheduler = (
+            self.lr_scheduler_class(optimizer, **self.lr_scheduler_kwargs)
+            if self.lr_scheduler_class else None)
+        # Save in list
+        optim_lr_schedulers.append((optimizer, lr_scheduler))
+
+        # Initialize optimizer and lr scheduler for the scale parameters if enabled
+        if self.learn_scale:
+            scale_params_dict = get_target_parameters(model, get_scale_parameters)
+            optimizer_scale = self.scale_optimizer_class(
+                scale_params_dict.values(), **self.scale_optimizer_kwargs)
+            lr_scheduler_scale = (
+                self.lr_scheduler_class(optimizer_scale, **self.lr_scheduler_kwargs)
+                if self.lr_scheduler_class else None)
+            # Save in list
+            optim_lr_schedulers.append((optimizer_scale, lr_scheduler_scale))
+
+        # Variables needed for printing
+        best_loss = torch.finfo(torch.float).max
+        init_loss = -1.0
+        last_best_iter = self.iters
+
+        scaler = None
+        use_amp = next(model.parameters()).dtype == torch.float32
+        if use_amp:
+            scaler = GradScaler()
+
+        # Dictionary to store the rounding parameters yielding the lowest
+        # training loss
+        n_samples = len(cache)
+        pbar = tqdm(range(self.iters), desc='')
+        # Zero-grad before starting
+        model.zero_grad()
+
+        for i in pbar:
+            # Sample mini-batch from cache
+            idxs = torch.randperm(n_samples)[:self.batch_size]
+            inputs = cache.sample_batch(idxs)
+
+            loss, loss_components = self._training_step(model, forward, loss_fn, inputs, use_amp, scaler)
+
+            # Save best parameters before taking gradient step
+            curr_loss = loss
+            init_loss = curr_loss if i == 0 else init_loss
+            if loss < best_loss:
+                best_loss = curr_loss
+                last_best_iter = i + 1
+                if self.use_best_model:
+                    optimal_state_dict = self._save_target_params(model)
+
+            # Scale loss and perform gradient step
+            self._step(optim_lr_schedulers, scaler)
+
+            # Update progress bar
+            pbar.set_description("{}".format(loss_fn.format_loss_components(*loss_components)))
+
+        # Make sure no updates are received in the progress bar
+        pbar.close()
+
+        if self.use_best_model:
+            load_params(model, optimal_state_dict)
+        else:
+            # Override if the model with the lowest training error is not used
+            best_loss = curr_loss
+            last_best_iter = self.iters
+
+        # Move the block back to CPU
+        model.cpu()
+
+        return init_loss, best_loss, last_best_iter
 
     def _populate_cache(
         self,
@@ -711,13 +923,20 @@ class LearnedRoundOptimizer:
             )
 
             # Optimize block rounding
-            init_loss, best_loss, last_best_iter = self._optimize_learned_round_block(
-                block=block,
-                block_learned_round_modules=block_learned_round_modules,
+            #init_loss, best_loss, last_best_iter = self._optimize_learned_round_block(
+            #    block=block,
+            #    block_learned_round_modules=block_learned_round_modules,
+            #    cache=cache,
+            #    block_loss=block_loss,
+            #    block_forward=block_forward,
+            #    scale_params=scale_params,
+            #)
+            # Optimize block rounding
+            init_loss, best_loss, last_best_iter = self._training_loop(
+                model=block,
+                forward=block_forward,
                 cache=cache,
-                block_loss=block_loss,
-                block_forward=block_forward,
-                scale_params=scale_params,
+                loss_fn=block_loss,
             )
 
             print(
@@ -737,7 +956,7 @@ class LearnedRoundOptimizer:
             block.cpu()
 
             if block_idx + 1 < len(blocks) and fast_update:
-                cache = self.skip_full_execution_old(
+                cache = self.skip_full_execution_legacy_cache(
                     block, blocks[block_idx + 1], block_forward, cache)
                 # new_cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, new_cache)
 
@@ -760,8 +979,8 @@ class LearnedRoundOptimizer:
             cache, batch_size=self.batch_size, collate_fn=cache_fp_out.collate_fn_fp_out_next)
 
         # We compute the floating point output of the upcoming block
-        #if torch.cuda.is_available():
-        #    next_block.cuda()
+        if torch.cuda.is_available():
+            next_block.cuda()
 
         # Save floating point output of next block in cache_fp_out
         save_inputs_output(
@@ -783,8 +1002,8 @@ class LearnedRoundOptimizer:
 
         # Finally (!), we compute the quantized input of the next block
         block.eval()
-        #if torch.cuda.is_available():
-        #    block.cuda()
+        if torch.cuda.is_available():
+            block.cuda()
 
         save_inputs_output(
             block,
@@ -806,7 +1025,7 @@ class LearnedRoundOptimizer:
 
         return cache
 
-    def skip_full_execution_old(self, block, next_block, block_forward, cache):
+    def skip_full_execution_legacy_cache(self, block, next_block, block_forward, cache):
 
         # We need to compute two inputs, one is a floating point one to compute float out
         # The second is a quantized one to create the quantized input of the next blocks
