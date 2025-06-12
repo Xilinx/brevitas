@@ -8,3 +8,5 @@ User Guides
    Architecture <architecture>
 
    Brevitas and Compile <compile>
+
+   GGUF Export <export_gguf>
