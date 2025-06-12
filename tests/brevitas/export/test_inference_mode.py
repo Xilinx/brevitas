@@ -1,13 +1,9 @@
 import platform
 
 from hypothesis import given
-from hypothesis import reproduce_failure
-from packaging import version
-import pytest
 import pytest_cases
 import torch
 
-from brevitas import torch_version
 from brevitas.export.inference import quant_inference_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
@@ -51,6 +47,7 @@ ACT_QUANTIZERS = {
 
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
+@requires_pt_ge('2.0')
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
 
@@ -68,6 +65,7 @@ def test_compile_weight(weight, weight_quantizer):
 
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
+@requires_pt_ge('2.0')
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
 
