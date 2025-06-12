@@ -65,13 +65,28 @@ class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
 
 class _ScaleShiftQuantZeroPoint(brevitas.jit.ScriptModule):
 
-    def __init__(self, zp_int_quant: Module) -> None:
+    def __init__(
+            self,
+            zp_int_quant: Module,
+            int_quant,
+            zero_point_shape: Tuple[int, ...],
+            zero_point_dequantized_shape: Optional[Tuple[int]]) -> None:
         super(_ScaleShiftQuantZeroPoint, self).__init__()
         self.zp_int_quant = zp_int_quant
+        self.zero_point_shape = zero_point_shape
+        self.int_quant = int_quant
+        self.zero_point_dequantized_shape = zero_point_dequantized_shape
 
     @brevitas.jit.script_method
     def forward(self, zero_point: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        quant_zp, *_ = self.zp_int_quant(zero_point)
+        min_int = self.int_quant.min_int(bit_width)
+        quant_zp, scale_zp, zp, *_ = self.zp_int_quant(zero_point)
+
+        # We need to go back to the dequantized shape, relevant for groupwise quantization
+        if self.zero_point_dequantized_shape is not None:
+            quant_zp = quant_zp.view(self.zero_point_dequantized_shape)
+
+        quant_zp = quant_zp / scale + min_int
         return quant_zp
 
 

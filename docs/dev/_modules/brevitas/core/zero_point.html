@@ -484,13 +484,28 @@ document.write(`
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_ScaleShiftQuantZeroPoint</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zp_int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">zp_int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">int_quant</span><span class="p">,</span>
+            <span class="n">zero_point_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+            <span class="n">zero_point_dequantized_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_ScaleShiftQuantZeroPoint</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zp_int_quant</span> <span class="o">=</span> <span class="n">zp_int_quant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_shape</span> <span class="o">=</span> <span class="n">zero_point_shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span> <span class="o">=</span> <span class="n">int_quant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_dequantized_shape</span> <span class="o">=</span> <span class="n">zero_point_dequantized_shape</span>
 
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="n">quant_zp</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zp_int_quant</span><span class="p">(</span><span class="n">zero_point</span><span class="p">)</span>
+        <span class="n">min_int</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span><span class="o">.</span><span class="n">min_int</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
+        <span class="n">quant_zp</span><span class="p">,</span> <span class="n">scale_zp</span><span class="p">,</span> <span class="n">zp</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zp_int_quant</span><span class="p">(</span><span class="n">zero_point</span><span class="p">)</span>
+
+        <span class="c1"># We need to go back to the dequantized shape, relevant for groupwise quantization</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_dequantized_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">quant_zp</span> <span class="o">=</span> <span class="n">quant_zp</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zero_point_dequantized_shape</span><span class="p">)</span>
+
+        <span class="n">quant_zp</span> <span class="o">=</span> <span class="n">quant_zp</span> <span class="o">/</span> <span class="n">scale</span> <span class="o">+</span> <span class="n">min_int</span>
         <span class="k">return</span> <span class="n">quant_zp</span>
 
 

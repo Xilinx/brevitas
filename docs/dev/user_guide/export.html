@@ -424,12 +424,12 @@ document.write(`
 Brevitas can currently export to:</p>
 <ul class="simple">
 <li><p>FINN - for dataflow acceleration on Xilinx FPGAs.</p></li>
-<li><p>PyXIR (<em>experimental</em>) - for DPU acceleration on Xilinx FPGAs.</p></li>
 <li><p>Standard ONNX (<em>experimental</em>) - for acceleration with e.g.
 onnxruntime, or any other ONNX-compliant toolchain.</p></li>
 <li><p>Pytorch’s <em>quantized.functional</em> operators (<em>experimental</em>) - for
 acceleration through Pytorch itself, or any additional downstream
 toolchains supported by Pytorch (e.g. TVM).</p></li>
+<li><p>GGUF - Used for LLM optimized inference</p></li>
 </ul>
 <p>Because Brevitas implements a super-set of layers and datatypes
 supported by various downstream toolchains and hardware platforms, the
