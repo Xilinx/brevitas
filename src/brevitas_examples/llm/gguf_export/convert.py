@@ -379,6 +379,8 @@ class ModelBase:
             quant_weight, 'zero_point_') else quant_weight.zero_point
         _, quant_data = self.modify_tensors(quant_data, name, bid)[0]
 
+        # TODO: Generalize this to have a map between GGUF quant type
+        # and our preprocessing for quant_modules
         if data_qtype == gguf.GGMLQuantizationType.Q4_K:
 
             quant_scale_module = None
