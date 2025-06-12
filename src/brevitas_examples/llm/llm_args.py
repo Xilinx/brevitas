@@ -462,7 +462,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
     if not args.no_quantize:
         if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
             warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
-        if args.magr and (args.gpfq or args.qronos):
+        if args.magr and (args.gpfq or args.qronos) and not args.gpxq_create_weight_orig:
             warn(
                 "When composing MagR with either GPFQ or Qronos, it is recommended to also save original weights since"
                 "they both require optimizing a mismatched objective function (see https://arxiv.org/abs/2505.11695)"
