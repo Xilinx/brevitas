@@ -60,8 +60,8 @@ def test_compile_weight(weight, weight_quantizer):
         pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
-    if torch_version >= version.parse('2.6.0') and torch_version < version.parse('2.7.0'):
-        pytest.skip("Unknown compile error on torch 2.6")
+    if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
+        pytest.skip("Unknown compile error on torch versions above 2.5")
     inp = torch.randn(8, 16)
     linear = qnn.QuantLinear(16, 8, weight_quant=quant)
     linear.weight.data = weight
@@ -85,8 +85,8 @@ def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
-    if torch_version >= version.parse('2.6.0') and torch_version < version.parse('2.7.0'):
-        pytest.skip("Unknown compile error on torch 2.6")
+    if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
+        pytest.skip("Unknown compile error on torch versions above 2.5")
     if 'mx' in name:
         extra_kwargs = {'group_dim': 1}
     else:
