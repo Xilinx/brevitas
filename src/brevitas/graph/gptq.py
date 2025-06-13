@@ -9,13 +9,11 @@ import warnings
 
 from packaging import version
 import torch
-import torch.nn as nn
 
 try:
     from torch.linalg import LinAlgError
 except:
     LinAlgError = RuntimeError
-import unfoldNd
 
 from brevitas import torch_version
 from brevitas.graph.gpxq import GPxQ
@@ -70,46 +68,14 @@ class GPTQ(GPxQ):
     def compute_iterative_covariance(self, module, input, current_layer):
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        inp = self.process_input(input)
-        batch_size = inp.shape[0]
-
-        # Preprocess the input to compute the Hessian
-        if isinstance(self.layer, nn.Linear):
-            if len(inp.shape) > 2:
-                inp = inp.reshape((-1, sum(inp.shape[2:])))
-            inp = inp.t()
-            # For QuantLinear layer, groups will be 1
-            inp_processed = inp.unsqueeze(0)
-
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            # Pick the correct unfoldNd class
-            if is_conv_transposed(self.layer):
-                unfold_impl = unfoldNd.UnfoldTransposeNd
-            else:
-                unfold_impl = unfoldNd.UnfoldNd
-
-            unfold = unfold_impl(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride)
-
-            # Split input based on how many groups in convolution
-            inp_by_group = torch.chunk(inp, self.groups, 1)
-            inp_processed = []
-            # Preprocess input by group
-            for i, inp in enumerate(inp_by_group):
-                inp = unfold(inp)
-                inp = inp.transpose(1, 0)
-                inp = inp.flatten(1)
-                inp_processed.append(inp)
-            inp_processed = torch.stack(inp_processed)
-
-        # Hessian computation
+        # NOTE: batch_size = seqlen for language models here
+        inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
+        batch_size = inp_processed.shape[-1]
+        # Calcuate the covariance matrix
         self.H *= self.nsamples / (self.nsamples + batch_size)
         self.nsamples += batch_size
         inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(torch.float32)
-        # optimizing CPU to GPU transfer using in-place copy to pinned memory
+        # Optimizing CPU to GPU transfer using in-place copy to pinned memory
         self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
         self.H += self.B
 

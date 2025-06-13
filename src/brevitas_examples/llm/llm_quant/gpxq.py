@@ -14,6 +14,7 @@ from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.magr import magr_mode
+from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.axe import A2GPFQ
@@ -149,6 +150,50 @@ def apply_gptq(
                 gptq.update()
 
 
+def _mismatched_optimization_callback(
+        model,
+        dataloader,
+        act_order=True,
+        group_of_parallel_layers=None,
+        block_name=None,
+        max_accumulator_bit_width=None,
+        max_accumulator_tile_size=None,
+        algorithm_impl=GPFQ):
+    """
+    This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
+    optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
+    Q is the quantized weights and \tilde{X} are the (potentially quantized)
+    activations resulting from the previously quantized layers.
+
+    See https://arxiv.org/abs/2505.11695 for more!
+    """
+    if max_accumulator_bit_width is not None:
+        # Use accumulator-aware extension (AXE) framework
+        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
+        algorithm_impl = partial(
+            A2GPFQ,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
+    if block_name is not None:
+        context_manager_kwargs = {
+            'act_order': act_order,
+            'group_of_parallel_layers': group_of_parallel_layers,
+            'create_weight_orig': True,
+            'algorithm_impl': algorithm_impl}
+        block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
+    else:
+        with gpfq_mode(model,
+                       act_order=act_order,
+                       group_of_parallel_layers=group_of_parallel_layers,
+                       create_weight_orig=True,
+                       algorithm_impl=algorithm_impl) as gpfq:
+            gpfq_model = gpfq.model
+            for _ in tqdm(range(gpfq.num_layers)):
+                for inps in dataloader:
+                    gpfq_model(**inps)
+                gpfq.update()
+
+
 @torch.no_grad()
 def apply_gpfq(
         model,
@@ -158,33 +203,41 @@ def apply_gpfq(
         block_name=None,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None):
+    # We use the mismatched optimization callback, which uses two forward passes
+    _mismatched_optimization_callback(
+        model,
+        dataloader,
+        act_order=act_order,
+        group_of_parallel_layers=group_of_parallel_layers,
+        block_name=block_name,
+        max_accumulator_bit_width=max_accumulator_bit_width,
+        max_accumulator_tile_size=max_accumulator_tile_size,
+        algorithm_impl=GPFQ)
+
+
+@torch.no_grad()
+def apply_qronos(
+        model,
+        dataloader,
+        act_order=True,
+        group_of_parallel_layers=None,
+        block_name=None,
+        alpha=1e-6,
+        max_accumulator_bit_width=None,
+        max_accumulator_tile_size=None):
+    assert alpha > 0, "Error: alpha needs to be strictly positive"
     if max_accumulator_bit_width is not None:
-        # Use accumulator-aware extension (AXE) framework
-        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        gpfq_class = partial(
-            A2GPFQ,
-            max_accumulator_bit_width=max_accumulator_bit_width,
-            max_accumulator_tile_size=max_accumulator_tile_size)
-    else:
-        gpfq_class = GPFQ
-    if block_name is not None:
-        context_manager_kwargs = {
-            'act_order': act_order,
-            'group_of_parallel_layers': group_of_parallel_layers,
-            'create_weight_orig': True,
-            'gpfq_class': gpfq_class}
-        block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
-    else:
-        with gpfq_mode(model,
-                       act_order=act_order,
-                       group_of_parallel_layers=group_of_parallel_layers,
-                       create_weight_orig=True,
-                       gpfq_class=gpfq_class) as gpfq:
-            gpfq_model = gpfq.model
-            for _ in tqdm(range(gpfq.num_layers)):
-                for inps in dataloader:
-                    gpfq_model(**inps)
-                gpfq.update()
+        raise NotImplementedError("Qronos implementation does not support AXE yet.")
+    # We use the mismatched optimization callback, which uses two forward passes
+    _mismatched_optimization_callback(
+        model,
+        dataloader,
+        act_order=act_order,
+        group_of_parallel_layers=group_of_parallel_layers,
+        block_name=block_name,
+        max_accumulator_bit_width=max_accumulator_bit_width,
+        max_accumulator_tile_size=max_accumulator_tile_size,
+        algorithm_impl=partial(Qronos, alpha=alpha))
 
 
 @torch.no_grad()

@@ -16,6 +16,7 @@ import warnings
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
@@ -233,7 +234,39 @@ class GPxQ(ABC):
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
 
-        return inp
+        # Preprocess the input to compute the Hessian
+        if isinstance(self.layer, nn.Linear):
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
+            inp = inp.t()
+            # For QuantLinear layer, groups will be 1
+            inp_processed = inp.unsqueeze(0)
+
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            # Pick the correct unfoldNd class
+            if is_conv_transposed(self.layer):
+                unfold_impl = unfoldNd.UnfoldTransposeNd
+            else:
+                unfold_impl = unfoldNd.UnfoldNd
+
+            unfold = unfold_impl(
+                self.layer.kernel_size,
+                dilation=self.layer.dilation,
+                padding=self.layer.padding,
+                stride=self.layer.stride)
+
+            # Split input based on how many groups in convolution
+            inp_by_group = torch.chunk(inp, self.groups, 1)
+            inp_processed = []
+            # Preprocess input by group
+            for i, inp in enumerate(inp_by_group):
+                inp = unfold(inp)
+                inp = inp.transpose(1, 0)
+                inp = inp.flatten(1)
+                inp_processed.append(inp)
+            inp_processed = torch.stack(inp_processed)
+
+        return inp_processed
 
     @abstractmethod
     def update_batch(self):

@@ -10,14 +10,12 @@ import warnings
 import torch
 from torch import Tensor
 import torch.nn as nn
-import unfoldNd
 
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
-import brevitas.nn as qnn
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -60,43 +58,12 @@ class GPFQ(GPxQ):
         current_layer.layer_names.add(self.name)
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
-        inp = self.process_input(input)
+        # NOTE: batch_size = seqlen for language models here
+        inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
+        batch_size = inp_processed.shape[-1]
 
-        # Preprocess the input to compute the Hessian
-        if isinstance(self.layer, qnn.QuantLinear):
-            if len(inp.shape) > 2:
-                inp = inp.reshape((-1, sum(inp.shape[2:])))
-            inp = inp.t()
-            # For QuantLinear layer, groups will be 1
-            inp_processed = inp.unsqueeze(0)
-
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            # Pick the correct unfoldNd class
-            if is_conv_transposed(self.layer):
-                unfold_impl = unfoldNd.UnfoldTransposeNd
-            else:
-                unfold_impl = unfoldNd.UnfoldNd
-
-            unfold = unfold_impl(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride)
-
-            # Split input based on how many groups in convolution
-            inp_by_group = torch.chunk(inp, self.groups, 1)
-            inp_processed = []
-            # Preprocess input by group
-            for inp in inp_by_group:
-                inp = unfold(inp)
-                inp = inp.transpose(1, 0)
-                inp = inp.flatten(1)
-                inp_processed.append(inp)
-            inp_processed = torch.stack(inp_processed)
-
-        # Normalizing by the sequence length for numerical stability
-        n = inp_processed.size(1)
-        inp_processed = math.sqrt(1 / n) * inp_processed.to(torch.float32)
+        # Normalizing for numerical stability
+        inp_processed = math.sqrt(1 / batch_size) * inp_processed.to(torch.float32)
 
         # NOTE: in the gpfq_mode context manager, we first collect quant inputs, then
         # we collect float inputs for the same batch. We assume this pattern here, but
@@ -235,7 +202,7 @@ class gpfq_mode(gpxq_mode):
             the forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation.
             Default: False
-        gpfq_class (GPFQ): The uninitialized class to perform GPFQ.
+        algorithm_impl (GPFQ): The uninitialized class to perform GPFQ.
             Default: `brevitas.graph.gpfq.GPFQv2`, which is the memory-efficient formulation
 
     Example:
@@ -258,7 +225,7 @@ class gpfq_mode(gpxq_mode):
             use_quant_activations: bool = True,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gpfq_class: GPFQ = GPFQ) -> None:
+            algorithm_impl: GPFQ = GPFQ) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -270,7 +237,7 @@ class gpfq_mode(gpxq_mode):
             act_order,
             return_forward_output)
 
-        self.gpfq_class = gpfq_class
+        self.algorithm_impl = algorithm_impl
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -304,7 +271,7 @@ class gpfq_mode(gpxq_mode):
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
-        return self.gpfq_class(
+        return self.algorithm_impl(
             layer=layer,
             name=name,
             act_order=self.act_order,
