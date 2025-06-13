@@ -18,12 +18,13 @@ from brevitas.graph.qronos import Qronos
 from .equalization_fixtures import *
 
 
-def apply_gpfq(
+@torch.no_grad()
+def _mismatched_optimization_callback(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
         use_quant_activations: bool,
-        gpfq_class: nn.Module = GPFQ):
+        algorithm_impl: nn.Module):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
@@ -31,14 +32,34 @@ def apply_gpfq(
         with gpfq_mode(model,
                        use_quant_activations=use_quant_activations,
                        act_order=act_order,
-                       gpfq_class=gpfq_class) as gpfq:
-            gpfq_model = gpfq.model
-            for _ in range(gpfq.num_layers):
+                       algorithm_impl=algorithm_impl) as gpxq:
+            gpxq_model = gpxq.model
+            for _ in range(gpxq.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
                     images = images.to(device)
                     images = images.to(dtype)
-                    gpfq_model(images)
-                gpfq.update()
+                    gpxq_model(images)
+                gpxq.update()
+
+
+def apply_gpfq(
+        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+    _mismatched_optimization_callback(
+        calib_loader=calib_loader,
+        model=model,
+        act_order=act_order,
+        use_quant_activations=use_quant_activations,
+        algorithm_impl=GPFQ)
+
+
+def apply_qronos(
+        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+    _mismatched_optimization_callback(
+        calib_loader=calib_loader,
+        model=model,
+        act_order=act_order,
+        use_quant_activations=use_quant_activations,
+        algorithm_impl=Qronos)
 
 
 def apply_gptq(
@@ -58,8 +79,7 @@ def apply_gptq(
                 gptq.update()
 
 
-apply_gpxq_func_map = {
-    "gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": partial(apply_gpfq, gpfq_class=Qronos)}
+apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": apply_qronos}
 
 
 @pytest.mark.parametrize("act_order", [True, False])
