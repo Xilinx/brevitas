@@ -56,7 +56,6 @@ class ExportMixin(object):
 
 
 # Protocol class for layer-wise export
+# Protocol class seems to clash with DependencyInjection
 class LayerProtocol():
-
-    def forward(self, *args, **kwargs) -> Any:
-        ...
+    pass
