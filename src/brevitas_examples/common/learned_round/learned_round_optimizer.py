@@ -188,14 +188,7 @@ from contextlib import nullcontext
 import copy
 from functools import partial
 import itertools
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
-from typing import Union
+from typing import Any, Callable, Dict, Generator, List, Optional, OrderedDict, Tuple, Type, Union
 import warnings
 
 from accelerate.utils.operations import send_to_device
@@ -224,6 +217,23 @@ from brevitas_examples.common.learned_round.learned_round_method import LearnedR
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 
 config.IGNORE_MISSING_KEYS = True
+
+
+#TODO: Update type hints
+# TODO: Move to a file of helper methods
+def create_optimizer_and_scheduler(
+    params: List[nn.Parameter],
+    optimizer_args: Any,
+) -> Tuple[Optimizer, Optional[Any]]:
+    # Instantiate optimizer
+    optimizer = optimizer_args.optimizer_cls(
+        params=params, lr=optimizer_args.lr, **optimizer_args.optimizer_kwargs)
+    # Instantiate learning rate schedu
+    lr_scheduler_args = optimizer_args.lr_scheduler_args
+    lr_scheduler = (
+        lr_scheduler_args.lr_scheduler_cls(optimizer, **lr_scheduler_args.lr_scheduler_kwargs)
+        if lr_scheduler_args is not None else None)
+    return optimizer, lr_scheduler
 
 
 def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
@@ -575,6 +585,47 @@ class LearnedRoundOptimizer:
                 get_target_parameters(model, get_target_param_fn, state_dict))
         return state_dict
 
+    def _create_optimizers_lr_schedulers(self, model: nn.Module) -> List[Tuple[Optimizer, Any]]:
+        # TODO: Consolidate into a single function
+        optim_lr_schedulers: List[Tuple[Optimizer, Any]] = []
+        from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+        from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+        from brevitas_examples.common.learned_round.learned_round_args import \
+            TARGET_PARAMETRIZATIONS_MAP
+        from brevitas_examples.common.learned_round.learned_round_args import TargetParametrizations
+
+        # Mimicking the logic to be included
+        optimizer_kwargs = copy.deepcopy(self.optimizer_kwargs)
+        scale_optimizer_kwargs = copy.deepcopy(self.scale_optimizer_kwargs)
+        # TODO: Use args
+        optimizers_args = [
+            OptimizerArgs(
+                optimizer_cls=self.optimizer_class,
+                lr=optimizer_kwargs.pop('lr'),
+                optimizer_kwargs=optimizer_kwargs,
+                lr_scheduler_args=LRSchedulerArgs(
+                    lr_scheduler_cls=self.lr_scheduler_class,
+                    lr_scheduler_kwargs=self.lr_scheduler_kwargs,
+                )),
+            OptimizerArgs(
+                optimizer_cls=self.scale_optimizer_class,
+                lr=scale_optimizer_kwargs.pop('lr'),
+                optimizer_kwargs=scale_optimizer_kwargs,
+                lr_scheduler_args=LRSchedulerArgs(
+                    lr_scheduler_cls=self.lr_scheduler_class,
+                    lr_scheduler_kwargs=self.lr_scheduler_kwargs,
+                ))]
+        optimizer_targets = [TargetParametrizations.LEARNED_ROUND
+                            ] + ([TargetParametrizations.SCALES] if self.learn_scale else [])
+
+        return list(
+            map(
+                lambda target_args: create_optimizer_and_scheduler(
+                    get_target_parameters(model, TARGET_PARAMETRIZATIONS_MAP[target_args[0]]).
+                    values(),
+                    target_args[1]),
+                zip(optimizer_targets, optimizers_args)))
+
     def _training_loop(
         self,
         model: nn.Module,
@@ -595,28 +646,8 @@ class LearnedRoundOptimizer:
                 else:
                     raise exc
 
-        # TODO: Consolidate into a single function
-        optim_lr_schedulers: List[Tuple[Optimizer, Any]] = []
-        # Initialize optimizer and lr scheduler for the learned round parameters
-        learned_round_params_dict = get_target_parameters(model, get_round_parameters)
-        optimizer = self.optimizer_class(
-            learned_round_params_dict.values(), **self.optimizer_kwargs)
-        lr_scheduler = (
-            self.lr_scheduler_class(optimizer, **self.lr_scheduler_kwargs)
-            if self.lr_scheduler_class else None)
-        # Save in list
-        optim_lr_schedulers.append((optimizer, lr_scheduler))
-
-        # Initialize optimizer and lr scheduler for the scale parameters if enabled
-        if self.learn_scale:
-            scale_params_dict = get_target_parameters(model, get_scale_parameters)
-            optimizer_scale = self.scale_optimizer_class(
-                scale_params_dict.values(), **self.scale_optimizer_kwargs)
-            lr_scheduler_scale = (
-                self.lr_scheduler_class(optimizer_scale, **self.lr_scheduler_kwargs)
-                if self.lr_scheduler_class else None)
-            # Save in list
-            optim_lr_schedulers.append((optimizer_scale, lr_scheduler_scale))
+        # Initialize optimizers and lr schedulers
+        optim_lr_schedulers = self._create_optimizers_lr_schedulers(model)
 
         # Variables needed for printing
         best_loss = torch.finfo(torch.float).max
@@ -912,10 +943,6 @@ class LearnedRoundOptimizer:
                 for params in scale_params:
                     params.requires_grad = True
 
-            # Move block to GPU if available
-            if torch.cuda.is_available():
-                block.cuda()
-
             # Loss function for computing the rounding loss within each block
             block_loss = self.learned_round_loss_init(
                 block,
@@ -951,9 +978,6 @@ class LearnedRoundOptimizer:
                     params.requires_grad = False
             for params in scale_params:
                 params.requires_grad = False
-
-            # Move the block back to CPU
-            block.cpu()
 
             if block_idx + 1 < len(blocks) and fast_update:
                 cache = self.skip_full_execution_legacy_cache(

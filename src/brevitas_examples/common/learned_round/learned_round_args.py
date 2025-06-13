@@ -4,7 +4,7 @@ from dataclasses import field
 from enum import Enum
 import itertools
 import json
-from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Type, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, OrderedDict, Tuple, Type, Union
 
 import torch
 from torch import nn
@@ -143,7 +143,7 @@ def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str
 
 
 TARGET_PARAMETRIZATIONS_MAP = {
-    TargetParametrizations.SCALES: get_round_parameters,
+    TargetParametrizations.SCALES: get_scale_parameters,
     TargetParametrizations.LEARNED_ROUND: get_round_parameters,}
 
 
