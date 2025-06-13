@@ -64,7 +64,7 @@ class QuantLayerMixin(ExportMixin, LayerProtocol):
     __metaclass__ = ABCMeta
 
     def __init__(self, return_quant_tensor: bool):
-        ExportMixin.__init__(self)
+        super().__init__()
         self.accept_quant_tensor = True
         self.return_quant_tensor = return_quant_tensor
 

@@ -3,7 +3,11 @@
 
 from functools import partial
 from pathlib import Path
+from typing import Any
+from typing import Dict
+from typing import Iterable
 
+import gguf
 from sharktank.types import Dataset
 from sharktank.types import DefaultPrimitiveTensor
 from sharktank.types import Theta
@@ -17,8 +21,25 @@ from brevitas.export.manager import BaseManager
 from brevitas.export.shark.handler import SharkActEqualization
 from brevitas.export.shark.handler import SharkLinearQuant
 from brevitas.export.shark.handler import SharkQuantSDPA
+from brevitas_examples.llm.gguf_export.convert import ModelBase
 
-# from brevitas.export.shark.handler import SharkWeightQuant
+
+def _get_dataset_props(config_json_struct) -> dict:
+    # Separate meta parameters (prefixed with _) from hparams.
+    meta_params = {k: v for k, v in config_json_struct.items() if k.startswith("_")}
+    hparams = {k: v for k, v in config_json_struct.items() if not k.startswith("_")}
+    return {
+        "meta": meta_params,
+        "hparams": hparams,}
+
+
+def find_hparam(keys: Iterable[str], hparams: Dict[str, int], optional: bool = False) -> Any:
+    key = next((k for k in keys if k in hparams), None)
+    if key is not None:
+        return hparams[key]
+    if optional:
+        return None
+    raise KeyError(f"could not find any of: {keys}")
 
 
 # Inheritance from BaseManager is not techincally needed
@@ -42,46 +63,14 @@ class SharkManager(BaseManager):
             module.export_handler.layer_name = name
             module.export_handler.shared_dict = shared_dict
 
-    def gguf_preprocess(self, model):
-        import sys
+    def gguf_tensor_map(self):
 
-        import gguf
-
-        from brevitas_examples.llm.gguf_export.convert import ModelBase
-        """Export the model to gguf format."""
-        output_type = gguf.LlamaFileType.ALL_F32
-
-        config = model.config
-
-        tmp_work_dir = Path('./tmp_dir')
-        config.save_pretrained(tmp_work_dir)
-
-        with torch.no_grad():
-            hparams = ModelBase.load_hparams(tmp_work_dir)
-            model_architecture = hparams["architectures"][0]
-            try:
-                model_class = ModelBase.from_model_architecture(model_architecture)
-            except NotImplementedError:
-                sys.exit(1)
-            model_class = ModelBase.from_model_architecture(model_architecture)
-            model_name = model.name_or_path.split('/')
-            if len(model_name[-1]) == 0:
-                model_name = model_name[-2]
-            else:
-                model_name = model_name[-1]
-
-            model_instance = model_class(
-                model,
-                dir_model=tmp_work_dir,
-                ftype=output_type,
-                fname_out=tmp_work_dir,
-                is_big_endian=False,
-                model_name=model_name,
-                split_max_tensors=False,
-                split_max_size=0,
-                dry_run=False,
-                small_first_shard=False)
-        return model_instance
+        hf_arch = self.config.to_dict()["architectures"][0]
+        gguf_arch = ModelBase.from_model_architecture(hf_arch)
+        block_count = find_hparam(["n_layers", "num_hidden_layers", "n_layer", "num_layers"],
+                                  self.config.to_dict())
+        tensor_map = gguf.get_tensor_name_map(gguf_arch.model_arch, block_count)
+        return tensor_map
 
     def export(self, model, *model_args, **model_kwargs):
         from brevitas_examples.llm.main import offload_model
@@ -103,18 +92,18 @@ class SharkManager(BaseManager):
         self.set_export_mode(model, enabled=False)
 
         updated_theta = dict()
-        gguf_model = self.gguf_preprocess(model)
+        tensor_map = self.gguf_tensor_map()
         for k, v in shared_dict.items():
-            if k.endswith('.premul_input'):
-                prefix = k.removesuffix('.premul_input')
-                suffix = '.premul_input'
-            elif k.endswith('.q_input'):
-                prefix = k.removesuffix('.q_input')
-                suffix = '.q_input'
-            elif k.endswith('.q_output'):
-                prefix = k.removesuffix('.q_output')
-                suffix = '.q_output'
-            elif k.endswith('.attn_q_output'):
+            # if k.endswith('.premul_input'):
+            #     prefix = k.removesuffix('.premul_input')
+            #     suffix = '.premul_input'
+            # elif k.endswith('.q_input'):
+            #     prefix = k.removesuffix('.q_input')
+            #     suffix = '.q_input'
+            # elif k.endswith('.q_output'):
+            #     prefix = k.removesuffix('.q_output')
+            #     suffix = '.q_output'
+            if k.endswith('.attn_q_output'):
                 prefix = k.removesuffix('.attn_q_output') + '.q_proj'
                 suffix = '.q_output'
             elif k.endswith('.attn_k_output'):
@@ -126,13 +115,14 @@ class SharkManager(BaseManager):
             else:
                 prefix = k
                 suffix = ''
-            new_k = gguf_model.map_tensor_name(prefix)
+            new_k = tensor_map.get_name(
+                prefix, try_suffixes=(".weight", ".bias", ".premul_input", ".q_input", ".q_output"))
             if new_k is None:
                 raise
 
             updated_theta[new_k + suffix] = v
         theta = Theta(updated_theta)
         theta.rename_tensors_to_paths()
-        ds = Dataset(self.config, theta)
+        ds = Dataset(_get_dataset_props(self.config.to_dict()), theta)
         ds.save('test_dataset.irpa', io_report_callback=None)
         return ds

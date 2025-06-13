@@ -75,65 +75,6 @@ except:
     logging.debug("Shark-AI not installed, cannot export to Shark")
 
 
-def _optional_int_prop(p: dict[str, Any], name: str, default_value: int) -> int:
-    value = p.get(name, default_value)
-    try:
-        return int(value)
-    except ValueError as e:
-        raise ValueError(f"Property '{name}' expected to be an int and was not") from e
-
-
-def _float_prop(p: dict[str, Any], name: str) -> float:
-    try:
-        return float(p[name])
-    except ValueError as e:
-        raise ValueError(f"Property '{name}' expected to be a float and was not") from e
-    except KeyError:
-        raise KeyError(f"Property '{name}' not found (among keys {p.keys()})")
-
-
-def _get_dataset_props(config_json_struct) -> dict:
-    # Separate meta parameters (prefixed with _) from hparams.
-    meta_params = {k: v for k, v in config_json_struct.__dict__.items() if k.startswith("_")}
-    hparams = {k: v for k, v in config_json_struct.__dict__.items() if not k.startswith("_")}
-    return {
-        "meta": meta_params,
-        "hparams": hparams,}
-
-
-def _int_prop(p: dict[str, Any], name: str) -> int:
-    try:
-        return int(p[name])
-    except ValueError as e:
-        raise ValueError(f"Property '{name}' expected to be an int and was not") from e
-    except KeyError:
-        raise KeyError(f"Property '{name}' not found (among keys {p.keys()})")
-
-
-def convert_hf_hparams_to_gguf(hf_hparams: dict[str, any]) -> dict[str, any]:
-    hp = hf_hparams["hparams"]
-    attention_head_count = _int_prop(hp, "num_attention_heads")
-    attn_head_dim = int(_int_prop(hp, "hidden_size") // _int_prop(hp, "num_attention_heads"))
-    attn_head_dim = int(_optional_int_prop(hp, "head_dim", attn_head_dim))
-    return {
-        "llama.context_length":
-            _int_prop(hp, "max_position_embeddings"),
-        "llama.embedding_length":
-            _int_prop(hp, "hidden_size"),
-        "llama.block_count":
-            _int_prop(hp, "num_hidden_layers"),
-        "llama.feed_forward_length":
-            _int_prop(hp, "intermediate_size"),
-        "llama.rope.dimension_count":
-            attn_head_dim,
-        "llama.attention.head_count":
-            attention_head_count,
-        "llama.attention.layer_norm_rms_epsilon":
-            _float_prop(hp, "rms_norm_eps"),
-        "llama.attention.head_count_kv":
-            _optional_int_prop(hp, "num_key_value_heads", attention_head_count),}
-
-
 def filter_results(results, tasks):
     # filter out what we actually want to track
     eval_results = dict()
@@ -226,8 +167,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
 
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
-        export = SharkManager(config=convert_hf_hparams_to_gguf(_get_dataset_props(config)))
-
+        export = SharkManager(config=config)
         with torch.no_grad():
             ds = export.export(model, **ref_input)
 
