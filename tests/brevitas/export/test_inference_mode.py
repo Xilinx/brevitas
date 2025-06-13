@@ -1,9 +1,9 @@
-import platform
-
 from hypothesis import given
+import pytest
 import pytest_cases
 import torch
 
+from brevitas import config
 from brevitas.export.inference import quant_inference_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
@@ -73,6 +73,8 @@ def test_compile_act(inp, act_quantizer):
         extra_kwargs = {'group_dim': 1}
     else:
         extra_kwargs = {}
+    if config.JIT_ENABLED and 'dynamic' in name:
+        pytest.skip("JIT and dynamic quantization not supported")
     identity = qnn.QuantIdentity(quant, **extra_kwargs)
     out = identity(inp)
     identity.eval()
