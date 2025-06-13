@@ -56,8 +56,7 @@ class ExportMixin(object):
 
 
 # Protocol class for layer-wise export
-@runtime_checkable
-class LayerProtocol(Protocol):
+class LayerProtocol():
 
     def forward(self, *args, **kwargs) -> Any:
         ...

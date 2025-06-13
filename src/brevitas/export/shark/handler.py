@@ -92,6 +92,9 @@ class SharkWeightQuantMixin:
         layer_name = quant_metadata['layer_name']
         shared_dict = quant_metadata['shared_dict']
         dtype = quant_metadata['dtype']
+        scale = scale.to(x.device)
+        if zero_point is not None:
+            zero_point = zero_point.to(x.device)
 
         weight_quant = StaticScaledQuantizer(
             name=layer_name,
