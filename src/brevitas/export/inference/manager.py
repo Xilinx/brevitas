@@ -3,10 +3,12 @@
 
 from functools import partial
 
+from packaging import version
 import torch
 from torch.nn import Module
 import torch.nn as nn
 
+from brevitas import torch_version
 from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 from brevitas.export.inference.handler import DynamicIntInferenceHandler
 from brevitas.export.inference.handler import FloatInferencetHandler

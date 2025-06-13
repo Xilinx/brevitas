@@ -74,7 +74,12 @@ def replace_all_uses_except(to_replace: Node, replace_with: 'Node', exceptions=(
         new_kwargs = map_arg(use_node.kwargs, maybe_replace_node)
         assert isinstance(new_args, tuple)
         assert isinstance(new_kwargs, dict)
-        use_node._Node__update_args_kwargs(new_args, new_kwargs)
+        if hasattr(use_node, '_update_args_kwargs'):
+            use_node._update_args_kwargs(new_args, new_kwargs)
+        elif hasattr(use_node, '_Node__update_args_kwargs'):
+            use_node._Node__update_args_kwargs(new_args, new_kwargs)
+        else:
+            raise RuntimeError("Cannot update args-kwargs. Please open an issue to report this")
     return to_process
 
 

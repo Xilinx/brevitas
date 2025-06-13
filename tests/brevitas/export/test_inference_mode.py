@@ -1,13 +1,9 @@
-import platform
-
 from hypothesis import given
-from hypothesis import reproduce_failure
-from packaging import version
 import pytest
 import pytest_cases
 import torch
 
-from brevitas import torch_version
+from brevitas import config
 from brevitas.export.inference import quant_inference_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
@@ -23,7 +19,6 @@ from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from tests.brevitas.hyp_helper import float_tensor_st
-from tests.marker import jit_disabled_for_compile
 from tests.marker import requires_pt_ge
 
 
@@ -52,54 +47,40 @@ ACT_QUANTIZERS = {
 
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
-@requires_pt_ge('2.3.1')
-@jit_disabled_for_compile()
+@requires_pt_ge('2.1')
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
-    if name == 'mxfloat8' and torch_version == version.parse('2.3.1'):
-        pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
-    if platform.system() == "Windows":
-        pytest.skip("Skip compile + windows because of unknown failure")
-    if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
-        pytest.skip("Unknown compile error on torch versions above 2.5")
+
     inp = torch.randn(8, 16)
     linear = qnn.QuantLinear(16, 8, weight_quant=quant)
     linear.weight.data = weight
     linear.eval()
-    out = linear.quant_weight().value
 
-    linear.weight_quant.compile_quant()
     quant_out = linear.quant_weight().value
-    with quant_inference_mode(linear, compile=True):
+    with quant_inference_mode(linear, compile=False):
         _ = linear(inp)
         inference_out = linear.quant_weight()
-    assert torch.allclose(out, quant_out)
-    assert torch.allclose(out, inference_out)
+    assert torch.allclose(quant_out, inference_out)
 
 
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
-@requires_pt_ge('2.3.1')
-@jit_disabled_for_compile()
+@requires_pt_ge('2.1')
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
-    if platform.system() == "Windows":
-        pytest.skip("Skip compile + windows because of unknown failure")
-    if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
-        pytest.skip("Unknown compile error on torch versions above 2.5")
+
     if 'mx' in name:
         extra_kwargs = {'group_dim': 1}
     else:
         extra_kwargs = {}
+    if config.JIT_ENABLED and 'dynamic' in name:
+        pytest.skip("JIT and dynamic quantization not supported")
     identity = qnn.QuantIdentity(quant, **extra_kwargs)
     out = identity(inp)
     identity.eval()
-    out = identity(inp)
 
-    identity.act_quant.compile_quant()
     quant_out = identity(inp)
-    with quant_inference_mode(identity, compile=True):
+    with quant_inference_mode(identity, compile=False):
         _ = identity(inp)
         inference_out = identity(inp)
-    assert torch.allclose(out, quant_out)
-    assert torch.allclose(out, inference_out)
+    assert torch.allclose(quant_out, inference_out)

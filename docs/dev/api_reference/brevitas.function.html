@@ -509,7 +509,7 @@ for a given accumulator bit width and input representation using the derivations
 A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -634,9 +634,9 @@ A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Input on which to apply the clamp operation</p></li>
-<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Minimum values for the clamp operation.</p></li>
-<li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Maximum values for the clamp operation.</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Input on which to apply the clamp operation</p></li>
+<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Minimum values for the clamp operation.</p></li>
+<li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Maximum values for the clamp operation.</p></li>
 </ul>
 </dd>
 </dl>
@@ -646,7 +646,7 @@ A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</
 <p>Differentiable w.r.t. x, min_val, max_val.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Input <cite>x</cite> clamped between the provided minimum and maximum tensors.</p>
@@ -666,7 +666,7 @@ A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</
 Not differentiable wrt to any of the inputs.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -683,11 +683,11 @@ the compiler.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.abs_binary_sign_grad">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">abs_binary_sign_grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#abs_binary_sign_grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.abs_binary_sign_grad" title="Permalink to this definition">#</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.abs.html#torch.abs" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
-have subgradient 1 in 0. Compare with <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.abs.html#torch.abs" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
+<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.abs.html#torch.abs" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
+have subgradient 1 in 0. Compare with <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.abs.html#torch.abs" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -714,7 +714,7 @@ have subgradient 1 in 0. Compare with <a class="reference external" href="https:
 gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -737,10 +737,10 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.ceil_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ceil_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#ceil_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.ceil_ste" title="Permalink to this definition">#</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.ceil.html#torch.ceil" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.ceil.html#torch.ceil" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -766,7 +766,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -789,10 +789,10 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.floor_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">floor_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#floor_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.floor_ste" title="Permalink to this definition">#</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.floor.html#torch.floor" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.floor.html#torch.floor" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -814,10 +814,10 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.round_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">round_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#round_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.round_ste" title="Permalink to this definition">#</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.round.html#torch.round" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.round.html#torch.round" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -843,7 +843,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -872,7 +872,7 @@ always <code class="docutils literal notranslate"><span class="pre">None</span><
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
 <li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#float" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
 </ul>
 </dd>
@@ -903,13 +903,13 @@ always <code class="docutils literal notranslate"><span class="pre">None</span><
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.scalar_clamp_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">scalar_clamp_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#scalar_clamp_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="Permalink to this definition">#</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.clamp.html#torch.clamp" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.clamp()</span></code></a> with a straight-through gradient estimator
+<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.clamp.html#torch.clamp" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.clamp()</span></code></a> with a straight-through gradient estimator
 for the gradient of the output w.r.t. to <code class="docutils literal notranslate"><span class="pre">x</span></code>, while the gradient of <code class="docutils literal notranslate"><span class="pre">y</span></code> w.r.t. to <code class="docutils literal notranslate"><span class="pre">min_val</span></code>
 and <code class="docutils literal notranslate"><span class="pre">max_val</span></code> is always <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
 <li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#float" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
 <li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.python.org/3.10/library/functions.html#float" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as upper bound for the input tensor.</p></li>
 </ul>
@@ -946,7 +946,7 @@ gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.
 and max_val is always None.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -974,7 +974,7 @@ gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.
 and max_val is always None.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
@@ -998,10 +998,10 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.ternary_sign_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ternary_sign_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#ternary_sign_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.ternary_sign_ste" title="Permalink to this definition">#</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.4/generated/torch.sign.html#torch.sign" title="(in PyTorch v2.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.sign.html#torch.sign" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.4/tensors.html#torch.Tensor" title="(in PyTorch v2.4)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
