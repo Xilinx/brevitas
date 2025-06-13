@@ -202,7 +202,7 @@ class gpfq_mode(gpxq_mode):
             the forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation.
             Default: False
-        gpfq_class (GPFQ): The uninitialized class to perform GPFQ.
+        algorithm_impl (GPFQ): The uninitialized class to perform GPFQ.
             Default: `brevitas.graph.gpfq.GPFQv2`, which is the memory-efficient formulation
 
     Example:
@@ -225,7 +225,7 @@ class gpfq_mode(gpxq_mode):
             use_quant_activations: bool = True,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gpfq_class: GPFQ = GPFQ) -> None:
+            algorithm_impl: GPFQ = GPFQ) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -237,7 +237,7 @@ class gpfq_mode(gpxq_mode):
             act_order,
             return_forward_output)
 
-        self.gpfq_class = gpfq_class
+        self.algorithm_impl = algorithm_impl
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -271,7 +271,7 @@ class gpfq_mode(gpxq_mode):
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
-        return self.gpfq_class(
+        return self.algorithm_impl(
             layer=layer,
             name=name,
             act_order=self.act_order,

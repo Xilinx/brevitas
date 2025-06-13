@@ -150,7 +150,7 @@ def apply_gptq(
                 gptq.update()
 
 
-def _gpfq_callback(
+def _mismatched_optimization_callback(
         model,
         dataloader,
         act_order=True,
@@ -158,11 +158,19 @@ def _gpfq_callback(
         block_name=None,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
-        gpfq_class=GPFQ):
+        algorithm_impl=GPFQ):
+    """
+    This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
+    optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
+    Q is the quantized weights and \tilde{X} are the (potentially quantized)
+    activations resulting from the previously quantized layers.
+
+    See https://arxiv.org/abs/2505.11695 for more!
+    """
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        gpfq_class = partial(
+        algorithm_impl = partial(
             A2GPFQ,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
@@ -171,14 +179,14 @@ def _gpfq_callback(
             'act_order': act_order,
             'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': True,
-            'gpfq_class': gpfq_class}
+            'algorithm_impl': algorithm_impl}
         block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
     else:
         with gpfq_mode(model,
                        act_order=act_order,
                        group_of_parallel_layers=group_of_parallel_layers,
                        create_weight_orig=True,
-                       gpfq_class=gpfq_class) as gpfq:
+                       algorithm_impl=algorithm_impl) as gpfq:
             gpfq_model = gpfq.model
             for _ in tqdm(range(gpfq.num_layers)):
                 for inps in dataloader:
@@ -195,7 +203,8 @@ def apply_gpfq(
         block_name=None,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None):
-    _gpfq_callback(
+    # We use the mismatched optimization callback, which uses two forward passes
+    _mismatched_optimization_callback(
         model,
         dataloader,
         act_order=act_order,
@@ -203,7 +212,7 @@ def apply_gpfq(
         block_name=block_name,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
-        gpfq_class=GPFQ)
+        algorithm_impl=GPFQ)
 
 
 @torch.no_grad()
@@ -219,8 +228,8 @@ def apply_qronos(
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     if max_accumulator_bit_width is not None:
         raise NotImplementedError("Qronos implementation does not support AXE yet.")
-    # We use the GPFQ callback, which uses two forward passes
-    _gpfq_callback(
+    # We use the mismatched optimization callback, which uses two forward passes
+    _mismatched_optimization_callback(
         model,
         dataloader,
         act_order=act_order,
@@ -228,7 +237,7 @@ def apply_qronos(
         block_name=block_name,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
-        gpfq_class=partial(Qronos, alpha=alpha))
+        algorithm_impl=partial(Qronos, alpha=alpha))
 
 
 @torch.no_grad()

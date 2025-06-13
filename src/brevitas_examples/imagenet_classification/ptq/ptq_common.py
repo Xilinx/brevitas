@@ -18,6 +18,7 @@ from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.qronos import Qronos
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
@@ -608,38 +609,67 @@ def apply_gptq(
                 gptq.update()
 
 
+@torch.no_grad()
+def _mismatched_optimization_callback(
+        model, calib_loader, device, dtype, act_order, algorithm_impl):
+    """
+    This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
+    optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
+    Q is the quantized weights and \tilde{X} are the (potentially quantized)
+    activations resulting from the previously quantized layers.
+
+    See https://arxiv.org/abs/2505.11695 for more!
+    """
+    with gpfq_mode(model, act_order=act_order, algorithm_impl=algorithm_impl) as gpxq:
+        gpxq_model = gpxq.model
+        for i in tqdm(range(gpxq.num_layers)):
+            for i, (images, target) in enumerate(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                gpxq_model(images)
+            gpxq.update()
+
+
 def apply_gpfq(
         calib_loader,
         model,
         act_order,
-        create_weight_orig=False,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=128):
+        max_accumulator_tile_size=128,
+        algorithm_impl=GPFQ):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        gpfq_class = partial(
+        algorithm_impl = partial(
             A2GPFQ,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
-    else:
-        gpfq_class = GPFQ
-    with torch.no_grad():
-        with gpfq_mode(model,
-                       create_weight_orig=create_weight_orig,
-                       use_quant_activations=True,
-                       act_order=act_order,
-                       gpfq_class=gpfq_class) as gpfq:
-            gpfq_model = gpfq.model
-            for i in tqdm(range(gpfq.num_layers)):
-                for i, (images, target) in enumerate(calib_loader):
-                    images = images.to(device)
-                    images = images.to(dtype)
-                    gpfq_model(images)
-                gpfq.update()
+    # We use the mismatched optimization callback, which uses two forward passes
+    _mismatched_optimization_callback(
+        model,
+        calib_loader,
+        device=device,
+        dtype=dtype,
+        act_order=act_order,
+        algorithm_impl=algorithm_impl)
+
+
+def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
+    assert alpha > 0, "Error: alpha needs to be strictly positive"
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    # We use the mismatched optimization callback, which uses two forward passes
+    _mismatched_optimization_callback(
+        model,
+        calib_loader,
+        device=device,
+        dtype=dtype,
+        act_order=act_order,
+        algorithm_impl=partial(Qronos, alpha=alpha))
 
 
 def check_positive_int(*args):
