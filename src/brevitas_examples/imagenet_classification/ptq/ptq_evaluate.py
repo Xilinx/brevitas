@@ -229,7 +229,6 @@ add_bool_arg(
     'weight-narrow-range',
     default=False,
     help='Narrow range for weight quantization (default: disabled)')
-parser.add_argument('--gpfq-p', default=1.0, type=float, help='P parameter for GPFQ (default: 1.0)')
 parser.add_argument(
     '--quant-format',
     default='int',
