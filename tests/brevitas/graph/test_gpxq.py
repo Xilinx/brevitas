@@ -32,14 +32,14 @@ def _dual_optimization_callback(
         with gpfq_mode(model,
                        use_quant_activations=use_quant_activations,
                        act_order=act_order,
-                       algorithm_impl=algorithm_impl) as gpxq:
-            gpxq_model = gpxq.model
-            for _ in range(gpxq.num_layers):
+                       algorithm_impl=algorithm_impl) as algo:
+            algo_model = algo.model
+            for _ in range(algo.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
                     images = images.to(device)
                     images = images.to(dtype)
-                    gpxq_model(images)
-                gpxq.update()
+                    algo_model(images)
+                algo.update()
 
 
 def apply_gpfq(
