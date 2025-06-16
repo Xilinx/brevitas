@@ -204,6 +204,7 @@ def get_blocks(model: nn.Module, block_name_attribute: str) -> List[nn.Module]:
 def apply_learned_round(
         model: nn.Module,
         calibration_loader: DataLoader,
+        learned_round_args,
         iters: int = 200,
         learned_round: str = "linear_round",
         learned_round_loss: str = "mse",
@@ -234,6 +235,7 @@ def apply_learned_round(
         "start_factor": 1.0, "end_factor": 0.0
     } if lr_scheduler_kwargs is None else lr_scheduler_kwargs
     learned_round_optimizer = LearnedRoundOptimizer(
+        config=learned_round_args,
         learned_round=learned_round,
         learned_round_loss_class=learned_round_loss_class,
         optimizer_class=optimizer_class,

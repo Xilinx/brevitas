@@ -21,10 +21,11 @@ from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 
+# TODO: Rename to block loss
 class LearnedRoundLoss(ABC):
 
     @abstractmethod
-    def __init__(self, block: nn.Module, learned_round_modules: List[nn.Module], **kwargs) -> None:
+    def __init__(self, block: nn.Module, **kwargs) -> None:
         pass
 
     @abstractmethod
@@ -34,6 +35,10 @@ class LearnedRoundLoss(ABC):
     @abstractmethod
     def format_loss_components(self, *args) -> str:
         pass
+
+
+def return_learned_round_quantizers(block: nn.Module) -> List[nn.Module]:
+    return [module for module in block.modules() if isinstance(module, LearnedRoundSte)]
 
 
 def learned_round_value_init_non_linear(
@@ -128,7 +133,6 @@ class RegularisedMSELoss(LearnedRoundLoss):
     def __init__(
             self,
             module: nn.Module,
-            learned_round_modules: List[nn.Module],
             weight: float = 0.01,
             max_count: int = 1000,
             b_range: Tuple = (20, 2),
@@ -137,8 +141,6 @@ class RegularisedMSELoss(LearnedRoundLoss):
             **kwargs) -> None:
         # This loss operates in a layer-wise manner, so integrity needs to be checked
         assert isinstance(module, QuantWBIOL), "Regularised MSE loss can only accept a single QuantWBIOL layer."
-        assert len(learned_round_modules) == 1, "Regularised MSE loss can only accept a single learned round module."
-
         self.weight = weight
         self.module = module
         self.loss_start = max_count * warmup
@@ -148,6 +150,9 @@ class RegularisedMSELoss(LearnedRoundLoss):
             end_b=b_range[1],
             rel_start_decay=warmup + (1.0 - warmup) * decay_start)
         self.iter = 0
+        # Retrieve learned round module for block
+        learned_round_modules = return_learned_round_quantizers(module)
+        assert len(learned_round_modules) == 1, "Regularised MSE loss can only accept a single learned round module."
         self.learned_round_module = learned_round_modules[0]
 
     def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
@@ -177,7 +182,7 @@ class RegularisedMSELoss(LearnedRoundLoss):
 
 class MSELoss(LearnedRoundLoss):
 
-    def __init__(self, block: nn.Module, learned_round_modules: List[nn.Module], **kwargs) -> None:
+    def __init__(self, block: nn.Module, **kwargs) -> None:
         pass
 
     def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
