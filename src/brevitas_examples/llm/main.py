@@ -636,10 +636,12 @@ def quantize_llm(args, extra_args=None):
             from brevitas_examples.common.learned_round.learned_round_args import \
                 parse_args_to_dataclass
             auto_round_args = parse_args_to_dataclass(args=args)
+            learned_round_args = parse_args_to_dataclass(args=args)
             # TODO (pml): Fix learned round type hints
             apply_learned_round(
                 model,
                 loader,
+                learned_round_args,
                 iters=iters,
                 block_name_attribute=args.gpxq_block_name,
                 learn_scale=args.learned_round_scale,

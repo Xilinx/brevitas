@@ -285,19 +285,28 @@ def parse_args_to_dataclass(args: Namespace) -> LearnedRoundArgs:
             "loss_kwargs": None,
             "fast_update": args.learned_round_fast_update,},
         "training_args": {
-            "optimizers_args": [{
-                "optimizer_cls": "sign_sgd",
-                "lr": args.learned_round_lr,
-                "optimizer_kwargs": {},
-                "lr_scheduler_args": {
-                    "lr_scheduler_cls": "linear",
-                    "lr_scheduler_kwargs": '{"start_factor": 1.0, "end_factor": 0.0}'}},
-                                {
-                                    "optimizer_cls": "sgd",
-                                    "lr": args.learned_round_scale_lr,
-                                    "optimizer_kwargs": {
-                                        "momentum": args.learned_round_scale_momentum,},
-                                    "lr_scheduler_args": None,}],
+            "optimizers_args": [
+                {
+                    "optimizer_cls": "sign_sgd",
+                    "lr": args.learned_round_lr,
+                    "optimizer_kwargs": {},
+                    "lr_scheduler_args": {
+                        "lr_scheduler_cls":
+                            "linear",
+                        "lr_scheduler_kwargs":
+                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
+                    }},
+                {
+                    "optimizer_cls": "sgd",
+                    "lr": args.learned_round_scale_lr,
+                    "optimizer_kwargs": {
+                        "momentum": args.learned_round_scale_momentum,},
+                    "lr_scheduler_args": {
+                        "lr_scheduler_cls":
+                            "linear",
+                        "lr_scheduler_kwargs":
+                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
+                    }}],
             "block_name_attribute":
                 args.gpxq_block_name,
             "optimizers_targets": ["learned_round"] +
@@ -305,7 +314,7 @@ def parse_args_to_dataclass(args: Namespace) -> LearnedRoundArgs:
             "batch_size":
                 8,
             "iters":
-                200,
+                args.learned_round_iters,
             "use_best_model":
                 True,
             "use_amp":
