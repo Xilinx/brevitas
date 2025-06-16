@@ -19,7 +19,7 @@ from .equalization_fixtures import *
 
 
 @torch.no_grad()
-def _mismatched_optimization_callback(
+def _dual_optimization_callback(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
@@ -44,7 +44,7 @@ def _mismatched_optimization_callback(
 
 def apply_gpfq(
         calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
-    _mismatched_optimization_callback(
+    _dual_optimization_callback(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,
@@ -54,7 +54,7 @@ def apply_gpfq(
 
 def apply_qronos(
         calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
-    _mismatched_optimization_callback(
+    _dual_optimization_callback(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,
