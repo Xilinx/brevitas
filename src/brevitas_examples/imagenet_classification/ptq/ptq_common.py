@@ -610,8 +610,7 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def _mismatched_optimization_callback(
-        model, calib_loader, device, dtype, act_order, algorithm_impl):
+def _dual_optimization_callback(model, calib_loader, device, dtype, act_order, algorithm_impl):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -620,14 +619,14 @@ def _mismatched_optimization_callback(
 
     See https://arxiv.org/abs/2505.11695 for more!
     """
-    with gpfq_mode(model, act_order=act_order, algorithm_impl=algorithm_impl) as gpxq:
-        gpxq_model = gpxq.model
-        for i in tqdm(range(gpxq.num_layers)):
+    with gpfq_mode(model, act_order=act_order, algorithm_impl=algorithm_impl) as algo:
+        algo_model = algo.model
+        for i in tqdm(range(algo.num_layers)):
             for i, (images, target) in enumerate(calib_loader):
                 images = images.to(device)
                 images = images.to(dtype)
-                gpxq_model(images)
-            gpxq.update()
+                algo_model(images)
+            algo.update()
 
 
 def apply_gpfq(
@@ -647,8 +646,9 @@ def apply_gpfq(
             A2GPFQ,
             max_accumulator_bit_width=max_accumulator_bit_width,
             max_accumulator_tile_size=max_accumulator_tile_size)
-    # We use the mismatched optimization callback, which uses two forward passes
-    _mismatched_optimization_callback(
+    # We use the dual optimization callback, which uses two forward passes to correct
+    # quantization error in both the weights and activations from previous layers
+    _dual_optimization_callback(
         model,
         calib_loader,
         device=device,
@@ -662,8 +662,9 @@ def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    # We use the mismatched optimization callback, which uses two forward passes
-    _mismatched_optimization_callback(
+    # We use the dual optimization callback, which uses two forward passes to correct
+    # quantization error in both the weights and activations from previous layers
+    _dual_optimization_callback(
         model,
         calib_loader,
         device=device,

@@ -186,7 +186,8 @@ class GPFQ(GPxQ):
 
 class gpfq_mode(gpxq_mode):
     """
-    Apply GPFQ algorithm.
+    Apply GPFQ algorithm, or other algorithms that solve the mismatched objective function,
+    like Qronos or A2GPFQ.
 
     Args:
         model (Module): The model to quantize with GPFQ
@@ -202,8 +203,8 @@ class gpfq_mode(gpxq_mode):
             the forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation.
             Default: False
-        algorithm_impl (GPFQ): The uninitialized class to perform GPFQ.
-            Default: `brevitas.graph.gpfq.GPFQv2`, which is the memory-efficient formulation
+        algorithm_impl (GPFQ): The uninitialized class to execute the algorithm.
+            Default: `brevitas.graph.gpfq.GPFQ`
 
     Example:
         >>> with torch.no_grad():
