@@ -490,6 +490,17 @@ def main():
         act_scale_computation_type=args.act_scale_computation_type,
         uint_sym_act_for_unsigned_values=args.uint_sym_act_for_unsigned_values)
 
+    # Run a forward pass to set the scales
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        for i, (images, target) in enumerate(calib_loader):
+            images = images.to(device)
+            images = images.to(dtype)
+            model(images)
+            break
+
     if args.act_scale_computation_type == 'static':
         # Calibrate the quant_model on the calibration dataloader
         print("Starting activation calibration:")
