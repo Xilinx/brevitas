@@ -462,10 +462,10 @@ def validate(args, extra_args: Optional[List[str]] = None):
     if not args.no_quantize:
         if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
             warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
-        if (args.gpfq or args.magr) and not args.gpxq_create_weight_orig:
+        if args.magr and not args.gpxq_create_weight_orig:
             # create_weight_orig=True creates a copy of the weights for the model to use
             # when disabling weight quantization so that any downstream optimization can
-            # optimize w.r.t. the original reference model.
+            # optimize w.r.t. the original reference model (i.e., Qronos, GPFQ, or GPTQ).
             warn(f"It is recommended to enable --gpxq-create-weight-orig")
         if args.gpxq_max_accumulator_bit_width is not None:
             assert args.weight_quant_format == 'int', "AXE only supports integer formats."

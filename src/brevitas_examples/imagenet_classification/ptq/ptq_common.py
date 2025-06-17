@@ -610,8 +610,7 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def _dual_optimization_callback(
-        model, calib_loader, device, dtype, act_order, create_weight_orig, algorithm_impl):
+def _dual_optimization_callback(model, calib_loader, device, dtype, act_order, algorithm_impl):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -620,10 +619,7 @@ def _dual_optimization_callback(
 
     See https://arxiv.org/abs/2505.11695 for more!
     """
-    with gpfq_mode(model,
-                   act_order=act_order,
-                   create_weight_orig=create_weight_orig,
-                   algorithm_impl=algorithm_impl) as algo:
+    with gpfq_mode(model, act_order=act_order, algorithm_impl=algorithm_impl) as algo:
         algo_model = algo.model
         for i in tqdm(range(algo.num_layers)):
             for i, (images, target) in enumerate(calib_loader):
@@ -637,7 +633,6 @@ def apply_gpfq(
         calib_loader,
         model,
         act_order,
-        create_weight_orig=True,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=128,
         algorithm_impl=GPFQ):
@@ -659,11 +654,10 @@ def apply_gpfq(
         device=device,
         dtype=dtype,
         act_order=act_order,
-        create_weight_orig=create_weight_orig,
         algorithm_impl=algorithm_impl)
 
 
-def apply_qronos(model, calib_loader, act_order=True, create_weight_orig=True, alpha=1e-6):
+def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     model.eval()
     dtype = next(model.parameters()).dtype
@@ -676,7 +670,6 @@ def apply_qronos(model, calib_loader, act_order=True, create_weight_orig=True, a
         device=device,
         dtype=dtype,
         act_order=act_order,
-        create_weight_orig=create_weight_orig,
         algorithm_impl=partial(Qronos, alpha=alpha))
 
 

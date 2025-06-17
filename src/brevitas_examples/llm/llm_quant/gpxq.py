@@ -155,7 +155,6 @@ def _dual_optimization_callback(
         dataloader,
         act_order=True,
         block_name=None,
-        create_weight_orig=True,
         group_of_parallel_layers=None,
         algorithm_impl=GPFQ):
     """
@@ -170,14 +169,14 @@ def _dual_optimization_callback(
         context_manager_kwargs = {
             'act_order': act_order,
             'group_of_parallel_layers': group_of_parallel_layers,
-            'create_weight_orig': create_weight_orig,
+            'create_weight_orig': True,
             'algorithm_impl': algorithm_impl}
         block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
     else:
         with gpfq_mode(model,
                        act_order=act_order,
                        group_of_parallel_layers=group_of_parallel_layers,
-                       create_weight_orig=create_weight_orig,
+                       create_weight_orig=True,
                        algorithm_impl=algorithm_impl) as algo:
             algo_model = algo.model
             for _ in tqdm(range(algo.num_layers)):
@@ -193,7 +192,6 @@ def apply_gpfq(
         act_order=True,
         group_of_parallel_layers=None,
         block_name=None,
-        create_weight_orig=True,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None):
     if max_accumulator_bit_width is not None:
@@ -212,7 +210,6 @@ def apply_gpfq(
         dataloader,
         act_order=act_order,
         block_name=block_name,
-        create_weight_orig=create_weight_orig,
         group_of_parallel_layers=group_of_parallel_layers,
         algorithm_impl=algorithm_impl)
 
@@ -224,12 +221,8 @@ def apply_qronos(
         act_order=True,
         group_of_parallel_layers=None,
         block_name=None,
-        alpha=1e-6,
-        max_accumulator_bit_width=None,
-        max_accumulator_tile_size=None):
+        alpha=1e-6):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
-    if max_accumulator_bit_width is not None:
-        raise NotImplementedError("Qronos implementation does not support AXE yet.")
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(

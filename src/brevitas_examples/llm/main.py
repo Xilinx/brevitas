@@ -534,7 +534,6 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
-                create_weight_orig=args.gpxq_create_weight_orig,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
@@ -546,9 +545,7 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
-                block_name=args.gpxq_block_name,
-                max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+                block_name=args.gpxq_block_name)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

@@ -502,7 +502,6 @@ def main():
             calib_loader,
             quant_model,
             act_order=args.gpxq_act_order,
-            create_weight_orig=args.gpxq_create_weight_orig,
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
@@ -512,8 +511,8 @@ def main():
             calib_loader,
             quant_model,
             act_order=args.gpxq_act_order,
-            use_quant_activations=args.gptq_use_quant_activations,
             create_weight_orig=args.gpxq_create_weight_orig,
+            use_quant_activations=args.gptq_use_quant_activations,
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
