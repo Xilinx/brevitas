@@ -14,8 +14,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from brevitas.nn import QuantHardTanh
-from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
@@ -226,6 +224,8 @@ class QuantizationStatusManager:
     def disable_act_quant_hook(
             module: nn.Module, inp: Union[tuple, QuantTensor],
             output: torch.Tensor) -> torch.Tensor:
+
+        from brevitas.nn import QuantHardTanh
         inp = unpack_input(inp)
         if module.fused_activation_quant_proxy is not None:
             inp = module.fused_activation_quant_proxy.activation_impl(inp)
@@ -502,7 +502,7 @@ class _BiasCorrection:
         return inp.reshape(inp.shape[0], -1).mean(dim=1).detach()
 
     def channel_dim(self, inp, module):
-        if len(inp.shape) == 3 and isinstance(module, QuantLinear):
+        if len(inp.shape) == 3 and isinstance(module, nn.Linear):
             channel_dim = 2
         else:
             channel_dim = 1

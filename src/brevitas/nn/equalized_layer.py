@@ -24,6 +24,7 @@ class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
 
     def __init__(self, scale_module, layer) -> None:
         super().__init__()
+        ExportMixin.__init__(self)
         self.scale = scale_module
         self.layer = layer
 
