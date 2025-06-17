@@ -491,7 +491,7 @@ def main():
         uint_sym_act_for_unsigned_values=args.uint_sym_act_for_unsigned_values)
 
     # Some quantizer configurations require a forward pass to initialize scale factors.
-    # This forward pass ensures that so that subsequent algoritms work as intended
+    # This forward pass ensures that subsequent algorithms work as intended
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
