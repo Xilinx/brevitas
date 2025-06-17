@@ -303,7 +303,7 @@ add_bool_arg(
     help='Use quant activations for GPTQ (default: disabled)')
 add_bool_arg(
     parser,
-    'gptq-create-weight-orig',
+    'gpxq-create-weight-orig',
     default=False,
     help='Maintain original weights for non-quant forward pass (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
@@ -502,6 +502,7 @@ def main():
             calib_loader,
             quant_model,
             act_order=args.gpxq_act_order,
+            create_weight_orig=args.gpxq_create_weight_orig,
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
@@ -512,7 +513,7 @@ def main():
             quant_model,
             act_order=args.gpxq_act_order,
             use_quant_activations=args.gptq_use_quant_activations,
-            create_weight_orig=args.gptq_create_weight_orig,
+            create_weight_orig=args.gpxq_create_weight_orig,
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 

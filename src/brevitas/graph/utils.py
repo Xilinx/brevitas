@@ -25,6 +25,7 @@ __all__ = [
     'get_module',
     'del_module',
     'replace_module',
+    'remove_weight_orig',
     'name_from_module',
     'matches_module_pattern',
     'get_output_channels',
@@ -174,3 +175,9 @@ def get_node(graph_model, name):
 
 def is_quant_module(module):
     return isinstance(module, QuantWBIOL)
+
+
+def remove_weight_orig(model: nn.Module):
+    for name, module in model.named_modules():
+        if hasattr(module, 'weight_orig'):
+            del module.weight_orig

@@ -26,6 +26,7 @@ from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
+from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -533,6 +534,7 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
+                create_weight_orig=args.gpxq_create_weight_orig,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
@@ -558,8 +560,14 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
-        if args.eval and not args.no_quantize:
+        # create_weight_orig=True creates a copy of the weights for the model to use when disabling weight
+        # quantization so that any downstream optimization can optimize w.r.t. the original reference model.
+        # However, it also creates additional tensors that are stored on the CPU, but are cast to the GPU
+        # by the zero shot evaluation libraries (e.g., LightEvel), so we remove the `weight_orig` tensors
+        # here, if they exist, to save memory.
+        remove_weight_orig(model)
 
+        if args.eval and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])

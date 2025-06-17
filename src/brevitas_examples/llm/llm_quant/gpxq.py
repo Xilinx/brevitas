@@ -154,8 +154,9 @@ def _dual_optimization_callback(
         model,
         dataloader,
         act_order=True,
-        group_of_parallel_layers=None,
         block_name=None,
+        create_weight_orig=True,
+        group_of_parallel_layers=None,
         algorithm_impl=GPFQ):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
@@ -169,14 +170,14 @@ def _dual_optimization_callback(
         context_manager_kwargs = {
             'act_order': act_order,
             'group_of_parallel_layers': group_of_parallel_layers,
-            'create_weight_orig': True,
+            'create_weight_orig': create_weight_orig,
             'algorithm_impl': algorithm_impl}
         block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
     else:
         with gpfq_mode(model,
                        act_order=act_order,
                        group_of_parallel_layers=group_of_parallel_layers,
-                       create_weight_orig=True,
+                       create_weight_orig=create_weight_orig,
                        algorithm_impl=algorithm_impl) as algo:
             algo_model = algo.model
             for _ in tqdm(range(algo.num_layers)):
@@ -192,6 +193,7 @@ def apply_gpfq(
         act_order=True,
         group_of_parallel_layers=None,
         block_name=None,
+        create_weight_orig=True,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None):
     if max_accumulator_bit_width is not None:
@@ -209,10 +211,9 @@ def apply_gpfq(
         model,
         dataloader,
         act_order=act_order,
-        group_of_parallel_layers=group_of_parallel_layers,
         block_name=block_name,
-        max_accumulator_bit_width=max_accumulator_bit_width,
-        max_accumulator_tile_size=max_accumulator_tile_size,
+        create_weight_orig=create_weight_orig,
+        group_of_parallel_layers=group_of_parallel_layers,
         algorithm_impl=algorithm_impl)
 
 
@@ -235,8 +236,8 @@ def apply_qronos(
         model,
         dataloader,
         act_order=act_order,
-        group_of_parallel_layers=group_of_parallel_layers,
         block_name=block_name,
+        group_of_parallel_layers=group_of_parallel_layers,
         max_accumulator_bit_width=max_accumulator_bit_width,
         max_accumulator_tile_size=max_accumulator_tile_size,
         algorithm_impl=partial(Qronos, alpha=alpha))
