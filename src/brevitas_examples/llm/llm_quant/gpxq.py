@@ -238,8 +238,6 @@ def apply_qronos(
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        max_accumulator_bit_width=max_accumulator_bit_width,
-        max_accumulator_tile_size=max_accumulator_tile_size,
         algorithm_impl=partial(Qronos, alpha=alpha))
 
 
