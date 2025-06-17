@@ -6,11 +6,9 @@ from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
 import functools
+import os
 import pprint
 import sys
-from typing import Any
-from typing import Optional
-from typing import Tuple
 
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
@@ -48,8 +46,11 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
+from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
+from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
@@ -167,9 +168,26 @@ def model_export(model, tokenizer, ref_input, args, config=None):
 
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
+        from sharktank.types import Theta
+
+        if args.export_prefix is None:
+            export_path = "./dataset.irpa"
+        else:
+            export_path = f"./{args.export_prefix}/dataset.irpa"
+
+        print(f"Exporting the model in {export_path}")
+
         export = SharkManager(config=config)
         with torch.no_grad():
             ds = export.export(model, **ref_input)
+        properties = ds.properties
+        root_theta = ds.root_theta.flatten()
+        root_theta = Theta(gguf_mapping(root_theta))
+        properties = convert_hf_hparams_to_gguf(_get_dataset_props(properties))
+        root_theta.rename_tensors_to_paths()
+        ds.properties = properties
+        ds.root_theta = root_theta
+        ds.save(export_path, io_report_callback=None)
 
 
 def fx_required(args):
