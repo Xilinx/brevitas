@@ -245,6 +245,13 @@ class GPxQ(ABC):
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
 
+        # If the weight quantizer has not been initialized, raise an error
+        for m in self.layer.weight_quant.modules():
+            if hasattr(m, 'init_done') and not m.init_done:
+                raise RuntimeError(
+                    "Weight quantizer not initialized. Run a forward pass after quantization and try again."
+                )
+
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation
         i = i1 + i
