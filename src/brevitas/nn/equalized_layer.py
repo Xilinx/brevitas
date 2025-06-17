@@ -20,7 +20,7 @@ except:
 INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
 
-class EqualizedModule(torch.nn.Module, LayerProtocol):
+class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
 
     def __init__(self, scale_module, layer) -> None:
         super().__init__()
