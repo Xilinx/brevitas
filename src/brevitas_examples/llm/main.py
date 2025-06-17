@@ -316,7 +316,7 @@ def quantize_llm(args, extra_args=None):
         apply_magr(
             model,
             calibration_loader,
-            create_weight_orig=args.gpxq_create_weight_orig,
+            create_weight_orig=not args.disable_create_weight_orig,
             alpha=args.magr_alpha)
         remove_hooks(model)
         print(f"MagR applied.")
@@ -521,7 +521,7 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 use_quant_activations=args.gpxq_use_quant_activations,
-                create_weight_orig=args.gpxq_create_weight_orig,
+                create_weight_orig=not args.disable_create_weight_orig,
                 block_name=args.gpxq_block_name,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)

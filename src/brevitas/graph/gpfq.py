@@ -95,17 +95,14 @@ class GPFQ(GPxQ):
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require metadata from input quantizers."
-
+        assert hasattr(self.layer, 'weight_orig'), \
+            "Error: GPFQ requires the original weights to be stored, see `create_weight_orig`."
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
         del self.B  # free up memory by deleting the buffer
 
         weight = self.layer.weight.data
-        if self.create_weight_orig:
-            weight_orig = self.layer.weight_orig.data
-        else:
-            warnings.warn("Warning: GPFQ will perform better with `create_weight_orig=True`.")
-            weight_orig = weight.clone()
+        weight_orig = self.layer.weight_orig.data
         dev = weight.device
 
         # Store the original dtype of the weights
