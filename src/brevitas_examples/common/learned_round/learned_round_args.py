@@ -11,6 +11,7 @@ from torch import nn
 from torch.optim.optimizer import Optimizer
 
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 from brevitas_examples.common.learned_round.learned_round_parser import LEARNED_ROUND_MAP
@@ -224,11 +225,11 @@ class TrainingArgs:
 
 @dataclass
 class LearnedRoundArgs:
-    learned_round_param: Union[str] = field(
-        default="linear_round",
+    learned_round_param: Union[str, LearnedRoundImplType] = field(
+        default="identity",
         metadata={
             "help": "Defines the functional form of the learned round parametrization.",
-            "choices": list(LEARNED_ROUND_MAP.keys())})
+            "choices": [param.value.lower() for param in LearnedRoundImplType]})
     learned_round_kwargs: Optional[Union[Dict, str]] = field(
         default=None,
         metadata={"help": "Extra keyword arguments for the learned round parametrization."},
@@ -247,6 +248,10 @@ class LearnedRoundArgs:
     def __post_init__(self) -> None:
         # Parse in args that could be `dict` sent in from the CLI as a string
         _parse_dataclass_dict(self, self._DICT_ATTRIBUTES)
+
+        self.learned_round_param = LearnedRoundImplType(
+            self.learned_round_param.upper()) if isinstance(
+                self.learned_round_param, str) else self.learned_round_param
 
         self.loss_cls = (
             parse_learned_round_loss_class(self.loss_cls)
@@ -279,7 +284,8 @@ def build_optimizer_and_scheduler(
 def parse_args_to_dataclass(args: Namespace) -> LearnedRoundArgs:
     config_dict = {
         "learned_round_args": {
-            "learned_round_param": args.learned_round,
+            # TODO: Remove, only used to map to new names
+            "learned_round_param": LEARNED_ROUND_MAP[args.learned_round].value.lower(),
             "learned_round_kwargs": None,
             "loss_cls": "mse",
             "loss_kwargs": None,

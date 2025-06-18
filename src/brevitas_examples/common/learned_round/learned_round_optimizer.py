@@ -211,6 +211,7 @@ from accelerate.utils.operations import send_to_device
 import torch
 from torch import autocast
 
+from brevitas.inject.enum import FloatToIntImplType
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TARGET_PARAMETRIZATIONS_MAP
@@ -229,10 +230,12 @@ from tqdm import tqdm
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+from brevitas_examples.common.learned_round.learned_round_method import LEARNED_ROUND_VALUE_INIT_MAP
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 
@@ -353,7 +356,7 @@ class Cache(Generic[_T_inputs, _T_outputs], Dataset[_T_cache]):
         pass
 
     @abstractmethod
-    def clear_cache(self) -> None:
+    def reset_cache(self) -> None:
         pass
 
     @abstractmethod
@@ -365,17 +368,6 @@ class Cache(Generic[_T_inputs, _T_outputs], Dataset[_T_cache]):
 
     def collate_fn_input_next(self, batch: Iterable[_T_cache]) -> _T_cache:
         raise NotImplementedError(f"{self.__class__} is not compatible with fast_update=True.")
-
-
-class CacheDataset(Dataset):
-
-    @abstractmethod
-    def store_inputs(self, args: Any, kwargs: Any) -> None:
-        pass
-
-    @abstractmethod
-    def store_output(self, output: Any) -> None:
-        pass
 
 
 class DataSaverHook:
@@ -491,49 +483,6 @@ class block_optimization_cm:
         self.module.cpu()
 
 
-class DummyIterator:
-
-    def __init__(self, period: int, max_iters: int, num_samples: int):
-        self.period = period
-        self.max_iters = max_iters
-        self.num_samples = num_samples
-        self.i = 0
-        self.idxs = None
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):  # Python 2: def next(self)
-        if self.i % self.period == 0:
-            self.idxs = torch.randperm(self.num_samples)[:self.period]
-        if self.i < self.max_iters:
-            self.i += 1
-            return self.idxs[(self.i - 1) % self.period]
-        raise StopIteration
-
-
-class SequentialSampler(torch.utils.data.Sampler[int]):
-    r"""Mimics sample batch
-
-    Args:
-        data_source (Dataset): dataset to sample from
-    """
-
-    data_source: Sized
-
-    def __init__(self, data_source: Sized, period: int, max_iters: int, num_samples: int) -> None:
-        self.data_source = data_source
-        self.period = period
-        self.max_iters = max_iters
-        self.num_samples = num_samples
-
-    def __iter__(self) -> Iterator[int]:
-        return DummyIterator(self.period, self.max_iters, self.num_samples)
-
-    def __len__(self) -> int:
-        return len(self.data_source)
-
-
 class LearnedRoundOptimizer:
 
     def __init__(
@@ -578,34 +527,6 @@ class LearnedRoundOptimizer:
         learned_round_loss_kwargs = {} if learned_round_loss_kwargs is None else learned_round_loss_kwargs
         self.learned_round_loss_init = partial(
             learned_round_loss_class, **learned_round_loss_kwargs)
-
-    @torch.no_grad()
-    def _load_round_params(self, block: nn.Module, round_params: Dict) -> None:
-        for n, m in block.named_modules():
-            if n in round_params:
-                m.load_state_dict(round_params[n])
-
-    @torch.no_grad()
-    def _collect_round_params(self, block: nn.Module) -> Dict:
-        params = {}
-        for n, m in block.named_modules():
-            if isinstance(m, LearnedRoundSte):
-                params[n] = copy.deepcopy(m.state_dict())
-        return params
-
-    def _optim_step(self, *optimizers: Optimizer, scaler: Optional[Any] = None) -> None:
-        for optimizer in optimizers:
-            if optimizer:
-                if scaler:
-                    scaler.step(optimizer)
-                else:
-                    optimizer.step()
-                optimizer.zero_grad()
-
-    def _lr_sched_step(self, *lr_schedulers: Any) -> None:
-        for lr_scheduler in lr_schedulers:
-            if lr_scheduler:
-                lr_scheduler.step()
 
     def _step(
             self,
@@ -824,6 +745,21 @@ class LearnedRoundOptimizer:
                 disable_quant=not capture_quant_output,
             )
 
+    def _insert_learned_round_quantizers(self, model: nn.Module) -> None:
+        for module in model.modules():
+            if isinstance(module, QuantWBIOL) and len([
+                    m for m in module.modules() if isinstance(m, LearnedRoundSte)]) == 0:
+                value = LEARNED_ROUND_VALUE_INIT_MAP[
+                    self.config.learned_round_args.learned_round_param.value](
+                        module, **self.config.learned_round_args.learned_round_kwargs)
+                module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
+                    float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+                    learned_round_impl_type=self.config.learned_round_args.learned_round_param,
+                    learned_round_init=value,
+                    **self.config.learned_round_args.learned_round_kwargs,
+                )
+                module.weight_quant.init_tensor_quant(preserve_state_dict=True)
+
     def apply_learned_round(
             self,
             model: nn.Module,
@@ -841,7 +777,8 @@ class LearnedRoundOptimizer:
         model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
 
         # Insert quantizers within the appropiate model blocks
-        self.learned_round.insert_learned_round_quantizers(model)
+        # self.learned_round.insert_learned_round_quantizers(model)
+        self._insert_learned_round_quantizers(model)
 
         # Retrieve blocks using the appropiate function to check blocks
         blocks = get_blocks_fn(model)
@@ -849,13 +786,6 @@ class LearnedRoundOptimizer:
         print(f"Total Iterations per block {self.iters}")
         print(f"Number of blocks {len(blocks)}")
 
-        # Initialize data_loader
-        # data_loader = DataLoader(dataset=data_loader, batch_size=self.batch_size, collate_fn=collate_fn)
-
-        # Initialize cache to store partial inputs and outputs for each block
-        # cache.initialize_cache()
-        #from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
-        #new_cache = CacheLLMDataset()
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
             # Distribute the model across devices to run a forward pass to capture
@@ -865,6 +795,7 @@ class LearnedRoundOptimizer:
                 model = offload_model(model)
                 # Cache needs to be cleared before populating it with the inputs and outputs
                 # to the block under optimization.
+                # TODO: Change collate_fn to be generalizable
                 data_loader = DataLoader(dataset, batch_size=1, collate_fn=collate_fn)
                 self._populate_cache(
                     cache,
@@ -876,52 +807,26 @@ class LearnedRoundOptimizer:
                     capture_quant_input=True,
                     capture_quant_output=False,
                 )
-                #from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
-                #new_cache = CacheLLMDataset()
-                #self._populate_cache(
-                #    new_cache,
-                #    model,
-                #    model_forward,
-                #    block,
-                #    DataLoader(data_loader, batch_size=1, collate_fn=collate_fn),
-                #    keep_gpu=keep_gpu,
-                #    capture_quant_input=True,
-                #    capture_quant_output=False,
-                #)
-                #random_sampler = torch.utils.data.RandomSampler(new_cache, replacement=True, num_samples=self.batch_size * self.iters)
-                #new_cache.args, new_cache.kwargs, new_cache.outputs = cache['args'], cache['kwargs'], cache['output']
-                #data_loader = DataLoader(new_cache, batch_size=self.batch_size, sampler=random_sampler, collate_fn=new_cache.collate_fn)
-
                 # Remove hooks needed to offload the model blocks to cpu
                 remove_hooks(model)
 
             # Loss function for computing the rounding loss within each block
             block_loss = self.learned_round_loss_init(block)
 
-            # Optimize block rounding
-            #init_loss, best_loss, last_best_iter = self._optimize_learned_round_block(
-            #    block=block,
-            #    block_learned_round_modules=block_learned_round_modules,
-            #    cache=cache,
-            #    block_loss=block_loss,
-            #    block_forward=block_forward,
-            #    scale_params=scale_params,
-            #)
-            # Optimize block rounding
-
-            # layer_data_loader = DataLoader(cache, batch_size=self.batch_size, sampler=SequentialSampler(cache, self.batch_size, self.iters * self.batch_size, len(cache)), collate_fn=cache_collate_fn)
-            layer_data_loader = DataLoader(
+            # Training data loader
+            block_data_loader = DataLoader(
                 cache,
                 batch_size=self.batch_size,
                 sampler=torch.utils.data.RandomSampler(
                     data_source=cache, replacement=True, num_samples=self.batch_size * self.iters),
                 collate_fn=cache.collate_fn)
 
+            # Optimize block
             with block_optimization_cm(module=block, target_params=self._get_target_params(block)):
                 init_loss, best_loss, last_best_iter = self._training_loop(
                     model=block,
                     forward=block_forward,
-                    data_loader=layer_data_loader,
+                    data_loader=block_data_loader,
                     loss_fn=block_loss,
                 )
 
@@ -931,8 +836,6 @@ class LearnedRoundOptimizer:
             )
 
             if block_idx + 1 < len(blocks) and fast_update:
-                #cache = self.skip_full_execution_legacy_cache(
-                #    block, blocks[block_idx + 1], block_forward, cache)
                 cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
@@ -996,57 +899,5 @@ class LearnedRoundOptimizer:
         # Update the cache with the (inputs, outputs) in the temporary caches
         cache.inputs = cache_quant_inputs.outputs
         cache.outputs = cache_fp_outputs.outputs
-
-        return cache
-
-    def skip_full_execution_legacy_cache(self, block, next_block, block_forward, cache):
-
-        # We need to compute two inputs, one is a floating point one to compute float out
-        # The second is a quantized one to create the quantized input of the next blocks
-
-        # We use the cache output to generate a new temporary dataloader for the next block
-        tmp_data_loader = []
-        for i in range(len(cache)):
-            (args, kwargs), output = cache.sample_batch([i])
-
-            tmp_data_loader.append(((output,), kwargs))
-
-        # Temporary cache
-        tmp_cache = type(cache)()
-
-        # We compute the floating point output of the upcoming block
-        if torch.cuda.is_available():
-            next_block.cuda()
-
-        save_inputs_output(
-            next_block,
-            block_forward,
-            next_block,
-            tmp_data_loader,
-            tmp_cache,
-            store_inputs=False,
-            store_output=True,
-            keep_gpu=False,
-            disable_quant=True,
-        )
-        next_block.cpu()
-
-        cache.output = tmp_cache.output
-
-        # Finally (!), we compute the quantized input of the next block
-        block.eval()
-        if torch.cuda.is_available():
-            block.cuda()
-        next_quant_input = []
-        pbar = tqdm(range(len(cache)), desc='', leave=False)
-        with torch.no_grad():
-            for i in pbar:
-                (args, kwargs), _ = cache.sample_batch([i])
-                out = block_forward(block, (args, kwargs))
-                out = send_to_device(out, 'cpu')
-                next_quant_input.append((out,))
-        pbar.close()
-        cache.args = next_quant_input
-        block.cpu()
 
         return cache
