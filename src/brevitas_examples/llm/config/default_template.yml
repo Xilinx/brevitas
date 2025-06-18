@@ -19,6 +19,7 @@ compile_eval: false
 compile_ptq: false
 convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
+disable_create_weight_orig: false
 dtype: auto
 eager_quant_sdpa_class: auto
 eval: false
@@ -38,7 +39,6 @@ gpfq: false
 gptq: false
 gpxq_act_order: false
 gpxq_block_name: null
-gpxq_create_weight_orig: false
 gpxq_max_accumulator_bit_width: null
 gpxq_max_accumulator_tile_size: null
 gpxq_use_quant_activations: false
@@ -66,6 +66,8 @@ no_quantize: false
 nsamples: 128
 nsamples_rot_calibration: 800
 optimize_rotations: false
+qronos: false
+qronos_alpha: 1.0e-06
 quant_sdpa: null
 quantize_input_zero_point: false
 quantize_last_layer: false

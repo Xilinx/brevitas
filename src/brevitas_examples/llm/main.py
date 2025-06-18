@@ -26,6 +26,7 @@ from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
+from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -48,6 +49,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
+from brevitas_examples.llm.llm_quant.gpxq import apply_qronos
 from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
@@ -317,8 +319,7 @@ def quantize_llm(args, extra_args=None):
         apply_magr(
             model,
             calibration_loader,
-            create_weight_orig=args.gpxq_create_weight_orig or
-            args.gpfq,  # save original weights for GPxQ
+            create_weight_orig=not args.disable_create_weight_orig,
             alpha=args.magr_alpha)
         remove_hooks(model)
         print(f"MagR applied.")
@@ -447,7 +448,7 @@ def quantize_llm(args, extra_args=None):
         quantization_cm = nullcontext()
 
     with quantization_cm:
-        # We initialize weights scale factor pre-GPTQ
+        # We initialize weights scale factor
         with torch.no_grad():
             model(**calibration_loader[0])
 
@@ -526,7 +527,7 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 use_quant_activations=args.gpxq_use_quant_activations,
-                create_weight_orig=args.gpxq_create_weight_orig,
+                create_weight_orig=not args.disable_create_weight_orig,
                 block_name=args.gpxq_block_name,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
@@ -543,6 +544,16 @@ def quantize_llm(args, extra_args=None):
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
 
+        if args.qronos and not args.load_checkpoint:
+            print("Applying Qronos...")
+            apply_qronos(
+                model,
+                calibration_loader,
+                alpha=args.qronos_alpha,
+                act_order=args.gpxq_act_order,
+                block_name=args.gpxq_block_name)
+            print("Qronos applied.")
+
         if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")
             apply_bias_correction(model, calibration_loader)
@@ -552,8 +563,14 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
-        if args.eval and not args.no_quantize:
+        # create_weight_orig=True creates a copy of the weights for the model to use when disabling weight
+        # quantization so that any downstream optimization can optimize w.r.t. the original reference model.
+        # However, it also creates additional tensors that are stored on the CPU, but are cast to the GPU
+        # by the zero shot evaluation libraries (e.g., LightEvel), so we remove the `weight_orig` tensors
+        # here, if they exist, to save memory.
+        remove_weight_orig(model)
 
+        if args.eval and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])

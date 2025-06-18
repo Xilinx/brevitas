@@ -7,6 +7,7 @@ bias_corr: false
 checkpoint_name: null
 convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
+disable_create_weight_orig: false
 eval: false
 export_prefix: null
 export_target: null
@@ -22,7 +23,6 @@ gpfq: false
 gptq: false
 gpxq_act_order: false
 gpxq_block_name: null
-gpxq_create_weight_orig: false
 gpxq_max_accumulator_bit_width: null
 gpxq_max_accumulator_tile_size: null
 gpxq_use_quant_activations: false
@@ -48,6 +48,8 @@ dtype: float32
 no_quantize: false
 nsamples: 128
 optimize_rotations: false
+qronos: false
+qronos_alpha: 1e-6
 quant_sdpa: null
 quantize_input_zero_point: false
 quantize_last_layer: false

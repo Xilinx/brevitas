@@ -243,6 +243,9 @@ def create_llm_args_parser():
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
     parser.add_argument(
         '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
+    parser.add_argument('--qronos', action='store_true', help='Apply Qronos.')
+    parser.add_argument(
+        '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
@@ -252,7 +255,9 @@ def create_llm_args_parser():
         action='store_true',
         help='Use quantized activations in GPxQ.')
     parser.add_argument(
-        '--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPxQ.')
+        '--disable-create-weight-orig',
+        action='store_true',
+        help='Disable maintaining original weights for non-quant forward pass. Default: false')
     parser.add_argument(
         '--gpxq-max-accumulator-bit-width',
         type=int,
@@ -460,8 +465,15 @@ def validate(args, extra_args: Optional[List[str]] = None):
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
-        if args.gptq and args.gpfq:
-            warn("Both GPTQ and GPFQ are enabled.")
+        if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
+            warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
+        if (args.gpfq or args.qronos):
+            # create_weight_orig=True creates a copy of the weights for the model to use
+            # when disabling weight quantization so that any downstream optimization can
+            # optimize w.r.t. the original reference model. This is required for GPFQ and
+            # Qronos as it would otherwise consistently degrade performance.
+            assert not args.disable_create_weight_orig, \
+                'Error: create_weight_orig is required with GPFQ and Qronos'
         if args.gpxq_max_accumulator_bit_width is not None:
             assert args.weight_quant_format == 'int', "AXE only supports integer formats."
             assert args.input_quant_format == 'int', "AXE only supports integer formats."

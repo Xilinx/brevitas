@@ -26,6 +26,7 @@ from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_e
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_qronos
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -228,7 +229,6 @@ add_bool_arg(
     'weight-narrow-range',
     default=False,
     help='Narrow range for weight quantization (default: disabled)')
-parser.add_argument('--gpfq-p', default=1.0, type=float, help='P parameter for GPFQ (default: 1.0)')
 parser.add_argument(
     '--quant-format',
     default='int',
@@ -293,6 +293,7 @@ parser.add_argument(
     help='Optimizer to use with learnable rounding (default: %(default)s)')
 add_bool_arg(parser, 'gptq', default=False, help='GPTQ (default: disabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
+add_bool_arg(parser, 'qronos', default=False, help='Qronos (default: disabled)')
 add_bool_arg(
     parser, 'gpxq-act-order', default=False, help='GPxQ Act order heuristic (default: disabled)')
 add_bool_arg(
@@ -302,9 +303,9 @@ add_bool_arg(
     help='Use quant activations for GPTQ (default: disabled)')
 add_bool_arg(
     parser,
-    'gpxq-create-weight-orig',
+    'disable-create-weight-orig',
     default=False,
-    help='Maintain original weights for non-quant forward pass (default: disabled)')
+    help='Disable maintaining original weights for non-quant forward pass (default: enabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 add_bool_arg(
     parser,
@@ -511,7 +512,6 @@ def main():
             calib_loader,
             quant_model,
             act_order=args.gpxq_act_order,
-            create_weight_orig=args.gpxq_create_weight_orig,
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
 
@@ -521,10 +521,14 @@ def main():
             calib_loader,
             quant_model,
             act_order=args.gpxq_act_order,
+            create_weight_orig=not args.disable_create_weight_orig,
             use_quant_activations=args.gptq_use_quant_activations,
-            create_weight_orig=args.gpxq_create_weight_orig,
             max_accumulator_bit_width=args.gpxq_accumulator_bit_width,
             max_accumulator_tile_size=args.gpxq_accumulator_tile_size)
+
+    if args.qronos:
+        print("Performing Qronos:")
+        apply_qronos(quant_model, calib_loader, act_order=args.gpxq_act_order)
 
     if args.learned_round:
         print("Applying Learned Round:")
