@@ -81,21 +81,22 @@ class quant_inference_mode:
             torch._dynamo.reset()
 
     def __exit__(self, type, value, traceback):
-        # Disable all caching
-        # deactivate export mode
-        # restore return quant tensor
-        InferenceManager.set_export_mode(self.model, enabled=False)
-        self.model.apply(
-            lambda m: _override_bias_caching_mode(m, enabled=False, metadata_only=False))
-        self.model.apply(
-            lambda m: _override_act_caching_mode(m, enabled=False, metadata_only=False))
-        if self.cache_quant_weight:
+        if self.enabled:
+            # Disable all caching
+            # deactivate export mode
+            # restore return quant tensor
+            InferenceManager.set_export_mode(self.model, enabled=False)
             self.model.apply(
-                lambda m: _override_weight_caching_mode(m, enabled=False, metadata_only=False))
-        QuantizationStatusManager.restore_return_quant_tensor(
-            self.model, self.return_quant_tensor_state)
-        enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
-        self.model.apply(enable_quant_tensor)
+                lambda m: _override_bias_caching_mode(m, enabled=False, metadata_only=False))
+            self.model.apply(
+                lambda m: _override_act_caching_mode(m, enabled=False, metadata_only=False))
+            if self.cache_quant_weight:
+                self.model.apply(
+                    lambda m: _override_weight_caching_mode(m, enabled=False, metadata_only=False))
+            QuantizationStatusManager.restore_return_quant_tensor(
+                self.model, self.return_quant_tensor_state)
+            enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
+            self.model.apply(enable_quant_tensor)
 
     def hook(self, module, inp, out):
         # After one forward pass with caching enabled, we can:
