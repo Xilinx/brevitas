@@ -3,6 +3,7 @@
 
 import gguf
 from sharktank.types import Dataset
+from sharktank.types import DefaultPrimitiveTensor
 from sharktank.types import Theta
 import torch
 from torch.nn import Module
@@ -37,9 +38,6 @@ class SharkManager(BaseManager):
             module.export_handler.shared_dict = shared_dict
 
     def export(self, model, *model_args, **model_kwargs):
-        # for m in model.modules:
-        #     if hasattr(m, 'offload_module') or hasattr(m, 'allocate_module'):
-        #         raise RuntimeError("Shark export not supported if the model does not fit on a single GPU")
 
         shared_dict = {}
 
@@ -49,7 +47,14 @@ class SharkManager(BaseManager):
 
         with torch.no_grad():
             model(*model_args, **model_kwargs)
-        
+
+        for n, m in model.named_modules():
+            if isinstance(m, torch.nn.Module) and len(list(m.children())) == 0:
+                for n_p, p in m.named_parameters():
+                    param_name = n + '.' + n_p
+                    if param_name in shared_dict:
+                        continue
+                    shared_dict[param_name] = DefaultPrimitiveTensor(name=param_name, data=p)
 
         self.set_export_mode(model, enabled=False)
 

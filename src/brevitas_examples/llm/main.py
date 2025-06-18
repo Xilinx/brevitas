@@ -184,6 +184,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             ds = export.export(model, **ref_input)
         properties = ds.properties
         root_theta = ds.root_theta.flatten()
+
+        # Export is always upcast to float32, and if we don't update the properties, it will fail
+        properties['torch_dtype'] = 'float32'
         root_theta = Theta(gguf_mapping(root_theta, config))
         properties = convert_hf_hparams_to_gguf(_get_dataset_props(properties))
         root_theta.rename_tensors_to_paths()
