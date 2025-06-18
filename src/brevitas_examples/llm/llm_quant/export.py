@@ -37,12 +37,12 @@ def find_hparam(keys: Iterable[str], hparams: Dict[str, int], optional: bool = F
     raise KeyError(f"could not find any of: {keys}")
 
 
-def gguf_tensor_map(self):
+def gguf_tensor_map(config):
 
-    hf_arch = self.config.to_dict()["architectures"][0]
+    hf_arch = config.to_dict()["architectures"][0]
     gguf_arch = ModelBase.from_model_architecture(hf_arch)
     block_count = find_hparam(["n_layers", "num_hidden_layers", "n_layer", "num_layers"],
-                              self.config.to_dict())
+                              config.to_dict())
     tensor_map = gguf.get_tensor_name_map(gguf_arch.model_arch, block_count)
     return tensor_map
 
@@ -65,9 +65,9 @@ def clip_kwargs(narrow, signed, bit_width):
         return None
 
 
-def gguf_mapping(state_dict):
+def gguf_mapping(state_dict, config):
     updated_dict = dict()
-    tensor_map = gguf_tensor_map()
+    tensor_map = gguf_tensor_map(config)
     for k, v in state_dict.items():
         if k.endswith('.attn_q_output'):
             prefix = k.removesuffix('.attn_q_output') + '.q_proj'

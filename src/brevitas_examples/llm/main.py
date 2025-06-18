@@ -182,7 +182,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             ds = export.export(model, **ref_input)
         properties = ds.properties
         root_theta = ds.root_theta.flatten()
-        root_theta = Theta(gguf_mapping(root_theta))
+        root_theta = Theta(gguf_mapping(root_theta, config))
         properties = convert_hf_hparams_to_gguf(_get_dataset_props(properties))
         root_theta.rename_tensors_to_paths()
         ds.properties = properties

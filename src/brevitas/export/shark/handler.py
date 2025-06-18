@@ -66,7 +66,8 @@ class SharkWeightQuantMixin:
             zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point -
                                                                             128.).to(scale.device)
             zero_point = zero_point
-            quant_metadata = {'weight': module.weight, 'scale': scale, 'zero_point': zero_point}
+            weight = module.tracked_parameter_list[0]
+            quant_metadata = {'weight': weight, 'scale': scale, 'zero_point': zero_point}
             if isinstance(module, WeightQuantProxyFromInjector):
                 assert module.bit_width() == 8., "Only Int8 is supported for export"
                 quant_metadata['dtype'] = torch.int8
@@ -86,7 +87,7 @@ class SharkWeightQuantMixin:
             return None
 
     @staticmethod
-    def weight_quant(quant_metadata, *args, **kwargs):
+    def weight_quant(quant_metadata, *args):
         weight = quant_metadata['weight']
         scale = quant_metadata['scale']
         zero_point = quant_metadata['zero_point']
@@ -105,7 +106,8 @@ class SharkWeightQuantMixin:
             dtype=dtype)
         quant_weight = weight_quant.quantize(weight, name=layer_name)
         shared_dict[layer_name] = quant_weight
-        return args, kwargs
+        print(weight.dtype)
+        return args
 
 
 class SharkActQuantMixin:
@@ -139,9 +141,9 @@ class SharkActQuantMixin:
             return None
 
     @staticmethod
-    def act_quant(quant_metadata, *args, **kwargs):
+    def act_quant(quant_metadata, *args):
         if quant_metadata is None:
-            return x
+            return args
         scale = quant_metadata['scale']
         zero_point = quant_metadata['zero_point']
         layer_name = quant_metadata['layer_name']
@@ -155,7 +157,7 @@ class SharkActQuantMixin:
             offset=zero_point,
             dtype=dtype)
         shared_dict[layer_name] = input_quant
-        return args, kwargs
+        return args
 
 
 class SharkLinearQuant(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
@@ -190,10 +192,11 @@ class SharkLinearQuant(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
-        quant_weight = self.weight_quant(self.quant_weight_metadata, self.weight)
-        quant_input = self.act_quant(self.quant_input_metadata, x)
+        quant_weight = self.weight_quant(self.quant_weight_metadata, self.weight)[0]
+        print(self.weight.dtype)
+        quant_input = self.act_quant(self.quant_input_metadata, x)[0]
         out = torch.nn.functional.linear(quant_input, quant_weight, self.bias)
-        quant_out = self.act_quant(self.quant_output_metadata, out)
+        quant_out = self.act_quant(self.quant_output_metadata, out)[0]
         return quant_out
 
 
@@ -237,9 +240,9 @@ class SharkQuantSDPA(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
-        query = self.act_quant(self.q_scaled_quant, query)
-        key = self.act_quant(self.k_transposed_quant, key)
-        value = self.act_quant(self.v_quant, value)
+        query = self.act_quant(self.q_scaled_quant, query)[0]
+        key = self.act_quant(self.k_transposed_quant, key)[0]
+        value = self.act_quant(self.v_quant, value)[0]
 
         kwargs = {}
         if scale is not None:
