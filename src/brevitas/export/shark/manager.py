@@ -47,10 +47,9 @@ class SharkManager(BaseManager):
             self.set_export_handler(module, name, shared_dict)
         self.set_export_mode(model, enabled=True)
 
-        offload_model(model)
         with torch.no_grad():
             model(*model_args, **model_kwargs)
-        remove_hooks(model)
+        
 
         self.set_export_mode(model, enabled=False)
 
