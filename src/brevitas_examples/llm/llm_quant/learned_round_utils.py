@@ -11,7 +11,6 @@ from torch.utils.data.dataloader import DataLoader
 
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
-from brevitas_examples.common.learned_round.learned_round_optimizer import CacheDataset
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
 from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
 from brevitas_examples.common.learned_round.learned_round_parser import \
@@ -112,95 +111,6 @@ class CacheLLM(Cache[_T_inputs, _T_outputs]):
     def collate_fn_input_next(self, batch):
         (args, kwargs), _ = self.collate_fn(batch)
         return args, kwargs
-
-
-class CacheLLMDataset(CacheDataset):
-
-    def __init__(self) -> None:
-        self.args = []
-        self.kwargs = []
-        self.outputs = []
-
-    def store_inputs(self, args: Any, kwargs: Any) -> None:
-        args = list(zip(*map(lambda x: list(torch.split(x, 1, dim=0)), args)))
-        self.args.extend(args)
-        bs = len(args)
-        kwargs_split = {
-            key:
-            value if not isinstance(value, torch.Tensor) else list(torch.split(value, 1, dim=0))
-            for key,
-            value in kwargs.items()}
-        kwargs = [{
-            key: value if not isinstance(value, list) else value[i] for key,
-            value in kwargs_split.items()} for i in range(bs)]
-        self.kwargs.extend(kwargs)
-
-    def store_output(self, output: Any) -> None:
-        if isinstance(output, (tuple, list)):
-            output = output[0]
-        output = list(torch.split(output, 1, dim=0))
-        self.outputs.extend(output)
-
-    def __getitem__(self, index):
-        return self.args[index], self.kwargs[index], self.outputs[index]
-
-    def collate_fn(self, batch):
-        args, kwargs_dict, outs = zip(*batch)
-        # Positional arguments
-        args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
-        # Keyword arguments
-        kwargs = {}
-        for curr_dict in kwargs_dict:
-            for key, value in curr_dict.items():
-                if isinstance(value, torch.Tensor):
-                    if key not in kwargs:
-                        kwargs[key] = []
-                    kwargs[key].append(value)
-                else:
-                    if key not in kwargs:
-                        kwargs[key] = value
-        for key, value in kwargs.items():
-            if isinstance(value, list) and len(value) > 0:
-                kwargs[key] = torch.cat(kwargs[key], dim=0)
-        # FP outputs
-        outs = torch.cat(outs, dim=0)
-        return args, kwargs, outs
-
-    # Auxiliar functions
-    def collate_fn_fp_out_next(self, batch):
-        _, kwargs, outputs = self.collate_fn(batch)
-        return (outputs,), kwargs
-
-    def collate_fn_quant_inp_next(self, batch):
-        args, kwargs, _ = self.collate_fn(batch)
-        return args, kwargs
-
-    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
-        cache_args, cache_kwargs, cache_outs = self.args, self.kwargs, self.outputs
-        # Positional arguments
-        args = [cache_args[i] for i in indices]
-        args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
-        # Keyword arguments
-        kwargs_dict = [cache_kwargs[i] for i in indices]
-        kwargs = {}
-        for curr_dict in kwargs_dict:
-            for key, value in curr_dict.items():
-                if isinstance(value, torch.Tensor):
-                    if key not in kwargs:
-                        kwargs[key] = []
-                    kwargs[key].append(value)
-                else:
-                    if key not in kwargs:
-                        kwargs[key] = value
-        for key, value in kwargs.items():
-            if isinstance(value, list) and len(value) > 0:
-                kwargs[key] = torch.cat(kwargs[key], dim=0)
-        # FP outputs
-        outs = torch.cat([cache_outs[i] for i in indices], dim=0)
-        return (args, kwargs), outs
-
-    def __len__(self):
-        return len(self.args)
 
 
 def llm_learned_round_prepare_fn(model: nn.Module) -> None:
