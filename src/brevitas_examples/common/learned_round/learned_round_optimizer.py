@@ -188,7 +188,23 @@ from contextlib import nullcontext
 import copy
 from functools import partial
 import itertools
-from typing import Any, Callable, Dict, Generator, List, Optional, OrderedDict, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    OrderedDict,
+    Sequence,
+    Sized,
+    Tuple,
+    Type,
+    TypeVar,
+    Union)
 import warnings
 
 from accelerate.utils.operations import send_to_device
@@ -317,14 +333,19 @@ def return_scale_parameters(block: nn.Module) -> List[nn.Parameter]:
     return scale_parameters
 
 
-class Cache(ABC):
+_T_inputs = TypeVar("_T_inputs")
+_T_outputs = TypeVar("_T_output")
+_T_cache = Tuple[_T_inputs, _T_outputs]
+
+
+# Cache, as a subclass of torch.utils.data.Dataset, needs to implement __getitem__ and __len__
+class Cache(Generic[_T_inputs, _T_outputs], Dataset[_T_cache]):
+
+    inputs: Sequence[_T_inputs]
+    outputs: Sequence[_T_outputs]
 
     @abstractmethod
-    def __len__(self) -> int:
-        pass
-
-    @abstractmethod
-    def store_inputs(self, args: Any, kwargs: Any) -> None:
+    def store_inputs(self, args: Tuple[torch.Tensor, ...], kwargs: Dict[str, Any]) -> None:
         pass
 
     @abstractmethod
@@ -332,16 +353,18 @@ class Cache(ABC):
         pass
 
     @abstractmethod
-    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
-        pass
-
-    @abstractmethod
-    def initialize_cache(self) -> None:
-        pass
-
-    @abstractmethod
     def clear_cache(self) -> None:
         pass
+
+    @abstractmethod
+    def collate_fn(self, batch: Iterable[_T_cache]) -> _T_cache:
+        pass
+
+    def collate_fn_output_next(self, batch: Iterable[_T_cache]) -> _T_cache:
+        raise NotImplementedError(f"{self.__class__} is not compatible with fast_update=True.")
+
+    def collate_fn_input_next(self, batch: Iterable[_T_cache]) -> _T_cache:
+        raise NotImplementedError(f"{self.__class__} is not compatible with fast_update=True.")
 
 
 class CacheDataset(Dataset):
@@ -445,14 +468,70 @@ class block_optimization_cm:
 
     def __enter__(self):
         self.module.eval()
+        # Move module to GPU if available
+        if torch.cuda.is_available():
+            try:
+                self.module.cuda()
+            except RuntimeError as exc:
+                if 'out of memory' in str(exc):
+                    warnings.warn(
+                        "Out of memory error was raised when moving the model to GPU. Defaulting to CPU."
+                    )
+                else:
+                    raise exc
         # Freeze parameters within the block that should not be optimized
         for name, param in self.module.named_parameters():
             param.requires_grad = name in self.target_params
 
     def __exit__(self, type, value, traceback):
         # After optimization, freeze all the parameters of the block
-        for name, param in self.module.named_parameters():
+        for param in self.module.parameters():
             param.requires_grad = False
+        # And module is moved back to CPU
+        self.module.cpu()
+
+
+class DummyIterator:
+
+    def __init__(self, period: int, max_iters: int, num_samples: int):
+        self.period = period
+        self.max_iters = max_iters
+        self.num_samples = num_samples
+        self.i = 0
+        self.idxs = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):  # Python 2: def next(self)
+        if self.i % self.period == 0:
+            self.idxs = torch.randperm(self.num_samples)[:self.period]
+        if self.i < self.max_iters:
+            self.i += 1
+            return self.idxs[(self.i - 1) % self.period]
+        raise StopIteration
+
+
+class SequentialSampler(torch.utils.data.Sampler[int]):
+    r"""Mimics sample batch
+
+    Args:
+        data_source (Dataset): dataset to sample from
+    """
+
+    data_source: Sized
+
+    def __init__(self, data_source: Sized, period: int, max_iters: int, num_samples: int) -> None:
+        self.data_source = data_source
+        self.period = period
+        self.max_iters = max_iters
+        self.num_samples = num_samples
+
+    def __iter__(self) -> Iterator[int]:
+        return DummyIterator(self.period, self.max_iters, self.num_samples)
+
+    def __len__(self) -> int:
+        return len(self.data_source)
 
 
 class LearnedRoundOptimizer:
@@ -575,24 +654,24 @@ class LearnedRoundOptimizer:
         model: nn.Module,
         forward: Callable,
         loss_fn: Callable,
-        inputs: Any,
+        inputs: Tuple[Any, Any],
         use_amp: bool,
     ) -> Tuple[torch.Tensor, Any]:
         # Unpack inputs to model
-        quant_inps, fp_outs = inputs
+        inps, labels = inputs
 
         if use_amp:
             with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
                           dtype=self.amp_dtype):
                 # Run block forward to obtain quant outputs
-                quant_outs = forward(model, quant_inps)
-                fp_outs = send_to_device(fp_outs, quant_outs.device)
-                loss, loss_components = loss_fn(quant_outs, fp_outs)
+                output = forward(model, inps)
+                labels = send_to_device(labels, output.device)
+                loss, loss_components = loss_fn(output, labels)
         else:
             # Run block forward to obtain quant outputs
-            quant_outs = forward(model, quant_inps)
-            fp_outs = send_to_device(fp_outs, quant_outs.device)
-            loss, loss_components = loss_fn(quant_outs.to(torch.float32), fp_outs.to(torch.float32))
+            output = forward(model, inps)
+            labels = send_to_device(labels, output.device)
+            loss, loss_components = loss_fn(output.to(torch.float32), labels.to(torch.float32))
 
         return loss, loss_components
 
@@ -649,21 +728,9 @@ class LearnedRoundOptimizer:
         self,
         model: nn.Module,
         forward: Callable,
-        cache: Cache,
+        data_loader: DataLoader,
         loss_fn: Callable,
     ) -> Tuple[float, int, int]:
-
-        # Move model to GPU if available
-        if torch.cuda.is_available():
-            try:
-                model.cuda()
-            except RuntimeError as exc:
-                if 'out of memory' in str(exc):
-                    warnings.warn(
-                        "Out of memory error was raised when moving the model to GPU. Defaulting to CPU."
-                    )
-                else:
-                    raise exc
 
         # Initialize optimizers and lr schedulers
         optim_lr_schedulers = self._create_optimizers_lr_schedulers(model)
@@ -680,16 +747,18 @@ class LearnedRoundOptimizer:
 
         # Dictionary to store the rounding parameters yielding the lowest
         # training loss
-        n_samples = len(cache)
         pbar = tqdm(range(self.iters), desc='')
         # Zero-grad before starting
         model.zero_grad()
 
-        for i in pbar:
-            # Sample mini-batch from cache
-            idxs = torch.randperm(n_samples)[:self.batch_size]
-            inputs = cache.sample_batch(idxs)
+        # Prepare iterator
+        data_loader = iter(data_loader)
 
+        for i in pbar:
+            # Sample mini-batch from data loader
+            inputs = next(data_loader)
+
+            # Compute loss and gradients
             loss, loss_components = self._training_step(model, forward, loss_fn, inputs, use_amp, scaler)
 
             # Save best parameters before taking gradient step
@@ -716,9 +785,6 @@ class LearnedRoundOptimizer:
             # Override if the model with the lowest training error is not used
             best_loss = curr_loss
             last_best_iter = self.iters
-
-        # Move the block back to CPU
-        model.cpu()
 
         return init_loss, best_loss, last_best_iter
 
@@ -763,7 +829,7 @@ class LearnedRoundOptimizer:
             model: nn.Module,
             model_forward: Callable,
             block_forward: Callable,
-            data_loader: Dataset,
+            dataset: Dataset,
             cache: Cache,
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
             model_prepare_fn: Optional[Callable] = None,
@@ -787,7 +853,7 @@ class LearnedRoundOptimizer:
         # data_loader = DataLoader(dataset=data_loader, batch_size=self.batch_size, collate_fn=collate_fn)
 
         # Initialize cache to store partial inputs and outputs for each block
-        cache.initialize_cache()
+        # cache.initialize_cache()
         #from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
         #new_cache = CacheLLMDataset()
         # Iterate over blocks and optimise the rounding parameters within each of them
@@ -795,10 +861,11 @@ class LearnedRoundOptimizer:
             # Distribute the model across devices to run a forward pass to capture
             # inputs/outputs to the given block
             if block_idx == 0 or not fast_update:
-                cache.clear_cache()
+                cache.reset_cache()
                 model = offload_model(model)
                 # Cache needs to be cleared before populating it with the inputs and outputs
                 # to the block under optimization.
+                data_loader = DataLoader(dataset, batch_size=1, collate_fn=collate_fn)
                 self._populate_cache(
                     cache,
                     model,
@@ -809,18 +876,20 @@ class LearnedRoundOptimizer:
                     capture_quant_input=True,
                     capture_quant_output=False,
                 )
+                #from brevitas_examples.llm.llm_quant.learned_round_utils import CacheLLMDataset
+                #new_cache = CacheLLMDataset()
                 #self._populate_cache(
                 #    new_cache,
                 #    model,
                 #    model_forward,
                 #    block,
-                #    DataLoader(data_loader, batch_size=self.batch_size, collate_fn=collate_fn),
+                #    DataLoader(data_loader, batch_size=1, collate_fn=collate_fn),
                 #    keep_gpu=keep_gpu,
                 #    capture_quant_input=True,
                 #    capture_quant_output=False,
                 #)
                 #random_sampler = torch.utils.data.RandomSampler(new_cache, replacement=True, num_samples=self.batch_size * self.iters)
-
+                #new_cache.args, new_cache.kwargs, new_cache.outputs = cache['args'], cache['kwargs'], cache['output']
                 #data_loader = DataLoader(new_cache, batch_size=self.batch_size, sampler=random_sampler, collate_fn=new_cache.collate_fn)
 
                 # Remove hooks needed to offload the model blocks to cpu
@@ -839,11 +908,20 @@ class LearnedRoundOptimizer:
             #    scale_params=scale_params,
             #)
             # Optimize block rounding
+
+            # layer_data_loader = DataLoader(cache, batch_size=self.batch_size, sampler=SequentialSampler(cache, self.batch_size, self.iters * self.batch_size, len(cache)), collate_fn=cache_collate_fn)
+            layer_data_loader = DataLoader(
+                cache,
+                batch_size=self.batch_size,
+                sampler=torch.utils.data.RandomSampler(
+                    data_source=cache, replacement=True, num_samples=self.batch_size * self.iters),
+                collate_fn=cache.collate_fn)
+
             with block_optimization_cm(module=block, target_params=self._get_target_params(block)):
                 init_loss, best_loss, last_best_iter = self._training_loop(
                     model=block,
                     forward=block_forward,
-                    cache=cache,
+                    data_loader=layer_data_loader,
                     loss_fn=block_loss,
                 )
 
@@ -853,39 +931,38 @@ class LearnedRoundOptimizer:
             )
 
             if block_idx + 1 < len(blocks) and fast_update:
-                cache = self.skip_full_execution_legacy_cache(
-                    block, blocks[block_idx + 1], block_forward, cache)
-                # new_cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, new_cache)
+                #cache = self.skip_full_execution_legacy_cache(
+                #    block, blocks[block_idx + 1], block_forward, cache)
+                cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
         if model_finish_fn is not None:
             model_finish_fn(model, model_dict)
 
     def skip_full_execution(
-            self, block: nn.Module, next_block: nn.Module, block_forward: Callable,
-            cache: CacheDataset):
+            self, block: nn.Module, next_block: nn.Module, block_forward: Callable, cache: Cache):
         # We need to compute two inputs, one is a floating point one to compute float out
         # The second is a quantized one to create the quantized input of the next blocks
 
         # Temporary caches
-        cache_fp_out = type(cache)()
-        cache_quant_inp = type(cache)()
+        cache_fp_outputs = type(cache)()
+        cache_quant_inputs = type(cache)()
 
         # Prepare floating point inputs for next block
-        fp_out_data_loader = DataLoader(
-            cache, batch_size=self.batch_size, collate_fn=cache_fp_out.collate_fn_fp_out_next)
+        output_next_data_loader = DataLoader(
+            cache, batch_size=1, collate_fn=cache_fp_outputs.collate_fn_output_next)
 
         # We compute the floating point output of the upcoming block
         if torch.cuda.is_available():
             next_block.cuda()
 
-        # Save floating point output of next block in cache_fp_out
+        # Save floating point output of next block in cache_fp_outputs
         save_inputs_output(
             next_block,
             block_forward,
             next_block,
-            fp_out_data_loader,
-            cache_fp_out,
+            output_next_data_loader,
+            cache_fp_outputs,
             store_inputs=False,
             store_output=True,
             keep_gpu=False,
@@ -894,8 +971,8 @@ class LearnedRoundOptimizer:
         next_block.cpu()
 
         # Prepare quant inputs to current block
-        quant_inp_data_loader = DataLoader(
-            cache, batch_size=self.batch_size, collate_fn=cache_quant_inp.collate_fn_quant_inp_next)
+        input_next_data_loader = DataLoader(
+            cache, batch_size=1, collate_fn=cache_quant_inputs.collate_fn_input_next)
 
         # Finally (!), we compute the quantized input of the next block
         block.eval()
@@ -906,8 +983,8 @@ class LearnedRoundOptimizer:
             block,
             block_forward,
             block,
-            quant_inp_data_loader,
-            cache_quant_inp,
+            input_next_data_loader,
+            cache_quant_inputs,
             store_inputs=False,
             store_output=True,
             keep_gpu=False,
@@ -916,9 +993,9 @@ class LearnedRoundOptimizer:
 
         block.cpu()
 
-        # Update the cache with the (args, outputs) in the temporary caches
-        cache.args = list(map(lambda x: (x,), cache_quant_inp.outputs))
-        cache.outputs = cache_fp_out.outputs
+        # Update the cache with the (inputs, outputs) in the temporary caches
+        cache.inputs = cache_quant_inputs.outputs
+        cache.outputs = cache_fp_outputs.outputs
 
         return cache
 
@@ -940,6 +1017,7 @@ class LearnedRoundOptimizer:
         # We compute the floating point output of the upcoming block
         if torch.cuda.is_available():
             next_block.cuda()
+
         save_inputs_output(
             next_block,
             block_forward,
@@ -953,7 +1031,7 @@ class LearnedRoundOptimizer:
         )
         next_block.cpu()
 
-        cache['output'] = tmp_cache['output']
+        cache.output = tmp_cache.output
 
         # Finally (!), we compute the quantized input of the next block
         block.eval()
@@ -968,7 +1046,7 @@ class LearnedRoundOptimizer:
                 out = send_to_device(out, 'cpu')
                 next_quant_input.append((out,))
         pbar.close()
-        cache['args'] = next_quant_input
+        cache.args = next_quant_input
         block.cpu()
 
         return cache
