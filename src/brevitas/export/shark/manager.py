@@ -37,8 +37,9 @@ class SharkManager(BaseManager):
             module.export_handler.shared_dict = shared_dict
 
     def export(self, model, *model_args, **model_kwargs):
-        from brevitas_examples.llm.main import offload_model
-        from brevitas_examples.llm.main import remove_hooks
+        # for m in model.modules:
+        #     if hasattr(m, 'offload_module') or hasattr(m, 'allocate_module'):
+        #         raise RuntimeError("Shark export not supported if the model does not fit on a single GPU")
 
         shared_dict = {}
 

@@ -31,6 +31,8 @@ class SharkActEqualization(nn.Module):
         pass
 
     def prepare_for_export(self, module: nn.Module):
+        if hasattr(module, 'allocate_params'):
+            module.allocate_params(module)
         # We need to flatten out the structure of EqualizedLayer + Wrapped layer
         # To do this, we change the name (i.e., state dict prefix) of the wrapped layer to match
         # the name of the EqualizedLayer.
@@ -42,7 +44,9 @@ class SharkActEqualization(nn.Module):
             module.layer.export_handler.layer_name = self.layer_name
         self.premul_input = module.scale.weight.contiguous()
         self.premul_module = module.scale
-
+        if hasattr(module, 'offload_params'):
+            module.offload_params(module)
+    
     def forward(self, x):
         assert self.layer_name is not None
         assert self.shared_dict is not None
@@ -56,18 +60,18 @@ class SharkActEqualization(nn.Module):
 
 
 class SharkWeightQuantMixin:
+    def __init__(self):
+        self.module = None
 
     @staticmethod
     def prepare_weight_for_export(module: nn.Module):
         if module.is_quant_enabled:
             # Continguous is used to be extra-safe with torch.compile
-            scale = module.scale().contiguous()
-            zero_point = module.zero_point().contiguous().to(torch.float32)
+            scale = module.scale().contiguous().cpu()
+            zero_point = module.zero_point().contiguous().to(torch.float32).cpu()
             zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point -
                                                                             128.).to(scale.device)
-            zero_point = zero_point
-            weight = module.tracked_parameter_list[0]
-            quant_metadata = {'weight': weight, 'scale': scale, 'zero_point': zero_point}
+            quant_metadata = {'scale': scale, 'zero_point': zero_point}
             if isinstance(module, WeightQuantProxyFromInjector):
                 assert module.bit_width() == 8., "Only Int8 is supported for export"
                 quant_metadata['dtype'] = torch.int8
@@ -86,9 +90,9 @@ class SharkWeightQuantMixin:
         else:
             return None
 
-    @staticmethod
-    def weight_quant(quant_metadata, *args):
-        weight = quant_metadata['weight']
+    def weight_quant(self, quant_metadata, *args):
+        assert hasattr(self.module, 'weight')
+        weight = self.module.weight
         scale = quant_metadata['scale']
         zero_point = quant_metadata['zero_point']
         layer_name = quant_metadata['layer_name']
@@ -106,7 +110,6 @@ class SharkWeightQuantMixin:
             dtype=dtype)
         quant_weight = weight_quant.quantize(weight, name=layer_name)
         shared_dict[layer_name] = quant_weight
-        print(weight.dtype)
         return args
 
 
@@ -116,11 +119,10 @@ class SharkActQuantMixin:
     def prepare_act_for_export(module: nn.Module):
         if module.is_quant_enabled:
             # Continguous is used to be extra-safe with torch.compile
-            scale = module.scale().contiguous()
-            zero_point = module.zero_point().contiguous().to(torch.float32)
+            scale = module.scale().contiguous().cpu()
+            zero_point = module.zero_point().contiguous().to(torch.float32).cpu()
             zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point -
-                                                                            128.).to(scale.device)
-            zero_point = zero_point
+                                                                            128.)
             quant_metadata = {'scale': scale, 'zero_point': zero_point}
             if isinstance(module, ActQuantProxyFromInjector):
                 assert module.bit_width() == 8., "Only Int8 is supported for export"
@@ -140,8 +142,7 @@ class SharkActQuantMixin:
         else:
             return None
 
-    @staticmethod
-    def act_quant(quant_metadata, *args):
+    def act_quant(self, quant_metadata, *args):
         if quant_metadata is None:
             return args
         scale = quant_metadata['scale']
@@ -173,6 +174,8 @@ class SharkLinearQuant(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
         pass
 
     def prepare_for_export(self, module: nn.Module):
+        if hasattr(module, 'allocate_params'):
+            module.allocate_params(module)
         self.quant_weight_metadata = self.prepare_weight_for_export(module.weight_quant)
         if self.quant_weight_metadata is not None:
             self.quant_weight_metadata['layer_name'] = self.layer_name + '.weight'
@@ -185,17 +188,17 @@ class SharkLinearQuant(nn.Module, SharkWeightQuantMixin, SharkActQuantMixin):
         if self.quant_output_metadata is not None:
             self.quant_output_metadata['layer_name'] = self.layer_name + '.q_output'
             self.quant_output_metadata['shared_dict'] = self.shared_dict
-        self.weight = module.weight
-        self.bias = module.bias
+        if hasattr(module, 'offload_params'):
+            module.offload_params(module)
+        self.module = module
 
     def forward(self, x):
         assert self.layer_name is not None
         assert self.shared_dict is not None
 
-        quant_weight = self.weight_quant(self.quant_weight_metadata, self.weight)[0]
-        print(self.weight.dtype)
+        quant_weight = self.weight_quant(self.quant_weight_metadata, self.module.weight)[0]
         quant_input = self.act_quant(self.quant_input_metadata, x)[0]
-        out = torch.nn.functional.linear(quant_input, quant_weight, self.bias)
+        out = torch.nn.functional.linear(quant_input, quant_weight, self.module.bias)
         quant_out = self.act_quant(self.quant_output_metadata, out)[0]
         return quant_out
 

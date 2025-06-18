@@ -173,12 +173,14 @@ def model_export(model, tokenizer, ref_input, args, config=None):
         if args.export_prefix is None:
             export_path = "./dataset.irpa"
         else:
+            os.makedirs(f"./{args.export_prefix}", exist_ok=True)
             export_path = f"./{args.export_prefix}/dataset.irpa"
 
         print(f"Exporting the model in {export_path}")
 
         export = SharkManager(config=config)
         with torch.no_grad():
+            model = offload_model(model)
             ds = export.export(model, **ref_input)
         properties = ds.properties
         root_theta = ds.root_theta.flatten()
