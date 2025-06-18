@@ -1,10 +1,12 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from argparse import Namespace
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
-import itertools
 import json
-from typing import Any, Callable, Dict, Generator, List, Optional, OrderedDict, Tuple, Type, Union
+from typing import Dict, List, Optional, OrderedDict, Type, Union
 
 import torch
 from torch import nn
@@ -21,7 +23,37 @@ from brevitas_examples.common.learned_round.learned_round_parser import parse_lr
 from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
 
 
-#TODO: Add license
+class TargetParametrizations(Enum):
+    SCALES = "scales"
+    LEARNED_ROUND = "learned_round"
+
+
+# TODO: Decide whether it is worth grouping the get_target_parameters under a class
+def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+    if isinstance(module, LearnedRoundSte):
+        for param_name, param in module.named_parameters():
+            state_dict[f"{prefix}.{param_name}"] = param
+        # Early stoppping
+        return True
+    return False
+
+
+def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+    if isinstance(module, WeightQuantProxyFromInjectorBase):
+        for param_name, param in module.named_parameters():
+            if param_name.endswith('scaling_impl.value'):
+                state_dict[f"{prefix}.{param_name}"] = param
+        # Early stoppping
+        return True
+    return False
+
+
+TARGET_PARAMETRIZATIONS_MAP = {
+    TargetParametrizations.SCALES: get_scale_parameters,
+    TargetParametrizations.LEARNED_ROUND: get_round_parameters,}
+
+
+#TODO: Add license from Nanotron
 def _convert_str_dict(passed_value: Dict) -> Dict:
     "Safely checks that a passed value is a dictionary and converts any string values to their appropriate types."
     for key, value in passed_value.items():
@@ -119,71 +151,6 @@ class OptimizerArgs:
             raise ValueError(f"Expected a positive learning rate but {self.lr} was passed.")
 
 
-class TargetParametrizations(Enum):
-    SCALES = "scales"
-    LEARNED_ROUND = "learned_round"
-
-
-def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
-    if isinstance(module, LearnedRoundSte):
-        for param_name, param in module.named_parameters():
-            state_dict[f"{prefix}.{param_name}"] = param
-        # Early stoppping
-        return True
-    return False
-
-
-def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
-    if isinstance(module, WeightQuantProxyFromInjectorBase):
-        for param_name, param in module.named_parameters():
-            if param_name.endswith('scaling_impl.value'):
-                state_dict[f"{prefix}.{param_name}"] = param
-        # Early stoppping
-        return True
-    return False
-
-
-TARGET_PARAMETRIZATIONS_MAP = {
-    TargetParametrizations.SCALES: get_scale_parameters,
-    TargetParametrizations.LEARNED_ROUND: get_round_parameters,}
-
-
-def get_target_parameters(
-        block: nn.Module, get_target: Callable[[nn.Module, OrderedDict, str],
-                                               bool]) -> 'OrderedDict[str, nn.Parameter]':
-    state_dict = OrderedDict()
-
-    def _get_target_parameters(module: nn.Module, prefix: str = "") -> None:
-        # Base case
-        if get_target(module, state_dict, prefix):
-            # Early stoppping
-            return
-        for child_name, child_module in module.named_children():
-            _get_target_parameters(
-                child_module, f"{prefix}.{child_name}" if len(prefix) > 0 else f"{child_name}")
-
-    # Run recursion from block
-    _get_target_parameters(block)
-    return state_dict
-
-
-def get_scale_parameters(model: nn.Module) -> List[nn.Parameter]:
-    scale_parameters = []
-
-    def _get_scale_parameters(module: nn.Module):
-        for module_child in module.children():
-            if isinstance(module, WeightQuantProxyFromInjectorBase):
-                for submodule_name, submodule in module_child.named_parameters():
-                    if submodule_name.endswith('scaling_impl.value'):
-                        scale_parameters.append(submodule)
-            else:
-                _get_scale_parameters(module_child)
-
-    # Run recursion from root module
-    _get_scale_parameters(model)
-    return scale_parameters
-
-
 @dataclass
 class TrainingArgs:
     optimizers_args: List[OptimizerArgs] = field(
@@ -194,6 +161,10 @@ class TrainingArgs:
         metadata={"help": ("Attribute with the blocks to be optimized.")})
     batch_size: int = field(default=8, metadata={"help": "Batch size per GPU for training."})
     iters: int = field(default=200, metadata={"help": "Number of training iterations."})
+    loss_scaling_factor: float = field(
+        default=1000.,
+        metadata={"help": "Scaling factor for the loss."},
+    )
     use_best_model: bool = field(
         default=True,
         metadata={
@@ -265,22 +236,7 @@ class Config:
     training_args: TrainingArgs = field(metadata={"help": "Hyperparameters for optimization."})
 
 
-# TODO: Move to a file of helper methods
-def build_optimizer_and_scheduler(
-    params: List[nn.Parameter],
-    optimizer_args: OptimizerArgs,
-) -> Tuple[Optimizer, Optional[Any]]:
-    # Instantiate optimizer
-    optimizer = optimizer_args.optimizer_cls(
-        params=params, lr=optimizer_args.lr, **optimizer_args.optimizer_kwargs)
-    # Instantiate learning rate schedu
-    lr_scheduler_args = optimizer_args.lr_scheduler_args
-    lr_scheduler = (
-        lr_scheduler_args.lr_scheduler_cls(optimizer, **lr_scheduler_args.lr_scheduler_kwargs)
-        if lr_scheduler_args is None else None)
-    return optimizer, lr_scheduler
-
-
+# TODO: Decide how arguments should be handled
 def parse_args_to_dataclass(args: Namespace) -> LearnedRoundArgs:
     config_dict = {
         "learned_round_args": {

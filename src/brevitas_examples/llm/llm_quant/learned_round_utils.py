@@ -12,7 +12,6 @@ from torch.utils.data.dataloader import DataLoader
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
-from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
 from brevitas_examples.common.learned_round.learned_round_parser import \
     parse_learned_round_loss_class
 from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
@@ -32,8 +31,6 @@ class CacheLLM(Cache[_T_inputs, _T_outputs]):
         self.outputs: List[_T_outputs] = []
 
     def store_inputs(self, args, kwargs):
-        #self._args.append(args)
-        #self._kwargs.append(kwargs)
         args = list(zip(*map(lambda x: list(torch.split(x, 1, dim=0)), args)))
         self._args.extend(args)
         bs = len(args)
@@ -48,9 +45,6 @@ class CacheLLM(Cache[_T_inputs, _T_outputs]):
         self._kwargs.extend(kwargs)
 
     def store_output(self, output):
-        #if isinstance(output, (tuple, list)):
-        #    output = output[0]
-        #self.outputs.append(output)
         if isinstance(output, (tuple, list)):
             output = output[0]
         output = list(torch.split(output, 1, dim=0))
@@ -145,6 +139,24 @@ def get_blocks(model: nn.Module, block_name_attribute: str) -> List[nn.Module]:
     return recurse_getattr(model, block_name_attribute)
 
 
+def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
+    # Keyword arguments
+    kwargs = {}
+    for curr_dict in batch:
+        for key, value in curr_dict.items():
+            if isinstance(value, torch.Tensor):
+                if key not in kwargs:
+                    kwargs[key] = []
+                kwargs[key].append(value)
+            else:
+                if key not in kwargs:
+                    kwargs[key] = value
+    for key, value in kwargs.items():
+        if isinstance(value, list) and len(value) > 0:
+            kwargs[key] = torch.cat(kwargs[key], dim=0)
+    return kwargs
+
+
 def apply_learned_round(
         model: nn.Module,
         calibration_loader: DataLoader,
@@ -167,7 +179,6 @@ def apply_learned_round(
         scale_optimizer_kwargs: Optional[Dict] = None,
         fast_update: bool = False) -> None:
     # Parse strings to obtain the arguments for the optimizer
-    learned_round = parse_learned_round(learned_round)
     learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
     optimizer_class = parse_optimizer_class(optimizer)
     scale_optimizer_class = parse_optimizer_class(scale_optimizer_class)
@@ -176,25 +187,10 @@ def apply_learned_round(
     llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=block_name_attribute)
 
     lr_scheduler_kwargs = {
-        "start_factor": 1.0, "end_factor": 0.0
-    } if lr_scheduler_kwargs is None else lr_scheduler_kwargs
-    learned_round_optimizer = LearnedRoundOptimizer(
-        config=learned_round_args,
-        learned_round=learned_round,
-        learned_round_loss_class=learned_round_loss_class,
-        optimizer_class=optimizer_class,
-        lr_scheduler_class=lr_scheduler_class,
-        batch_size=batch_size,
-        iters=iters,
-        learn_scale=learn_scale,
-        use_best_model=use_best_model,
-        amp_dtype=amp_dtype,
-        loss_scaling_factor=loss_scaling_factor,
-        learned_round_loss_kwargs=learned_round_loss_kwargs,
-        optimizer_kwargs=optimizer_kwargs,
-        lr_scheduler_kwargs=lr_scheduler_kwargs,
-        scale_optimizer_kwargs=scale_optimizer_kwargs,
-        scale_optimizer_class=scale_optimizer_class)
+        "start_factor": 1.0,
+        "end_factor": 0.0,
+        "verbose": False,} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
+    learned_round_optimizer = LearnedRoundOptimizer(config=learned_round_args)
     cache = CacheLLM()
     learned_round_optimizer.apply_learned_round(
         model=model,
@@ -203,7 +199,7 @@ def apply_learned_round(
         dataset=calibration_loader,
         cache=cache,
         get_blocks_fn=llm_block_check_fn,
+        collate_fn=collate_fn,
         model_prepare_fn=llm_learned_round_prepare_fn,
         model_finish_fn=llm_learned_round_finish_fn,
-        keep_gpu=False,
-        fast_update=fast_update)
+        keep_gpu=False)

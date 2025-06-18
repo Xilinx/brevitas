@@ -3,20 +3,13 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Callable
-from typing import Dict
-from typing import Generator
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
+from typing import List, Tuple
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
-from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
@@ -66,50 +59,6 @@ LEARNED_ROUND_VALUE_INIT_MAP = {
     LearnedRoundImplType.HARD_SIGMOID.value: learned_round_value_init_non_linear,
     LearnedRoundImplType.SIGMOID.value: learned_round_value_init_non_linear,
     LearnedRoundImplType.IDENTITY.value: learned_round_value_init_linear,}
-
-
-class LearnedRound(ABC):
-
-    def __init__(
-        self,
-        learned_round_impl_type: LearnedRoundImplType = LearnedRoundImplType.HARD_SIGMOID,
-        learned_round_value_init_fn: Optional[Callable] = None,
-        **learned_round_impl_kwargs,
-    ) -> None:
-        self.learned_round_impl_type = learned_round_impl_type
-        self.learned_round_value_init_fn = learned_round_value_init_fn
-        self.learned_round_impl_kwargs = learned_round_impl_kwargs
-
-    def learned_round_value_init(
-        self,
-        layer: nn.Module,
-    ) -> torch.Tensor:
-        # A custom initialization function for the learned round parameter can be passed
-        if self.learned_round_value_init_fn is not None:
-            return self.learned_round_value_init_fn(layer, **self.learned_round_impl_kwargs)
-        # If not provided, the default function, as defined in LEARNED_ROUND_VALUE_INIT_MAP
-        # is leveraged
-        return LEARNED_ROUND_VALUE_INIT_MAP[self.learned_round_impl_type.value](
-            layer, **self.learned_round_impl_kwargs)
-
-    def _insert_learned_round_quantizer_to_layer(self, layer: nn.Module) -> None:
-        value = self.learned_round_value_init(layer)
-        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-            learned_round_impl_type=self.learned_round_impl_type,
-            learned_round_init=value,
-            **self.learned_round_impl_kwargs,
-        )
-        layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
-
-    def insert_learned_round_quantizers(self, model: nn.Module) -> None:
-        for module in model.modules():
-            if isinstance(module, QuantWBIOL) and len(
-                    self.return_learned_round_quantizers(module)) == 0:
-                self._insert_learned_round_quantizer_to_layer(module)
-
-    def return_learned_round_quantizers(self, block: nn.Module) -> List[nn.Module]:
-        return [module for module in block.modules() if isinstance(module, LearnedRoundSte)]
 
 
 class LinearTempDecay:
