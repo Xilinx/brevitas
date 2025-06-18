@@ -192,11 +192,7 @@ import warnings
 from accelerate.utils.operations import send_to_device
 import torch
 from torch import autocast
-
-from brevitas.inject.enum import FloatToIntImplType
-from brevitas_examples.common.learned_round.learned_round_args import Config
-from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
-from brevitas_examples.common.learned_round.learned_round_args import TARGET_PARAMETRIZATIONS_MAP
+from tqdm import tqdm
 
 try:
     from torch import GradScaler
@@ -207,18 +203,19 @@ from torch import nn
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
-from tqdm import tqdm
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.inject.enum import FloatToIntImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+from brevitas_examples.common.learned_round.learned_round_args import Config
+from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+from brevitas_examples.common.learned_round.learned_round_args import TARGET_PARAMETRIZATIONS_MAP
 from brevitas_examples.common.learned_round.learned_round_method import LEARNED_ROUND_VALUE_INIT_MAP
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 
 # TODO: Remove
 config.IGNORE_MISSING_KEYS = True
