@@ -182,29 +182,11 @@ Adapted from https://github.com/intel/auto-round, released under the following L
    END OF TERMS AND CONDITIONS
 """
 
-from abc import ABC
 from abc import abstractmethod
 from contextlib import nullcontext
 import copy
-from functools import partial
-import itertools
 from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    OrderedDict,
-    Sequence,
-    Sized,
-    Tuple,
-    Type,
-    TypeVar,
-    Union)
+    Any, Callable, Dict, Generic, Iterable, List, Optional, OrderedDict, Sequence, Tuple, TypeVar)
 import warnings
 
 from accelerate.utils.operations import send_to_device
@@ -236,28 +218,10 @@ from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_method import LEARNED_ROUND_VALUE_INIT_MAP
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
 
 # TODO: Remove
 config.IGNORE_MISSING_KEYS = True
-
-
-#TODO: Update type hints
-# TODO: Move to a file of helper methods
-def create_optimizer_and_scheduler(
-    params: List[nn.Parameter],
-    optimizer_args: OptimizerArgs,
-) -> Tuple[Optimizer, Optional[Any]]:
-    # Instantiate optimizer
-    optimizer = optimizer_args.optimizer_cls(
-        params=params, lr=optimizer_args.lr, **optimizer_args.optimizer_kwargs)
-    # Instantiate learning rate schedu
-    lr_scheduler_args = optimizer_args.lr_scheduler_args
-    lr_scheduler = (
-        lr_scheduler_args.lr_scheduler_cls(optimizer, **lr_scheduler_args.lr_scheduler_kwargs)
-        if lr_scheduler_args is not None else None)
-    return optimizer, lr_scheduler
 
 
 def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
@@ -277,63 +241,6 @@ def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
     # Run recursive function that updates the list blocks
     _get_blocks(model)
     return blocks
-
-
-def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
-    if isinstance(module, LearnedRoundSte):
-        for param_name, param in module.named_parameters():
-            state_dict[f"{prefix}.{param_name}"] = param
-        # Early stoppping
-        return True
-    return False
-
-
-def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
-    if isinstance(module, WeightQuantProxyFromInjectorBase):
-        for param_name, param in module.named_parameters():
-            if param_name.endswith('scaling_impl.value'):
-                state_dict[f"{prefix}.{param_name}"] = param
-        # Early stoppping
-        return True
-    return False
-
-
-def get_target_parameters(
-        model: nn.Module,
-        get_target: Callable[[nn.Module, OrderedDict, str], bool],
-        state_dict: Optional[OrderedDict] = None) -> 'OrderedDict[str, nn.Parameter]':
-    state_dict = OrderedDict() if state_dict is None else state_dict
-
-    def _get_target_parameters(module: nn.Module, prefix: str = "") -> None:
-        # Base case
-        if get_target(module, state_dict, prefix):
-            # Early stoppping
-            return
-        for child_name, child_module in module.named_children():
-            _get_target_parameters(
-                child_module, f"{prefix}.{child_name}" if len(prefix) > 0 else f"{child_name}")
-
-    # Run recursion from model
-    _get_target_parameters(model)
-    return state_dict
-
-
-def return_scale_parameters(block: nn.Module) -> List[nn.Parameter]:
-
-    scale_parameters = []
-
-    def _get_scale_parameters(module: nn.Module):
-        for module_child in module.children():
-            if isinstance(module, WeightQuantProxyFromInjectorBase):
-                for submodule_name, submodule in module_child.named_parameters():
-                    if submodule_name.endswith('scaling_impl.value'):
-                        scale_parameters.append(submodule)
-            else:
-                _get_scale_parameters(module_child)
-
-    # Run recursion from block
-    _get_scale_parameters(block)
-    return scale_parameters
 
 
 _T_inputs = TypeVar("_T_inputs")
@@ -431,24 +338,6 @@ def save_inputs_output(
     handle.remove()
 
 
-def collate_fn(batch):
-    # Keyword arguments
-    kwargs = {}
-    for curr_dict in batch:
-        for key, value in curr_dict.items():
-            if isinstance(value, torch.Tensor):
-                if key not in kwargs:
-                    kwargs[key] = []
-                kwargs[key].append(value)
-            else:
-                if key not in kwargs:
-                    kwargs[key] = value
-    for key, value in kwargs.items():
-        if isinstance(value, list) and len(value) > 0:
-            kwargs[key] = torch.cat(kwargs[key], dim=0)
-    return kwargs
-
-
 class block_optimization_cm:
     """
     Prepares a block for optimization
@@ -458,7 +347,7 @@ class block_optimization_cm:
         self.module = module
         self.target_params = target_params
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.module.eval()
         # Move module to GPU if available
         if torch.cuda.is_available():
@@ -475,7 +364,7 @@ class block_optimization_cm:
         for name, param in self.module.named_parameters():
             param.requires_grad = name in self.target_params
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type, value, traceback) -> None:
         # After optimization, freeze all the parameters of the block
         for param in self.module.parameters():
             param.requires_grad = False
@@ -485,48 +374,8 @@ class block_optimization_cm:
 
 class LearnedRoundOptimizer:
 
-    def __init__(
-        self,
-        config: Config,
-        learned_round: LearnedRound,
-        learned_round_loss_class: Type[LearnedRoundLoss],
-        optimizer_class: Type[Optimizer],
-        *,
-        scale_optimizer_class: Optional[Type[Optimizer]] = None,
-        lr_scheduler_class: Optional[Type] = None,
-        batch_size: float = 8,
-        iters: int = 200,
-        learn_scale: bool = False,
-        use_best_model: bool = True,
-        amp_dtype: torch.dtype = torch.float16,
-        loss_scaling_factor: float = 1000.,
-        learned_round_loss_kwargs: Optional[Dict] = None,
-        optimizer_kwargs: Optional[Dict] = None,
-        scale_optimizer_kwargs: Optional[Dict] = None,
-        lr_scheduler_kwargs: Optional[Dict] = None,
-    ) -> None:
-        # Verify that an optimizer is passed for optimizing the scale if learn_scale=True
-        assert not (learn_scale and scale_optimizer_class is None), "An optimizer needs to be passed for the scale if learn_scale is set to True."
-
+    def __init__(self, config: Config) -> None:
         self.config = config
-        self.learned_round = learned_round
-        self.optimizer_class = optimizer_class
-        self.scale_optimizer_class = scale_optimizer_class
-        self.lr_scheduler_class = lr_scheduler_class
-        self.batch_size = batch_size
-        self.iters = iters
-        self.learn_scale = learn_scale
-        self.use_best_model = use_best_model
-        self.amp_dtype = amp_dtype
-        self.loss_scaling_factor = loss_scaling_factor
-        self.optimizer_kwargs = {} if optimizer_kwargs is None else optimizer_kwargs
-        self.scale_optimizer_kwargs = {} if scale_optimizer_kwargs is None else scale_optimizer_kwargs
-        self.lr_scheduler_kwargs = {} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
-        self.lr_scheduler_kwargs["total_iters"] = self.iters
-
-        learned_round_loss_kwargs = {} if learned_round_loss_kwargs is None else learned_round_loss_kwargs
-        self.learned_round_loss_init = partial(
-            learned_round_loss_class, **learned_round_loss_kwargs)
 
     def _step(
             self,
@@ -565,7 +414,7 @@ class LearnedRoundOptimizer:
         if scaler:
             scaler.scale(loss).backward()
         else:
-            loss = loss * self.loss_scaling_factor
+            loss = loss * self.config.training_args.loss_scaling_factor
             loss.backward()
 
         return loss.detach().cpu().item(), loss_components
@@ -583,7 +432,7 @@ class LearnedRoundOptimizer:
 
         if use_amp:
             with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
-                          dtype=self.amp_dtype):
+                          dtype=self.config.training_args.amp_dtype):
                 # Run block forward to obtain quant outputs
                 output = forward(model, inps)
                 labels = send_to_device(labels, output.device)
@@ -595,6 +444,28 @@ class LearnedRoundOptimizer:
             loss, loss_components = loss_fn(output.to(torch.float32), labels.to(torch.float32))
 
         return loss, loss_components
+
+    def _get_target_parameters(
+        self,
+        model: nn.Module,
+        get_target: Callable[[nn.Module, OrderedDict, str], bool],
+        state_dict: Optional[OrderedDict[str,
+                                         nn.Parameter]] = None) -> OrderedDict[str, nn.Parameter]:
+
+        state_dict = OrderedDict() if state_dict is None else state_dict
+
+        def _recursive_get_target_parameters(module: nn.Module, prefix: str = "") -> None:
+            # Base case
+            if get_target(module, state_dict, prefix):
+                # Early stoppping
+                return
+            for child_name, child_module in module.named_children():
+                _recursive_get_target_parameters(
+                    child_module, f"{prefix}.{child_name}" if len(prefix) > 0 else f"{child_name}")
+
+        # Run recursion from model
+        _recursive_get_target_parameters(model)
+        return state_dict
 
     # TODO: Remove
     def _save_target_params(self, model: nn.Module) -> OrderedDict:
@@ -609,7 +480,7 @@ class LearnedRoundOptimizer:
         # TODO: Remove :-1
         for get_target_param_fn in get_target_param_fns[:-1]:
             state_dict = copy.deepcopy(
-                get_target_parameters(model, get_target_param_fn, state_dict))
+                self._get_target_parameters(model, get_target_param_fn, state_dict))
         return state_dict
 
     # TODO: Unify with _save_target_params
@@ -624,21 +495,36 @@ class LearnedRoundOptimizer:
                 self.config.training_args.optimizers_targets))
         # TODO: Remove :-1
         for get_target_param_fn in get_target_param_fns:
-            state_dict = get_target_parameters(model, get_target_param_fn, state_dict)
+            state_dict = self._get_target_parameters(model, get_target_param_fn, state_dict)
         return state_dict
+
+    def _create_optimizer_and_scheduler(
+        self,
+        params: List[nn.Parameter],
+        optimizer_args: OptimizerArgs,
+    ) -> Tuple[Optimizer, Optional[Any]]:
+        # Instantiate optimizer
+        optimizer = optimizer_args.optimizer_cls(
+            params=params, lr=optimizer_args.lr, **optimizer_args.optimizer_kwargs)
+        # Instantiate learning rate schedu
+        lr_scheduler_args = optimizer_args.lr_scheduler_args
+        lr_scheduler = (
+            lr_scheduler_args.lr_scheduler_cls(optimizer, **lr_scheduler_args.lr_scheduler_kwargs)
+            if lr_scheduler_args is not None else None)
+        return optimizer, lr_scheduler
 
     def _create_optimizers_lr_schedulers(self, model: nn.Module) -> List[Tuple[Optimizer, Any]]:
         # Retrieve configuration for optimizers and target parameters
         optimizers_args, optimizer_targets = self.config.training_args.optimizers_args, self.config.training_args.optimizers_targets
         return list(
             map(
-                lambda target_args: create_optimizer_and_scheduler(
-                    get_target_parameters(model, TARGET_PARAMETRIZATIONS_MAP[target_args[0]]).
+                lambda target_args: self._create_optimizer_and_scheduler(
+                    self._get_target_parameters(model, TARGET_PARAMETRIZATIONS_MAP[target_args[0]]).
                     values(),
                     target_args[1]),
                 zip(optimizer_targets, optimizers_args)))
 
-    def _load_params(self, model: nn.Module, state_dict: OrderedDict) -> None:
+    def _load_target_params(self, model: nn.Module, state_dict: OrderedDict) -> None:
         prev = config.REINIT_ON_STATE_DICT_LOAD
         config.REINIT_ON_STATE_DICT_LOAD = False
         _incompatible_keys = model.load_state_dict(state_dict=state_dict, strict=False)
@@ -659,7 +545,7 @@ class LearnedRoundOptimizer:
         # Variables needed for printing
         best_loss = torch.finfo(torch.float).max
         init_loss = -1.0
-        last_best_iter = self.iters
+        last_best_iter = self.config.training_args.iters
 
         scaler = None
         use_amp = next(model.parameters()).dtype == torch.float32
@@ -668,7 +554,7 @@ class LearnedRoundOptimizer:
 
         # Dictionary to store the rounding parameters yielding the lowest
         # training loss
-        pbar = tqdm(range(self.iters), desc='')
+        pbar = tqdm(range(self.config.training_args.iters), desc='')
         # Zero-grad before starting
         model.zero_grad()
 
@@ -688,7 +574,7 @@ class LearnedRoundOptimizer:
             if loss < best_loss:
                 best_loss = curr_loss
                 last_best_iter = i + 1
-                if self.use_best_model:
+                if self.config.training_args.use_best_model:
                     optimal_state_dict = self._save_target_params(model)
 
             # Scale loss and perform gradient step
@@ -700,12 +586,12 @@ class LearnedRoundOptimizer:
         # Make sure no updates are received in the progress bar
         pbar.close()
 
-        if self.use_best_model:
-            self._load_params(model, optimal_state_dict)
+        if self.config.training_args.use_best_model:
+            self._load_target_params(model, optimal_state_dict)
         else:
             # Override if the model with the lowest training error is not used
             best_loss = curr_loss
-            last_best_iter = self.iters
+            last_best_iter = self.config.training_args.iters
 
         return init_loss, best_loss, last_best_iter
 
@@ -768,34 +654,32 @@ class LearnedRoundOptimizer:
             dataset: Dataset,
             cache: Cache,
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
+            collate_fn: Callable,
             model_prepare_fn: Optional[Callable] = None,
             model_finish_fn: Optional[Callable] = None,
-            keep_gpu: bool = True,
-            fast_update: bool = False) -> None:
+            keep_gpu: bool = True) -> None:
 
         # Perform any needed preprocessing before rounding optimisation, e.g. disabling caching in LLMs
         model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
 
         # Insert quantizers within the appropiate model blocks
-        # self.learned_round.insert_learned_round_quantizers(model)
         self._insert_learned_round_quantizers(model)
 
         # Retrieve blocks using the appropiate function to check blocks
         blocks = get_blocks_fn(model)
 
-        print(f"Total Iterations per block {self.iters}")
+        print(f"Total Iterations per block {self.config.training_args.iters}")
         print(f"Number of blocks {len(blocks)}")
 
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
-            # Distribute the model across devices to run a forward pass to capture
-            # inputs/outputs to the given block
-            if block_idx == 0 or not fast_update:
-                cache.reset_cache()
-                model = offload_model(model)
+            if block_idx == 0 or not self.config.learned_round_args.fast_update:
                 # Cache needs to be cleared before populating it with the inputs and outputs
                 # to the block under optimization.
-                # TODO: Change collate_fn to be generalizable
+                cache.reset_cache()
+                # Distribute the model across devices to run a forward pass to capture
+                # inputs/outputs to the given block
+                model = offload_model(model)
                 data_loader = DataLoader(dataset, batch_size=1, collate_fn=collate_fn)
                 self._populate_cache(
                     cache,
@@ -811,14 +695,18 @@ class LearnedRoundOptimizer:
                 remove_hooks(model)
 
             # Loss function for computing the rounding loss within each block
-            block_loss = self.learned_round_loss_init(block)
+            block_loss = self.config.learned_round_args.loss_cls(
+                block, **self.config.learned_round_args.loss_kwargs)
 
-            # Training data loader
+            # Per-block training data loader
             block_data_loader = DataLoader(
                 cache,
-                batch_size=self.batch_size,
+                batch_size=self.config.training_args.batch_size,
                 sampler=torch.utils.data.RandomSampler(
-                    data_source=cache, replacement=True, num_samples=self.batch_size * self.iters),
+                    data_source=cache,
+                    replacement=True,
+                    num_samples=self.config.training_args.batch_size *
+                    self.config.training_args.iters),
                 collate_fn=cache.collate_fn)
 
             # Optimize block
@@ -835,7 +723,7 @@ class LearnedRoundOptimizer:
                 f"initial loss: {init_loss:.6f}, best loss: {best_loss:.6f}, at iteration {last_best_iter}."
             )
 
-            if block_idx + 1 < len(blocks) and fast_update:
+            if block_idx + 1 < len(blocks) and self.config.learned_round_args.fast_update:
                 cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
 
         # The original configuration of the model is restored after finishing the optimization
