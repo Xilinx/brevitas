@@ -2,11 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import functools
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -23,42 +19,61 @@ from brevitas_examples.common.learned_round.learned_round_parser import \
 from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
 from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
 
+_T_args = Tuple[torch.Tensor, ...]
+_T_kwargs = Dict[str, Any]
+_T_inputs = Tuple[_T_args, _T_kwargs]
+_T_outputs = torch.Tensor
 
-class CacheLLM(Cache, dict):
+
+class CacheLLM(Cache[_T_inputs, _T_outputs]):
 
     def __init__(self) -> None:
-        super().__init__()
-        self.initialize_cache()
+        self._args: List[_T_args] = []
+        self._kwargs: List[_T_kwargs] = []
+        self.outputs: List[_T_outputs] = []
 
-    def store_inputs(self, args, kwargs) -> None:
-        self["args"].append(args)
-        self["kwargs"].append(kwargs)
+    def store_inputs(self, args, kwargs):
+        #self._args.append(args)
+        #self._kwargs.append(kwargs)
+        args = list(zip(*map(lambda x: list(torch.split(x, 1, dim=0)), args)))
+        self._args.extend(args)
+        bs = len(args)
+        kwargs_split = {
+            key:
+            value if not isinstance(value, torch.Tensor) else list(torch.split(value, 1, dim=0))
+            for key,
+            value in kwargs.items()}
+        kwargs = [{
+            key: value if not isinstance(value, list) else value[i] for key,
+            value in kwargs_split.items()} for i in range(bs)]
+        self._kwargs.extend(kwargs)
 
-    def store_output(self, output) -> None:
+    def store_output(self, output):
+        #if isinstance(output, (tuple, list)):
+        #    output = output[0]
+        #self.outputs.append(output)
         if isinstance(output, (tuple, list)):
             output = output[0]
-        self["output"].append(output)
+        output = list(torch.split(output, 1, dim=0))
+        self.outputs.extend(output)
 
-    def initialize_cache(self) -> None:
-        self["args"] = []
-        self["kwargs"] = []
-        self["output"] = []
+    def reset_cache(self) -> None:
+        self._args = []
+        self._kwargs = []
+        self.outputs = []
 
-    def clear_cache(self) -> None:
-        del self["args"]
-        del self["kwargs"]
-        del self["output"]
-        self["args"] = []
-        self["kwargs"] = []
-        self["output"] = []
+    def __len__(self):
+        return len(self._args)
 
-    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
-        cache_args, cache_kwargs, cache_outs = self["args"], self["kwargs"], self["output"]
+    def __getitem__(self, index):
+        return (self._args[index], self._kwargs[index]), self.outputs[index]
+
+    def collate_fn(self, batch):
+        inps, outs = zip(*batch)
+        args, kwargs_dict = zip(*inps)
         # Positional arguments
-        args = [cache_args[i] for i in indices]
         args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
         # Keyword arguments
-        kwargs_dict = [cache_kwargs[i] for i in indices]
         kwargs = {}
         for curr_dict in kwargs_dict:
             for key, value in curr_dict.items():
@@ -73,11 +88,30 @@ class CacheLLM(Cache, dict):
             if isinstance(value, list) and len(value) > 0:
                 kwargs[key] = torch.cat(kwargs[key], dim=0)
         # FP outputs
-        outs = torch.cat([cache_outs[i] for i in indices], dim=0)
+        outs = torch.cat(outs, dim=0)
         return (args, kwargs), outs
 
-    def __len__(self):
-        return len(self["args"])
+    @property
+    def inputs(self):
+        return (self._args, self._kwargs)
+
+    @inputs.setter
+    def inputs(self, new_inputs):
+        if not isinstance(new_inputs, tuple):
+            # If only args were passed, verify that each element is a tuple
+            new_args = list(map(lambda arg: arg if isinstance(arg, tuple) else (arg,), new_inputs))
+            new_inputs = (new_args, self._kwargs)
+        # Update the inputs of the cache
+        self._args, self._kwargs = new_inputs
+
+    # Auxiliar functions to perform fast_update
+    def collate_fn_output_next(self, batch):
+        (_, kwargs), outputs = self.collate_fn(batch)
+        return (outputs,), kwargs
+
+    def collate_fn_input_next(self, batch):
+        (args, kwargs), _ = self.collate_fn(batch)
+        return args, kwargs
 
 
 class CacheLLMDataset(CacheDataset):
@@ -256,7 +290,7 @@ def apply_learned_round(
         model=model,
         model_forward=llm_forward,
         block_forward=llm_block_forward,
-        data_loader=calibration_loader,
+        dataset=calibration_loader,
         cache=cache,
         get_blocks_fn=llm_block_check_fn,
         model_prepare_fn=llm_learned_round_prepare_fn,
