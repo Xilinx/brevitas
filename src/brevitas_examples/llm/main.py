@@ -76,11 +76,6 @@ def filter_results(results, tasks):
     return eval_results
 
 
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-
-
 def fused_rotation_no_fx(model, calibration_loader, args):
     model.config.use_cache = False
     with torch.no_grad():
