@@ -53,7 +53,7 @@ class OverTensorView(brevitas.jit.ScriptModule):
 
 class OverOutputChannelView(brevitas.jit.ScriptModule):
     """
-    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an
+    ScriptModule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an
     input tensor.
 
     Examples:
