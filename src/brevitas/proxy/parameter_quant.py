@@ -22,7 +22,6 @@ from brevitas import is_dynamo_compiling
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO

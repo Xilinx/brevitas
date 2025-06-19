@@ -50,8 +50,8 @@ from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy import BiasQuantProxyFromInjectorBase
+from brevitas.proxy import WeightQuantProxyFromInjectorBase
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
@@ -1641,8 +1641,9 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                     # Check if the module has any quantization-related children
                     state_dict = None
                     for submodule in module.modules():
-                        if isinstance(submodule,
-                                      (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)):
+                        if isinstance(
+                                submodule,
+                            (WeightQuantProxyFromInjectorBase, BiasQuantProxyFromInjectorBase)):
                             state_dict = submodule.state_dict()
                             break
                     # The rotated tensor is saved by setting leave_parametrized=True
