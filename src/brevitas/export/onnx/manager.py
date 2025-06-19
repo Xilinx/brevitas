@@ -174,8 +174,8 @@ class ONNXBaseManager(BaseManager, ABC):
                     from functools import partial
 
                     from brevitas.export.inference.manager import _override_create_quant_tensor
-                    from brevitas.export.inference.manager import disable_return_quant_tensor
-                    return_quant_tensor_state = disable_return_quant_tensor(module)
+                    from brevitas.graph.calibrate import QuantizationStatusManager
+                    return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(module)
                     disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
                     module.apply(disable_quant_tensor)
 
