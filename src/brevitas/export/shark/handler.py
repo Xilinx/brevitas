@@ -46,7 +46,7 @@ class SharkActEqualization(nn.Module):
         self.premul_module = module.scale
         if hasattr(module, 'offload_params'):
             module.offload_params(module)
-    
+
     def forward(self, x):
         assert self.layer_name is not None
         assert self.shared_dict is not None
@@ -60,6 +60,7 @@ class SharkActEqualization(nn.Module):
 
 
 class SharkWeightQuantMixin:
+
     def __init__(self):
         self.module = None
 
@@ -121,8 +122,7 @@ class SharkActQuantMixin:
             # Continguous is used to be extra-safe with torch.compile
             scale = module.scale().contiguous().cpu()
             zero_point = module.zero_point().contiguous().to(torch.float32).cpu()
-            zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point -
-                                                                            128.)
+            zero_point = None if torch.count_nonzero(zero_point) == 0 else (zero_point - 128.)
             quant_metadata = {'scale': scale, 'zero_point': zero_point}
             if isinstance(module, ActQuantProxyFromInjector):
                 assert module.bit_width() == 8., "Only Int8 is supported for export"
