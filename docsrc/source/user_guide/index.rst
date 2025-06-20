@@ -10,3 +10,5 @@ User Guides
    Brevitas and Compile <compile>
 
    GGUF Export <export_gguf>
+
+   Shark-AI Export <export_shark>

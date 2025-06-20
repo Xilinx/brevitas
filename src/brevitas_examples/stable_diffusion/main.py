@@ -18,7 +18,6 @@ from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
-import numpy as np
 import packaging
 import packaging.version
 import pandas as pd
@@ -30,6 +29,8 @@ from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 torch._dynamo.config.force_parameter_static_shapes = False
+from brevitas.export.shark.manager import SharkManager
+
 try:
     from cleanfid import fid as cleanfid
 except:
@@ -66,6 +67,7 @@ from brevitas_examples.stable_diffusion.sd_quant.nn import FusedFluxAttnProcesso
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
+from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
@@ -621,6 +623,21 @@ def main(args):
                 with torch.no_grad(), calibration_mode(denoising_network):
                     calibration_step(force_full_calibration=True)
 
+        h = denoising_network.register_forward_hook(hook, with_kwargs=True)
+        with torch.no_grad():
+            run_val_inference(
+                pipe,
+                args.resolution, [calibration_prompts[0]],
+                test_seeds,
+                args.device,
+                dtype,
+                deterministic=args.deterministic,
+                total_steps=1,
+                use_negative_prompts=args.use_negative_prompts,
+                test_latents=latents,
+                guidance_scale=args.guidance_scale,
+                is_unet=is_unet)
+        h.remove()
         if args.svd_quant:
             print("Applying SVDQuant...")
             denoising_network = apply_svd_quant(
@@ -818,7 +835,29 @@ def main(args):
                 export_manager = StdQCDQONNXManager
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
+
+        def _load_json(p):
+            print(f"Loading {p}")
+            with open(p, "rb") as f:
+                return json.load(f)
+
+        def _get_dataset_props(config_json_struct) -> dict:
+            # Separate meta parameters (prefixed with _) from hparams.
+            meta_params = {k: v for k, v in config_json_struct.items() if k.startswith("_")}
+            hparams = {k: v for k, v in config_json_struct.items() if not k.startswith("_")}
+            return {
+                "meta": meta_params,
+                "hparams": hparams,}
+
         if args.export_target == 'params_only':
+            kwargs = generate_unet_rand_inputs((77, 2048), (4, 1024 // 8, 1024 // 8),
+                                               device='cuda',
+                                               dtype=torch.float16)
+            config = _get_dataset_props(_load_json('config.json'))
+            export = SharkManager(config=config)
+            with torch.no_grad():
+                ds = export.export(denoising_network, *catch_inp_args[0], **catch_inp_kwargs[0])
+            ds.save('test_dataset.irpa', io_report_callback=None)
             device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')
             export_quant_params(denoising_network, output_dir, 'denoising_network_')
@@ -899,7 +938,6 @@ def main(args):
                 fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
             for quant_image in tqdm(quant_images_values):
                 fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
-
             print(f"Torchmetrics FID: {float(fid.compute())}")
             torchmetrics_fid = float(fid.compute())
             # Dump args to json
