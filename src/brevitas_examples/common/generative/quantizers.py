@@ -30,7 +30,6 @@ from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.base import HQOWeightZeroPoint
 from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.base import PerChannelPoTScaling8bit
-from brevitas.quant.base import RescaledMaxStatsScaling
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
@@ -43,17 +42,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 
 from .quant_blocks import *
-
-
-class ShiftedUint3WeightPerChannelRescaledMinMaxFloat(ShiftedUint8WeightPerChannelFloat,
-                                                      RescaledMaxStatsScaling):
-    """
-    3-bit unsigned integer weight quantizer with floating-point per-channel scale factor and
-    zero point. Both zero-point and scale factors are based on backpropagated statistics of
-    the weight tensor.
-    """
-    # TODO: also rescale the zero point
-    affine_rescaling_init = 0.9
 
 
 class DynamicActProxyMixin(ExtendedInjector):

@@ -71,7 +71,6 @@ __all__ = [
     'IntQuant',
     'NarrowIntQuant',
     'UintQuant',
-    'RescaledMaxStatsScaling',
     'ShiftedMinUintQuant',
     'ShiftedParamFromPercentileUintQuant',
     'PerChannelFloatScaling8bit',
@@ -98,13 +97,6 @@ class MaxStatsScaling(ExtendedInjector):
     scaling_impl_type = ScalingImplType.STATS
     scaling_stats_op = StatsOp.MAX
     scaling_min_val = 1e-10
-
-
-class RescaledMaxStatsScaling(MaxStatsScaling):
-    """
-    """
-    affine_rescaling = True
-    affine_rescaling_init = 1.0
 
 
 class MinMaxStatsScaling(ExtendedInjector):

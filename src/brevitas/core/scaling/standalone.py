@@ -213,9 +213,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
-            affine_rescaling: Optional[bool] = False,
-            affine_rescaling_init: Optional[float] = 1.,
-            affine_rescaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
+            scaling_affine_rescaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
+            scaling_affine_rescaling_init: Optional[float] = None,
+            scaling_affine_shifting_init: Optional[float] = None,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -235,13 +235,12 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,
             restrict_threshold_impl,
-            affine_rescaling_shape,
             scaling_min_val,
-            affine_rescaling,
-            False,
+            scaling_affine_rescaling_shape,
+            scaling_affine_rescaling_init,
+            scaling_affine_shifting_init,
             dtype,
-            device,
-            affine_rescaling_init)
+            device)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.restrict_inplace_scaling_pre = restrict_scaling_impl.restrict_init_inplace_module()
         self.clamp_scaling = _ClampValue(scaling_min_val)
