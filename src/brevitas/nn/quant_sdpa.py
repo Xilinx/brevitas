@@ -169,28 +169,6 @@ class QuantScaledDotProductAttention(Module, QuantLayerMixin):
     def channelwise_separable(self) -> bool:
         return False
 
-    def pre_forward(self, query, key, value, attn_mask=None, scale=None, is_causal=False):
-        L, S = query.size(-2), key.size(-2)
-        scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
-        if attn_mask is None:
-            attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
-        else:
-            attn_bias = torch.zeros(size=attn_mask.shape, dtype=query.dtype, device=query.device)
-        if is_causal:
-            assert attn_mask is None
-            temp_mask = torch.ones(L, S, dtype=torch.bool, device=query.device).tril(diagonal=0)
-            attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
-            attn_bias.to(dtype=query.dtype, device=query.device)
-
-        if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
-            else:
-                attn_bias += attn_mask
-        query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
-
-        return query, key, value, attn_bias, scale_factor
-
     def forward(
             self,
             query: Tensor,
@@ -235,7 +213,25 @@ class QuantScaledDotProductAttention(Module, QuantLayerMixin):
             out = self.export_handler(query, key, value, attn_mask, scale, is_causal)
             return out
 
-        query, key, value, attn_bias, scale_factor = self.pre_forward(query, key, value, attn_mask, scale, is_causal)
+        L, S = query.size(-2), key.size(-2)
+        scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
+        if attn_mask is None:
+            attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
+        else:
+            attn_bias = torch.zeros(size=attn_mask.shape, dtype=query.dtype, device=query.device)
+        if is_causal:
+            assert attn_mask is None
+            temp_mask = torch.ones(L, S, dtype=torch.bool, device=query.device).tril(diagonal=0)
+            attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
+            attn_bias.to(dtype=query.dtype, device=query.device)
+
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_bias.masked_fill_(attn_mask.logical_not(), float("-inf"))
+            else:
+                attn_bias += attn_mask
+        query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
+
         if self.pre_scale_q:
             q_scaled = self.q_scaled_quant(query * scale_factor)
         else:
