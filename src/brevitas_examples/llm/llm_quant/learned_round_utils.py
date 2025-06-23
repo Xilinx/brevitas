@@ -1,8 +1,9 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from argparse import Namespace
 import functools
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -10,12 +11,10 @@ from torch import nn
 from torch.utils.data.dataloader import DataLoader
 
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
-from brevitas_examples.common.learned_round.learned_round_parser import \
-    parse_learned_round_loss_class
-from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
-from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
+from brevitas_examples.common.learned_round.learned_round_parser import LEARNED_ROUND_MAP
 
 _T_args = Tuple[torch.Tensor, ...]
 _T_kwargs = Dict[str, Any]
@@ -113,18 +112,18 @@ def llm_learned_round_prepare_fn(model: nn.Module) -> None:
     return llm_cache_state
 
 
-def llm_learned_round_finish_fn(model: nn.Module, llm_cache_state: Dict) -> None:
+def llm_learned_round_finish_fn(model: nn.Module, llm_cache_state: bool) -> None:
     model.config.use_cache = llm_cache_state
 
 
-def llm_forward(model: nn.Module, inputs: Any) -> None:
+def llm_forward(model: nn.Module, inputs: Dict[str, Any]) -> None:
     device = next(model.parameters()).device
     if device != torch.device("meta"):
         inputs = send_to_device(inputs, device)
     model(**inputs)
 
 
-def llm_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
+def llm_block_forward(block: nn.Module, inputs: _T_inputs) -> torch.Tensor:
     device = next(block.parameters()).device
     args, kwargs = inputs
     args = send_to_device(args, device)
@@ -157,31 +156,63 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     return kwargs
 
 
-def apply_learned_round(
-        model: nn.Module,
-        calibration_loader: DataLoader,
-        learned_round_args,
-        iters: int = 200,
-        learned_round: str = "linear_round",
-        learned_round_loss: str = "mse",
-        block_name_attribute: str = "layers",
-        optimizer: str = "sign_sgd",
-        batch_size: int = 8,
-        learn_scale: bool = False,
-        use_best_model: bool = True,
-        amp_dtype: torch.dtype = torch.float16,
-        loss_scaling_factor: float = 1000,
-        lr_scheduler: Optional[str] = "linear",
-        optimizer_kwargs: Optional[Dict] = None,
-        lr_scheduler_kwargs: Optional[Dict] = None,
-        learned_round_loss_kwargs: Optional[Dict] = None,
-        scale_optimizer_class: Optional[str] = None,
-        scale_optimizer_kwargs: Optional[Dict] = None,
-        fast_update: bool = False) -> None:
-    cache = CacheLLM()
-    llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=block_name_attribute)
+def parse_args_to_dataclass(args: Namespace) -> Config:
+    config_dict = {
+        "learned_round_args": {
+            # TODO: Remove, only used to map to new names
+            "learned_round_param": LEARNED_ROUND_MAP[args.learned_round].value.lower(),
+            "learned_round_kwargs": None,
+            "loss_cls": "mse",
+            "loss_kwargs": None,
+            "fast_update": args.learned_round_fast_update,},
+        "training_args": {
+            "optimizers_args": [
+                {
+                    "optimizer_cls": "sign_sgd",
+                    "lr": args.learned_round_lr,
+                    "optimizer_kwargs": {},
+                    "lr_scheduler_args": {
+                        "lr_scheduler_cls":
+                            "linear",
+                        "lr_scheduler_kwargs":
+                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
+                    }},
+                {
+                    "optimizer_cls": "sgd",
+                    "lr": args.learned_round_scale_lr,
+                    "optimizer_kwargs": {
+                        "momentum": args.learned_round_scale_momentum,},
+                    "lr_scheduler_args": {
+                        "lr_scheduler_cls":
+                            "linear",
+                        "lr_scheduler_kwargs":
+                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
+                    }}],
+            "block_name_attribute":
+                args.gpxq_block_name,
+            "optimizers_targets": ["learned_round"] +
+                                  (["scales"] if args.learned_round_scale else []),
+            "batch_size":
+                8,
+            "iters":
+                args.learned_round_iters,
+            "use_best_model":
+                True,
+            "use_amp":
+                True,
+            "amp_dtype":
+                "float16",}}
+    from dacite import from_dict
+    config = from_dict(data_class=Config, data=config_dict)
+    return config
 
-    learned_round_optimizer = LearnedRoundOptimizer(config=learned_round_args)
+
+def apply_learned_round(model: nn.Module, calibration_loader: DataLoader, args: Namespace) -> None:
+    cache = CacheLLM()
+    llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=args.gpxq_block_name)
+
+    config = parse_args_to_dataclass(args)
+    learned_round_optimizer = LearnedRoundOptimizer(config=config)
     learned_round_optimizer.apply_learned_round(
         model=model,
         model_forward=llm_forward,

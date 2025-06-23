@@ -518,7 +518,7 @@ class LearnedRoundOptimizer:
         self,
         model: nn.Module,
         forward: Callable,
-        data_loader: DataLoader,
+        data_loader: DataLoader[_T_cache],
         loss_fn: BlockLoss,
     ) -> Tuple[float, int, int]:
 
