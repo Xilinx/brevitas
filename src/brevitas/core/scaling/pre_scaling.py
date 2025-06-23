@@ -98,7 +98,6 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
         """Takes weights as input and returns the pre-clipping scaling factor"""
         weights = self.stats_input_view_shape_impl(weights)
         d_w = self.stats(weights)  # denominator for weight normalization
-        # g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))  # g
         g = self.restrict_clamp_scaling(self.value)  # g
         s = self.scaling_impl(weights)  # s
         value = (s * d_w) / g
@@ -188,7 +187,6 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         weights = self.stats_input_view_shape_impl(weights)
         d_w = self.stats(weights)  # denominator for weight normalization
         s = self.scaling_impl(weights)  # s
-        # g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))  # g
         g = self.restrict_clamp_scaling(self.value)  # g
         T = self.calc_max_l1_norm(input_bit_width, input_is_signed)  # T / s
         g = torch.clamp_max(g / s, T)
