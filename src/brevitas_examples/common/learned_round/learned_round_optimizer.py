@@ -200,6 +200,7 @@ except:
     from torch.cuda.amp import GradScaler
 
 from torch import nn
+from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
@@ -220,26 +221,6 @@ from brevitas_examples.common.learned_round.learned_round_method import LEARNED_
 
 # TODO: Remove
 config.IGNORE_MISSING_KEYS = True
-
-
-def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
-                                                          bool]) -> List[nn.Module]:
-    blocks = []
-
-    # Iterating over .modules() might have been more readable but
-    # with this recursive implementation, once a block is reached,
-    # its subtree of modules is not expanded.
-    def _get_blocks(module: nn.Module):
-        for module_name, module_child in module.named_children():
-            if block_check_fn(module_child, module_name):
-                blocks.append(module_child)
-            else:
-                _get_blocks(module_child)
-
-    # Run recursive function that updates the list blocks
-    _get_blocks(model)
-    return blocks
-
 
 _T_inputs = TypeVar("_T_inputs")
 _T_outputs = TypeVar("_T_output")
@@ -301,6 +282,25 @@ class DataSaverHook:
             self.cache.store_output(output)
 
         raise StopFwdException
+
+
+def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
+                                                          bool]) -> List[nn.Module]:
+    blocks = []
+
+    # Iterating over .modules() might have been more readable but
+    # with this recursive implementation, once a block is reached,
+    # its subtree of modules is not expanded.
+    def _get_blocks(module: nn.Module):
+        for module_name, module_child in module.named_children():
+            if block_check_fn(module_child, module_name):
+                blocks.append(module_child)
+            else:
+                _get_blocks(module_child)
+
+    # Run recursive function that updates the list blocks
+    _get_blocks(model)
+    return blocks
 
 
 def save_inputs_output(
@@ -381,7 +381,7 @@ class LearnedRoundOptimizer:
 
     def _step(
             self,
-            optim_lr_schedulers: List[Tuple[Optimizer, Any]],
+            optim_lr_schedulers: List[Tuple[Optimizer, Optional[LRScheduler]]],
             scaler: Optional[GradScaler] = None) -> None:
         for optim, lr_scheduler in optim_lr_schedulers:
             if scaler is not None:
@@ -400,7 +400,7 @@ class LearnedRoundOptimizer:
         model: nn.Module,
         forward: Callable,
         loss_fn: BlockLoss,
-        inputs: Any,
+        inputs: _T_cache,
         scaler: Optional[GradScaler] = None,
     ) -> Tuple[torch.Tensor, Any]:
         # Compute loss
@@ -419,7 +419,7 @@ class LearnedRoundOptimizer:
 
         return loss.detach().cpu().item(), loss_components
 
-    def _autocast_context_manager(self):
+    def _amp_context_manager(self):
         if self.config.training_args.use_amp:
             ctx_manager = autocast(
                 device_type="cuda" if torch.cuda.is_available() else "cpu",
@@ -434,12 +434,12 @@ class LearnedRoundOptimizer:
         model: nn.Module,
         forward: Callable,
         loss_fn: BlockLoss,
-        inputs: Tuple[Any, Any],
+        inputs: _T_cache,
     ) -> Tuple[torch.Tensor, Any]:
         # Unpack inputs to model
         inps, labels = inputs
 
-        with self._autocast_context_manager():
+        with self._amp_context_manager():
             # Run block forward to obtain quant outputs
             output = forward(model, inps)
             labels = send_to_device(labels, output.device)
@@ -484,7 +484,7 @@ class LearnedRoundOptimizer:
         self,
         params: List[nn.Parameter],
         optimizer_args: OptimizerArgs,
-    ) -> Tuple[Optimizer, Optional[Any]]:
+    ) -> Tuple[Optimizer, Optional[LRScheduler]]:
         # Instantiate optimizer
         optimizer = optimizer_args.optimizer_cls(
             params=params, lr=optimizer_args.lr, **optimizer_args.optimizer_kwargs)
@@ -495,7 +495,8 @@ class LearnedRoundOptimizer:
             if lr_scheduler_args is not None else None)
         return optimizer, lr_scheduler
 
-    def _create_optimizers_lr_schedulers(self, model: nn.Module) -> List[Tuple[Optimizer, Any]]:
+    def _create_optimizers_lr_schedulers(
+            self, model: nn.Module) -> List[Tuple[Optimizer, Optional[LRScheduler]]]:
         # Retrieve configuration for optimizers and target parameters
         optimizers_args, optimizer_targets = self.config.training_args.optimizers_args, self.config.training_args.optimizers_targets
         return list(
