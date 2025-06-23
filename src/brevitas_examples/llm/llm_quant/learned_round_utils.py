@@ -178,20 +178,10 @@ def apply_learned_round(
         scale_optimizer_class: Optional[str] = None,
         scale_optimizer_kwargs: Optional[Dict] = None,
         fast_update: bool = False) -> None:
-    # Parse strings to obtain the arguments for the optimizer
-    learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
-    optimizer_class = parse_optimizer_class(optimizer)
-    scale_optimizer_class = parse_optimizer_class(scale_optimizer_class)
-    lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
-
+    cache = CacheLLM()
     llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=block_name_attribute)
 
-    lr_scheduler_kwargs = {
-        "start_factor": 1.0,
-        "end_factor": 0.0,
-        "verbose": False,} if lr_scheduler_kwargs is None else lr_scheduler_kwargs
     learned_round_optimizer = LearnedRoundOptimizer(config=learned_round_args)
-    cache = CacheLLM()
     learned_round_optimizer.apply_learned_round(
         model=model,
         model_forward=llm_forward,

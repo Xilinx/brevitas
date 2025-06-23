@@ -15,7 +15,7 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 
 
 # TODO: Rename to block loss
-class LearnedRoundLoss(ABC):
+class BlockLoss(ABC):
 
     @abstractmethod
     def __init__(self, block: nn.Module, **kwargs) -> None:
@@ -77,7 +77,7 @@ class LinearTempDecay:
             return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
 
-class RegularisedMSELoss(LearnedRoundLoss):
+class RegularisedMSELoss(BlockLoss):
 
     def __init__(
             self,
@@ -129,7 +129,7 @@ class RegularisedMSELoss(LearnedRoundLoss):
             b)
 
 
-class MSELoss(LearnedRoundLoss):
+class MSELoss(BlockLoss):
 
     def __init__(self, block: nn.Module, **kwargs) -> None:
         pass
