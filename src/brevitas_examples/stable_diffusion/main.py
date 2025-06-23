@@ -623,7 +623,6 @@ def main(args):
                 with torch.no_grad(), calibration_mode(denoising_network):
                     calibration_step(force_full_calibration=True)
 
-        h = denoising_network.register_forward_hook(hook, with_kwargs=True)
         with torch.no_grad():
             run_val_inference(
                 pipe,
@@ -836,28 +835,7 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
 
-        def _load_json(p):
-            print(f"Loading {p}")
-            with open(p, "rb") as f:
-                return json.load(f)
-
-        def _get_dataset_props(config_json_struct) -> dict:
-            # Separate meta parameters (prefixed with _) from hparams.
-            meta_params = {k: v for k, v in config_json_struct.items() if k.startswith("_")}
-            hparams = {k: v for k, v in config_json_struct.items() if not k.startswith("_")}
-            return {
-                "meta": meta_params,
-                "hparams": hparams,}
-
         if args.export_target == 'params_only':
-            kwargs = generate_unet_rand_inputs((77, 2048), (4, 1024 // 8, 1024 // 8),
-                                               device='cuda',
-                                               dtype=torch.float16)
-            config = _get_dataset_props(_load_json('config.json'))
-            export = SharkManager(config=config)
-            with torch.no_grad():
-                ds = export.export(denoising_network, *catch_inp_args[0], **catch_inp_kwargs[0])
-            ds.save('test_dataset.irpa', io_report_callback=None)
             device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')
             export_quant_params(denoising_network, output_dir, 'denoising_network_')
