@@ -521,7 +521,7 @@ class LearnedRoundOptimizer:
 
         scaler = None
         if self.config.training_args.use_amp:
-            scaler = GradScaler(device_type="cuda" if torch.cuda.is_available() else "cpu")
+            scaler = GradScaler(device="cuda" if torch.cuda.is_available() else "cpu")
 
         # Dictionary to store the rounding parameters yielding the lowest
         # training loss
