@@ -136,7 +136,7 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
             sdpa_output_quant=None,
             **kwargs) -> None:
         super(QuantScaledDotProductAttention, self).__init__()
-        QuantLayerMixin.__init__(self, return_quant_tensor=False)
+        ExportMixin.__init__(self)
 
         self.pre_process_q = pre_process_q
         self.pre_process_k = pre_process_k
