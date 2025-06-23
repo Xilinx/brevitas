@@ -16,7 +16,6 @@ from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.core.stats.stats_wrapper import _Stats
 from brevitas.core.zero_point import PreZeroCenterZeroPoint
-from brevitas.function import abs_binary_sign_grad
 from brevitas.function import get_upper_bound_on_l1_norm
 
 __all__ = [
