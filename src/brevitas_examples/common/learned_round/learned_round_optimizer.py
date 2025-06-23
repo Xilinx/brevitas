@@ -215,7 +215,6 @@ from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
-from brevitas_examples.common.learned_round.learned_round_args import TARGET_PARAMETRIZATIONS_MAP
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
 from brevitas_examples.common.learned_round.learned_round_method import LEARNED_ROUND_VALUE_INIT_MAP
 
@@ -472,12 +471,8 @@ class LearnedRoundOptimizer:
     def _get_target_params(self, model: nn.Module) -> OrderedDict:
         state_dict = OrderedDict()
         # Iterate over the target parameters
-        get_target_param_fns = list(
-            map(
-                lambda target_param: TARGET_PARAMETRIZATIONS_MAP[target_param],
-                self.config.training_args.optimizers_targets))
-        for get_target_param_fn in get_target_param_fns:
-            state_dict = self._get_target_parameters(model, get_target_param_fn, state_dict)
+        for optimizer_target in self.config.training_args.optimizers_targets:
+            state_dict = self._get_target_parameters(model, optimizer_target.param_fn, state_dict)
         return state_dict
 
     def _create_optimizer_and_scheduler(
@@ -502,8 +497,7 @@ class LearnedRoundOptimizer:
         return list(
             map(
                 lambda target_args: self._create_optimizer_and_scheduler(
-                    self._get_target_parameters(model, TARGET_PARAMETRIZATIONS_MAP[target_args[0]]).
-                    values(),
+                    self._get_target_parameters(model, target_args[0].param_fn).values(),
                     target_args[1]),
                 zip(optimizer_targets, optimizers_args)))
 
@@ -678,8 +672,8 @@ class LearnedRoundOptimizer:
                 remove_hooks(model)
 
             # Loss function for computing the rounding loss within each block
-            block_loss = self.config.learned_round_args.loss_cls(
-                block, **self.config.learned_round_args.loss_kwargs)
+            block_loss = self.config.training_args.loss_cls(
+                block, **self.config.training_args.loss_kwargs)
 
             # Per-block training data loader
             block_data_loader = DataLoader(

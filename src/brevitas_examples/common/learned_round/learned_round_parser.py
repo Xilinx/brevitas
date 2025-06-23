@@ -7,29 +7,11 @@ import warnings
 import torch
 from torch.optim.optimizer import Optimizer
 
-from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.optim.sign_sgd import SignSGD
-from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
-from brevitas_examples.common.learned_round.learned_round_method import MSELoss
-from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
 
-# TODO: Remove, only kept for retrocompatibility
-LEARNED_ROUND_MAP = {
-    "linear_round": LearnedRoundImplType.IDENTITY,
-    "hard_sigmoid_round": LearnedRoundImplType.HARD_SIGMOID,
-    "sigmoid_round": LearnedRoundImplType.SIGMOID,}
-LEARNED_ROUND_LOSS_MAP = {
-    "mse": MSELoss,
-    "regularised_mse": RegularisedMSELoss,}
 OPTIMIZER_MAP = {
     "sign_sgd": SignSGD,}
 LR_SCHEDULER_MAP = {}
-
-
-def parse_learned_round_loss_class(learned_round_loss_str: str) -> Type[BlockLoss]:
-    if learned_round_loss_str not in LEARNED_ROUND_LOSS_MAP:
-        raise ValueError(f"Learned round loss {learned_round_loss_str} is not available.")
-    return LEARNED_ROUND_LOSS_MAP[learned_round_loss_str]
 
 
 def parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
