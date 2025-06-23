@@ -14,7 +14,6 @@ from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
-from brevitas_examples.common.learned_round.learned_round_parser import LEARNED_ROUND_MAP
 
 _T_args = Tuple[torch.Tensor, ...]
 _T_kwargs = Dict[str, Any]
@@ -157,6 +156,13 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def parse_args_to_dataclass(args: Namespace) -> Config:
+    # TODO: Remove, only kept for retrocompatibility
+    from brevitas.inject.enum import LearnedRoundImplType
+    LEARNED_ROUND_MAP = {
+        "linear_round": LearnedRoundImplType.IDENTITY,
+        "hard_sigmoid_round": LearnedRoundImplType.HARD_SIGMOID,
+        "sigmoid_round": LearnedRoundImplType.SIGMOID,}
+
     config_dict = {
         "learned_round_args": {
             # TODO: Remove, only used to map to new names

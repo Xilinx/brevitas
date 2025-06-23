@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 import json
-from typing import Dict, List, Optional, OrderedDict, Type, Union
+from typing import Callable, Dict, List, Optional, OrderedDict, Type, Union
 
 import torch
 from torch import nn
@@ -15,8 +15,8 @@ from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
-from brevitas_examples.common.learned_round.learned_round_parser import \
-    parse_learned_round_loss_class
+from brevitas_examples.common.learned_round.learned_round_method import MSELoss
+from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
 from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
 from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
 
@@ -24,6 +24,21 @@ from brevitas_examples.common.learned_round.learned_round_parser import parse_op
 class TargetParametrizations(Enum):
     SCALES = "scales"
     LEARNED_ROUND = "learned_round"
+
+    @property
+    def param_fn(self) -> Callable[[nn.Module, OrderedDict, str], bool]:
+        return {
+            TargetParametrizations.SCALES: get_scale_parameters,
+            TargetParametrizations.LEARNED_ROUND: get_round_parameters}[self]
+
+
+class BlockLoss(Enum):
+    MSE = "mse"
+    REGULARISED_MSE = "regularised_mse"
+
+    @property
+    def loss_class(self) -> Type[BlockLoss]:
+        return {BlockLoss.MSE: MSELoss, BlockLoss.REGULARISED_MSE: RegularisedMSELoss}[self]
 
 
 # TODO: Decide whether it is worth grouping the get_target_parameters under a class
@@ -44,11 +59,6 @@ def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str
         # Early stoppping
         return True
     return False
-
-
-TARGET_PARAMETRIZATIONS_MAP = {
-    TargetParametrizations.SCALES: get_scale_parameters,
-    TargetParametrizations.LEARNED_ROUND: get_round_parameters,}
 
 
 #TODO: Add license from Nanotron
@@ -159,6 +169,12 @@ class TrainingArgs:
         metadata={"help": ("Attribute with the blocks to be optimized.")})
     batch_size: int = field(default=8, metadata={"help": "Batch size per GPU for training."})
     iters: int = field(default=200, metadata={"help": "Number of training iterations."})
+    loss_cls: Union[str, Type[BlockLoss]] = field(
+        default="mse", metadata={"help": "Class of the loss to be used for rounding optimization."})
+    loss_kwargs: Optional[Union[Dict, str]] = field(
+        default=None,
+        metadata={"help": "Extra keyword arguments for the learned round loss."},
+    )
     loss_scaling_factor: float = field(
         default=1000.,
         metadata={"help": "Scaling factor for the loss."},
@@ -177,7 +193,12 @@ class TrainingArgs:
         metadata={
             "choices": ["float16", "bfloat16"], "help": "Dtype for mixed-precision training."})
 
+    _DICT_ATTRIBUTES = ["loss_kwargs"]
+
     def __post_init__(self) -> None:
+        # Parse in args that could be `dict` sent in from the CLI as a string
+        _parse_dataclass_dict(self, self._DICT_ATTRIBUTES)
+
         for optimizer_args in self.optimizers_args:
             # Check if the optimizer has an attached learning rate scheduler
             if optimizer_args.lr_scheduler_args is not None:
@@ -190,6 +211,10 @@ class TrainingArgs:
         # Parse amp_dtype
         self.amp_dtype = getattr(torch, self.amp_dtype) if isinstance(
             self.amp_dtype, str) else self.amp_dtype
+        # Retrieve loss
+        self.loss_cls = (
+            BlockLoss(self.loss_cls).loss_class
+            if isinstance(self.loss_cls, str) else self.loss_cls)
 
 
 @dataclass
@@ -203,16 +228,10 @@ class LearnedRoundArgs:
         default=None,
         metadata={"help": "Extra keyword arguments for the learned round parametrization."},
     )
-    loss_cls: Union[str, Type[BlockLoss]] = field(
-        default="mse", metadata={"help": "Class of the loss to be used for rounding optimization."})
-    loss_kwargs: Optional[Union[Dict, str]] = field(
-        default=None,
-        metadata={"help": "Extra keyword arguments for the learned round loss."},
-    )
     fast_update: bool = field(
         default=True, metadata={"help": ("Whether to use fast update with learned round.")})
 
-    _DICT_ATTRIBUTES = ["learned_round_kwargs", "loss_kwargs"]
+    _DICT_ATTRIBUTES = ["learned_round_kwargs"]
 
     def __post_init__(self) -> None:
         # Parse in args that could be `dict` sent in from the CLI as a string
@@ -221,10 +240,6 @@ class LearnedRoundArgs:
         self.learned_round_param = LearnedRoundImplType(
             self.learned_round_param.upper()) if isinstance(
                 self.learned_round_param, str) else self.learned_round_param
-
-        self.loss_cls = (
-            parse_learned_round_loss_class(self.loss_cls)
-            if isinstance(self.loss_cls, str) else self.loss_cls)
 
 
 @dataclass
