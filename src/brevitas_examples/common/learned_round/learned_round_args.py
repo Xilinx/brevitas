@@ -32,13 +32,13 @@ class TargetParametrizations(Enum):
             TargetParametrizations.LEARNED_ROUND: get_round_parameters}[self]
 
 
-class BlockLoss(Enum):
+class BlockLossType(Enum):
     MSE = "mse"
     REGULARISED_MSE = "regularised_mse"
 
     @property
     def loss_class(self) -> Type[BlockLoss]:
-        return {BlockLoss.MSE: MSELoss, BlockLoss.REGULARISED_MSE: RegularisedMSELoss}[self]
+        return {BlockLossType.MSE: MSELoss, BlockLossType.REGULARISED_MSE: RegularisedMSELoss}[self]
 
 
 # TODO: Decide whether it is worth grouping the get_target_parameters under a class
@@ -170,7 +170,10 @@ class TrainingArgs:
     batch_size: int = field(default=8, metadata={"help": "Batch size per GPU for training."})
     iters: int = field(default=200, metadata={"help": "Number of training iterations."})
     loss_cls: Union[str, Type[BlockLoss]] = field(
-        default="mse", metadata={"help": "Class of the loss to be used for rounding optimization."})
+        default="mse",
+        metadata={
+            "help": "Class of the loss to be used for rounding optimization.",
+            "choices": [block_loss_type.value for block_loss_type in BlockLossType]})
     loss_kwargs: Optional[Union[Dict, str]] = field(
         default=None,
         metadata={"help": "Extra keyword arguments for the learned round loss."},
@@ -213,7 +216,7 @@ class TrainingArgs:
             self.amp_dtype, str) else self.amp_dtype
         # Retrieve loss
         self.loss_cls = (
-            BlockLoss(self.loss_cls).loss_class
+            BlockLossType(self.loss_cls).loss_class
             if isinstance(self.loss_cls, str) else self.loss_cls)
 
 
