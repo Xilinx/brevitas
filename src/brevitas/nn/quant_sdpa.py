@@ -41,19 +41,15 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 import math
-import os
 from typing import Optional
-from typing import Tuple
-from typing import Union
 
-SHARK_ATTN = os.environ.get('SHARK_ATTN', False)
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn import Parameter
 import torch.nn.functional as F
 
-from brevitas.core.function_wrapper.misc import Identity
+from brevitas.common import ExportMixin
+from brevitas.common import LayerProtocol
 from brevitas.function import identity
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -125,7 +121,7 @@ class ScaledDotProductAttention(Module):
             **kwargs)
 
 
-class QuantScaledDotProductAttention(Module, QuantLayerMixin):
+class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
 
     def __init__(
             self,
@@ -150,9 +146,6 @@ class QuantScaledDotProductAttention(Module, QuantLayerMixin):
             return {k[len(prefix):]: v for k, v in kwargs.items() if k.startswith(prefix)}
 
         self.pre_scale_q = True
-        if SHARK_ATTN:
-            softmax_input_quant = attn_output_weights_quant = sdpa_output_quant = None
-            self.pre_scale_q = False
 
         self.q_scaled_quant = QuantIdentity(act_quant=q_scaled_quant, **filter_kwargs('q_scaled_'))
         self.k_transposed_quant = QuantIdentity(
@@ -164,10 +157,6 @@ class QuantScaledDotProductAttention(Module, QuantLayerMixin):
             act_quant=attn_output_weights_quant, **filter_kwargs('attn_output_weights_'))
         self.sdpa_output_quant = QuantIdentity(
             act_quant=sdpa_output_quant, **filter_kwargs('sdpa_output_'))
-
-    @property
-    def channelwise_separable(self) -> bool:
-        return False
 
     def forward(
             self,

@@ -28,10 +28,6 @@ class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
         self.scale = scale_module
         self.layer = layer
 
-    @property
-    def channelwise_separable(self) -> bool:
-        return False
-
     def forward(self, *args, **kwargs):
         # Convert args + kwargs + defaults into kwargs
         bound_arguments = signature(self.layer.forward).bind(*args, **kwargs)
