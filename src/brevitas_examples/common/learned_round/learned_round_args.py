@@ -172,7 +172,7 @@ class TrainingArgs:
                 ("Whether to use the best setting of the learned round found "
                  "during training.")})
     use_amp: bool = field(
-        default=False,
+        default=True,
         metadata={"help": "Whether to train using PyTorch Automatic Mixed Precision."})
     amp_dtype: Union[str, torch.dtype] = field(
         default=torch.float16,
@@ -280,7 +280,7 @@ def parse_args_to_dataclass(args: Namespace) -> LearnedRoundArgs:
             "use_best_model":
                 True,
             "use_amp":
-                False,
+                True,
             "amp_dtype":
                 "float16",}}
     from dacite import from_dict

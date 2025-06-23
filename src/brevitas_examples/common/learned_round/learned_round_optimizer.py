@@ -401,7 +401,6 @@ class LearnedRoundOptimizer:
         forward: Callable,
         loss_fn: BlockLoss,
         inputs: Any,
-        use_amp: bool,
         scaler: Optional[GradScaler] = None,
     ) -> Tuple[torch.Tensor, Any]:
         # Compute loss
@@ -410,7 +409,6 @@ class LearnedRoundOptimizer:
             forward,
             loss_fn,
             inputs,
-            use_amp,
         )
         # Run backward, optionally scaling the loss
         if scaler:
@@ -421,29 +419,31 @@ class LearnedRoundOptimizer:
 
         return loss.detach().cpu().item(), loss_components
 
+    def _autocast_context_manager(self):
+        if self.config.training_args.use_amp:
+            ctx_manager = autocast(
+                device_type="cuda" if torch.cuda.is_available() else "cpu",
+                dtype=self.config.training_args.amp_dtype)
+        else:
+            ctx_manager = nullcontext()
+
+        return ctx_manager
+
     def _compute_loss(
         self,
         model: nn.Module,
         forward: Callable,
         loss_fn: BlockLoss,
         inputs: Tuple[Any, Any],
-        use_amp: bool,
     ) -> Tuple[torch.Tensor, Any]:
         # Unpack inputs to model
         inps, labels = inputs
 
-        if use_amp:
-            with autocast(device_type="cuda" if torch.cuda.is_available() else "cpu",
-                          dtype=self.config.training_args.amp_dtype):
-                # Run block forward to obtain quant outputs
-                output = forward(model, inps)
-                labels = send_to_device(labels, output.device)
-                loss, loss_components = loss_fn(output, labels)
-        else:
+        with self._autocast_context_manager():
             # Run block forward to obtain quant outputs
             output = forward(model, inps)
             labels = send_to_device(labels, output.device)
-            loss, loss_components = loss_fn(output.to(torch.float32), labels.to(torch.float32))
+            loss, loss_components = loss_fn(output, labels)
 
         return loss, loss_components
 
@@ -530,8 +530,7 @@ class LearnedRoundOptimizer:
         last_best_iter = self.config.training_args.iters
 
         scaler = None
-        use_amp = next(model.parameters()).dtype == torch.float32
-        if use_amp:
+        if self.config.training_args.use_amp:
             scaler = GradScaler()
 
         # Dictionary to store the rounding parameters yielding the lowest
@@ -548,7 +547,7 @@ class LearnedRoundOptimizer:
             inputs = next(data_loader)
 
             # Compute loss and gradients
-            loss, loss_components = self._training_step(model, forward, loss_fn, inputs, use_amp, scaler)
+            loss, loss_components = self._training_step(model, forward, loss_fn, inputs, scaler)
 
             # Save best parameters before taking gradient step
             curr_loss = loss
