@@ -192,18 +192,13 @@ import warnings
 from accelerate.utils.operations import send_to_device
 import torch
 from torch import autocast
-from tqdm import tqdm
-
-try:
-    from torch import GradScaler
-except:
-    from torch.cuda.amp import GradScaler
-
+from torch import GradScaler
 from torch import nn
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
@@ -526,7 +521,7 @@ class LearnedRoundOptimizer:
 
         scaler = None
         if self.config.training_args.use_amp:
-            scaler = GradScaler()
+            scaler = GradScaler(device_type="cuda" if torch.cuda.is_available() else "cpu")
 
         # Dictionary to store the rounding parameters yielding the lowest
         # training loss
