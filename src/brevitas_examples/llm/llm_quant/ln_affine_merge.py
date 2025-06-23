@@ -19,13 +19,15 @@ def replace_rmsnorm_with_torch(model, config):
     assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
     set_of_layers = set(type(x) for x in model.modules() if 'RMS' in type(x).__name__)
     dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
     rewriters = [
         ModuleToModuleByClass(
             rms_cls,
             torch.nn.RMSNorm,
-            normalized_shape=config.hidden_size,
+            normalized_shape=lambda module: module.weight.shape[0],
             eps=config.rms_norm_eps,
-            dtype=dtype) for rms_cls in set_of_layers]
+            dtype=dtype,
+            device=device) for rms_cls in set_of_layers]
     dtype = next(iter(model.parameters())).dtype
     for r in rewriters:
         model = r.apply(model)
