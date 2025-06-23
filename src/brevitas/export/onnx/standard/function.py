@@ -97,13 +97,13 @@ class DynamicScaleZeroPoint(Function):
 
     @staticmethod
     def symbolic(g, x, output_dtype):
-        scale, zp = g.op('brevitas.custom_op::DynamicScaleZeroPoint', x)
+        scale, zp = g.op('brevitas.custom_op::DynamicScaleZeroPoint', x, outputs=2)
         return scale, zp
 
     @staticmethod
     def forward(ctx, x, output_dtype):
         device = x.device
         dtype = x.dtype
-        scale = torch.empty(1, device=device, dtype=dtype)
-        zero_point = torch.empty(1, device=device, dtype=output_dtype)
+        scale = torch.ones(1, device=device, dtype=dtype)
+        zero_point = torch.ones(1, device=device, dtype=output_dtype)
         return scale, zero_point

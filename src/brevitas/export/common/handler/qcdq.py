@@ -11,11 +11,13 @@ from torch import Tensor
 from brevitas.export.common import to_0dim_if_scalar
 from brevitas.export.common import to_item_if_0dim
 from brevitas.export.inference.handler import GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.export.onnx.standard.function import DynamicScaleZeroPoint
 from brevitas.proxy import ActFloatQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.proxy import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy import WeightFloatQuantProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.float_parameter_quant import BiasFloatQuantProxyFromInjector
@@ -569,6 +571,60 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         return x, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values
 
 
+class QCDQCastGroupwiseActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
+    handled_layer = GroupwiseActQuantProxyFromInjector
+
+    def quantize_symbolic_kwargs(self, group_dim, bit_width, is_signed):
+        # compute axis before redefining scale
+        axis = group_dim
+        dtype = self.signed_dtype(bit_width, is_signed)
+        return {'dtype': dtype, 'axis': axis}
+
+    def dequantize_symbolic_kwargs(self, group_dim):
+        # compute axis before redefining scale
+        axis = group_dim
+        return {'axis': axis}
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            self.symbolic_kwargs['bit_width'] = module.bit_width()
+
+            self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
+                module.group_dim, module.bit_width(), module.is_signed)
+            self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
+                module.is_narrow_range, module.is_signed, module.bit_width())
+            self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
+                module.group_dim)
+
+        else:
+            self.symbolic_kwargs = None
+
+    def symbolic_execution(self, x: Tensor):
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+        clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
+        # Copy dict to allow for popping kwargs even on shared quantizers
+        quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
+        scale, zero_point = DynamicScaleZeroPoint.apply(x, x.dtype)
+
+        bit_width = self.symbolic_kwargs['bit_width']
+        # Workaround to trick the tracer into believing all return values are used
+        print(scale, zero_point, bit_width)
+        self.assert_ge_zero(scale, zero_point, bit_width)
+        # If original dtype of the input is (b)float16, cast the input to float32
+        if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
+        x = self.quantize_fn(x, scale, zero_point, *quantize_symbolic_kwargs.values())
+        if clip_symbolic_kwargs is not None:
+            x = self.clip_fn(x, *clip_symbolic_kwargs.values())
+        x = self.dequantize_fn(x, scale, zero_point, *dequantize_symbolic_kwargs.values())
+        # After dequantization, cast both output and scale to the correct dtype
+
+        zero_point = zero_point.view_as(scale)
+        return x, scale, zero_point, bit_width
+
+
 class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
     handled_layer = ActQuantProxyFromInjector
 
@@ -576,15 +632,15 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         # compute axis before redefining scale
         axis = self.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
-        zp = to_0dim_if_scalar(zero_point.flatten())
+        zero_point = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
-        zp = zp.expand_as(scale)
-        zp = self.zero_point_with_dtype(is_signed, bit_width, zp)
+        zero_point = zero_point.expand_as(scale)
+        zero_point = self.zero_point_with_dtype(is_signed, bit_width, zero_point)
         if self.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
-            zp = to_item_if_0dim(zp)
+            zero_point = to_item_if_0dim(zero_point)
         dtype = self.signed_dtype(bit_width, is_signed)
-        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
+        return {'scale': scale, 'zero_point': zero_point, 'dtype': dtype, 'axis': axis}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:

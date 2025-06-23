@@ -18,6 +18,7 @@ from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixi
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastGroupwiseActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -28,6 +29,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from ..function import CastFn
 from ..function import DequantizeLinearFn
 from ..function import DynamicQuantizeLinearFn
+from ..function import DynamicScaleZeroPoint
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
@@ -161,6 +163,12 @@ class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
         StdQCDQCastONNXMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         ONNXBaseHandler):
     _export_q_node = False
+
+
+class StdQCDQCastONNXGroupwiseActQuantProxyHandler(StdQCDQCastONNXMixin,
+                                                   QCDQCastGroupwiseActQuantProxyHandlerMixin,
+                                                   ONNXBaseHandler):
+    pass
 
 
 class StdFloatQCDQCastONNXActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
