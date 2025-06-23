@@ -1,7 +1,6 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from argparse import Namespace
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
@@ -16,7 +15,6 @@ from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
-from brevitas_examples.common.learned_round.learned_round_parser import LEARNED_ROUND_MAP
 from brevitas_examples.common.learned_round.learned_round_parser import \
     parse_learned_round_loss_class
 from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
@@ -234,55 +232,3 @@ class Config:
     learned_round_args: LearnedRoundArgs = field(
         metadata={"help": "Learned round parametrization."})
     training_args: TrainingArgs = field(metadata={"help": "Hyperparameters for optimization."})
-
-
-# TODO: Decide how arguments should be handled
-def parse_args_to_dataclass(args: Namespace) -> LearnedRoundArgs:
-    config_dict = {
-        "learned_round_args": {
-            # TODO: Remove, only used to map to new names
-            "learned_round_param": LEARNED_ROUND_MAP[args.learned_round].value.lower(),
-            "learned_round_kwargs": None,
-            "loss_cls": "mse",
-            "loss_kwargs": None,
-            "fast_update": args.learned_round_fast_update,},
-        "training_args": {
-            "optimizers_args": [
-                {
-                    "optimizer_cls": "sign_sgd",
-                    "lr": args.learned_round_lr,
-                    "optimizer_kwargs": {},
-                    "lr_scheduler_args": {
-                        "lr_scheduler_cls":
-                            "linear",
-                        "lr_scheduler_kwargs":
-                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
-                    }},
-                {
-                    "optimizer_cls": "sgd",
-                    "lr": args.learned_round_scale_lr,
-                    "optimizer_kwargs": {
-                        "momentum": args.learned_round_scale_momentum,},
-                    "lr_scheduler_args": {
-                        "lr_scheduler_cls":
-                            "linear",
-                        "lr_scheduler_kwargs":
-                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
-                    }}],
-            "block_name_attribute":
-                args.gpxq_block_name,
-            "optimizers_targets": ["learned_round"] +
-                                  (["scales"] if args.learned_round_scale else []),
-            "batch_size":
-                8,
-            "iters":
-                args.learned_round_iters,
-            "use_best_model":
-                True,
-            "use_amp":
-                True,
-            "amp_dtype":
-                "float16",}}
-    from dacite import from_dict
-    config = from_dict(data_class=Config, data=config_dict)
-    return config
