@@ -15,7 +15,7 @@ from torch.optim.optimizer import Optimizer
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
+from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
 from brevitas_examples.common.learned_round.learned_round_parser import LEARNED_ROUND_MAP
 from brevitas_examples.common.learned_round.learned_round_parser import \
     parse_learned_round_loss_class
@@ -205,7 +205,7 @@ class LearnedRoundArgs:
         default=None,
         metadata={"help": "Extra keyword arguments for the learned round parametrization."},
     )
-    loss_cls: Union[str, Type[LearnedRoundLoss]] = field(
+    loss_cls: Union[str, Type[BlockLoss]] = field(
         default="mse", metadata={"help": "Class of the loss to be used for rounding optimization."})
     loss_kwargs: Optional[Union[Dict, str]] = field(
         default=None,

@@ -215,6 +215,7 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TARGET_PARAMETRIZATIONS_MAP
+from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
 from brevitas_examples.common.learned_round.learned_round_method import LEARNED_ROUND_VALUE_INIT_MAP
 
 # TODO: Remove
@@ -337,7 +338,11 @@ def save_inputs_output(
 
 class block_optimization_cm:
     """
-    Prepares a block for optimization
+        Context manager to prepare a block for optimization
+
+    Args:
+        model (nn.Module): module for which a subset of parameters are optimized
+        target_params (nn.Parameter): subset of parameters to be optimized
     """
 
     def __init__(self, module: nn.Module, target_params: OrderedDict[str, nn.Parameter]) -> None:
@@ -394,7 +399,7 @@ class LearnedRoundOptimizer:
         self,
         model: nn.Module,
         forward: Callable,
-        loss_fn: Callable,
+        loss_fn: BlockLoss,
         inputs: Any,
         use_amp: bool,
         scaler: Optional[GradScaler] = None,
@@ -420,7 +425,7 @@ class LearnedRoundOptimizer:
         self,
         model: nn.Module,
         forward: Callable,
-        loss_fn: Callable,
+        loss_fn: BlockLoss,
         inputs: Tuple[Any, Any],
         use_amp: bool,
     ) -> Tuple[torch.Tensor, Any]:
@@ -464,33 +469,13 @@ class LearnedRoundOptimizer:
         _recursive_get_target_parameters(model)
         return state_dict
 
-    # TODO: Remove
-    def _save_target_params(self, model: nn.Module) -> OrderedDict:
-        state_dict = OrderedDict()
-        # Iterate over the target parameters
-        # TODO: for get_target_param_fn in [get_round_parameters, get_scale_parameters]:
-        # Iterate over the parametrizations
-        get_target_param_fns = list(
-            map(
-                lambda target_param: TARGET_PARAMETRIZATIONS_MAP[target_param],
-                self.config.training_args.optimizers_targets))
-        # TODO: Remove :-1
-        for get_target_param_fn in get_target_param_fns[:-1]:
-            state_dict = copy.deepcopy(
-                self._get_target_parameters(model, get_target_param_fn, state_dict))
-        return state_dict
-
-    # TODO: Unify with _save_target_params
     def _get_target_params(self, model: nn.Module) -> OrderedDict:
         state_dict = OrderedDict()
         # Iterate over the target parameters
-        # TODO: for get_target_param_fn in [get_round_parameters, get_scale_parameters]:
-        # Iterate over the parametrizations
         get_target_param_fns = list(
             map(
                 lambda target_param: TARGET_PARAMETRIZATIONS_MAP[target_param],
                 self.config.training_args.optimizers_targets))
-        # TODO: Remove :-1
         for get_target_param_fn in get_target_param_fns:
             state_dict = self._get_target_parameters(model, get_target_param_fn, state_dict)
         return state_dict
@@ -533,7 +518,7 @@ class LearnedRoundOptimizer:
         model: nn.Module,
         forward: Callable,
         data_loader: DataLoader,
-        loss_fn: Callable,
+        loss_fn: BlockLoss,
     ) -> Tuple[float, int, int]:
 
         # Initialize optimizers and lr schedulers
@@ -572,7 +557,8 @@ class LearnedRoundOptimizer:
                 best_loss = curr_loss
                 last_best_iter = i + 1
                 if self.config.training_args.use_best_model:
-                    optimal_state_dict = self._save_target_params(model)
+                    with torch.no_grad():
+                        optimal_state_dict = copy.deepcopy(self._get_target_params(model))
 
             # Scale loss and perform gradient step
             self._step(optim_lr_schedulers, scaler)
