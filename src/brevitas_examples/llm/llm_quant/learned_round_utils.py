@@ -1,12 +1,9 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from argparse import Namespace
 import functools
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Union
+from typing import Any, Dict, List, Tuple
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -14,50 +11,60 @@ from torch import nn
 from torch.utils.data.dataloader import DataLoader
 
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
 from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
-from brevitas_examples.common.learned_round.learned_round_parser import parse_learned_round
-from brevitas_examples.common.learned_round.learned_round_parser import \
-    parse_learned_round_loss_class
-from brevitas_examples.common.learned_round.learned_round_parser import parse_lr_scheduler_class
-from brevitas_examples.common.learned_round.learned_round_parser import parse_optimizer_class
+
+_T_args = Tuple[torch.Tensor, ...]
+_T_kwargs = Dict[str, Any]
+_T_inputs = Tuple[_T_args, _T_kwargs]
+_T_outputs = torch.Tensor
 
 
-class CacheLLM(Cache, dict):
+class CacheLLM(Cache[_T_inputs, _T_outputs]):
 
     def __init__(self) -> None:
-        super().__init__()
-        self.initialize_cache()
+        self._args: List[_T_args] = []
+        self._kwargs: List[_T_kwargs] = []
+        self.outputs: List[_T_outputs] = []
 
-    def store_inputs(self, args, kwargs) -> None:
-        self["args"].append(args)
-        self["kwargs"].append(kwargs)
+    def store_inputs(self, args, kwargs):
+        args = list(zip(*map(lambda x: list(torch.split(x, 1, dim=0)), args)))
+        self._args.extend(args)
+        bs = len(args)
+        kwargs_split = {
+            key:
+            value if not isinstance(value, torch.Tensor) else list(torch.split(value, 1, dim=0))
+            for key,
+            value in kwargs.items()}
+        kwargs = [{
+            key: value if not isinstance(value, list) else value[i] for key,
+            value in kwargs_split.items()} for i in range(bs)]
+        self._kwargs.extend(kwargs)
 
-    def store_output(self, output) -> None:
+    def store_output(self, output):
         if isinstance(output, (tuple, list)):
             output = output[0]
-        self["output"].append(output)
+        output = list(torch.split(output, 1, dim=0))
+        self.outputs.extend(output)
 
-    def initialize_cache(self) -> None:
-        self["args"] = []
-        self["kwargs"] = []
-        self["output"] = []
+    def reset_cache(self) -> None:
+        self._args = []
+        self._kwargs = []
+        self.outputs = []
 
-    def clear_cache(self) -> None:
-        del self["args"]
-        del self["kwargs"]
-        del self["output"]
-        self["args"] = []
-        self["kwargs"] = []
-        self["output"] = []
+    def __len__(self):
+        return len(self._args)
 
-    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
-        cache_args, cache_kwargs, cache_outs = self["args"], self["kwargs"], self["output"]
+    def __getitem__(self, index):
+        return (self._args[index], self._kwargs[index]), self.outputs[index]
+
+    def collate_fn(self, batch):
+        inps, outs = zip(*batch)
+        args, kwargs_dict = zip(*inps)
         # Positional arguments
-        args = [cache_args[i] for i in indices]
         args = tuple(torch.cat(arg_tensor, dim=0) for arg_tensor in zip(*args))
         # Keyword arguments
-        kwargs_dict = [cache_kwargs[i] for i in indices]
         kwargs = {}
         for curr_dict in kwargs_dict:
             for key, value in curr_dict.items():
@@ -72,11 +79,30 @@ class CacheLLM(Cache, dict):
             if isinstance(value, list) and len(value) > 0:
                 kwargs[key] = torch.cat(kwargs[key], dim=0)
         # FP outputs
-        outs = torch.cat([cache_outs[i] for i in indices], dim=0)
+        outs = torch.cat(outs, dim=0)
         return (args, kwargs), outs
 
-    def __len__(self):
-        return len(self["args"])
+    @property
+    def inputs(self):
+        return (self._args, self._kwargs)
+
+    @inputs.setter
+    def inputs(self, new_inputs):
+        if not isinstance(new_inputs, tuple):
+            # If only args were passed, verify that each element is a tuple
+            new_args = list(map(lambda arg: arg if isinstance(arg, tuple) else (arg,), new_inputs))
+            new_inputs = (new_args, self._kwargs)
+        # Update the inputs of the cache
+        self._args, self._kwargs = new_inputs
+
+    # Auxiliar functions to perform fast_update
+    def collate_fn_output_next(self, batch):
+        (_, kwargs), outputs = self.collate_fn(batch)
+        return (outputs,), kwargs
+
+    def collate_fn_input_next(self, batch):
+        (args, kwargs), _ = self.collate_fn(batch)
+        return args, kwargs
 
 
 def llm_learned_round_prepare_fn(model: nn.Module) -> None:
@@ -85,18 +111,18 @@ def llm_learned_round_prepare_fn(model: nn.Module) -> None:
     return llm_cache_state
 
 
-def llm_learned_round_finish_fn(model: nn.Module, llm_cache_state: Dict) -> None:
+def llm_learned_round_finish_fn(model: nn.Module, llm_cache_state: bool) -> None:
     model.config.use_cache = llm_cache_state
 
 
-def llm_forward(model: nn.Module, inputs: Any) -> None:
+def llm_forward(model: nn.Module, inputs: Dict[str, Any]) -> None:
     device = next(model.parameters()).device
     if device != torch.device("meta"):
         inputs = send_to_device(inputs, device)
     model(**inputs)
 
 
-def llm_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
+def llm_block_forward(block: nn.Module, inputs: _T_inputs) -> torch.Tensor:
     device = next(block.parameters()).device
     args, kwargs = inputs
     args = send_to_device(args, device)
@@ -111,63 +137,96 @@ def get_blocks(model: nn.Module, block_name_attribute: str) -> List[nn.Module]:
     return recurse_getattr(model, block_name_attribute)
 
 
-def apply_learned_round(
-        model: nn.Module,
-        calibration_loader: DataLoader,
-        iters: int = 200,
-        learned_round: str = "linear_round",
-        learned_round_loss: str = "mse",
-        block_name_attribute: str = "layers",
-        optimizer: str = "sign_sgd",
-        batch_size: int = 8,
-        learn_scale: bool = False,
-        use_best_model: bool = True,
-        amp_dtype: torch.dtype = torch.float16,
-        loss_scaling_factor: float = 1000,
-        lr_scheduler: Optional[str] = "linear",
-        optimizer_kwargs: Optional[Dict] = None,
-        lr_scheduler_kwargs: Optional[Dict] = None,
-        learned_round_loss_kwargs: Optional[Dict] = None,
-        scale_optimizer_class: Optional[str] = None,
-        scale_optimizer_kwargs: Optional[Dict] = None,
-        fast_update: bool = False) -> None:
-    # Parse strings to obtain the arguments for the optimizer
-    learned_round = parse_learned_round(learned_round)
-    learned_round_loss_class = parse_learned_round_loss_class(learned_round_loss)
-    optimizer_class = parse_optimizer_class(optimizer)
-    scale_optimizer_class = parse_optimizer_class(scale_optimizer_class)
-    lr_scheduler_class = parse_lr_scheduler_class(lr_scheduler)
+def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
+    # Keyword arguments
+    kwargs = {}
+    for curr_dict in batch:
+        for key, value in curr_dict.items():
+            if isinstance(value, torch.Tensor):
+                if key not in kwargs:
+                    kwargs[key] = []
+                kwargs[key].append(value)
+            else:
+                if key not in kwargs:
+                    kwargs[key] = value
+    for key, value in kwargs.items():
+        if isinstance(value, list) and len(value) > 0:
+            kwargs[key] = torch.cat(kwargs[key], dim=0)
+    return kwargs
 
-    llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=block_name_attribute)
 
-    lr_scheduler_kwargs = {
-        "start_factor": 1.0, "end_factor": 0.0
-    } if lr_scheduler_kwargs is None else lr_scheduler_kwargs
-    learned_round_optimizer = LearnedRoundOptimizer(
-        learned_round=learned_round,
-        learned_round_loss_class=learned_round_loss_class,
-        optimizer_class=optimizer_class,
-        lr_scheduler_class=lr_scheduler_class,
-        batch_size=batch_size,
-        iters=iters,
-        learn_scale=learn_scale,
-        use_best_model=use_best_model,
-        amp_dtype=amp_dtype,
-        loss_scaling_factor=loss_scaling_factor,
-        learned_round_loss_kwargs=learned_round_loss_kwargs,
-        optimizer_kwargs=optimizer_kwargs,
-        lr_scheduler_kwargs=lr_scheduler_kwargs,
-        scale_optimizer_kwargs=scale_optimizer_kwargs,
-        scale_optimizer_class=scale_optimizer_class)
+def parse_args_to_dataclass(args: Namespace) -> Config:
+    # TODO: Remove, only kept for retrocompatibility
+    from brevitas.inject.enum import LearnedRoundImplType
+    LEARNED_ROUND_MAP = {
+        "linear_round": LearnedRoundImplType.IDENTITY,
+        "hard_sigmoid_round": LearnedRoundImplType.HARD_SIGMOID,
+        "sigmoid_round": LearnedRoundImplType.SIGMOID,}
+
+    config_dict = {
+        "learned_round_args": {
+            # TODO: Remove, only used to map to new names
+            "learned_round_param": LEARNED_ROUND_MAP[args.learned_round].value.lower(),
+            "learned_round_kwargs": None,
+            "loss_cls": "mse",
+            "loss_kwargs": None,
+            "fast_update": args.learned_round_fast_update,},
+        "training_args": {
+            "optimizers_args": [
+                {
+                    "optimizer_cls": "sign_sgd",
+                    "lr": args.learned_round_lr,
+                    "optimizer_kwargs": {},
+                    "lr_scheduler_args": {
+                        "lr_scheduler_cls":
+                            "linear",
+                        "lr_scheduler_kwargs":
+                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
+                    }},
+                {
+                    "optimizer_cls": "sgd",
+                    "lr": args.learned_round_scale_lr,
+                    "optimizer_kwargs": {
+                        "momentum": args.learned_round_scale_momentum,},
+                    "lr_scheduler_args": {
+                        "lr_scheduler_cls":
+                            "linear",
+                        "lr_scheduler_kwargs":
+                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
+                    }}],
+            "block_name_attribute":
+                args.gpxq_block_name,
+            "optimizers_targets": ["learned_round"] +
+                                  (["scales"] if args.learned_round_scale else []),
+            "batch_size":
+                8,
+            "iters":
+                args.learned_round_iters,
+            "use_best_model":
+                True,
+            "use_amp":
+                True,
+            "amp_dtype":
+                "float16",}}
+    from dacite import from_dict
+    config = from_dict(data_class=Config, data=config_dict)
+    return config
+
+
+def apply_learned_round(model: nn.Module, calibration_loader: DataLoader, args: Namespace) -> None:
     cache = CacheLLM()
+    llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=args.gpxq_block_name)
+
+    config = parse_args_to_dataclass(args)
+    learned_round_optimizer = LearnedRoundOptimizer(config=config)
     learned_round_optimizer.apply_learned_round(
         model=model,
         model_forward=llm_forward,
         block_forward=llm_block_forward,
-        data_loader=calibration_loader,
+        dataset=calibration_loader,
         cache=cache,
         get_blocks_fn=llm_block_check_fn,
+        collate_fn=collate_fn,
         model_prepare_fn=llm_learned_round_prepare_fn,
         model_finish_fn=llm_learned_round_finish_fn,
-        keep_gpu=False,
-        fast_update=fast_update)
+        keep_gpu=False)

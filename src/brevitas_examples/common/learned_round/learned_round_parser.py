@@ -1,47 +1,17 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import Optional
-from typing import Tuple
 from typing import Type
-from typing import Union
 import warnings
 
 import torch
 from torch.optim.optimizer import Optimizer
 
-from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.optim.sign_sgd import SignSGD
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundLoss
-from brevitas_examples.common.learned_round.learned_round_method import MSELoss
-from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
 
-LEARNED_ROUND_MAP = {
-    "linear_round": LearnedRoundImplType.IDENTITY,
-    "hard_sigmoid_round": LearnedRoundImplType.HARD_SIGMOID,
-    "sigmoid_round": LearnedRoundImplType.SIGMOID,}
-LEARNED_ROUND_LOSS_MAP = {
-    "mse": MSELoss,
-    "regularised_mse": RegularisedMSELoss,}
 OPTIMIZER_MAP = {
     "sign_sgd": SignSGD,}
 LR_SCHEDULER_MAP = {}
-
-
-def parse_learned_round(learned_round_str: str) -> LearnedRound:
-    if learned_round_str not in LEARNED_ROUND_MAP:
-        raise ValueError(f"Learned round method {learned_round_str} is not available.")
-    return LearnedRound(learned_round_impl_type=LEARNED_ROUND_MAP[learned_round_str])
-
-
-def parse_learned_round_loss_class(learned_round_loss_str: str) -> Type[LearnedRoundLoss]:
-    if learned_round_loss_str not in LEARNED_ROUND_LOSS_MAP:
-        raise ValueError(f"Learned round loss {learned_round_loss_str} is not available.")
-    return LEARNED_ROUND_LOSS_MAP[learned_round_loss_str]
 
 
 def parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:

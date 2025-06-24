@@ -494,18 +494,7 @@ def quantize_llm(args, extra_args=None):
                 iters = args.learned_round_iters
                 loader = calibration_loader
             remove_hooks(model)
-            apply_learned_round(
-                model,
-                loader,
-                iters=iters,
-                block_name_attribute=args.gpxq_block_name,
-                learn_scale=args.learned_round_scale,
-                scale_optimizer_class='sgd',
-                optimizer_kwargs={'lr': args.learned_round_lr},
-                scale_optimizer_kwargs={
-                    'lr': args.learned_round_scale_lr,
-                    'momentum': args.learned_round_scale_momentum},
-                fast_update=args.learned_round_fast_update)
+            apply_learned_round(model, loader, args)
             print("Learned round applied.")
             model = offload_model(model)
 
