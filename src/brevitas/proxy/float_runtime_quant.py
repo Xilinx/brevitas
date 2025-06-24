@@ -82,10 +82,6 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
     def is_fnuz(self):
         return self.is_fnuz_e4m3 or self.is_fnuz_e5m2
 
-    @property
-    def standard_float_dtype(self):
-        return float_to_standard_float(self)
-
 
 class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
 

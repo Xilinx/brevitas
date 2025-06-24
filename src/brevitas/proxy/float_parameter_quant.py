@@ -4,7 +4,6 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
-import torch
 from torch import Tensor
 import torch.nn as nn
 
@@ -90,10 +89,6 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, AB
             return self.tensor_quant.input_view_impl
         else:
             return Identity()
-
-    @property
-    def standard_float_dtype(self):
-        return float_to_standard_float(self)
 
 
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
