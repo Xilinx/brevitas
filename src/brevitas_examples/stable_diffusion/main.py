@@ -15,7 +15,6 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
-from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
 import packaging
@@ -29,7 +28,6 @@ from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 torch._dynamo.config.force_parameter_static_shapes = False
-from brevitas.export.shark.manager import SharkManager
 
 try:
     from cleanfid import fid as cleanfid
@@ -65,9 +63,6 @@ from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_para
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
 from brevitas_examples.stable_diffusion.sd_quant.nn import FusedFluxAttnProcessor2_0
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
-from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
-from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
-from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
