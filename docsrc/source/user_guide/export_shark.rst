@@ -11,8 +11,8 @@ Within Brevitas, we are closely collaborating with the team behind Shark-AI to p
 quantization flow for all the latest and greatest SOTA models, that can then be deployed through
 Shark-AI.
 
-Current preliminary support is mostly focused around LLM, but we are already planning the next steps 
-of these integration.
+Current preliminary support is focused on LLM, but we are already planning the next steps 
+of this integration to enable support to other types of architectures.
 
 The current recommended way to export a model to Shark-AI is through our LLM entrypoint.
 
@@ -137,7 +137,7 @@ Currently, Brevitas entrypoint allows to quantize many commonly used LLM directl
 applying the user desired quantization algorithms and then exporting them in a format that Shark-AI 
 is able to consume.
 
-On the other hand, not all model families have been tested with Shark-AI. Moreover, Shark-AI repository 
+On the other hand, not all model families have been tested with Shark-AI. Moreover, the Shark-AI repository 
 redefines some models from scratch to ensure the best compatibility and performance when deploying on AMD 
 hardware.
 In this context, export from HuggingFace to Shark-AI might cause slightly mismatches and inaccuracies.
