@@ -192,7 +192,6 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         out = x * self.affine_weight + self.affine_bias()
-        out = abs_binary_sign_grad(out)
         return out
 
     def _load_from_state_dict(
