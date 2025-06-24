@@ -19,13 +19,14 @@ from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
+LIBRARY_STRING = "qonnx"
 DOMAIN_STRING = "qonnx.custom_op.general"
 DOMAIN_VERSION = 2
 qonnx_op = onnxscript.values.Opset(domain=DOMAIN_STRING, version=DOMAIN_VERSION)
 
 
 # Define and use the operator in PyTorch
-@torch.library.custom_op("mylibrary::int_quant", mutates_args=())
+@torch.library.custom_op(f"{LIBRARY_STRING}::int_quant", mutates_args=())
 def int_quant(
         input: torch.Tensor,
         scale: torch.Tensor,
