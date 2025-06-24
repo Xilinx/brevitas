@@ -188,7 +188,7 @@ class GPxQ(ABC):
         weight_shape = torch.tensor(layer.weight.shape)
 
         if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
-            self.layer.register_buffer('weight_orig', layer.weight.detach().clone())
+            self.layer.register_buffer('weight_orig', layer.weight.detach().clone().cpu())
 
         # By default, use groups = 1
         self.groups = 1
