@@ -104,7 +104,6 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_shape: Tuple[int, ...],
             tracked_parameter_list: List[torch.nn.Parameter],
             scale_shift_zero_point_impl: Optional[Module] = None,
-            zero_point_affine_rescaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             zero_point_affine_rescaling_init: Optional[float] = None,
             zero_point_affine_shifting_init: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
@@ -116,14 +115,14 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_view_shape_impl,
             zero_point_stats_input_concat_dim,
             tracked_parameter_list)
-        _affine_rescaling: bool = zero_point_affine_rescaling_init is not None
-        _affine_shift_scale: bool = zero_point_affine_shifting_init is not None
+        _affine_rescaling = zero_point_affine_rescaling_init is not None
+        _affine_shift_scale = zero_point_affine_shifting_init is not None
         if _affine_shift_scale and not _affine_rescaling:
             raise RuntimeError(
                 "Enabling shifting of the scale requires enabling affine rescaling first.")
         if _affine_rescaling:
             self.affine_rescaling = _AffineRescaling(
-                zero_point_affine_rescaling_shape,
+                zero_point_shape,
                 zero_point_affine_rescaling_init,
                 zero_point_affine_shifting_init,
                 dtype,
@@ -307,7 +306,6 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_impl: Module,
             zero_point_shape: Tuple[int, ...],
             tracked_parameter_list: List[torch.nn.Parameter],
-            zero_point_affine_rescaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             zero_point_affine_rescaling_init: Optional[float] = None,
             zero_point_affine_shifting_init: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
@@ -319,14 +317,14 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_view_shape_impl,
             zero_point_stats_input_concat_dim,
             tracked_parameter_list)
-        _affine_rescaling: bool = zero_point_affine_rescaling_init is not None
-        _affine_shift_scale: bool = zero_point_affine_shifting_init is not None
+        _affine_rescaling = zero_point_affine_rescaling_init is not None
+        _affine_shift_scale = zero_point_affine_shifting_init is not None
         if _affine_shift_scale and not _affine_rescaling:
             raise RuntimeError(
                 "Enabling shifting of the scale requires enabling affine rescaling first.")
         if _affine_rescaling:
             self.affine_rescaling = _AffineRescaling(
-                zero_point_affine_rescaling_shape,
+                zero_point_shape,
                 zero_point_affine_rescaling_init,
                 zero_point_affine_shifting_init,
                 dtype,

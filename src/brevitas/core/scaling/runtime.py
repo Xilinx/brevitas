@@ -36,7 +36,6 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
-            scaling_affine_rescaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             scaling_affine_rescaling_init: Optional[float] = None,
             scaling_affine_shifting_init: Optional[float] = None,
             scaling_min_val: Optional[float] = None,
@@ -59,7 +58,7 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             restrict_scaling_impl,
             restrict_threshold_impl,
             scaling_min_val,
-            scaling_affine_rescaling_shape,
+            scaling_shape,
             scaling_affine_rescaling_init,
             scaling_affine_shifting_init,
             dtype,
@@ -89,8 +88,8 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             dtype: Optional[torch.dtype],
             device: Optional[torch.device]) -> None:
         super(_StatsScaling, self).__init__()
-        _affine_rescaling: bool = scaling_affine_rescaling_init is not None
-        _affine_shift_scale: bool = scaling_affine_shifting_init is not None
+        _affine_rescaling = scaling_affine_rescaling_init is not None
+        _affine_shift_scale = scaling_affine_shifting_init is not None
         if _affine_shift_scale and not _affine_rescaling:
             raise RuntimeError(
                 "Enabling shifting of the scale requires enabling affine rescaling first.")
@@ -133,7 +132,6 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_stats_input_view_shape_impl: Module,
             scaling_shape: Tuple[int, ...],
-            scaling_affine_rescaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             scaling_affine_rescaling_init: Optional[float] = None,
             scaling_affine_shifting_init: Optional[float] = None,
             restrict_scaling_impl: Module = FloatRestrictValue(),
@@ -159,7 +157,7 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             restrict_scaling_impl,
             restrict_threshold_impl,
             scaling_min_val,
-            scaling_affine_rescaling_shape,
+            scaling_shape,
             scaling_affine_rescaling_init,
             scaling_affine_shifting_init,
             dtype,
