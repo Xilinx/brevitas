@@ -180,10 +180,10 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
             device: Optional[torch.device]):
         super(_AffineRescaling, self).__init__()
         self.affine_weight = Parameter(
-            affine_weight_init * torch.ones(scaling_shape, dtype=dtype, device=device))
+            torch.full(scaling_shape, affine_weight_init, dtype=dtype, device=device))
         if affine_bias_init is not None:
             self.affine_bias = ParameterWrapper(
-                affine_bias_init + torch.zeros(scaling_shape, dtype=dtype, device=device))
+                 torch.full(scaling_shape, affine_bias_init, dtype=dtype, device=device))
         else:
             self.affine_bias = StatelessBuffer(torch.tensor(0., dtype=dtype, device=device))
 
