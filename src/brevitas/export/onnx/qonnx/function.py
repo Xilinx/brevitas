@@ -43,19 +43,17 @@ def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed
     return torch.empty_like(tensor_x)
 
 
-@onnxscript.script(qonnx_op, default_opset=onnxscript.opset18)
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
 def Quant(
-        self, scale, zero_point, bit_width, narrow_range: int, signed: int,
+        self: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
         rounding_mode: str) -> FLOAT:
-
     return self
 
 
-@onnxscript.script(qonnx_op, default_opset=onnxscript.opset18)
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
 def QuantWrapper(
-        self, scale, zero_point, bit_width, narrow_range: int, signed: int,
+        self: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
         rounding_mode: str) -> FLOAT:
-
     return Quant(self, scale, zero_point, bit_width, narrow_range, signed, rounding_mode)
 
 
