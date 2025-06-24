@@ -84,8 +84,8 @@ class ONNXBaseManager(BaseManager, ABC):
 
     @classmethod
     def apply_model_transforms(cls, model):
-        for tranform in cls.model_transforms:
-            model = tranform(model)
+        for transform in cls.model_transforms:
+            model = transform(model)
         return model
 
     @classmethod
