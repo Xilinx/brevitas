@@ -15,13 +15,11 @@ from brevitas.core.function_wrapper import Identity
 from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.scaling import SCALAR_SHAPE
 from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import _RuntimeStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
 from brevitas.core.utils import ParameterWrapper
 from brevitas.core.utils import StatelessBuffer
-from brevitas.function.ops_ste import abs_binary_sign_grad
 
 
 class StatsFromParameterScaling(brevitas.jit.ScriptModule):
@@ -82,7 +80,7 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             restrict_scaling_impl: Module,
             restrict_threshold_impl: Module,
             scaling_min_val: Optional[float],
-            scaling_affine_rescaling_shape: Tuple[int, ...],
+            scaling_shape: Tuple[int, ...],
             scaling_affine_rescaling_init: Optional[float],
             scaling_affine_shifting_init: Optional[float],
             dtype: Optional[torch.dtype],
@@ -95,7 +93,7 @@ class _StatsScaling(brevitas.jit.ScriptModule):
                 "Enabling shifting of the scale requires enabling affine rescaling first.")
         if _affine_rescaling:
             self.affine_rescaling = _AffineRescaling(
-                scaling_affine_rescaling_shape,
+                scaling_shape,
                 scaling_affine_rescaling_init,
                 scaling_affine_shifting_init,
                 dtype,
