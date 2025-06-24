@@ -98,7 +98,7 @@ the case, replace the attention dtype flag with:
 
 .. code-block:: bash
 
-    --attention-dtype=float8_e4m3fnuz
+    --attention-dtype=float32
 
 After this step, you should have a new file called `model.mlir`, which is what we need for the compilation phase,
 which can be done as follows:

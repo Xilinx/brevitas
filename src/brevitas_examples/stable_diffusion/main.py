@@ -623,20 +623,6 @@ def main(args):
                 with torch.no_grad(), calibration_mode(denoising_network):
                     calibration_step(force_full_calibration=True)
 
-        with torch.no_grad():
-            run_val_inference(
-                pipe,
-                args.resolution, [calibration_prompts[0]],
-                test_seeds,
-                args.device,
-                dtype,
-                deterministic=args.deterministic,
-                total_steps=1,
-                use_negative_prompts=args.use_negative_prompts,
-                test_latents=latents,
-                guidance_scale=args.guidance_scale,
-                is_unet=is_unet)
-        h.remove()
         if args.svd_quant:
             print("Applying SVDQuant...")
             denoising_network = apply_svd_quant(
@@ -834,7 +820,6 @@ def main(args):
                 export_manager = StdQCDQONNXManager
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
-
         if args.export_target == 'params_only':
             device = next(iter(denoising_network.parameters())).device
             pipe.to('cpu')

@@ -145,8 +145,6 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
         def filter_kwargs(prefix):
             return {k[len(prefix):]: v for k, v in kwargs.items() if k.startswith(prefix)}
 
-        self.pre_scale_q = True
-
         self.q_scaled_quant = QuantIdentity(act_quant=q_scaled_quant, **filter_kwargs('q_scaled_'))
         self.k_transposed_quant = QuantIdentity(
             act_quant=k_transposed_quant, **filter_kwargs('k_transposed_'))
@@ -221,10 +219,7 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
                 attn_bias += attn_mask
         query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
 
-        if self.pre_scale_q:
-            q_scaled = self.q_scaled_quant(query * scale_factor)
-        else:
-            q_scaled = self.q_scaled_quant(query) * scale_factor
+        q_scaled = self.q_scaled_quant(query * scale_factor)
         k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
         attn_weight = q_scaled @ k_transpose
         attn_weight += attn_bias
