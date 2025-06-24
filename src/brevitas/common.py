@@ -3,11 +3,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Any
-from typing import Protocol
 import warnings
-
-from typing_extensions import runtime_checkable
 
 from brevitas import config
 from brevitas.utils.logging import setup_logger

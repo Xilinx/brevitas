@@ -200,7 +200,6 @@ def fx_required(args):
 
 
 def quantize_llm(args, extra_args=None):
-    from transformers.models.mistral.modeling_mistral import MistralAttention
     validate(args, extra_args)
     set_seed(args.seed)
     if args.export_prefix is None:
@@ -234,7 +233,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=False,  #require_fx and args.export_target is not None,
+        require_fx=require_fx and args.export_target is not None,
         device=None)
 
     validation_loader = get_dataset_for_model(
@@ -246,7 +245,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="validation",
         seed=args.seed,
-        require_fx=False,  #require_fx and args.export_target is not None,
+        require_fx=require_fx and args.export_target is not None,
         device=None)
 
     if args.optimize_rotations:
@@ -620,7 +619,6 @@ def quantize_llm(args, extra_args=None):
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-        # save_quantized_as_gguf('./tmp', model=model.cpu(), tokenizer=tokenizer)
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
