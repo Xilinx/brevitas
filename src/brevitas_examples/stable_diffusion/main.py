@@ -15,10 +15,8 @@ from dependencies import value
 import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
-from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
-import numpy as np
 import packaging
 import packaging.version
 import pandas as pd
@@ -30,6 +28,7 @@ from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 torch._dynamo.config.force_parameter_static_shapes = False
+
 try:
     from cleanfid import fid as cleanfid
 except:
@@ -64,8 +63,6 @@ from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_para
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
 from brevitas_examples.stable_diffusion.sd_quant.nn import FusedFluxAttnProcessor2_0
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
-from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
-from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
@@ -899,7 +896,6 @@ def main(args):
                 fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
             for quant_image in tqdm(quant_images_values):
                 fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
-
             print(f"Torchmetrics FID: {float(fid.compute())}")
             torchmetrics_fid = float(fid.compute())
             # Dump args to json

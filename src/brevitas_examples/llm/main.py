@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
 import functools
+import os
 import pprint
 import sys
 
@@ -28,6 +29,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
@@ -44,8 +46,11 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
+from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
+from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
@@ -61,6 +66,14 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+
+logging = setup_logger(__name__)
+
+try:
+    from brevitas.export.shark.manager import SharkManager
+except:
+    SharkManager = None
+    logging.debug("Shark-AI not installed, cannot export to Shark")
 
 
 def filter_results(results, tasks):
@@ -122,7 +135,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def model_export(model, tokenizer, ref_input, args):
+def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'sharded_torchmlir_group_weight':
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
@@ -148,6 +161,34 @@ def model_export(model, tokenizer, ref_input, args):
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
 
+    elif args.export_target == 'shark':
+        assert SharkManager is not None, "Please install shark-ai to export to Shark"
+        from sharktank.types import Theta
+
+        if args.export_prefix is None:
+            export_path = "./dataset.irpa"
+        else:
+            os.makedirs(f"./{args.export_prefix}", exist_ok=True)
+            export_path = f"./{args.export_prefix}/dataset.irpa"
+
+        print(f"Exporting the model in {export_path}")
+
+        export = SharkManager(config=config)
+        with torch.no_grad():
+            model = offload_model(model)
+            ds = export.export(model, **ref_input)
+        properties = ds.properties
+        root_theta = ds.root_theta.flatten()
+
+        # Export is always upcast to float32, and if we don't update the properties, it will fail
+        properties['torch_dtype'] = 'float32'
+        root_theta = Theta(gguf_mapping(root_theta, config))
+        properties = convert_hf_hparams_to_gguf(_get_dataset_props(properties))
+        root_theta.rename_tensors_to_paths()
+        ds.properties = properties
+        ds.root_theta = root_theta
+        ds.save(export_path, io_report_callback=None)
+
 
 def fx_required(args):
     return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
@@ -168,6 +209,7 @@ def quantize_llm(args, extra_args=None):
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     dtype = next(model.parameters()).dtype
+    config = model.config
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -235,6 +277,7 @@ def quantize_llm(args, extra_args=None):
             model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
+    model.eval()
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
@@ -388,7 +431,6 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
-
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
@@ -572,7 +614,6 @@ def quantize_llm(args, extra_args=None):
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -643,7 +684,7 @@ def quantize_llm(args, extra_args=None):
             print(f"Export to {args.export_target}")
             # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
-            model_export(model, tokenizer, calibration_loader[0], args)
+            model_export(model, tokenizer, calibration_loader[0], args, config)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 

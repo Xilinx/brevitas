@@ -262,7 +262,7 @@ def generate_quantizers(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
-        attn_quant_config="qkvs",  # choices: "kv", "qkvs"
+        attn_quant_config="qkvs",  # choices: "kv", "qkvs", "qkv"
         attn_bit_width=None,
         attn_quant_format=None,
         attn_scale_precision=None,
@@ -349,7 +349,7 @@ def generate_quantizers(
         k_transposed_quant = k_transposed_quant.let(
             **attn_override_kwargs
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
-        if attn_quant_config == "qkvs":
+        if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
         elif attn_quant_config == "kv":
             q_scaled_quant = None
@@ -437,7 +437,13 @@ def generate_quantizers(
                 **{
                     'group_dim': -2, 'group_size': attn_group_size})
         v_quant = k_transposed_quant
-        attn_output_weights_quant = q_scaled_quant
+
+        # If we only quantize QKV< set attn_output_weight_quant to None
+        if attn_quant_config == 'qkv':
+            attn_output_weights_quant = None
+        else:
+            attn_output_weights_quant = q_scaled_quant
+
         if (attn_quant_type == "sym") and \
             (not "float" in attn_quant_format) and \
             (attn_output_weights_quant is not None):

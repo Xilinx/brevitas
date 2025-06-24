@@ -11,7 +11,7 @@ Brevitas can currently export to:
 -  Pytorch's *quantized.functional* operators (*experimental*) - for
    acceleration through Pytorch itself, or any additional downstream
    toolchains supported by Pytorch (e.g. TVM).
-- GGUF - Used for LLM optimized inference
+-  GGUF - Used for LLM optimized inference
 
 Because Brevitas implements a super-set of layers and datatypes
 supported by various downstream toolchains and hardware platforms, the
