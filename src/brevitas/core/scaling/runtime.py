@@ -174,7 +174,7 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_shape,
-            affine_weight_init: Optional[float],
+            affine_weight_init: float,
             affine_bias_init: Optional[float],
             dtype: Optional[torch.dtype],
             device: Optional[torch.device]):
