@@ -171,6 +171,12 @@ class StdQCDQCastONNXGroupwiseActQuantProxyHandler(StdQCDQCastONNXMixin,
     pass
 
 
+class StdFloatQCDQCastONNXGroupwiseActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                        FloatQCDQCastActQuantProxyHandlerMixin,
+                                                        ONNXBaseHandler):
+    pass
+
+
 class StdFloatQCDQCastONNXActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
                                                FloatQCDQCastActQuantProxyHandlerMixin,
                                                ONNXBaseHandler):
