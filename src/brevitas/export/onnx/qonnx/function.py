@@ -19,42 +19,10 @@ from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
-LIBRARY_STRING = "qonnx"
+LIBRARY_STRING = "qonnx"  # Note: if this value is modified, it must also be changed in the QONNXManager classes
 DOMAIN_STRING = "qonnx.custom_op.general"
 DOMAIN_VERSION = 2
 qonnx_op = onnxscript.values.Opset(domain=DOMAIN_STRING, version=DOMAIN_VERSION)
-
-
-# Define and use the operator in PyTorch
-@torch.library.custom_op(f"{LIBRARY_STRING}::int_quant", mutates_args=())
-def int_quant(
-        input: torch.Tensor,
-        scale: torch.Tensor,
-        zero_point: torch.Tensor,
-        bit_width: torch.Tensor,
-        narrow_range: int,
-        signed: int,
-        rounding_mode: str) -> torch.Tensor:
-    return input
-
-
-@int_quant.register_fake
-def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-    return torch.empty_like(tensor_x)
-
-
-@onnxscript.script(qonnx_op, default_opset=qonnx_op)
-def Quant(
-        self: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
-        rounding_mode: str) -> FLOAT:
-    return self
-
-
-@onnxscript.script(qonnx_op, default_opset=qonnx_op)
-def QuantWrapper(
-        self: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
-        rounding_mode: str) -> FLOAT:
-    return Quant(self, scale, zero_point, bit_width, narrow_range, signed, rounding_mode)
 
 
 class BrevitasBinaryQuantFn(Function):
@@ -89,14 +57,6 @@ class BrevitasQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        # float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        # quant = IntQuant(
-        #     float_to_int_impl=float_to_int_impl(),
-        #     tensor_clamp_impl=TensorClamp(),
-        #     input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
-        #     narrow_range=narrow_range,
-        #     signed=signed)
-        # y = quant(scale, zero_point, bit_width, x)
         y = int_quant(
             x,
             scale,
@@ -106,6 +66,47 @@ class BrevitasQuantFn(Function):
             signed=int(signed),
             rounding_mode=rounding_mode)
         return y
+
+
+# Define and use the operator in PyTorch
+@torch.library.custom_op(f"{LIBRARY_STRING}::int_quant", mutates_args=())
+def int_quant(
+        x: torch.Tensor,
+        scale: torch.Tensor,
+        zero_point: torch.Tensor,
+        bit_width: torch.Tensor,
+        narrow_range: int,
+        signed: int,
+        rounding_mode: str) -> torch.Tensor:
+    float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+    quant = IntQuant(
+        float_to_int_impl=float_to_int_impl(),
+        tensor_clamp_impl=TensorClamp(),
+        input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
+        narrow_range=torch.tensor(narrow_range, dtype=x.dtype, device=x.device),
+        signed=torch.tensor(narrow_range, dtype=x.dtype, device=x.device))
+    x = quant(scale, zero_point, bit_width, x)
+    return x
+
+
+@int_quant.register_fake
+def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+    return torch.empty_like(tensor_x)
+
+
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def Quant(
+        x: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
+        rounding_mode: str) -> FLOAT:
+    return x
+
+
+# We replace int_quant with this function, which wraps to QONNX node we want to generate
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def int_quant_wrapper(
+        x: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
+        rounding_mode: str) -> FLOAT:
+    return Quant(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode)
 
 
 class BrevitasFloatQuantFn(Function):
