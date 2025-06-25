@@ -1,0 +1,21 @@
+# non-defaults only; see default_template.yml for defaults
+# adds a BOS token to the beginning of each sequence
+bos_preprocessing: sequence
+dtype: bfloat16
+eval: true
+few_shot_eval: lighteval
+few_shot_override_batch_size: 128
+# we use lighteval since it is faster, but using lm_eval 
+# requires different strings for few_shot_tasks
+few_shot_tasks:
+- lighteval|piqa|0|0
+- lighteval|arc:easy|0|0
+- leaderboard|arc:challenge|0|0
+- leaderboard|winogrande|0|0
+- leaderboard|hellaswag|0|0
+gpxq_act_order: true
+gpxq_block_name: model.layers
+model: Qwen/Qwen3-1.7B
+weight_bit_width: 4
+weight_scale_precision: float_scale
+weight_group_size: 32
