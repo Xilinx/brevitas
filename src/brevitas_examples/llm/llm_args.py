@@ -1,14 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-<<<<<<< HEAD
-import argparse
+from argparse import Namespace
 from typing import List
 from typing import Optional
-=======
-from argparse import Namespace
-from typing import List, Optional
->>>>>>> Entrypoint refactor
 from warnings import warn
 
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
