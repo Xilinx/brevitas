@@ -6,7 +6,6 @@ import os
 import torch
 
 from brevitas.export import enable_debug
-from brevitas.export import export_brevitas_onnx
 from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
@@ -18,6 +17,7 @@ from brevitas.quant.scaled_int import Int16Bias
 from brevitas_examples import imagenet_classification
 from tests.marker import jit_disabled_for_export
 
+from ...export_fixture import qonnx_export_fn
 from .quant_module_fixture import *
 
 OUT_CH = 50
@@ -26,7 +26,7 @@ TOLERANCE = 1.1
 
 
 @jit_disabled_for_export()
-def test_generic_quant_linear_export():
+def test_generic_quant_linear_export(qonnx_export_fn):
     IN_SIZE = (2, IN_CH)
 
     class Model(torch.nn.Module):
@@ -50,12 +50,12 @@ def test_generic_quant_linear_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(model, inp, export_path='generic_quant_linear.onnx')
+    qonnx_export_fn(model, inp, export_path='generic_quant_linear.onnx')
     os.remove('generic_quant_linear.onnx')
 
 
 @jit_disabled_for_export()
-def test_generic_decoupled_quant_linear_export():
+def test_generic_decoupled_quant_linear_export(qonnx_export_fn):
     IN_SIZE = (2, IN_CH)
 
     class Model(torch.nn.Module):
@@ -80,11 +80,11 @@ def test_generic_decoupled_quant_linear_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(model, inp, export_path='generic_decoupled_quant_linear.onnx')
+    qonnx_export_fn(model, inp, export_path='generic_decoupled_quant_linear.onnx')
 
 
 @jit_disabled_for_export()
-def test_a2q_quant_linear_export(a2q_weight_act_quantizers):
+def test_a2q_quant_linear_export(a2q_weight_act_quantizers, qonnx_export_fn):
     IN_SIZE = (2, IN_CH)
 
     _, (weight_quant, io_quant) = a2q_weight_act_quantizers
@@ -111,11 +111,11 @@ def test_a2q_quant_linear_export(a2q_weight_act_quantizers):
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(model, inp, export_path='a2q_quant_linear.onnx')
+    qonnx_export_fn(model, inp, export_path='a2q_quant_linear.onnx')
 
 
 @jit_disabled_for_export()
-def test_generic_quant_conv_export():
+def test_generic_quant_conv_export(qonnx_export_fn):
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
 
     class Model(torch.nn.Module):
@@ -140,11 +140,11 @@ def test_generic_quant_conv_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(model, inp, export_path='generic_quant_conv.onnx')
+    qonnx_export_fn(model, inp, export_path='generic_quant_conv.onnx')
 
 
 @jit_disabled_for_export()
-def test_generic_quant_tensor_export():
+def test_generic_quant_tensor_export(qonnx_export_fn):
     IN_SIZE = (2, IN_CH)
 
     class Model(torch.nn.Module):
@@ -168,11 +168,11 @@ def test_generic_quant_tensor_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(model, inp, export_path='generic_quant_tensor.onnx')
+    qonnx_export_fn(model, inp, export_path='generic_quant_tensor.onnx')
 
 
 @jit_disabled_for_export()
-def test_generic_quant_avgpool_export():
+def test_generic_quant_avgpool_export(qonnx_export_fn):
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
 
     class Model(torch.nn.Module):
@@ -190,11 +190,11 @@ def test_generic_quant_avgpool_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(model, inp, export_path='generic_quant_avgpool.onnx')
+    qonnx_export_fn(model, inp, export_path='generic_quant_avgpool.onnx')
 
 
 @jit_disabled_for_export()
-def test_generic_quant_avgpool_export_quant_input():
+def test_generic_quant_avgpool_export_quant_input(qonnx_export_fn):
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
     inp = torch.randn(IN_SIZE)
     inp_quant = QuantIdentity(return_quant_tensor=True)
@@ -202,15 +202,15 @@ def test_generic_quant_avgpool_export_quant_input():
     inp_quant(inp)  # collect scale factors
     inp_quant.eval()
     model.eval()
-    export_qonnx(model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
+    qonnx_export_fn(model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
 
 
 @jit_disabled_for_export()
-def test_debug_brevitas_onnx_export():
+def test_debug_brevitas_onnx_export(qonnx_export_fn):
     model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b')
     model.eval()
     debug_hook = enable_debug(model, proxy_level=True)
     input_tensor = torch.randn(1, 3, 224, 224)
-    export_brevitas_onnx(model, input_t=input_tensor, export_path='generic_debug.onnx')
+    qonnx_export_fn(model, input_t=input_tensor, export_path='generic_debug.onnx')
     model(input_tensor)
     assert debug_hook.values
