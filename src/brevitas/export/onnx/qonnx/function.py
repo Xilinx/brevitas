@@ -244,7 +244,7 @@ def trunc_quant(
     #    float_to_int_impl=float_to_int_impl(),
     #    bit_width_impl=BitWidthConst(int(output_bit_width)))
     #y_tuple = trunc(x, scale, zero_point, input_bit_width, signed)
-    return x
+    return x.clone()
 
 
 @trunc_quant.register_fake
