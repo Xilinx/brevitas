@@ -12,7 +12,7 @@ from torch.nn import Parameter
 import brevitas
 from brevitas import config
 from brevitas.core.function_wrapper.misc import Identity
-from brevitas.core.function_wrapper.ops_ste import ScalarClampMinSte
+from brevitas.core.function_wrapper.ops_ste import ScalarSignedClampMinSte
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
 from brevitas.quant_tensor import _unpack_quant_tensor
@@ -619,7 +619,7 @@ class HalfQuadraticOptimizerScale(torch.nn.Module):
         self.int_scaling_impl = int_scaling_impl
         self.msb_clamp_bit_width_impl = bit_width_impl
         if scaling_min_val is not None and scaling_min_val != 0:
-            self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
+            self.clamp_min_ste = ScalarSignedClampMinSte(scaling_min_val)
         else:
             self.clamp_min_ste = Identity()
         self.keepdim = keepdim
