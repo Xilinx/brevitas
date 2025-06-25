@@ -91,9 +91,9 @@ class QONNXManager(ONNXBaseManager):
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
             **onnx_export_kwargs):
-        key = "dynamo"
-        if key in onnx_export_kwargs.keys():
-            assert not onnx_export_kwargs["dynamo"]
+        #key = "dynamo"
+        #if key in onnx_export_kwargs.keys():
+        #    assert not onnx_export_kwargs["dynamo"]
         key = "custom_opsets"
         if key in onnx_export_kwargs.keys():
             if QONNX_DOMAIN_STRING in onnx_export_kwargs[key].keys():
