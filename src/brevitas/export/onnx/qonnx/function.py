@@ -35,8 +35,34 @@ class BrevitasBinaryQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        y = binary_sign(x) * scale
+        bipolar_quant(x, scale)
         return y
+
+
+@torch.library.custom_op(f"{LIBRARY_STRING}::bipolar_quant", mutates_args=())
+def bipolar_quant(
+        x: torch.Tensor,
+        scale: torch.Tensor) -> torch.Tensor:
+    x = binary_sign(x) * scale
+    return x
+
+
+@bipolar_quant.register_fake
+def _bipolar_quant_fake(tensor_x, scale):
+    return torch.empty_like(tensor_x)
+
+
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def BipolarQuant(
+        x: FLOAT, scale: FLOAT) -> FLOAT:
+    return x
+
+
+# We replace bipolar_quant with this function, which wraps to QONNX node we want to generate
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def bipolar_quant_wrapper(
+        x: FLOAT, scale: FLOAT) -> FLOAT:
+    return BipolarQuant(x, scale)
 
 
 class BrevitasQuantFn(Function):
@@ -68,7 +94,6 @@ class BrevitasQuantFn(Function):
         return y
 
 
-# Define and use the operator in PyTorch
 @torch.library.custom_op(f"{LIBRARY_STRING}::int_quant", mutates_args=())
 def int_quant(
         x: torch.Tensor,
