@@ -171,13 +171,6 @@ class ONNXBaseManager(BaseManager, ABC):
                     else:
                         model_bytes = BytesIO()
                         export_target = model_bytes
-                    from functools import partial
-
-                    from brevitas.export.inference.manager import _override_create_quant_tensor
-                    from brevitas.graph.calibrate import QuantizationStatusManager
-                    return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(module)
-                    disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
-                    module.apply(disable_quant_tensor)
 
                     # Check if we attached Float-related handlers, then we need to patch export
                     fp8_export_patch = False
@@ -188,21 +181,22 @@ class ONNXBaseManager(BaseManager, ABC):
 
                     patch_export = PatchFp8Ops if fp8_export_patch else nullcontext
                     with patch_export():
-                        model = torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
                     cls.set_export_mode(module, enabled=False)
                     module.train(training_state)
 
                     # do some cleanup on the exported ONNX model
-                    # if export_path is not None:
-                    #     model = onnx.load(export_path)
-                    # else:
-                    #     model = onnx.ModelProto.FromString(model_bytes.getvalue())
-                    # model = opt.optimize(model, cls.onnx_passes)
-                    # model = cls.apply_model_transforms(model)
-                    # if export_path is not None:
-                    #     onnx.save(model, export_path)
+                    if export_path is not None:
+                        model = onnx.load(export_path)
+                    else:
+                        model = onnx.ModelProto.FromString(model_bytes.getvalue())
+                    model = opt.optimize(model, cls.onnx_passes)
+                    model = cls.apply_model_transforms(model)
+                    if export_path is not None:
+                        onnx.save(model, export_path)
                     return model
 
     @classmethod
