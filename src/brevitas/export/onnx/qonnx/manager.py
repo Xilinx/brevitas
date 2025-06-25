@@ -32,6 +32,7 @@ from .function import DOMAIN_STRING as QONNX_DOMAIN_STRING
 from .function import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
 from .function import int_quant_wrapper
 from .function import bipolar_quant_wrapper
+from .function import trunc_quant_wrapper
 from .handler import BrevitasActFloatQuantProxyHandler
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
@@ -115,6 +116,7 @@ class QONNXDynamoManager(QONNXManager):
     custom_translation_table = {
         torch.ops.qonnx.int_quant.default: int_quant_wrapper,
         torch.ops.qonnx.bipolar_quant.default: bipolar_quant_wrapper,
+        torch.ops.qonnx.trunc_quant.default: trunc_quant_wrapper,
     }
 
     @classmethod

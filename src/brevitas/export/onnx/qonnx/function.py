@@ -223,13 +223,72 @@ class BrevitasTruncFn(Function):
             output_scale,
             output_bit_width,
             rounding_mode):
-        # TODO: Restore this (fails when `signed` arg added)
-        #float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        #trunc = TruncIntQuant(
-        #    float_to_int_impl=float_to_int_impl(),
-        #    bit_width_impl=BitWidthConst(int(output_bit_width)))
-        #y_tuple = trunc(x, scale, zero_point, input_bit_width, signed)
+        trunc_quant(x, scale, zero_point, input_bit_width, output_scale, output_bit_width, rounding_mode, int(signed), int(narrow_range))
         return x
+
+
+@torch.library.custom_op(f"{LIBRARY_STRING}::trunc_quant", mutates_args=())
+def trunc_quant(
+        x: torch.Tensor,
+        scale: torch.Tensor,
+        zero_point: torch.Tensor,
+        input_bit_width: torch.Tensor,
+        output_scale: torch.Tensor,
+        output_bit_width: torch.Tensor,
+        rounding_mode: str,
+        signed: int,
+        narrow_range: int) -> torch.Tensor:
+    # TODO: Restore this (fails when `signed` arg added)
+    #float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+    #trunc = TruncIntQuant(
+    #    float_to_int_impl=float_to_int_impl(),
+    #    bit_width_impl=BitWidthConst(int(output_bit_width)))
+    #y_tuple = trunc(x, scale, zero_point, input_bit_width, signed)
+    return x
+
+
+@trunc_quant.register_fake
+def _trunc_quant_fake(
+        tensor_x
+        scale: torch.Tensor,
+        zero_point: torch.Tensor,
+        input_bit_width: torch.Tensor,
+        output_scale: torch.Tensor,
+        output_bit_width: torch.Tensor,
+        rounding_mode: str,
+        signed: int,
+        narrow_range: int)
+    ):
+    return torch.empty_like(tensor_x)
+
+
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def TruncQuant(
+        x: FLOAT,
+        scale: FLOAT,
+        zero_point: FLOAT,
+        input_bit_width: FLOAT,
+        output_scale: FLOAT,
+        output_bit_width: FLOAT,
+        rounding_mode: str,
+        signed: int,
+        narrow_range: int) -> FLOAT:
+    return x
+
+
+# We replace trunc_quant with this function, which wraps to QONNX node we want to generate
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def trunc_quant_wrapper(
+        x: FLOAT,
+        scale: FLOAT,
+        zero_point: FLOAT,
+        input_bit_width: FLOAT,
+        output_scale: FLOAT,
+        output_bit_width: FLOAT,
+        rounding_mode: str,
+        signed: int,
+        narrow_range: int) -> FLOAT:
+    return TruncQuant(x, scale, zero_point, input_bit_width, output_scale, output_bit_width, rounding_mode, signed, narrow_range)
 
 
 class BrevitasQuantLSTMCellFn(Function):
