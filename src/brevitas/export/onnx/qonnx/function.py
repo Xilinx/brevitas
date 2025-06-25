@@ -249,7 +249,7 @@ def trunc_quant(
 
 @trunc_quant.register_fake
 def _trunc_quant_fake(
-        tensor_x
+        tensor_x,
         scale: torch.Tensor,
         zero_point: torch.Tensor,
         input_bit_width: torch.Tensor,
