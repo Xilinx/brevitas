@@ -40,9 +40,7 @@ class BrevitasBinaryQuantFn(Function):
 
 
 @torch.library.custom_op(f"{LIBRARY_STRING}::bipolar_quant", mutates_args=())
-def bipolar_quant(
-        x: torch.Tensor,
-        scale: torch.Tensor) -> torch.Tensor:
+def bipolar_quant(x: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
     x = binary_sign(x) * scale
     return x
 
@@ -53,15 +51,13 @@ def _bipolar_quant_fake(tensor_x, scale):
 
 
 @onnxscript.script(qonnx_op, default_opset=qonnx_op)
-def BipolarQuant(
-        x: FLOAT, scale: FLOAT) -> FLOAT:
+def BipolarQuant(x: FLOAT, scale: FLOAT) -> FLOAT:
     return x
 
 
 # We replace bipolar_quant with this function, which wraps to QONNX node we want to generate
 @onnxscript.script(qonnx_op, default_opset=qonnx_op)
-def bipolar_quant_wrapper(
-        x: FLOAT, scale: FLOAT) -> FLOAT:
+def bipolar_quant_wrapper(x: FLOAT, scale: FLOAT) -> FLOAT:
     return BipolarQuant(x, scale)
 
 
@@ -121,7 +117,12 @@ def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed
 
 @onnxscript.script(qonnx_op, default_opset=qonnx_op)
 def Quant(
-        x: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
+        x: FLOAT,
+        scale: FLOAT,
+        zero_point: FLOAT,
+        bit_width: FLOAT,
+        narrow_range: int,
+        signed: int,
         rounding_mode: str) -> FLOAT:
     return x
 
@@ -129,7 +130,12 @@ def Quant(
 # We replace int_quant with this function, which wraps to QONNX node we want to generate
 @onnxscript.script(qonnx_op, default_opset=qonnx_op)
 def int_quant_wrapper(
-        x: FLOAT, scale: FLOAT, zero_point: FLOAT, bit_width: FLOAT, narrow_range: int, signed: int,
+        x: FLOAT,
+        scale: FLOAT,
+        zero_point: FLOAT,
+        bit_width: FLOAT,
+        narrow_range: int,
+        signed: int,
         rounding_mode: str) -> FLOAT:
     return Quant(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode)
 
@@ -223,7 +229,16 @@ class BrevitasTruncFn(Function):
             output_scale,
             output_bit_width,
             rounding_mode):
-        trunc_quant(x, scale, zero_point, input_bit_width, output_scale, output_bit_width, rounding_mode, int(signed), int(narrow_range))
+        trunc_quant(
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            output_scale,
+            output_bit_width,
+            rounding_mode,
+            int(signed),
+            int(narrow_range))
         return x
 
 
@@ -249,16 +264,16 @@ def trunc_quant(
 
 @trunc_quant.register_fake
 def _trunc_quant_fake(
-        tensor_x,
-        scale: torch.Tensor,
-        zero_point: torch.Tensor,
-        input_bit_width: torch.Tensor,
-        output_scale: torch.Tensor,
-        output_bit_width: torch.Tensor,
-        rounding_mode: str,
-        signed: int,
-        narrow_range: int,
-    ):
+    tensor_x,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+    input_bit_width: torch.Tensor,
+    output_scale: torch.Tensor,
+    output_bit_width: torch.Tensor,
+    rounding_mode: str,
+    signed: int,
+    narrow_range: int,
+):
     return torch.empty_like(tensor_x)
 
 
@@ -288,7 +303,16 @@ def trunc_quant_wrapper(
         rounding_mode: str,
         signed: int,
         narrow_range: int) -> FLOAT:
-    return TruncQuant(x, scale, zero_point, input_bit_width, output_scale, output_bit_width, rounding_mode, signed, narrow_range)
+    return TruncQuant(
+        x,
+        scale,
+        zero_point,
+        input_bit_width,
+        output_scale,
+        output_bit_width,
+        rounding_mode,
+        signed,
+        narrow_range)
 
 
 class BrevitasQuantLSTMCellFn(Function):

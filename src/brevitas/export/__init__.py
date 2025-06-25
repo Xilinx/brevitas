@@ -4,8 +4,8 @@
 from functools import wraps
 
 from .onnx.debug import enable_debug
-from .onnx.qonnx.manager import QONNXManager
 from .onnx.qonnx.manager import QONNXDynamoManager
+from .onnx.qonnx.manager import QONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXManager
 from .torch.qcdq.manager import TorchQCDQManager
 
