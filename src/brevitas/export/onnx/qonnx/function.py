@@ -257,7 +257,7 @@ def _trunc_quant_fake(
         output_bit_width: torch.Tensor,
         rounding_mode: str,
         signed: int,
-        narrow_range: int)
+        narrow_range: int,
     ):
     return torch.empty_like(tensor_x)
 
