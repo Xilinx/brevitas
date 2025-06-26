@@ -43,8 +43,10 @@ class LLMBenchmarkUtils(BenchmarkUtils):
         validate_llm_args(args=args, extra_args=extra_args)
 
     @staticmethod
-    def entrypoint_main(args: Namespace,
-                        extra_args: Optional[List[str]] = None) -> Tuple[Dict, Any]:
+    def entrypoint_main(
+            args: Namespace,
+            extra_args: Optional[List[str]] = None,
+            job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
         from brevitas_examples.llm.main import quantize_llm
         return quantize_llm(args=args, extra_args=extra_args)
 

@@ -46,17 +46,6 @@ def get_quant_model(model_name, bit_width):
     return model
 
 
-def add_bool_arg(parser, name, default, help, str_true=False):
-    dest = name.replace('-', '_')
-    group = parser.add_mutually_exclusive_group(required=False)
-    if str_true:
-        group.add_argument('--' + name, dest=dest, type=str, help=help)
-    else:
-        group.add_argument('--' + name, dest=dest, action='store_true', help='Enable ' + help)
-    group.add_argument('--no-' + name, dest=dest, action='store_false', help='Disable ' + help)
-    parser.set_defaults(**{dest: default})
-
-
 def get_gpu_index(idx):
     gpu_world_size = torch.cuda.device_count()
     if gpu_world_size == 0:
