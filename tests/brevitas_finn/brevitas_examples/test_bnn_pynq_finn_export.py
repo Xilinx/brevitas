@@ -15,9 +15,11 @@ from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
 from brevitas import torch_version
-from brevitas.export import export_qonnx
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.bnn_pynq.models import model_with_cfg
+
+from ...export_fixture import qonnx_export_fn
+from ...export_fixture import rm_onnx
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
 CNV_INPUT_SIZE = (1, 3, 32, 32)
@@ -35,19 +37,19 @@ ATOL = 1e-3
 @pytest.mark.parametrize("abits", [1, MAX_ABITS])
 # Pretrained
 @pytest.mark.parametrize("pretrained", [True, False])
-def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
+def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained, qonnx_export_fn, request):
     if size == "LFC" and wbits == 2 and abits == 2:
         pytest.skip(f"No LFC_{MAX_WBITS}W{MAX_ABITS}A present.")
     if wbits > abits:
         pytest.skip("No wbits > abits cases.")
     nname = f"{size}_{wbits}W{abits}A"
-    finn_onnx = nname + ".onnx"
+    finn_onnx = f"{nname}_{request.node.callspec.id}.onnx"
     fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     fc.eval()
     # load a random int test vector
     input = torch.randn(FC_INPUT_SIZE)
 
-    export_qonnx(fc, export_path=finn_onnx, input_t=input, input_names=['input'])
+    qonnx_export_fn(fc, export_path=finn_onnx, input_t=input, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -62,6 +64,7 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     # do forward pass in PyTorch/Brevitas
     expected = fc.forward(input).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
+    rm_onnx(finn_onnx)
 
 
 # weight bits
@@ -70,17 +73,17 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
 @pytest.mark.parametrize("abits", [1, MAX_ABITS])
 # Pretrained
 @pytest.mark.parametrize("pretrained", [True, False])
-def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
+def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained, qonnx_export_fn, request):
     if wbits > abits:
         pytest.skip("No wbits > abits cases.")
     nname = f"CNV_{wbits}W{abits}A"
-    finn_onnx = nname + ".onnx"
+    finn_onnx = f"{nname}_{request.node.callspec.id}.onnx"
     cnv, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     cnv.eval()
     # load a random int test vector
     input = torch.randn(CNV_INPUT_SIZE)
 
-    export_qonnx(cnv, export_path=finn_onnx, input_t=input, input_names=['input'])
+    qonnx_export_fn(cnv, export_path=finn_onnx, input_t=input, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -95,3 +98,4 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     # do forward pass in PyTorch/Brevitas
     expected = cnv(input).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
+    rm_onnx(finn_onnx)
