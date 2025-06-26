@@ -4,7 +4,8 @@
 from argparse import ArgumentParser
 from argparse import Namespace
 from functools import partial
-from typing import List, Optional
+from typing import List
+from typing import Optional
 
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
@@ -291,10 +292,10 @@ def create_args_parser() -> ArgumentParser:
         default=False,
         help='Use quant activations for GPTQ (default: disabled)')
     add_bool_arg(
-    parser,
-    'disable-create-weight-orig',
-    default=False,
-    help='Disable maintaining original weights for non-quant forward pass (default: enabled)')
+        parser,
+        'disable-create-weight-orig',
+        default=False,
+        help='Disable maintaining original weights for non-quant forward pass (default: enabled)')
     add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
     add_bool_arg(
         parser,

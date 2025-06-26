@@ -21,9 +21,9 @@ import transformers
 
 from brevitas import config
 from brevitas import torch_version
-from brevitas_examples.llm.main import fx_required
 from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_dynamic_quant_act
