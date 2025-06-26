@@ -7,4 +7,3 @@ from brevitas.export import enable_debug  # noqa
 from brevitas.export import export_brevitas_onnx  # noqa
 from brevitas.export import export_onnx_qcdq  # noqa
 from brevitas.export import export_qonnx  # noqa
-from brevitas.export import export_qonnx_dynamo  # noqa

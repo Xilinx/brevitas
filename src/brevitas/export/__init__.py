@@ -15,14 +15,21 @@ def export_brevitas_onnx(*args, **kwargs):  # alias for qonnx
     return QONNXManager.export(*args, **kwargs)
 
 
-@wraps(QONNXManager.export)
 def export_qonnx(*args, **kwargs):
-    return QONNXManager.export(*args, **kwargs)
 
+    @wraps(QONNXManager.export)
+    def _export_qonnx_torchscript(*args, **kwargs):
+        return QONNXManager.export(*args, **kwargs)
 
-@wraps(QONNXDynamoManager.export)
-def export_qonnx_dynamo(*args, **kwargs):
-    return QONNXDynamoManager.export(*args, **kwargs)
+    @wraps(QONNXDynamoManager.export)
+    def _export_qonnx_dynamo(*args, **kwargs):
+        return QONNXDynamoManager.export(*args, **kwargs)
+
+    key = "dynamo"
+    if key in kwargs.keys():
+        if kwargs[key]:  # `dynamo=True` is passed
+            return _export_qonnx_dynamo(*args, **kwargs)
+    return _export_qonnx_torchscript(*args, **kwargs)
 
 
 @wraps(StdQCDQONNXManager.export)

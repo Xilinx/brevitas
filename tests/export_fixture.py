@@ -8,12 +8,11 @@ from pytest_cases import fixture
 from pytest_cases import parametrize
 
 from brevitas.export import export_qonnx
-from brevitas.export import export_qonnx_dynamo
 
 
 @fixture
 @parametrize(
-    'export_fn', [export_qonnx, partial(export_qonnx_dynamo, dynamo=True, optimize=True)],
+    'export_fn', [export_qonnx, partial(export_qonnx, dynamo=True, optimize=True)],
     ids=["torchscript", "dynamo"])
 def qonnx_export_fn(export_fn):
     yield export_fn
