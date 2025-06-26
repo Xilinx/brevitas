@@ -5,7 +5,8 @@ from argparse import Namespace
 import os
 import random
 import sys
-from typing import List, Optional
+from typing import List
+from typing import Optional
 import warnings
 
 import numpy as np

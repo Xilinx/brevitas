@@ -10,7 +10,8 @@ import math
 import os
 import sys
 import time
-from typing import List, Optional
+from typing import List
+from typing import Optional
 import warnings
 
 from dependencies import value
