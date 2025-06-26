@@ -1,8 +1,6 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import os
-
 from packaging import version
 import pytest
 import torch
@@ -15,6 +13,7 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTenso
 from tests.marker import jit_disabled_for_export
 
 from ...export_fixture import qonnx_export_fn
+from ...export_fixture import rm_onnx
 
 
 @jit_disabled_for_export()
@@ -25,7 +24,7 @@ def test_simple_fp8_export():
     model = qnn.QuantLinear(3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat)
     outfile = f'weight_fp8.onnx'
     export_onnx_qcdq(model, torch.randn(1, 3), outfile, export_weight_q_node=True)
-    os.remove(outfile)
+    rm_onnx(outfile)
     assert True
 
 
@@ -38,7 +37,7 @@ def test_qonnx_simple_fp8_export(request, qonnx_export_fn):
         3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = f'qonnx_act_weight_fp8_{request.node.callspec.id}.onnx'
     qonnx_export_fn(model, torch.randn(1, 3), outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
     assert True
 
 
@@ -50,7 +49,7 @@ def test_fp8_export_activation():
     model = qnn.QuantLinear(3, 16, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = f'act_fp8.onnx'
     export_onnx_qcdq(model, torch.randn(1, 3), outfile, export_weight_q_node=True)
-    os.remove(outfile)
+    rm_onnx(outfile)
     assert True
 
 
@@ -63,5 +62,5 @@ def test_fp8_export_export_activation():
         3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = 'weight_act_fp8.onnx'
     export_onnx_qcdq(model, torch.randn(1, 3), outfile, export_weight_q_node=True)
-    os.remove(outfile)
+    rm_onnx(outfile)
     assert True

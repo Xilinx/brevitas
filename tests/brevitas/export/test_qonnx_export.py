@@ -1,8 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import os
-
 import torch
 
 from brevitas.export import enable_debug
@@ -17,6 +15,7 @@ from brevitas_examples import imagenet_classification
 from tests.marker import jit_disabled_for_export
 
 from ...export_fixture import qonnx_export_fn
+from ...export_fixture import rm_onnx
 from .quant_module_fixture import *
 
 OUT_CH = 50
@@ -51,7 +50,7 @@ def test_generic_quant_linear_export(request, qonnx_export_fn):
     model(inp)  # collect scale factors
     model.eval()
     qonnx_export_fn(model, inp, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -82,7 +81,7 @@ def test_generic_decoupled_quant_linear_export(request, qonnx_export_fn):
     model(inp)  # collect scale factors
     model.eval()
     qonnx_export_fn(model, inp, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -115,7 +114,7 @@ def test_a2q_quant_linear_export(request, a2q_weight_act_quantizers, qonnx_expor
     model(inp)  # collect scale factors
     model.eval()
     qonnx_export_fn(model, inp, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -146,7 +145,7 @@ def test_generic_quant_conv_export(request, qonnx_export_fn):
     model(inp)  # collect scale factors
     model.eval()
     qonnx_export_fn(model, inp, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -176,7 +175,7 @@ def test_generic_quant_tensor_export(request, qonnx_export_fn):
     model(inp)  # collect scale factors
     model.eval()
     qonnx_export_fn(model, inp, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -200,7 +199,7 @@ def test_generic_quant_avgpool_export(request, qonnx_export_fn):
     model(inp)  # collect scale factors
     model.eval()
     qonnx_export_fn(model, inp, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -214,7 +213,7 @@ def test_generic_quant_avgpool_export_quant_input(request, qonnx_export_fn):
     model.eval()
     outfile = f'generic_quant_avgpool_quant_input_{request.node.callspec.id}.onnx'
     qonnx_export_fn(model, inp_quant(inp), export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
 
 
 @jit_disabled_for_export()
@@ -225,6 +224,6 @@ def test_debug_brevitas_onnx_export(request, qonnx_export_fn):
     input_tensor = torch.randn(1, 3, 224, 224)
     outfile = f'generic_debug_{request.node.callspec.id}.onnx'
     qonnx_export_fn(model, input_t=input_tensor, export_path=outfile)
-    os.remove(outfile)
+    rm_onnx(outfile)
     model(input_tensor)
     assert debug_hook.values
