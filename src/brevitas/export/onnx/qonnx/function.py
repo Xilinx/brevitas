@@ -35,8 +35,8 @@ class BrevitasBinaryQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        bipolar_quant(x, scale)
-        return y
+        x = bipolar_quant(x, scale)
+        return x
 
 
 @torch.library.custom_op(f"{LIBRARY_STRING}::bipolar_quant", mutates_args=())
