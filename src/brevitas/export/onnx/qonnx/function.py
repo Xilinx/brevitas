@@ -17,6 +17,7 @@ from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.quant import IntQuant
 from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
+import brevitas.library
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
 LIBRARY_STRING = "qonnx"  # Note: if this value is modified, it must also be changed in the QONNXManager classes
@@ -39,7 +40,7 @@ class BrevitasBinaryQuantFn(Function):
         return x
 
 
-@torch.library.custom_op(f"{LIBRARY_STRING}::bipolar_quant", mutates_args=())
+@brevitas.library.custom_op(f"{LIBRARY_STRING}::bipolar_quant", mutates_args=())
 def bipolar_quant(x: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
     x = binary_sign(x) * scale
     return x
@@ -90,7 +91,7 @@ class BrevitasQuantFn(Function):
         return y
 
 
-@torch.library.custom_op(f"{LIBRARY_STRING}::int_quant", mutates_args=())
+@brevitas.library.custom_op(f"{LIBRARY_STRING}::int_quant", mutates_args=())
 def int_quant(
         x: torch.Tensor,
         scale: torch.Tensor,
@@ -242,7 +243,7 @@ class BrevitasTruncFn(Function):
         return x
 
 
-@torch.library.custom_op(f"{LIBRARY_STRING}::trunc_quant", mutates_args=())
+@brevitas.library.custom_op(f"{LIBRARY_STRING}::trunc_quant", mutates_args=())
 def trunc_quant(
         x: torch.Tensor,
         scale: torch.Tensor,

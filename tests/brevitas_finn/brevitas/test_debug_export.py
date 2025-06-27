@@ -9,7 +9,6 @@ from brevitas_examples import bnn_pynq
 from ...export_fixture import qonnx_export_fn
 from ...export_fixture import rm_onnx
 
-
 REF_MODEL = 'CNV_2W2A'
 
 

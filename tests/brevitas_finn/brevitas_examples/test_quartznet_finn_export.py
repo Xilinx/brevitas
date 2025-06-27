@@ -29,7 +29,8 @@ def test_quartznet_asr_4b(pretrained, qonnx_export_fn, request):
     finn_onnx = f"quant_quartznet_perchannelscaling_4b_{request.node.callspec.id}.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
     quartznet.eval()
-    qonnx_export_fn(quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
+    qonnx_export_fn(
+        quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

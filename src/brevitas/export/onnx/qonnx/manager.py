@@ -106,14 +106,21 @@ class QONNXManager(ONNXBaseManager):
             module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
 
 
-class QONNXDynamoManager(QONNXManager):
-    onnx_passes = ["eliminate_unused_initializer"]
-
-    custom_fns = []
-    custom_translation_table = {
+try:
+    _dynamo_custom_translation_table = {
         torch.ops.qonnx.int_quant.default: int_quant_wrapper,
         torch.ops.qonnx.bipolar_quant.default: bipolar_quant_wrapper,
         torch.ops.qonnx.trunc_quant.default: trunc_quant_wrapper,}
+except:
+    # TODO: Remove when PyTorch<2.4 deprecated
+    # Workaround for older versions of PyTorch, when the custom_ops API doesn't exist
+    _dynamo_custom_translation_table = {}
+
+
+class QONNXDynamoManager(QONNXManager):
+    onnx_passes = ["eliminate_unused_initializer"]
+    custom_translation_table = _dynamo_custom_translation_table
+    custom_fns = []
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
