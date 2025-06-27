@@ -96,7 +96,7 @@ def int_quant(
         scale: torch.Tensor,
         zero_point: torch.Tensor,
         bit_width: torch.Tensor,
-        narrow_range: int,
+        narrow: int,
         signed: int,
         rounding_mode: str) -> torch.Tensor:
     float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
@@ -104,14 +104,14 @@ def int_quant(
         float_to_int_impl=float_to_int_impl(),
         tensor_clamp_impl=TensorClamp(),
         input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
-        narrow_range=torch.tensor(narrow_range, dtype=x.dtype, device=x.device),
-        signed=torch.tensor(narrow_range, dtype=x.dtype, device=x.device))
+        narrow_range=torch.tensor(narrow, dtype=x.dtype, device=x.device),
+        signed=torch.tensor(signed, dtype=x.dtype, device=x.device))
     x = quant(scale, zero_point, bit_width, x)
     return x
 
 
 @int_quant.register_fake
-def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+def _int_quant_fake(tensor_x, scale, zero_point, bit_width, narrow, signed, rounding_mode):
     return torch.empty_like(tensor_x)
 
 
@@ -121,7 +121,7 @@ def Quant(
         scale: FLOAT,
         zero_point: FLOAT,
         bit_width: FLOAT,
-        narrow_range: int,
+        narrow: int,
         signed: int,
         rounding_mode: str) -> FLOAT:
     return x
@@ -134,10 +134,10 @@ def int_quant_wrapper(
         scale: FLOAT,
         zero_point: FLOAT,
         bit_width: FLOAT,
-        narrow_range: int,
+        narrow: int,
         signed: int,
         rounding_mode: str) -> FLOAT:
-    return Quant(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode)
+    return Quant(x, scale, zero_point, bit_width, narrow, signed, rounding_mode)
 
 
 class BrevitasFloatQuantFn(Function):
@@ -252,7 +252,7 @@ def trunc_quant(
         output_bit_width: torch.Tensor,
         rounding_mode: str,
         signed: int,
-        narrow_range: int) -> torch.Tensor:
+        narrow: int) -> torch.Tensor:
     # TODO: Restore this (fails when `signed` arg added)
     #float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
     #trunc = TruncIntQuant(
@@ -272,7 +272,7 @@ def _trunc_quant_fake(
     output_bit_width: torch.Tensor,
     rounding_mode: str,
     signed: int,
-    narrow_range: int,
+    narrow: int,
 ):
     return torch.empty_like(tensor_x)
 
@@ -287,7 +287,7 @@ def TruncQuant(
         output_bit_width: FLOAT,
         rounding_mode: str,
         signed: int,
-        narrow_range: int) -> FLOAT:
+        narrow: int) -> FLOAT:
     return x
 
 
@@ -302,7 +302,7 @@ def trunc_quant_wrapper(
         output_bit_width: FLOAT,
         rounding_mode: str,
         signed: int,
-        narrow_range: int) -> FLOAT:
+        narrow: int) -> FLOAT:
     return TruncQuant(
         x,
         scale,
@@ -312,7 +312,7 @@ def trunc_quant_wrapper(
         output_bit_width,
         rounding_mode,
         signed,
-        narrow_range)
+        narrow)
 
 
 class BrevitasQuantLSTMCellFn(Function):

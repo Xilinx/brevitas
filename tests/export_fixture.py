@@ -12,7 +12,7 @@ from brevitas import torch_version
 from brevitas.export import export_qonnx
 
 def _get_qonnx_export_modes():
-    if parse("2.4") < torch_version:
+    if parse("2.4") > torch_version:
         export_fns = [export_qonnx]
         export_ids = ["torchscript"]
     else:
