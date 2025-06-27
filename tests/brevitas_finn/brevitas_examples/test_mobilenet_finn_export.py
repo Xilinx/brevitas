@@ -16,10 +16,12 @@ from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
 from brevitas import torch_version
-from brevitas.export import export_qonnx
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 from tests.conftest import MIN_QONNX_VERSION
 from tests.marker import requires_package_ge
+
+from ...export_fixture import qonnx_export_fn
+from ...export_fixture import rm_onnx
 
 ort_mac_fail = pytest.mark.skipif(
     torch_version >= parse('1.5.0') and system() == 'Darwin',
@@ -35,8 +37,8 @@ SEED = 0
 @ort_mac_fail
 @pytest.mark.parametrize("pretrained", [True])
 @requires_package_ge('qonnx', MIN_QONNX_VERSION)
-def test_mobilenet_v1_4b(pretrained):
-    finn_onnx = "mobilenet_v1_4b.onnx"
+def test_mobilenet_v1_4b(pretrained, qonnx_export_fn, request):
+    finn_onnx = "mobilenet_v1_4b_{request.node.callspec.id}.onnx"
     mobilenet = quant_mobilenet_v1_4b(pretrained)
     mobilenet.eval()
     #load a random test vector
@@ -46,7 +48,7 @@ def test_mobilenet_v1_4b(pretrained):
     torch_tensor = torch.from_numpy(numpy_tensor).float()
     # do forward pass in PyTorch/Brevitas
     expected = mobilenet(torch_tensor).detach().numpy()
-    export_qonnx(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
+    qonnx_export_fn(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
     #output_scale = mobilenet.output.bias_quant.scale()  # Scale at the output
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
@@ -62,3 +64,4 @@ def test_mobilenet_v1_4b(pretrained):
     #atol = ATOL * output_scale  #  Absolute tolerance in bitflips
     atol = ATOL
     assert np.isclose(produced, expected, rtol=RTOL, atol=atol).all()
+    rm_onnx(finn_onnx)

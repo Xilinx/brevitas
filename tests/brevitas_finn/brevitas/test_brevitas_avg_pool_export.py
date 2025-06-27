@@ -11,12 +11,14 @@ from qonnx.transformation.infer_datatypes import InferDataTypes
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
-from brevitas.export import export_qonnx
 from brevitas.nn import TruncAvgPool2d
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_activation import QuantReLU
 from tests.conftest import MIN_QONNX_VERSION
 from tests.marker import requires_package_ge
+
+from ...export_fixture import qonnx_export_fn
+from ...export_fixture import rm_onnx
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 
@@ -39,6 +41,7 @@ def test_brevitas_avg_pool_export(
         channels,
         idim,
         restrict_scaling_type,
+        qonnx_export_fn,
         request):
     if signed:
         quant_node = QuantIdentity(
@@ -68,7 +71,7 @@ def test_brevitas_avg_pool_export(
     # export
     test_id = request.node.callspec.id
     export_path = test_id + '_' + export_onnx_path
-    export_qonnx(model_brevitas, export_path=export_path, input_t=inp)
+    qonnx_export_fn(model_brevitas, export_path=export_path, input_t=inp)
     model = ModelWrapper(export_path)
     model = model.transform(InferShapes())
     model = model.transform(InferDataTypes())
@@ -87,4 +90,4 @@ def test_brevitas_avg_pool_export(
     atol = 1e-8
     assert np.isclose(ref_output_array, finn_output, atol=atol).all()
     # cleanup
-    os.remove(export_path)
+    rm_onnx(export_path)

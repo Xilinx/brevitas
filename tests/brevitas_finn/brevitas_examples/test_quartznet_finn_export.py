@@ -15,6 +15,9 @@ import torch
 from brevitas.export import export_qonnx
 from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
 
+from ...export_fixture import qonnx_export_fn
+from ...export_fixture import rm_onnx
+
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence
 MIN_INP_VAL = 0.0
 MAX_INP_VAL = 200.0
@@ -22,11 +25,12 @@ ATOL = 1e-3
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
-def test_quartznet_asr_4b(pretrained):
-    finn_onnx = "quant_quartznet_perchannelscaling_4b.onnx"
+def test_quartznet_asr_4b(pretrained, qonnx_export_fn, request):
+    finn_onnx = f"quant_quartznet_perchannelscaling_4b_{request.node.callspec.id}.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
     quartznet.eval()
-    export_qonnx(quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
+    qonnx_export_fn(
+        quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -45,3 +49,4 @@ def test_quartznet_asr_4b(pretrained):
     # do forward pass in PyTorch/Brevitas
     expected = quartznet(input_tensor).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
+    rm_onnx(finn_onnx)
