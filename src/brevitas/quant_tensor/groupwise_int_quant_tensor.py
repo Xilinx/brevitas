@@ -10,7 +10,6 @@ from brevitas.quant_tensor.base_quant_tensor import IntMixin
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import float_internal_scale
 
-from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
@@ -75,10 +74,15 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
 
-    def expand(self):
+    def expand(self, return_value_only=False):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
+            self.value_,
+            self.scale_,
+            self.zero_point_,
+            self.group_dim,
+            self.dequant_shape,
+            return_value_only)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):
@@ -99,7 +103,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
 
     @property
     def value(self):
-        new_value, new_scale, new_zp = self.expand()
+        new_value = self.expand(return_value_only=True)
         return new_value
 
     @property

@@ -3,6 +3,10 @@
 
 from .float_parameter_quant import WeightFloatQuantProxyFromInjector
 from .float_runtime_quant import ActFloatQuantProxyFromInjector
+from .groupwise_float_parameter_quant import GroupwiseWeightFloatQuantProxyFromInjector
+from .groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
+from .groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from .groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from .parameter_quant import BiasQuantProxyFromInjector
 from .parameter_quant import BiasQuantProxyFromInjectorBase
 from .parameter_quant import DecoupledWeightQuantProxyFromInjector

@@ -154,10 +154,16 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
         self.observer_only = brevitas.jit.Attribute(False, bool)
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def compute_scale(self, x):
         bit_width = self.msb_clamp_bit_width_impl()
         int_threshold = self.int_scaling_impl(bit_width)
         scale = self.scaling_impl(x, int_threshold)
+        return scale
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        bit_width = self.msb_clamp_bit_width_impl()
+        scale = self.compute_scale(x)
         zero_point = self.zero_point_impl(x, scale, bit_width)
         if self.observer_only:
             y = x

@@ -18,6 +18,7 @@ from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixi
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastGroupwiseActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -28,6 +29,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from ..function import CastFn
 from ..function import DequantizeLinearFn
 from ..function import DynamicQuantizeLinearFn
+from ..function import DynamicScaleZeroPoint
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
@@ -101,7 +103,6 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         # Below 8b quantization is supported through clipping.
         if getattr(self, '_export_q_node', True):
             assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
-        assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
 
@@ -162,6 +163,18 @@ class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
         StdQCDQCastONNXMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         ONNXBaseHandler):
     _export_q_node = False
+
+
+class StdQCDQCastONNXGroupwiseActQuantProxyHandler(StdQCDQCastONNXMixin,
+                                                   QCDQCastGroupwiseActQuantProxyHandlerMixin,
+                                                   ONNXBaseHandler):
+    pass
+
+
+class StdFloatQCDQCastONNXGroupwiseActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                        FloatQCDQCastActQuantProxyHandlerMixin,
+                                                        ONNXBaseHandler):
+    pass
 
 
 class StdFloatQCDQCastONNXActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
