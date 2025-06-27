@@ -134,12 +134,10 @@ class QONNXDynamoManager(QONNXManager):
         super(QONNXDynamoManager, cls).set_export_mode(model=model, enabled=enabled)
         # TODO: Move to a DynamoExport Mixin?
         if enabled:
-            return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(
-                model
-            )
+            return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(model)
             disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
             model.apply(disable_quant_tensor)
-            model._brevitas_return_quant_tensor_state = return_quant_tensor_state #  Store this state in the model, to re-enable later
+            model._brevitas_return_quant_tensor_state = return_quant_tensor_state  #  Store this state in the model, to re-enable later
 
     @classmethod
     def export_onnx(
