@@ -136,9 +136,10 @@ class QONNXDynamoManager(QONNXManager):
         if enabled:
             return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(
                 model
-            )  # Should we return tensor state after export? Looks like a destructive change.
+            )
             disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
             model.apply(disable_quant_tensor)
+            model._brevitas_return_quant_tensor_state = return_quant_tensor_state #  Store this state in the model, to re-enable later
 
     @classmethod
     def export_onnx(
@@ -167,5 +168,8 @@ class QONNXDynamoManager(QONNXManager):
                 logging.warning(wrn_str)
         else:
             logging.warning(wrn_str)
-        return super(QONNXDynamoManager, cls).export_onnx(
+        model = super(QONNXDynamoManager, cls).export_onnx(
             module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+        module = QuantizationStatusManager.restore_return_quant_tensor(self.model, module._brevitas_return_quant_tensor_state)
+        del module._brevitas_return_quant_tensor_state
+        return model
