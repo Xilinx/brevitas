@@ -120,6 +120,7 @@ except:
 
 
 class QONNXDynamoManager(QONNXManager):
+    run_onnx_passes = False  # Skip the optimization step from onnxoptimizer. False required for QONNX + Dynamo
     onnx_passes = ["eliminate_unused_initializer"]
     custom_translation_table = _dynamo_custom_translation_table
     custom_fns = []
