@@ -127,8 +127,6 @@ class QONNXDynamoManager(QONNXManager):
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
         super(QONNXDynamoManager, cls).set_export_mode(model=model, enabled=enabled)
-        # temporarily disable input caching to avoid collectives empty debug values
-        #model.apply(lambda m: _override_act_caching_mode(m, enabled=False))
         # TODO: Move to a DynamoExport Mixin?
         if enabled:
             return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(
@@ -147,7 +145,7 @@ class QONNXDynamoManager(QONNXManager):
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
             **onnx_export_kwargs):
-        assert not parse("2.4") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.4. Current PyTorch version: {str(torch_version)}"
+        assert not parse("2.6") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.4. Current PyTorch version: {str(torch_version)}"
         assert onnx_export_kwargs["dynamo"]
         key = "custom_translation_table"
         if key in onnx_export_kwargs.keys():

@@ -13,12 +13,9 @@ from brevitas.export import export_qonnx
 
 
 def _get_qonnx_export_modes():
-    if parse("2.4") > torch_version:
+    if parse("2.6") > torch_version:
         export_fns = [export_qonnx]
         export_ids = ["torchscript"]
-    elif parse("2.6") > torch_version:
-        export_fns = [export_qonnx, partial(export_qonnx, dynamo=True)]
-        export_ids = ["torchscript", "dynamo"]
     else:
         export_fns = [export_qonnx, partial(export_qonnx, dynamo=True, optimize=True)]
         export_ids = ["torchscript", "dynamo"]
