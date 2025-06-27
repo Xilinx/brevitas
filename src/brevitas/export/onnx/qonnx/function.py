@@ -187,7 +187,94 @@ class BrevitasFloatQuantFn(Function):
             has_subnormal,
             rounding_mode,
             max_val):
-        return x
+        return float_quant(
+            x,
+            scale,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            max_val,
+            int(has_inf),
+            int(has_nan),
+            int(has_subnormal),
+            rounding_mode,
+            int(saturating))
+
+
+@brevitas.library.custom_op(f"{LIBRARY_STRING}::float_quant", mutates_args=())
+def float_quant(
+        x: torch.Tensor,
+        scale: torch.Tensor,
+        exponent_bit_width: torch.Tensor,
+        mantissa_bit_width: torch.Tensor,
+        exponent_bias: torch.Tensor,
+        max_val: torch.Tensor,
+        has_inf: int,
+        has_nan: int,
+        has_subnormal: int,
+        rounding_mode: str,
+        saturation: int) -> torch.Tensor:
+    return x.clone()
+
+
+@float_quant.register_fake
+def _float_quant_fake(
+        tensor_x,
+        scale,
+        exponent_bit_width,
+        mantissa_bit_width,
+        exponent_bias,
+        max_val,
+        has_inf,
+        has_nan,
+        has_subnormal,
+        rounding_mode,
+        saturation):
+    return torch.empty_like(tensor_x)
+
+
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def FloatQuant(
+        x: FLOAT,
+        scale: FLOAT,
+        exponent_bit_width: FLOAT,
+        mantissa_bit_width: FLOAT,
+        exponent_bias: FLOAT,
+        max_val: FLOAT,
+        has_inf: int,
+        has_nan: int,
+        has_subnormal: int,
+        rounding_mode: str,
+        saturation: int) -> FLOAT:
+    return x
+
+
+# We replace float_quant with this function, which wraps to QONNX node we want to generate
+@onnxscript.script(qonnx_op, default_opset=qonnx_op)
+def float_quant_wrapper(
+        x: FLOAT,
+        scale: FLOAT,
+        exponent_bit_width: FLOAT,
+        mantissa_bit_width: FLOAT,
+        exponent_bias: FLOAT,
+        max_val: FLOAT,
+        has_inf: int,
+        has_nan: int,
+        has_subnormal: int,
+        rounding_mode: str,
+        saturation: int) -> FLOAT:
+    return FloatQuant(
+        x,
+        scale,
+        exponent_bit_width,
+        mantissa_bit_width,
+        exponent_bias,
+        max_val,
+        has_inf,
+        has_nan,
+        has_subnormal,
+        rounding_mode,
+        saturation)
 
 
 class BrevitasTruncFn(Function):

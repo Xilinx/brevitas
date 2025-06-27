@@ -26,11 +26,13 @@ from brevitas.utils.logging import setup_logger
 from ..manager import _override_act_caching_mode
 from .function import bipolar_quant_wrapper
 from .function import BrevitasBinaryQuantFn
+from .function import BrevitasFloatQuantFn
 from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
 from .function import BrevitasTruncFn
 from .function import DOMAIN_STRING as QONNX_DOMAIN_STRING
 from .function import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
+from .function import float_quant_wrapper
 from .function import int_quant_wrapper
 from .function import trunc_quant_wrapper
 from .handler import BrevitasActFloatQuantProxyHandler
@@ -71,6 +73,7 @@ class QONNXManager(ONNXBaseManager):
         BrevitasQuantFn,
         BrevitasBinaryQuantFn,
         BrevitasTruncFn,
+        BrevitasFloatQuantFn,
         BrevitasQuantLSTMCellFn]
 
     @classmethod
@@ -112,6 +115,7 @@ try:
     _dynamo_custom_translation_table = {
         torch.ops.qonnx.int_quant.default: int_quant_wrapper,
         torch.ops.qonnx.bipolar_quant.default: bipolar_quant_wrapper,
+        torch.ops.qonnx.float_quant.default: float_quant_wrapper,
         torch.ops.qonnx.trunc_quant.default: trunc_quant_wrapper,}
 except:
     # TODO: Remove when PyTorch<2.4 deprecated

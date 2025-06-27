@@ -208,8 +208,7 @@ def test_generic_quant_avgpool_export_quant_input(request, qonnx_export_fn):
     inp = torch.randn(IN_SIZE)
     model = nn.Sequential(
         QuantIdentity(return_quant_tensor=True),
-        TruncAvgPool2d(kernel_size=2, return_quant_tensor=False)
-    )
+        TruncAvgPool2d(kernel_size=2, return_quant_tensor=False))
     model(inp)  # collect scale factors
     model.eval()
     outfile = f'generic_quant_avgpool_quant_input_{request.node.callspec.id}.onnx'
