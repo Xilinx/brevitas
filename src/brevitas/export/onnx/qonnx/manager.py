@@ -170,6 +170,6 @@ class QONNXDynamoManager(QONNXManager):
             logging.warning(wrn_str)
         model = super(QONNXDynamoManager, cls).export_onnx(
             module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
-        module = QuantizationStatusManager.restore_return_quant_tensor(self.model, module._brevitas_return_quant_tensor_state)
+        QuantizationStatusManager.restore_return_quant_tensor(module, module._brevitas_return_quant_tensor_state)
         del module._brevitas_return_quant_tensor_state
         return model
