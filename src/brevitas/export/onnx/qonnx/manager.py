@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
+from packaging.version import parse
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -10,6 +11,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas import torch_version
 from brevitas.export.inference.manager import _override_create_quant_tensor
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
@@ -145,6 +147,7 @@ class QONNXDynamoManager(QONNXManager):
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
             **onnx_export_kwargs):
+        assert not parse("2.4") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.4. Current PyTorch version: {str(torch_version)}"
         assert onnx_export_kwargs["dynamo"]
         key = "custom_translation_table"
         if key in onnx_export_kwargs.keys():
