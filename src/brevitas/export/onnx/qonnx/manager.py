@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
-from packaging.version import parse
 from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from packaging.version import parse
 import torch
 from torch import Tensor
 from torch.nn import Module
