@@ -96,9 +96,6 @@ class QONNXManager(ONNXBaseManager):
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
             **onnx_export_kwargs):
-        #key = "dynamo"
-        #if key in onnx_export_kwargs.keys():
-        #    assert not onnx_export_kwargs["dynamo"]
         key = "custom_opsets"
         if key in onnx_export_kwargs.keys():
             if QONNX_DOMAIN_STRING in onnx_export_kwargs[key].keys():
@@ -118,13 +115,13 @@ try:
         torch.ops.qonnx.float_quant.default: float_quant_wrapper,
         torch.ops.qonnx.trunc_quant.default: trunc_quant_wrapper,}
 except:
-    # TODO: Remove when PyTorch<2.4 deprecated
+    # TODO: Remove when PyTorch<2.6 deprecated
     # Workaround for older versions of PyTorch, when the custom_ops API doesn't exist
     _dynamo_custom_translation_table = {}
 
 
 class QONNXDynamoManager(QONNXManager):
-    run_onnx_passes = False  # Skip the optimization step from onnxoptimizer. False required for QONNX + Dynamo
+    run_onnx_passes = False  # Skip the optimization step from onnxoptimizer. False required for QONNX + Dynamo to keep ONNX metadata
     onnx_passes = ["eliminate_unused_initializer"]
     custom_translation_table = _dynamo_custom_translation_table
     custom_fns = []
@@ -149,7 +146,7 @@ class QONNXDynamoManager(QONNXManager):
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
             **onnx_export_kwargs):
-        assert not parse("2.6") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.4. Current PyTorch version: {str(torch_version)}"
+        assert not parse("2.6") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.6. Current PyTorch version: {str(torch_version)}"
         assert onnx_export_kwargs["dynamo"]
         key = "custom_translation_table"
         if key in onnx_export_kwargs.keys():
