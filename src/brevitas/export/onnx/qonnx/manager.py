@@ -138,7 +138,8 @@ class QONNXDynamoManager(QONNXManager):
         if not enabled:
             enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
             model.apply(enable_quant_tensor)
-            QuantizationStatusManager.restore_return_quant_tensor(model, model._brevitas_return_quant_tensor_state) # Doesn't seem to be required, but I don't know why
+            QuantizationStatusManager.restore_return_quant_tensor(
+                model, model._brevitas_return_quant_tensor_state)
             del model._brevitas_return_quant_tensor_state
 
     @classmethod
