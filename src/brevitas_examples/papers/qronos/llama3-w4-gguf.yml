@@ -5,7 +5,7 @@ dtype: bfloat16
 eval: true
 few_shot_eval: lighteval
 few_shot_override_batch_size: 128
-# we use lighteval since it is faster, but using lm_eval 
+# we use lighteval since it is faster, but using lm_eval
 # requires different strings for few_shot_tasks
 few_shot_tasks:
 - lighteval|piqa|0|0

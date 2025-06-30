@@ -1,9 +1,9 @@
 # non-defaults only; see default_template.yml for defaults
 # adds a BOS token to the beginning of each sequence
 bos_preprocessing: sequence
-dtype: bfloat16
+dtype: float32
 eval: true
-# we use lighteval since it is faster, but using lm_eval 
+# we use lighteval since it is faster, but using lm_eval
 # requires different strings for few_shot_tasks
 few_shot_eval: lighteval
 few_shot_override_batch_size: 128
@@ -36,4 +36,21 @@ weight_bit_width: 4
 # linear search over scaling factor to reduce MSE
 weight_param_method: mse
 weight_quant_granularity: per_channel
-weight_quant_type: sym 
+weight_quant_type: sym
+# we use 800 samples from C4 (default) for
+# rotation optimization via CayleySGD
+nsamples_rot_calibration: 800
+optimize_rotations: true
+# using hyperparameters similar to those
+# document in the official SpinQuant repo
+learning_rate: 1.5
+weight_decay: 0.0
+lr_scheduler_type: cosine
+max_steps: 100
+save_safetensors: false
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+logging_steps: 10
+log_on_each_node: false
+torch_empty_cache_steps: 1
+gradient_checkpointing: true

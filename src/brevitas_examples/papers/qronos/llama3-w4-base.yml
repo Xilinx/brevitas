@@ -3,7 +3,7 @@
 bos_preprocessing: sequence
 dtype: bfloat16
 eval: true
-# we use lighteval since it is faster, but using lm_eval 
+# we use lighteval since it is faster, but using lm_eval
 # requires different strings for few_shot_tasks
 few_shot_eval: lighteval
 few_shot_override_batch_size: 128
@@ -18,15 +18,8 @@ few_shot_zeroshot: true
 gpxq_act_order: true
 # enables block-level optimization
 gpxq_block_name: model.layers
-# enabling MagR
-magr: true
-magr_alpha: 0.01
 model: meta-llama/Llama-3.2-1B
-# enabling Had. rotations
-rotation: layerwise
-rotation_mode: had
-rotation_orphan_sink: true
-weight_bit_width: 2
+weight_bit_width: 4
 # stats + asym yields the min-max grid
 weight_quant_granularity: per_channel
 weight_quant_type: asym
