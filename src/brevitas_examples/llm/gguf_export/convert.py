@@ -2983,7 +2983,7 @@ class Qwen2Model(TextModel):
                 or name.startswith("vision_model") or name.startswith("audio_tower"):
             # skip vision and audio tensors
             return []
-        yield from super().modify_tensors(data_torch, name, bid)
+        return super().modify_tensors(data_torch, name, bid)
 
 
 @ModelBase.register(
