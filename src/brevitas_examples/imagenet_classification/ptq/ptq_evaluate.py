@@ -43,18 +43,6 @@ from brevitas_examples.imagenet_classification.utils import validate
 warnings.filterwarnings("ignore")
 
 
-def parse_type(v, default_type):
-    if v == 'None':
-        return None
-    else:
-        return default_type(v)
-
-
-model_names = sorted(
-    name for name in torchvision.models.__dict__ if name.islower() and not name.startswith("__") and
-    callable(torchvision.models.__dict__[name]) and not name.startswith("get_"))
-
-
 def generate_ref_input(args, device, dtype):
     model_config = get_model_config(args.model_name)
     center_crop_shape = model_config['center_crop_shape']

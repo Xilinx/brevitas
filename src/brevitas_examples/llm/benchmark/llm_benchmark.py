@@ -10,13 +10,13 @@ from typing import Tuple
 
 from brevitas_examples.common.benchmark.utils import benchmark
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
-from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
 
 
 class LLMBenchmarkUtils(BenchmarkUtils):
 
-    argument_parser: ArgumentParser = create_llm_args_parser()
+    argument_parser: ArgumentParser = create_args_parser()
     eval_metrics: List[str] = ["float_ppl", "quant_ppl"]
 
     @staticmethod

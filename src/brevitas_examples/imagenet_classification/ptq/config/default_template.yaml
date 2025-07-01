@@ -17,6 +17,7 @@ calibration_samples: 1000
 channel_splitting_ratio: 0.0
 channel_splitting_split_input: false
 compile: false
+disable_create_weight_orig: false
 dtype: float
 export_dir: .
 export_onnx_qcdq: false
@@ -29,7 +30,6 @@ gpu: null
 gpxq_accumulator_bit_width: null
 gpxq_accumulator_tile_size: null
 gpxq_act_order: false
-gpxq_create_weight_orig: false
 graph_eq_iterations: 20
 graph_eq_merge_bias: true
 layerwise_first_last_bit_width: 8
@@ -47,6 +47,7 @@ merge_bn: true
 model_name: resnet18
 onnx_opset_version: null
 optimizer: adam
+qronos: false
 quant_format: int
 scale_factor_type: float_scale
 target_backend: fx
