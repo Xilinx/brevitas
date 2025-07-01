@@ -252,7 +252,3 @@ class Qronos(GPFQ):
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
-
-        # offload original weights onto the CPU
-        if self.create_weight_orig:
-            self.layer.weight_orig = self.layer.weight_orig.cpu()
