@@ -24,4 +24,3 @@ weight_bit_width: 4
 weight_quant_granularity: per_channel
 weight_quant_type: asym
 weight_scale_precision: float_scale
-# TODO! add config for scaled min-max

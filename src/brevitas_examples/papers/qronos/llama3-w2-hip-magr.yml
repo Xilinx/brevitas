@@ -27,8 +27,8 @@ rotation: layerwise
 rotation_mode: had
 rotation_orphan_sink: true
 weight_bit_width: 2
-# stats + asym yields the min-max grid
+# stats + asym yields the scaled min-max grid
 weight_quant_granularity: per_channel
+weight_quant_rescaling_init: 0.8
 weight_quant_type: asym
 weight_scale_precision: float_scale
-# TODO! add config for scaled min-max
