@@ -21,6 +21,7 @@ gpxq_block_name: model.layers
 input_bit_width: 4
 input_quant_granularity: per_row  # per-token
 input_scale_type: dynamic
+qronos_alpha: 1e-3
 # standardizes RMS norm to the base torch module
 replace_rmsnorm: true
 # fuses the rotations

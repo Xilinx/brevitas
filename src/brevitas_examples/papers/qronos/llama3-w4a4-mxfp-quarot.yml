@@ -17,9 +17,14 @@ few_shot_zeroshot: true
 # enables ordering by diagonal of H
 gpxq_act_order: true
 gpxq_block_name: model.layers
-# enables activation quantization
+# enables OCP MXFP4 activation quantization
 input_bit_width: 4
-input_quant_granularity: per_row  # per-token
+input_group_size: 32
+input_param_method: stats
+input_quant_format: float_ocp_e2m1
+input_quant_granularity: per_group
+input_quant_type: sym
+input_scale_precision: po2_scale
 input_scale_type: dynamic
 qronos_alpha: 1e-3
 # standardizes RMS norm to the base torch module
@@ -32,9 +37,13 @@ rotation_sdpa_regions: true
 rotation_mode: had
 # allows online Hadamard matrices
 rotation_orphan_sink: true
+scale_rounding_func_type: floor
 model: meta-llama/Llama-3.2-1B
+# enables OCP MXFP4 weight quantization
 weight_bit_width: 4
-# linear search over scaling factor to reduce MSE
+weight_group_size: 32
 weight_param_method: mse
-weight_quant_granularity: per_channel
+weight_quant_format: float_ocp_e2m1
+weight_quant_granularity: per_group
 weight_quant_type: sym
+weight_scale_precision: po2_scale
