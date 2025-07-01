@@ -3,6 +3,7 @@
 bos_preprocessing: sequence
 dtype: bfloat16
 eval: true
+export_target: gguf:q4_0
 few_shot_eval: lighteval
 few_shot_override_batch_size: 128
 # we use lighteval since it is faster, but using lm_eval
