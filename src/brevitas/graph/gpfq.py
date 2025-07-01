@@ -104,6 +104,7 @@ class GPFQ(GPxQ):
         weight = self.layer.weight.data
         weight_orig = self.layer.weight_orig.data
         dev = weight.device
+        weight_orig = weight_orig.to(dev)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
@@ -179,6 +180,9 @@ class GPFQ(GPxQ):
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
+        # offload original weights onto the CPU
+        if self.create_weight_orig:
+            self.layer.weight_orig = self.layer.weight_orig.cpu()
 
 
 class gpfq_mode(gpxq_mode):

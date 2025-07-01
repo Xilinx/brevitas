@@ -93,6 +93,7 @@ class Qronos(GPFQ):
         weight: Tensor = self.layer.weight.data
         weight_orig: Tensor = self.layer.weight_orig.data
         dev = weight.device
+        weight_orig = weight_orig.to(dev)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
