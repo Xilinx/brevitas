@@ -7,7 +7,8 @@ import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
 import re
-from typing import Any, Dict
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
