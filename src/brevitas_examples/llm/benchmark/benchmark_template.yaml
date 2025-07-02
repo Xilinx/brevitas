@@ -4,12 +4,32 @@ act_equalization:
 - null
 act_equalization_alpha:
 - 0.5
+attn_bit_width:
+- null
+attn_group_size:
+- null
+attn_param_method:
+- null
+attn_quant_config:
+- qkvs
+attn_quant_format:
+- null
+attn_quant_granularity:
+- null
+attn_quant_type:
+- null
+attn_scale_precision:
+- null
+attn_scale_type:
+- null
 awq_clip:
 - false
 awq_scale:
 - false
 bias_corr:
 - false
+bos_preprocessing:
+- null
 checkpoint_name:
 - null
 compile_eval:
@@ -20,10 +40,16 @@ convert_layernorm_to_rmsnorm:
 - false
 dataset:
 - wikitext2
+disable_create_weight_orig:
+- false
 dtype:
-- float16
+- auto
+eager_quant_sdpa_class:
+- auto
 eval:
 - false
+expansion_step:
+- 1
 export_prefix:
 - null
 export_target:
@@ -41,10 +67,6 @@ few_shot_tasks:
   - piqa
 few_shot_zeroshot:
 - false
-functional_sdpa_quant:
-- false
-fuse_sequences:
-- false
 gpfq:
 - false
 gptq:
@@ -53,8 +75,6 @@ gpxq_act_order:
 - false
 gpxq_block_name:
 - null
-gpxq_create_weight_orig:
-- false
 gpxq_max_accumulator_bit_width:
 - null
 gpxq_max_accumulator_tile_size:
@@ -77,10 +97,6 @@ input_scale_precision:
 - float_scale
 input_scale_type:
 - static
-kv_quant_granularity:
-- null
-kv_quant_type:
-- null
 learned_round:
 - null
 learned_round_fast_update:
@@ -97,14 +113,14 @@ learned_round_scale_momentum:
 - 0.9
 ln_affine_merge:
 - false
-load_awq:
-- null
 load_checkpoint:
 - false
+magr:
+- false
+magr_alpha:
+- 0.01
 model:
 - facebook/opt-125m
-no_bos_preprocessing:
-- false
 no_quantize:
 - false
 nsamples:
@@ -113,15 +129,17 @@ nsamples_rot_calibration:
 - 800
 optimize_rotations:
 - false
-quant_sdpa:
+qronos:
 - false
+qronos_alpha:
+- 1.0e-06
+quant_sdpa:
+- null
 quantize_input_zero_point:
 - false
 quantize_last_layer:
 - false
 quantize_weight_zero_point:
-- false
-replace_mha:
 - false
 replace_rmsnorm:
 - false

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import argparse
 from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
@@ -15,7 +14,6 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-import yaml
 
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
@@ -36,8 +34,10 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.parse_utils import override_defaults
+from brevitas_examples.common.parse_utils import parse_args
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
-from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
@@ -689,46 +689,10 @@ def quantize_llm(args, extra_args=None):
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 
 
-def override_defaults(args):
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
-    )
-    known_args = parser.parse_known_args()[0]  # Returns a tuple
-    if known_args.config is not None:
-        with open(known_args.config, 'r') as f:
-            defaults = yaml.safe_load(f)
-    else:
-        defaults = {}
-    return defaults
-
-
-def parse_args(args, override_defaults={}):
-    parser = create_llm_args_parser()
-    if len(override_defaults) > 0:
-        # Retrieve keys that are known to the parser
-        parser_keys = set(map(lambda action: action.dest, parser._actions))
-        # Extract the entries in override_defaults that correspond to keys not known to the parser
-        extra_args_keys = [key for key in override_defaults.keys() if key not in parser_keys]
-        # Remove all the keys in override_defaults that are unknown to the parser and, instead,
-        # include them in args, as if they were passed as arguments to the command line.
-        # This prevents the keys of HF TrainingArguments from being added as arguments to the parser.
-        # Consequently, they will be part of the second value returned by parse_known_args (thus being
-        # used as extra_args in quantize_llm)
-        for key in extra_args_keys:
-            args += [f"--{key}", str(override_defaults[key])]
-            del override_defaults[key]
-    parser.set_defaults(**override_defaults)
-    return parser.parse_known_args(args)
-
-
 def main():
     overrides = override_defaults(sys.argv[1:])
-    args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
+    parser = create_args_parser()
+    args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
     quantize_llm(args, extra_args)
 
 
