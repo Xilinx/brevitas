@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
+from argparse import ArgumentParser
 from typing import List
 from typing import Optional
 from warnings import warn
@@ -10,7 +11,7 @@ from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_args_parser():
+def create_args_parser() -> ArgumentParser:
     parser = create_entrypoint_args_parser(description="LLM quantization")
     parser.add_argument(
         '--model',
@@ -447,7 +448,7 @@ def create_args_parser():
     return parser
 
 
-def validate(args: Namespace, extra_args: Optional[List[str]] = None):
+def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     if args.optimize_rotations:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
     else:

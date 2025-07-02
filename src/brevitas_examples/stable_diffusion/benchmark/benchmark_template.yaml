@@ -51,7 +51,7 @@ few_shot_calibration:
 gptq:
 - false
 guidance_scale:
-- 7.0
+- null
 inference_mode:
 - true
 inference_pipeline:

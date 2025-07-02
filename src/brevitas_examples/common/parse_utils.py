@@ -7,7 +7,7 @@ import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
 import re
-from typing import Dict
+from typing import Any, Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -63,7 +63,7 @@ def create_entrypoint_args_parser(description: Optional[str] = None) -> Argument
     return parser
 
 
-def override_defaults(args: List[str]) -> Dict:
+def override_defaults(args: List[str]) -> Dict[str, Any]:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
         '--config',

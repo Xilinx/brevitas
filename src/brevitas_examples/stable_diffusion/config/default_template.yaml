@@ -24,7 +24,7 @@ export_target: ''
 export_weight_q_node: false
 few_shot_calibration: []
 gptq: false
-guidance_scale: 7.0
+guidance_scale: null
 inference_mode: true
 inference_pipeline: samples
 inference_steps: 50

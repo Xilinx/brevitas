@@ -316,7 +316,7 @@ def create_args_parser() -> ArgumentParser:
     return parser
 
 
-def validate(args: Namespace, extra_args: Optional[List[str]] = None):
+def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     assert args.calibration_dir is not None, "Specify in --calibration-dir the path to the folder containing the Imagenet calibration dataset."
     assert args.validation_dir is not None, "Specify in --calibration-dir the path to the folder containing the Imagenet validation dataset."
     if args.learned_round:

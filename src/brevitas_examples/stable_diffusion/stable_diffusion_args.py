@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
+from argparse import ArgumentParser
 from typing import List
 from typing import Optional
 
@@ -10,7 +11,7 @@ from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_args_parser():
+def create_args_parser() -> ArgumentParser:
     parser = create_entrypoint_args_parser(description="Stable Diffusion quantization")
     parser.add_argument(
         '-m',
@@ -71,7 +72,7 @@ def create_args_parser():
         type=int,
         default=1,
         help='Number of iterations to use for SVDQuant (default: %(default)s).')
-    parser.add_argument('--guidance-scale', type=float, default=7.0, help='Guidance scale.')
+    parser.add_argument('--guidance-scale', type=float, default=None, help='Guidance scale.')
     parser.add_argument(
         '--calibration-steps', type=int, default=8, help='Steps used during calibration')
     parser.add_argument(
@@ -422,5 +423,5 @@ def create_args_parser():
     return parser
 
 
-def validate(args: Namespace, extra_args: Optional[List[str]] = None):
+def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     pass
