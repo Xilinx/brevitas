@@ -21,6 +21,7 @@ from brevitas.core.stats import _RuntimeStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
 from brevitas.core.utils import ParameterWrapper
 from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops_ste import abs_binary_sign_grad
 
 
 class StatsFromParameterScaling(brevitas.jit.ScriptModule):
@@ -181,6 +182,7 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         out = x * self.affine_weight + self.affine_bias()
+        out = abs_binary_sign_grad(out)
         return out
 
     def _load_from_state_dict(

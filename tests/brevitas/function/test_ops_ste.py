@@ -12,6 +12,7 @@ import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper.ops_ste import ScalarClampMinSte
 from brevitas.core.function_wrapper.ops_ste import ScalarSignedClampMinSte
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
@@ -21,7 +22,6 @@ from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
-from tests.marker import requires_pt_ge
 
 AUTOGRAD_OPS_PREFIX = 'brevitas.ops.autograd_ste_ops.'
 NATIVE_PREFIX = 'torch.ops.autograd_ste_ops.'
@@ -204,7 +204,30 @@ class TestScalarSignedClampMinSte:
         output.backward(val_grad, retain_graph=True)
         assert_allclose(val_grad, val.grad)
 
-    @requires_pt_ge('2.0.1')
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_bwd_reference(self, x):
+        """
+        Test that gradients are correctly passed through to val only
+        """
+        # min_val must be set to a value greater than zero
+        assume(abs(x[0]) > 0.0)
+        min_val, val, val_grad = x
+        # Outputs of ScalarSignedClampMinSte and ScalarClampMinSte
+        # should match for positive inputs
+        val = torch.abs(val)
+        module = ScalarSignedClampMinSte(min_val)
+        ref_module = ScalarClampMinSte(min_val)
+        val.requires_grad_(True)
+        # Compute gradient for module
+        output = module(val)
+        output.backward(val_grad)
+        module_val_grad = val.grad.detach().clone()
+        # Compute gradient for ref_module
+        val.grad = None
+        output = ref_module(val)
+        output.backward(val_grad)
+        assert_allclose(module_val_grad, val.grad)
+
     @given(x=scalar_clamp_min_ste_test_st())
     def test_fwd(self, x):
         """
@@ -219,4 +242,22 @@ class TestScalarSignedClampMinSte:
         mask = (val > -abs(min_val)) & (val < abs(min_val))
         ref_output = torch.where(val >= 0, 1., -1.) * torch.where(
             mask, abs(min_val), torch.abs(val))
+        assert_allclose(output, ref_output)
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_fwd_reference(self, x):
+        """
+        Test that values are correctly clamped
+        """
+        # min_val must be set to a value greater than zero
+        assume(abs(x[0]) > 0.0)
+        min_val, val, _ = x
+        # Outputs of ScalarSignedClampMinSte and ScalarClampMinSte
+        # should match for positive inputs
+        val = torch.abs(val)
+        module = ScalarSignedClampMinSte(min_val)
+        ref_module = ScalarClampMinSte(min_val)
+        output = module(val)
+        # Compute reference output
+        ref_output = ref_module(val)
         assert_allclose(output, ref_output)
