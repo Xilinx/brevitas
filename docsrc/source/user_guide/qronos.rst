@@ -6,8 +6,12 @@ and updates neural network weights to explicitly correct quantization errors in 
 the weights and activations of previous layers while diffusing error into future 
 (yet-to-be quantized) weights.
 
-📄 Paper: https://arxiv.org/pdf/2505.11695 
-💻 Code: https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py 
+📄 `Paper <https://arxiv.org/pdf/2505.11695>`_ 
+💻 `Code <https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py>`_
+
+.. contents:: Table of Contents
+   :local:
+   :depth: 2
 
 Let’s dive into the Qronos algorithm and how to use it with Brevitas!
 
@@ -36,35 +40,89 @@ To solve this problem, Qronos quantizes weights one-by-one by alternating betwee
 error correction, where a quantized weight is selected to optimally correct the error; and (2) error 
 diffusion, where the remaining unquantized weights are updated to compensate for the accumulated 
 rounding error. To do so efficiently, Qronos benefits from the same techniques used to scale GPTQ to 
-increasingly large models (e.g., Cholesky decomposition and lazy batch updates), and consistently produces 
-quantized models with better accuracy!
+increasingly large models (e.g., Cholesky decomposition and lazy batch updates), and consistently 
+produces quantized models with better accuracy!
 
-Check out the `paper <https://arxiv.org/pdf/2505.11695>`_ for formalized objective functions, derivations, 
-and analyses.
+Check out the `paper <https://arxiv.org/pdf/2505.11695>`_ for formalized objective functions, 
+derivations, and analyses.
+
+
+Getting Started
+--------------------------------------
+
+Below are versions used for this work.
+
+- ``python==3.12``
+- ``torch==2.4.0+rocm6.1``
+- ``datasets==3.2.0``
+- ``optimum==1.24.0``
+- ``accelerate==1.3.0``
+- ``transformers==4.51.3`` (custom fork, see below)
+- ``fast_hadamard-transform==1.0.4`` (custom fork, see below)
+- ``lighteval==0.6.0`` (custom fork, see below)
+
+You can install PyTorch for ROCm 6.1 via:
+
+.. code:: shell
+
+   pip install torch==2.4.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
+
+You can install and build a fork of the ``fast_hadamard_transform`` library with ROCm support via:
+
+.. code:: shell
+
+   git clone https://github.com/jeffdaily/fast-hadamard-transform -b rocm
+   cd fast-hadamard-transform
+   pip install -e .
+
+There is a known issue with ``lighteval`` v0.6.0 (see `#489 <https://github.com/huggingface/lighteval/issues/489>`_). 
+To collect zero-shot results, we use the patched fork:
+
+.. code:: shell
+
+   git clone https://github.com/Giuseppe5/lighteval
+   cd lighteval
+   pip install .
+
+There is also a known issue with ``transformers`` v4.51.3 (see `#38271 <https://github.com/huggingface/transformers/issues/38271>`_). 
+To use QuaRot and SpinQuant here, we use the patched fork:
+
+.. code:: shell
+
+   git clone https://github.com/i-colbert/transformers -b v4.51.3-patch
+   cd transformers
+   pip install -e .
+
 
 How to Use: Few-Bit LLM Quantization
 --------------------------------------
 
-With Brevitas, you can apply Qronos to quantize models via
+With Brevitas, you can apply the Qronos algorithm to quantize HuggingFace models via
 `our LLM entry point <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/llm>`_!
 
-We provide packaged configurations in the ``configs/qronos`` folder to enable similar experiments used 
-for the paper, and you can specify a Huggingface model via ``--model=meta-llama/Llama-3.2-1B``, for example. 
-The provided configurations specify Llama-3.2-1B.
+We provide packaged config files in the ``configs/qronos`` folder to enable similar experiments used 
+for the paper. The provided configurations specify Llama-3.2-1B.
 
-The BF16 baselines give a WikiText2 perplexity of TODO! and an average normalized 0-shot accuracy of TODO! via:
+The BF16 baselines give a WikiText2 perplexity of 8.94 and an average normalized 0-shot accuracy 
+(or "all_acc_norm" from LightEval) of 59.40% via:
 
 .. code:: shell
 
    brevitas_ptq_llm --config=llama3-w4-base.yml --no-quantize
+
+Note that you can specify different Huggingface models by adding it to the CLI args. For example:
+
+.. code:: shell
+
+   brevitas_ptq_llm --config=llama3-w4-base.yml --model=meta-llama/Llama-3.2-3B-Instruct
 
 
 4-bit weight-only quantization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following table summarizes the results of weight-only quantization on Llama-3.2-1B 
-to 3-bit or 4-bit weights, comparing Qronos with other algorithms like GPTQ, GPFQ, where
-round-to-nearest (RTN) is provided as a baseline.
+to 3-bit or 4-bit weights, comparing Qronos with GPTQ and GPFQ, where round-to-nearest 
+(RTN) is provided as a baseline.
 
 +--------+--------------------+--------------------+
 |        |       3-bit        |       4-bit        |
@@ -80,13 +138,14 @@ round-to-nearest (RTN) is provided as a baseline.
 | Qronos |  22.00   |  40.32  |  10.12   |  55.87  |
 +--------+----------+---------+----------+---------+
 
-You can collect 4-bit weight-only results with ``config/qronos/lama3-w4-base.yml`` via:
+You can collect 4-bit weight-only results with the ``config/qronos/lama3-w4-base.yml`` config 
+via:
 
 .. code:: shell
 
    brevitas_ptq_llm --config=llama3-w4-base.yml
 
-The provided config runs round-to-nearest (RTN), but you can run GPTQ , GPFQ, or Qronos by 
+The provided config runs RTN, but you can run GPTQ , GPFQ, or Qronos by 
 adding ``--gptq``, ``--gpfq``, or ``--qronos``, respectively, for example:
 
 .. code:: shell
@@ -98,6 +157,8 @@ You can also specify a different bit width, for example:
 .. code:: shell
 
    brevitas_ptq_llm --config=llama3-w4-base.yml --weight-bit-width=3
+
+However, we recommend the following config when quantizing to 2 bits or fewer.
 
 
 2-bit and 1.58-bit weight-only quantization 
@@ -112,21 +173,20 @@ transformations with adaptive rounding algorithms like Qronos, GPTQ, or GPFQ.
 The following table summarizes the results of weight-only quantization on Llama-3.2-1B 
 when jointly using Hadamard-based incoherence processing (HIP) and weight magnitude reduction 
 (MagR) as our quantization transform. We then compare adaptive rounding functions when
-quantizing the model to 1.58-bit (ternary) or 2-bit weights, comparing Qronos with other
-algorithms like GPTQ or GPFQ, where round-to-nearest (RTN) is provided as a baseline.
+quantizing the model to 1.58-bit (i.e., ternary) or 2-bit weights.
 
 +--------+--------------------+--------------------+
 |        |      1.58-bit      |       2-bit        |
 +--------+----------+---------+----------+---------+
 |        |  Wiki2   | 0-shot  |  Wiki2   | 0-shot  |
 +--------+----------+---------+----------+---------+
-| RTN    |          |         |          |         |
+| RTN    |   2e5    |  32.78  |   3e3    |  32.22  |
 +--------+----------+---------+----------+---------+
-| OPTQ   |          |         |          |         |
+| OPTQ   |   3e2    |  33.09  |  25.00   |  38.96  |
 +--------+----------+---------+----------+---------+
-| GPFQ   |          |         |          |         |
+| GPFQ   |   1e2    |  33.21  |  26.25   |  38.73  |
 +--------+----------+---------+----------+---------+
-| Qronos |          |         |          |         |
+| Qronos |  39.25   |  34.11  |  18.00   |  42.42  |
 +--------+----------+---------+----------+---------+
 
 We provide ``config/llama3-w2-hip-magr.yml`` as an example, which you can run via:
@@ -135,7 +195,7 @@ We provide ``config/llama3-w2-hip-magr.yml`` as an example, which you can run vi
 
    brevitas_ptq_llm --config=config/llama3-w2-hip-magr.yml --weight-bit-width=2 --qronos
 
-Note that you can quantize to 1.58 bits via:
+and you can quantize to 1.58 bits via:
 
 .. code:: shell
 
@@ -148,24 +208,27 @@ quantization alphabet to :math:`\mathcal{A}=\{-1, 0, 1\}`.
 4-bit weight-activation quantization with QuaRot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The following table summarizes the results of weight-activation quantization of
+Llama-3.2-1B to INT4 or MXFP4 data formats using Hadamard-based incoherence processing
+similar to what is proposed for QuaRot [4]. We compare Qronos with GPTQ and GPFQ, 
+where round-to-nearest (RTN) is provided as a baseline.
+
 +--------+--------------------+--------------------+
 |        |       INT4         |       MXFP4        |
 +--------+----------+---------+----------+---------+
 |        |  Wiki2   | 0-shot  |  Wiki2   | 0-shot  |
 +--------+----------+---------+----------+---------+
-| RTN    |          |         |          |         |
+| RTN    |  18.00   |  48.31  |  15.38   |  49.53  |
 +--------+----------+---------+----------+---------+
-| OPTQ   |          |         |          |         |
+| OPTQ   |  12.94   |  50.58  |  12.00   |  52.93  |
 +--------+----------+---------+----------+---------+
-| GPFQ   |          |         |          |         |
+| GPFQ   |  12.38   |  52.73  |  11.25   |  53.45  |
 +--------+----------+---------+----------+---------+
-| Qronos |          |         |          |         |
+| Qronos |  12.38   |  51.86  |  11.25   |  53.71  |
 +--------+----------+---------+----------+---------+
 
-
-To apply weight-activation quantization with Hadamard rotations, similar to what is proposed for QuaRot [4], we 
-provide ``config/llama3-w4a4-quarot.yml``. Similarly, to apply Cayley-optimized rotations similar to what is proposed 
-for SpinQuant [5], we use ``config/llama3-w4a4-spinquant.yml``. These can be run for example:
+To apply weight-activation quantization with Hadamard rotations, similar to what is proposed for 
+QuaRot [4], we provide ``config/llama3-w4a4-quarot.yml`` and ``config/llama3-w4a4-mxfp-quarot.yml``. 
 
 .. code:: shell
 
@@ -176,30 +239,80 @@ Again, running ``--gptq`` or ``--gpfq`` would instead GPTQ or GPFQ.
 4-bit weight-activation quantization with SpinQuant
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The following table summarizes the results of weight-activation quantization of
+Llama-3.2-1B to INT4 or MXFP4 data formats using Hadamard-based incoherence processing
+similar to what is proposed for QuaRot [4]. We compare Qronos with GPTQ and GPFQ, 
+where round-to-nearest (RTN) is provided as a baseline.
+
 +--------+--------------------+--------------------+
 |        |       INT4         |       MXFP4        |
 +--------+----------+---------+----------+---------+
 |        |  Wiki2   | 0-shot  |  Wiki2   | 0-shot  |
 +--------+----------+---------+----------+---------+
-| RTN    |          |         |          |         |
+| RTN    |  12.25   |  52.08  |  11.76   |  53.61  |
 +--------+----------+---------+----------+---------+
-| OPTQ   |          |         |          |         |
+| OPTQ   |  12.30   |  53.09  |  11.79   |  53.25  |
 +--------+----------+---------+----------+---------+
-| GPFQ   |          |         |          |         |
+| GPFQ   |  12.28   |  52.85  |  11.35   |  53.22  |
 +--------+----------+---------+----------+---------+
-| Qronos |          |         |          |         |
+| Qronos |  11.52   |  54.00  |  10.80   |  54.83  |
 +--------+----------+---------+----------+---------+
+
+Similarly, to apply Cayley-optimized rotations similar to what is proposed for SpinQuant [5], we 
+use ``config/llama3-w4a4-spinquant.yml`` and ``config/llama3-w4a4-mxfp-spinquant``. These can be 
+run for example:
+
+.. code:: shell
+
+   brevitas_ptq_llm --config=config/llama3-w4a4-spinquant.yml --qronos
+
+Again, running ``--gptq`` or ``--gpfq`` would instead GPTQ or GPFQ.
+
+GGUF:Q4_0 model export for llama.cpp
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also export the quantized model to the GGUF formats for use with llama.cpp as 
+described in `GGUF Export <https://xilinx.github.io/brevitas/dev/user_guide/export_gguf.html>`_.
+
+In this example, we export the quantized models to the GGUF:Q4_0 format
+
+.. code:: shell
+
+   brevitas_ptq_llm --config=config/llama3-gguf-q4_0.yml --qronos
+
+Note that the file "Llama-3.2-1B-1.2B-Q4_0.gguf" will be created in the current directory.
+
+The following table summarizes the results of weight-only quantization of Llama-3.2-1B to 
+the GGUF:Q4_0  format, comparing Qronos with GPTQ and GPFQ, where round-to-nearest (RTN) 
+is provided as a baseline.
+
++--------+----------+---------+
+|        |  Wiki2   | 0-shot  |
++--------+----------+---------+
+| RTN    |  10.44   |  56.81  |
++--------+----------+---------+
+| OPTQ   |   9.50   |  57.96  |
++--------+----------+---------+
+| GPFQ   |   9.50   |  57.99  |
++--------+----------+---------+
+| Qronos |   9.31   |  57.88  |
++--------+----------+---------+
+
 
 How to Use: Few-Bit ConvNet Quantization
 -------------------------------------------
 
 With Brevitas, one can also apply Qronos to quantize models via  `our TorchVision entry point <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/imagenet_classification/ptq>`_!
 
-Similar to our LLM entry point, several techniques can be composed. For example, to run Qronos via the TorchVision entry point on GPU 0:
+For example, to run Qronos via the TorchVision entry point on GPU 0:
 
 .. code:: shell
 
    brevitas_ptq_imagenet_val --calibration-dir=/path/to/imagenet/calibration/folder --validation-dir=/path/to/imagenet/validation/folder --gpu=0 --model-name=resnet50 --qronos
+
+The following table summarizes the results of weight-activation quantization on MobileNetV2 and ResNet50
+to 4-bit weights with either 4-bit or 8-bit activations (W4A4 or W4A8, respectively). We compare Qronos with 
+GPTQ and GPFQ, where round-to-nearest (RTN) is provided as a baseline.
 
 +--------+--------------------+--------------------+
 |        |    mobilenet_v2    |      resnet50      |
@@ -231,7 +344,8 @@ Citation
          url={https://arxiv.org/abs/2505.11695}, 
    }
 
-Please use `this branch <https://github.com/i-colbert/brevitas/tree/qronos/src/brevitas_examples/llm>`_ to reproduce the experiments used for the paper.
+Note that this tutorial is not intended to reproduce all the experiments from the original paper. To do so, 
+please see `this <https://github.com/i-colbert/brevitas/tree/qronos/src/brevitas_examples/llm>`_ branch.
 
 References
 -----------
