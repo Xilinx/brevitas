@@ -16,7 +16,7 @@ few_shot_tasks:
 - leaderboard|hellaswag|0|0
 gpxq_act_order: true
 gpxq_block_name: model.layers
-model: Qwen/Qwen3-1.7B
+model: meta-llama/Llama-3.2-1B
 weight_bit_width: 4
 weight_scale_precision: float_scale
 weight_group_size: 32
