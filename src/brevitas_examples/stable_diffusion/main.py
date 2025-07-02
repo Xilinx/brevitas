@@ -488,8 +488,6 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
 
         print("Applying model quantization...")
         quantizers = generate_quantizers(
-            dtype=dtype,
-            device=args.device,
             scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
@@ -533,8 +531,6 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
             assert args.share_qkv_quant, "SDPA quantization requires QKV fusion. Enable share_qkv_quant"
             # `args.weight_quant_granularity` must be compatible with `args.sdpa_quant_format`
             sdpa_quantizers = generate_quantizers(
-                dtype=dtype,
-                device=args.device,
                 scale_rounding_func_type=args.scale_rounding_func,
                 weight_bit_width=args.sdpa_bit_width,
                 weight_quant_format=args.sdpa_quant_format,
@@ -981,7 +977,6 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
                         args.reference_images_path, os.path.join(output_dir, 'quant_reference'))
                     print(f"Cleanfid FID: {float(fid.compute())}")
 
-    raise Exception()
     return results, None
 
 
