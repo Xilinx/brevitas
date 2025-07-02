@@ -559,7 +559,7 @@ def quantize_llm(args, extra_args=None):
                 model.load_state_dict(torch.load(args.checkpoint_name, map_location='cpu'))
             model = offload_model(model)
 
-        if args.gptq:
+        if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
             apply_gptq(
                 model,
@@ -572,7 +572,7 @@ def quantize_llm(args, extra_args=None):
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPTQ applied.")
 
-        if args.gpfq:
+        if args.gpfq and not args.load_checkpoint:
             print("Applying GPFQ...")
             apply_gpfq(
                 model,
@@ -583,7 +583,7 @@ def quantize_llm(args, extra_args=None):
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
 
-        if args.qronos:
+        if args.qronos and not args.load_checkpoint:
             print("Applying Qronos...")
             apply_qronos(
                 model,
@@ -593,7 +593,7 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name)
             print("Qronos applied.")
 
-        if args.bias_corr:
+        if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")
             apply_bias_correction(model, calibration_loader)
             print("Bias correction applied.")
