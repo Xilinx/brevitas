@@ -12,10 +12,8 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
-from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
-from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat

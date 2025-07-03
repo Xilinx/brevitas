@@ -1,11 +1,12 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from brevitas_examples.llm.llm_quant.mha_layers import LlamaQuantAttention
 import torch
 import torch.nn.functional as F
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 
-from brevitas.graph import TorchFunctionalToModule
+from brevitas.graph import ModuleToModuleByClass, TorchFunctionalToModule
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 
@@ -41,6 +42,14 @@ def replace_sdpa_with_quantizable_layers(model, is_fx=True, eager_quant_sdpa_cla
 
     return model
 
+def replace_mlperf_attn(model):
+    for n, m in model.named_modules():
+        if type(m).__name__.lower().endswith('attention'):
+            quant_block_type = type(m)
+            break
+    r = ModuleToModuleByClass(quant_block_type, LlamaQuantAttention)
+    model = r.apply(model)
+    return model
 
 @torch.no_grad()
 def add_zero_bias_to_linear(model: torch.nn.Module) -> torch.nn.Module:
