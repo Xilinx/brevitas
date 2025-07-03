@@ -1,11 +1,12 @@
-from typing import Any, Optional
+from typing import Any
+from typing import Optional
 from typing import Tuple
 
-from brevitas.nn import ScaledDotProductAttention
 import torch
 from torch import nn
 from transformers.integrations.sdpa_attention import repeat_kv
 
+from brevitas.nn import ScaledDotProductAttention
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.utils.torch_utils import KwargsForwardHook
 
@@ -15,6 +16,7 @@ try:
 except:
     apply_rotary_pos_emb = None
     LlamaAttention = object
+
 
 class LlamaQuantAttention(LlamaAttention):
     """
@@ -37,7 +39,8 @@ class LlamaQuantAttention(LlamaAttention):
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
+        position_embeddings: Optional[Tuple[torch.Tensor,
+                                            torch.Tensor]] = None,  # will become mandatory in v4.46
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         if output_attentions:
@@ -60,8 +63,10 @@ class LlamaQuantAttention(LlamaAttention):
         value_states = self.v_proj(hidden_states)
 
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(bsz, q_len, self.num_key_value_heads,
+                                     self.head_dim).transpose(1, 2)
+        value_states = value_states.view(bsz, q_len, self.num_key_value_heads,
+                                         self.head_dim).transpose(1, 2)
 
         if position_embeddings is None:
             cos, sin = self.rotary_emb(value_states, position_ids)
@@ -73,7 +78,7 @@ class LlamaQuantAttention(LlamaAttention):
             # sin and cos are specific to RoPE models; cache_position needed for the static cache
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
-        
+
 
         attn_output, _ = quant_sdpa_attention_forward(self, query_states, key_states, value_states, attention_mask, self.attention_dropout if self.training else 0.0)
         attn_output = attn_output.view(bsz, q_len, -1)

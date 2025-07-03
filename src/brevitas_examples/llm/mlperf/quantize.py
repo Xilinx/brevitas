@@ -1,4 +1,3 @@
-
 import argparse
 from contextlib import nullcontext
 from copy import deepcopy
@@ -7,16 +6,15 @@ import functools
 import pprint
 import sys
 
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat, Fp8e4m3OCPWeightPerTensorFloat
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
+import torch.nn as nn
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 import yaml
-import brevitas.nn as qnn
-import torch.nn as nn
 
+from brevitas.core.function_wrapper import FloorSte
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
@@ -28,7 +26,12 @@ from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
+import brevitas.nn as qnn
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3WeightMSE
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
@@ -55,26 +58,27 @@ from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_ro
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
-from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear, replace_mlperf_attn
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mlperf_attn
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3WeightMSE
-from brevitas.core.function_wrapper import FloorSte
 
 
 class MXFP4Weight(MXFloat8e4m3WeightMSE):
     restrict_value_float_to_int_impl = FloorSte
 
+
 class MXFP4Act(MXFloat8e4m3Act):
     restrict_value_float_to_int_impl = FloorSte
 
+
 class FP8Weight(Fp8e4m3OCPWeightPerTensorFloat):
     pass
+
 
 class FP8Act(Fp8e4m3OCPActPerTensorFloat):
     pass
@@ -125,7 +129,6 @@ def main(args):
         seed=args.seed,
         require_fx=False,
         device=None)
-    
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")
@@ -145,13 +148,8 @@ def main(args):
     # Attn Quantization
     q_scaled_quant = FP8Act
     k_transposed_quant = FP8Act
-    q_scaled_quant = q_scaled_quant.let(
-    **{
-        'group_dim': -1, 'group_size': 32
-    })
-    k_transposed_quant = k_transposed_quant.let(
-        **{
-            'group_dim': -2, 'group_size': 32})
+    q_scaled_quant = q_scaled_quant.let(**{'group_dim': -1, 'group_size': 32})
+    k_transposed_quant = k_transposed_quant.let(**{'group_dim': -2, 'group_size': 32})
     v_quant = k_transposed_quant
 
     quant_sdpa_kwargs = {
@@ -163,20 +161,23 @@ def main(args):
         'attn_output_quant': None,
         'dtype': dtype,
         'device': device}
-    
+
     mxfp4_layer_types = []
 
     quant_linear_kwargs = {
-        'input_quant': lambda name, module: MXFP4Act if any([pattern in name for pattern in mxfp4_layer_types]) else FP8Act,
-        'weight_quant': lambda name, module: MXFP4Weight if any([pattern in name for pattern in mxfp4_layer_types]) else FP8Weight,
-    }
-
+        'input_quant':
+            lambda name,
+            module: MXFP4Act if any([pattern in name for pattern in mxfp4_layer_types]) else FP8Act,
+        'weight_quant':
+            lambda name,
+            module: MXFP4Weight
+            if any([pattern in name for pattern in mxfp4_layer_types]) else FP8Weight,}
 
     layer_map = {
         nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
         qnn.ScaledDotProductAttention: (qnn.QuantScaledDotProductAttention, quant_sdpa_kwargs)}
     name_blacklist = []
-    
+
     model = layerwise_quantize(
         model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
     # Just to be sure
@@ -184,7 +185,6 @@ def main(args):
     model = model.to(dtype)
 
     model = offload_model(model)
-
 
     # We initialize weights scale factor
     with torch.no_grad():
@@ -199,7 +199,6 @@ def main(args):
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
         print("Act calibration applied.")
-
 
     if args.gptq and not args.load_checkpoint:
         print("Applying GPTQ...")
