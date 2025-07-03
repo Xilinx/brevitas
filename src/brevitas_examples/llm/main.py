@@ -369,6 +369,15 @@ def quantize_llm(args, extra_args=None):
         # scaling factor that multiplies the weights is optimized
         weight_scaling_impl_type = 'stats' if (
             args.awq_scale or args.awq_clip) else 'parameter_from_stats'
+        weight_kwargs = {}
+        if args.weight_quant_rescaling_init is not None:
+            weight_kwargs = {
+                **weight_kwargs,
+                **{
+                    'scaling_affine_rescaling_init': args.weight_quant_rescaling_init,
+                    'zero_point_affine_rescaling_init': args.weight_quant_rescaling_init}}
+        if args.weight_narrow_range:
+            weight_kwargs = {**weight_kwargs, **{'narrow_range': args.weight_narrow_range}}
         linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
@@ -400,7 +409,8 @@ def quantize_llm(args, extra_args=None):
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
             quant_attn_mode='sdpa',
-            scaling_min_val=args.scaling_min_val)
+            scaling_min_val=args.scaling_min_val,
+            weight_kwargs=weight_kwargs)
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,
             weight_quant=weight_quant,

@@ -66,6 +66,15 @@ def create_args_parser() -> ArgumentParser:
         choices=['float_scale', 'po2_scale'],
         help='Whether scale is a float value or a po2. Default: po2.')
     parser.add_argument(
+        '--weight-quant-rescaling-init',
+        type=float,
+        default=None,
+        help='Value to rescale weight quantization grid. Default: None (no rescaling).')
+    parser.add_argument(
+        '--weight-narrow-range',
+        action="store_true",
+        help='Use narrow range for weight quantization. Default: False.')
+    parser.add_argument(
         '--weight-quant-type',
         type=str,
         default='sym',
@@ -461,6 +470,9 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
+        if args.weight_quant_rescaling_init is not None:
+            assert args.weight_quant_rescaling_init > 0, \
+                'Error: weight_quant_rescaling_init must be positive.'
         if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
             warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
         if (args.gpfq or args.qronos):
