@@ -1893,7 +1893,7 @@ class GraphRotationEqualization(RotationEqualization):
             sdpa_regions = self.rotate_sdpa(graph_model)
             regions.extend(sdpa_regions)
 
-        logging.debug(f"Applying GraphRotationEqualization on {len(self.regions)} regions")
+        logging.debug(f"Applying GraphRotationEqualization on {len(regions)} regions")
 
         for r in regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
