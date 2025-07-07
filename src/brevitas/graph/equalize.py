@@ -1283,6 +1283,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         scale_factors = []
         rewriters = []
         self.remove_hooks()
+        logging.debug(f"Applying LayerwiseActivationEqualization on {len(self.regions)} regions")
         for region in self.regions:
             name = list(region.sinks.keys())[0]
             module = region.get_module_from_name(name)
@@ -1386,6 +1387,7 @@ class GraphActivationEqualization(ActivationEqualization):
         scale_factors = []
         rewriters = []
         self.remove_hooks()
+        logging.debug(f"Applying GraphActivationEqualization on {len(self.regions)} regions")
         for region in self.regions:
             region_names = region.sinks_names if len(region.acts) == 0 else region.acts
             if any([self.float_act_map[name] is None for name in region_names]):
@@ -1775,6 +1777,7 @@ class GraphRotationEqualization(RotationEqualization):
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
         matmul_nodes = [c for c in matmul_nodes if c.name == 'matmul']
+        logging.debug(f"Applying GraphRotationEqualization on {len(matmul_nodes)} matmuls")
         for node in matmul_nodes:
             with graph_module.graph.inserting_before(node):
                 matmul_arg0 = graph_module.graph.call_function(
@@ -1868,6 +1871,7 @@ class GraphRotationEqualization(RotationEqualization):
                 'supported_sinks': self.supported_sinks,
                 'scale_invariant_layers': self.scale_invariant_layers,
                 'scale_invariant_function': self.scale_invariant_function})
+
         expanded_regions = []
         self.find_module_by_name(graph_model, expanded_regions)
         eq_layers = set()
@@ -1887,6 +1891,8 @@ class GraphRotationEqualization(RotationEqualization):
             sdpa_regions = self.rotate_sdpa(graph_model)
             regions.extend(sdpa_regions)
 
+        logging.debug(f"Applying GraphRotationEqualization on {len(self.regions)} regions")
+
         for r in regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
@@ -1903,10 +1909,13 @@ class GraphRotationEqualization(RotationEqualization):
 
         # We update mergeable regions to include also non-mergeable ones
         for o_r in orphan_regions:
+            added_regions = 0
             # Layerwise have only a single sink named 'sinks0'
             id_sink = id(o_r.get_module_from_name('sinks0'))
             if id_sink not in eq_layers:
                 regions.append(o_r)
+                added_regions += 1
+                logging.debug(f"Adding {added_regions} sink-only regions")
 
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
@@ -1938,7 +1947,7 @@ class GraphRotationEqualization(RotationEqualization):
                 parameter_number_post = 0
                 for m in graph_model.parameters():
                     parameter_number_post += m.numel()
-                logging.info(
+                logging.debug(
                     f"Added {parameter_number_post - parameter_number_pre} parameters to the model")
 
         if self.return_rewriters:
