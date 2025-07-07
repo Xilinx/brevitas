@@ -208,6 +208,8 @@ class Region:
         # this configuration.
         if self.max_shape_srcs == 0 and self.max_shape_sinks > 0:
             return True
+        # In all other cases, we need to make sure that the equalizable channels of the sources
+        # match the equalizable channels of the sinks
         return self.max_shape_srcs == self.max_shape_sinks
 
 
@@ -650,10 +652,6 @@ def _cross_layer_equalization(
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     device = next(single_module.parameters()).device
     dtype = next(single_module.parameters()).dtype
-
-    # If region is not valid, don't equalize. If we are inserting a standalone mul, we don't need this check
-    if not region.is_valid and list_of_insert_mul_node_fn is None:
-        return _no_equalize()
 
     src_axes = {}
     for name, indexes in region.srcs.items():
@@ -1113,7 +1111,7 @@ def _extract_regions(
                     region = Region(
                         srcs=sorted_srcs, sinks=sorted_sinks, name_to_module=state.name_to_module)
 
-                if region not in regions:
+                if region not in regions and region.is_valid:
                     regions.append(region)
     return regions
 
@@ -1485,8 +1483,6 @@ def _apply_rotate(
     expanded_rot_mat, expanded_K, rot_mat, K = None, None, None, None
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
-        if not region.is_valid:
-            logging.info(f"Region not valid, skipping it")
 
         # Initialize variables
         hidden_dim = region.max_shape_sinks
@@ -1853,7 +1849,8 @@ class GraphRotationEqualization(RotationEqualization):
                 sinks={'output_sdpa': output_index},
                 name_to_module={
                     'value_sdpa': value_module, 'output_sdpa': output_module})
-            regions.append(region)
+            if region.is_valid:
+                regions.append(region)
 
             for m in graph_module.modules():
                 if isinstance(m, ScaledDotProductAttention):
