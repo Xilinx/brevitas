@@ -1141,6 +1141,8 @@ class EqualizeGraph(GraphTransform):
             x for x in _supported_layers if x not in (nn.LayerNorm, *_batch_norm)])
         regions = _extract_regions(
             graph_model, state_impl_kwargs={'supported_sinks': supported_sinks})
+
+        logging.debug(f"Applying weight EqualizeGraph on {len(self.regions)} regions")
         if len(regions) > 0:
             graph_model = _equalize(
                 graph_model,
