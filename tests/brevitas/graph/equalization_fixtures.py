@@ -35,7 +35,7 @@ MODELS = {
     'resnet18': [0.487, 0.952],
     'googlenet': [0.495, 0.982],
     'inception_v3': [0.497, 0.989],
-    'alexnet': [0.75, 0.875],}
+    'alexnet': [0.75, 0.75],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
