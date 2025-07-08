@@ -196,8 +196,8 @@ class TestScalarSignedClampMinSte:
         Test that gradients are correctly passed through to val only
         """
         # min_val must be set to a value greater than zero
-        assume(abs(x[0]) > 0.0)
         min_val, val, val_grad = x
+        assume(abs(min_val) > 0.0)
         module = ScalarSignedClampMinSte(min_val)
         val.requires_grad_(True)
         output = module(val)
@@ -210,8 +210,8 @@ class TestScalarSignedClampMinSte:
         Test that gradients are correctly passed through to val only
         """
         # min_val must be set to a value greater than zero
-        assume(abs(x[0]) > 0.0)
         min_val, val, val_grad = x
+        assume(abs(min_val) > 0.0)
         # Outputs of ScalarSignedClampMinSte and ScalarClampMinSte
         # should match for positive inputs
         val = torch.abs(val)
@@ -234,8 +234,8 @@ class TestScalarSignedClampMinSte:
         Test that values are correctly clamped
         """
         # min_val must be set to a value greater than zero
-        assume(abs(x[0]) > 0.0)
         min_val, val, _ = x
+        assume(abs(min_val) > 0.0)
         module = ScalarSignedClampMinSte(min_val)
         output = module(val)
         # Compute reference output
@@ -249,14 +249,15 @@ class TestScalarSignedClampMinSte:
         """
         Test that values are correctly clamped
         """
+        x = (-1.0, torch.tensor([0.]), torch.tensor([0.]))
         # min_val must be set to a value greater than zero
-        assume(abs(x[0]) > 0.0)
         min_val, val, _ = x
+        assume(abs(min_val) > 0.0)
         # Outputs of ScalarSignedClampMinSte and ScalarClampMinSte
         # should match for positive inputs
         val = torch.abs(val)
         module = ScalarSignedClampMinSte(min_val)
-        ref_module = ScalarClampMinSte(min_val)
+        ref_module = ScalarClampMinSte(abs(min_val))
         output = module(val)
         # Compute reference output
         ref_output = ref_module(val)
