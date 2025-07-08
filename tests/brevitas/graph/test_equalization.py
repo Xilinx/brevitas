@@ -97,8 +97,6 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     torch.manual_seed(SEED)
     inp = torch.randn(IN_SIZE_CONV)
     model.eval()
-    # The isistance does not work after symbolic trace
-    is_alexnet = isinstance(model, models.AlexNet)
     model = symbolic_trace(model)
     model = TorchFunctionalToModule().apply(model)
 
@@ -139,11 +137,7 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     # Graph equalization can exit in case of shape mismatches or other error without performing any
     # equalization and returning a scalar value. We check that the equalized regions are as many as
     # expected
-    if is_alexnet:
-        # In AlexNet, we cannot equalize only through one region
-        assert sum([shape == () for shape in shape_scale_regions]) == 1
-    else:
-        assert all([shape != () for shape in shape_scale_regions])
+    assert all([shape != () for shape in shape_scale_regions])
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
