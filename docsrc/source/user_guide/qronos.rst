@@ -2,15 +2,17 @@ Post-Training Quantization with Qronos
 =================================================================
 
 Qronos is a new post-training quantization (PTQ) algorithm that sequentially rounds 
-and updates neural network weights. It explicitly corrects quantization errors in 
-both the weights and activations of previous layers while diffusing error into future 
-(yet-to-be quantized) weights. Let’s dive into the Qronos algorithm and how to use it with 
-Brevitas!
+and updates neural network weights to explicitly address quantization errors that 
+have been introduced in both the weights and activations of previous layers. At each
+iteration, Qronos first selects the quantized weight that optimally corrects the current
+approximation error while holding the remaining weights fixed. It then updates the future
+(yet-to-be quantized) weights to optimally compensate for the rounding error. Let's dive
+into the Qronos algorithm and how to use it with Brevitas!
 
 .. raw:: html
 
     <div align="center">
-	    <a href="https://arxiv.org/pdf/2505.11695">📄 Paper</a>&nbsp
+	   <a href="https://arxiv.org/pdf/2505.11695">📄 Paper</a>&nbsp
 		<a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py">💻 Code</a>
     </div>
 
@@ -130,7 +132,8 @@ accuracy (reported as "all_acc_norm" in LightEval) of 59.40% via:
 
    brevitas_ptq_llm --config=llama3-w4-base.yml --no-quantize
 
-🧪 We encourage you to try more models and formats, and share results!
+🧪 Next, we will share our results for weight-only quantization and weight-activation quantization 
+for Llama3.2-1B. We encourage you to try more models and formats, and share your results!
 
 Weight-only quantization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -168,8 +171,9 @@ You can collect 4-bit weight-only results with the ``lama3-w4-base.yml`` config 
 
    brevitas_ptq_llm --config=llama3-w4-base.yml --qronos
 
-You can instead specify GPTQ or GPFQ by using ``--gptq`` or ``--gpfq`` instead. You can also 
-specify a different bit width in the CLI args. For example:
+You can instead specify GPTQ or GPFQ by using ``--gptq`` or ``--gpfq`` instead, which are 
+mutually exclusive algorithms. You can also specify a different bit width in the CLI args.
+For example:
 
 .. code:: shell
 
@@ -191,7 +195,8 @@ and activations.
 
 The following table summarizes the results of weight-only quantization on Llama-3.2-1B 
 when jointly using Hadamard-based incoherence processing (HIP) [3] and weight magnitude 
-reduction (MagR)[4] as our quantization transform. We then compare adaptive rounding functions when quantizing the model to 1.58-bit (i.e., ternary) or 2-bit weights.
+reduction (MagR)[4] as our quantization transform. We then compare adaptive rounding functions 
+when quantizing the model to 1.58-bit (i.e., ternary) or 2-bit weights.
 
 +--------+-----------+------------+-----------+------------+
 |        |      1.58-bit          |       2-bit            |
