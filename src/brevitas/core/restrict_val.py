@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-from typing import Callable, Optional, Union
+from typing import Callable
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import Tensor
@@ -174,9 +177,15 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
 class QuantRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, restrict_value_float_to_int_impl: Module):
+    def __init__(
+            self,
+            restrict_value_float_to_int_impl: Module,
+            scaling_shape: Tuple[int, ...],
+            scale_dequantized_shape: Optional[Tuple[int, ...]]):
         super(QuantRestrictValue, self).__init__()
         self.float_to_int_impl = restrict_value_float_to_int_impl
+        self.scaling_shape = scaling_shape
+        self.scale_dequantized_shape = scale_dequantized_shape
 
     def restrict_init_float(self, x: float):
         return Identity()
@@ -196,4 +205,9 @@ class QuantRestrictValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         o, *_ = self.float_to_int_impl(x)
+
+        # We need to go back to the dequantized shape, relevant for groupwise quantization
+        if self.scale_dequantized_shape is not None:
+            o = o.view(self.scale_dequantized_shape)
+
         return o

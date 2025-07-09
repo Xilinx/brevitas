@@ -1,7 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import List, Optional, Tuple, Union
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import Tensor
@@ -10,7 +13,6 @@ from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.restrict_val import _ClampValue
@@ -211,6 +213,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
+            scaling_affine_rescaling_init: Optional[float] = None,
+            scaling_affine_shifting_init: Optional[float] = None,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -230,10 +234,10 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,
             restrict_threshold_impl,
-            scaling_shape,
             scaling_min_val,
-            False,
-            False,
+            scaling_shape,
+            scaling_affine_rescaling_init,
+            scaling_affine_shifting_init,
             dtype,
             device)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
@@ -265,6 +269,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             # Clamping avoids eventual log(0) with restrict_val
             stats = self.clamp_scaling(stats)
             stats = self.restrict_inplace_scaling_pre(stats)
+            stats = self.stats_scaling_impl.affine_rescaling(stats)  # possible rescaling
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
             inplace_tensor_mul(self.value.detach(), stats)

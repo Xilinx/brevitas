@@ -1,7 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn
@@ -32,19 +36,35 @@ class RotationWeightParametrization(torch.nn.Module):
         rot_func: Callable,
         axis: int,
         K: Optional[int] = None,
+        hidden_dim: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.rot_mat = rot_mat
         self.rot_func = rot_func
         self.axis = axis
         self.K = K
+        self.hidden_dim = hidden_dim
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-
         if self.axis == 0:
-            tensor = self.rot_func(tensor.t(), self.rot_mat, self.K).t()
-        elif self.axis == 1:
+            tensor = tensor.t()
+            init_shape = tensor.shape
+            if self.hidden_dim is not None:
+                # This allows us to perform hadamard on a subset of the channel dimension
+                # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+                tensor = tensor.reshape(
+                    *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
             tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = tensor.reshape(init_shape).t()
+        elif self.axis == 1:
+            init_shape = tensor.shape
+            if self.hidden_dim is not None:
+                # This allows us to perform hadamard on a subset of the channel dimension
+                # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+                tensor = tensor.reshape(
+                    *init_shape[:-1], init_shape[-1] // self.hidden_dim, self.hidden_dim).squeeze()
+            tensor = self.rot_func(tensor, self.rot_mat, self.K)
+            tensor = tensor.reshape(init_shape)
         else:
             raise RuntimeError("Not supported yet")
 

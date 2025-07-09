@@ -41,16 +41,17 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 import math
-from typing import Optional, Tuple, Union
+from typing import Optional
 
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn import Parameter
 import torch.nn.functional as F
 
-from brevitas.core.function_wrapper.misc import Identity
+from brevitas.common import ExportMixin
+from brevitas.common import LayerProtocol
 from brevitas.function import identity
+from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 
@@ -120,7 +121,7 @@ class ScaledDotProductAttention(Module):
             **kwargs)
 
 
-class QuantScaledDotProductAttention(Module):
+class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
 
     def __init__(
             self,
@@ -135,6 +136,7 @@ class QuantScaledDotProductAttention(Module):
             sdpa_output_quant=None,
             **kwargs) -> None:
         super(QuantScaledDotProductAttention, self).__init__()
+        ExportMixin.__init__(self)
 
         self.pre_process_q = pre_process_q
         self.pre_process_k = pre_process_k
@@ -194,6 +196,10 @@ class QuantScaledDotProductAttention(Module):
             - :math:`Hq: \text{Number of heads of query}`
             - :math:`H: \text{Number of heads of key and value}`
         """
+        if self.export_mode:
+            out = self.export_handler(query, key, value, attn_mask, scale, is_causal)
+            return out
+
         L, S = query.size(-2), key.size(-2)
         scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
         if attn_mask is None:
@@ -212,6 +218,7 @@ class QuantScaledDotProductAttention(Module):
             else:
                 attn_bias += attn_mask
         query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
+
         q_scaled = self.q_scaled_quant(query * scale_factor)
         k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
         attn_weight = q_scaled @ k_transpose

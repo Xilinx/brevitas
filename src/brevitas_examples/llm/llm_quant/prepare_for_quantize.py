@@ -1,48 +1,45 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import warnings
-
-from packaging import version
 import torch
 import torch.nn.functional as F
-import transformers
-from transformers.models.opt.modeling_opt import OPTAttention
+from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 
-from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph import TorchFunctionalToModule
-from brevitas.nn import QuantScaledDotProductAttention
 from brevitas.nn import ScaledDotProductAttention
-from brevitas_examples.llm.llm_quant.mha_layers import QuantizableOPTAttention
+from brevitas.utils.logging import setup_logger
 
-QUANTIZABLE_MHA_MAP = {
-    OPTAttention: (QuantizableOPTAttention, {
-        'batch_first': True}),}
-
-if version.parse(transformers.__version__) >= version.parse('4.46.0'):
-    from transformers.models.opt.modeling_opt import OPTSdpaAttention
-    QUANTIZABLE_MHA_MAP[OPTSdpaAttention] = (QuantizableOPTAttention, {'batch_first': True})
+logging = setup_logger(__name__)
 
 
-def replace_mha_with_quantizable_layers(model, dtype):
-    rewriters = []
-    for src_module, (quantizable_module, quantizable_module_kwargs) in QUANTIZABLE_MHA_MAP.items():
-        rewriter = ModuleToModuleByClass(
-            src_module, quantizable_module, **quantizable_module_kwargs, dtype=dtype)
-        rewriters.append(rewriter)
-    if not rewriters:
-        warnings.warn(
-            f"No module to replace was found. Supported modules are {list(QUANTIZABLE_MHA_MAP.keys())}"
-        )
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
+def replace_sdpa_with_quantizable_layers(model, is_fx=True, eager_quant_sdpa_class=None):
+    if is_fx:
+        fn_to_module_map = ((F.scaled_dot_product_attention, ScaledDotProductAttention),)
+        model = TorchFunctionalToModule(fn_to_module_map=fn_to_module_map).apply(model)
+    else:
+        # We rely on the following:
+        # - Attention functions accepts the current module as input
+        # - We can add a new entry in the dict of supported attention functions
+        # - Attention Modules' name end with `Attention`. The user can also override this
+
+        from brevitas_examples.llm.llm_quant.mha_layers import quant_sdpa_attention_forward
+        ALL_ATTENTION_FUNCTIONS['quant_sdpa'] = quant_sdpa_attention_forward
+        model.config._attn_implementation = 'quant_sdpa'
+        for n, m in model.named_modules():
+            if eager_quant_sdpa_class == 'auto':
+                if type(m).__name__.lower().endswith('attention'):
+                    quant_block_type = type(m)
+                    break
+            else:
+                if type(m).__name__.lower() == eager_quant_sdpa_class.lower():
+                    quant_block_type = type(m)
+                    break
+        logging.info(f"Attention module is {quant_block_type}")
+        for m in model.modules():
+            if isinstance(m, quant_block_type):
+                m.attn = ScaledDotProductAttention()
+
     return model
-
-
-def replace_sdpa_with_quantizable_layers(graph_model):
-    fn_to_module_map = ((F.scaled_dot_product_attention, ScaledDotProductAttention),)
-    graph_model = TorchFunctionalToModule(fn_to_module_map=fn_to_module_map).apply(graph_model)
-    return graph_model
 
 
 @torch.no_grad()

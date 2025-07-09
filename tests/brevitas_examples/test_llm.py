@@ -17,12 +17,14 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
+import transformers
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
+from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main
-from brevitas_examples.llm.main import parse_args
 from brevitas_examples.llm.main import quantize_llm
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
@@ -46,6 +48,11 @@ def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Data
     ]
     return Dataset.from_dict({
         "text": C4_TEXTS,})
+
+
+def parse_args(args):
+    parser = create_args_parser()
+    return parse_args_utils(parser, args)
 
 
 def ptid2pathname(string):
@@ -172,15 +179,15 @@ def default_run_args(request):
     return args
 
 
+@requires_pt_ge('2.3')
 def run_test_models_run_args(args, model_with_ppl):
     args.model = model_with_ppl.name
-    use_fx = fx_required(args)
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
     if use_fx and not model_with_ppl.supports_fx:
         pytest.xfail(f"{model_with_ppl.name} does not support FX")
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
-    if platform.system() == 'Windows' and hasattr(args, 'rotation') and args.rotation in [
-            'fx', 'fused_no_fx']:
+    if platform.system() == 'Windows' and use_fx:
         pytest.skip("Skipping dynamo + Windows")
 
     validate_args_and_run_main(args)
@@ -220,10 +227,10 @@ def run_test_models_run_args(args, model_with_ppl):
         {"rotation": "fx", "ln_affine_merge": True, "replace_rmsnorm": True, "convert_layernorm_to_rmsnorm": True},
         {"rotation": "fused_no_fx", "replace_rmsnorm": True},
         {"act_equalization": "fx", "gptq": True},
-        {"quant_sdpa": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
-        {"functional_sdpa_quant": True, "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
+        {"quant_sdpa": "fx", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
+        {"quant_sdpa": "functional", "input_scale_type": "dynamic", "input_quant_granularity": "per_row"},
         {
-            "functional_sdpa_quant": True,
+            "quant_sdpa": "functional",
             "rotation": "fused_no_fx",
             "rotation_sdpa_regions": True,
             "input_scale_type": "dynamic",
@@ -245,7 +252,6 @@ def toggle_run_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     caplog.set_level(logging.INFO)
     run_test_models_run_args(toggle_run_args, small_models_with_ppl)
@@ -256,7 +262,6 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
         "llama",
         "llama_float_dynamic_input",
         "mistral",
-        "opt-replace-mha",
         "opt-quant-sdpa",],
     params=[
         {
@@ -286,14 +291,7 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
-            "replace_mha": True,
-            "float_ppl": 51649.797,
-            "quant_ppl": 51694.785},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "weight_equalization": True,
-            "ln_affine_merge": True,
-            "quant_sdpa": True,
+            "quant_sdpa": "fx",
             "float_ppl": 51649.797,
             "quant_ppl": 51688.922},])
 def acc_args_and_acc(default_run_args, request):
@@ -308,12 +306,14 @@ def acc_args_and_acc(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx' or args.rotation == 'fx'
     if args.input_scale_type == 'dynamic' and config.JIT_ENABLED:
         pytest.skip("Dynamic activation not compatible with JIT")
+    if platform.system() == 'Windows' and use_fx:
+        pytest.skip("Skipping dynamo + Windows")
     results, _ = validate_args_and_run_main(args)
     float_ppl = results["float_ppl"].detach().cpu().numpy()
     quant_ppl = results["quant_ppl"].detach().cpu().numpy()
@@ -331,7 +331,6 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         "llama-int8-act_equalization=layerwise",
         "mistral-int8-quant-last-layer",
         "llama-int8-svd_quant",
-        "opt-replace-mha",
         "opt-quant-sdpa",
         "llama-mxfp4-quant-scale",],
     params=[
@@ -439,18 +438,9 @@ def test_small_models_acc(caplog, acc_args_and_acc):
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "replace_mha": True,
+            "quant_sdpa": "fx",
             "exp_layer_types": {
-                "model.decoder.layers.0.self_attn":
-                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
-                "model.decoder.layers.0.self_attn.mha":
-                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
-            "quant_sdpa": True,
-            "exp_layer_types": {
-                "scaled_dot_product_attention":
-                    "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
+                "attn_output": "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "weight_bit_width": 4,
@@ -490,7 +480,6 @@ def layer_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
@@ -638,8 +627,7 @@ def test_small_models_quant_layer(caplog, layer_args):
             "rotation_sdpa_regions": True,
             "rotation": "fx",
             "exp_layer_types_count": {
-                "<class 'brevitas.nn.equalized_layer.RotatedModule'>":
-                    4,  # Sinks: Out proj + Down proj
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,  # Sinks: Down proj
                 "<class 'torch.nn.modules.linear.Linear'>":
                     15,  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
                 "<class 'torch.nn.modules.normalization.RMSNorm'>": 5,
@@ -661,7 +649,6 @@ def layer_args_types_count(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
     caplog.set_level(logging.INFO)
     args, exp_layer_types_count = layer_args_types_count
@@ -673,30 +660,44 @@ def test_small_models_quant_layer_types_count(caplog, layer_args_types_count):
 
 
 @pytest_cases.fixture(
-    ids=["mistral-kv-quant-fx-sdpa", "mistral-kv-quant-functional-sdpa"],
+    ids=[
+        "mistral-kv-quant-fx-sdpa",
+        "mistral-kv-quant-functional-sdpa",
+        "mistral-kv-quant-eager-sdpa"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
             "input_quant_granularity": "per_row",
-            "kv_quant_granularity": "per_group",
+            "attn_quant_granularity": "per_group",
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "quant_sdpa": True,
-            "functional_sdpa_quant": False,
-            "kv_quant_type": "asym"},
+            "quant_sdpa": "fx",
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "act_calibration": False,
             "input_quant_granularity": "per_row",
-            "kv_quant_granularity": "per_group",
+            "attn_quant_granularity": "per_group",
             "input_group_size": 32,
             "input_scale_type": "dynamic",
             "input_quant_type": "sym",
-            "quant_sdpa": False,
-            "functional_sdpa_quant": True,
-            "kv_quant_type": "asym"},])
+            "quant_sdpa": "functional",
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_calibration": False,
+            "input_quant_granularity": "per_row",
+            "attn_quant_granularity": "per_group",
+            "input_group_size": 32,
+            "input_scale_type": "dynamic",
+            "input_quant_type": "sym",
+            "quant_sdpa": "eager",
+            "attn_quant_config": "kv",
+            "attn_quant_type": "asym"},])
 def layer_args_hyperparam(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
@@ -705,13 +706,17 @@ def layer_args_hyperparam(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 @jit_disabled_for_dynamic_quant_act()
 def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     from brevitas.nn import QuantScaledDotProductAttention as QuantSDPA
     from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
     caplog.set_level(logging.INFO)
     args = layer_args_hyperparam
+
+    use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
+
+    if platform.system() == 'Windows' and use_fx:
+        pytest.skip("Skipping dynamo + Windows")
 
     _, model = validate_args_and_run_main(args)
     quant_sdpa = []
@@ -733,9 +738,9 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam):
     assert first_sdpa.v_quant.act_quant.group_size == args.input_group_size
     assert first_sdpa.k_transposed_quant.act_quant.group_size == args.input_group_size
     # Functional quantization uses one shared quant block for everything
-    if args.quant_sdpa:
-        assert len(quant_sdpa) > 1
-    elif args.functional_sdpa_quant:
+    if args.quant_sdpa == "fx" or args.quant_sdpa == "eager":
+        assert len(quant_sdpa) == 2
+    elif args.quant_sdpa == "functional":
         assert len(quant_sdpa) == 1
 
 
@@ -763,7 +768,7 @@ def onnx_export_args(default_run_args, request):
 
 @pytest.mark.llm
 @jit_disabled_for_export()
-@requires_pt_ge('2.2')
+@requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args):
     caplog.set_level(logging.INFO)
     args = onnx_export_args
@@ -773,23 +778,24 @@ def test_small_models_onnx_export(caplog, onnx_export_args):
 
 
 @pytest_cases.fixture(
-    ids=[
-        "qcdq-asym",
-        "qcdq-sym",],
+    ids=["auto", "float16", "bfloat16"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
             "eval": False,
-            "quantize_weight_zero_point": True,
-            "quantize_input_zero_point": True,
-            "export_target": "torch_qcdq",},
+            "dtype": "auto"},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
             "eval": False,
-            "weight_quant_type": "sym",
-            "input_quant_type": "sym",
-            "export_target": "torch_qcdq",},])
-def torch_export_args(default_run_args, request):
+            "dtype": "float16"},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "dtype": "float16"},])
+def dtype_args(default_run_args, request):
     args = default_run_args
     export_dict = request.param
     args.update(**export_dict)
@@ -797,15 +803,15 @@ def torch_export_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@jit_disabled_for_export()
-@requires_pt_ge('2.2')
-def test_small_models_torch_export(caplog, torch_export_args):
+def test_small_models_dtype(caplog, dtype_args):
     caplog.set_level(logging.INFO)
-    args = torch_export_args
-    validate_args_and_run_main(args)
-    filepath = args.export_prefix + ".pt"
-    torch.jit.load(filepath)
-    os.remove(filepath)
+    args = dtype_args
+    _, model = validate_args_and_run_main(args)
+    # "auto" dtype for "hf-internal-testing/tiny-random-LlamaForCausalLM" is float32
+    expected_dtype = torch.float32 if dtype_args.dtype == "auto" else getattr(
+        torch, dtype_args.dtype)
+    dtype = next(model.parameters()).dtype
+    assert expected_dtype == dtype, f"Expected dtype of the model parameters to be {expected_dtype} but got {dtype}."
 
 
 @pytest_cases.fixture(
@@ -845,7 +851,6 @@ def learned_round_ppl_args_and_ppl(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
 def test_small_models_learned_round_ppl(caplog, learned_round_ppl_args_and_ppl):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = learned_round_ppl_args_and_ppl
@@ -959,6 +964,7 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
         "llama_rotation_optimization_ort",
         "llama_rotation_optimization_ort_no_orphan",
         "llama_rotation_optimization_had",
+        "llama_rotation_optimization_had_sdpa",
         "llama_rotation_optimization_had_no_orphan",],
     params=[
         {
@@ -1042,6 +1048,35 @@ def test_small_models_rotation_ppl(caplog, rotation_ppl_args_and_ppl):
             "quant_ppl": 32491.781,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "rotation_sdpa_regions": True,
+            "optimize_rotations": True,
+            "rotation_orphan_sink": True,
+            "rotation_mode": "had",
+            "nsamples_rot_calibration": 2,
+            "dtype": "float32",
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 32428.475,
+            "quant_ppl": 32357.392578125,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},

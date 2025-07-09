@@ -8,7 +8,15 @@ from dataclasses import field
 from functools import partial
 from itertools import chain
 import operator
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Set
+from typing import Tuple
+from typing import Type
+from typing import Union
 import warnings
 
 import packaging
@@ -42,8 +50,8 @@ from brevitas.nn.equalized_layer import functional_rotate_input
 from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy import BiasQuantProxyFromInjectorBase
+from brevitas.proxy import WeightQuantProxyFromInjectorBase
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.parametrization_utils import ScaleWeightParametrization
@@ -1463,7 +1471,8 @@ def _apply_rotate(
         regions: List[Region],
         full_rotation_method='had',
         fuse_rotations: bool = True,
-        apply_inplace_rotations: bool = True):
+        apply_inplace_rotations: bool = True,
+        expansion_step: int = 1):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1478,7 +1487,11 @@ def _apply_rotate(
         insert_rotation_module = len(region.srcs) == 0
         if not region.is_valid:
             logging.info(f"Region not valid, skipping it")
+
+        # Initialize variables
         hidden_dim = region.max_shape_sinks
+        expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
+
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
             rot_func = _apply_ort_device
@@ -1493,8 +1506,8 @@ def _apply_rotate(
             try:
                 # Build hadamard rotation matrix
                 rot_mat, K = get_hadK(hidden_dim)
-                hidden_dim = find_closest_hadamard_number(hidden_dim)
-                expanded_rot_mat, expanded_K = get_hadK(int(hidden_dim))
+                expanded_hidden_dim = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
+                expanded_rot_mat, expanded_K = get_hadK(int(expanded_hidden_dim))
                 rot_func = _apply_had_device
             except AssertionError as e:
                 logging.info(f"Incompatible dim {hidden_dim} for hadamard rotation")
@@ -1531,7 +1544,7 @@ def _apply_rotate(
                         rot_func=rot_func,
                         axis=axis,
                         K=K,
-                    ))
+                        hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
                 rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
@@ -1543,7 +1556,7 @@ def _apply_rotate(
                 rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
                 hidden_dim = module.weight.shape[1]
-                new_hidden = find_closest_hadamard_number(hidden_dim)
+                new_hidden = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
                 new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
                 # Modify the weights in-place
                 setattr(module, 'weight', torch.nn.Parameter(new_weights))
@@ -1560,15 +1573,19 @@ def _apply_rotate(
                     rot_func=rot_func,
                     axis=weight_axis,
                     K=K,
-                ))
+                    hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
             rewriters.append(rewriter)
             # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
                 rewriter = ModuleInstanceWrapModule(
                     module,
                     RotatedModule,
-                    "layer", {
-                        "had_mat": rot_mat, "k": K, "expand": region.expand_region})
+                    "layer",
+                    {
+                        "had_mat": rot_mat,
+                        "k": K,
+                        "expansion_step": expansion_step,
+                        "expand_input": region.expand_region})
                 rewriters.append(rewriter)
     if apply_inplace_rotations:
         for r in rewriters:
@@ -1624,8 +1641,9 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                     # Check if the module has any quantization-related children
                     state_dict = None
                     for submodule in module.modules():
-                        if isinstance(submodule,
-                                      (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)):
+                        if isinstance(
+                                submodule,
+                            (WeightQuantProxyFromInjectorBase, BiasQuantProxyFromInjectorBase)):
                             state_dict = submodule.state_dict()
                             break
                     # The rotated tensor is saved by setting leave_parametrized=True
@@ -1729,6 +1747,7 @@ class GraphRotationEqualization(RotationEqualization):
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
+            expansion_step: int = None,
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 
@@ -1744,6 +1763,7 @@ class GraphRotationEqualization(RotationEqualization):
         self.full_rotation_method = full_rotation_method
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
+        self.expansion_step = expansion_step
         if use_parametrized_rotations:
             # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
@@ -1780,6 +1800,24 @@ class GraphRotationEqualization(RotationEqualization):
             if ('scaled_dot_product' in str(c.meta.get('orig_target', c.target)))]
         regions = []
 
+        # SDPA might have a view to perform matmul across attention heads
+        # Because of this, we cannot use directly the weights' shapes
+        # We detect the view by walking the graph, and we pick-up the correct number of feature channels
+        # as the last dimension of the view
+        # If we reach the Linear layer without encoutering a view, we use the weights' shapes
+        def find_head_dim(node):
+            if node.target == 'view':
+                shapes = node.args[-1]
+                # Shapes can be a tuple a series of integers
+                # If tuple, extract the last element
+                if isinstance(shapes, tuple):
+                    shapes = shapes[-1]
+                return shapes
+            if node.op == 'call_module':
+                return -1
+            else:
+                return find_head_dim(node.args[0])
+
         def find_src(node):
             if node.op != 'call_module':
                 return find_src(node.args[0])
@@ -1798,17 +1836,23 @@ class GraphRotationEqualization(RotationEqualization):
 
             value_node = find_src(value_input)
             output_node = find_sink(value_input)
-            sink_module = get_module(graph_module, output_node.target)
-            src_module = get_module(graph_module, value_node.target)
-            sink_weight = get_weight_sink(sink_module)
-            src_weight = get_weight_source(src_module)
-            sink_eq_indexes = EqualizationIndexes(0, sink_weight.shape[0], 0)
+            head_dim = find_head_dim(value_input)
 
-            # TODO: restore fusing of Value/Output regions
-            # src_eq_indexes = EqualizationIndexes(0, src_weight.shape[0], 0)
+            value_module = get_module(graph_module, value_node.target)
+            output_module = get_module(graph_module, output_node.target)
+            value_weight = get_weight_source(value_module)
+            output_weight = get_weight_sink(output_module)
+            end_index = head_dim if head_dim != -1 else value_weight.shape[0]
+            value_index = EqualizationIndexes(0, end_index, 0)
+
+            end_index = head_dim if head_dim != -1 else output_weight.shape[0]
+            output_index = EqualizationIndexes(0, end_index, 0)
 
             region = Region(
-                sinks={'sink_sdpa': sink_eq_indexes}, name_to_module={'sink_sdpa': sink_module})
+                srcs={'value_sdpa': value_index},
+                sinks={'output_sdpa': output_index},
+                name_to_module={
+                    'value_sdpa': value_module, 'output_sdpa': output_module})
             regions.append(region)
 
             for m in graph_module.modules():
@@ -1860,12 +1904,6 @@ class GraphRotationEqualization(RotationEqualization):
             if id_sink in eq_layers:
                 overlap = True
 
-        if overlap:
-            assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
-            first_set, second_set = regions, expanded_regions
-        else:
-            first_set, second_set = expanded_regions, regions
-
         # We update mergeable regions to include also non-mergeable ones
         for o_r in orphan_regions:
             # Layerwise have only a single sink named 'sinks0'
@@ -1873,21 +1911,32 @@ class GraphRotationEqualization(RotationEqualization):
             if id_sink not in eq_layers:
                 regions.append(o_r)
 
+        if overlap:
+            assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
+            first_set, second_set = regions, expanded_regions
+            first_exp_step, second_exp_step = 1, self.expansion_step
+        else:
+            first_set, second_set = expanded_regions, regions
+            first_exp_step, second_exp_step = self.expansion_step, 1
+
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
+
         if len(regions) > 0:
             rewriters.extend(
                 _apply_rotate(
                     graph_model,
                     first_set,
                     self.full_rotation_method,
-                    fuse_rotations=not self.use_parametrized_rotations))
+                    fuse_rotations=not self.use_parametrized_rotations,
+                    expansion_step=first_exp_step))
             rewriters.extend(
                 _apply_rotate(
                     graph_model,
                     second_set,
                     self.full_rotation_method,
-                    fuse_rotations=not self.use_parametrized_rotations))
+                    fuse_rotations=not self.use_parametrized_rotations,
+                    expansion_step=second_exp_step))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
@@ -1981,9 +2030,13 @@ class MergeLnAffine(GraphTransform):
 
 class LayerwiseActivationRotation(RotationEqualization):
 
-    def __init__(self, blacklist_layer=None, layers_to_expand=None):
+    def __init__(
+            self,
+            blacklist_layer: Optional[List] = None,
+            layers_to_expand: Optional[List] = None,
+            expansion_step: int = 0):
         super().__init__(blacklist_layer, layers_to_expand)
-
+        self.expansion_step = expansion_step
         self.supported_sinks = (nn.Linear)
 
     def apply(self, model: nn.Module) -> nn.Module:
@@ -1997,5 +2050,5 @@ class LayerwiseActivationRotation(RotationEqualization):
         if len(expanded_regions) > 0:
             regions.extend(expanded_regions)
         if len(regions) > 0:
-            _apply_rotate(model, regions)
+            _apply_rotate(model, regions, expansion_step=self.expansion_step)
         return model

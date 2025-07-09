@@ -5,7 +5,8 @@
 ScriptModule classes to compute the view of a tensor according to various different criteria.
 """
 
-from typing import Optional, Tuple
+from typing import Optional
+from typing import Tuple
 
 import torch
 
@@ -52,7 +53,7 @@ class OverTensorView(brevitas.jit.ScriptModule):
 
 class OverOutputChannelView(brevitas.jit.ScriptModule):
     """
-    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an
+    ScriptModule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an
     input tensor.
 
     Examples:

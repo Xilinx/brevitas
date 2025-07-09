@@ -4,7 +4,11 @@
 from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 from warnings import warn
 
 import torch
@@ -18,7 +22,6 @@ from brevitas import is_dynamo_compiling
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO

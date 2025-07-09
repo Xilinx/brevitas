@@ -30,6 +30,10 @@ def get_hadK(n, transpose=False):
         assert (is_pow2(n // 156))
         K = 156
         hadK = tensors['get_had156'].T if transpose else tensors['get_had156']
+    elif n % 152 == 0:  # Qwen 3 4B intermediate size
+        assert (is_pow2(n // 152))
+        K = 152
+        hadK = tensors['get_had152'].T if transpose else tensors['get_had152']
     elif n % 140 == 0:  # llama-1-30b intermediate
         assert (is_pow2(n // 140))
         K = 140
@@ -74,15 +78,16 @@ def get_hadK(n, transpose=False):
 
 
 def find_closest_hadamard_number(starting_dim, steps=1):
-    import math
 
-    values_to_check = [172, 156, 140, 108, 60, 52, 40, 36, 28, 20, 12]
+    if steps == 0:
+        return starting_dim
+
+    values_to_check = [172, 156, 152, 140, 108, 60, 52, 40, 36, 28, 20, 12]
 
     for step in range(steps):
         best_value = None
         next_dim = starting_dim + 1
         for v in values_to_check:
-            m = math.ceil(next_dim / v) * v
             m = torch.tensor(math.ceil(next_dim / v))
             floor_po2_m = torch.pow(2, torch.log2(m).floor())
             ceil_po2_m = torch.pow(2, torch.log2(m).ceil())

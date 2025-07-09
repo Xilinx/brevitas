@@ -1,10 +1,11 @@
 m2r2==0.3.3.post2
 nbsphinx==0.9.3
 nbsphinx-link==1.3.0
-pydata-sphinx-theme==0.14.3
+pydata-sphinx-theme==0.15.3
 sphinx==5.3.0
 sphinx-autodoc-typehints==1.21.8
 sphinx-gallery==0.10.1
 sphinxcontrib-napoleon==0.7
 sphinxemoji==0.2.0
 lxml==4.9.3
+sphinx-multiversion @ git+https://github.com/Holzhaus/sphinx-multiversion.git@ec101ba44132ddf1bd32e462912dd60296856387

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from dataclasses import field
 import os
-from typing import List, Optional
+from typing import List
+from typing import Optional
 
 from accelerate.utils import DistributedType
 from datasets import Dataset

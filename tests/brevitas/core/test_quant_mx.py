@@ -6,7 +6,10 @@ Brief MXFP quantizer
 """
 
 import struct
-from typing import List, Optional, Tuple, Union
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 from hypothesis import given
 import pytest_cases

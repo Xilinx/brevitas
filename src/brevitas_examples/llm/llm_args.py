@@ -1,22 +1,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import argparse
-from typing import List, Optional
+from argparse import ArgumentParser
+from argparse import Namespace
+from typing import List
+from typing import Optional
 from warnings import warn
 
+from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_llm_args_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
-    )
+def create_args_parser() -> ArgumentParser:
+    parser = create_entrypoint_args_parser(description="LLM quantization")
     parser.add_argument(
         '--model',
         type=str,
@@ -25,8 +21,8 @@ def create_llm_args_parser():
     parser.add_argument(
         '--dtype',
         type=str,
-        default="float16",
-        choices=["float32", "float16", "bfloat16"],
+        default="auto",
+        choices=["auto", "float32", "float16", "bfloat16"],
         help='Data type for model. Default: %(default)s')
     parser.add_argument(
         '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
@@ -146,32 +142,71 @@ def create_llm_args_parser():
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
     parser.add_argument(
-        '--kv-quant-type',
-        type=str,
-        default=None,
-        choices=['sym', 'asym'],
-        help=
-        'KV quantization type. If None, it will follow input quant type. If set, will perform only KV cache quantization. Default: None'
-    )
-    parser.add_argument(
         '--input-quant-granularity',
         type=str,
         default='per_tensor',
         choices=['per_tensor', 'per_row', 'per_group'],
         help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
     parser.add_argument(
-        '--kv-quant-granularity',
-        type=str,
-        default=None,
-        choices=['per_tensor', 'per_row', 'per_group'],
-        help=
-        'Granularity for scales/zero-point of KV cache. If not set, it will use input-quant-granularity. Default: %(default)s'
-    )
-    parser.add_argument(
         '--input-group-size',
         type=int,
         default=64,
         help='Group size for per_group input quantization. Default: 64.')
+    parser.add_argument(
+        '--attn-quant-config',
+        type=str,
+        default='qkvs',
+        choices=['qkvs', 'qkv', 'kv'],
+        help=
+        'Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: --quant-sdpa needs be set for this to have an effect. Default: %(default)s'
+    )
+    parser.add_argument(
+        '--attn-bit-width',
+        type=int,
+        default=None,
+        help='Attention bit width. Default: None (same as input).')
+    parser.add_argument(
+        '--attn-quant-format',
+        type=attn_quant_format_validator,
+        default=None,
+        help=
+        'Attention quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: None (same as input).'
+    )
+    parser.add_argument(
+        '--attn-param-method',
+        type=str,
+        default=None,
+        choices=['stats', 'mse'],
+        help='How scales/zero-point are determined. Default: None (same as input).')
+    parser.add_argument(
+        '--attn-scale-precision',
+        type=str,
+        default=None,
+        choices=['float_scale', 'po2_scale'],
+        help='Whether input scale is a float value or a po2. Default: (same as input).')
+    parser.add_argument(
+        '--attn-scale-type',
+        type=None,
+        default=None,
+        choices=['static', 'dynamic', 'no_scale'],
+        help='Whether input scale is a static value or a dynamic value. Default: (same as input).')
+    parser.add_argument(
+        '--attn-quant-type',
+        type=str,
+        default=None,
+        choices=['sym', 'asym'],
+        help='Input quantization type. Default: (same as input).')
+    parser.add_argument(
+        '--attn-quant-granularity',
+        type=str,
+        default=None,
+        choices=['per_tensor', 'per_row', 'per_group'],
+        help='Granularity for scales/zero-point of inputs. Default: (same as input).')
+    parser.add_argument(
+        '--attn-group-size',
+        type=int,
+        default=None,
+        help='Group size for per_group input quantization. Default: (same as input).')
     parser.add_argument(
         '--learned-round-lr',
         type=float,
@@ -203,6 +238,9 @@ def create_llm_args_parser():
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
     parser.add_argument(
         '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
+    parser.add_argument('--qronos', action='store_true', help='Apply Qronos.')
+    parser.add_argument(
+        '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
@@ -212,7 +250,9 @@ def create_llm_args_parser():
         action='store_true',
         help='Use quantized activations in GPxQ.')
     parser.add_argument(
-        '--gpxq-create-weight-orig', action='store_true', help='Create weight_orig in GPxQ.')
+        '--disable-create-weight-orig',
+        action='store_true',
+        help='Disable maintaining original weights for non-quant forward pass. Default: false')
     parser.add_argument(
         '--gpxq-max-accumulator-bit-width',
         type=int,
@@ -239,18 +279,16 @@ def create_llm_args_parser():
         help='Minimum value to clamp scale to when using bf16 or fp16 quantization.')
     parser.add_argument(
         '--quant-sdpa',
-        action='store_true',
-        help='Quantize `F.scaled_dot_product_attention` (default: %(default)s)')
+        type=str,
+        choices=['eager', 'functional', 'fx'],
+        default=None,
+        help='Define how to quantize SDPA. (default: %(default)s)')
     parser.add_argument(
-        '--functional-sdpa-quant',
-        action='store_true',
+        '--eager-quant-sdpa-class',
+        type=str,
+        default='auto',
         help=
-        'Quantize `F.scaled_dot_product_attention` with stateless module and torch_function (default: %(default)s)'
-    )
-    parser.add_argument(
-        '--replace-mha',
-        action='store_true',
-        help='Replace HuggingFace Attention with a quantizable version')
+        'If quant_sdpa is eager, specify the name of the attention class. (default: %(default)s)')
     parser.add_argument(
         '--weight-equalization',
         action='store_true',
@@ -284,6 +322,19 @@ def create_llm_args_parser():
         '--rotation-sdpa-regions',
         action="store_true",
         help='If GraphRotation is enabled, decide wheter to equalize across SDPA')
+    parser.add_argument(
+        '--rotation-layers-to-expand',
+        type=str,
+        default=[],
+        nargs='*',
+        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
+    parser.add_argument(
+        '--expansion-step',
+        type=int,
+        default=1,
+        help=
+        'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
+    )
     parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
     parser.add_argument(
         '--svd-quant-rank',
@@ -312,8 +363,11 @@ def create_llm_args_parser():
         default=None,
         choices=[
             None,
+            'shark',
             'onnx_qcdq',
-            'torch_qcdq',
+            'gguf:q8_0',
+            'gguf:q4_0',
+            'gguf:q4_1',
             'sharded_torchmlir_group_weight',
             'sharded_packed_torchmlir_group_weight'],
         help='Model export.')
@@ -383,12 +437,6 @@ def create_llm_args_parser():
         nargs='*',
         help='A list of tasks for zero_shot evaluation. Default: %(default)s')
     parser.add_argument(
-        '--rotation-layers-to-expand',
-        type=str,
-        default=[],
-        nargs='*',
-        help='A list of module names to expand with hadamard rotation. Default: %(default)s')
-    parser.add_argument(
         "--awq-scale",
         action="store_true",
         help="Whether to apply AWQ scaling (default: %(default)s).",
@@ -396,18 +444,15 @@ def create_llm_args_parser():
     parser.add_argument(
         "--awq-clip",
         action="store_true",
-        help="Whether to apply AWQ clipping (default: %(default)s).",
-    )
+        help="Whether to apply AWQ clipping (default: %(default)s).")
     return parser
 
 
-def validate(args, extra_args: Optional[List[str]] = None):
+def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     if args.optimize_rotations:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
     else:
         assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
-    if args.functional_sdpa_quant:
-        assert args.input_scale_type == 'dynamic' or args.input_bit_width is None, "Functional SDPA Quant requires dynamic activation quantization"
     if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
@@ -416,8 +461,15 @@ def validate(args, extra_args: Optional[List[str]] = None):
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
     if not args.no_quantize:
-        if args.gptq and args.gpfq:
-            warn("Both GPTQ and GPFQ are enabled.")
+        if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
+            warn("GPTQ, GPFQ, and/or Qronos are enabled together.")
+        if (args.gpfq or args.qronos):
+            # create_weight_orig=True creates a copy of the weights for the model to use
+            # when disabling weight quantization so that any downstream optimization can
+            # optimize w.r.t. the original reference model. This is required for GPFQ and
+            # Qronos as it would otherwise consistently degrade performance.
+            assert not args.disable_create_weight_orig, \
+                'Error: create_weight_orig is required with GPFQ and Qronos'
         if args.gpxq_max_accumulator_bit_width is not None:
             assert args.weight_quant_format == 'int', "AXE only supports integer formats."
             assert args.input_quant_format == 'int', "AXE only supports integer formats."
@@ -432,8 +484,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 if args.input_quant_granularity == 'per_group':
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
-        if args.export_target is not None:
-            assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
+
         if args.export_target is not None and args.input_bit_width is not None:
             assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
@@ -451,16 +502,12 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
-        if args.export_target == 'torch_qcdq':
-            assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
-            if args.weight_quant_type == 'asym':
-                assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-            if args.input_bit_width is not None and args.input_quant_type == 'asym':
-                assert args.quantize_input_zero_point, "Quantized input zero point required."
         if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
-        if (args.weight_equalization or args.act_equalization == 'fx'):
-            if args.replace_mha:
-                assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
-            else:
-                assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
+
+
+def attn_quant_format_validator(value):
+    if value is None:
+        return True
+    else:
+        return quant_format_validator(value)

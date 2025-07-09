@@ -3,7 +3,11 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import List, Optional, Tuple, Type, Union
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
+from typing import Union
 
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector

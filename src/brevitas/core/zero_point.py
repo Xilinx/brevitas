@@ -1,7 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import List, Optional, Tuple, Union
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import Tensor
@@ -10,6 +13,8 @@ from torch.nn import Parameter
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper import Identity
+from brevitas.core.scaling.runtime import _AffineRescaling
 from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
 from brevitas.core.stats import SCALAR_SHAPE
@@ -62,13 +67,28 @@ class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
 
 class _ScaleShiftQuantZeroPoint(brevitas.jit.ScriptModule):
 
-    def __init__(self, zp_int_quant: Module) -> None:
+    def __init__(
+            self,
+            zp_int_quant: Module,
+            int_quant,
+            zero_point_shape: Tuple[int, ...],
+            zero_point_dequantized_shape: Optional[Tuple[int]]) -> None:
         super(_ScaleShiftQuantZeroPoint, self).__init__()
         self.zp_int_quant = zp_int_quant
+        self.zero_point_shape = zero_point_shape
+        self.int_quant = int_quant
+        self.zero_point_dequantized_shape = zero_point_dequantized_shape
 
     @brevitas.jit.script_method
     def forward(self, zero_point: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        quant_zp, *_ = self.zp_int_quant(zero_point)
+        min_int = self.int_quant.min_int(bit_width)
+        quant_zp, scale_zp, zp, *_ = self.zp_int_quant(zero_point)
+
+        # We need to go back to the dequantized shape, relevant for groupwise quantization
+        if self.zero_point_dequantized_shape is not None:
+            quant_zp = quant_zp.view(self.zero_point_dequantized_shape)
+
+        quant_zp = quant_zp / scale + min_int
         return quant_zp
 
 
@@ -83,7 +103,11 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_impl: Module,
             zero_point_shape: Tuple[int, ...],
             tracked_parameter_list: List[torch.nn.Parameter],
-            scale_shift_zero_point_impl: Optional[Module] = None) -> None:
+            scale_shift_zero_point_impl: Optional[Module] = None,
+            zero_point_affine_rescaling_init: Optional[float] = None,
+            zero_point_affine_shifting_init: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(StatsFromParameterZeroPoint, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             zero_point_stats_impl,
@@ -91,6 +115,20 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_view_shape_impl,
             zero_point_stats_input_concat_dim,
             tracked_parameter_list)
+        _affine_rescaling = zero_point_affine_rescaling_init is not None
+        _affine_shift_scale = zero_point_affine_shifting_init is not None
+        if _affine_shift_scale and not _affine_rescaling:
+            raise RuntimeError(
+                "Enabling shifting of the zero point requires enabling affine rescaling first.")
+        if _affine_rescaling:
+            self.affine_rescaling = _AffineRescaling(
+                zero_point_shape,
+                zero_point_affine_rescaling_init,
+                zero_point_affine_shifting_init,
+                dtype,
+                device)
+        else:
+            self.affine_rescaling = Identity()
         # This is for backward compatibility. Having int_quant/quantize_zero_point required for this
         # interface but not for the else seems a bit off and might require some clean-up.
         if scale_shift_zero_point_impl is None:
@@ -101,6 +139,7 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
         stats = self.parameter_list_stats(x)
+        stats = self.affine_rescaling(stats)
         return self.scale_shift_zero_point(-stats, scale, bit_width)
 
 
@@ -267,6 +306,8 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_impl: Module,
             zero_point_shape: Tuple[int, ...],
             tracked_parameter_list: List[torch.nn.Parameter],
+            zero_point_affine_rescaling_init: Optional[float] = None,
+            zero_point_affine_shifting_init: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
         super(ParameterFromStatsFromParameterZeroPoint, self).__init__()
@@ -276,6 +317,20 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_view_shape_impl,
             zero_point_stats_input_concat_dim,
             tracked_parameter_list)
+        _affine_rescaling = zero_point_affine_rescaling_init is not None
+        _affine_shift_scale = zero_point_affine_shifting_init is not None
+        if _affine_shift_scale and not _affine_rescaling:
+            raise RuntimeError(
+                "Enabling shifting of the zero point requires enabling affine rescaling first.")
+        if _affine_rescaling:
+            self.affine_rescaling = _AffineRescaling(
+                zero_point_shape,
+                zero_point_affine_rescaling_init,
+                zero_point_affine_shifting_init,
+                dtype,
+                device)
+        else:
+            self.affine_rescaling = Identity()
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
@@ -293,6 +348,7 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             stats = stats + 0. * self.value
             if self.local_loss_mode:
                 return self.scale_shift_zero_point(-stats, scale, bit_width)
+            stats = self.affine_rescaling(stats)  # possible rescaling
             inplace_tensor_add(self.value.detach(), stats)
             value = abs_binary_sign_grad(self.value)
             value = self.scale_shift_zero_point(value, scale, bit_width)

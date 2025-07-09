@@ -4,7 +4,9 @@
 from abc import ABC
 from contextlib import nullcontext
 from io import BytesIO
-from typing import Optional, Tuple, Union
+from typing import Optional
+from typing import Tuple
+from typing import Union
 import warnings
 
 from packaging import version
@@ -42,7 +44,7 @@ class PatchFp8Ops():
     def __enter__(self):
         import numpy as np
 
-        if torch_version >= version.parse('2.1.0') and torch_version < version.parse('2.5'):
+        if torch_version >= version.parse('2.1.0') and torch_version < version.parse('2.6'):
             self.lib = torch.library.Library("aten", "IMPL")
 
             def equal_cpu(self, other):

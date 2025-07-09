@@ -6,6 +6,9 @@ from abc import abstractmethod
 import warnings
 
 from brevitas import config
+from brevitas.utils.logging import setup_logger
+
+logging = setup_logger(__name__)
 
 
 class ExportMixin(object):
@@ -36,7 +39,8 @@ class ExportMixin(object):
         if value and self.training:
             raise RuntimeError("Can't enter export mode during training, only during inference")
         if value and self.requires_export_handler and self.export_handler is None:
-            raise RuntimeError("Can't enable export mode on a layer without an export handler")
+            self.export_mode = False
+            warnings.warn(f"Skipping {type(self)} because it does not have an export handler")
         elif value and not self.requires_export_handler and self.export_handler is None:
             return  # don't set export mode when it's not required and there is no handler
         elif value and not self._export_mode and self.export_handler is not None:
@@ -45,3 +49,9 @@ class ExportMixin(object):
         elif not value and self.export_handler is not None:
             self.export_handler = None
         self._export_mode = value
+
+
+# Protocol class for layer-wise export
+# Protocol class seems to clash with DependencyInjection
+class LayerProtocol():
+    pass

@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABCMeta
-from typing import Optional, Type, Union
+from typing import Optional
+from typing import Type
+from typing import Union
 
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector

@@ -8,12 +8,15 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
 from operator import attrgetter
-from typing import List, Optional, Set
+from typing import List
+from typing import Optional
+from typing import Set
 import warnings
 
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
@@ -185,7 +188,7 @@ class GPxQ(ABC):
         weight_shape = torch.tensor(layer.weight.shape)
 
         if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
-            self.layer.register_buffer('weight_orig', layer.weight.detach().clone())
+            self.layer.register_buffer('weight_orig', layer.weight.detach().clone().cpu())
 
         # By default, use groups = 1
         self.groups = 1
@@ -231,7 +234,39 @@ class GPxQ(ABC):
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
 
-        return inp
+        # Preprocess the input to compute the Hessian
+        if isinstance(self.layer, nn.Linear):
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
+            inp = inp.t()
+            # For QuantLinear layer, groups will be 1
+            inp_processed = inp.unsqueeze(0)
+
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            # Pick the correct unfoldNd class
+            if is_conv_transposed(self.layer):
+                unfold_impl = unfoldNd.UnfoldTransposeNd
+            else:
+                unfold_impl = unfoldNd.UnfoldNd
+
+            unfold = unfold_impl(
+                self.layer.kernel_size,
+                dilation=self.layer.dilation,
+                padding=self.layer.padding,
+                stride=self.layer.stride)
+
+            # Split input based on how many groups in convolution
+            inp_by_group = torch.chunk(inp, self.groups, 1)
+            inp_processed = []
+            # Preprocess input by group
+            for i, inp in enumerate(inp_by_group):
+                inp = unfold(inp)
+                inp = inp.transpose(1, 0)
+                inp = inp.flatten(1)
+                inp_processed.append(inp)
+            inp_processed = torch.stack(inp_processed)
+
+        return inp_processed
 
     @abstractmethod
     def update_batch(self):
@@ -242,6 +277,13 @@ class GPxQ(ABC):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
+
+        # If the weight quantizer has not been initialized, raise an error
+        for m in self.layer.weight_quant.modules():
+            if hasattr(m, 'init_done') and not m.init_done:
+                raise RuntimeError(
+                    "Weight quantizer not initialized. Run a forward pass after quantization and try again."
+                )
 
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation

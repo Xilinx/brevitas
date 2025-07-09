@@ -299,9 +299,9 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, 
 
 @requires_pt_ge('2.4')
 @pytest_cases.parametrize('partial_had', [True, False])
-def test_models(rotation_fixtures, partial_had):
+def test_models_rotation_fixtures(rotation_fixtures, partial_had):
 
-    in_shape = IN_SIZE_LINEAR
+    in_shape = (1, 4, 4)  # Special Attention shape
 
     model_class = rotation_fixtures
     model = model_class()

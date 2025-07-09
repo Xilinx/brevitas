@@ -3,7 +3,10 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Any, Optional, Tuple, Union
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn

@@ -235,6 +235,7 @@ class DynamicQuantScalingFloat(QuantScaleScaleShapeMixin,
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
     scaling_float_quant = DynamicQuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
+    scale_dequantized_shape = None
 
     @value
     def restrict_value_float_to_int_impl():
@@ -251,6 +252,7 @@ class QuantScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloa
 class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
     scaling_float_quant = QuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
+    scale_dequantized_shape = None
 
     @value
     def restrict_value_float_to_int_impl():
@@ -260,6 +262,7 @@ class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
 class QuantScaleMXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
     scaling_float_quant = QuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
+    scale_dequantized_shape = None
 
     @value
     def restrict_value_float_to_int_impl():
