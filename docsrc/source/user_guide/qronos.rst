@@ -99,9 +99,9 @@ To collect zero-shot results, we use the patched fork:
    cd lighteval
    pip install .
 
-There is also a known issue with ``transformers`` v4.51.3 (see `#38271 
-<https://github.com/huggingface/transformers/issues/38271>`_), which
-only impacts QuaRot and SpinQuant. You can install the patched fork via:
+There is also a known issue with ``transformers==4.51.3`` when also using
+``torch=2.4`` (see `#38271 <https://github.com/huggingface/transformers/issues/38271>`_), 
+which only impacts QuaRot and SpinQuant. You can install a patched fork via:
 
 .. code:: shell
 
@@ -109,6 +109,8 @@ only impacts QuaRot and SpinQuant. You can install the patched fork via:
    cd transformers
    pip install -e .
 
+Note that you may be able to avoid this issue with later versions of ``torch``, but your 
+results may differ from those reported here.
 
 How to Use: Few-Bit LLM Quantization
 --------------------------------------
