@@ -500,6 +500,8 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.optimize_rotations:
+            if args.load_checkpoint:
+                rot_optimization_args.max_steps = 0
             apply_rotation_optimization(
                 model=model,
                 tokenizer=tokenizer,
