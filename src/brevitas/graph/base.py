@@ -142,6 +142,30 @@ def _remove_parametrization_entries_state_dict(state_dict: Dict[str, Any]) -> Di
         state_dict[key] = value
     return state_dict
 
+def load_old_module_state_dict(old_module: torch.nn.Module, new_module: torch.nn.Module) -> None:
+    # work-around since weight_orig is from a previous quantization algorithm
+    if hasattr(old_module, 'weight_orig'):
+        new_module.register_buffer('weight_orig', old_module.weight_orig.data.cpu())
+    if not is_parametrized(old_module):
+        new_module.load_state_dict(old_module.state_dict())
+    else:
+        old_module_state_dict = old_module.state_dict()
+        # If parametrizations are present in old_module, the state_dict needs
+        # to be processed beforehand
+        old_module_state_dict = _remove_parametrization_entries_state_dict(
+            old_module_state_dict)
+        # Strict can be set to True, since potential parametrizations were
+        # accounted for
+        new_module.load_state_dict(old_module_state_dict)
+        # If the old module is parametrized, these need to be transferred to the new module.
+        # The method transfer_parametrizations_and_params as it can result in parameter ties
+        # being broken
+        # NOTE: unsafe is set to True for efficiency, as the checks should have been done
+        # when first registering the parametrization to old_module
+        for tensor_name in old_module.parametrizations:
+            for param_func in old_module.parametrizations[tensor_name]:
+                register_parametrization(new_module, tensor_name, param_func, unsafe=True)
+
 
 class ModuleToModule(GraphTransform, ABC):
 
@@ -176,7 +200,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs.update(update_dict)
         return new_kwargs
 
-    def _init_new_module(self, old_module: Module, name=None):
+    def _init_new_module(self, old_module: Module, name: str = None, load_state_dict: str = True):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
         # transforms attribute of original module, e.g. bias Parameter -> bool
@@ -188,34 +212,10 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
-        return new_module
-
-    def _replace_old_module(self, model, old_module, new_module, load_state_dict=True):
-        replace_module(model, old_module, new_module)
+        # load state dict of the old module
         if load_state_dict:
-            # work-around since weight_orig is from a previous quantization algorithm
-            if hasattr(old_module, 'weight_orig'):
-                new_module.register_buffer('weight_orig', old_module.weight_orig.data.cpu())
-            if not is_parametrized(old_module):
-                new_module.load_state_dict(old_module.state_dict())
-            else:
-                old_module_state_dict = old_module.state_dict()
-                # If parametrizations are present in old_module, the state_dict needs
-                # to be processed beforehand
-                old_module_state_dict = _remove_parametrization_entries_state_dict(
-                    old_module_state_dict)
-                # Strict can be set to True, since potential parametrizations were
-                # accounted for
-                new_module.load_state_dict(old_module_state_dict)
-                # If the old module is parametrized, these need to be transferred to the new module.
-                # The method transfer_parametrizations_and_params as it can result in parameter ties
-                # being broken
-                # NOTE: unsafe is set to True for efficiency, as the checks should have been done
-                # when first registering the parametrization to old_module
-                for tensor_name in old_module.parametrizations:
-                    for param_func in old_module.parametrizations[tensor_name]:
-                        register_parametrization(new_module, tensor_name, param_func, unsafe=True)
-
+            load_old_module_state_dict(old_module, new_module)
+        return new_module
 
 class InsertModuleCallAfter(GraphTransform):
 
@@ -383,7 +383,7 @@ class ModuleToModuleByName(ModuleToModule):
             if name == self.old_module_name:
                 # init the new module based on the old one
                 new_module = self._init_new_module(old_module)
-                self._replace_old_module(model, old_module, new_module)
+                replace_module(model, old_module, new_module)
                 break
         return model
 
@@ -399,10 +399,9 @@ class ModuleToModuleByInstance(ModuleToModule):
             if old_module is self.old_module_instance:
                 # init the new module based on the old one
                 new_module = self._init_new_module(old_module, name)
-                self._replace_old_module(model, old_module, new_module)
+                replace_module(model, old_module, new_module)
                 break
         return model
-
 
 class ModuleToModuleByClass(ModuleToModule):
 
@@ -421,7 +420,7 @@ class ModuleToModuleByClass(ModuleToModule):
                 old_new_module_dict[old_module] = new_module
         # replace all pairs registered
         for old_module, new_module in old_new_module_dict.items():
-            self._replace_old_module(model, old_module, new_module)
+            replace_module(model, old_module, new_module)
         return model
 
 

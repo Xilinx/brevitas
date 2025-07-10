@@ -431,8 +431,26 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
+
+        # TODO (pml): Remove       
+        import cProfile
+        import pstats
+        import io
+
+        profiler = cProfile.Profile()
+        profiler.enable()
+
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+        
+        # TODO (pml): Remove
+        profiler.disable()
+        s = io.StringIO()
+        sortby = pstats.SortKey.CUMULATIVE  # Sort by cumulative time
+        ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
+
         # Just to be sure
         model.eval()
         model = model.to(dtype)

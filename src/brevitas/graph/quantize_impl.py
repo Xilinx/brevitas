@@ -18,7 +18,7 @@ except ImportError:
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance
-from brevitas.graph.utils import del_module
+from brevitas.graph.utils import del_module, set_module
 from brevitas.graph.utils import get_module
 from brevitas.utils.logging import setup_logger
 
@@ -509,10 +509,11 @@ def _module_class_name(module_class_or_str):
     return name
 
 
+# TODO (pml): Rename and update comment
 def find_module(
         model: nn.Module,
+        module: nn.Module,
         layer_map: Dict[nn.Module, Optional[Dict]],
-        module_to_replace: List,
         name_blacklist,
         prefix=''):
     """
@@ -521,15 +522,19 @@ def find_module(
     Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
     Linear submodules.
     """
-    if _module_class_name(type_before_parametrizations(model)) in layer_map.keys():
-        module_to_replace.append(model)
+    if _module_class_name(type_before_parametrizations(module)) in layer_map.keys():
+        quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
+        rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
+        # TODO (pml): Make _init_new_module public?
+        quant_module = rewriter._init_new_module(old_module=module, name=prefix, load_state_dict=True)
+        set_module(model, quant_module, prefix)
     else:
-        for name, module in model.named_children():
+        for name, child in module.named_children():
             full_name = prefix + '.' + name if prefix != '' else name
             if name_blacklist is not None and full_name in name_blacklist:
                 logging.info(f"Skipping {full_name} module from quantization")
                 continue
-            find_module(module, layer_map, module_to_replace, name_blacklist, full_name)
+            find_module(model, child, layer_map, name_blacklist, full_name)
 
 
 def layerwise_layer_handler(
@@ -539,14 +544,5 @@ def layerwise_layer_handler(
     """
     # Normalize all module lookups to fully qualified strings
     layer_map = {_module_class_name(m): v for m, v in layer_map.items()}
-    module_to_replace = []
-    find_module(model, layer_map, module_to_replace, name_blacklist)
-    rewriters = []
-    for module in module_to_replace:
-        if layer_map[_module_class_name(type_before_parametrizations(module))] is not None:
-            quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
-            rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
-            rewriters.append(rewriter)
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
+    find_module(model, model, layer_map, name_blacklist)
     return model
