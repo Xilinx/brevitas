@@ -30,7 +30,6 @@ from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
 from tests.brevitas.hyp_helper import scalar_float_tensor_st
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 from tests.marker import jit_disabled_for_export
-from tests.marker import requires_pt_ge
 
 # brevitas.ops.autograd_ste_ops. and not brevitas.function.ops.
 # in order to mock where it's used, not where it's defined
@@ -177,7 +176,6 @@ class TestScalarClampMinSte:
         assert_allclose(output, expected_output)
 
     @jit_disabled_for_export()
-    @requires_pt_ge('2.0.1')
     @given(x=scalar_clamp_min_ste_test_st())
     def test_symbolic(self, x):
         """
