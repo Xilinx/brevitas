@@ -220,12 +220,20 @@ class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
     proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
-class DynamicQuantScalingFloat(QuantScaleScaleShapeMixin,
-                               DynamicActProxyMixin,
+class ConstActQuantScalingFloat(QuantScaleScaleShapeMixin,
                                Fp8e4m3OCPActPerTensorFloat):
     module = (this << 1).module
     upstream_scaling = (this << 1).scaling_per_output_type
     float_quant = FloatQuant
+    scaling_impl_type = "const"
+    scaling_init = 1.0
+
+
+class DynamicActQuantScalingFloat(QuantScaleScaleShapeMixin,
+                               DynamicActProxyMixin,
+                               Fp8e4m3OCPActPerTensorFloat):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
     scaling_stats_op = 'min_max'
@@ -233,16 +241,30 @@ class DynamicQuantScalingFloat(QuantScaleScaleShapeMixin,
 
 
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
-    scaling_float_quant = DynamicQuantScalingFloat
+    scaling_float_quant = DynamicActQuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
-    scale_dequantized_shape = None
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_float_quant.float_quant
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return None
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
 
 
-class QuantScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
+class ConstQuantWeightScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
+    module = (this << 1).module
+    tracked_parameter_list = (this << 1).tracked_parameter_list
+    upstream_scaling = (this << 1).scaling_per_output_type
+    scaling_impl_type = "const"
+    scaling_init = 1.0
+
+
+class QuantWeightScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
     module = (this << 1).module
     tracked_parameter_list = (this << 1).tracked_parameter_list
     upstream_scaling = (this << 1).scaling_per_output_type
@@ -250,20 +272,32 @@ class QuantScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloa
 
 
 class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
-    scaling_float_quant = QuantScalingFloat
+    scaling_float_quant = QuantWeightScalingFloat
     restrict_scaling_impl = QuantRestrictValue
-    scale_dequantized_shape = None
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_float_quant.float_quant
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return None
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
 
 
 class QuantScaleMXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
-    scaling_float_quant = QuantScalingFloat
+    scaling_float_quant = QuantWeightScalingFloat
     restrict_scaling_impl = QuantRestrictValue
-    scale_dequantized_shape = None
 
     @value
     def restrict_value_float_to_int_impl():
-        return this.scaling_float_quant.float_quant
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return None
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
