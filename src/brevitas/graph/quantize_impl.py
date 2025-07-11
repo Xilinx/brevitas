@@ -18,8 +18,9 @@ except ImportError:
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance
-from brevitas.graph.utils import del_module, set_module
+from brevitas.graph.utils import del_module
 from brevitas.graph.utils import get_module
+from brevitas.graph.utils import set_module
 from brevitas.utils.logging import setup_logger
 
 logging = setup_logger(__name__)
@@ -526,7 +527,8 @@ def find_module(
         quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
         rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
         # TODO (pml): Make _init_new_module public?
-        quant_module = rewriter._init_new_module(old_module=module, name=prefix, load_state_dict=True)
+        quant_module = rewriter._init_new_module(
+            old_module=module, name=prefix, load_state_dict=True, low_mem=True)
         set_module(model, quant_module, prefix)
     else:
         for name, child in module.named_children():

@@ -142,18 +142,19 @@ def _remove_parametrization_entries_state_dict(state_dict: Dict[str, Any]) -> Di
         state_dict[key] = value
     return state_dict
 
-def load_old_module_state_dict(old_module: torch.nn.Module, new_module: torch.nn.Module) -> None:
+
+def load_old_module_state_dict(
+        old_module: torch.nn.Module, new_module: torch.nn.Module, assign: bool = False) -> None:
     # work-around since weight_orig is from a previous quantization algorithm
     if hasattr(old_module, 'weight_orig'):
         new_module.register_buffer('weight_orig', old_module.weight_orig.data.cpu())
     if not is_parametrized(old_module):
-        new_module.load_state_dict(old_module.state_dict())
+        new_module.load_state_dict(old_module.state_dict(), assign=assign)
     else:
         old_module_state_dict = old_module.state_dict()
         # If parametrizations are present in old_module, the state_dict needs
         # to be processed beforehand
-        old_module_state_dict = _remove_parametrization_entries_state_dict(
-            old_module_state_dict)
+        old_module_state_dict = _remove_parametrization_entries_state_dict(old_module_state_dict)
         # Strict can be set to True, since potential parametrizations were
         # accounted for
         new_module.load_state_dict(old_module_state_dict)
@@ -200,7 +201,12 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs.update(update_dict)
         return new_kwargs
 
-    def _init_new_module(self, old_module: Module, name: str = None, load_state_dict: str = True):
+    def _init_new_module(
+            self,
+            old_module: Module,
+            name: str = None,
+            load_state_dict: str = True,
+            low_mem: bool = False):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
         # transforms attribute of original module, e.g. bias Parameter -> bool
@@ -210,12 +216,17 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
         new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
+        # skip memory allocation if low_mem is set to True and the
+        # module constructor admits 'device' as keyword argument
+        if (assign := low_mem and 'device' in new_kwargs):
+            new_kwargs['device'] = torch.device("meta")
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         # load state dict of the old module
         if load_state_dict:
-            load_old_module_state_dict(old_module, new_module)
+            load_old_module_state_dict(old_module, new_module, assign=assign)
         return new_module
+
 
 class InsertModuleCallAfter(GraphTransform):
 
@@ -402,6 +413,7 @@ class ModuleToModuleByInstance(ModuleToModule):
                 replace_module(model, old_module, new_module)
                 break
         return model
+
 
 class ModuleToModuleByClass(ModuleToModule):
 
