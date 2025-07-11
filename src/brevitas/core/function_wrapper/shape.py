@@ -5,6 +5,7 @@
 ScriptModule classes to compute the view of a tensor according to various different criteria.
 """
 
+import math
 from typing import Optional
 from typing import Tuple
 
@@ -171,6 +172,11 @@ class OverSubChannelBlockView(brevitas.jit.ScriptModule):
         # - Groupwise HQO quantization, where weight will already have been padded and expanded
         if len(x.shape) == len(self.expanded_groupwise_shape):
             return x
+        # Shortcut when we're not compiling
+        # If we are compiling, this could cause a shape specialization
+        if not torch._dynamo.is_compiling():
+            if x.numel() == math.prod(self.expanded_groupwise_shape):
+                return x.view(self.expanded_groupwise_shape)
         y = padding_to_multiple(x, self.group_dim, self.group_size)
         y = y.view(self.expanded_groupwise_shape)
         return y

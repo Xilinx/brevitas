@@ -86,13 +86,18 @@ class FloatQuant(brevitas.jit.ScriptModule):
         return y * scale
 
     @brevitas.jit.script_method
-    def forward(self, x):
+    def compute_scale(self, x):
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
                 self.exponent_bit_width(), self.pre_compute_max_mantissa(), self.exponent_bias())
         else:
             float_scaling_impl_value = None
         scale = self.scaling_impl(x, float_scaling_impl_value)
+        return scale
+
+    @brevitas.jit.script_method
+    def forward(self, x):
+        scale = self.compute_scale(x)
         if self.observer_only:
             y = x
             saturating, inf_values, nan_values = self.float_clamp_impl.saturating, self.float_clamp_impl.inf_values, self.float_clamp_impl.nan_values

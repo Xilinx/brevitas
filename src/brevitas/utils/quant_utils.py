@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import math
+
 import torch
 
 import brevitas.compiler as brevitas_compiler
@@ -222,10 +224,20 @@ def float_to_int_impl_to_enum(module):
 
 # For old versions of pytorch (2.3.1), this is needed otherwise compile skips this function
 @brevitas_compiler.disable
-def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_shape):
+def groupwise_dequant_expand(
+        value_, scale_, zero_point_, group_dim, dequant_shape, return_value_only=False):
+
+    if not torch._dynamo.is_compiling() and return_value_only:
+        if value_.numel() == math.prod(dequant_shape):
+            new_value = value_.view(dequant_shape)
+            return new_value
+
     curr_shape = value_.shape
     start_dim = group_dim if group_dim >= 0 else group_dim - 1
     new_value = value_.flatten(start_dim, start_dim + 1)
+    if return_value_only:
+        return new_value
+
     if scale_.shape != ():
         new_scale = scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
     else:
@@ -250,5 +262,4 @@ def groupwise_dequant_expand(value_, scale_, zero_point_, group_dim, dequant_sha
         if zero_point_.shape != ():
             new_zp = torch.stack(
                 torch.unbind(new_zp, dim=group_dim)[:unpadding_shape], dim=group_dim)
-
     return new_value, new_scale, new_zp

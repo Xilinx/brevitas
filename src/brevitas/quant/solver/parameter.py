@@ -159,7 +159,8 @@ class SolveParameterScalingShape(ExtendedInjector):
         # group_dim will be called always to create scaling_shape, but it is only needed
         # for groupwise quantization.
         if group_size is not None:
-            return 1 if not hasattr(module, 'transposed') or not module.transposed else 0
+            group_dim = 1 if not hasattr(module, 'transposed') or not module.transposed else 0
+            return group_dim
 
 
 class SolveInputViewImpl(ExtendedInjector):
