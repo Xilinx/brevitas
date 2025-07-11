@@ -510,18 +510,17 @@ def _module_class_name(module_class_or_str):
     return name
 
 
-# TODO (pml): Rename and update comment
-def find_module(
+def _layerwise_replace_modules(
         model: nn.Module,
         module: nn.Module,
         layer_map: Dict[nn.Module, Optional[Dict]],
-        name_blacklist,
-        prefix=''):
+        name_blacklist: Optional[List[str]] = None,
+        prefix: str = ''):
     """
-    Iterate through the model looking at immediate children of every module to look for supported modules.
-    This allows us to stop the search when we meet a top-level module that is supported.
-    Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
-    Linear submodules.
+    Iterate through the model looking at immediate children of every module to look for supported modules
+    which are replaced by the module classes specified in layer_map. This allows us to stop the search when we
+    meet a top-level module that is supported. Specifically, it allows to map nn.MultiheadAttetion to its
+    quantized counterpart and not its Linear submodules.
     """
     if _module_class_name(type_before_parametrizations(module)) in layer_map.keys():
         quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
@@ -536,15 +535,25 @@ def find_module(
             if name_blacklist is not None and full_name in name_blacklist:
                 logging.info(f"Skipping {full_name} module from quantization")
                 continue
-            find_module(model, child, layer_map, name_blacklist, full_name)
+            _layerwise_replace_modules(model, child, layer_map, name_blacklist, full_name)
 
 
 def layerwise_layer_handler(
-        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], name_blacklist=None):
+        model: nn.Module,
+        layer_map: Dict[nn.Module, Optional[Dict]],
+        name_blacklist: Optional[List[str]] = None):
     """
-    Replace FP weight layers with their corresponding quantized version
+    Replace FP weight layers with their corresponding quantized version.
+
+    Args:
+        model (Module): Model whose supported moduless are to be replaced.
+        layer_map (dict): Dictionary whose keys are the classes of the modules to be replaced and whose values
+            are two-element tuples. The first entry corresponds to be class of the replacing module and the
+            second value with extra keyword arguments that need to be passed to its constructor on
+            initialization.
+        name_blacklist (list): Names of the modules that need to be skipped from quantization.
     """
     # Normalize all module lookups to fully qualified strings
     layer_map = {_module_class_name(m): v for m, v in layer_map.items()}
-    find_module(model, model, layer_map, name_blacklist)
+    _layerwise_replace_modules(model, model, layer_map, name_blacklist)
     return model
