@@ -1,5 +1,8 @@
 import copy
+import inspect
+from itertools import chain
 import platform
+import random
 
 import pytest
 import pytest_cases
@@ -7,13 +10,106 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
+from brevitas.core.scaling.runtime import StatsFromParameterScaling
+from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
 from brevitas.graph.base import _remove_parametrization_entries_state_dict
+from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
+from brevitas.inject.enum import ScalingImplType
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
+from tests.conftest import SEED
 from tests.marker import requires_pt_ge
-from tests.marker import requires_pt_lt
+
+MIN_INT = 2
+MAX_INT = 10
+
+RNN_INPUT_SIZE = 2
+RNN_HIDDEN_SIZE = 2
+MHA_EMBED_DIM = 2
+MHA_NUM_HEADS = 1
+
+
+class QuantModelCases:
+
+    @pytest_cases.parametrize(
+        'layer_map_item',
+        LAYERWISE_COMPUTE_LAYER_MAP.items(),
+        ids=[f'{c.__name__}' for c in LAYERWISE_COMPUTE_LAYER_MAP.keys()])
+    def case_quant_model(self, layer_map_item, request):
+        # Set seeds
+        torch.manual_seed(SEED)
+        random.seed(SEED)
+
+        # Change the case_id based on current value of Parameters
+        pytest_cases.set_case_id(request.node.callspec.id, QuantModelCases.case_quant_model)
+
+        torch_layer_cls, quant_layer_cls_kwargs = layer_map_item
+
+        if quant_layer_cls_kwargs is None:
+            pytest.skip(f'There is no quant layer defined for {torch_layer_cls.__name__}')
+
+        if torch_layer_cls in (torch.nn.LSTM, torch.nn.RNN):
+            layer_kwargs = {'input_size': RNN_INPUT_SIZE, 'hidden_size': RNN_HIDDEN_SIZE}
+        elif torch_layer_cls in (torch.nn.MultiheadAttention,):
+            layer_kwargs = {'embed_dim': MHA_EMBED_DIM, 'num_heads': MHA_NUM_HEADS}
+        else:
+            # Retrieve the required parameters of the __init__ method
+            layer_kwargs = {}
+            for name, parameter in inspect.signature(torch_layer_cls.__init__).parameters.items():
+                # Check if the parameter is required
+                if name != 'self' and parameter.default is inspect.Parameter.empty and parameter.kind in (
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
+                    # If so, check the type
+                    if parameter.annotation == int or (
+                            parameter.annotation.__name__ == 'Union' and
+                            any([arg == int for arg in parameter.annotation.__args__])):
+                        layer_kwargs[name] = random.randint(a=MIN_INT, b=MAX_INT)
+                    else:
+                        pytest.skip(
+                            f"No strategy defined to populate the parameter {name} of {torch_layer_cls.__name__}."
+                        )
+
+        # Dummy model for testing
+        class Model(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.layer = torch_layer_cls(**layer_kwargs)
+
+            def forward(self, *args, **kwargs):
+                return self.layer(*args, **kwargs)
+
+        model = Model()
+        return model
+
+
+@pytest_cases.parametrize_with_cases('model', cases=QuantModelCases)
+@pytest_cases.parametrize(
+    'weight_scaling_impl_type', [ScalingImplType.STATS, ScalingImplType.PARAMETER_FROM_STATS])
+def test_layerwise_quantize_quant_model(model, weight_scaling_impl_type, current_cases):
+    torch_layer = model.layer
+    torch_layer_cls = type(torch_layer)
+    # Set the scaling type of weight_quant according to the parametrized value
+    layer_map = copy.deepcopy(LAYERWISE_COMPUTE_LAYER_MAP)
+    if 'weight_quant' in layer_map[torch_layer_cls][1]:
+        layer_map[torch_layer_cls][1]['weight_quant'] = layer_map[torch_layer_cls][1][
+            'weight_quant'].let(scaling_impl_type=weight_scaling_impl_type)
+
+    # Replace torch layers by quant layers
+    qmodel = layerwise_quantize(model, compute_layer_map=layer_map)
+
+    # Verify that the layer was replaced correctly by the correct class
+    assert type(qmodel.layer) == layer_map[torch_layer_cls][0]
+    # Verify that all parameters and buffers were moved from the "meta" device
+    assert all([
+        param.device != torch.device("meta")
+        for param in chain(qmodel.parameters(), qmodel.buffers())])
+    # Verify that the common parameters of the torch and quant modules share the same storage position
+    assert all([
+        param.storage().data_ptr() == recurse_getattr(qmodel, name).storage().data_ptr() for name,
+        param in chain(qmodel.named_parameters(), qmodel.named_buffers())])
 
 
 @pytest_cases.parametrize(

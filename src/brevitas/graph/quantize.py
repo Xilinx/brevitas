@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import Dict
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 from packaging import version
 import torch
@@ -144,7 +147,7 @@ COMPUTE_LAYER_MAP = {
             'bias_quant': Int32Bias,
             'return_quant_tensor': True})}
 
-LAYERWISE_COMPUTE_LAYER_MAP = {
+LAYERWISE_COMPUTE_LAYER_MAP: Dict[Type[torch.nn.Module], Optional[Tuple[torch.nn.Module, Dict]]] = {
     nn.AvgPool2d:
         None,
     nn.MultiheadAttention: (
