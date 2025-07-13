@@ -224,7 +224,6 @@ class ConstActQuantScalingFloat(QuantScaleScaleShapeMixin,
                                Fp8e4m3OCPActPerTensorFloat):
     module = (this << 1).module
     upstream_scaling = (this << 1).scaling_per_output_type
-    float_quant = FloatQuant
     scaling_impl_type = "const"
     scaling_init = 1.0
 
@@ -240,8 +239,16 @@ class DynamicActQuantScalingFloat(QuantScaleScaleShapeMixin,
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
 
+class StaticActQuantScalingFloat(QuantScaleScaleShapeMixin,
+                               DynamicActProxyMixin,
+                               Fp8e4m3OCPActPerTensorFloat):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
+    scaling_stats_op = 'min_max'
+
+
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
-    scaling_float_quant = DynamicActQuantScalingFloat
+    scaling_float_quant = StaticActQuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
 
     @value
