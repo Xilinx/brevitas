@@ -240,11 +240,11 @@ class DynamicActQuantScalingFloat(QuantScaleScaleShapeMixin,
 
 
 class StaticActQuantScalingFloat(QuantScaleScaleShapeMixin,
-                               DynamicActProxyMixin,
                                Fp8e4m3OCPActPerTensorFloat):
     module = (this << 1).module
     upstream_scaling = (this << 1).scaling_per_output_type
     scaling_stats_op = 'min_max'
+    scaling_shape = SCALAR_SHAPE
 
 
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
