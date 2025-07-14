@@ -117,6 +117,7 @@ class MagR(GPTQ):
             weight_orig = weight.detach().clone()
 
         dev = weight.device
+        weight_orig = weight_orig.to(dev)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.

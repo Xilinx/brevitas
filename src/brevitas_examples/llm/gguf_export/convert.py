@@ -416,7 +416,11 @@ class ModelBase:
 
         else:
             _, scale = self.modify_tensors(scale, name, bid)[0]
-            _, zp = self.modify_tensors(zp, name, bid)[0]
+            # If the zero point is a scalar, it is not a tensor that needs
+            # to be modified. Also, this check avoids issues with LlamaModel,
+            # where the permutation for q_proj and k_proj causes issues.
+            if zp.ndim > 0:
+                _, zp = self.modify_tensors(zp, name, bid)[0]
             data = ggml_quant(quant_data, data_qtype, scale, zp)
 
         return data, data_qtype
@@ -2983,7 +2987,7 @@ class Qwen2Model(TextModel):
                 or name.startswith("vision_model") or name.startswith("audio_tower"):
             # skip vision and audio tensors
             return []
-        yield from super().modify_tensors(data_torch, name, bid)
+        return super().modify_tensors(data_torch, name, bid)
 
 
 @ModelBase.register(

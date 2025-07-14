@@ -1,11 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import argparse
 from contextlib import nullcontext
 from copy import deepcopy
 from datetime import timedelta
 import functools
+import os
 import pprint
 import sys
 
@@ -14,7 +14,6 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-import yaml
 
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
@@ -28,14 +27,17 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.parse_utils import override_defaults
+from brevitas_examples.common.parse_utils import parse_args
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
-from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
@@ -44,8 +46,11 @@ from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
+from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
+from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
@@ -62,6 +67,14 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
+logging = setup_logger(__name__)
+
+try:
+    from brevitas.export.shark.manager import SharkManager
+except:
+    SharkManager = None
+    logging.debug("Shark-AI not installed, cannot export to Shark")
+
 
 def filter_results(results, tasks):
     # filter out what we actually want to track
@@ -74,11 +87,6 @@ def filter_results(results, tasks):
                 name = f"{task_name}_{key}"
                 eval_results[name] = val
     return eval_results
-
-
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
@@ -127,7 +135,7 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def model_export(model, tokenizer, ref_input, args):
+def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'sharded_torchmlir_group_weight':
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
@@ -153,6 +161,34 @@ def model_export(model, tokenizer, ref_input, args):
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
 
+    elif args.export_target == 'shark':
+        assert SharkManager is not None, "Please install shark-ai to export to Shark"
+        from sharktank.types import Theta
+
+        if args.export_prefix is None:
+            export_path = "./dataset.irpa"
+        else:
+            os.makedirs(f"./{args.export_prefix}", exist_ok=True)
+            export_path = f"./{args.export_prefix}/dataset.irpa"
+
+        print(f"Exporting the model in {export_path}")
+
+        export = SharkManager(config=config)
+        with torch.no_grad():
+            model = offload_model(model)
+            ds = export.export(model, **ref_input)
+        properties = ds.properties
+        root_theta = ds.root_theta.flatten()
+
+        # Export is always upcast to float32, and if we don't update the properties, it will fail
+        properties['torch_dtype'] = 'float32'
+        root_theta = Theta(gguf_mapping(root_theta, config))
+        properties = convert_hf_hparams_to_gguf(_get_dataset_props(properties))
+        root_theta.rename_tensors_to_paths()
+        ds.properties = properties
+        ds.root_theta = root_theta
+        ds.save(export_path, io_report_callback=None)
+
 
 def fx_required(args):
     return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
@@ -173,6 +209,7 @@ def quantize_llm(args, extra_args=None):
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     dtype = next(model.parameters()).dtype
+    config = model.config
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -240,6 +277,7 @@ def quantize_llm(args, extra_args=None):
             model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
+    model.eval()
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
@@ -393,7 +431,6 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
-
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Just to be sure
@@ -463,6 +500,8 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.optimize_rotations:
+            if args.load_checkpoint:
+                rot_optimization_args.max_steps = 0
             apply_rotation_optimization(
                 model=model,
                 tokenizer=tokenizer,
@@ -577,7 +616,6 @@ def quantize_llm(args, extra_args=None):
                 quant_ppl = compute_perplexity(
                     model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -648,51 +686,15 @@ def quantize_llm(args, extra_args=None):
             print(f"Export to {args.export_target}")
             # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
-            model_export(model, tokenizer, calibration_loader[0], args)
+            model_export(model, tokenizer, calibration_loader[0], args, config)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 
 
-def override_defaults(args):
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
-    )
-    known_args = parser.parse_known_args()[0]  # Returns a tuple
-    if known_args.config is not None:
-        with open(known_args.config, 'r') as f:
-            defaults = yaml.safe_load(f)
-    else:
-        defaults = {}
-    return defaults
-
-
-def parse_args(args, override_defaults={}):
-    parser = create_llm_args_parser()
-    if len(override_defaults) > 0:
-        # Retrieve keys that are known to the parser
-        parser_keys = set(map(lambda action: action.dest, parser._actions))
-        # Extract the entries in override_defaults that correspond to keys not known to the parser
-        extra_args_keys = [key for key in override_defaults.keys() if key not in parser_keys]
-        # Remove all the keys in override_defaults that are unknown to the parser and, instead,
-        # include them in args, as if they were passed as arguments to the command line.
-        # This prevents the keys of HF TrainingArguments from being added as arguments to the parser.
-        # Consequently, they will be part of the second value returned by parse_known_args (thus being
-        # used as extra_args in quantize_llm)
-        for key in extra_args_keys:
-            args += [f"--{key}", str(override_defaults[key])]
-            del override_defaults[key]
-    parser.set_defaults(**override_defaults)
-    return parser.parse_known_args(args)
-
-
 def main():
     overrides = override_defaults(sys.argv[1:])
-    args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
+    parser = create_args_parser()
+    args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
     quantize_llm(args, extra_args)
 
 

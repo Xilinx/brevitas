@@ -1,23 +1,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import argparse
+from argparse import ArgumentParser
+from argparse import Namespace
 from typing import List
 from typing import Optional
 from warnings import warn
 
+from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
 
-def create_llm_args_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
-    )
+def create_args_parser() -> ArgumentParser:
+    parser = create_entrypoint_args_parser(description="LLM quantization")
     parser.add_argument(
         '--model',
         type=str,
@@ -161,7 +156,7 @@ def create_llm_args_parser():
         '--attn-quant-config',
         type=str,
         default='qkvs',
-        choices=['qkvs', 'kv'],
+        choices=['qkvs', 'qkv', 'kv'],
         help=
         'Decide which parts of attention should be quantized. "kv" will only quantize KV, "qkvs" will quantize all MatMuls in attention (QKV & Softmax output). Note: --quant-sdpa needs be set for this to have an effect. Default: %(default)s'
     )
@@ -368,6 +363,7 @@ def create_llm_args_parser():
         default=None,
         choices=[
             None,
+            'shark',
             'onnx_qcdq',
             'gguf:q8_0',
             'gguf:q4_0',
@@ -452,7 +448,7 @@ def create_llm_args_parser():
     return parser
 
 
-def validate(args, extra_args: Optional[List[str]] = None):
+def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     if args.optimize_rotations:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
     else:
@@ -488,8 +484,7 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 if args.input_quant_granularity == 'per_group':
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
-        if args.export_target is not None:
-            assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
+
         if args.export_target is not None and args.input_bit_width is not None:
             assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':

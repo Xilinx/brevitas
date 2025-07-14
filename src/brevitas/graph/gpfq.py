@@ -104,6 +104,7 @@ class GPFQ(GPxQ):
         weight = self.layer.weight.data
         weight_orig = self.layer.weight_orig.data
         dev = weight.device
+        weight_orig = weight_orig.to(dev)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
