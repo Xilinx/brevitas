@@ -1855,10 +1855,6 @@ class GraphRotationEqualization(RotationEqualization):
                     'value_sdpa': value_module, 'output_sdpa': output_module})
             regions.append(region)
 
-            for m in graph_module.modules():
-                if isinstance(m, ScaledDotProductAttention):
-                    m.pre_process_q = functional_rotate_input
-                    m.pre_process_k = functional_rotate_input
         return regions
 
     def apply(self,
