@@ -6,10 +6,10 @@ from torch.autograd import Function
 from torch.onnx.symbolic_helper import _get_tensor_sizes
 
 from .custom_ops import bipolar_quant
+from .custom_ops import DOMAIN_STRING
 from .custom_ops import float_quant
 from .custom_ops import int_quant
 from .custom_ops import trunc_quant
-from .custom_ops import DOMAIN_STRING
 
 
 class BrevitasBinaryQuantFn(Function):

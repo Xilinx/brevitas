@@ -25,11 +25,11 @@ from brevitas.utils.logging import setup_logger
 
 from ..manager import _override_act_caching_mode
 from .custom_ops import bipolar_quant_wrapper
+from .custom_ops import DOMAIN_STRING as QONNX_DOMAIN_STRING
+from .custom_ops import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
 from .custom_ops import float_quant_wrapper
 from .custom_ops import int_quant_wrapper
 from .custom_ops import trunc_quant_wrapper
-from .custom_ops import DOMAIN_STRING as QONNX_DOMAIN_STRING
-from .custom_ops import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
 from .function import BrevitasBinaryQuantFn
 from .function import BrevitasFloatQuantFn
 from .function import BrevitasQuantFn
