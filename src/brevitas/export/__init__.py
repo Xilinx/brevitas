@@ -26,9 +26,8 @@ def export_qonnx(*args, **kwargs):
         return QONNXDynamoManager.export(*args, **kwargs)
 
     key = "dynamo"
-    if key in kwargs.keys():
-        if kwargs[key]:  # `dynamo=True` is passed
-            return _export_qonnx_dynamo(*args, **kwargs)
+    if kwargs.get(key, False):
+        return _export_qonnx_dynamo(*args, **kwargs)
     return _export_qonnx_torchscript(*args, **kwargs)
 
 

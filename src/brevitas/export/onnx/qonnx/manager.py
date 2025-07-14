@@ -24,17 +24,17 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.logging import setup_logger
 
 from ..manager import _override_act_caching_mode
-from .function import bipolar_quant_wrapper
+from .custom_ops import bipolar_quant_wrapper
+from .custom_ops import float_quant_wrapper
+from .custom_ops import int_quant_wrapper
+from .custom_ops import trunc_quant_wrapper
+from .custom_ops import DOMAIN_STRING as QONNX_DOMAIN_STRING
+from .custom_ops import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
 from .function import BrevitasBinaryQuantFn
 from .function import BrevitasFloatQuantFn
 from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
 from .function import BrevitasTruncFn
-from .function import DOMAIN_STRING as QONNX_DOMAIN_STRING
-from .function import DOMAIN_VERSION as QONNX_DOMAIN_VERSION
-from .function import float_quant_wrapper
-from .function import int_quant_wrapper
-from .function import trunc_quant_wrapper
 from .handler import BrevitasActFloatQuantProxyHandler
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
@@ -135,7 +135,7 @@ class QONNXDynamoManager(QONNXManager):
             disable_quant_tensor = partial(_override_create_quant_tensor, state=True)
             model.apply(disable_quant_tensor)
             model._brevitas_return_quant_tensor_state = return_quant_tensor_state  #  Store this state in the model, to re-enable later
-        if not enabled:
+        else:
             enable_quant_tensor = partial(_override_create_quant_tensor, state=False)
             model.apply(enable_quant_tensor)
             QuantizationStatusManager.restore_return_quant_tensor(
