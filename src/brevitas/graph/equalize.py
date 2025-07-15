@@ -1832,7 +1832,10 @@ class GraphRotationEqualization(RotationEqualization):
                 return output_node
 
         for sdpa_node in sdpa_nodes:
-            value_input = sdpa_node.args[-1]
+            if sdpa_node.kwargs.get('value', False):
+                value_input = sdpa_node.kwargs['value']  # value passed as kwarg
+            else:
+                value_input = sdpa_node.args[-1]  # value passed as last arg
 
             value_node = find_src(value_input)
             output_node = find_sink(value_input)
@@ -1855,10 +1858,6 @@ class GraphRotationEqualization(RotationEqualization):
                     'value_sdpa': value_module, 'output_sdpa': output_module})
             regions.append(region)
 
-            for m in graph_module.modules():
-                if isinstance(m, ScaledDotProductAttention):
-                    m.pre_process_q = functional_rotate_input
-                    m.pre_process_k = functional_rotate_input
         return regions
 
     def apply(self,
