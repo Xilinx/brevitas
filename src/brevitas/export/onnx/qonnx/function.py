@@ -5,16 +5,11 @@ import torch
 from torch.autograd import Function
 from torch.onnx.symbolic_helper import _get_tensor_sizes
 
-from brevitas.core.bit_width import BitWidthConst
-from brevitas.core.function_wrapper.clamp import TensorClamp
-from brevitas.core.function_wrapper.misc import Identity
-from brevitas.core.quant import IntQuant
-from brevitas.core.quant import TruncIntQuant
-from brevitas.function import binary_sign
-from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
-
-DOMAIN_STRING = "qonnx.custom_op.general"
-DOMAIN_VERSION = 2
+from .custom_ops import bipolar_quant
+from .custom_ops import DOMAIN_STRING
+from .custom_ops import float_quant
+from .custom_ops import int_quant
+from .custom_ops import trunc_quant
 
 
 class BrevitasBinaryQuantFn(Function):
@@ -27,8 +22,8 @@ class BrevitasBinaryQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        y = binary_sign(x) * scale
-        return y
+        x = bipolar_quant(x, scale)
+        return x
 
 
 class BrevitasQuantFn(Function):
@@ -49,14 +44,14 @@ class BrevitasQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        quant = IntQuant(
-            float_to_int_impl=float_to_int_impl(),
-            tensor_clamp_impl=TensorClamp(),
-            input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
-            narrow_range=narrow_range,
-            signed=signed)
-        y = quant(scale, zero_point, bit_width, x)
+        y = int_quant(
+            x,
+            scale,
+            zero_point,
+            bit_width,
+            int(narrow_range),
+            signed=int(signed),
+            rounding_mode=rounding_mode)
         return y
 
 
@@ -106,7 +101,18 @@ class BrevitasFloatQuantFn(Function):
             has_subnormal,
             rounding_mode,
             max_val):
-        return x
+        return float_quant(
+            x,
+            scale,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            max_val,
+            int(has_inf),
+            int(has_nan),
+            int(has_subnormal),
+            rounding_mode,
+            int(saturating))
 
 
 class BrevitasTruncFn(Function):
@@ -149,12 +155,16 @@ class BrevitasTruncFn(Function):
             output_scale,
             output_bit_width,
             rounding_mode):
-        # TODO: Restore this (fails when `signed` arg added)
-        #float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
-        #trunc = TruncIntQuant(
-        #    float_to_int_impl=float_to_int_impl(),
-        #    bit_width_impl=BitWidthConst(int(output_bit_width)))
-        #y_tuple = trunc(x, scale, zero_point, input_bit_width, signed)
+        trunc_quant(
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            output_scale,
+            output_bit_width,
+            rounding_mode,
+            int(signed),
+            int(narrow_range))
         return x
 
 

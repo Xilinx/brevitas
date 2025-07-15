@@ -4,6 +4,7 @@
 from functools import wraps
 
 from .onnx.debug import enable_debug
+from .onnx.qonnx.manager import QONNXDynamoManager
 from .onnx.qonnx.manager import QONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXManager
 from .torch.qcdq.manager import TorchQCDQManager
@@ -14,9 +15,20 @@ def export_brevitas_onnx(*args, **kwargs):  # alias for qonnx
     return QONNXManager.export(*args, **kwargs)
 
 
-@wraps(QONNXManager.export)
 def export_qonnx(*args, **kwargs):
-    return QONNXManager.export(*args, **kwargs)
+
+    @wraps(QONNXManager.export)
+    def _export_qonnx_torchscript(*args, **kwargs):
+        return QONNXManager.export(*args, **kwargs)
+
+    @wraps(QONNXDynamoManager.export)
+    def _export_qonnx_dynamo(*args, **kwargs):
+        return QONNXDynamoManager.export(*args, **kwargs)
+
+    key = "dynamo"
+    if kwargs.get(key, False):
+        return _export_qonnx_dynamo(*args, **kwargs)
+    return _export_qonnx_torchscript(*args, **kwargs)
 
 
 @wraps(StdQCDQONNXManager.export)
