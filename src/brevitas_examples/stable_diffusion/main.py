@@ -894,12 +894,11 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
 
             float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
             quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
-
-            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            fid = FrechetInceptionDistance(normalize=False).to(args.device)
             for float_image in tqdm(float_images_values):
-                fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
+                fid.update(float_image.unsqueeze(0).to(args.device), real=True)
             for quant_image in tqdm(quant_images_values):
-                fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
+                fid.update(quant_image.unsqueeze(0).to(args.device), real=False)
             print(f"Torchmetrics FID: {float(fid.compute())}")
             torchmetrics_fid = float(fid.compute())
             # Dump args to json
@@ -923,7 +922,7 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
             # All the images will be used for FID computation.
             float_images_values = load_images_from_folder(args.reference_images_path)
 
-            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            fid = FrechetInceptionDistance(normalize=False).to(args.device)
             for float_image in tqdm(float_images_values):
 
                 if float_image.shape[0] == 1:
