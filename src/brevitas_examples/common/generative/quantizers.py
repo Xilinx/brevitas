@@ -284,6 +284,8 @@ class QuantWeightScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTens
 class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
     scaling_float_quant = QuantWeightScalingFloat
     restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+    restrict_threshold_with_scale = True
 
     @value
     def restrict_value_float_to_int_impl():
@@ -300,6 +302,8 @@ class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
 class QuantScaleMXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
     scaling_float_quant = QuantWeightScalingFloat
     restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+    restrict_threshold_with_scale = True
 
     @value
     def restrict_value_float_to_int_impl():
