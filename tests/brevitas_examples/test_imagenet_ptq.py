@@ -6,7 +6,6 @@ import logging
 from typing import Callable
 from unittest.mock import patch
 
-import numpy as np
 import pytest
 import pytest_cases
 import torch
@@ -81,7 +80,7 @@ class ImageNetCases:
 
 @pytest.mark.imagenet
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=ImageNetCases)
-def test_small_models_metrics(caplog, args_and_metrics, main):
+def test_quality_metrics(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)
     with patch('brevitas_examples.imagenet_classification.utils.generate_dataset',
                mock_generate_dataset):
