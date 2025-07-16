@@ -66,6 +66,7 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+from brevitas_examples.llm.benchmark.test_scale_format import test_scale_quant
 
 logging = setup_logger(__name__)
 
@@ -602,6 +603,7 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
+        test_scale_quant(model)
         # create_weight_orig=True creates a copy of the weights for the model to use when disabling weight
         # quantization so that any downstream optimization can optimize w.r.t. the original reference model.
         # However, it also creates additional tensors that are stored on the CPU, but are cast to the GPU

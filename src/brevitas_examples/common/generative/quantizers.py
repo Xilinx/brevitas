@@ -8,6 +8,9 @@ from torch import nn
 from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
+from brevitas.core.quant.float import FloatQuant
+from brevitas.core.restrict_val import FloatRestrictValue
+from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
@@ -35,6 +38,9 @@ from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
@@ -213,3 +219,95 @@ class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
     scaling_stats_op = 'min_max'
     scaling_per_output_channel = True
     proxy_class = DynamicActFloatQuantProxyFromInjector
+
+
+class ConstActQuantScalingFloat(QuantScaleScaleShapeMixin,
+                               Fp8e4m3OCPActPerTensorFloat):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
+    scaling_impl_type = "const"
+    scaling_init = 448.0
+
+
+class DynamicActQuantScalingFloat(QuantScaleScaleShapeMixin,
+                               DynamicActProxyMixin,
+                               Fp8e4m3OCPActPerTensorFloat):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = 'min_max'
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
+
+
+class StaticActQuantScalingFloat(QuantScaleScaleShapeMixin,
+                               Fp8e4m3OCPActPerTensorFloat):
+    module = (this << 1).module
+    upstream_scaling = (this << 1).scaling_per_output_type
+    scaling_stats_op = 'min_max'
+    scaling_shape = SCALAR_SHAPE
+
+
+class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
+    scaling_float_quant = StaticActQuantScalingFloat
+    restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+    restrict_threshold_with_scale = True
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return None
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
+
+
+class ConstQuantWeightScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
+    module = (this << 1).module
+    tracked_parameter_list = (this << 1).tracked_parameter_list
+    upstream_scaling = (this << 1).scaling_per_output_type
+    scaling_impl_type = "const"
+    scaling_init = 1.0
+
+
+class QuantWeightScalingFloat(QuantScaleScaleShapeMixin, Fp8e4m3OCPWeightPerTensorFloat):
+    module = (this << 1).module
+    tracked_parameter_list = (this << 1).tracked_parameter_list
+    upstream_scaling = (this << 1).scaling_per_output_type
+    float_quant = FloatQuant
+
+
+class QuantScaleMXFloat8e4m3Weight(MXFloat8e4m3Weight):
+    scaling_float_quant = QuantWeightScalingFloat
+    restrict_scaling_impl = QuantRestrictValue
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return None
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
+
+
+class QuantScaleMXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
+    scaling_float_quant = QuantWeightScalingFloat
+    restrict_scaling_impl = QuantRestrictValue
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_float_quant.tensor_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR or scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return None
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
