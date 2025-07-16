@@ -213,7 +213,8 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_min_val: Optional[float],
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = None) -> None:
+            restrict_threshold_impl: Optional[Module] = None,
+            restrict_threshold_with_scale: bool = False) -> None:
         super(RuntimeDynamicGroupStatsScaling, self).__init__()
 
         # Ensure retro-compatibility with shared threshold/scaling restrict
@@ -233,6 +234,7 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_threshold_pre = self.restrict_clamp_threshold.restrict_value_impl.restrict_init_module(
         )
         self.clamp_scaling = _ClampValue(scaling_min_val)
+        self.restrict_threshold_with_scale = restrict_threshold_with_scale
 
     @brevitas.jit.script_method
     def forward(
@@ -249,5 +251,8 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         # Apply restrict_value preprocess
         out = self.restrict_scaling_pre(out)
         # Apply restrict_value and clamping
-        out = self.restrict_clamp_scaling(out) / threshold
+        if self.restrict_threshold_with_scale:
+            out = self.restrict_clamp_scaling(out / threshold)
+        else:
+            out = self.restrict_clamp_scaling(out) / threshold
         return out

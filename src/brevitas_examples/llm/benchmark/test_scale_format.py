@@ -6,7 +6,7 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFl
 
 class Fp8e4m3OCPActPerTensorFloatConst(Fp8e4m3OCPActPerTensorFloat):
     scaling_impl_type = "const"
-    scaling_init = 1.0
+    scaling_init = 448.0
 
 class Fp8e5m2OCPActPerTensorFloatConst(Fp8e4m3OCPActPerTensorFloatConst):
     exponent_bit_width = 5

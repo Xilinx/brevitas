@@ -9,6 +9,7 @@ from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.quant.float import FloatQuant
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import AbsMinMax
@@ -225,7 +226,7 @@ class ConstActQuantScalingFloat(QuantScaleScaleShapeMixin,
     module = (this << 1).module
     upstream_scaling = (this << 1).scaling_per_output_type
     scaling_impl_type = "const"
-    scaling_init = 1.0
+    scaling_init = 448.0
 
 
 class DynamicActQuantScalingFloat(QuantScaleScaleShapeMixin,
@@ -250,6 +251,8 @@ class StaticActQuantScalingFloat(QuantScaleScaleShapeMixin,
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
     scaling_float_quant = StaticActQuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+    restrict_threshold_with_scale = True
 
     @value
     def restrict_value_float_to_int_impl():
