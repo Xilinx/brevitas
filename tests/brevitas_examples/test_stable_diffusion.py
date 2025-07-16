@@ -39,8 +39,8 @@ def allclose(x, y, rtol=RTOL_PPL, atol=ATOL_PPL):
 
 # Check that all args in args are used
 def validate_args(args):
-    vars(args)
-    vars(parse_args([])[0])
+    a = vars(args)
+    da = vars(parse_args([])[0])
 
 
 def decorator_get_image_processor_dict(
