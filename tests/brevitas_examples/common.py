@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 from argparse import Namespace
+import copy
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -12,6 +13,7 @@ from typing import Tuple
 from typing import Type
 
 import numpy as np
+import torch
 from torch.nn import Module
 
 from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
@@ -25,17 +27,22 @@ class UpdatableNamespace(Namespace):
 
 # TODO (pml): extra from args
 def process_args_and_metrics(
-        default_run_args: UpdatableNamespace, run_dict: Dict[str, Any],
-        extra_keys: List[str]) -> Tuple[UpdatableNamespace, Optional[List[str]], Dict[str, float]]:
+    default_run_args: UpdatableNamespace,
+    run_dict: Dict[str, Any],
+    extra_keys: List[str] = None
+) -> Tuple[UpdatableNamespace, Optional[List[str]], Dict[str, float]]:
     args = default_run_args
     extra_args = None
+    run_dict = copy.copy(run_dict)
     if "extra_args" in run_dict:
         extra_args = run_dict["extra_args"]
         del run_dict["extra_args"]
     exp_dict = {}
-    for key in extra_keys:
-        exp_dict[key] = run_dict[key]
-        del run_dict[key]
+    if extra_keys is not None:
+        for key in extra_keys:
+            if key in run_dict:
+                exp_dict[key] = run_dict[key]
+                del run_dict[key]
     args.update(**run_dict)
     return args, extra_args, exp_dict
 
@@ -60,6 +67,8 @@ def assert_metrics(
         results: Dict[str, float], exp_metrics: Dict[str, float], atol: float, rtol: float) -> None:
     # Evalute quality metrics
     for metric, value in results.items():
+        if isinstance(value, torch.Tensor):
+            value = value.detach().cpu().numpy()
         exp_value = exp_metrics[metric]
         assert allclose(exp_value, value, rtol=rtol, atol=atol), f"Expected {metric} {exp_value}, measured {value}"
 
