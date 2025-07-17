@@ -113,7 +113,7 @@ class ScalarSignedClampMinSte(brevitas.jit.ScriptModule):
         # torch.copysign(scalar_clamp_min_ste(abs_binary_sign_grad(x), self.min_val), x) which is more
         # readable but resulted in a -1. gradient when x = -0.0, since torch.copysign distinguishes
         # between positive and negative zero.
-        return torch.where(x >= 0, 1., -1.) * scalar_clamp_min_ste(
+        return torch.where(x >= 0, 1., -1.).type_as(x) * scalar_clamp_min_ste(
             abs_binary_sign_grad(x), self.min_val)
 
 
