@@ -58,7 +58,7 @@ from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.common.svd_quant import ErrorCorrectedModule
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
+from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE, SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
@@ -485,8 +485,6 @@ def main(args):
 
         print("Applying model quantization...")
         quantizers = generate_quantizers(
-            dtype=dtype,
-            device=args.device,
             scale_rounding_func_type=args.scale_rounding_func,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
@@ -599,6 +597,7 @@ def main(args):
             compute_layer_map=layer_map,
             name_blacklist=blacklist + args.quant_standalone_blacklist)
         denoising_network.eval()
+        denoising_network.cuda()
         print("Model quantization applied.")
 
         pipe.set_progress_bar_config(disable=True)
@@ -798,25 +797,31 @@ def main(args):
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
         if args.export_cpu_float32:
-            denoising_network.to('cpu').to(torch.float32)
+            denoising_network = denoising_network.to('cpu').to(torch.float32)
         denoising_network.eval()
         device = next(iter(denoising_network.parameters())).device
         dtype = next(iter(denoising_network.parameters())).dtype
 
         if args.export_target == 'onnx':
-            assert is_sd_xl, "Only SDXL ONNX export is currently supported. If this impacts you, feel free to open an issue"
+            # assert is_sd_xl, "Only SDXL ONNX export is currently supported. If this impacts you, feel free to open an issue"
 
-            trace_inputs = generate_unet_xl_rand_inputs(
-                embedding_shape=SD_XL_EMBEDDINGS_SHAPE,
+            trace_inputs = generate_unet_21_rand_inputs(
+                embedding_shape=SD_2_1_EMBEDDINGS_SHAPE,
                 unet_input_shape=unet_input_shape(args.resolution),
                 device=device,
                 dtype=dtype)
 
-            if args.weight_quant_granularity == 'per_group':
-                export_manager = BlockQuantProxyLevelManager
-            else:
-                export_manager = StdQCDQONNXManager
-                export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
+
+            # trace_inputs = generate_unet_xl_rand_inputs(
+            #     embedding_shape=SD_XL_EMBEDDINGS_SHAPE,
+            #     unet_input_shape=unet_input_shape(args.resolution),
+            #     device=device,
+            #     dtype=dtype)
+
+            export_manager = StdQCDQONNXManager
+            export_manager.change_weight_export(export_weight_q_node=True)
+            with torch.no_grad():
+                export_manager._cache_inp_out(denoising_network, trace_inputs[0], **trace_inputs[1])
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
             device = next(iter(denoising_network.parameters())).device

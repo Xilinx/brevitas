@@ -58,8 +58,10 @@ def generate_unet_21_rand_inputs(
         with_return_dict_false=False):
     unet_rand_inputs = generate_unet_rand_inputs(
         embedding_shape, unet_input_shape, batch_size, device, dtype, with_return_dict_false)
-    return tuple(unet_rand_inputs.values())
-
+    sample = unet_rand_inputs['sample']
+    del unet_rand_inputs['sample']
+    inputs = (sample, unet_rand_inputs)
+    return inputs
 
 def generate_unet_xl_rand_inputs(
         embedding_shape,

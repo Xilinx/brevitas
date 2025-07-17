@@ -137,19 +137,29 @@ def model_export(model, tokenizer, ref_input, args):
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
     elif args.export_target == 'onnx_qcdq':
-        if args.weight_quant_granularity == 'per_group':
-            export_manager = BlockQuantProxyLevelManager
-        else:
-            export_manager = StdQCDQONNXManager
-            export_manager.change_weight_export(export_weight_q_node=True)
+        export_manager = StdQCDQONNXManager
+        export_manager.change_weight_export(export_weight_q_node=True)
 
         print(f"Exporting the model in ./{args.export_prefix}")
+        with torch.no_grad():
+            export_manager._cache_inp_out(model, **ref_input)
         with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
             onnx_export_from_model(
                 model,
-                f"./{args.export_prefix}",
+                f"./{args.export_prefix}_0",
                 task="text-generation-with-past",
                 do_validation=False)
+        # import onnx
+        # import onnxoptimizer as opt
+        # import os
+        # onnx_passes = [
+        #     # use initializers instead of Constant nodes for fixed params
+        #     "extract_constant_to_initializer",  # remove unused graph inputs & initializers
+        #     "eliminate_unused_initializer"]
+        # onnx_model = onnx.load(f"./{args.export_prefix}/model.onnx")
+        # onnx_model = opt.optimize(onnx_model, onnx_passes)
+        # os.makedirs( f"./{args.export_prefix}/processed", exist_ok=True)
+        # onnx.save(onnx_model, f"./{args.export_prefix}/processed/model.onnx")
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
 

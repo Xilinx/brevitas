@@ -31,7 +31,7 @@ class DequantizeLinearFn(Function):
 
     @staticmethod
     def forward(ctx, int_x, input_scale, input_zero_point, input_axis):
-        return int_x.float()
+        return int_x.to(input_scale.dtype)
 
 
 class IntClipFn(Function):
@@ -96,12 +96,13 @@ class DynamicQuantizeLinearFn(Function):
 class DynamicScaleZeroPoint(Function):
 
     @staticmethod
-    def symbolic(g, x, output_dtype):
-        scale, zp = g.op('brevitas.custom_op::DynamicScaleZeroPoint', x, outputs=2)
+    def symbolic(g, x, group_dim, group_size, scale_selection_method, zero_point_selection_method, output_dtype):
+        output_dtype = str(output_dtype)
+        scale, zp = g.op('brevitas.custom_op::DynamicScaleZeroPoint', x, group_dim_i = group_dim, group_size_i = group_size, scale_selection_method_s = scale_selection_method, zero_point_selection_method_s = zero_point_selection_method, output_dtype_s=output_dtype, outputs=2)
         return scale, zp
 
     @staticmethod
-    def forward(ctx, x, output_dtype):
+    def forward(ctx, x, group_dim, group_size, scale_selection_method, zero_point_selection_method, output_dtype):
         device = x.device
         dtype = x.dtype
         scale = torch.ones(1, device=device, dtype=dtype)

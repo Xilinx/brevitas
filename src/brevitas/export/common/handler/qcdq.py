@@ -237,9 +237,10 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
         zero_point = quant_weight.zero_point_ if hasattr(
             quant_weight, 'zero_point_') else quant_weight.zero_point
-        self.scale_dtype = scale.dtype
-        if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
-            scale = self.cast_fn(scale, torch.float32)
+        # self.scale_dtype = scale.dtype
+        # if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
+        #     scale = self.cast_fn(scale, torch.float32)
+        scale = scale.squeeze()
         self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
             scale,
             zero_point,
@@ -270,9 +271,11 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
             zero_point = quant_weight.zero_point_ if hasattr(
                 quant_weight, 'zero_point_') else quant_weight.zero_point
-            self.scale_dtype = scale.dtype
-            if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
-                scale = self.cast_fn(scale, torch.float32)
+            scale = scale.squeeze()
+
+            # self.scale_dtype = scale.dtype
+            # if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
+            #     scale = self.cast_fn(scale, torch.float32)
 
             self.symbolic_kwargs['exponent_bit_width'] = quant_weight.exponent_bit_width
             self.symbolic_kwargs['mantissa_bit_width'] = quant_weight.mantissa_bit_width
@@ -300,8 +303,8 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         # Workaround for equal_cpu RuntimeError
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
         # Before quantization, cast input to float32
-        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
-            x = self.cast_fn(x, torch.float32)
+        # if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+        #     x = self.cast_fn(x, torch.float32)
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         return x
 
@@ -317,7 +320,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         zero_point = dequantize_symbolic_kwargs['zero_point']
 
         if self._export_q_node:
-            x = self.input_view_impl(x)
+            # x = self.input_view_impl(x)
             x = self.quantize_from_floating_point(x)
         else:
             x = self.quantize_from_minifloat(x)
@@ -335,12 +338,13 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
         # After dequantization, cast both input and scale to the correct dtype
-        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
-            x = self.cast_fn(x, self.scale_dtype)
-            scale = self.cast_fn(scale, self.scale_dtype)
+        # if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+        #     x = self.cast_fn(x, self.scale_dtype)
+        #     scale = self.cast_fn(scale, self.scale_dtype)
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
+
         return x, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values
 
 
@@ -477,7 +481,7 @@ class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
         return super().symbolic_execution(x)
 
 
-class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin, ABC):
+class FloatQCDQCastGroupwiseActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin, ABC):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(
@@ -503,6 +507,9 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
             self.symbolic_kwargs['saturating'] = module.is_saturating()
             self.symbolic_kwargs['inf_values'] = module.inf_values()
             self.symbolic_kwargs['nan_values'] = module.nan_values()
+            self.symbolic_kwargs['group_dim'] = module.group_dim
+            self.symbolic_kwargs['group_size'] = module.group_size
+            self.input_view_impl = module.quant_injector.input_view_impl
 
             # (B)float16 is not supported with standard Q/DQ ops, thus we store the original dtype
             # of the scale and we cast it to float32.
@@ -544,24 +551,28 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         saturating = self.symbolic_kwargs['saturating']
         inf_values = self.symbolic_kwargs['inf_values']
         nan_values = self.symbolic_kwargs['nan_values']
-        if True:
+        group_dim = self.symbolic_kwargs['group_dim']
+        group_size = self.symbolic_kwargs['group_size']
+        if False:
             scale = self.compute_scale(x)
             zero_point = torch.zeros_like(x)
         else:
-            scale, zero_point = DynamicScaleZeroPoint.apply(x)
+            scale, zero_point = DynamicScaleZeroPoint.apply(x, group_dim, group_size, 'round', 'None', self.symbolic_kwargs['quantize_symbolic_kwargs']['dtype'])
 
         self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
+        # x = self.input_view_impl(x)
         # If original dtype of the input is (b)float16, cast the input to float32
-        if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
-            x = self.cast_fn(x, torch.float32)
+        # original_dtype = x.dtype
+        # if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
+        #     x = self.cast_fn(x, torch.float32)
         x = self.quantize_fn(x, scale, zero_point, *quantize_symbolic_kwargs.values())
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, scale, zero_point, *dequantize_symbolic_kwargs.values())
         # After dequantization, cast both output and scale to the correct dtype
-        # if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
-        #     x = self.cast_fn(x, self.scale_dtype)
-        #     scale = self.cast_fn(scale, self.scale_dtype)
+        # if original_dtype == torch.float16 or original_dtype == torch.bfloat16:
+        #     x = self.cast_fn(x, original_dtype)
+        #     scale = self.cast_fn(scale, original_dtype)
         # Restore the original shapes to guarantee correct shape propagation downstream
         # scale = scale.view(scale_orig_shape)
         # zero_point = zero_point.view_as(scale)
@@ -694,12 +705,13 @@ class QCDQCastGroupwiseActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixi
             self.symbolic_kwargs = None
 
     def symbolic_execution(self, x: Tensor):
+        print(x.shape)
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         # Copy dict to allow for popping kwargs even on shared quantizers
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
         dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
-        if True:
+        if False:
             scale = self.compute_scale(x)
             zero_point = torch.zeros_like(x)
         else:
@@ -718,6 +730,7 @@ class QCDQCastGroupwiseActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixi
         # After dequantization, cast both output and scale to the correct dtype
 
         zero_point = zero_point.view_as(scale)
+        print(x.shape)
         return x, scale, zero_point, bit_width
 
 

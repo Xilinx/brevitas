@@ -488,10 +488,10 @@ def validate(args, extra_args: Optional[List[str]] = None):
                 if args.input_quant_granularity == 'per_group':
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
-        if args.export_target is not None:
-            assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
-        if args.export_target is not None and args.input_bit_width is not None:
-            assert args.input_scale_type == 'static', "Only static scale supported for export currently."
+        # if args.export_target is not None:
+            # assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
+        # if args.export_target is not None and args.input_bit_width is not None:
+        #     assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
@@ -501,8 +501,8 @@ def validate(args, extra_args: Optional[List[str]] = None):
             assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
             assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
         if args.export_target == 'onnx_qcdq':
-            if args.weight_quant_granularity == 'per_group':
-                assert args.input_bit_width is None, "ONNX QCDQ per_group quantization requires no input quantization"
+            # if args.weight_quant_granularity == 'per_group':
+                # assert args.input_bit_width is None, "ONNX QCDQ per_group quantization requires no input quantization"
             if args.weight_quant_type == 'asym':
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':

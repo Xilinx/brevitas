@@ -235,6 +235,18 @@ def groupwise_dequant_expand(
     curr_shape = value_.shape
     start_dim = group_dim if group_dim >= 0 else group_dim - 1
     new_value = value_.flatten(start_dim, start_dim + 1)
+    
+    # If we padded during quantization, we unpad here:
+    # First, we compute how much we padded along the group_dim shape
+    # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
+    # Finally, we stack the remaining tensors
+    unpadding_shape = dequant_shape[group_dim]
+    residual = new_value.shape[group_dim] - unpadding_shape
+
+    if residual > 0:
+        new_value = torch.stack(
+            torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
+    
     if return_value_only:
         return new_value
 
@@ -247,16 +259,8 @@ def groupwise_dequant_expand(
     else:
         new_zp = zero_point_
 
-    # If we padded during quantization, we unpad here:
-    # First, we compute how much we padded along the group_dim shape
-    # Then, we unbind the tensor along the group_dim shape, and drop the padded columns
-    # Finally, we stack the remaining tensors
-    unpadding_shape = dequant_shape[group_dim]
-    residual = new_value.shape[group_dim] - unpadding_shape
 
     if residual > 0:
-        new_value = torch.stack(
-            torch.unbind(new_value, dim=group_dim)[:unpadding_shape], dim=group_dim)
         new_scale = torch.stack(
             torch.unbind(new_scale, dim=group_dim)[:unpadding_shape], dim=group_dim)
         if zero_point_.shape != ():

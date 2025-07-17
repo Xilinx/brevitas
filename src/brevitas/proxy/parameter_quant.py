@@ -154,7 +154,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             # - quantization flow
             if self.export_mode:
                 out = self.export_handler(x)
-                if self.skip_create_quant_tensor:
+                if True: #self.skip_create_quant_tensor:
                     out = out[0]
                 else:
                     out = self.create_quant_tensor(out)

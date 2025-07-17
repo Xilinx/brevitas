@@ -6,7 +6,7 @@ from warnings import warn
 
 import torch
 
-from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin, FloatQCDQCastGroupwiseActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandlerMixin
@@ -172,10 +172,9 @@ class StdQCDQCastONNXGroupwiseActQuantProxyHandler(StdQCDQCastONNXMixin,
 
 
 class StdFloatQCDQCastONNXGroupwiseActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
-                                                        FloatQCDQCastActQuantProxyHandlerMixin,
+                                                        FloatQCDQCastGroupwiseActQuantProxyHandlerMixin,
                                                         ONNXBaseHandler):
     pass
-
 
 class StdFloatQCDQCastONNXActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
                                                FloatQCDQCastActQuantProxyHandlerMixin,
