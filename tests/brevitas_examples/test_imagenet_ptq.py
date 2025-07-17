@@ -4,6 +4,10 @@
 from argparse import ArgumentParser
 import logging
 from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 from unittest.mock import patch
 
 import pytest
@@ -13,10 +17,10 @@ from torch.utils.data import Dataset
 
 from brevitas_examples.imagenet_classification.ptq.ptq_evaluate import quantize_ptq_imagenet
 from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import create_args_parser
-from tests.brevitas_examples.common import assert_test_args_and_metrics
+from tests.brevitas_examples.common import assert_metrics
 from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
-from tests.conftest import SEED
+from tests.brevitas_examples.common import UpdatableNamespace
 
 ATOL_ACC = 1e-4
 RTOL_ACC = 1e-4
@@ -42,7 +46,17 @@ def parser() -> ArgumentParser:
 
 @pytest.fixture
 def main() -> Callable:
-    return quantize_ptq_imagenet
+
+    def wrapper_main(
+            args: UpdatableNamespace,
+            extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
+        # Mock dataset
+        with patch('brevitas_examples.imagenet_classification.utils.generate_dataset',
+                   mock_generate_dataset):
+            results, model = quantize_ptq_imagenet(args, extra_args=extra_args)
+        return results, model
+
+    return wrapper_main
 
 
 @pytest.fixture()
@@ -74,14 +88,13 @@ class ImageNetCases:
                 "model_name": "resnet18", "gptq": True, "quant_top1": 83.3333},],
         ids=["res-defaults", "res-bias-corr", "res-gptq"])
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):
-        yield process_args_and_metrics(
-            default_run_args, run_dict, metric_keys=ImageNetCases.METRICS)
+        yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
 
 
 @pytest.mark.imagenet
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=ImageNetCases)
 def test_quality_metrics(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)
-    with patch('brevitas_examples.imagenet_classification.utils.generate_dataset',
-               mock_generate_dataset):
-        assert_test_args_and_metrics(main, args_and_metrics, atol=ATOL_ACC, rtol=RTOL_ACC)
+    args, extra_args, exp_metrics = args_and_metrics
+    results, _ = main(args, extra_args)
+    assert_metrics(results, exp_metrics, atol=ATOL_ACC, rtol=RTOL_ACC)

@@ -26,6 +26,8 @@ from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import quantize_llm
+from tests.brevitas_examples.common import assert_layer_types
+from tests.brevitas_examples.common import assert_layer_types_count
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
@@ -88,33 +90,6 @@ def validate_args_and_run_main(args, extra_args=None):
                mock_load_raw_dataset):
         results, model = quantize_llm(args, extra_args=extra_args)
     return results, model
-
-
-def assert_layer_types(model, exp_layer_types):
-    for key, string in exp_layer_types.items():
-        matched = False
-        layer_names = []
-        for name, layer in model.named_modules():
-            layer_names += [name]
-            if name == key:
-                matched = True
-                ltype = str(type(layer))
-                assert ltype == string, f"Expected layer type: {string}, found {ltype} for key: {key}"
-                continue
-        assert matched, f"Layer key: {key} not found in {layer_names}"
-
-
-def assert_layer_types_count(model, exp_layer_types_count):
-    layer_types_count = {}
-    for name, layer in model.named_modules():
-        ltype = str(type(layer))
-        if ltype not in layer_types_count:
-            layer_types_count[ltype] = 0
-        layer_types_count[ltype] += 1
-
-    for name, count in exp_layer_types_count.items():
-        curr_count = 0 if name not in layer_types_count else layer_types_count[name]
-        assert count == curr_count, f"Expected {count} instances of layer type: {name}, found {curr_count}."
 
 
 class UpdatableNamespace(Namespace):

@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import ArgumentParser
-from argparse import Namespace
 import logging
 import os
 import shutil
@@ -12,17 +11,14 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
-from unittest.mock import patch
 
-import numpy as np
 import pytest
 import pytest_cases
 import torch
 
-from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
 from brevitas_examples.stable_diffusion.main import quantize_sd
 from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
-from tests.brevitas_examples.common import assert_test_args_and_metrics
+from tests.brevitas_examples.common import assert_metrics
 from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
@@ -81,7 +77,7 @@ class StableDiffusionCases:
         ids=["sd-defaults", "sd-bias-corr", "sd-act-eq"])
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(
-            default_run_args, run_dict, metric_keys=StableDiffusionCases.METRICS)
+            default_run_args, run_dict, extra_keys=StableDiffusionCases.METRICS)
 
 
 def decorator_get_image_processor_dict(
@@ -127,4 +123,6 @@ def main() -> Callable:
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=StableDiffusionCases)
 def test_quality_metrics(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)
-    assert_test_args_and_metrics(main, args_and_metrics, atol=ATOL_FID, rtol=RTOL_FID)
+    args, extra_args, exp_metrics = args_and_metrics
+    results, _ = main(args, extra_args)
+    assert_metrics(results, exp_metrics, atol=ATOL_FID, rtol=RTOL_FID)
