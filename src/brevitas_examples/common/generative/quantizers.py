@@ -249,7 +249,7 @@ class StaticActQuantScalingFloat(QuantScaleScaleShapeMixin,
 
 
 class DynamicQuantScaleMXFloat8e4m3Act(MXFloat8e4m3Act):
-    scaling_float_quant = ConstActQuantScalingFloat
+    scaling_float_quant = StaticActQuantScalingFloat
     restrict_scaling_impl = QuantRestrictValue
     restrict_threshold_impl = FloatRestrictValue
     restrict_threshold_with_scale = True
