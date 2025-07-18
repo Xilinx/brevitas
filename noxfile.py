@@ -10,9 +10,9 @@ from packaging import version
 from packaging.version import parse
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
-from gen_github_actions import EXAMPLES_DIFFUSION_PYTORCH_VERSIONS
+from gen_github_actions import EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS
-from gen_github_actions import EXAMPLES_VISION_PYTORCH_VERSIONS
+from gen_github_actions import EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import JIT_STATUSES
 from gen_github_actions import PYTHON_VERSIONS
 from gen_github_actions import PYTORCH_VERSIONS
@@ -26,9 +26,9 @@ PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 EXAMPLES_LLM_PYTEST_PYTORCH_IDS = tuple([
     f'pytorch_{i}' for i in EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS])
 EXAMPLES_DIFFUSION_PYTEST_PYTORCH_IDS = tuple([
-    f'pytorch_{i}' for i in EXAMPLES_DIFFUSION_PYTORCH_VERSIONS])
+    f'pytorch_{i}' for i in EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS])
 EXAMPLES_VISION_PYTEST_PYTORCH_IDS = tuple([
-    f'pytorch_{i}' for i in EXAMPLES_VISION_PYTORCH_VERSIONS])
+    f'pytorch_{i}' for i in EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 
 PARSED_TORCHVISION_VERSION_DICT = {version.parse(k): v for k, v in TORCHVISION_VERSION_DICT.items()}
@@ -157,7 +157,7 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS,
     ids=EXAMPLES_DIFFUSION_PYTEST_PYTORCH_IDS)
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
-def tests_brevitas_exampless_diffusion(session, pytorch, jit_status):
+def tests_brevitas_examples_diffusion(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
