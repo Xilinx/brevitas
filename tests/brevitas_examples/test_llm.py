@@ -3,8 +3,6 @@
 
 from argparse import ArgumentParser
 from argparse import Namespace
-import copy
-from dataclasses import dataclass
 import logging
 import os
 import platform
@@ -17,17 +15,14 @@ from typing import Tuple
 from unittest.mock import patch
 
 from datasets import Dataset
-import numpy as np
 import onnx
 from packaging import version
 import pytest
 import pytest_cases
 import torch
-import transformers
 
 from brevitas import config
 from brevitas import torch_version
-from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
@@ -317,7 +312,6 @@ def test_small_models_dtype(caplog, dtype_args, main):
     assert expected_dtype == dtype, f"Expected dtype of the model parameters to be {expected_dtype} but got {dtype}."
 
 
-@requires_pt_ge('2.4')
 @pytest_cases.parametrize_with_cases("args_layer_count_and_ppl", cases=LLMRotationOptimizationCases)
 def test_small_models_rotation_optimization_ppl(caplog, args_layer_count_and_ppl, main):
     if platform.system() != "Linux":
@@ -333,7 +327,6 @@ def test_small_models_rotation_optimization_ppl(caplog, args_layer_count_and_ppl
     assert_metrics(results, exp_metrics, atol=ATOL_ROT, rtol=RTOL_ROT)
 
 
-@requires_pt_ge('2.4')
 @pytest_cases.parametrize_with_cases("args_layer_count_and_ppl", cases=LLMRotationOptimizationCases)
 def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count_and_ppl, main):
     if platform.system() != "Linux":

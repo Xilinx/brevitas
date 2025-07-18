@@ -5,12 +5,10 @@ from argparse import ArgumentParser
 from argparse import Namespace
 import copy
 from typing import Any
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
-from typing import Type
 
 import numpy as np
 import torch
@@ -25,15 +23,24 @@ class UpdatableNamespace(Namespace):
         self.__dict__.update(**kwargs)
 
 
-# TODO (pml): extra from args
 def process_args_and_metrics(
     default_run_args: UpdatableNamespace,
     run_dict: Dict[str, Any],
     extra_keys: List[str] = None
 ) -> Tuple[UpdatableNamespace, Optional[List[str]], Dict[str, float]]:
-    args = default_run_args
-    extra_args = None
+    """
+        Updates a copy of ``default_run_args`` with the values of ``run_dict``,
+        after potentially removing the entry ``extra_args``, which corresponds
+        to the keys that are not accepted by the entrypoint's parser, and those
+        specified in ``extra_keys``, which represent the information needed
+        to run the test, e.g. expected quality metrics for a given
+        configuration.
+    """
+    # Dictionaries are copied to prevent interference with tests running
+    # in parallel
+    args = copy.copy(default_run_args)
     run_dict = copy.copy(run_dict)
+    extra_args = None
     if "extra_args" in run_dict:
         extra_args = run_dict["extra_args"]
         del run_dict["extra_args"]
@@ -51,7 +58,6 @@ def get_default_args(parser: ArgumentParser) -> UpdatableNamespace:
     return UpdatableNamespace(**vars(parse_args_utils(parser, [])[0]))
 
 
-# Check that all args in args are used
 def parse_args_and_defaults(args: UpdatableNamespace,
                             parser: ArgumentParser) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     a = vars(args)

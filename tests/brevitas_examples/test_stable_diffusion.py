@@ -39,7 +39,6 @@ def parser() -> ArgumentParser:
 @pytest.fixture()
 def default_run_args(parser: ArgumentParser, request):
     args = get_default_args(parser)
-    #args.checkpoint = ptid2pathname(request.node.nodeid) + ".pth" # Example filename which won't clash
     args.output_path = ptid2pathname(request.node.nodeid)
     args.guidance_scale = 3.
     args.prompt = 2
@@ -100,7 +99,7 @@ def main() -> Callable:
             args: UpdatableNamespace,
             extra_args: Optional[List[str]] = None) -> Tuple[torch.nn.Module, Dict[str, float]]:
         if args.model == "hf-internal-testing/tiny-stable-diffusion-pipe":
-            # Fix the configuration so the feature processor returns a tensors with the dimensions
+            # Fix the configuration so the feature processor returns a tensor with the dimensions
             # expected by the safety checker
             from transformers.image_processing_base import ImageProcessingMixin
             ImageProcessingMixin.get_image_processor_dict = decorator_get_image_processor_dict(
@@ -111,7 +110,7 @@ def main() -> Callable:
         # Create directory for storing the results
         os.makedirs(args.output_path, exist_ok=True)
         results, model = quantize_sd(args, extra_args=extra_args)
-        # Clean-up after running th etest
+        # Clean-up after running the test
         shutil.rmtree(args.output_path)
         # Return the results along with the model
         return results, model

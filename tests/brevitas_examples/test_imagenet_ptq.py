@@ -26,13 +26,17 @@ ATOL_ACC = 1e-4
 RTOL_ACC = 1e-4
 
 
+# TODO (pml): Include a real dataset for testing the ImageNet entrypoint.
 def mock_generate_dataset(
         dir: str,
         resize_shape: int = 256,
         center_crop_shape: int = 224,
         inception_preprocessing: bool = False) -> Dataset:
     assert center_crop_shape == 224, "The labels for the test dataset were generated for tensors of size (3, 224, 224)."
-    # TODO (pml): Add explanation for this code
+    # The first element in the tuples in IMAGE_SEEDS_AND_LABELS represents the seed that was used
+    # to generate a random tensor of size (3, 224, 224) to which the 'resnet18' model assigns the
+    # label in the second element of the tuple. However, this approach limits ourselves to testing
+    # only in 'resnet18'.
     IMAGE_SEEDS_AND_LABELS = [(55, 611), (0, 107), (66, 611), (1, 107), (95, 611), (2, 107)]
     return [(torch.randn((3, 224, 224), generator=torch.Generator().manual_seed(seed)), label)
             for seed,
@@ -62,7 +66,6 @@ def main() -> Callable:
 @pytest.fixture()
 def default_run_args(parser: ArgumentParser):
     args = get_default_args(parser)
-    #args.checkpoint = ptid2pathname(request.node.nodeid) + ".pth" # Example filename which won't clash
     args.calibration_dir = ""
     args.validation_dir = ""
     args.bias_corr = False
