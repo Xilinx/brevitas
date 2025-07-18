@@ -273,7 +273,7 @@ def onnx_export_args(default_run_args, request):
 @requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
     caplog.set_level(logging.INFO)
-    args = onnx_export_args
+    args, _, _ = onnx_export_args
     main(args)
     onnx.load(os.path.join(args.export_prefix, "model.onnx"))
     shutil.rmtree(args.export_prefix)

@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 import logging
+import platform
 import random
 from typing import Callable
 from typing import Dict
@@ -107,6 +108,8 @@ class ImageNetCases:
 @pytest.mark.vision
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=ImageNetCases)
 def test_quality_metrics(caplog, args_and_metrics, main):
+    if platform.system() == "Windows":
+        pytest.skip("Skipping dynamo + Windows")
     caplog.set_level(logging.INFO)
     args, extra_args, exp_metrics = args_and_metrics
     results, _ = main(args, extra_args)

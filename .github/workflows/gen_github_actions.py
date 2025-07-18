@@ -96,7 +96,7 @@ EXAMPLES_DIFFUSION_PYTEST_MATRIX = od([
     ('platform', PLATFORM_LIST)])
 
 EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS = (
-    '2.0.1', '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+    '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
 EXAMPLES_VISION_PYTEST_MATRIX = od([
     ('python_version', list(PYTHON_VERSIONS)),
     ('pytorch_version', list(EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS)),
