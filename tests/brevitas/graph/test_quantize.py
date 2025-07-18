@@ -31,19 +31,41 @@ MHA_EMBED_DIM = 2
 MHA_NUM_HEADS = 1
 
 
-class QuantModelCases:
+# Dummy model for testing
+class Model(nn.Module):
+
+    def __init__(self, layer):
+        super().__init__()
+        self.layer = layer
+
+    def forward(self, *args, **kwargs):
+        return self.layer(*args, **kwargs)
+
+
+# Dummy parametrization
+class ZeroParametrization(nn.Module):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.param = nn.Parameter(torch.randn((1,)))
+
+    def forward(self, x):
+        return torch.zeros_like(x)
+
+
+class QuantLayerCases:
 
     @pytest_cases.parametrize(
         'layer_map_item',
         LAYERWISE_COMPUTE_LAYER_MAP.items(),
         ids=[f'{c.__name__}' for c in LAYERWISE_COMPUTE_LAYER_MAP.keys()])
-    def case_quant_model(self, layer_map_item, request):
+    def case_quant_layer(self, layer_map_item, request):
         # Set seeds
         torch.manual_seed(SEED)
         random.seed(SEED)
 
         # Change the case_id based on current value of Parameters
-        pytest_cases.set_case_id(request.node.callspec.id, QuantModelCases.case_quant_model)
+        pytest_cases.set_case_id(request.node.callspec.id, QuantLayerCases.case_quant_layer)
 
         torch_layer_cls, quant_layer_cls_kwargs = layer_map_item
 
@@ -71,37 +93,38 @@ class QuantModelCases:
                             f"No strategy defined to populate the parameter {name} of {torch_layer_cls.__name__}."
                         )
 
-        # Dummy model for testing
-        class Model(nn.Module):
-
-            def __init__(self):
-                super().__init__()
-                self.layer = torch_layer_cls(**layer_kwargs)
-
-            def forward(self, *args, **kwargs):
-                return self.layer(*args, **kwargs)
-
-        model = Model()
-        return model
+        return torch_layer_cls, layer_kwargs
 
 
-@pytest_cases.parametrize_with_cases('model', cases=QuantModelCases)
+@pytest_cases.parametrize_with_cases('layer_cls_and_kwargs', cases=QuantLayerCases)
 @pytest_cases.parametrize(
     'weight_scaling_impl_type', [ScalingImplType.STATS, ScalingImplType.PARAMETER_FROM_STATS])
-def test_layerwise_quantize_quant_model(model, weight_scaling_impl_type, current_cases):
-    torch_layer = model.layer
-    torch_layer_cls = type(torch_layer)
+@pytest_cases.parametrize('is_parametrized', [False, True])
+def test_layerwise_quantize_quant_model(
+        layer_cls_and_kwargs, weight_scaling_impl_type, is_parametrized, current_cases):
+    # Instantiate the original layer
+    layer_cls, layer_kwargs = layer_cls_and_kwargs
+    layer = layer_cls(**layer_kwargs)
+
+    if is_parametrized:
+        if not hasattr(layer, "weight"):
+            pytest.skip("Layer does not have an 'weight' attribute to parametrize.")
+        torch.nn.utils.parametrize.register_parametrization(layer, "weight", ZeroParametrization())
+
+    model = Model(layer)
     # Set the scaling type of weight_quant according to the parametrized value
     layer_map = copy.deepcopy(LAYERWISE_COMPUTE_LAYER_MAP)
-    if 'weight_quant' in layer_map[torch_layer_cls][1]:
-        layer_map[torch_layer_cls][1]['weight_quant'] = layer_map[torch_layer_cls][1][
-            'weight_quant'].let(scaling_impl_type=weight_scaling_impl_type)
+    if 'weight_quant' in layer_map[layer_cls][1]:
+        layer_map[layer_cls][1]['weight_quant'] = layer_map[layer_cls][1]['weight_quant'].let(
+            scaling_impl_type=weight_scaling_impl_type)
 
     # Replace torch layers by quant layers
     qmodel = layerwise_quantize(model, compute_layer_map=layer_map)
 
     # Verify that the layer was replaced correctly by the correct class
-    assert type(qmodel.layer) == layer_map[torch_layer_cls][0]
+    assert str(type(qmodel.layer)) == str(
+        layer_map[layer_cls][0]
+    ) if not is_parametrized else f"<class 'torch.nn.utils.parametrize.{layer_map[layer_cls][0].__name__}'>"
     # Verify that all parameters and buffers were moved from the "meta" device
     assert all([
         param.device != torch.device("meta")

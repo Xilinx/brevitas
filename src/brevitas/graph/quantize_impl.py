@@ -525,9 +525,7 @@ def _layerwise_replace_modules(
     if _module_class_name(type_before_parametrizations(module)) in layer_map.keys():
         quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
         rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
-        # TODO (pml): Make _init_new_module public?
-        quant_module = rewriter._init_new_module(
-            old_module=module, name=prefix, load_state_dict=True, low_mem=True)
+        quant_module = rewriter.init_new_module(old_module=module, name=prefix)
         set_module(model, quant_module, prefix)
     else:
         for name, child in module.named_children():
