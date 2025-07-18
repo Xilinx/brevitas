@@ -94,7 +94,7 @@ class ImageNetCases:
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
 
 
-@pytest.mark.imagenet
+@pytest.mark.vision
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=ImageNetCases)
 def test_quality_metrics(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)

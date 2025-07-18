@@ -118,7 +118,7 @@ def main() -> Callable:
     return wrapper_main
 
 
-@pytest.mark.sd
+@pytest.mark.diffusion
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=StableDiffusionCases)
 def test_quality_metrics(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)

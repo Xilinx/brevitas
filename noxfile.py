@@ -163,7 +163,8 @@ def tests_brevitas_examples_diffusion(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
     session.install('-e', '.[test, diffusion, export]', *cmd)
-    session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_diffusion.py')
+    session.run(
+        'pytest', '-n', 'logical', '-k', 'diffusion', 'tests/brevitas_examples/test_diffusion.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -176,7 +177,7 @@ def tests_brevitas_examples_vision(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
     session.install('-e', '.[test, vision, export]', *cmd)
-    session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_vision.py')
+    session.run('pytest', '-n', 'logical', '-k', 'vision', 'tests/brevitas_examples/test_vision.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
