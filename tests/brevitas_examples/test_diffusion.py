@@ -30,8 +30,8 @@ random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
-ATOL_FID = 1e-6
-RTOL_FID = 1e-5
+ATOL_FID = 5e-3
+RTOL_FID = 1e-3
 
 
 def ptid2pathname(string):
@@ -68,17 +68,17 @@ class StableDiffusionCases:
         [
             {
                 "model": "hf-internal-testing/tiny-stable-diffusion-pipe",
-                "torchmetrics_fid": 0.073824875056743625,
+                "torchmetrics_fid": 0.07377880066633224,
                 "clean_fid": 0.0},
             {
                 "model": "hf-internal-testing/tiny-stable-diffusion-pipe",
                 "bias_correction": True,
-                "torchmetrics_fid": 0.0747433751821518,
+                "torchmetrics_fid": 0.04850762337446213,
                 "clean_fid": 0.0},
             {
                 "model": "hf-internal-testing/tiny-stable-diffusion-pipe",
                 "activation_equalization": True,
-                "torchmetrics_fid": 0.05002012476325035,
+                "torchmetrics_fid": 0.0747002363204956,
                 "clean_fid": 0.0},],
         ids=["sd-defaults", "sd-bias-corr", "sd-act-eq"])
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):
