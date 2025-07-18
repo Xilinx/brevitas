@@ -1832,7 +1832,10 @@ class GraphRotationEqualization(RotationEqualization):
                 return output_node
 
         for sdpa_node in sdpa_nodes:
-            value_input = sdpa_node.args[-1]
+            if sdpa_node.kwargs.get('value', False):
+                value_input = sdpa_node.kwargs['value']  # value passed as kwarg
+            else:
+                value_input = sdpa_node.args[2]  # value passed as 3rd arg
 
             value_node = find_src(value_input)
             output_node = find_sink(value_input)
