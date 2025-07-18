@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 import logging
+import random
 from typing import Callable
 from typing import Dict
 from typing import List
@@ -10,6 +11,7 @@ from typing import Optional
 from typing import Tuple
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 import pytest_cases
 import torch
@@ -21,9 +23,14 @@ from tests.brevitas_examples.common import assert_metrics
 from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
+from tests.conftest import SEED
 
 ATOL_ACC = 1e-4
 RTOL_ACC = 1e-4
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 
 # TODO (pml): Include a real dataset for testing the ImageNet entrypoint.

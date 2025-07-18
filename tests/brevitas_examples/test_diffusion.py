@@ -4,6 +4,7 @@
 from argparse import ArgumentParser
 import logging
 import os
+import random
 import shutil
 from typing import Any
 from typing import Callable
@@ -12,6 +13,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
+import numpy as np
 import pytest
 import pytest_cases
 import torch
@@ -22,6 +24,11 @@ from tests.brevitas_examples.common import assert_metrics
 from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
+from tests.conftest import SEED
+
+random.seed(SEED)
+# np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 ATOL_FID = 1e-6
 RTOL_FID = 1e-5
