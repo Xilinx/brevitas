@@ -27,7 +27,7 @@ from tests.brevitas_examples.common import UpdatableNamespace
 from tests.conftest import SEED
 
 random.seed(SEED)
-# np.random.seed(SEED)
+np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 ATOL_FID = 1e-6
