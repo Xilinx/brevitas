@@ -73,12 +73,12 @@ class StableDiffusionCases:
             {
                 "model": "hf-internal-testing/tiny-stable-diffusion-pipe",
                 "bias_correction": True,
-                "torchmetrics_fid": 0.04850762337446213,
+                "torchmetrics_fid": 0.0747002363204956,
                 "clean_fid": 0.0},
             {
                 "model": "hf-internal-testing/tiny-stable-diffusion-pipe",
                 "activation_equalization": True,
-                "torchmetrics_fid": 0.0747002363204956,
+                "torchmetrics_fid": 0.04850762337446213,
                 "clean_fid": 0.0},],
         ids=["sd-defaults", "sd-bias-corr", "sd-act-eq"])
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):

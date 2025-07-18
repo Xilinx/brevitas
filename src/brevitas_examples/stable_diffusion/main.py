@@ -20,6 +20,7 @@ from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
+import numpy as np
 import packaging
 import packaging.version
 import pandas as pd
@@ -74,6 +75,7 @@ from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
 diffusers_version = packaging.version.parse(diffusers.__version__)
 TEST_SEED = 123456
+np.random.seed(TEST_SEED)
 torch.manual_seed(TEST_SEED)
 
 NEGATIVE_PROMPTS = ["normal quality, low quality, worst quality, low res, blurry, nsfw, nude"]
