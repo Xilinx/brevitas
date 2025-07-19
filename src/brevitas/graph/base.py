@@ -9,6 +9,7 @@ from typing import Any
 from typing import Dict
 from typing import Type
 
+from packaging.version import parse
 import torch
 from torch.nn import Module
 from torch.overrides import get_testing_overrides
@@ -21,6 +22,7 @@ except ImportError:
     from brevitas.utils.torch_utils import is_parametrized
     register_parametrization = None
 
+from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
@@ -43,6 +45,11 @@ __all__ = [
     'CallableToModule']
 
 _TORCH_TESTING_DICT = get_testing_overrides()
+
+
+# TODO (pml): Remove after deprecating old PyTorch versions
+def pt_ge(pt_version: str) -> bool:
+    return torch_version >= parse(pt_version)
 
 
 class Transform(ABC):
@@ -228,7 +235,10 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
         # skip memory allocation if the module constructor admits 'device'
         # as keyword argument and the state_dict from the old module is loaded
-        if load_state_dict and 'device' in new_kwargs:
+        # TODO (pml): Remove pt_ge('2.0') after deprecating older PyTorch versions
+        # This check is needed as older PyTorch versions raise errors when operating
+        # "meta" tensors with tensors in other device for certain operations.
+        if pt_ge('2.0') and load_state_dict and 'device' in new_kwargs:
             new_kwargs['device'] = torch.device("meta")
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
