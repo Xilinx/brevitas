@@ -432,17 +432,17 @@ def quantize_llm(args, extra_args=None):
             else:
                 name_blacklist += ["lm_head", "embed_out"]
 
-        # TODO (pml): Remove       
+        # TODO (pml): Remove
         import cProfile
-        import pstats
         import io
+        import pstats
 
         profiler = cProfile.Profile()
         profiler.enable()
 
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
-        
+
         # TODO (pml): Remove
         profiler.disable()
         s = io.StringIO()
