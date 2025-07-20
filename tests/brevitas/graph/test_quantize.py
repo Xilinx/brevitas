@@ -85,7 +85,6 @@ class QuantLayerCases:
             # Retrieve the required parameters of the __init__ method
             layer_kwargs = {}
             for name, parameter in inspect.signature(torch_layer_cls.__init__).parameters.items():
-                breakpoint()
                 # Check if the parameter is required
                 if name != 'self' and parameter.default is inspect.Parameter.empty and parameter.kind in (
                         inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
