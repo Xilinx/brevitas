@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Tuple
@@ -147,91 +148,92 @@ COMPUTE_LAYER_MAP = {
             'bias_quant': Int32Bias,
             'return_quant_tensor': True})}
 
-LAYERWISE_COMPUTE_LAYER_MAP: Dict[Type[torch.nn.Module], Optional[Tuple[torch.nn.Module, Dict]]] = {
-    nn.AvgPool2d:
-        None,
-    nn.MultiheadAttention: (
-        qnn.QuantMultiheadAttention,
-        {
-            'in_proj_input_quant': Int8ActPerTensorFloat,
-            'in_proj_weight_quant': Int8WeightPerTensorFloat,
-            'in_proj_bias_quant': Int32Bias,
-            'attn_output_weights_quant': Uint8ActPerTensorFloat,
-            'q_scaled_quant': Int8ActPerTensorFloat,
-            'k_transposed_quant': Int8ActPerTensorFloat,
-            'v_quant': Int8ActPerTensorFloat,
-            'out_proj_input_quant': Int8ActPerTensorFloat,
-            'out_proj_weight_quant': Int8WeightPerTensorFloat,
-            'out_proj_bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.LSTM: (
-        qnn.QuantLSTM,
-        {
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'io_quant': Int8ActPerTensorFloat,
-            'gate_acc_quant': Int8ActPerTensorFloat,
-            'sigmoid_quant': Uint8ActPerTensorFloat,
-            'tanh_quant': Int8ActPerTensorFloat,
-            'cell_state_quant': Int8ActPerTensorFloat,
-            'return_quant_tensor': False}),
-    nn.RNN: (
-        qnn.QuantRNN,
-        {
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'io_quant': Int8ActPerTensorFloat,
-            'gate_acc_quant': Int8ActPerTensorFloat,
-            'return_quant_tensor': False}),
-    nn.Conv1d: (
-        qnn.QuantConv1d,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.Conv2d: (
-        qnn.QuantConv2d,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.Conv3d: (
-        qnn.QuantConv3d,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.ConvTranspose1d: (
-        qnn.QuantConvTranspose1d,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.ConvTranspose2d: (
-        qnn.QuantConvTranspose2d,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.ConvTranspose3d: (
-        qnn.QuantConvTranspose3d,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False}),
-    nn.Linear: (
-        qnn.QuantLinear,
-        {
-            'input_quant': Int8ActPerTensorFloat,
-            'weight_quant': Int8WeightPerTensorFloat,
-            'bias_quant': Int32Bias,
-            'return_quant_tensor': False})}
+LAYERWISE_COMPUTE_LAYER_MAP: Dict[Type[torch.nn.Module],
+                                  Optional[Tuple[Type[torch.nn.Module], Dict[str, Any]]]] = {
+                                      nn.AvgPool2d:
+                                          None,
+                                      nn.MultiheadAttention: (
+                                          qnn.QuantMultiheadAttention,
+                                          {
+                                              'in_proj_input_quant': Int8ActPerTensorFloat,
+                                              'in_proj_weight_quant': Int8WeightPerTensorFloat,
+                                              'in_proj_bias_quant': Int32Bias,
+                                              'attn_output_weights_quant': Uint8ActPerTensorFloat,
+                                              'q_scaled_quant': Int8ActPerTensorFloat,
+                                              'k_transposed_quant': Int8ActPerTensorFloat,
+                                              'v_quant': Int8ActPerTensorFloat,
+                                              'out_proj_input_quant': Int8ActPerTensorFloat,
+                                              'out_proj_weight_quant': Int8WeightPerTensorFloat,
+                                              'out_proj_bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.LSTM: (
+                                          qnn.QuantLSTM,
+                                          {
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'io_quant': Int8ActPerTensorFloat,
+                                              'gate_acc_quant': Int8ActPerTensorFloat,
+                                              'sigmoid_quant': Uint8ActPerTensorFloat,
+                                              'tanh_quant': Int8ActPerTensorFloat,
+                                              'cell_state_quant': Int8ActPerTensorFloat,
+                                              'return_quant_tensor': False}),
+                                      nn.RNN: (
+                                          qnn.QuantRNN,
+                                          {
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'io_quant': Int8ActPerTensorFloat,
+                                              'gate_acc_quant': Int8ActPerTensorFloat,
+                                              'return_quant_tensor': False}),
+                                      nn.Conv1d: (
+                                          qnn.QuantConv1d,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.Conv2d: (
+                                          qnn.QuantConv2d,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.Conv3d: (
+                                          qnn.QuantConv3d,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.ConvTranspose1d: (
+                                          qnn.QuantConvTranspose1d,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.ConvTranspose2d: (
+                                          qnn.QuantConvTranspose2d,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.ConvTranspose3d: (
+                                          qnn.QuantConvTranspose3d,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False}),
+                                      nn.Linear: (
+                                          qnn.QuantLinear,
+                                          {
+                                              'input_quant': Int8ActPerTensorFloat,
+                                              'weight_quant': Int8WeightPerTensorFloat,
+                                              'bias_quant': Int32Bias,
+                                              'return_quant_tensor': False})}
 
 UNSIGNED_ACT_TUPLE = (nn.ReLU, nn.ReLU6, nn.Sigmoid, nn.Hardsigmoid)
 

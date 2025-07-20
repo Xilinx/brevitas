@@ -6,6 +6,8 @@ import inspect
 from itertools import chain
 import platform
 import random
+from typing import get_origin
+from typing import Union
 
 import pytest
 import pytest_cases
@@ -83,12 +85,13 @@ class QuantLayerCases:
             # Retrieve the required parameters of the __init__ method
             layer_kwargs = {}
             for name, parameter in inspect.signature(torch_layer_cls.__init__).parameters.items():
+                breakpoint()
                 # Check if the parameter is required
                 if name != 'self' and parameter.default is inspect.Parameter.empty and parameter.kind in (
                         inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
                     # If so, check the type
                     if parameter.annotation == int or (
-                            parameter.annotation.__name__ == 'Union' and
+                            get_origin(parameter.annotation) == Union and
                             any([arg == int for arg in parameter.annotation.__args__])):
                         layer_kwargs[name] = random.randint(a=MIN_INT, b=MAX_INT)
                     else:

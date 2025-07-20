@@ -523,10 +523,11 @@ def _layerwise_replace_modules(
     quantized counterpart and not its Linear submodules.
     """
     if _module_class_name(type_before_parametrizations(module)) in layer_map.keys():
-        quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
-        rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
-        quant_module = rewriter.init_new_module(old_module=module, name=prefix)
-        set_module(model, quant_module, prefix)
+        if layer_map[_module_class_name(type_before_parametrizations(module))] is not None:
+            quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
+            rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
+            quant_module = rewriter.init_new_module(old_module=module, name=prefix)
+            set_module(model, quant_module, prefix)
     else:
         for name, child in module.named_children():
             full_name = prefix + '.' + name if prefix != '' else name
