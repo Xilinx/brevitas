@@ -136,6 +136,7 @@ def default_run_args(parser: ArgumentParser, request):
     return args
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=LLMRunCases)
 def test_small_models_run_args(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)
@@ -143,6 +144,7 @@ def test_small_models_run_args(caplog, args_and_metrics, main):
     main(args, extra_args)
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=LLMPerplexityCases)
 def test_small_models_ppl(caplog, args_and_metrics, main):
     caplog.set_level(logging.INFO)
@@ -151,6 +153,7 @@ def test_small_models_ppl(caplog, args_and_metrics, main):
     assert_metrics(results, exp_metrics, atol=ATOL_PPL, rtol=RTOL_PPL)
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize_with_cases("args_and_layer_types", cases=LLMQuantLayerTypeCases)
 def test_small_models_quant_layer(caplog, args_and_layer_types, main):
     caplog.set_level(logging.INFO)
@@ -159,6 +162,7 @@ def test_small_models_quant_layer(caplog, args_and_layer_types, main):
     assert_layer_types(model, exp_metrics["exp_layer_types"])
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize_with_cases("args_and_layer_types_count", cases=LLMQuantLayerCountCases)
 def test_small_models_quant_layer_types_count(caplog, args_and_layer_types_count, main):
     caplog.set_level(logging.INFO)
@@ -312,6 +316,7 @@ def test_small_models_dtype(caplog, dtype_args, main):
     assert expected_dtype == dtype, f"Expected dtype of the model parameters to be {expected_dtype} but got {dtype}."
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize_with_cases("args_layer_count_and_ppl", cases=LLMRotationOptimizationCases)
 def test_small_models_rotation_optimization_ppl(caplog, args_layer_count_and_ppl, main):
     if platform.system() != "Linux":
@@ -327,6 +332,7 @@ def test_small_models_rotation_optimization_ppl(caplog, args_layer_count_and_ppl
     assert_metrics(results, exp_metrics, atol=ATOL_ROT, rtol=RTOL_ROT)
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize_with_cases("args_layer_count_and_ppl", cases=LLMRotationOptimizationCases)
 def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count_and_ppl, main):
     if platform.system() != "Linux":
@@ -338,6 +344,7 @@ def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count
     assert_layer_types_count(model, exp_metrics["exp_layer_types_count"])
 
 
+@pytest.mark.llm
 @pytest_cases.parametrize(
     "kwargs",
     [
