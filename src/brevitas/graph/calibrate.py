@@ -522,7 +522,7 @@ class _BiasCorrection:
         else:
             self.correction_map[name] += error
 
-    def _maybe_synchronize_correction_map(self, name: str) -> None:
+    def _synchronize_correction_map(self, name: str) -> None:
         if dist.is_initialized():
             if name not in self.correction_map:
                 raise RuntimeError(f"Bias correction map for module {name} has not been computed.")
@@ -539,7 +539,7 @@ class _BiasCorrection:
         for name, module in model.named_modules():
             if name in self.correction_map.keys():
                 # If multiple processes are being run, synchronize the correction maps
-                self._maybe_synchronize_correction_map(name)
+                self._synchronize_correction_map(name)
                 # Compute the correction for the bias
                 correction = self.correction_map[name] / self._get_correction_map_reduce_size(name)
                 # When accelerate is enabled, bring tensors onto the device to avoid allocating a meta parameter.

@@ -33,7 +33,7 @@ import torch.distributed as dist
 # Each will produce slightly different but valid results
 from torchmetrics.image.fid import FrechetInceptionDistance
 
-import brevitas_examples.common.distributed.distributed_utils as dist_utils
+from brevitas.utils.torch_utils import init_process_group
 from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
 from brevitas_examples.stable_diffusion.stable_diffusion_args import validate
 
@@ -122,9 +122,10 @@ def get_denoising_network(pipe):
         raise ValueError
 
 
-def _maybe_partition_calibration_step_kwargs(
+def _partition_calibration_step_kwargs(
         calibration_prompts: List[str], num_prompts: Optional[int] = None) -> Dict[str, int]:
-    # If multiple processes are running simultaneously, each receives a different partition
+    # If multiple processes are running simultaneously, each receives a different partition of
+    # calibration prompts.
     num_prompts = len(calibration_prompts) if num_prompts is None else num_prompts
     if dist.is_initialized():
         rank = dist.get_rank()
@@ -261,6 +262,8 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
     ts = datetime.fromtimestamp(time.time())
     str_ts = ts.strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(args.output_path, f'{str_ts}')
+    if dist.is_initialized():
+        output_dir = f"{output_dir}_{dist.get_rank()}"
     os.mkdir(output_dir)
     print(f"Saving results in {output_dir}")
 
@@ -674,10 +677,9 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
             print("Applying bias correction")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 with bias_correction_mode(denoising_network):
-                    calibration_step(
-                        force_full_calibration=True,
-                        **_maybe_partition_calibration_step_kwargs(
-                            calibration_prompts=calibration_prompts))
+                    calibration_step_kwargs = _partition_calibration_step_kwargs(
+                        calibration_prompts=calibration_prompts)
+                    calibration_step(force_full_calibration=True, **calibration_step_kwargs)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -1000,13 +1002,25 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
     return results, None
 
 
+def decorator_get_image_processor_dict(fun, image_processor_dict_overwrites):
+
+    def wrap_get_image_processor_dict(*args, **kwargs):
+        image_processor_dict, kwargs = fun(*args, **kwargs)
+        # Overwrite entries appropiately
+        for key, value in image_processor_dict_overwrites.items():
+            image_processor_dict[key] = value
+        return image_processor_dict, kwargs
+
+    return wrap_get_image_processor_dict
+
+
 def main():
     # Initialize default distributed group if script is launched with torchrun
-    dist_utils.init_process_group(backend="nccl")
+    init_process_group(backend="nccl")
     overrides = override_defaults(sys.argv[1:])
     # If multiple processes are launched, override the devices
     if dist.is_initialized():
-        assert torch.cuda.device_count() >= dist.get_world_size(), f"{dist.get_world_size()} were launched, but only {torch.cuda.device_count()} are available."
+        assert torch.cuda.device_count() >= dist.get_world_size(), f"{dist.get_world_size()} processes were launched, but only {torch.cuda.device_count()} GPUs are available."
         # Ensure that each process uses a different GPU
         overrides['device'] = f"cuda:{dist.get_rank()}"
     parser = create_args_parser()
