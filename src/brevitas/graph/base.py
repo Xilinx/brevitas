@@ -213,12 +213,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs.update(update_dict)
         return new_kwargs
 
-    def init_new_module(
-            self,
-            old_module: Module,
-            name: str = None,
-            load_state_dict: bool = True,
-            assign: bool = True):
+    def init_new_module(self, old_module: Module, name: str = None, load_state_dict: bool = True):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
         # transforms attribute of original module, e.g. bias Parameter -> bool
@@ -234,13 +229,13 @@ class ModuleToModule(GraphTransform, ABC):
         # This check is needed as older PyTorch versions do not admit the `assign`
         # and `load_state_dict` would act as a no-op, thus leaving "meta" tensors
         # on new_module
-        if 'device' in new_kwargs and (pt_ge('2.1') and load_state_dict and assign):
+        if 'device' in new_module_signature_keys and pt_ge('2.1') and load_state_dict:
             new_kwargs['device'] = torch.device("meta")
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         # load state dict of the old module
         if load_state_dict:
-            load_old_module_state_dict(old_module, new_module, assign=assign)
+            load_old_module_state_dict(old_module, new_module, assign=True)
         return new_module
 
 
