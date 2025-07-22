@@ -9,10 +9,11 @@ from typing import Any
 from typing import Dict
 from typing import Type
 
-from packaging.version import parse
 import torch
 from torch.nn import Module
 from torch.overrides import get_testing_overrides
+
+from brevitas.utils.torch_utils import pt_ge
 
 # TODO: Deprecate PyTorch 1.11
 try:
@@ -22,7 +23,6 @@ except ImportError:
     from brevitas.utils.torch_utils import is_parametrized
     register_parametrization = None
 
-from brevitas import torch_version
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
@@ -45,11 +45,6 @@ __all__ = [
     'CallableToModule']
 
 _TORCH_TESTING_DICT = get_testing_overrides()
-
-
-# TODO (pml): Remove after deprecating old PyTorch versions
-def pt_ge(pt_version: str) -> bool:
-    return torch_version >= parse(pt_version)
 
 
 class Transform(ABC):

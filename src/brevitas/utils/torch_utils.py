@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
-from dataclasses import dataclass
 from functools import wraps
 from typing import List
 from typing import Optional
 from typing import Tuple
 
+from packaging.version import parse
 import torch
 import torch.distributed as dist
 from torch.nn import Sequential
 
 import brevitas
+from brevitas import torch_version
 import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
@@ -208,3 +209,8 @@ def init_process_group(backend: str = "nccl") -> None:
     if dist.is_torchelastic_launched():
         # If that is the case, initialize the default process group
         dist.init_process_group(backend=backend)
+
+
+# TODO (pml): Potentially remove after deprecating old PyTorch versions
+def pt_ge(pt_version: str) -> bool:
+    return torch_version >= parse(pt_version)
