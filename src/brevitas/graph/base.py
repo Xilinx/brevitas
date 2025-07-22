@@ -230,10 +230,11 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
         # skip memory allocation if the module constructor admits 'device'
         # as keyword argument and the state_dict from the old module is loaded
-        # TODO (pml): Remove pt_ge('2.0') after deprecating older PyTorch versions
-        # This check is needed as older PyTorch versions raise errors when operating
-        # "meta" tensors with tensors in other device for certain operations.
-        if pt_ge('2.0') and load_state_dict and 'device' in new_kwargs:
+        # TODO (pml): Remove pt_ge('2.1') after deprecating older PyTorch versions
+        # This check is needed as older PyTorch versions do not admit the `assign`
+        # and `load_state_dict` would act as a no-op, thus leaving "meta" tensors
+        # on new_module
+        if 'device' in new_kwargs and (pt_ge('2.1') and load_state_dict and assign):
             new_kwargs['device'] = torch.device("meta")
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
