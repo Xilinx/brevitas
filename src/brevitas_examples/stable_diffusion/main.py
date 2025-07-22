@@ -1002,18 +1002,6 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
     return results, None
 
 
-def decorator_get_image_processor_dict(fun, image_processor_dict_overwrites):
-
-    def wrap_get_image_processor_dict(*args, **kwargs):
-        image_processor_dict, kwargs = fun(*args, **kwargs)
-        # Overwrite entries appropiately
-        for key, value in image_processor_dict_overwrites.items():
-            image_processor_dict[key] = value
-        return image_processor_dict, kwargs
-
-    return wrap_get_image_processor_dict
-
-
 def main():
     # Initialize default distributed group if script is launched with torchrun
     init_process_group(backend="nccl")
