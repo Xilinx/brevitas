@@ -11,7 +11,6 @@ from typing import Dict
 from typing import Iterable
 import warnings
 
-import gguf
 import numpy as np
 import torch
 
@@ -25,7 +24,14 @@ from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.nn import QuantLinear
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
-from brevitas_examples.llm.gguf_export.convert import ModelBase
+
+try:
+    import gguf
+
+    from brevitas_examples.llm.gguf_export.convert import ModelBase
+except ImportError:
+    gguf = None
+    ModelBase = None
 
 
 def find_hparam(keys: Iterable[str], hparams: Dict[str, int], optional: bool = False) -> Any:

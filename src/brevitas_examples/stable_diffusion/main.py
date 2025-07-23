@@ -20,6 +20,7 @@ from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
+import numpy as np
 import packaging
 import packaging.version
 import pandas as pd
@@ -74,6 +75,7 @@ from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
 diffusers_version = packaging.version.parse(diffusers.__version__)
 TEST_SEED = 123456
+np.random.seed(TEST_SEED)
 torch.manual_seed(TEST_SEED)
 
 NEGATIVE_PROMPTS = ["normal quality, low quality, worst quality, low res, blurry, nsfw, nude"]
@@ -894,12 +896,11 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
 
             float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
             quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
-
-            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            fid = FrechetInceptionDistance(normalize=False).to(args.device)
             for float_image in tqdm(float_images_values):
-                fid.update(float_image.unsqueeze(0).to('cuda'), real=True)
+                fid.update(float_image.unsqueeze(0).to(args.device), real=True)
             for quant_image in tqdm(quant_images_values):
-                fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
+                fid.update(quant_image.unsqueeze(0).to(args.device), real=False)
             print(f"Torchmetrics FID: {float(fid.compute())}")
             torchmetrics_fid = float(fid.compute())
             # Dump args to json
@@ -923,7 +924,7 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
             # All the images will be used for FID computation.
             float_images_values = load_images_from_folder(args.reference_images_path)
 
-            fid = FrechetInceptionDistance(normalize=False).to('cuda')
+            fid = FrechetInceptionDistance(normalize=False).to(args.device)
             for float_image in tqdm(float_images_values):
 
                 if float_image.shape[0] == 1:

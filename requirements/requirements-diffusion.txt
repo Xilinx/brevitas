@@ -1,0 +1,6 @@
+accelerate
+diffusers
+pandas
+torchmetrics[image]
+tqdm
+transformers
