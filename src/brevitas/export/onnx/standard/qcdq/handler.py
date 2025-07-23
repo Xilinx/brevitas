@@ -36,8 +36,8 @@ from ..function import QuantizeLinearFn
 
 class StdDQCastONNXMixin(DQCastMixin, ABC):
 
-    def dequantize_fn(self, x, scale, zero_point, axis):
-        return DequantizeLinearFn.apply(x, scale, zero_point, axis)
+    def dequantize_fn(self, x, scale, zero_point, axis, group_size):
+        return DequantizeLinearFn.apply(x, scale, zero_point, axis, group_size)
 
     def cast_fn(self, x, dtype):
         return CastFn.apply(x, dtype)
@@ -79,8 +79,8 @@ class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
             assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         super().validate(module)
 
-    def quantize_fn(self, x, scale, zero_point, dtype, axis):
-        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
+    def quantize_fn(self, x, scale, zero_point, dtype, axis, group_size):
+        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis, group_size)
 
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):

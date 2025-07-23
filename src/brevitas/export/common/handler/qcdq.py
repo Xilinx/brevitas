@@ -41,7 +41,7 @@ class DQMixin(ABC):
         pass
 
     @abstractmethod
-    def dequantize_fn(self, x, scale, zero_point, axis):
+    def dequantize_fn(self, x, scale, zero_point, axis, group_size):
         pass
 
     @property
@@ -79,7 +79,7 @@ class CDQCastMixin(DQCastMixin, ABC):
 class FloatQMixin(ABC):
 
     @abstractmethod
-    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+    def quantize_fn(self, x, scale, zero_point, dtype, axis, group_size):
         pass
 
     @classmethod
@@ -162,6 +162,7 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
             is_groupwise=False):
         scale_orig_shape = scale.shape
         axis = self.quant_axis(scale)
+        scale = scale.squeeze()
         if self.flatten_dequantize_params and not is_groupwise:
             scale = scale.flatten()
         scale = to_0dim_if_scalar(scale)
@@ -216,9 +217,16 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             mantissa_bit_width,
             is_ocp,
             is_fnuz,
+            group_dim,
+            group_size,
             is_groupwise=False):
         # compute axis before redefining scale
-        axis = self.quant_axis(scale)
+        print(scale.shape, group_dim, group_size)
+        axis = group_dim#self.quant_axis(scale)
+        scale = scale.squeeze(group_dim+1)
+
+        print(scale.shape)
+        print("---------")
         if not is_groupwise:
             scale = to_0dim_if_scalar(scale.flatten())
             zero_point = to_0dim_if_scalar(zero_point.flatten())
@@ -237,10 +245,11 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
         zero_point = quant_weight.zero_point_ if hasattr(
             quant_weight, 'zero_point_') else quant_weight.zero_point
+        group_dim = quant_weight.group_dim
+        group_size = quant_weight.group_size
         # self.scale_dtype = scale.dtype
         # if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
         #     scale = self.cast_fn(scale, torch.float32)
-        scale = scale.squeeze()
         self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
             scale,
             zero_point,
@@ -248,6 +257,8 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             quant_weight.mantissa_bit_width,
             module.is_ocp,
             module.is_fnuz,
+            group_dim = group_dim,
+            group_size = group_size,
             is_groupwise=is_groupwise)
 
     def prepare_quantize_from_minifloat(self, module):
@@ -271,7 +282,6 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
             zero_point = quant_weight.zero_point_ if hasattr(
                 quant_weight, 'zero_point_') else quant_weight.zero_point
-            scale = scale.squeeze()
 
             # self.scale_dtype = scale.dtype
             # if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
@@ -283,6 +293,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             self.symbolic_kwargs['saturating'] = quant_weight.saturating
             self.symbolic_kwargs['inf_values'] = quant_weight.inf_values
             self.symbolic_kwargs['nan_values'] = quant_weight.nan_values
+            self.symbolic_kwargs['group_size'] = quant_weight.group_size
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
                 module.is_narrow_range,
                 module.is_signed,
@@ -302,10 +313,11 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
     def quantize_from_floating_point(self, x: Tensor):
         # Workaround for equal_cpu RuntimeError
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        group_size = self.symbolic_kwargs['group_size']
         # Before quantization, cast input to float32
         # if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
         #     x = self.cast_fn(x, torch.float32)
-        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
+        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values(), group_size)
         return x
 
     def quantize_from_minifloat(self, x: Tensor):
@@ -318,6 +330,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
+        group_size = self.symbolic_kwargs['group_size']
 
         if self._export_q_node:
             # x = self.input_view_impl(x)
@@ -336,7 +349,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
-        x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
+        x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values(), group_size)
         # After dequantization, cast both input and scale to the correct dtype
         # if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
         #     x = self.cast_fn(x, self.scale_dtype)
@@ -565,10 +578,10 @@ class FloatQCDQCastGroupwiseActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastP
         # original_dtype = x.dtype
         # if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
         #     x = self.cast_fn(x, torch.float32)
-        x = self.quantize_fn(x, scale, zero_point, *quantize_symbolic_kwargs.values())
+        x = self.quantize_fn(x, scale, zero_point, *quantize_symbolic_kwargs.values(), group_size)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
-        x = self.dequantize_fn(x, scale, zero_point, *dequantize_symbolic_kwargs.values())
+        x = self.dequantize_fn(x, scale, zero_point, *dequantize_symbolic_kwargs.values(), group_size)
         # After dequantization, cast both output and scale to the correct dtype
         # if original_dtype == torch.float16 or original_dtype == torch.bfloat16:
         #     x = self.cast_fn(x, original_dtype)

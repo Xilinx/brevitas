@@ -35,8 +35,8 @@ class QuantAxisMixin(ABC):
     @classmethod
     def quant_axis(cls, scale):
         for i, s in enumerate(scale.shape):
-            if s != 1:
-                return i
+            if s == 1:
+                return i - 1
         return None
 
 

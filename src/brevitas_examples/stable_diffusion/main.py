@@ -805,18 +805,18 @@ def main(args):
         if args.export_target == 'onnx':
             # assert is_sd_xl, "Only SDXL ONNX export is currently supported. If this impacts you, feel free to open an issue"
 
-            trace_inputs = generate_unet_21_rand_inputs(
-                embedding_shape=SD_2_1_EMBEDDINGS_SHAPE,
-                unet_input_shape=unet_input_shape(args.resolution),
-                device=device,
-                dtype=dtype)
-
-
-            # trace_inputs = generate_unet_xl_rand_inputs(
-            #     embedding_shape=SD_XL_EMBEDDINGS_SHAPE,
+            # trace_inputs = generate_unet_21_rand_inputs(
+            #     embedding_shape=SD_2_1_EMBEDDINGS_SHAPE,
             #     unet_input_shape=unet_input_shape(args.resolution),
             #     device=device,
             #     dtype=dtype)
+
+
+            trace_inputs = generate_unet_xl_rand_inputs(
+                embedding_shape=SD_XL_EMBEDDINGS_SHAPE,
+                unet_input_shape=unet_input_shape(args.resolution),
+                device=device,
+                dtype=dtype)
 
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
