@@ -12,6 +12,7 @@ from typing import Union
 
 import torch
 from torch import nn
+import torch.distributed as dist
 import torch.nn.functional as F
 
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
@@ -521,10 +522,26 @@ class _BiasCorrection:
         else:
             self.correction_map[name] += error
 
+    def _synchronize_correction_map(self, name: str) -> None:
+        if dist.is_initialized():
+            if name not in self.correction_map:
+                raise RuntimeError(f"Bias correction map for module {name} has not been computed.")
+            # Synchronize the correction map for the given layer
+            dist.all_reduce(self.correction_map[name], op=dist.ReduceOp.SUM)
+
+    def _get_correction_map_reduce_size(self, name: str) -> int:
+        if name not in self.correction_map:
+            raise RuntimeError(f"Bias correction map for module {name} has not been computed.")
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        return world_size * self.iterations[name]
+
     def apply_correction(self, model):
         for name, module in model.named_modules():
             if name in self.correction_map.keys():
-                correction = self.correction_map[name] / self.iterations[name]
+                # If multiple processes are being run, synchronize the correction maps
+                self._synchronize_correction_map(name)
+                # Compute the correction for the bias
+                correction = self.correction_map[name] / self._get_correction_map_reduce_size(name)
                 # When accelerate is enabled, bring tensors onto the device to avoid allocating a meta parameter.
                 if hasattr(module, 'allocate_params'):
                     module.allocate_params(module)

@@ -9,6 +9,7 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+import torch.distributed as dist
 from torch.nn import Sequential
 
 import brevitas
@@ -200,3 +201,10 @@ def type_before_parametrizations(module: torch.nn.Module) -> type:
         return module.__class__.__bases__[0]
     else:
         return type(module)
+
+
+def init_process_group(backend: str = "nccl") -> None:
+    # Verify if the script was launched with torch_elastic
+    if dist.is_torchelastic_launched():
+        # If that is the case, initialize the default process group
+        dist.init_process_group(backend=backend)

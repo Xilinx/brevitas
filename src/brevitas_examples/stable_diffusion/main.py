@@ -10,6 +10,7 @@ import math
 import os
 import sys
 import time
+from typing import Dict
 from typing import List
 from typing import Optional
 import warnings
@@ -27,10 +28,12 @@ import pandas as pd
 from safetensors.torch import save_file
 import torch
 from torch import nn
+import torch.distributed as dist
 # FID Computation can be performed with several different libraries.
 # Each will produce slightly different but valid results
 from torchmetrics.image.fid import FrechetInceptionDistance
 
+from brevitas.utils.torch_utils import init_process_group
 from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
 from brevitas_examples.stable_diffusion.stable_diffusion_args import validate
 
@@ -117,6 +120,19 @@ def get_denoising_network(pipe):
         return pipe.transformer
     else:
         raise ValueError
+
+
+def _partition_calibration_step_kwargs(
+        calibration_prompts: List[str], num_prompts: Optional[int] = None) -> Dict[str, int]:
+    # If multiple processes are running simultaneously, each receives a different partition of
+    # calibration prompts.
+    num_prompts = len(calibration_prompts) if num_prompts is None else num_prompts
+    if dist.is_initialized():
+        rank = dist.get_rank()
+        partition_size = num_prompts // dist.get_world_size()
+        return {'num_prompts': partition_size, 'start': rank * partition_size}
+    # Otherwise, calibrate over the whole set of prompts
+    return {'num_prompts': num_prompts, 'start': 0}
 
 
 def run_test_inference(
@@ -246,6 +262,8 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
     ts = datetime.fromtimestamp(time.time())
     str_ts = ts.strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(args.output_path, f'{str_ts}')
+    if dist.is_initialized():
+        output_dir = f"{output_dir}_{dist.get_rank()}"
     os.mkdir(output_dir)
     print(f"Saving results in {output_dir}")
 
@@ -363,14 +381,15 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
-    def calibration_step(force_full_calibration=False, num_prompts=None):
+    def calibration_step(force_full_calibration=False, num_prompts=None, start=0):
         if len(args.few_shot_calibration) > 0 and not force_full_calibration:
             for i, (inp_args, inp_kwargs) in enumerate(few_shot_calibration_prompts):
                 denoising_network(*inp_args, **inp_kwargs)
                 if num_prompts is not None and i == num_prompts:
                     break
         else:
-            prompts_subset = calibration_prompts[:num_prompts] if num_prompts is not None else calibration_prompts
+            prompts_subset = calibration_prompts[
+                start:start + num_prompts] if num_prompts is not None else calibration_prompts
             run_val_inference(
                 pipe,
                 args.resolution,
@@ -658,7 +677,9 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
             print("Applying bias correction")
             with torch.no_grad(), quant_inference_mode(denoising_network, compile=args.compile_eval, enabled=args.inference_mode):
                 with bias_correction_mode(denoising_network):
-                    calibration_step(force_full_calibration=True)
+                    calibration_step_kwargs = _partition_calibration_step_kwargs(
+                        calibration_prompts=calibration_prompts)
+                    calibration_step(force_full_calibration=True, **calibration_step_kwargs)
 
     if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
@@ -970,7 +991,7 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
                 quant_images_values = load_images_from_folder(
                     os.path.join(output_dir, 'quant_reference'))
                 for quant_image in tqdm(quant_images_values):
-                    fid.update(quant_image.unsqueeze(0).to('cuda'), real=False)
+                    fid.update(quant_image.unsqueeze(0).to(args.device), real=False)
 
                 print(f"Torchmetrics FID: {float(fid.compute())}")
                 if cleanfid is not None:
@@ -982,7 +1003,14 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
 
 
 def main():
+    # Initialize default distributed group if script is launched with torchrun
+    init_process_group(backend="nccl")
     overrides = override_defaults(sys.argv[1:])
+    # If multiple processes are launched, override the devices
+    if dist.is_initialized():
+        assert torch.cuda.device_count() >= dist.get_world_size(), f"{dist.get_world_size()} processes were launched, but only {torch.cuda.device_count()} GPUs are available."
+        # Ensure that each process uses a different GPU
+        overrides['device'] = f"cuda:{dist.get_rank()}"
     parser = create_args_parser()
     args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
     print("Args: " + str(vars(args)))
