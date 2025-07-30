@@ -71,7 +71,7 @@ class IntQuant(brevitas.jit.ScriptModule):
         min_int_val = self.min_int(bit_width)
         max_int_val = self.max_int(bit_width)
         y = self.float_to_int_impl(y)
-        y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
+        y = torch.clamp(y, min=min_int_val, max=max_int_val)
         return y
 
     @brevitas.jit.script_method
