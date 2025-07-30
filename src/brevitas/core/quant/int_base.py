@@ -52,6 +52,7 @@ class IntQuant(brevitas.jit.ScriptModule):
             narrow_range: bool,
             signed: bool,
             input_view_impl: Module,
+            bit_width: int,
             float_to_int_impl: Module = RoundSte(),
             tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = 0):
@@ -62,14 +63,16 @@ class IntQuant(brevitas.jit.ScriptModule):
         self.narrow_range = narrow_range
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
         self.input_view_impl = input_view_impl
+        self.pre_computed_min_int = self.min_int(bit_width=bit_width)
+        self.pre_computed_max_int = self.max_int(bit_width=bit_width)
 
     @brevitas.jit.script_method
     def to_int(self, scale: Tensor, zero_point: Tensor, bit_width: Tensor, x: Tensor) -> Tensor:
         x = self.input_view_impl(x)
         y = x / scale
         y = y + zero_point
-        min_int_val = self.min_int(bit_width)
-        max_int_val = self.max_int(bit_width)
+        min_int_val = self.pre_computed_min_int  #self.min_int(bit_width)
+        max_int_val = self.pre_computed_max_int  #self.max_int(bit_width)
         y = self.float_to_int_impl(y)
         y = torch.clamp(y, min=min_int_val, max=max_int_val)
         return y
