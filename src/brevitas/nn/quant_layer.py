@@ -1,8 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-
 from abc import ABCMeta
 from abc import abstractmethod
+import os
 from typing import Optional, Type, Union
 
 import torch
@@ -15,6 +15,8 @@ from brevitas.utils.torch_utils import compute_channel_view_shape
 from .mixin import *
 from .utils import merge_bn
 from .utils import rename_state_dict_by_prefix
+
+SKIP_CREATE_QUANT_TENSOR = os.environ.get('SKIP_CREATE_QUANT_TENSOR', 0)
 
 
 class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayerMixin, Module):
@@ -49,6 +51,9 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayer
             out = self.export_handler(quant_input)
             self._set_global_is_quant_layer(False)
             return out
+        if SKIP_CREATE_QUANT_TENSOR:
+            if isinstance(quant_input, QuantTensor):
+                quant_input = quant_input.value
         out = self.act_quant(quant_input)
         out = self.pack_output(out)
         return out
@@ -155,6 +160,13 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             quant_bias = self.bias_quant(self.bias, quant_input, quant_weight)
         else:
             quant_bias = None
+        if SKIP_CREATE_QUANT_TENSOR:
+            if isinstance(quant_input, QuantTensor):
+                quant_input = quant_input.value
+            if isinstance(quant_weight, QuantTensor):
+                quant_weight = quant_weight.value
+            if isinstance(quant_bias, QuantTensor):
+                quant_bias = quant_bias.value
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
         quant_output = self.output_quant(output_tensor)
