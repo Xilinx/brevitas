@@ -16,7 +16,7 @@ from .mixin import *
 from .utils import merge_bn
 from .utils import rename_state_dict_by_prefix
 
-SKIP_CREATE_QUANT_TENSOR = os.environ.get('SKIP_CREATE_QUANT_TENSOR', 0)
+SKIP_CREATE_QUANT_TENSOR = os.environ.get('SKIP_CREATE_QUANT_TENSOR', 1)
 
 
 class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayerMixin, Module):
