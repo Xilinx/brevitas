@@ -245,7 +245,7 @@ class ModuleToModule(GraphTransform, ABC):
 
         # load state dict of the old module
         if load_state_dict:
-            load_old_module_state_dict(old_module, new_module, assign=is_assign_supported)
+            load_old_module_state_dict(old_module, new_module, is_assign_supported)
         return new_module
 
 
