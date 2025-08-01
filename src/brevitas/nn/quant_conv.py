@@ -45,9 +45,9 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         # avoid an init error in the super class by setting padding to 0
         if padding_mode == 'zeros' and padding == 'same' and (stride > 1 if isinstance(
                 stride, int) else any(map(lambda x: x > 1, stride))):
@@ -132,9 +132,9 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         # avoid an init error in the super class by setting padding to 0
         if padding_mode == 'zeros' and padding == 'same' and (stride > 1 if isinstance(
                 stride, int) else any(map(lambda x: x > 1, stride))):
@@ -221,9 +221,9 @@ class QuantConv3d(QuantWBIOL, Conv3d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         # avoid an init error in the super class by setting padding to 0
         if padding_mode == 'zeros' and padding == 'same' and (stride > 1 if isinstance(
                 stride, int) else any(map(lambda x: x > 1, stride))):

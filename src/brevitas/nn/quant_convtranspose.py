@@ -50,9 +50,9 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         ConvTranspose1d.__init__(
             self,
             in_channels=in_channels,
@@ -145,9 +145,9 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         ConvTranspose2d.__init__(
             self,
             in_channels=in_channels,
@@ -240,9 +240,9 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         ConvTranspose3d.__init__(
             self,
             in_channels=in_channels,

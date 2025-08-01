@@ -61,16 +61,9 @@ class GateWeight(QuantWeightMixin, nn.Module):
 class GateParams(QuantBiasMixin, nn.Module):
 
     def __init__(
-            self,
-            input_size,
-            hidden_size,
-            bias,
-            weight_quant,
-            bias_quant,
-            input_weight,
-            dtype,
-            device,
-            **kwargs):
+            self, input_size, hidden_size, bias, weight_quant, bias_quant, input_weight, **kwargs):
+        device = kwargs.get('device', None)
+        dtype = kwargs.get('dtype', None)
         nn.Module.__init__(self)
         if bias:
             self.bias = nn.Parameter(torch.randn(hidden_size, dtype=dtype, device=device))
@@ -340,8 +333,6 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
             shared_input_hidden_weights: bool,
             return_quant_tensor: bool,
             nonlinearity: str,
-            dtype: Optional[torch.dtype],
-            device: Optional[torch.device],
             input_weight: GateWeight = None,
             **kwargs):
         nn.Module.__init__(self)
@@ -373,15 +364,7 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
             shared_input_hidden_weights=shared_input_hidden_weights,
             return_quant_tensor=return_quant_tensor)
         self.gate_params = GateParams(
-            input_size,
-            hidden_size,
-            bias,
-            weight_quant,
-            bias_quant,
-            input_weight,
-            dtype=dtype,
-            device=device,
-            **kwargs)
+            input_size, hidden_size, bias, weight_quant, bias_quant, input_weight, **kwargs)
         self.reset_parameters()
 
     @property
@@ -496,8 +479,6 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             shared_cell_state_quant: bool,
             shared_intra_layer_weight_quant: bool,
             shared_intra_layer_gate_acc_quant: bool,
-            dtype: Optional[torch.dtype],
-            device: Optional[torch.device],
             return_quant_tensor: bool,
             input_input_weight: GateWeight = None,
             input_forget_weight: GateWeight = None,
@@ -568,15 +549,7 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             return_quant_tensor=return_quant_tensor)
 
         self.input_gate_params = GateParams(
-            input_size,
-            hidden_size,
-            bias,
-            weight_quant,
-            bias_quant,
-            input_forget_weight,
-            dtype=dtype,
-            device=device,
-            **kwargs)
+            input_size, hidden_size, bias, weight_quant, bias_quant, input_forget_weight, **kwargs)
         if shared_intra_layer_weight_quant:
             # Share the input-to-hidden input weight quantizer, which is also shared with hidden-to-hidden
             weight_quant = self.input_gate_params.input_weight.weight_quant
@@ -590,29 +563,11 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
                 weight_quant,
                 bias_quant,
                 input_input_weight,
-                dtype=dtype,
-                device=device,
                 **kwargs)
         self.cell_gate_params = GateParams(
-            input_size,
-            hidden_size,
-            bias,
-            weight_quant,
-            bias_quant,
-            input_cell_weight,
-            dtype=dtype,
-            device=device,
-            **kwargs)
+            input_size, hidden_size, bias, weight_quant, bias_quant, input_cell_weight, **kwargs)
         self.output_gate_params = GateParams(
-            input_size,
-            hidden_size,
-            bias,
-            weight_quant,
-            bias_quant,
-            input_output_weight,
-            dtype=dtype,
-            device=device,
-            **kwargs)
+            input_size, hidden_size, bias, weight_quant, bias_quant, input_output_weight, **kwargs)
         self.shared_cell_state_quant = shared_cell_state_quant
         self.cifg = cifg
         self.reset_parameters()
@@ -786,8 +741,6 @@ class QuantRecurrentStackBase(nn.Module):
             bidirectional: bool,
             io_quant,
             shared_input_hidden_weights: bool,
-            dtype: Optional[torch.dtype],
-            device: Optional[torch.device],
             return_quant_tensor: bool,
             **kwargs):
         super(QuantRecurrentStackBase, self).__init__()
@@ -812,8 +765,6 @@ class QuantRecurrentStackBase(nn.Module):
                 reverse_input=False,
                 quantize_output_only=quantize_output_only,
                 shared_input_hidden_weights=shared_input_hidden_weights,
-                dtype=dtype,
-                device=device,
                 return_quant_tensor=layer_return_quant_tensor,
                 **kwargs)
             directions.append(left_to_right)
@@ -829,8 +780,6 @@ class QuantRecurrentStackBase(nn.Module):
                     reverse_input=True,
                     quantize_output_only=quantize_output_only,
                     shared_input_hidden_weights=shared_input_hidden_weights,
-                    dtype=dtype,
-                    device=device,
                     return_quant_tensor=layer_return_quant_tensor,
                     **shared_weights,
                     **kwargs)
@@ -896,8 +845,6 @@ class QuantRNN(QuantRecurrentStackBase):
             gate_acc_quant=Int8ActPerTensorFloat,
             shared_input_hidden_weights=False,
             return_quant_tensor: bool = False,
-            dtype: Optional[torch.dtype] = None,
-            device: Optional[torch.device] = None,
             **kwargs):
         super(QuantRNN, self).__init__(
             layer_impl=_QuantRNNLayer,
@@ -914,8 +861,6 @@ class QuantRNN(QuantRecurrentStackBase):
             gate_acc_quant=gate_acc_quant,
             shared_input_hidden_weights=shared_input_hidden_weights,
             return_quant_tensor=return_quant_tensor,
-            dtype=dtype,
-            device=device,
             **kwargs)
 
 
@@ -943,8 +888,6 @@ class QuantLSTM(QuantRecurrentStackBase):
             shared_intra_layer_gate_acc_quant=False,
             shared_cell_state_quant=True,
             return_quant_tensor: bool = False,
-            device: Optional[torch.device] = None,
-            dtype: Optional[torch.dtype] = None,
             **kwargs):
         super(QuantLSTM, self).__init__(
             layer_impl=_QuantLSTMLayer,
@@ -966,10 +909,7 @@ class QuantLSTM(QuantRecurrentStackBase):
             shared_intra_layer_weight_quant=shared_intra_layer_weight_quant,
             shared_intra_layer_gate_acc_quant=shared_intra_layer_gate_acc_quant,
             shared_cell_state_quant=shared_cell_state_quant,
-            return_quant_tensor=return_quant_tensor,
-            dtype=dtype,
-            device=device,
-            **kwargs)
+            return_quant_tensor=return_quant_tensor ** kwargs)
         if cat_output_cell_states and cell_state_quant is not None and not shared_cell_state_quant:
             raise RuntimeError("Concatenating cell states requires shared cell quantizers.")
         if return_quant_tensor and cell_state_quant is None:
