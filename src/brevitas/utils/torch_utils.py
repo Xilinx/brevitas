@@ -3,17 +3,14 @@
 
 import copy
 from functools import wraps
-from typing import List
 from typing import Optional
 from typing import Tuple
 
-from packaging.version import parse
 import torch
 import torch.distributed as dist
 from torch.nn import Sequential
 
 import brevitas
-from brevitas import torch_version
 import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
