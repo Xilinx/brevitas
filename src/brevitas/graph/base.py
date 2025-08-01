@@ -235,7 +235,7 @@ class ModuleToModule(GraphTransform, ABC):
         # on new_module
 
         # Check if torch supports `assign` flag
-        is_assign_supported = 'assign' not in inspect.signature(
+        is_assign_supported = 'assign' in inspect.signature(
             old_module.load_state_dict).parameters.keys()
         if 'device' in new_module_signature_keys and is_assign_supported and load_state_dict:
             new_kwargs['device'] = torch.device("meta")
