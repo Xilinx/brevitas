@@ -13,8 +13,6 @@ import torch
 from torch.nn import Module
 from torch.overrides import get_testing_overrides
 
-from brevitas.utils.torch_utils import pt_ge
-
 # TODO: Deprecate PyTorch 1.11
 try:
     from torch.nn.utils.parametrize import is_parametrized
@@ -148,28 +146,33 @@ def _remove_parametrization_entries_state_dict(state_dict: Dict[str, Any]) -> Di
 # TODO (pml): Remove this auxiliar function after deprecating PyTorch versions older than 2.1, which
 # do not admit the argument `assign``.
 def _load_state_dict(
-        module: torch.nn.Module, state_dict: Dict[str, torch.Tensor], assign: bool = False) -> None:
-    if 'assign' not in inspect.signature(module.load_state_dict).parameters.keys():
-        module.load_state_dict(state_dict)
+        module: torch.nn.Module, state_dict: Dict[str, torch.Tensor],
+        is_assign_supported: bool) -> None:
+    if is_assign_supported:
+        module.load_state_dict(state_dict, assign=True)
     else:
-        module.load_state_dict(state_dict, assign=assign)
+        module.load_state_dict(state_dict)
 
 
 def load_old_module_state_dict(
-        old_module: torch.nn.Module, new_module: torch.nn.Module, assign: bool = False) -> None:
+        old_module: torch.nn.Module, new_module: torch.nn.Module,
+        is_assign_supported: bool) -> None:
     # work-around since weight_orig is from a previous quantization algorithm
+    old_module_state_dict = old_module.state_dict()
     if hasattr(old_module, 'weight_orig'):
         new_module.register_buffer('weight_orig', old_module.weight_orig.data.cpu())
     if not is_parametrized(old_module):
-        _load_state_dict(module=new_module, state_dict=old_module.state_dict(), assign=assign)
+        _load_state_dict(new_module, old_module_state_dict, is_assign_supported)
+
     else:
-        old_module_state_dict = old_module.state_dict()
         # If parametrizations are present in old_module, the state_dict needs
         # to be processed beforehand
         old_module_state_dict = _remove_parametrization_entries_state_dict(old_module_state_dict)
-        # Strict can be set to True, since potential parametrizations were
+
+        # Strict can be left to True (default), since potential parametrizations were
         # accounted for
-        _load_state_dict(module=new_module, state_dict=old_module_state_dict, assign=assign)
+        _load_state_dict(new_module, old_module_state_dict, is_assign_supported)
+
         # If the old module is parametrized, these need to be transferred to the new module.
         # The method transfer_parametrizations_and_params as it can result in parameter ties
         # being broken
@@ -225,17 +228,24 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
         # skip memory allocation if the module constructor admits 'device'
         # as keyword argument and the state_dict from the old module is loaded
-        # TODO (pml): Remove pt_ge('2.1') after deprecating older PyTorch versions
+
+        # TODO (pml): Remove check after deprecating older PyTorch versions
         # This check is needed as older PyTorch versions do not admit the `assign`
         # and `load_state_dict` would act as a no-op, thus leaving "meta" tensors
         # on new_module
-        if 'device' in new_module_signature_keys and pt_ge('2.1') and load_state_dict:
+
+        # Check if torch supports `assign` flag
+        is_assign_supported = 'assign' not in inspect.signature(
+            old_module.load_state_dict).parameters.keys()
+        if 'device' in new_module_signature_keys and is_assign_supported and load_state_dict:
             new_kwargs['device'] = torch.device("meta")
+
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
+
         # load state dict of the old module
         if load_state_dict:
-            load_old_module_state_dict(old_module, new_module, assign=True)
+            load_old_module_state_dict(old_module, new_module, assign=is_assign_supported)
         return new_module
 
 

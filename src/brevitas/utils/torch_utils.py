@@ -209,8 +209,3 @@ def init_process_group(backend: str = "nccl") -> None:
     if dist.is_torchelastic_launched():
         # If that is the case, initialize the default process group
         dist.init_process_group(backend=backend)
-
-
-# TODO (pml): Potentially remove after deprecating old PyTorch versions
-def pt_ge(pt_version: str) -> bool:
-    return torch_version >= parse(pt_version)

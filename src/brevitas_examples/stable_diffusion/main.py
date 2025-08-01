@@ -917,7 +917,7 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
 
             float_images_values = load_images_from_folder(os.path.join(output_dir, 'float'))
             quant_images_values = load_images_from_folder(os.path.join(output_dir, 'quant'))
-            fid = FrechetInceptionDistance(normalize=False).to(args.device)
+            fid = FrechetInceptionDistance(normalize=False, antialias=False).to(args.device)
             for float_image in tqdm(float_images_values):
                 fid.update(float_image.unsqueeze(0).to(args.device), real=True)
             for quant_image in tqdm(quant_images_values):
