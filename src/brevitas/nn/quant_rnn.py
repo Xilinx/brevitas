@@ -909,7 +909,8 @@ class QuantLSTM(QuantRecurrentStackBase):
             shared_intra_layer_weight_quant=shared_intra_layer_weight_quant,
             shared_intra_layer_gate_acc_quant=shared_intra_layer_gate_acc_quant,
             shared_cell_state_quant=shared_cell_state_quant,
-            return_quant_tensor=return_quant_tensor ** kwargs)
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
         if cat_output_cell_states and cell_state_quant is not None and not shared_cell_state_quant:
             raise RuntimeError("Concatenating cell states requires shared cell quantizers.")
         if return_quant_tensor and cell_state_quant is None:
