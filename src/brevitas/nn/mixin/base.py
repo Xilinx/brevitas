@@ -51,11 +51,11 @@ class QuantProxyMixin(object):
         for key in special_keys:
             filtered_kwargs[key] = kwargs.get(key, None)
         if quant is None:
-            quant_injector = none_quant_injector.let(filtered_kwargs)
+            quant_injector = none_quant_injector.let(**filtered_kwargs)
             quant = quant_injector.proxy_class(self, quant_injector)
         elif isclass(quant) and issubclass(quant, (Injector, ExtendedInjector)):
             quant_injector = quant
-            quant_injector = quant_injector.let(filtered_kwargs)
+            quant_injector = quant_injector.let(**filtered_kwargs)
             quant = quant_injector.proxy_class(self, quant_injector)
         else:
             if not isinstance(quant, proxy_protocol):
