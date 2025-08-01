@@ -11,7 +11,6 @@ from typing import Tuple
 import torch
 import torch.distributed as dist
 from torch.nn import Sequential
-import torch.nn.utils.parametrize as parametrize
 
 import brevitas
 import brevitas.compiler as brevitas_compiler
