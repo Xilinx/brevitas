@@ -11,6 +11,7 @@ from typing import Tuple
 import torch
 import torch.distributed as dist
 from torch.nn import Sequential
+import torch.nn.utils.parametrize as parametrize
 
 import brevitas
 import brevitas.compiler as brevitas_compiler
@@ -165,42 +166,6 @@ def torch_dtype(dtype):
         return wrapped_fn
 
     return decorator
-
-
-# TODO: Remove after deprecating PyTorch 1.11
-def is_parametrized(module: torch.nn.Module, tensor_name: Optional[str] = None) -> bool:
-    r"""Determine if a module has a parametrization.
-
-    Args:
-        module (nn.Module): module to query
-        tensor_name (str, optional): name of the parameter in the module
-            Default: ``None``
-    Returns:
-        ``True`` if :attr:`module` has a parametrization for the parameter named :attr:`tensor_name`,
-        or if it has any parametrization when :attr:`tensor_name` is ``None``;
-        otherwise ``False``
-    """
-    parametrizations = getattr(module, "parametrizations", None)
-    if parametrizations is None or not isinstance(parametrizations, torch.nn.ModuleDict):
-        return False
-    if tensor_name is None:
-        # Check that there is at least one parametrized buffer or Parameter
-        return len(parametrizations) > 0
-    else:
-        return tensor_name in parametrizations
-
-
-# TODO: Remove after deprecating PyTorch 1.11
-def type_before_parametrizations(module: torch.nn.Module) -> type:
-    r"""Return the module type before parametrizations were applied and if not, then it returns the module type.
-
-    Args:
-        module (nn.Module): module to get type of
-    """
-    if is_parametrized(module):
-        return module.__class__.__bases__[0]
-    else:
-        return type(module)
 
 
 def init_process_group(backend: str = "nccl") -> None:
