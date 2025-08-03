@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
-from dataclasses import dataclass
 from functools import wraps
-from typing import List
 from typing import Optional
 from typing import Tuple
 

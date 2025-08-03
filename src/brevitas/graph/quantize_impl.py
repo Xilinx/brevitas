@@ -20,6 +20,7 @@ from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance
 from brevitas.graph.utils import del_module
 from brevitas.graph.utils import get_module
+from brevitas.graph.utils import set_module
 from brevitas.utils.logging import setup_logger
 
 logging = setup_logger(__name__)
@@ -509,44 +510,49 @@ def _module_class_name(module_class_or_str):
     return name
 
 
-def find_module(
+def _layerwise_replace_modules(
         model: nn.Module,
+        module: nn.Module,
         layer_map: Dict[nn.Module, Optional[Dict]],
-        module_to_replace: List,
-        name_blacklist,
-        prefix=''):
+        name_blacklist: Optional[List[str]] = None,
+        prefix: str = ''):
     """
-    Iterate through the model looking at immediate children of every module to look for supported modules.
-    This allows us to stop the search when we meet a top-level module that is supported.
-    Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
-    Linear submodules.
+    Iterate through the model looking at immediate children of every module to look for supported modules
+    which are replaced by the module classes specified in layer_map. This allows us to stop the search when we
+    meet a top-level module that is supported. Specifically, it allows to map nn.MultiheadAttetion to its
+    quantized counterpart and not its Linear submodules.
     """
-    if _module_class_name(type_before_parametrizations(model)) in layer_map.keys():
-        module_to_replace.append(model)
+    quant_map = layer_map.get(_module_class_name(type_before_parametrizations(module)), None)
+    if quant_map:
+        quant_module_class, quant_module_kwargs = quant_map
+        rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
+        quant_module = rewriter.init_new_module(old_module=module, name=prefix)
+        set_module(model, quant_module, prefix)
     else:
-        for name, module in model.named_children():
+        for name, child in module.named_children():
             full_name = prefix + '.' + name if prefix != '' else name
             if name_blacklist is not None and full_name in name_blacklist:
                 logging.info(f"Skipping {full_name} module from quantization")
                 continue
-            find_module(module, layer_map, module_to_replace, name_blacklist, full_name)
+            _layerwise_replace_modules(model, child, layer_map, name_blacklist, full_name)
 
 
 def layerwise_layer_handler(
-        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], name_blacklist=None):
+        model: nn.Module,
+        layer_map: Dict[nn.Module, Optional[Dict]],
+        name_blacklist: Optional[List[str]] = None):
     """
-    Replace FP weight layers with their corresponding quantized version
+    Replace FP weight layers with their corresponding quantized version.
+
+    Args:
+        model (Module): Model whose supported moduless are to be replaced.
+        layer_map (dict): Dictionary whose keys are the classes of the modules to be replaced and whose values
+            are two-element tuples. The first entry corresponds to be class of the replacing module and the
+            second value with extra keyword arguments that need to be passed to its constructor on
+            initialization.
+        name_blacklist (list): Names of the modules that need to be skipped from quantization.
     """
     # Normalize all module lookups to fully qualified strings
     layer_map = {_module_class_name(m): v for m, v in layer_map.items()}
-    module_to_replace = []
-    find_module(model, layer_map, module_to_replace, name_blacklist)
-    rewriters = []
-    for module in module_to_replace:
-        if layer_map[_module_class_name(type_before_parametrizations(module))] is not None:
-            quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type_before_parametrizations(module))]
-            rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
-            rewriters.append(rewriter)
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
+    _layerwise_replace_modules(model, model, layer_map, name_blacklist)
     return model

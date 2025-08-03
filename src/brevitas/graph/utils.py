@@ -99,13 +99,13 @@ def get_module_name_and_parent(model, fully_qualified_module_name):
     prefix_list = prefix_list[:-1]  # exclude module name
     for prefix in prefix_list:
         if prefix:  # exclude empty prefix
-            supermodule = supermodule._modules[prefix]
+            supermodule = getattr(supermodule, prefix)
     return module_name, supermodule
 
 
 def set_module(model, module, fully_qualified_module_name):
     module_name, supermodule = get_module_name_and_parent(model, fully_qualified_module_name)
-    supermodule._modules[module_name] = module
+    setattr(supermodule, module_name, module)
 
 
 def get_module(model, fully_qualified_module_name):

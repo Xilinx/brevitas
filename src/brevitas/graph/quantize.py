@@ -1,7 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Any
 from typing import Dict
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 from packaging import version
 import torch
@@ -144,7 +148,9 @@ COMPUTE_LAYER_MAP = {
             'bias_quant': Int32Bias,
             'return_quant_tensor': True})}
 
-LAYERWISE_COMPUTE_LAYER_MAP = {
+LayerMapValueType = Optional[Tuple[Type[torch.nn.Module], Dict[str, Any]]]
+
+LAYERWISE_COMPUTE_LAYER_MAP: Dict[Type[torch.nn.Module], LayerMapValueType] = {
     nn.AvgPool2d:
         None,
     nn.MultiheadAttention: (

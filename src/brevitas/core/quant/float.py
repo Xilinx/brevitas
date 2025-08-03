@@ -69,8 +69,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
 
         # This is more friendly for compile
         # TODO: This assumes fixed mantissa bit-width
-        self.pre_compute_max_mantissa = StatelessBuffer(
-            compute_max_mantissa(self.mantissa_bit_width()))
+        self.pre_compute_max_mantissa = StatelessBuffer(compute_max_mantissa(mantissa_bit_width))
 
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
