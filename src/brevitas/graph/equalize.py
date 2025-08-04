@@ -1910,14 +1910,14 @@ class GraphRotationEqualization(RotationEqualization):
                 overlap = True
 
         # We update mergeable regions to include also non-mergeable ones
+        added_regions = 0
         for o_r in orphan_regions:
-            added_regions = 0
             # Layerwise have only a single sink named 'sinks0'
             id_sink = id(o_r.get_module_from_name('sinks0'))
             if id_sink not in eq_layers:
                 regions.append(o_r)
                 added_regions += 1
-                logging.debug(f"Adding {added_regions} sink-only regions")
+        logging.debug(f"Adding {added_regions} sink-only regions")
 
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
