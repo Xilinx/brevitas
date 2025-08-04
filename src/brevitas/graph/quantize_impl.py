@@ -8,12 +8,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-
-# TODO: Deprecate PyTorch 1.11
-try:
-    from torch.nn.utils.parametrize import type_before_parametrizations
-except ImportError:
-    from brevitas.utils.torch_utils import type_before_parametrizations
+from torch.nn.utils.parametrize import type_before_parametrizations
 
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance

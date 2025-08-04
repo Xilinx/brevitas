@@ -11,15 +11,9 @@ from typing import Type
 
 import torch
 from torch.nn import Module
+from torch.nn.utils.parametrize import is_parametrized
+from torch.nn.utils.parametrize import register_parametrization
 from torch.overrides import get_testing_overrides
-
-# TODO: Deprecate PyTorch 1.11
-try:
-    from torch.nn.utils.parametrize import is_parametrized
-    from torch.nn.utils.parametrize import register_parametrization
-except ImportError:
-    from brevitas.utils.torch_utils import is_parametrized
-    register_parametrization = None
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
