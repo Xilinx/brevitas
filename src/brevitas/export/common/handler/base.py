@@ -125,7 +125,16 @@ class FloatZeroPointHandlerMixin(ABC):
 
     @classmethod
     def zero_point_with_dtype(
-            cls, exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz, zero_point):
+            cls,
+            exponent_bit_width,
+            mantissa_bit_width,
+            is_ocp,
+            is_fnuz,
+            zero_point,
+            is_groupwise=False):
+        # For all non existiting torch dtypes we return None
+        if is_groupwise:
+            return None
         if is_ocp:
             if exponent_bit_width == 4 and mantissa_bit_width == 3:
                 return zero_point.type(torch.float8_e4m3fn)

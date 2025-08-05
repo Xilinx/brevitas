@@ -146,7 +146,7 @@ def model_export(model, tokenizer, ref_input, args):
         with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
             onnx_export_from_model(
                 model,
-                f"./{args.export_prefix}_0",
+                f"./{args.export_prefix}_mxfp8",
                 task="text-generation-with-past",
                 do_validation=False)
         # import onnx

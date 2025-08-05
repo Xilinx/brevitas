@@ -20,13 +20,19 @@ class DequantizeLinearFn(Function):
     @staticmethod
     def symbolic(g, x, input_scale, input_zero_point, input_axis, group_size):
         opset_version = onnx_export_opset()
-
-        if input_axis is not None and opset_version < AXIS_OPSET:
-            raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
-        elif input_axis is not None and opset_version >= AXIS_OPSET:
-            ret = g.op('DequantizeLinear', x, input_scale, input_zero_point, axis_i=input_axis, block_size_i=group_size)
+        assert opset_version > AXIS_OPSET, "ONNX Opset 13 is required"
+        if input_zero_point is None:
+            ret = g.op(
+                'DequantizeLinear', x, input_scale, axis_i=input_axis, block_size_i=group_size)
         else:
-            ret = g.op('DequantizeLinear', x, input_scale, input_zero_point)
+            ret = g.op(
+                'DequantizeLinear',
+                x,
+                input_scale,
+                input_zero_point,
+                axis_i=input_axis,
+                block_size_i=group_size)
+
         return ret
 
     @staticmethod
@@ -61,20 +67,35 @@ class CastFn(Function):
 class QuantizeLinearFn(Function):
 
     @staticmethod
-    def symbolic(g, x, output_scale, ouput_zero_point, output_dtype, output_axis, group_size):
+    def symbolic(g, x, output_scale, output_zero_point, output_dtype, output_axis, group_size):
         opset_version = onnx_export_opset()
 
-        if output_axis is not None and opset_version < AXIS_OPSET:
-            raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
-        elif output_axis is not None and opset_version >= AXIS_OPSET:
-            ret = g.op('QuantizeLinear', x, output_scale, ouput_zero_point, axis_i=output_axis, block_size_i=group_size)
+        assert opset_version > AXIS_OPSET, "ONNX Opset 13 is required"
+
+        if output_zero_point is None:
+            ret = g.op(
+                'QuantizeLinear',
+                x,
+                output_scale,
+                output_dtype_i=output_dtype,
+                axis_i=output_axis,
+                block_size_i=group_size)
         else:
-            ret = g.op('QuantizeLinear', x, output_scale, ouput_zero_point)
+            ret = g.op(
+                'QuantizeLinear',
+                x,
+                output_scale,
+                output_zero_point,
+                axis_i=output_axis,
+                block_size_i=group_size)
+
         return ret
 
     @staticmethod
-    def forward(ctx, x, output_scale, ouput_zero_point, output_dtype, output_axis, group_size):
-        return x.type(output_dtype)
+    def forward(ctx, x, output_scale, output_zero_point, output_dtype, output_axis, group_size):
+        if isinstance(output_dtype, (int, str)):
+            return x
+        return x.to(dtype=output_dtype)
 
 
 class DynamicQuantizeLinearFn(Function):
@@ -96,15 +117,64 @@ class DynamicQuantizeLinearFn(Function):
 class DynamicScaleZeroPoint(Function):
 
     @staticmethod
-    def symbolic(g, x, group_dim, group_size, scale_selection_method, zero_point_selection_method, output_dtype):
-        output_dtype = str(output_dtype)
-        scale, zp = g.op('brevitas.custom_op::DynamicScaleZeroPoint', x, group_dim_i = group_dim, group_size_i = group_size, scale_selection_method_s = scale_selection_method, zero_point_selection_method_s = zero_point_selection_method, output_dtype_s=output_dtype, outputs=2)
+    def symbolic(
+            g,
+            x,
+            group_dim,
+            group_size,
+            scale_selection_method,
+            zero_point_selection_method,
+            output_dtype):
+        scale, zp = g.op('brevitas.custom_op::DynamicScaleZeroPoint', x, group_dim_i = group_dim, group_size_i = group_size, scale_selection_method_s = scale_selection_method, zero_point_selection_method_s = zero_point_selection_method, output_dtype_i=output_dtype, outputs=2)
         return scale, zp
 
     @staticmethod
-    def forward(ctx, x, group_dim, group_size, scale_selection_method, zero_point_selection_method, output_dtype):
+    def forward(
+            ctx,
+            x,
+            group_dim,
+            group_size,
+            scale_selection_method,
+            zero_point_selection_method,
+            output_dtype):
         device = x.device
         dtype = x.dtype
         scale = torch.ones(1, device=device, dtype=dtype)
         zero_point = torch.ones(1, device=device, dtype=output_dtype)
         return scale, zero_point
+
+
+class DynamicScale(Function):
+
+    @staticmethod
+    def symbolic(
+            g,
+            x,
+            group_dim,
+            group_size,
+            scale_selection_method,
+            zero_point_selection_method,
+            output_dtype):
+        scale = g.op(
+            'brevitas.custom_op::DynamicScale',
+            x,
+            group_dim_i=group_dim,
+            group_size_i=group_size,
+            scale_selection_method_s=scale_selection_method,
+            zero_point_selection_method_s=zero_point_selection_method,
+            output_dtype_i=output_dtype)
+        return scale
+
+    @staticmethod
+    def forward(
+            ctx,
+            x,
+            group_dim,
+            group_size,
+            scale_selection_method,
+            zero_point_selection_method,
+            output_dtype):
+        device = x.device
+        dtype = x.dtype
+        scale = torch.ones(1, device=device, dtype=dtype)
+        return scale
