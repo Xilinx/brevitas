@@ -25,14 +25,14 @@ from .stats_wrapper import SCALAR_SHAPE
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
 
-class UnsignedScaleStat(ABCMeta):
+class UnsignedScaleStat():
 
     @classmethod
     def is_scale_unsigned(cls):
         True
 
 
-class SignedScaleStats(ABCMeta):
+class SignedScaleStats():
 
     @classmethod
     def is_scale_unsigned(cls):
