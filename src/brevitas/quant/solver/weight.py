@@ -105,7 +105,8 @@ class WeightQuantSolver(SolveStatsReduceDimFromEnum,
                         SolveWeightScalingPerOutputChannelShapeFromModule,
                         SolveWeightTensorQuantFromEnum,
                         SolveDtypeDeviceFromTrackedParameterList,
-                        SolveInputViewImpl):
+                        SolveInputViewImpl,
+                        SolveScaleSignedness):
     """
     Translate enum and shape directives to weight-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,
