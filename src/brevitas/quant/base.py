@@ -441,6 +441,7 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
+    is_scale_unsigned = True
     scaling_min_val = 1e-10
     pre_scaling_min_val = 1e-10
 
