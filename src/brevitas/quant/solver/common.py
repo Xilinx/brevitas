@@ -94,7 +94,9 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_impl(scaling_stats_op):
+    def scaling_stats_impl(scaling_stats_op=None):
+        if scaling_stats_op is None:
+            return None
         if scaling_stats_op == StatsOp.MAX:
             return AbsMax
         elif scaling_stats_op == StatsOp.MAX_AVE:
@@ -240,11 +242,18 @@ class SolveScaleSignedness(ExtendedInjector):
 
     @value
     def is_scale_unsigned(
-            scaling_impl_type, scaling_stats_impl, scaling_init=None, force_signed_scale=False):
+            scaling_impl_type,
+            scaling_stats_impl=None,
+            scaling_init=None,
+            force_signed_scale=False):
         if scaling_impl_type in (ScalingImplType.STATS,
                                  ScalingImplType.AFFINE_STATS,
                                  ScalingImplType.PARAMETER_FROM_STATS):
-            return scaling_stats_impl.is_scale_unsigned
+            # Currently this does not account for MSE/HQO
+            if hasattr(scaling_stats_impl, 'is_scale_unsigned'):
+                return scaling_stats_impl.is_scale_unsigned
+            else:
+                return True
         else:
             assert scaling_init is not None
             # NOR between the two variables
