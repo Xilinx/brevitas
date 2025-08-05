@@ -32,7 +32,8 @@ __all__ = [
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
-    'SolveDtypeDeviceFromTrackedParameterList']
+    'SolveDtypeDeviceFromTrackedParameterList',
+    'SolveScaleSignedness']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
