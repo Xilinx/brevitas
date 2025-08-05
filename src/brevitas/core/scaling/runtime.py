@@ -84,7 +84,8 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             scaling_affine_rescaling_init: Optional[float],
             scaling_affine_shifting_init: Optional[float],
             dtype: Optional[torch.dtype],
-            device: Optional[torch.device]) -> None:
+            device: Optional[torch.device],
+            is_scale_unsigned: bool = True) -> None:
         super(_StatsScaling, self).__init__()
         _affine_rescaling = scaling_affine_rescaling_init is not None
         _affine_shift_scale = scaling_affine_shifting_init is not None
@@ -100,7 +101,8 @@ class _StatsScaling(brevitas.jit.ScriptModule):
                 device)
         else:
             self.affine_rescaling = Identity()
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            scaling_min_val, restrict_scaling_impl, is_scale_unsigned)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
