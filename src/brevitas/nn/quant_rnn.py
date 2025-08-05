@@ -845,6 +845,8 @@ class QuantRNN(QuantRecurrentStackBase):
             gate_acc_quant=Int8ActPerTensorFloat,
             shared_input_hidden_weights=False,
             return_quant_tensor: bool = False,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
             **kwargs):
         super(QuantRNN, self).__init__(
             layer_impl=_QuantRNNLayer,
@@ -861,6 +863,8 @@ class QuantRNN(QuantRecurrentStackBase):
             gate_acc_quant=gate_acc_quant,
             shared_input_hidden_weights=shared_input_hidden_weights,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
 
 
@@ -888,6 +892,8 @@ class QuantLSTM(QuantRecurrentStackBase):
             shared_intra_layer_gate_acc_quant=False,
             shared_cell_state_quant=True,
             return_quant_tensor: bool = False,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
             **kwargs):
         super(QuantLSTM, self).__init__(
             layer_impl=_QuantLSTMLayer,
@@ -910,6 +916,8 @@ class QuantLSTM(QuantRecurrentStackBase):
             shared_intra_layer_gate_acc_quant=shared_intra_layer_gate_acc_quant,
             shared_cell_state_quant=shared_cell_state_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         if cat_output_cell_states and cell_state_quant is not None and not shared_cell_state_quant:
             raise RuntimeError("Concatenating cell states requires shared cell quantizers.")
