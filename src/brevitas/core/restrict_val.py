@@ -30,7 +30,8 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_min_val: Optional[float] = None,
-            restrict_value_impl: Optional[Module] = None):
+            restrict_value_impl: Optional[Module] = None,
+            is_unsigned=True):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarSignedClampMinSte(scaling_min_val)
@@ -41,8 +42,14 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
         else:
             self.restrict_value_impl = Identity()
 
+        if is_unsigned:
+            self.apply_abs = torch.abs
+        else:
+            self.apply_abs = Identity()
+
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
+        x = self.apply_abs(x)
         x = self.restrict_value_impl(x)
         x = self.clamp_min_ste(x)
         return x
