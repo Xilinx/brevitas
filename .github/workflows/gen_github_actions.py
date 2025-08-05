@@ -7,7 +7,7 @@ from utils import generate_exclusion_list
 TORCHVISION_VERSION_DICT = {
     '1.13.1': '0.14.1',
     '2.0.1': '0.15.2',
-    '2.1.0': '0.16.0',
+    '2.1.1': '0.16.1',
     '2.2.2': '0.17.2',
     '2.3.1': '0.18.1',
     '2.4.1': '0.19.1',
@@ -62,7 +62,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
 PYTHON_VERSIONS = ('3.9', '3.10')
 
 PYTORCH_VERSIONS = (
-    '1.13.1', '2.0.1', '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+    '1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
 JIT_STATUSES = ('jit_disabled', 'jit_enabled')
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
@@ -90,14 +90,14 @@ EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                                  ('platform', PLATFORM_LIST)])
 
 EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS = (
-    '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+    '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
 EXAMPLES_DIFFUSION_PYTEST_MATRIX = od([
     ('python_version', list(PYTHON_VERSIONS)),
     ('pytorch_version', list(EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS)),
     ('platform', PLATFORM_LIST)])
 
 EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS = (
-    '2.1.0', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
+    '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
 EXAMPLES_VISION_PYTEST_MATRIX = od([
     ('python_version', list(PYTHON_VERSIONS)),
     ('pytorch_version', list(EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS)),
