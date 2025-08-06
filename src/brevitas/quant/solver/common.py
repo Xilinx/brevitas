@@ -254,4 +254,4 @@ class SolveScaleSignedness(ExtendedInjector):
         else:
             assert scaling_init is not None
             # NOR between the two variables
-            return not (force_signed_scale or scaling_init < 0)
+            return not (force_signed_scale or any(scaling_init < 0))
