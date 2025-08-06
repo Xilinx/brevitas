@@ -208,6 +208,8 @@ class Region:
         # this configuration.
         if self.max_shape_srcs == 0 and self.max_shape_sinks > 0:
             return True
+        # In all other cases, we need to make sure that the equalizable channels of the sources
+        # match the equalizable channels of the sinks
         return self.max_shape_srcs == self.max_shape_sinks
 
 
@@ -650,10 +652,6 @@ def _cross_layer_equalization(
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     device = next(single_module.parameters()).device
     dtype = next(single_module.parameters()).dtype
-
-    # If region is not valid, don't equalize. If we are inserting a standalone mul, we don't need this check
-    if not region.is_valid and list_of_insert_mul_node_fn is None:
-        return _no_equalize()
 
     src_axes = {}
     for name, indexes in region.srcs.items():
@@ -1113,7 +1111,7 @@ def _extract_regions(
                     region = Region(
                         srcs=sorted_srcs, sinks=sorted_sinks, name_to_module=state.name_to_module)
 
-                if region not in regions:
+                if region not in regions and region.is_valid:
                     regions.append(region)
     return regions
 
@@ -1143,6 +1141,8 @@ class EqualizeGraph(GraphTransform):
             x for x in _supported_layers if x not in (nn.LayerNorm, *_batch_norm)])
         regions = _extract_regions(
             graph_model, state_impl_kwargs={'supported_sinks': supported_sinks})
+
+        logging.debug(f"Applying weight EqualizeGraph on {len(regions)} regions")
         if len(regions) > 0:
             graph_model = _equalize(
                 graph_model,
@@ -1285,6 +1285,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         scale_factors = []
         rewriters = []
         self.remove_hooks()
+        logging.debug(f"Applying LayerwiseActivationEqualization on {len(self.regions)} regions")
         for region in self.regions:
             name = list(region.sinks.keys())[0]
             module = region.get_module_from_name(name)
@@ -1388,6 +1389,7 @@ class GraphActivationEqualization(ActivationEqualization):
         scale_factors = []
         rewriters = []
         self.remove_hooks()
+        logging.debug(f"Applying GraphActivationEqualization on {len(self.regions)} regions")
         for region in self.regions:
             region_names = region.sinks_names if len(region.acts) == 0 else region.acts
             if any([self.float_act_map[name] is None for name in region_names]):
@@ -1485,8 +1487,6 @@ def _apply_rotate(
     expanded_rot_mat, expanded_K, rot_mat, K = None, None, None, None
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
-        if not region.is_valid:
-            logging.info(f"Region not valid, skipping it")
 
         # Initialize variables
         hidden_dim = region.max_shape_sinks
@@ -1779,6 +1779,7 @@ class GraphRotationEqualization(RotationEqualization):
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
         matmul_nodes = [c for c in matmul_nodes if c.name == 'matmul']
+        logging.debug(f"Applying GraphRotationEqualization on {len(matmul_nodes)} matmuls")
         for node in matmul_nodes:
             with graph_module.graph.inserting_before(node):
                 matmul_arg0 = graph_module.graph.call_function(
@@ -1856,7 +1857,8 @@ class GraphRotationEqualization(RotationEqualization):
                 sinks={'output_sdpa': output_index},
                 name_to_module={
                     'value_sdpa': value_module, 'output_sdpa': output_module})
-            regions.append(region)
+            if region.is_valid:
+                regions.append(region)
 
             for m in graph_module.modules():
                 if isinstance(m, ScaledDotProductAttention):
@@ -1874,6 +1876,7 @@ class GraphRotationEqualization(RotationEqualization):
                 'supported_sinks': self.supported_sinks,
                 'scale_invariant_layers': self.scale_invariant_layers,
                 'scale_invariant_function': self.scale_invariant_function})
+
         expanded_regions = []
         self.find_module_by_name(graph_model, expanded_regions)
         eq_layers = set()
@@ -1893,6 +1896,8 @@ class GraphRotationEqualization(RotationEqualization):
             sdpa_regions = self.rotate_sdpa(graph_model)
             regions.extend(sdpa_regions)
 
+        logging.debug(f"Applying GraphRotationEqualization on {len(regions)} regions")
+
         for r in regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
@@ -1908,11 +1913,14 @@ class GraphRotationEqualization(RotationEqualization):
                 overlap = True
 
         # We update mergeable regions to include also non-mergeable ones
+        added_regions = 0
         for o_r in orphan_regions:
             # Layerwise have only a single sink named 'sinks0'
             id_sink = id(o_r.get_module_from_name('sinks0'))
             if id_sink not in eq_layers:
                 regions.append(o_r)
+                added_regions += 1
+        logging.debug(f"Adding {added_regions} sink-only regions")
 
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
@@ -1944,7 +1952,7 @@ class GraphRotationEqualization(RotationEqualization):
                 parameter_number_post = 0
                 for m in graph_model.parameters():
                     parameter_number_post += m.numel()
-                logging.info(
+                logging.debug(
                     f"Added {parameter_number_post - parameter_number_pre} parameters to the model")
 
         if self.return_rewriters:

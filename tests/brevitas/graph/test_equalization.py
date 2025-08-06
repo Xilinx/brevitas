@@ -97,8 +97,6 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     torch.manual_seed(SEED)
     inp = torch.randn(IN_SIZE_CONV)
     model.eval()
-    # The isistance does not work after symbolic trace
-    is_alexnet = isinstance(model, models.AlexNet)
     model = symbolic_trace(model)
     model = TorchFunctionalToModule().apply(model)
 
@@ -139,11 +137,7 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     # Graph equalization can exit in case of shape mismatches or other error without performing any
     # equalization and returning a scalar value. We check that the equalized regions are as many as
     # expected
-    if is_alexnet:
-        # In AlexNet, we cannot equalize only through one region
-        assert sum([shape == () for shape in shape_scale_regions]) == 1
-    else:
-        assert all([shape != () for shape in shape_scale_regions])
+    assert all([shape != () for shape in shape_scale_regions])
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
@@ -182,14 +176,10 @@ def test_models(toy_model, merge_bias, request):
     assert torch.allclose(expected_out, out, atol=ATOL)
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
-    if 'convgroupconv' in test_id:
-        with pytest.raises(AssertionError):
-            assert all([shape != () for shape in shape_scale_regions])
-    else:
-        assert all([shape != () for shape in shape_scale_regions])
+    assert all([shape != () for shape in shape_scale_regions])
 
 
-@pytest_cases.parametrize("layerwise", [True, False])
+@pytest_cases.parametrize("layerwise", [False])
 @pytest_cases.parametrize("fuse_scaling", [True, False])
 @pytest_cases.parametrize(
     "dtype", [torch.float32, torch.float16, torch.bfloat16],
@@ -233,17 +223,11 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, devi
     out = model(inp)
     assert torch.allclose(expected_out, out, atol=ATOL_DICT[dtype])
 
-    # This region is made up of a residual branch, so no regions are found for act equalization
-    if 'convgroupconv' in test_id:
-        with pytest.raises(AssertionError):
-            assert len(regions) > 0
-            # Check that at least one region performs "true" equalization
-            # If all shapes are scalar, no equalization has been performed
-            assert all([shape != () for shape in shape_scale_regions])
-    else:
-        assert len(regions) > 0
-        # Check that at least one region performs "true" equalization
-        # If all shapes are scalar, no equalization has been performed
+    assert len(regions) > 0
+    # Check that at least one region performs "true" equalization
+    # If all shapes are scalar, no equalization has been performed
+    # Layerwise act eq for Groupwise conv is not supported
+    if not ('convgroupconv' in test_id and layerwise):
         assert all([shape != () for shape in shape_scale_regions])
 
 

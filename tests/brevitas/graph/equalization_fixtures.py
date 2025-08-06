@@ -35,7 +35,7 @@ MODELS = {
     'resnet18': [0.487, 0.952],
     'googlenet': [0.495, 0.982],
     'inception_v3': [0.497, 0.989],
-    'alexnet': [0.875, 0.875],}
+    'alexnet': [0.75, 0.75],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
@@ -323,9 +323,9 @@ def convgroupconv_model():
 
         def __init__(self) -> None:
             super().__init__()
-            self.conv = nn.Conv2d(3, 16, kernel_size=3)
-            self.conv_0 = nn.Conv2d(16, 32, kernel_size=1, groups=2)
-            self.conv_1 = nn.Conv2d(32, 64, kernel_size=1, groups=4)
+            self.conv = nn.Conv2d(3, 32, kernel_size=3)
+            self.conv_0 = nn.Conv2d(32, 32, kernel_size=1, groups=2)
+            self.conv_1 = nn.Conv2d(32, 32, kernel_size=1, groups=1)
             self.relu = nn.ReLU()
 
         def forward(self, x):
