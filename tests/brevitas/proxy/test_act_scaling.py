@@ -3,6 +3,8 @@
 
 import torch
 
+from brevitas.core.function_wrapper.misc import Abs
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
@@ -84,3 +86,49 @@ class TestQuantReLU:
         out = stats_act(inp)
         out.sum().backward()
         assert scaling_value.grad != 0.
+
+    def test_abs_stats_signedness(self):
+        # Check that AbsMax is correctly resolved as unsigned scale
+        stats_act = QuantReLU(
+            bit_width=BIT_WIDTH,
+            quant_type=QuantType.INT,
+            scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS,
+            scaling_stats_permute_dims=None,
+            scaling_stats_op=StatsOp.MAX,
+            collect_stats_steps=1,
+            scaling_min_val=None)
+        print(stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.abs_value)
+        assert isinstance(
+            stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.abs_value
+            .apply_abs,
+            Abs)
+
+    def test_parameter_negative_signedness():
+        # Check that if I have a negative init value with parameter scaling, then scale is signed
+        stats_act = QuantReLU(
+            bit_width=BIT_WIDTH,
+            quant_type=QuantType.INT,
+            scaling_impl_type=ScalingImplType.PARAMETER,
+            scaling_stats_permute_dims=None,
+            scaling_init=torch.tensor(-1.),
+            collect_stats_steps=1)
+        assert isinstance(
+            stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
+            .restrict_clamp_scaling.apply_abs,
+            Identity)
+
+    def test_parameter_forced_signedness():
+        # Check that if I have a positive init value but with `force_signed_scale` set to True
+        # then the scale is also signed
+        stats_act = QuantReLU(
+            bit_width=BIT_WIDTH,
+            quant_type=QuantType.INT,
+            scaling_impl_type=ScalingImplType.PARAMETER,
+            scaling_stats_permute_dims=None,
+            scaling_init=torch.tensor(1.),
+            collect_stats_steps=1,
+            force_signed_scale=True)
+        assert isinstance(
+            stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
+            .restrict_clamp_scaling.apply_abs,
+            Identity)
