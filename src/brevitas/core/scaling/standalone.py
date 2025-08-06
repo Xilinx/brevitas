@@ -16,6 +16,7 @@ import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.restrict_val import _AbsValue
 from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import _RestrictValue
@@ -377,10 +378,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_momentum, Optional[float])
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
-        if is_scale_unsigned:
-            self.apply_abs = torch.abs
-        else:
-            self.apply_abs = Identity()
+        self.abs_value = _AbsValue(is_unsigned=is_scale_unsigned)
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.restrict_threshold = _RestrictValue(restrict_threshold_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
@@ -443,8 +441,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             else:
                 out = self.value
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
-            out = self.apply_abs(out)
             out = self.restrict_scaling(out)
+            out = self.abs_value(out)
             out = out / threshold
             # We can clamp after restrict val since the learned parameter is already in log-domain
             out = self.clamp_scaling(out)

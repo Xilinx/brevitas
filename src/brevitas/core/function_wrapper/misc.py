@@ -10,6 +10,26 @@ import torch
 import brevitas
 
 
+class Abs(brevitas.jit.ScriptModule):
+    """
+    Identity ScriptModule.
+
+    Examples:
+        >>> identity = Identity()
+        >>> x = torch.randn(size=[10,])
+        >>> y = identity(x)
+        >>> y is x
+        True
+    """
+
+    def __init__(self) -> None:
+        super(Identity, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.abs(x)
+
+
 class Identity(brevitas.jit.ScriptModule):
     """
     Identity ScriptModule.
