@@ -55,6 +55,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.quant.solver.common import SolveScaleSignedness
 from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
 from brevitas.quant.solver.parameter import SolveInputViewImpl
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
@@ -281,7 +282,8 @@ class PerTensorConstScaling2bit(ExtendedInjector):
     bit_width = 2
 
 
-class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromModule):
+class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromModule,
+                                           SolveScaleSignedness):
     """
     Experimental narrow per-tensor signed int weight quantizer fragment with decoupled L2,inf
     normalization and learned scaling.
@@ -313,7 +315,8 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
                                      SolveWeightScalingStatsInputDimsFromModule,
                                      SolveWeightScalingPerOutputChannelShapeFromModule,
                                      SolveParameterScalingShape,
-                                     SolveInputViewImpl):
+                                     SolveInputViewImpl,
+                                     SolveScaleSignedness):
     """
     Experimental narrow per-channel signed int weight quantizer fragment with decoupled Linf
     normalization and learned scaling.
@@ -333,7 +336,6 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
-    is_scale_unsigned = True
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_type = ScalingPerOutputType.CHANNEL
@@ -400,6 +402,7 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
                                          SolveWeightScalingStatsInputDimsFromModule,
                                          SolveWeightScalingPerOutputChannelShapeFromModule,
                                          SolveParameterScalingShape,
+                                         SolveScaleSignedness,
                                          SolveInputViewImpl):
     """Experimental narrow per-channel weight normalization-based signed integer quantizer
     based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
@@ -442,7 +445,6 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
-    is_scale_unsigned = True
     scaling_min_val = 1e-10
     pre_scaling_min_val = 1e-10
 
@@ -557,6 +559,10 @@ class MSEAsymmetricScale(ExtendedInjector):
     def scaling_stats_impl():
         return this.mse_scale.stats_impl
 
+    @value
+    def is_scale_unsigned():
+        return this.mse_scale.mse_init_op.is_scale_unsigned
+
 
 class MSESymmetricScale(ExtendedInjector):
     """
@@ -579,6 +585,10 @@ class MSESymmetricScale(ExtendedInjector):
     @value
     def scaling_stats_impl():
         return this.mse_scale.stats_impl
+
+    @value
+    def is_scale_unsigned():
+        return this.mse_scale.mse_init_op.is_scale_unsigned
 
 
 class MSEZeroPoint(ExtendedInjector):
@@ -630,6 +640,10 @@ class HQOScale(ExtendedInjector):
     @value
     def scaling_stats_impl():
         return this.stats_impl_scale
+
+    @value
+    def is_scale_unsigned():
+        return this.hqo_init_op_scale.is_scale_unsigned
 
 
 class HQOAsymmetricScale(HQOScale):

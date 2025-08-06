@@ -249,11 +249,8 @@ class SolveScaleSignedness(ExtendedInjector):
         if scaling_impl_type in (ScalingImplType.STATS,
                                  ScalingImplType.AFFINE_STATS,
                                  ScalingImplType.PARAMETER_FROM_STATS):
-            # Currently this does not account for MSE/HQO
-            if hasattr(scaling_stats_impl, 'is_scale_unsigned'):
-                return scaling_stats_impl.is_scale_unsigned
-            else:
-                return True
+            return scaling_stats_impl.is_scale_unsigned
+
         else:
             assert scaling_init is not None
             # NOR between the two variables
