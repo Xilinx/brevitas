@@ -330,6 +330,7 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
     scaling_stats_impl = AbsMax
     restrict_scaling_impl = FloatRestrictValue
     scaling_impl = ParameterFromStatsFromParameterScaling
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
     pre_zero_point_impl = ZeroZeroPoint

@@ -253,9 +253,15 @@ class SolveScaleSignedness(ExtendedInjector):
 
         else:
             assert scaling_init is not None
-            # NOR between the two variables
+
+            if not isinstance(scaling_init, torch.Tensor):
+                scaling_init = torch.tensor(scaling_init)
+
+            # Check if any of the init values is negative
             if scaling_init.shape == ():
                 is_scale_negative = scaling_init < 0
             else:
                 is_scale_negative = any(scaling_init.flatten() < 0)
+
+            # NOR between the two variables
             return not (force_signed_scale or is_scale_negative)
