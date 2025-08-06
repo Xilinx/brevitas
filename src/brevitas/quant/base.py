@@ -333,6 +333,7 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
+    is_scale_unsigned = True
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_type = ScalingPerOutputType.CHANNEL
