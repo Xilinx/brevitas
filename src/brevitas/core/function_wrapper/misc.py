@@ -23,7 +23,7 @@ class Abs(brevitas.jit.ScriptModule):
     """
 
     def __init__(self) -> None:
-        super(Identity, self).__init__()
+        super(Abs, self).__init__()
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
