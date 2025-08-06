@@ -12,14 +12,7 @@ import brevitas
 
 class Abs(brevitas.jit.ScriptModule):
     """
-    Identity ScriptModule.
-
-    Examples:
-        >>> identity = Identity()
-        >>> x = torch.randn(size=[10,])
-        >>> y = identity(x)
-        >>> y is x
-        True
+    Abs ScriptModule.
     """
 
     def __init__(self) -> None:
