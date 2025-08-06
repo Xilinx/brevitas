@@ -432,6 +432,7 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
     scaling_impl = ParameterScaling
+    scaling_impl_type = ScalingImplType.PARAMETER
     scaling_init_impl = StatsFromParameterScaling
     restrict_scaling_impl = LogFloatRestrictValue
     scaling_stats_impl = AbsMax
