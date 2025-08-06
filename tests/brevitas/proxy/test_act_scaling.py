@@ -103,7 +103,7 @@ class TestQuantReLU:
             .apply_abs,
             Abs)
 
-    def test_parameter_negative_signedness():
+    def test_parameter_negative_signedness(self):
         # Check that a negative init value with parameter scaliing will cause the scale to be signed
         stats_act = QuantReLU(
             bit_width=BIT_WIDTH,
@@ -117,7 +117,7 @@ class TestQuantReLU:
             .restrict_clamp_scaling.apply_abs,
             Identity)
 
-    def test_parameter_forced_signedness():
+    def test_parameter_forced_signedness(self):
         # Check that a positive init value but with `force_signed_scale` set to True
         # will cause the scale to also be signed
         stats_act = QuantReLU(

@@ -302,6 +302,7 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     scaling_shape = SCALAR_SHAPE
     scaling_per_output_type = ScalingPerOutputType.TENSOR
     input_view_impl = Identity
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_impl = ParameterFromStatsFromParameterScaling
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
