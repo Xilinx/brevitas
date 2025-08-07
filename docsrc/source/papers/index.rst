@@ -1,5 +1,5 @@
 ===========
-User Guides
+Papers
 ===========
 
 .. toctree::
