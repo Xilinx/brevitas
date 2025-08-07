@@ -128,7 +128,7 @@ html_title = f'Brevitas Documentation - {current_version}'
 # html_logo is broken on sphinx 6
 # https://github.com/pydata/pydata-sphinx-theme/issues/1094
 html_theme_options = {
-   "header_links_before_dropdown": 8,
+   "header_links_before_dropdown": 7,
    "logo": {
       "image_light": "brevitas_logo_black.svg",
       "image_dark": "brevitas_logo_white.svg",
