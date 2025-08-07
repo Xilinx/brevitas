@@ -200,13 +200,21 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../about.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -464,20 +472,20 @@ document.write(`
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import inspect
-from brevitas.nn import QuantLinear
-from IPython.display import Markdown, display
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLinear</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
 
-# helpers
-def assert_with_message(condition):
-    assert condition
-    print(condition)
+<span class="c1"># helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
 
-def pretty_print_source(source):
-    display(Markdown(&#39;```python\n&#39; + source + &#39;\n```&#39;))
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
 
-source = inspect.getsource(QuantLinear.__init__)
-pretty_print_source(source)
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">QuantLinear</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -523,14 +531,14 @@ pretty_print_source(source)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-torch.manual_seed(0)
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-quant_linear = QuantLinear(2, 4, bias=True)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-print(f&quot;Original float weight tensor:\n {quant_linear.weight} \n&quot;)
-print(f&quot;Quantized weight QuantTensor:\n {quant_linear.quant_weight()} \n&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Original float weight tensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">weight</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantized weight QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -560,7 +568,7 @@ Quantized weight QuantTensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>print(f&quot;Quantized Weight integer tensor:\n {quant_linear.quant_weight().int()}&quot;)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantized Weight integer tensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">int</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -584,14 +592,14 @@ Quantized Weight integer tensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_input = torch.randn(3, 2)
-quant_linear = QuantLinear(2, 4, bias=False)
-float_output = quant_linear(float_input)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">float_output</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input}&quot;)
-print(f&quot;Float output:\n {float_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -628,15 +636,15 @@ Float output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-import math
-from brevitas.quant import Int8WeightPerTensorFixedPoint
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8WeightPerTensorFixedPoint</span>
 
-quant_linear = QuantLinear(2, 4, weight_quant=Int8WeightPerTensorFixedPoint, bias=False)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">Int8WeightPerTensorFixedPoint</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-print(f&quot;Weight QuantTensor:\n {quant_linear.quant_weight()}&quot;)
-print(f&quot;Weight fix point: {- math.log2(quant_linear.quant_weight().scale)}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight fix point: </span><span class="si">{</span><span class="o">-</span><span class="w"> </span><span class="n">math</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -661,13 +669,13 @@ Weight fix point: 7.0
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.quant import SignedBinaryWeightPerTensorConst
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">SignedBinaryWeightPerTensorConst</span>
 
-quant_linear = QuantLinear(2, 4, weight_quant=SignedBinaryWeightPerTensorConst, bias=False)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">SignedBinaryWeightPerTensorConst</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-print(f&quot;Weight QuantTensor:\n {quant_linear.quant_weight()}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -693,20 +701,20 @@ Weight QuantTensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-# Define a QuantLinear layer 1
-quant_linear1 = QuantLinear(2, 4, bias=False)
+<span class="c1"># Define a QuantLinear layer 1</span>
+<span class="n">quant_linear1</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-# Keep a pointer to the scale factor of QuantLinear layer 1 weights before sharing
-quant_linear1_scale_before_sharing = quant_linear1.quant_weight().scale
+<span class="c1"># Keep a pointer to the scale factor of QuantLinear layer 1 weights before sharing</span>
+<span class="n">quant_linear1_scale_before_sharing</span> <span class="o">=</span> <span class="n">quant_linear1</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">scale</span>
 
-# Define a QuantLinear layer 2 where the weight quantizer is taken from layer 1
-quant_linear2 = QuantLinear(2, 4, weight_quant=quant_linear1.weight_quant, bias=False)
+<span class="c1"># Define a QuantLinear layer 2 where the weight quantizer is taken from layer 1</span>
+<span class="n">quant_linear2</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">quant_linear1</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-print(f&quot;QuantLinear 1 scale before sharing with QuantLinear 2: {quant_linear1_scale_before_sharing:.4f}&quot;)
-print(f&quot;QuantLinear 2 scale: {quant_linear2.quant_weight().scale:.4f}&quot;)
-print(f&quot;QuantLinear 1 scale after sharing with QuantLinear 2: {quant_linear1.quant_weight().scale:.4f}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;QuantLinear 1 scale before sharing with QuantLinear 2: </span><span class="si">{</span><span class="n">quant_linear1_scale_before_sharing</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;QuantLinear 2 scale: </span><span class="si">{</span><span class="n">quant_linear2</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">scale</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;QuantLinear 1 scale after sharing with QuantLinear 2: </span><span class="si">{</span><span class="n">quant_linear1</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">scale</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <br/></pre></div>
 </div>
 </div>
@@ -729,17 +737,17 @@ QuantLinear 1 scale after sharing with QuantLinear 2: 0.0053
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.quant import Int8ActPerTensorFloat
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
-float_input = torch.randn(3, 2)
-quant_linear = QuantLinear(2, 4, input_quant=Int8ActPerTensorFloat, bias=False)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-quant_output = quant_linear(float_input)
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input} \n&quot;)
-print(f&quot;Quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -764,16 +772,16 @@ Quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.quant import Int8ActPerTensorFloat
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
-float_input = torch.randn(3, 2)
-quant_linear = QuantLinear(2, 4, input_quant=Int8ActPerTensorFloat, bias=False, return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_output = quant_linear(float_input)
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 
-print(f&quot;Quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -795,20 +803,20 @@ Quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.nn import QuantIdentity
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
 
-float_input = torch.randn(3, 2)
-quant_identity = QuantIdentity(return_quant_tensor=True)
-quant_linear = QuantLinear(2, 4, bias=False, return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_input = quant_identity(float_input)
-quant_output = quant_linear(quant_input)
+<span class="n">quant_input</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="p">(</span><span class="n">quant_input</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input} \n&quot;)
-print(f&quot;Quant input:\n {quant_input} \n&quot;)
-print(f&quot;Quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -842,17 +850,17 @@ Quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.nn import QuantReLU
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantReLU</span>
 
-float_input = torch.randn(3, 2)
-quant_relu = QuantReLU(return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_output = quant_relu(float_input)
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">quant_relu</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input} \n&quot;)
-print(f&quot;Quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -880,18 +888,18 @@ Quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_input = torch.randn(3, 2)
-quant_identity = QuantIdentity(return_quant_tensor=True)
-quant_relu = QuantReLU(return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-signed_quant_output = quant_identity(float_input)
-unsigned_quant_output = quant_relu(signed_quant_output)
+<span class="n">signed_quant_output</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
+<span class="n">unsigned_quant_output</span> <span class="o">=</span> <span class="n">quant_relu</span><span class="p">(</span><span class="n">signed_quant_output</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input} \n&quot;)
-print(f&quot;Quant output after QuantIdentity:\n {signed_quant_output}&quot;)
-print(f&quot;Quant output after QuantReLU:\n {unsigned_quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output after QuantIdentity:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">signed_quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output after QuantReLU:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">unsigned_quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -930,14 +938,14 @@ Quant output after QuantReLU:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.quant.scaled_int import Int16Bias
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int16Bias</span>
 
-float_input = torch.randn(3, 2)
-quant_linear = QuantLinear(2, 4, bias=True, bias_quant=Int16Bias, return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int16Bias</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_output = quant_linear(float_input)
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -983,13 +991,13 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_input = torch.randn(3, 2)
-quant_linear = QuantLinear(
-    2, 4, bias=True, input_quant=Int8ActPerTensorFloat, bias_quant=Int16Bias, return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int16Bias</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_linear(float_input)
+<span class="n">quant_linear</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1020,25 +1028,25 @@ IntQuantTensor(value=tensor([[-0.6541,  0.1263,  0.1680, -0.1231],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_inp1 = torch.randn(3, 2)
-float_inp2 = torch.randn(3, 2)
-quant_identity = QuantIdentity(return_quant_tensor=True)
+<span class="n">float_inp1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">float_inp2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-#Training mode, statistics are being collected, scaling factors are different but it doesn&#39;t raise an error
-train_quant_inp1 = quant_identity(float_inp1)
-train_quant_inp2 = quant_identity(float_inp2)
-train_mode_add = train_quant_inp1 + train_quant_inp2
+<span class="c1">#Training mode, statistics are being collected, scaling factors are different but it doesn&#39;t raise an error</span>
+<span class="n">train_quant_inp1</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp1</span><span class="p">)</span>
+<span class="n">train_quant_inp2</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp2</span><span class="p">)</span>
+<span class="n">train_mode_add</span> <span class="o">=</span> <span class="n">train_quant_inp1</span> <span class="o">+</span> <span class="n">train_quant_inp2</span>
 
-#Inference mode, the EMA buffer is being used, scaling factors are the same
-quant_identity.eval()
-eval_quant_inp1 = quant_identity(float_inp1)
-eval_quant_inp2 = quant_identity(float_inp2)
-eval_mode_add = eval_quant_inp1 + eval_quant_inp2
+<span class="c1">#Inference mode, the EMA buffer is being used, scaling factors are the same</span>
+<span class="n">quant_identity</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">eval_quant_inp1</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp1</span><span class="p">)</span>
+<span class="n">eval_quant_inp2</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp2</span><span class="p">)</span>
+<span class="n">eval_mode_add</span> <span class="o">=</span> <span class="n">eval_quant_inp1</span> <span class="o">+</span> <span class="n">eval_quant_inp2</span>
 
-print(f&quot;Eval mode add quant inputs:\n {eval_quant_inp1} \n {eval_quant_inp2} \n&quot;)
-print(f&quot;Eval mode add quant output:\n {eval_mode_add}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eval mode add quant inputs:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_quant_inp1</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_quant_inp2</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eval mode add quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_mode_add</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1075,16 +1083,16 @@ Eval mode add quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_inp = torch.randn(3, 2, 4)
-quant_identity = QuantIdentity(return_quant_tensor=True)
+<span class="n">float_inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_input = quant_identity(float_inp)
-quant_output = torch.nn.functional.max_pool1d(quant_input, kernel_size=2, stride=2)
+<span class="n">quant_input</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp</span><span class="p">)</span>
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">max_pool1d</span><span class="p">(</span><span class="n">quant_input</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
-print(f&quot;Quant input:\n {quant_input} \n&quot;)
-print(f&quot;Quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1122,16 +1130,16 @@ Quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_inp = torch.randn(3, 2, 4)
-quant_identity = QuantIdentity(return_quant_tensor=True)
+<span class="n">float_inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_input = quant_identity(float_inp)
-quant_output = torch.tanh(quant_input)
+<span class="n">quant_input</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp</span><span class="p">)</span>
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">quant_input</span><span class="p">)</span>
 
-print(f&quot;Quant input:\n {quant_input} \n&quot;)
-print(f&quot;Quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1169,23 +1177,23 @@ Quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_inp1 = torch.randn(3, 2)
-float_inp2 = torch.randn(3, 2)
-quant_identity = QuantIdentity(return_quant_tensor=True)
+<span class="n">float_inp1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">float_inp2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-#Training mode, statistics are being collected, scaling factors are different but it doesn&#39;t raise an error
-train_mode_cat = torch.cat([quant_identity(float_inp1), quant_identity(float_inp2)], dim=1)
+<span class="c1">#Training mode, statistics are being collected, scaling factors are different but it doesn&#39;t raise an error</span>
+<span class="n">train_mode_cat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp1</span><span class="p">),</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp2</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-#Inference mode, the EMA buffer is being used, scaling factors are the same
-quant_identity.eval()
-eval_quant_inp1 = quant_identity(float_inp1)
-eval_quant_inp2 = quant_identity(float_inp2)
-eval_mode_cat = torch.cat([eval_quant_inp1, eval_quant_inp2], dim=1)
+<span class="c1">#Inference mode, the EMA buffer is being used, scaling factors are the same</span>
+<span class="n">quant_identity</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">eval_quant_inp1</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp1</span><span class="p">)</span>
+<span class="n">eval_quant_inp2</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">float_inp2</span><span class="p">)</span>
+<span class="n">eval_mode_cat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">eval_quant_inp1</span><span class="p">,</span> <span class="n">eval_quant_inp2</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-print(f&quot;Eval mode concat quant inputs:\n {eval_quant_inp1} {eval_quant_inp2} \n&quot;)
-print(f&quot;Eval mode concat quant output:\n {eval_mode_cat}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eval mode concat quant inputs:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_quant_inp1</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_quant_inp2</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Eval mode concat quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_mode_cat</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1222,11 +1230,11 @@ Eval mode concat quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-quant_linear = QuantLinear(2, 4, weight_bit_width=5, bias=True)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-print(f&quot;Weight QuantTensor:\n {quant_linear.quant_weight()}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1250,11 +1258,11 @@ Weight QuantTensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-quant_linear = QuantLinear(2, 4, weight_bit_width=5, weight_scaling_per_output_channel=True, bias=False)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-print(f&quot;Weight QuantTensor:\n {quant_linear.quant_weight()}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1281,11 +1289,11 @@ Weight QuantTensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_input = torch.randn(3, 2)
-quant_identity = QuantIdentity(bit_width=3, return_quant_tensor=True)
-print(f&quot;QuantTensor:\n {quant_identity(float_input)}&quot;)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_identity</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1308,13 +1316,13 @@ QuantTensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.quant import Uint8ActPerTensorFloatMaxInit
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Uint8ActPerTensorFloatMaxInit</span>
 
-float_inp1 = torch.randn(3, 2)
-quant_relu = QuantReLU(max_val=6.0, act_quant=Uint8ActPerTensorFloatMaxInit, return_quant_tensor=True)
-quant_relu(float_inp1)
+<span class="n">float_inp1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">max_val</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">act_quant</span><span class="o">=</span><span class="n">Uint8ActPerTensorFloatMaxInit</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_relu</span><span class="p">(</span><span class="n">float_inp1</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1337,32 +1345,32 @@ IntQuantTensor(value=tensor([[1.5294, 0.0000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.nn import QuantConv1d
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantConv1d</span>
 
-BATCHES = 1
-CHANNELS = 2
-FEATURES = 5
-KERNEL = 3
+<span class="n">BATCHES</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">CHANNELS</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">FEATURES</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">KERNEL</span> <span class="o">=</span> <span class="mi">3</span>
 
-float_input = torch.randn(BATCHES, CHANNELS, FEATURES)
-per_channel_depthwise_quant_conv = QuantConv1d(
-    CHANNELS, CHANNELS, KERNEL, groups=CHANNELS, bias=True,
-    # set the quantizers
-    input_quant=Int8ActPerTensorFloat,
-    bias_quant=Int16Bias,
-    # customize the input quantizer with extra keyword args
-    input_bit_width=3,
-    input_scaling_per_output_channel=True,
-    input_scaling_stats_permute_dims=(1, 0, 2), # permute dims to put channels first during stats collection phase
-    input_per_channel_broadcastable_shape=(1, CHANNELS, 1), # shape of the learned parameter
-    return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCHES</span><span class="p">,</span> <span class="n">CHANNELS</span><span class="p">,</span> <span class="n">FEATURES</span><span class="p">)</span>
+<span class="n">per_channel_depthwise_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv1d</span><span class="p">(</span>
+    <span class="n">CHANNELS</span><span class="p">,</span> <span class="n">CHANNELS</span><span class="p">,</span> <span class="n">KERNEL</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">CHANNELS</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># set the quantizers</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int16Bias</span><span class="p">,</span>
+    <span class="c1"># customize the input quantizer with extra keyword args</span>
+    <span class="n">input_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">input_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">input_scaling_stats_permute_dims</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="c1"># permute dims to put channels first during stats collection phase</span>
+    <span class="n">input_per_channel_broadcastable_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">CHANNELS</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="c1"># shape of the learned parameter</span>
+    <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_output = per_channel_depthwise_quant_conv(float_input)
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">per_channel_depthwise_quant_conv</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input} \n&quot;)
-print(f&quot;Per-channel quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Per-channel quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1391,35 +1399,35 @@ Per-channel quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.inject.enum import ScalingPerOutputType
-from brevitas.nn import QuantConv1d
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalingPerOutputType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantConv1d</span>
 
-BATCHES = 1
-CHANNELS = 2
-FEATURES = 5
-KERNEL = 3
+<span class="n">BATCHES</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">CHANNELS</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">FEATURES</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">KERNEL</span> <span class="o">=</span> <span class="mi">3</span>
 
-class PerChannel3bActQuant(Int8ActPerTensorFloat):
-    bit_width = 3
-    scaling_per_output_channel=True
-    scaling_stats_permute_dims=(1, 0, 2)
+<span class="k">class</span><span class="w"> </span><span class="nc">PerChannel3bActQuant</span><span class="p">(</span><span class="n">Int8ActPerTensorFloat</span><span class="p">):</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span>
+    <span class="n">scaling_stats_permute_dims</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
 
-float_input = torch.randn(BATCHES, CHANNELS, FEATURES)
-per_channel_depthwise_quant_conv = QuantConv1d(
-    CHANNELS, CHANNELS, KERNEL, groups=CHANNELS, bias=True,
-    # set the quantizers
-    input_quant=PerChannel3bActQuant,
-    bias_quant=Int16Bias,
-    # layer-specific kwarg
-    input_per_channel_broadcastable_shape=(1, CHANNELS, 1),
-    return_quant_tensor=True)
+<span class="n">float_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCHES</span><span class="p">,</span> <span class="n">CHANNELS</span><span class="p">,</span> <span class="n">FEATURES</span><span class="p">)</span>
+<span class="n">per_channel_depthwise_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv1d</span><span class="p">(</span>
+    <span class="n">CHANNELS</span><span class="p">,</span> <span class="n">CHANNELS</span><span class="p">,</span> <span class="n">KERNEL</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">CHANNELS</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># set the quantizers</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">PerChannel3bActQuant</span><span class="p">,</span>
+    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int16Bias</span><span class="p">,</span>
+    <span class="c1"># layer-specific kwarg</span>
+    <span class="n">input_per_channel_broadcastable_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">CHANNELS</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+    <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_output = per_channel_depthwise_quant_conv(float_input)
+<span class="n">quant_output</span> <span class="o">=</span> <span class="n">per_channel_depthwise_quant_conv</span><span class="p">(</span><span class="n">float_input</span><span class="p">)</span>
 
-print(f&quot;Float input:\n {float_input} \n&quot;)
-print(f&quot;Per-channel quant output:\n {quant_output}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Float input:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">float_input</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Per-channel quant output:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1453,22 +1461,22 @@ Per-channel quant output:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.inject.enum import *
-from brevitas.core.zero_point import ZeroZeroPoint
-from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject.enum</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.zero_point</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZeroZeroPoint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.solver</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightQuantSolver</span><span class="p">,</span> <span class="n">ActQuantSolver</span>
 
-class Int8WeightPerTensorFloat(WeightQuantSolver):
-    quant_type = QuantType.INT # integer quantization
-    bit_width_impl_type = BitWidthImplType.CONST # constant bit width
-    float_to_int_impl_type = FloatToIntImplType.ROUND # round to nearest
-    scaling_impl_type = ScalingImplType.STATS # scale based on statistics
-    scaling_stats_op = StatsOp.MAX # scale statistics is the absmax value
-    restrict_scaling_type = RestrictValueType.FP # scale factor is a floating point value
-    scaling_per_output_channel = False # scale is per tensor
-    bit_width = 8 # bit width is 8
-    signed = True # quantization range is signed
-    narrow_range = True # quantization range is [-127,127] rather than [-128, 127]
-    zero_point_impl = ZeroZeroPoint # zero point is 0.
+<span class="k">class</span><span class="w"> </span><span class="nc">Int8WeightPerTensorFloat</span><span class="p">(</span><span class="n">WeightQuantSolver</span><span class="p">):</span>
+    <span class="n">quant_type</span> <span class="o">=</span> <span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span> <span class="c1"># integer quantization</span>
+    <span class="n">bit_width_impl_type</span> <span class="o">=</span> <span class="n">BitWidthImplType</span><span class="o">.</span><span class="n">CONST</span> <span class="c1"># constant bit width</span>
+    <span class="n">float_to_int_impl_type</span> <span class="o">=</span> <span class="n">FloatToIntImplType</span><span class="o">.</span><span class="n">ROUND</span> <span class="c1"># round to nearest</span>
+    <span class="n">scaling_impl_type</span> <span class="o">=</span> <span class="n">ScalingImplType</span><span class="o">.</span><span class="n">STATS</span> <span class="c1"># scale based on statistics</span>
+    <span class="n">scaling_stats_op</span> <span class="o">=</span> <span class="n">StatsOp</span><span class="o">.</span><span class="n">MAX</span> <span class="c1"># scale statistics is the absmax value</span>
+    <span class="n">restrict_scaling_type</span> <span class="o">=</span> <span class="n">RestrictValueType</span><span class="o">.</span><span class="n">FP</span> <span class="c1"># scale factor is a floating point value</span>
+    <span class="n">scaling_per_output_channel</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># scale is per tensor</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">8</span> <span class="c1"># bit width is 8</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span> <span class="c1"># quantization range is signed</span>
+    <span class="n">narrow_range</span> <span class="o">=</span> <span class="kc">True</span> <span class="c1"># quantization range is [-127,127] rather than [-128, 127]</span>
+    <span class="n">zero_point_impl</span> <span class="o">=</span> <span class="n">ZeroZeroPoint</span> <span class="c1"># zero point is 0.</span>
 </pre></div>
 </div>
 </div>
@@ -1480,20 +1488,20 @@ class Int8WeightPerTensorFloat(WeightQuantSolver):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class Int8ActPerTensorFloat(ActQuantSolver):
-    quant_type = QuantType.INT # integer quantization
-    bit_width_impl_type = BitWidthImplType.CONST # constant bit width
-    float_to_int_impl_type = FloatToIntImplType.ROUND # round to nearest
-    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS # scale is a parameter initialized from statistics
-    scaling_stats_op = StatsOp.PERCENTILE # scale statistics is a percentile of the abs value
-    high_percentile_q = 99.999 # percentile is 99.999
-    collect_stats_steps = 300  # statistics are collected for 300 forward steps before switching to a learned parameter
-    restrict_scaling_type = RestrictValueType.FP # scale is a floating-point value
-    scaling_per_output_channel = False  # scale is per tensor
-    bit_width = 8  # bit width is 8
-    signed = True # quantization range is signed
-    narrow_range = False # quantization range is [-128, 127] rather than [-127, 127]
-    zero_point_impl = ZeroZeroPoint # zero point is 0.
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Int8ActPerTensorFloat</span><span class="p">(</span><span class="n">ActQuantSolver</span><span class="p">):</span>
+    <span class="n">quant_type</span> <span class="o">=</span> <span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span> <span class="c1"># integer quantization</span>
+    <span class="n">bit_width_impl_type</span> <span class="o">=</span> <span class="n">BitWidthImplType</span><span class="o">.</span><span class="n">CONST</span> <span class="c1"># constant bit width</span>
+    <span class="n">float_to_int_impl_type</span> <span class="o">=</span> <span class="n">FloatToIntImplType</span><span class="o">.</span><span class="n">ROUND</span> <span class="c1"># round to nearest</span>
+    <span class="n">scaling_impl_type</span> <span class="o">=</span> <span class="n">ScalingImplType</span><span class="o">.</span><span class="n">PARAMETER_FROM_STATS</span> <span class="c1"># scale is a parameter initialized from statistics</span>
+    <span class="n">scaling_stats_op</span> <span class="o">=</span> <span class="n">StatsOp</span><span class="o">.</span><span class="n">PERCENTILE</span> <span class="c1"># scale statistics is a percentile of the abs value</span>
+    <span class="n">high_percentile_q</span> <span class="o">=</span> <span class="mf">99.999</span> <span class="c1"># percentile is 99.999</span>
+    <span class="n">collect_stats_steps</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># statistics are collected for 300 forward steps before switching to a learned parameter</span>
+    <span class="n">restrict_scaling_type</span> <span class="o">=</span> <span class="n">RestrictValueType</span><span class="o">.</span><span class="n">FP</span> <span class="c1"># scale is a floating-point value</span>
+    <span class="n">scaling_per_output_channel</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># scale is per tensor</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># bit width is 8</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span> <span class="c1"># quantization range is signed</span>
+    <span class="n">narrow_range</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># quantization range is [-128, 127] rather than [-127, 127]</span>
+    <span class="n">zero_point_impl</span> <span class="o">=</span> <span class="n">ZeroZeroPoint</span> <span class="c1"># zero point is 0.</span>
 </pre></div>
 </div>
 </div>
@@ -1506,19 +1514,19 @@ class Int8WeightPerTensorFloat(WeightQuantSolver):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.quant import Int8WeightPerChannelFloat
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8WeightPerChannelFloat</span>
 
-class LearnedIntWeightPerChannelFloat(Int8WeightPerChannelFloat):
-    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
-    restrict_scaling_type = RestrictValueType.LOG_FP
-    bit_width_impl_type = BitWidthImplType.PARAMETER
+<span class="k">class</span><span class="w"> </span><span class="nc">LearnedIntWeightPerChannelFloat</span><span class="p">(</span><span class="n">Int8WeightPerChannelFloat</span><span class="p">):</span>
+    <span class="n">scaling_impl_type</span> <span class="o">=</span> <span class="n">ScalingImplType</span><span class="o">.</span><span class="n">PARAMETER_FROM_STATS</span>
+    <span class="n">restrict_scaling_type</span> <span class="o">=</span> <span class="n">RestrictValueType</span><span class="o">.</span><span class="n">LOG_FP</span>
+    <span class="n">bit_width_impl_type</span> <span class="o">=</span> <span class="n">BitWidthImplType</span><span class="o">.</span><span class="n">PARAMETER</span>
 
 
-quant_linear = QuantLinear(2, 4, weight_quant=LearnedIntWeightPerChannelFloat, bias=False)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">LearnedIntWeightPerChannelFloat</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-print(f&quot;Weight QuantTensor:\n {quant_linear.quant_weight()}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight QuantTensor:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1542,20 +1550,20 @@ Weight QuantTensor:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-class LearnedIntActPerTensorFloat(Int8ActPerTensorFloat):
-    bit_width_impl_type = BitWidthImplType.PARAMETER
-    restrict_scaling_type = RestrictValueType.LOG_FP
+<span class="k">class</span><span class="w"> </span><span class="nc">LearnedIntActPerTensorFloat</span><span class="p">(</span><span class="n">Int8ActPerTensorFloat</span><span class="p">):</span>
+    <span class="n">bit_width_impl_type</span> <span class="o">=</span> <span class="n">BitWidthImplType</span><span class="o">.</span><span class="n">PARAMETER</span>
+    <span class="n">restrict_scaling_type</span> <span class="o">=</span> <span class="n">RestrictValueType</span><span class="o">.</span><span class="n">LOG_FP</span>
 
-float_inp = torch.randn(3, 2)
-quant_linear = QuantLinear(
-    2, 4,
-    input_quant=LearnedIntActPerTensorFloat,
-    weight_quant=LearnedIntWeightPerChannelFloat,
-    return_quant_tensor=True, bias=False)
+<span class="n">float_inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">LearnedIntActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">weight_quant</span><span class="o">=</span><span class="n">LearnedIntWeightPerChannelFloat</span><span class="p">,</span>
+    <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-quant_linear(float_inp)
+<span class="n">quant_linear</span><span class="p">(</span><span class="n">float_inp</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1581,18 +1589,18 @@ IntQuantTensor(value=tensor([[-0.9109, -0.4588,  0.3119, -0.6530],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from torch import nn
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
 
-float_linear = nn.Linear(2, 4, bias=False)
-quant_linear = QuantLinear(
-    2, 4,
-    input_quant=LearnedIntActPerTensorFloat,
-    weight_quant=LearnedIntWeightPerChannelFloat,
-    return_quant_tensor=True, bias=False)
+<span class="n">float_linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">LearnedIntActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">weight_quant</span><span class="o">=</span><span class="n">LearnedIntWeightPerChannelFloat</span><span class="p">,</span>
+    <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-quant_linear.load_state_dict(float_linear.state_dict())
+<span class="n">quant_linear</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_linear</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1631,21 +1639,21 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from torch import nn
-from brevitas import config
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
 
-config.IGNORE_MISSING_KEYS = True
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
 
-float_linear = nn.Linear(2, 4, bias=False)
-quant_linear = QuantLinear(
-    2, 4,
-    input_quant=LearnedIntActPerTensorFloat,
-    weight_quant=LearnedIntWeightPerChannelFloat,
-    return_quant_tensor=True, bias=False)
+<span class="n">float_linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">LearnedIntActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">weight_quant</span><span class="o">=</span><span class="n">LearnedIntWeightPerChannelFloat</span><span class="p">,</span>
+    <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-quant_linear.load_state_dict(float_linear.state_dict())
+<span class="n">quant_linear</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_linear</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1663,25 +1671,25 @@ quant_linear.load_state_dict(float_linear.state_dict())
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from torch import nn
-from brevitas import config
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
 
-config.IGNORE_MISSING_KEYS = True
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
 
-float_linear = nn.Linear(2, 4, bias=False)
-quant_linear = QuantLinear(
-    2, 4,
-    input_quant=LearnedIntActPerTensorFloat,
-    weight_quant=LearnedIntWeightPerChannelFloat,
-    return_quant_tensor=True, bias=False)
+<span class="n">float_linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">LearnedIntActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">weight_quant</span><span class="o">=</span><span class="n">LearnedIntWeightPerChannelFloat</span><span class="p">,</span>
+    <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-print(f&#39;Weight scale before load_state_dict: {quant_linear.quant_weight().scale}&#39;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Weight scale before load_state_dict: </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
-quant_linear.load_state_dict(float_linear.state_dict())
+<span class="n">quant_linear</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_linear</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 
-print(f&#39;Weight scale after load_state_dict: {quant_linear.quant_weight().scale}&#39;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Weight scale after load_state_dict: </span><span class="si">{</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1712,7 +1720,7 @@ Weight scale after load_state_dict: tensor([[0.0030],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>QuantReLU()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">QuantReLU</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1777,31 +1785,31 @@ QuantReLU(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.core.function_wrapper import TensorClamp, OverTensorView, RoundSte
-from brevitas.core.scaling import ParameterFromRuntimeStatsScaling, IntScaling
-from brevitas.core.stats import AbsPercentile
-from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.bit_width import BitWidthConst
-from brevitas.core.quant import IntQuant, RescalingIntQuant
-from brevitas.core.zero_point import ZeroZeroPoint
-from brevitas.core.function_wrapper.misc import Identity
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">TensorClamp</span><span class="p">,</span> <span class="n">OverTensorView</span><span class="p">,</span> <span class="n">RoundSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">,</span> <span class="n">IntScaling</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbsPercentile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.restrict_val</span><span class="w"> </span><span class="kn">import</span> <span class="n">FloatRestrictValue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.bit_width</span><span class="w"> </span><span class="kn">import</span> <span class="n">BitWidthConst</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntQuant</span><span class="p">,</span> <span class="n">RescalingIntQuant</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.zero_point</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZeroZeroPoint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
 
-tensor_quant = RescalingIntQuant(
-    int_quant=IntQuant(
-        float_to_int_impl=RoundSte(),
-        tensor_clamp_impl=TensorClamp(),
-        input_view_impl=Identity,
-        signed=False,
-        narrow_range=False),
-    zero_point_impl=ZeroZeroPoint(),
-    bit_width_impl=BitWidthConst(bit_width=8),
-    int_scaling_impl=IntScaling(signed=False, narrow_range=False),
-    scaling_impl=ParameterFromRuntimeStatsScaling(
-        scaling_stats_input_view_shape_impl=OverTensorView(),
-        scaling_stats_impl=AbsPercentile(
-            high_percentile_q=99.999, stats_reduce_dim=None),
-        collect_stats_steps=300)
-)
+<span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">RescalingIntQuant</span><span class="p">(</span>
+    <span class="n">int_quant</span><span class="o">=</span><span class="n">IntQuant</span><span class="p">(</span>
+        <span class="n">float_to_int_impl</span><span class="o">=</span><span class="n">RoundSte</span><span class="p">(),</span>
+        <span class="n">tensor_clamp_impl</span><span class="o">=</span><span class="n">TensorClamp</span><span class="p">(),</span>
+        <span class="n">input_view_impl</span><span class="o">=</span><span class="n">Identity</span><span class="p">,</span>
+        <span class="n">signed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">narrow_range</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="n">zero_point_impl</span><span class="o">=</span><span class="n">ZeroZeroPoint</span><span class="p">(),</span>
+    <span class="n">bit_width_impl</span><span class="o">=</span><span class="n">BitWidthConst</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">),</span>
+    <span class="n">int_scaling_impl</span><span class="o">=</span><span class="n">IntScaling</span><span class="p">(</span><span class="n">signed</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">narrow_range</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+    <span class="n">scaling_impl</span><span class="o">=</span><span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">(</span>
+        <span class="n">scaling_stats_input_view_shape_impl</span><span class="o">=</span><span class="n">OverTensorView</span><span class="p">(),</span>
+        <span class="n">scaling_stats_impl</span><span class="o">=</span><span class="n">AbsPercentile</span><span class="p">(</span>
+            <span class="n">high_percentile_q</span><span class="o">=</span><span class="mf">99.999</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span>
+        <span class="n">collect_stats_steps</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1816,29 +1824,29 @@ tensor_quant = RescalingIntQuant(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.inject import ExtendedInjector
-from brevitas.proxy import ActQuantProxyFromInjector
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExtendedInjector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActQuantProxyFromInjector</span>
 
-class Int8ActPerTensorFloatFromScratch(ExtendedInjector):
-    proxy_class = ActQuantProxyFromInjector # Python wrapper, returns QuantTensor
-    tensor_quant = RescalingIntQuant # TorchScript implementation, returns (dequant_value, scale, zero_point, bit_width)
-    int_quant = IntQuant
-    float_to_int_impl = RoundSte
-    zero_point_impl = ZeroZeroPoint
-    bit_width_impl = BitWidthConst
-    tensor_clamp_impl = TensorClamp
-    int_scaling_impl = IntScaling
-    scaling_impl = ParameterFromRuntimeStatsScaling
-    scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_impl = AbsPercentile
-    restrict_scaling_impl = FloatRestrictValue
-    high_percentile_q = 99.999
-    collect_stats_steps = 300
-    scaling_shape = ()
-    stats_reduce_dim = None
-    bit_width = 8
-    narrow_range = True
-    signed = True
+<span class="k">class</span><span class="w"> </span><span class="nc">Int8ActPerTensorFloatFromScratch</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">ActQuantProxyFromInjector</span> <span class="c1"># Python wrapper, returns QuantTensor</span>
+    <span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">RescalingIntQuant</span> <span class="c1"># TorchScript implementation, returns (dequant_value, scale, zero_point, bit_width)</span>
+    <span class="n">int_quant</span> <span class="o">=</span> <span class="n">IntQuant</span>
+    <span class="n">float_to_int_impl</span> <span class="o">=</span> <span class="n">RoundSte</span>
+    <span class="n">zero_point_impl</span> <span class="o">=</span> <span class="n">ZeroZeroPoint</span>
+    <span class="n">bit_width_impl</span> <span class="o">=</span> <span class="n">BitWidthConst</span>
+    <span class="n">tensor_clamp_impl</span> <span class="o">=</span> <span class="n">TensorClamp</span>
+    <span class="n">int_scaling_impl</span> <span class="o">=</span> <span class="n">IntScaling</span>
+    <span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterFromRuntimeStatsScaling</span>
+    <span class="n">scaling_stats_input_view_shape_impl</span> <span class="o">=</span> <span class="n">OverTensorView</span>
+    <span class="n">scaling_stats_impl</span> <span class="o">=</span> <span class="n">AbsPercentile</span>
+    <span class="n">restrict_scaling_impl</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span>
+    <span class="n">high_percentile_q</span> <span class="o">=</span> <span class="mf">99.999</span>
+    <span class="n">collect_stats_steps</span> <span class="o">=</span> <span class="mi">300</span>
+    <span class="n">scaling_shape</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="n">narrow_range</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span>
 </pre></div>
 </div>
 </div>
@@ -1855,34 +1863,34 @@ itself. It has to return a <code class="docutils literal notranslate"><span clas
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.inject import value
-from brevitas.proxy import WeightQuantProxyFromInjector
-from brevitas.core.scaling import ParameterScaling
-from brevitas.core.function_wrapper.misc import Identity
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject</span><span class="w"> </span><span class="kn">import</span> <span class="n">value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightQuantProxyFromInjector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParameterScaling</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
 
-class Int8ActPerTensorFloatParameterFromScratch(ExtendedInjector):
+<span class="k">class</span><span class="w"> </span><span class="nc">Int8ActPerTensorFloatParameterFromScratch</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
 
-    @value
-    def scaling_init(module):
-        return module.weight.abs().max().detach()
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaling_init</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
 
-    proxy_class = WeightQuantProxyFromInjector # Python wrapper, returns QuantTensor
-    tensor_quant = RescalingIntQuant
-    int_quant = IntQuant
-    float_to_int_impl = RoundSte
-    zero_point_impl = ZeroZeroPoint
-    bit_width_impl = BitWidthConst
-    tensor_clamp_impl = TensorClamp
-    int_scaling_impl = IntScaling
-    scaling_impl = ParameterScaling
-    restrict_scaling_impl = FloatRestrictValue
-    input_view_impl = Identity
-    scaling_shape = ()
-    bit_width = 8
-    narrow_range = True
-    signed = True
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">WeightQuantProxyFromInjector</span> <span class="c1"># Python wrapper, returns QuantTensor</span>
+    <span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">RescalingIntQuant</span>
+    <span class="n">int_quant</span> <span class="o">=</span> <span class="n">IntQuant</span>
+    <span class="n">float_to_int_impl</span> <span class="o">=</span> <span class="n">RoundSte</span>
+    <span class="n">zero_point_impl</span> <span class="o">=</span> <span class="n">ZeroZeroPoint</span>
+    <span class="n">bit_width_impl</span> <span class="o">=</span> <span class="n">BitWidthConst</span>
+    <span class="n">tensor_clamp_impl</span> <span class="o">=</span> <span class="n">TensorClamp</span>
+    <span class="n">int_scaling_impl</span> <span class="o">=</span> <span class="n">IntScaling</span>
+    <span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterScaling</span>
+    <span class="n">restrict_scaling_impl</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span>
+    <span class="n">input_view_impl</span> <span class="o">=</span> <span class="n">Identity</span>
+    <span class="n">scaling_shape</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="n">narrow_range</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span>
 
-quant_linear = QuantLinear(2, 4, weight_quant=Int8ActPerTensorFloatParameterFromScratch, bias=False)
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloatParameterFromScratch</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1898,19 +1906,19 @@ quant_linear = QuantLinear(2, 4, weight_quant=Int8ActPerTensorFloatParameterFrom
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[36]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-float_inp = torch.randn(3, 2)
-quant_linear = QuantLinear(
-    2, 4, weight_quant=LearnedIntWeightPerChannelFloat, return_quant_tensor=True, bias=False)
-quant_identity = QuantIdentity(
-    bit_width_impl=quant_linear.weight_quant.tensor_quant.msb_clamp_bit_width_impl,
-    act_quant=LearnedIntActPerTensorFloat, return_quant_tensor=True)
+<span class="n">float_inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">quant_linear</span> <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">LearnedIntWeightPerChannelFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+    <span class="n">bit_width_impl</span><span class="o">=</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">tensor_quant</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">,</span>
+    <span class="n">act_quant</span><span class="o">=</span><span class="n">LearnedIntActPerTensorFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-quant_identity_bit_width = quant_identity.act_quant.fused_activation_quant_proxy.tensor_quant.msb_clamp_bit_width_impl
-quant_linear_bit_width = quant_linear.weight_quant.tensor_quant.msb_clamp_bit_width_impl
+<span class="n">quant_identity_bit_width</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="o">.</span><span class="n">act_quant</span><span class="o">.</span><span class="n">fused_activation_quant_proxy</span><span class="o">.</span><span class="n">tensor_quant</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span>
+<span class="n">quant_linear_bit_width</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">tensor_quant</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span>
 
-assert_with_message(quant_identity_bit_width is quant_linear_bit_width)
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">quant_identity_bit_width</span> <span class="ow">is</span> <span class="n">quant_linear_bit_width</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1935,7 +1943,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>!pip install netron onnx onnxoptimizer
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>pip<span class="w"> </span>install<span class="w"> </span>netron<span class="w"> </span>onnx<span class="w"> </span>onnxoptimizer
 </pre></div>
 </div>
 </div>
@@ -1955,14 +1963,14 @@ Requirement already satisfied: protobuf&gt;=3.20.2 in /proj/xlabs/users/nfraser/
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[38]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import netron
-import time
-from IPython.display import IFrame
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">netron</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">IFrame</span>
 
-def show_netron(model_path, port):
-    time.sleep(3.)
-    netron.start(model_path, address=(&quot;localhost&quot;, port), browse=False)
-    return IFrame(src=f&quot;http://localhost:{port}/&quot;, width=&quot;100%&quot;, height=400)
+<span class="k">def</span><span class="w"> </span><span class="nf">show_netron</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">3.</span><span class="p">)</span>
+    <span class="n">netron</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span> <span class="n">browse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">IFrame</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="s2">&quot;100%&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1973,21 +1981,21 @@ def show_netron(model_path, port):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[39]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-from brevitas.export import export_qonnx
-from brevitas.quant import Int8ActPerTensorFloat, Int16Bias
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_qonnx</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">Int16Bias</span>
 
-float_inp = torch.randn(1, 2, 5)
+<span class="n">float_inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
 
-quant_conv_4b8b = QuantConv1d(
-    2, 4, 3, bias=True, weight_bit_width=4,
-    input_quant=Int8ActPerTensorFloat,
-    output_quant=Int8ActPerTensorFloat,
-    bias_quant=Int16Bias)
+<span class="n">quant_conv_4b8b</span> <span class="o">=</span> <span class="n">QuantConv1d</span><span class="p">(</span>
+    <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int16Bias</span><span class="p">)</span>
 
-output_path = &#39;brevitas_onnx_conv4b8b.onnx&#39;
-exported_model = export_qonnx(quant_conv_4b8b, input_t=float_inp, export_path=output_path)
+<span class="n">output_path</span> <span class="o">=</span> <span class="s1">&#39;brevitas_onnx_conv4b8b.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_qonnx</span><span class="p">(</span><span class="n">quant_conv_4b8b</span><span class="p">,</span> <span class="n">input_t</span><span class="o">=</span><span class="n">float_inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">output_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -2003,7 +2011,7 @@ exported_model = export_qonnx(quant_conv_4b8b, input_t=float_inp, export_path=ou
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[40]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(output_path, 8083)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -2034,12 +2042,12 @@ Serving &#39;brevitas_onnx_conv4b8b.onnx&#39; at http://localhost:8083
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[40]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-quant_conv_4b_weights = QuantConv1d(2, 4, 3, bias=True, weight_bit_width=4)
+<span class="n">quant_conv_4b_weights</span> <span class="o">=</span> <span class="n">QuantConv1d</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-output_path = &#39;brevitas_onnx_conv_4b_weights.onnx&#39;
-exported_model = export_qonnx(quant_conv_4b_weights, input_t=float_inp, export_path=output_path)
+<span class="n">output_path</span> <span class="o">=</span> <span class="s1">&#39;brevitas_onnx_conv_4b_weights.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_qonnx</span><span class="p">(</span><span class="n">quant_conv_4b_weights</span><span class="p">,</span> <span class="n">input_t</span><span class="o">=</span><span class="n">float_inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">output_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -2047,7 +2055,7 @@ exported_model = export_qonnx(quant_conv_4b_weights, input_t=float_inp, export_p
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[42]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(output_path, 8084)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="mi">8084</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -2092,24 +2100,24 @@ transformations under <code class="docutils literal notranslate"><span class="pr
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[41]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.graph.calibrate import bias_correction_mode
-from brevitas.graph.calibrate import calibration_mode
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.graph.calibrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">bias_correction_mode</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.graph.calibrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">calibration_mode</span>
 
-def calibrate_model(calibration_loader, quant_model, args):
-    with torch.no_grad():
-        # Put the model in calibration mode to collect statistics
-        # Quantization is automatically disabled during the calibration, and re-enabled at the end
-        with calibration_mode(quant_model):
-            for i, (images, _) in enumerate(calibration_loader):
-                print(f&#39;Calibration iteration {i}&#39;)
-                quant_model(images)
+<span class="k">def</span><span class="w"> </span><span class="nf">calibrate_model</span><span class="p">(</span><span class="n">calibration_loader</span><span class="p">,</span> <span class="n">quant_model</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="c1"># Put the model in calibration mode to collect statistics</span>
+        <span class="c1"># Quantization is automatically disabled during the calibration, and re-enabled at the end</span>
+        <span class="k">with</span> <span class="n">calibration_mode</span><span class="p">(</span><span class="n">quant_model</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">calibration_loader</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calibration iteration </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">quant_model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
 
-        # Apply bias correction
-        with bias_correction_mode(quant_model):
-            for i, (images, _) in enumerate(calibration_loader):
-                print(f&#39;Bias correction iteration {i}&#39;)
-                quant_model(images)
-    return quant_model
+        <span class="c1"># Apply bias correction</span>
+        <span class="k">with</span> <span class="n">bias_correction_mode</span><span class="p">(</span><span class="n">quant_model</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">calibration_loader</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Bias correction iteration </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                <span class="n">quant_model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">quant_model</span>
 </pre></div>
 </div>
 </div>

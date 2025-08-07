@@ -200,13 +200,21 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../about.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -461,7 +469,7 @@ document.write(`
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%pip install netron
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="k">pip</span> install netron
 </pre></div>
 </div>
 </div>
@@ -495,19 +503,19 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import netron
-import time
-from IPython.display import IFrame
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">netron</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">IFrame</span>
 
-# helpers
-def assert_with_message(condition):
-    assert condition
-    print(condition)
+<span class="c1"># helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
 
-def show_netron(model_path, port):
-    time.sleep(3.)
-    netron.start(model_path, address=(&quot;localhost&quot;, port), browse=False)
-    return IFrame(src=f&quot;http://localhost:{port}/&quot;, width=&quot;100%&quot;, height=400)
+<span class="k">def</span><span class="w"> </span><span class="nf">show_netron</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">3.</span><span class="p">)</span>
+    <span class="n">netron</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span> <span class="n">browse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">IFrame</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="s2">&quot;100%&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -515,22 +523,22 @@ def show_netron(model_path, port):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import brevitas.nn as qnn
-import torch
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">qnn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-IN_CH = 3
-OUT_CH = 128
-BATCH_SIZE = 1
+<span class="n">IN_CH</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">OUT_CH</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
 
-# set seed
-torch.manual_seed(0)
+<span class="c1"># set seed</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-linear = qnn.QuantLinear(IN_CH, OUT_CH, bias=True)
-inp = torch.randn(BATCH_SIZE, IN_CH)
-path = &#39;quant_linear_qcdq.onnx&#39;
+<span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_linear_qcdq.onnx&#39;</span>
 
-exported_model = export_onnx_qcdq(linear, args=inp, export_path=path, opset_version=13)
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">linear</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 <br/></pre></div>
 </div>
 </div>
@@ -538,7 +546,7 @@ exported_model = export_onnx_qcdq(linear, args=inp, export_path=path, opset_vers
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(path, 8082)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">8082</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -575,22 +583,22 @@ interval is perfectly symmetric (otherwise, the minimum integer would be -128), 
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class QuantModel(torch.nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.linear = qnn.QuantLinear(IN_CH, OUT_CH, bias=True, weight_scaling_per_output_channel=True)
-        self.act = qnn.QuantReLU()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">QuantModel</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">()</span>
 
-    def forward(self, inp):
-        inp = self.linear(inp)
-        inp = self.act(inp)
-        return inp
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">act</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inp</span>
 
-model = QuantModel()
-inp = torch.randn(BATCH_SIZE, IN_CH)
-path = &#39;quant_model_qcdq.onnx&#39;
+<span class="n">model</span> <span class="o">=</span> <span class="n">QuantModel</span><span class="p">()</span>
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_qcdq.onnx&#39;</span>
 
-exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_version=13)
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -598,7 +606,7 @@ exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_versi
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(path, 8083)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -639,24 +647,24 @@ Serving &#39;quant_model_qcdq.onnx&#39; at http://localhost:8083
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class Model(torch.nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.linear = qnn.QuantLinear(IN_CH, OUT_CH, bias=True, weight_bit_width=3)
-        self.act = qnn.QuantReLU(bit_width=4)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-    def forward(self, inp):
-        inp = self.linear(inp)
-        inp = self.act(inp)
-        return inp
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">act</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inp</span>
 
-model = Model()
-model.eval()
+<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-inp = torch.randn(BATCH_SIZE, IN_CH)
-path = &#39;quant_model_3b_4b_qcdq.onnx&#39;
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_3b_4b_qcdq.onnx&#39;</span>
 
-exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_version=13)
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -664,7 +672,7 @@ exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_versi
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(path, 8084)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">8084</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -709,36 +717,36 @@ Serving &#39;quant_model_3b_4b_qcdq.onnx&#39; at http://localhost:8084
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import onnxruntime as ort
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
 
-class Model(torch.nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.linear = qnn.QuantLinear(IN_CH, OUT_CH, bias=True, weight_bit_width=3)
-        self.act = qnn.QuantReLU(bit_width=4)
+<span class="k">class</span><span class="w"> </span><span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-    def forward(self, inp):
-        inp = self.linear(inp)
-        inp = self.act(inp)
-        return inp
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">act</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inp</span>
 
-model = Model()
-model.eval()
-inp = torch.randn(BATCH_SIZE, IN_CH)
-path = &#39;quant_model_3b_4b_qcdq.onnx&#39;
+<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_3b_4b_qcdq.onnx&#39;</span>
 
-exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_version=13)
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 
-sess_opt = ort.SessionOptions()
-sess = ort.InferenceSession(path, sess_opt)
-input_name = sess.get_inputs()[0].name
-pred_onx = sess.run(None, {input_name: inp.numpy()})[0]
+<span class="n">sess_opt</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sess_opt</span><span class="p">)</span>
+<span class="n">input_name</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+<span class="n">pred_onx</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="n">input_name</span><span class="p">:</span> <span class="n">inp</span><span class="o">.</span><span class="n">numpy</span><span class="p">()})[</span><span class="mi">0</span><span class="p">]</span>
 
 
-out_brevitas = model(inp)
-out_ort = torch.tensor(pred_onx)
+<span class="n">out_brevitas</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+<span class="n">out_ort</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">pred_onx</span><span class="p">)</span>
 
-assert_with_message(torch.allclose(out_brevitas, out_ort))
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">out_brevitas</span><span class="p">,</span> <span class="n">out_ort</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -768,15 +776,15 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant.scaled_int import Int32Bias
-from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int32Bias</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
-qgemm_ort = qnn.QuantLinear(
-    IN_CH, OUT_CH,
-    weight_bit_width=5,
-    input_quant=Int8ActPerTensorFloat,
-    output_quant=Int8ActPerTensorFloat,
-    bias=True, bias_quant=Int32Bias)
+<span class="n">qgemm_ort</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span>
+    <span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span>
+    <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+    <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -791,30 +799,30 @@ qgemm_ort = qnn.QuantLinear(
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.common.generative.quantizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ShiftedUint8DynamicActPerTensorFloat</span>
 
-IN_CH = 3
-IMG_SIZE = 128
-OUT_CH = 128
-BATCH_SIZE = 1
+<span class="n">IN_CH</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">IMG_SIZE</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">OUT_CH</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="n">BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1</span>
 
-class Model(torch.nn.Module):
-    def __init__(self) -&gt; None:
-        super().__init__()
-        self.linear = qnn.QuantLinear(IN_CH, OUT_CH, bias=True, weight_bit_width=8, input_quant=ShiftedUint8DynamicActPerTensorFloat)
-        self.act = qnn.QuantReLU(input_quant=ShiftedUint8DynamicActPerTensorFloat)
+<span class="k">class</span><span class="w"> </span><span class="nc">Model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CH</span><span class="p">,</span> <span class="n">OUT_CH</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">input_quant</span><span class="o">=</span><span class="n">ShiftedUint8DynamicActPerTensorFloat</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">input_quant</span><span class="o">=</span><span class="n">ShiftedUint8DynamicActPerTensorFloat</span><span class="p">)</span>
 
-    def forward(self, inp):
-        inp = self.linear(inp)
-        inp = self.act(inp)
-        return inp
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inp</span><span class="p">):</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="n">inp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">act</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inp</span>
 
-inp = torch.randn(BATCH_SIZE, IN_CH)
-model = Model()
-model.eval()
-path = &#39;dynamic_quant_model_qcdq.onnx&#39;
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;dynamic_quant_model_qcdq.onnx&#39;</span>
 
-exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_version=13)
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -822,7 +830,7 @@ exported_model = export_onnx_qcdq(model, args=inp, export_path=path, opset_versi
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(&quot;dynamic_quant_model_qcdq.onnx&quot;, 8086)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="s2">&quot;dynamic_quant_model_qcdq.onnx&quot;</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>

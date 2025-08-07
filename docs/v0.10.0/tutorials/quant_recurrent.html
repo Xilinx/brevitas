@@ -462,17 +462,17 @@ involved in their computation.</p>
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import inspect
-from brevitas.nn import QuantRNN
-from IPython.display import Markdown, display
-import torch
-torch.manual_seed(0)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-def pretty_print_source(source):
-    display(Markdown(&#39;```python\n&#39; + source + &#39;\n```&#39;))
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
 
-source = inspect.getsource(QuantRNN.__init__)
-pretty_print_source(source)
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">QuantRNN</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -523,14 +523,14 @@ pretty_print_source(source)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>def rnn_sublayer(module, sublayer_number, right_to_left_direction):
-    return module.layers[sublayer_number][1 if right_to_left_direction else 0]
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">rnn_sublayer</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">sublayer_number</span><span class="p">][</span><span class="mi">1</span> <span class="k">if</span> <span class="n">right_to_left_direction</span> <span class="k">else</span> <span class="mi">0</span><span class="p">]</span>
 
-quant_rnn = QuantRNN(input_size=10, hidden_size=20, num_layers=2, bidirectional=True)
-quant_rnn_0_left_to_right = rnn_sublayer(quant_rnn, sublayer_number=0, right_to_left_direction=False)
-quant_rnn_0_right_to_left = rnn_sublayer(quant_rnn, sublayer_number=0, right_to_left_direction=True)
-quant_rnn_1_left_to_right = rnn_sublayer(quant_rnn, sublayer_number=1, right_to_left_direction=False)
-quant_rnn_1_right_to_left = rnn_sublayer(quant_rnn, sublayer_number=1, right_to_left_direction=True)
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn_0_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_0_right_to_left</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn_1_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_1_right_to_left</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -548,7 +548,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:112: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_rnn_0_left_to_right.gate_params.input_weight.weight_quant is quant_rnn_1_right_to_left.gate_params.input_weight.weight_quant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span>
 </pre></div>
 </div>
 </div>
@@ -565,7 +565,7 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_rnn_0_left_to_right.cell.gate_acc_quant is quant_rnn_1_right_to_left.cell.gate_acc_quant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span>
 </pre></div>
 </div>
 </div>
@@ -582,7 +582,7 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_rnn_0_left_to_right.gate_params.bias_quant is quant_rnn_1_right_to_left.gate_params.bias_quant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span>
 </pre></div>
 </div>
 </div>
@@ -600,7 +600,7 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_rnn_0_left_to_right.io_quant is quant_rnn_1_right_to_left.io_quant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">io_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">io_quant</span>
 </pre></div>
 </div>
 </div>
@@ -618,18 +618,18 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.nn import QuantRNN
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
 
-def count_weights(model):
-    return sum(p.numel() for n, p in model.named_parameters() if &#39;weight&#39; in n)
+<span class="k">def</span><span class="w"> </span><span class="nf">count_weights</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="s1">&#39;weight&#39;</span> <span class="ow">in</span> <span class="n">n</span><span class="p">)</span>
 
-quant_rnn_single_direction = QuantRNN(input_size=10, hidden_size=20, bidirectional=False, shared_input_hidden_weights=False)
-quant_rnn_bidirectional = QuantRNN(input_size=10, hidden_size=20, bidirectional=True, shared_input_hidden_weights=False)
-quant_rnn_bidirectional_shared_input_hidden = QuantRNN(input_size=10, hidden_size=20, bidirectional=True, shared_input_hidden_weights=True)
+<span class="n">quant_rnn_single_direction</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_bidirectional</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_bidirectional_shared_input_hidden</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-print(f&quot;Number of weights for single direction QuantRNN: {count_weights(quant_rnn_single_direction)}&quot;)
-print(f&quot;Number of weights for bidirectional QuantRNN: {count_weights(quant_rnn_bidirectional)}&quot;)
-print(f&quot;Number of weights for bidirectional QuantRNN with shared input-hidden weights: {count_weights(quant_rnn_bidirectional_shared_input_hidden)}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for single direction QuantRNN: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_single_direction</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for bidirectional QuantRNN: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_bidirectional</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for bidirectional QuantRNN with shared input-hidden weights: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_bidirectional_shared_input_hidden</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <br/><br/></pre></div>
 </div>
 </div>
@@ -648,17 +648,17 @@ Number of weights for bidirectional QuantRNN with shared input-hidden weights: 1
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_rnn_4b = QuantRNN(input_size=10, hidden_size=20, weight_bit_width=4, weight_scaling_per_output_channel=True, io_bit_width=6)
-quant_rnn_4b_0_left_to_right = rnn_sublayer(quant_rnn_4b, sublayer_number=0, right_to_left_direction=False)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_4b</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">io_bit_width</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">quant_rnn_4b_0_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn_4b</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-input_hidden_weight = quant_rnn_4b_0_left_to_right.gate_params.input_weight.quant_weight()
-hidden_hidden_weight = quant_rnn_4b_0_left_to_right.gate_params.hidden_weight.quant_weight()
+<span class="n">input_hidden_weight</span> <span class="o">=</span> <span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
+<span class="n">hidden_hidden_weight</span> <span class="o">=</span> <span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">hidden_weight</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 
-print(f&quot;Input-hidden weight bit-width: {input_hidden_weight.bit_width}&quot;)
-print(f&quot;Hidden-hidden weight bit-width: {hidden_hidden_weight.bit_width}&quot;)
-print(f&quot;I/O quant bit-width: {quant_rnn_4b_0_left_to_right.io_quant.bit_width()}&quot;)
-print(f&quot;Input-hidden weight scale: {input_hidden_weight.scale}&quot;)
-print(f&quot;Hidden-hidden weight scale: {hidden_hidden_weight.scale}&quot;)
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input-hidden weight bit-width: </span><span class="si">{</span><span class="n">input_hidden_weight</span><span class="o">.</span><span class="n">bit_width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hidden-hidden weight bit-width: </span><span class="si">{</span><span class="n">hidden_hidden_weight</span><span class="o">.</span><span class="n">bit_width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;I/O quant bit-width: </span><span class="si">{</span><span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">io_quant</span><span class="o">.</span><span class="n">bit_width</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input-hidden weight scale: </span><span class="si">{</span><span class="n">input_hidden_weight</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hidden-hidden weight scale: </span><span class="si">{</span><span class="n">hidden_hidden_weight</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -719,13 +719,13 @@ Hidden-hidden weight scale: tensor([[0.0316],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantRNN
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
 
-quant_rnn = QuantRNN(input_size=10, hidden_size=20, batch_first=True)
-outputs, hidden_states = quant_rnn(torch.randn(2, 5, 10))
-print(f&quot;Output size: {outputs.shape}&quot;)
-print(f&quot;Hidden states size: {hidden_states.shape}&quot;)
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">outputs</span><span class="p">,</span> <span class="n">hidden_states</span> <span class="o">=</span> <span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output size: </span><span class="si">{</span><span class="n">outputs</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hidden states size: </span><span class="si">{</span><span class="n">hidden_states</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -743,11 +743,11 @@ Hidden states size: torch.Size([1, 2, 20])
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantRNN
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
 
-quant_rnn = QuantRNN(input_size=10, hidden_size=20, batch_first=True, return_quant_tensor=True)
-quant_rnn(torch.randn(2, 5, 10))
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -812,10 +812,10 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.nn import QuantIdentity
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
 
-quant_identity = QuantIdentity(return_quant_tensor=True)
-quant_rnn(quant_identity(torch.randn(2, 5, 10)))
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn</span><span class="p">(</span><span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)))</span>
 </pre></div>
 </div>
 </div>
@@ -871,7 +871,7 @@ quant_rnn(quant_identity(torch.randn(2, 5, 10)))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_rnn(torch.randn(2, 5, 10), torch.randn(1, 2, 20))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -927,15 +927,15 @@ quant_rnn(quant_identity(torch.randn(2, 5, 10)))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from torch.nn import RNN
-from brevitas.nn import QuantRNN
-from brevitas import config
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">RNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
 
-config.IGNORE_MISSING_KEYS = True
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
 
-float_rnn = RNN(input_size=10, hidden_size=20)
-quant_rnn = QuantRNN(input_size=10, hidden_size=20)
-quant_rnn.load_state_dict(float_rnn.state_dict())
+<span class="n">float_rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">quant_rnn</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_rnn</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -953,26 +953,26 @@ quant_rnn.load_state_dict(float_rnn.state_dict())
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from torch.nn import RNN
-from brevitas.nn import QuantRNN
-from brevitas import config
-ATOL = 1e-6
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">RNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
+<span class="n">ATOL</span> <span class="o">=</span> <span class="mf">1e-6</span>
 
-config.IGNORE_MISSING_KEYS = True
-torch.manual_seed(123456)
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">123456</span><span class="p">)</span>
 
-float_rnn = RNN(input_size=10, hidden_size=20)
-quant_rnn = QuantRNN(input_size=10, hidden_size=20, weight_quant=None, io_quant=None, gate_acc_quant=None, bias_quant=None)
+<span class="n">float_rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
-# Set both layers to the same state_dict
-quant_rnn.load_state_dict(float_rnn.state_dict())
+<span class="c1"># Set both layers to the same state_dict</span>
+<span class="n">quant_rnn</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_rnn</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 
-# Generate random input
-inp = torch.randn(5, 2, 10)
-# Check outputs are the same
-assert torch.allclose(quant_rnn(inp)[0], float_rnn(inp)[0], atol=ATOL)
-# Check hidden states are the same
-assert torch.allclose(quant_rnn(inp)[1], float_rnn(inp)[1], atol=ATOL)
+<span class="c1"># Generate random input</span>
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="c1"># Check outputs are the same</span>
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">ATOL</span><span class="p">)</span>
+<span class="c1"># Check hidden states are the same</span>
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">ATOL</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -981,10 +981,10 @@ assert torch.allclose(quant_rnn(inp)[1], float_rnn(inp)[1], atol=ATOL)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant.binary import SignedBinaryWeightPerTensorConst
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.binary</span><span class="w"> </span><span class="kn">import</span> <span class="n">SignedBinaryWeightPerTensorConst</span>
 
-binary_rnn = QuantRNN(input_size=10, hidden_size=20, weight_quant=SignedBinaryWeightPerTensorConst)
-binary_rnn(torch.randn(5, 2, 10))
+<span class="n">binary_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">SignedBinaryWeightPerTensorConst</span><span class="p">)</span>
+<span class="n">binary_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1046,15 +1046,15 @@ binary_rnn(torch.randn(5, 2, 10))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import inspect
-from brevitas.nn import QuantLSTM
-from IPython.display import Markdown, display
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
 
-def pretty_print_source(source):
-    display(Markdown(&#39;```python\n&#39; + source + &#39;\n```&#39;))
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
 
-source = inspect.getsource(QuantLSTM.__init__)
-pretty_print_source(source)
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">QuantLSTM</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1137,17 +1137,17 @@ set, supported only by QONNX. In both cases, <code class="docutils literal notra
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import time
-from IPython.display import IFrame
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">IFrame</span>
 
-def show_netron(model_path, port):
-    try:
-        import netron
-        time.sleep(3.)
-        netron.start(model_path, address=(&quot;localhost&quot;, port), browse=False)
-        return IFrame(src=f&quot;http://localhost:{port}/&quot;, width=&quot;100%&quot;, height=400)
-    except:
-        pass
+<span class="k">def</span><span class="w"> </span><span class="nf">show_netron</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">netron</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">3.</span><span class="p">)</span>
+        <span class="n">netron</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span> <span class="n">browse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">IFrame</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="s2">&quot;100%&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">pass</span>
 </pre></div>
 </div>
 </div>
@@ -1158,13 +1158,13 @@ def show_netron(model_path, port):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-quant_lstm_weight_only = QuantLSTM(input_size=10, hidden_size=20, weight_bit_width=4, io_quant=None, bias_quant=None, gate_acc_quant=None, sigmoid_quant=None, tanh_quant=None, cell_state_quant=None)
-export_path = &#39;quant_lstm_weight_only_4b.onnx&#39;
-exported_model = export_onnx_qcdq(quant_lstm_weight_only, (torch.randn(5, 1, 10)), opset_version=14, export_path=export_path)
+<span class="n">quant_lstm_weight_only</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_4b.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 <br/></pre></div>
 </div>
 </div>
@@ -1172,7 +1172,7 @@ exported_model = export_onnx_qcdq(quant_lstm_weight_only, (torch.randn(5, 1, 10)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8080)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8080</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1203,13 +1203,13 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import onnxruntime as ort
-import numpy as np
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-sess = ort.InferenceSession(export_path)
-input_name = sess.get_inputs()[0].name
-np_input = np.random.uniform(size=(5, 1, 10)).astype(np.float32)  # (seq_len, batch_size, input_size)
-pred_onnx = sess.run(None, {input_name: np_input})
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">export_path</span><span class="p">)</span>
+<span class="n">input_name</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+<span class="n">np_input</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># (seq_len, batch_size, input_size)</span>
+<span class="n">pred_onnx</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="n">input_name</span><span class="p">:</span> <span class="n">np_input</span><span class="p">})</span>
 </pre></div>
 </div>
 </div>
@@ -1218,15 +1218,15 @@ pred_onnx = sess.run(None, {input_name: np_input})
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-quant_lstm_weight_only_cifg = QuantLSTM(
-    input_size=10, hidden_size=20, coupled_input_forget_gates=True, weight_bit_width=4,
-    io_quant=None, bias_quant=None, gate_acc_quant=None, sigmoid_quant=None, tanh_quant=None, cell_state_quant=None)
-export_path = &#39;quant_lstm_weight_only_cifg_4b.onnx&#39;
-exported_model = export_onnx_qcdq(quant_lstm_weight_only_cifg, (torch.randn(5, 1, 10)), opset_version=14, export_path=export_path)
+<span class="n">quant_lstm_weight_only_cifg</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">coupled_input_forget_gates</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_cifg_4b.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_cifg</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1234,7 +1234,7 @@ exported_model = export_onnx_qcdq(quant_lstm_weight_only_cifg, (torch.randn(5, 1
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8082)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8082</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1265,13 +1265,13 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import onnxruntime as ort
-import numpy as np
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-sess = ort.InferenceSession(export_path)
-input_name = sess.get_inputs()[0].name
-np_input = np.random.uniform(size=(5, 1, 10)).astype(np.float32)  # (seq_len, batch_size, input_size)
-pred_onnx = sess.run(None, {input_name: np_input})
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">export_path</span><span class="p">)</span>
+<span class="n">input_name</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+<span class="n">np_input</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># (seq_len, batch_size, input_size)</span>
+<span class="n">pred_onnx</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="n">input_name</span><span class="p">:</span> <span class="n">np_input</span><span class="p">})</span>
 </pre></div>
 </div>
 </div>
@@ -1280,15 +1280,15 @@ pred_onnx = sess.run(None, {input_name: np_input})
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-quant_lstm_weight_only_bidirectional_2_layers = QuantLSTM(
-    input_size=10, hidden_size=20, bidirectional=True, num_layers=2, weight_bit_width=4,
-    io_quant=None, bias_quant=None, gate_acc_quant=None, sigmoid_quant=None, tanh_quant=None, cell_state_quant=None)
-export_path = &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39;
-exported_model = export_onnx_qcdq(quant_lstm_weight_only_bidirectional_2_layers, (torch.randn(5, 1, 10)), opset_version=14, export_path=export_path)
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1305,7 +1305,7 @@ exported_model = export_onnx_qcdq(quant_lstm_weight_only_bidirectional_2_layers,
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8083)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1336,15 +1336,15 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://l
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-quant_lstm_weight_only_bidirectional_2_layers_shared = QuantLSTM(
-    input_size=10, hidden_size=20, bidirectional=True, shared_input_hidden_weights=True, weight_bit_width=4,
-    io_quant=None, bias_quant=None, gate_acc_quant=None, sigmoid_quant=None, tanh_quant=None, cell_state_quant=None)
-export_path = &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39;
-exported_model = export_onnx_qcdq(quant_lstm_weight_only_bidirectional_2_layers_shared, (torch.randn(5, 1, 10)), opset_version=14, export_path=export_path)
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers_shared</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers_shared</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1361,7 +1361,7 @@ exported_model = export_onnx_qcdq(quant_lstm_weight_only_bidirectional_2_layers_
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8085)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8085</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1392,15 +1392,15 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; a
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-quant_lstm_weight_only_bidirectional_2_layers = QuantLSTM(
-    input_size=10, hidden_size=20, bidirectional=True, num_layers=2, weight_bit_width=4, shared_intra_layer_weight_quant=True,
-    io_quant=None, bias_quant=None, gate_acc_quant=None, sigmoid_quant=None, tanh_quant=None, cell_state_quant=None)
-export_path = &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39;
-exported_model = export_onnx_qcdq(quant_lstm_weight_only_bidirectional_2_layers, (torch.randn(5, 1, 10)), opset_version=14, export_path=export_path)
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1439,7 +1439,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8086)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1448,16 +1448,16 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_onnx_qcdq
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-quant_lstm_weight_only_bidirectional_2_layers = QuantLSTM(
-    input_size=10, hidden_size=20, bidirectional=True, num_layers=2, weight_bit_width=4,
-    shared_input_hidden_weights=True, shared_intra_layer_weight_quant=True,
-    io_quant=None, bias_quant=None, gate_acc_quant=None, sigmoid_quant=None, tanh_quant=None, cell_state_quant=None)
-export_path = &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;
-exported_model = export_onnx_qcdq(quant_lstm_weight_only_bidirectional_2_layers, (torch.randn(5, 1, 10)), opset_version=14, export_path=export_path)
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1496,7 +1496,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8087)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8087</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1508,13 +1508,13 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
-from brevitas.nn import QuantLSTM
-from brevitas.export import export_qonnx
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_qonnx</span>
 
-quant_lstm = QuantLSTM(input_size=10, hidden_size=20)
-export_path = &#39;quant_lstm.onnx&#39;
-exported_model = export_qonnx(quant_lstm, (torch.randn(5, 1, 10)), export_path=export_path)
+<span class="n">quant_lstm</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_qonnx</span><span class="p">(</span><span class="n">quant_lstm</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1544,7 +1544,7 @@ Serving &#39;quant_lstm.onnx&#39; at http://localhost:8088
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>show_netron(export_path, 8088)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8088</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>

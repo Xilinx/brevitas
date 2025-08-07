@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.scaling.runtime &#8212; Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation</title>
+    <title>brevitas.core.scaling.runtime &#8212; Brevitas Documentation - v0.11.0</title>
   
   
   
@@ -46,7 +46,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/scaling/runtime';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://giuseppe5.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.11.0';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -130,8 +130,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.11.0 - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.11.0 - Home"/>`);</script>
   
   
 </a></div>
@@ -194,13 +194,21 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../about.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -423,7 +431,6 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
@@ -440,7 +447,6 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_MOMENTUM</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParameterWrapper</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatelessBuffer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops_ste</span><span class="w"> </span><span class="kn">import</span> <span class="n">abs_binary_sign_grad</span>
 
 
 <div class="viewcode-block" id="StatsFromParameterScaling"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.runtime.StatsFromParameterScaling">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">StatsFromParameterScaling</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -455,8 +461,8 @@ document.write(`
             <span class="n">force_parameter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
             <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">affine_rescaling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-            <span class="n">affine_shift_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -476,10 +482,10 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span> <span class="o">=</span> <span class="n">_StatsScaling</span><span class="p">(</span>
             <span class="n">restrict_scaling_impl</span><span class="p">,</span>
             <span class="n">restrict_threshold_impl</span><span class="p">,</span>
-            <span class="n">scaling_shape</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">,</span>
-            <span class="n">affine_rescaling</span><span class="p">,</span>
-            <span class="n">affine_shift_scale</span><span class="p">,</span>
+            <span class="n">scaling_shape</span><span class="p">,</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">,</span>
             <span class="n">device</span><span class="p">)</span>
 
@@ -500,19 +506,25 @@ document.write(`
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-            <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
-            <span class="n">affine_rescaling</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-            <span class="n">affine_shift_scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+            <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">],</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_StatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">affine_shift_scale</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">affine_rescaling</span><span class="p">:</span>
+        <span class="n">_affine_rescaling</span> <span class="o">=</span> <span class="n">scaling_affine_rescaling_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">_affine_shift_scale</span> <span class="o">=</span> <span class="n">scaling_affine_shifting_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">_affine_shift_scale</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_affine_rescaling</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="s2">&quot;Disabling shifting of the scale requires to enable affine rescaling first.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">affine_rescaling</span><span class="p">:</span>
+                <span class="s2">&quot;Enabling shifting of the scale requires enabling affine rescaling first.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">_affine_rescaling</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">affine_rescaling</span> <span class="o">=</span> <span class="n">_AffineRescaling</span><span class="p">(</span>
-                <span class="n">scaling_shape</span><span class="p">,</span> <span class="n">affine_shift_scale</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+                <span class="n">scaling_shape</span><span class="p">,</span>
+                <span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
+                <span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="p">,</span>
+                <span class="n">device</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">affine_rescaling</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">)</span>
@@ -545,8 +557,8 @@ document.write(`
             <span class="n">scaling_stats_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">scaling_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-            <span class="n">affine_rescaling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-            <span class="n">affine_shift_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
             <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_stats_momentum</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_MOMENTUM</span><span class="p">,</span>
@@ -569,10 +581,10 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span> <span class="o">=</span> <span class="n">_StatsScaling</span><span class="p">(</span>
             <span class="n">restrict_scaling_impl</span><span class="p">,</span>
             <span class="n">restrict_threshold_impl</span><span class="p">,</span>
-            <span class="n">scaling_shape</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">,</span>
-            <span class="n">affine_rescaling</span><span class="p">,</span>
-            <span class="n">affine_shift_scale</span><span class="p">,</span>
+            <span class="n">scaling_shape</span><span class="p">,</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">,</span>
             <span class="n">device</span><span class="p">)</span>
 
@@ -587,21 +599,22 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">scaling_shape</span><span class="p">,</span>
-            <span class="n">shift_scale</span><span class="p">,</span>
+            <span class="n">affine_weight_init</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">affine_bias_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">],</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_AffineRescaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">affine_weight</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">shift_scale</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">affine_weight</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="n">affine_weight_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">affine_bias_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">affine_bias</span> <span class="o">=</span> <span class="n">ParameterWrapper</span><span class="p">(</span>
-                <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">scaling_shape</span><span class="p">,</span> <span class="n">affine_bias_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">affine_bias</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
 
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">affine_weight</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">affine_bias</span><span class="p">()</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_from_state_dict</span><span class="p">(</span>

@@ -11,13 +11,18 @@ Brevitas
 
    Tutorials <tutorials/index>
 
-   Settings <settings>
-
-   API reference <api_reference/index>
+   Papers <papers/index>
 
    User Guides <user_guide/index>
 
+.. toctree::
+   :hidden:
+
+   Settings <settings>
+   
    FAQ <faq>
+
+   API reference <api_reference/index>
 
    About <about>
 
