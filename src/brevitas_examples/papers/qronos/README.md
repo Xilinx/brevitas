@@ -2,7 +2,7 @@
 
 📄 [Paper](https://arxiv.org/pdf/2505.11695)
 💻 [Code](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py)
-💡 [Blog](https://xilinx.github.io/brevitas/dev/user_guide/qronos.html)
+💡 [Blog](https://xilinx.github.io/brevitas/dev/papers/qronos.html)
 
 ```
 @article{zhang2025qronos,
