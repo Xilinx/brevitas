@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.stats.stats_op &#8212; Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation</title>
+    <title>brevitas.core.stats.stats_op &#8212; Brevitas Documentation - v0.10.0</title>
   
   
   
@@ -46,7 +46,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/stats/stats_op';</script>
     <script>
         DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
-        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://giuseppe5.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
         DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.10.0';
         DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
         </script>
@@ -130,8 +130,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.12.1.dev10+g56c32c9c.d20250514 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.10.0 - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.10.0 - Home"/>`);</script>
   
   
 </a></div>
@@ -431,7 +431,7 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.ops_ste</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarClampMinSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.ops_ste</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarSignedClampMinSte</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatelessBuffer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">max_int</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant_tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">_unpack_quant_tensor</span>
@@ -1038,7 +1038,7 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">int_scaling_impl</span> <span class="o">=</span> <span class="n">int_scaling_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
         <span class="k">if</span> <span class="n">scaling_min_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scaling_min_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>

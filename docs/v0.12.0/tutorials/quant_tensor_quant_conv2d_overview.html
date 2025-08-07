@@ -200,13 +200,21 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../about.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -460,25 +468,25 @@ principles.</p>
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import inspect
-from brevitas.nn import QuantConv2d
-from brevitas.nn import QuantIdentity
-from IPython.display import Markdown, display
-import torch
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantConv2d</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-# helpers
-def assert_with_message(condition):
-    assert condition
-    print(condition)
+<span class="c1"># helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
 
-def pretty_print_source(source):
-    display(Markdown(&#39;```python\n&#39; + source + &#39;\n```&#39;))
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
 
-# set manual seed for the notebook
-torch.manual_seed(0)
+<span class="c1"># set manual seed for the notebook</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-source = inspect.getsource(QuantConv2d.__init__)
-pretty_print_source(source)
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">QuantConv2d</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -547,8 +555,8 @@ pretty_print_source(source)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>default_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=False)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">default_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -556,10 +564,10 @@ pretty_print_source(source)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>print(f&#39;Is weight quant enabled: {default_quant_conv.weight_quant.is_quant_enabled}&#39;)
-print(f&#39;Is bias quant enabled: {default_quant_conv.bias_quant.is_quant_enabled}&#39;)
-print(f&#39;Is input quant enabled: {default_quant_conv.input_quant.is_quant_enabled}&#39;)
-print(f&#39;Is output quant enabled: {default_quant_conv.output_quant.is_quant_enabled}&#39;)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Is weight quant enabled: </span><span class="si">{</span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">is_quant_enabled</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Is bias quant enabled: </span><span class="si">{</span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">bias_quant</span><span class="o">.</span><span class="n">is_quant_enabled</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Is input quant enabled: </span><span class="si">{</span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">input_quant</span><span class="o">.</span><span class="n">is_quant_enabled</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Is output quant enabled: </span><span class="si">{</span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">output_quant</span><span class="o">.</span><span class="n">is_quant_enabled</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -579,10 +587,10 @@ Is output quant enabled: False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-out = default_quant_conv(torch.randn(1, 2, 5, 5))
-out
+<span class="n">out</span> <span class="o">=</span> <span class="n">default_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">out</span>
 </pre></div>
 </div>
 </div>
@@ -621,16 +629,16 @@ tensor([[[[ 0.2908, -0.1793, -0.9610],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from torch.nn import Conv2d
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Conv2d</span>
 
-torch.manual_seed(0)  # set a seed to make sure the random weight init is reproducible
-disabled_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=False, weight_quant=None)
-torch.manual_seed(0)  # reproduce the same random weight init as above
-float_conv = Conv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=False)
-inp = torch.randn(1, 2, 5, 5)
-assert_with_message(torch.isclose(disabled_quant_conv(inp), float_conv(inp)).all().item())
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># set a seed to make sure the random weight init is reproducible</span>
+<span class="n">disabled_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># reproduce the same random weight init as above</span>
+<span class="n">float_conv</span> <span class="o">=</span> <span class="n">Conv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">disabled_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">),</span> <span class="n">float_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -653,7 +661,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>default_quant_conv.quant_weight()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -696,12 +704,12 @@ IntQuantTensor(value=tensor([[[[-0.0018,  0.1273, -0.1937],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>int_weight = default_quant_conv.quant_weight().int()
-zero_point = default_quant_conv.weight_quant.zero_point()
-scale = default_quant_conv.weight_quant.scale()
-quant_weight_manually = (int_weight - zero_point) * scale
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">int_weight</span> <span class="o">=</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
+<span class="n">zero_point</span> <span class="o">=</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">zero_point</span><span class="p">()</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">()</span>
+<span class="n">quant_weight_manually</span> <span class="o">=</span> <span class="p">(</span><span class="n">int_weight</span> <span class="o">-</span> <span class="n">zero_point</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span>
 
-assert_with_message(default_quant_conv.quant_weight().value.isclose(quant_weight_manually).all().item())
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">quant_weight_manually</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -718,7 +726,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(default_quant_conv.quant_weight().is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -735,15 +743,15 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_act = QuantIdentity(return_quant_tensor=True)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_act</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-out_tensor_0 = quant_act(torch.randn(1,2,5,5))
-out_tensor_1 = quant_act(torch.randn(1,2,5,5))
+<span class="n">out_tensor_0</span> <span class="o">=</span> <span class="n">quant_act</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="n">out_tensor_1</span> <span class="o">=</span> <span class="n">quant_act</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
 
-assert_with_message(out_tensor_0.is_valid)
-assert_with_message(out_tensor_1.is_valid)
-print(out_tensor_0.scale)
-print(out_tensor_1.scale)
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor_0</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor_1</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">out_tensor_0</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">out_tensor_1</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -763,8 +771,8 @@ tensor(0.0162, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>out_tensor = out_tensor_0 + out_tensor_1
-print(out_tensor)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out_tensor</span> <span class="o">=</span> <span class="n">out_tensor_0</span> <span class="o">+</span> <span class="n">out_tensor_1</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -792,7 +800,7 @@ IntQuantTensor(value=tensor([[[[-0.1106,  1.1945, -0.4972, -2.0968,  0.7175],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(not out_tensor.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -809,11 +817,11 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-quant_identity = QuantIdentity(return_quant_tensor=True)
-quant_tensor = quant_identity(torch.randn(1, 3, 4, 4))
-torch.nn.functional.max_pool2d(quant_tensor, kernel_size=2, stride=2)
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_tensor</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">quant_tensor</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -838,7 +846,7 @@ IntQuantTensor(value=tensor([[[[0.5191, 0.6402],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>torch.tanh(quant_tensor)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">quant_tensor</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -872,13 +880,13 @@ tensor([[[[ 0.4770,  0.2212,  0.0691,  0.5650],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
-input_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=False,
-    input_quant=Int8ActPerTensorFloat, return_quant_tensor=True)
-out_tensor = input_quant_conv(torch.randn(1, 2, 5, 5))
-out_tensor
+<span class="n">input_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">input_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">out_tensor</span>
 </pre></div>
 </div>
 </div>
@@ -905,7 +913,7 @@ IntQuantTensor(value=tensor([[[[-0.3568, -0.1883,  0.3589],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(out_tensor.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -925,21 +933,21 @@ the affine quantization invariant is always respected.</p>
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant_tensor import IntQuantTensor
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant_tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntQuantTensor</span>
 
-scale = 0.0001
-bit_width = 8
-zero_point = 0.
-int_value = torch.randint(low=- 2 ** (bit_width - 1), high=2 ** (bit_width - 1) - 1, size=(1, 2, 5, 5))
-quant_value = (int_value - zero_point) * scale
-quant_tensor_input = IntQuantTensor(
-    quant_value,
-    scale=torch.tensor(scale),
-    zero_point=torch.tensor(zero_point),
-    bit_width=torch.tensor(float(bit_width)),
-    signed=True,
-    training=True)
-quant_tensor_input
+<span class="n">scale</span> <span class="o">=</span> <span class="mf">0.0001</span>
+<span class="n">bit_width</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="n">zero_point</span> <span class="o">=</span> <span class="mf">0.</span>
+<span class="n">int_value</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=-</span> <span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">bit_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="n">high</span><span class="o">=</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">bit_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">quant_value</span> <span class="o">=</span> <span class="p">(</span><span class="n">int_value</span> <span class="o">-</span> <span class="n">zero_point</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span>
+<span class="n">quant_tensor_input</span> <span class="o">=</span> <span class="n">IntQuantTensor</span><span class="p">(</span>
+    <span class="n">quant_value</span><span class="p">,</span>
+    <span class="n">scale</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">scale</span><span class="p">),</span>
+    <span class="n">zero_point</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">zero_point</span><span class="p">),</span>
+    <span class="n">bit_width</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)),</span>
+    <span class="n">signed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_tensor_input</span>
 </pre></div>
 </div>
 </div>
@@ -966,7 +974,7 @@ IntQuantTensor(value=tensor([[[[ 7.2000e-03, -3.7000e-03,  7.7000e-03, -2.4000e-
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(quant_tensor_input.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -984,10 +992,10 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>return_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=False, return_quant_tensor=True)
-out_tensor = return_quant_conv(quant_tensor_input)
-out_tensor
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">return_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
+<span class="n">out_tensor</span>
 </pre></div>
 </div>
 </div>
@@ -1014,7 +1022,7 @@ IntQuantTensor(value=tensor([[[[-0.0019,  0.0049, -0.0012],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(out_tensor.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1031,7 +1039,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>input_quant_conv(quant_tensor_input)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">input_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1062,13 +1070,13 @@ IntQuantTensor(value=tensor([[[[-0.0073,  0.0040, -0.0011],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
-output_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=False,
-    output_quant=Int8ActPerTensorFloat, return_quant_tensor=True)
-out_tensor = output_quant_conv(torch.randn(1, 2, 5, 5))
-out_tensor
+<span class="n">output_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">output_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">out_tensor</span>
 </pre></div>
 </div>
 </div>
@@ -1095,7 +1103,7 @@ IntQuantTensor(value=tensor([[[[-0.2117, -0.4811,  0.0385],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(out_tensor.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1122,12 +1130,12 @@ without any sort of input quantization, we would get an error:</p>
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant.scaled_int import Int8Bias
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8Bias</span>
 
-bias_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=True,
-    bias_quant=Int8Bias, return_quant_tensor=True)
-bias_quant_conv(torch.randn(1, 2, 5, 5))
+<span class="n">bias_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8Bias</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">bias_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1175,7 +1183,7 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>bias_quant_conv(quant_tensor_input)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">bias_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1204,10 +1212,10 @@ IntQuantTensor(value=tensor([[[[-2.4238e-03, -5.6598e-03,  5.1882e-03],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>input_bias_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=True,
-    input_quant=Int8ActPerTensorFloat, bias_quant=Int8Bias, return_quant_tensor=True)
-input_bias_quant_conv(torch.randn(1, 2, 5, 5))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">input_bias_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8Bias</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">input_bias_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1234,7 +1242,7 @@ IntQuantTensor(value=tensor([[[[-0.2816, -0.5271, -0.1748],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>input_bias_quant_conv(quant_tensor_input)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">input_bias_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1263,10 +1271,10 @@ IntQuantTensor(value=tensor([[[[-0.0058,  0.0030,  0.0030],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>output_bias_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=True,
-    output_quant=Int8ActPerTensorFloat, bias_quant=Int8Bias, return_quant_tensor=True)
-output_bias_quant_conv(torch.randn(1, 2, 5, 5))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_bias_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8Bias</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">output_bias_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1336,12 +1344,12 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8BiasPerTensorFloatInternalScaling</span>
 
-bias_internal_scale_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=True,
-    bias_quant=Int8BiasPerTensorFloatInternalScaling, return_quant_tensor=False)
-bias_internal_scale_quant_conv(torch.randn(1, 2, 5, 5))
+<span class="n">bias_internal_scale_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8BiasPerTensorFloatInternalScaling</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">bias_internal_scale_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1370,11 +1378,11 @@ tensor([[[[-0.4360, -0.2674, -0.4194],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>unquant_bias_input_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=True,
-    input_quant=Int8ActPerTensorFloat, return_quant_tensor=True)
-out_tensor = unquant_bias_input_quant_conv(torch.randn(1, 2, 5, 5))
-out_tensor
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">unquant_bias_input_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">unquant_bias_input_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">out_tensor</span>
 </pre></div>
 </div>
 </div>
@@ -1405,7 +1413,7 @@ IntQuantTensor(value=tensor([[[[-0.6912,  0.0086,  0.1628],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(out_tensor.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1422,10 +1430,10 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>bias_input_quant_conv = QuantConv2d(
-    in_channels=2, out_channels=3, kernel_size=(3,3), bias=True,
-    input_quant=Int8ActPerTensorFloat, bias_quant=Int8Bias)
-bias_input_quant_conv(torch.randn(1, 2, 5, 5))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">bias_input_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8Bias</span><span class="p">)</span>
+<span class="n">bias_input_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>

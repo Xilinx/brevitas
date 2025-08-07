@@ -171,15 +171,8 @@
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../settings.html">
-    Settings
-  </a>
-</li>
-
-
-<li class="nav-item pst-header-nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
-    API reference
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
   </a>
 </li>
 
@@ -192,18 +185,40 @@
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../faq.html">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
     FAQ
   </a>
 </li>
 
 
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../about.html">
+<li class="nav-item  current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -310,15 +325,8 @@ document.write(`
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../settings.html">
-    Settings
-  </a>
-</li>
-
-
-<li class="nav-item pst-header-nav-item current active">
-  <a class="nav-link nav-internal" href="index.html">
-    API reference
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
   </a>
 </li>
 
@@ -331,8 +339,22 @@ document.write(`
 
 
 <li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
   <a class="nav-link nav-internal" href="../faq.html">
     FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    API reference
   </a>
 </li>
 
@@ -520,7 +542,7 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.scaling.runtime.RuntimeStatsScaling">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.runtime.</span></span><span class="sig-name descname"><span class="pre">RuntimeStatsScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_rescaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_shift_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FloatRestrictValue()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_threshold_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_momentum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#RuntimeStatsScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.RuntimeStatsScaling" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.runtime.</span></span><span class="sig-name descname"><span class="pre">RuntimeStatsScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_affine_rescaling_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_affine_shifting_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FloatRestrictValue()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_threshold_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_momentum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#RuntimeStatsScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.RuntimeStatsScaling" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.scaling.runtime.RuntimeStatsScaling.forward">
@@ -541,7 +563,7 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.scaling.runtime.StatsFromParameterScaling">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.runtime.</span></span><span class="sig-name descname"><span class="pre">StatsFromParameterScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_parameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FloatRestrictValue()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_threshold_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_rescaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_shift_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#StatsFromParameterScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.StatsFromParameterScaling" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.runtime.</span></span><span class="sig-name descname"><span class="pre">StatsFromParameterScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_parameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FloatRestrictValue()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_threshold_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_affine_rescaling_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_affine_shifting_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#StatsFromParameterScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.StatsFromParameterScaling" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.scaling.runtime.StatsFromParameterScaling.forward">
@@ -765,7 +787,7 @@ Default: <code class="docutils literal notranslate"><span class="pre">False</spa
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterFromStatsFromParameterScaling">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.standalone.</span></span><span class="sig-name descname"><span class="pre">ParameterFromStatsFromParameterScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_parameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FloatRestrictValue()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_threshold_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterFromStatsFromParameterScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromStatsFromParameterScaling" title="Permalink to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.standalone.</span></span><span class="sig-name descname"><span class="pre">ParameterFromStatsFromParameterScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_parameter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">FloatRestrictValue()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_threshold_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_affine_rescaling_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_affine_shifting_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterFromStatsFromParameterScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromStatsFromParameterScaling" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
 <p>ScriptModule implementation of a learned scale factor initialized from statistics of a parameter,
 e.g. weights MSE or AbsMax.</p>

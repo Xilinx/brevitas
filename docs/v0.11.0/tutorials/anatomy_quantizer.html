@@ -200,13 +200,21 @@
   </a>
 </li>
 
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../about.html">
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -464,10 +472,10 @@ document.write(`
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.inject import ExtendedInjector
-from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExtendedInjector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
-issubclass(Int8ActPerTensorFloat, ExtendedInjector)
+<span class="nb">issubclass</span><span class="p">(</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">ExtendedInjector</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -484,7 +492,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>Int8ActPerTensorFloat.tensor_quant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">Int8ActPerTensorFloat</span><span class="o">.</span><span class="n">tensor_quant</span>
 </pre></div>
 </div>
 </div>
@@ -548,16 +556,16 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import inspect
-from IPython.display import Markdown, display
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
 
-# helpers
-def assert_with_message(condition):
-    assert condition
-    print(condition)
+<span class="c1"># helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
 
-def pretty_print_source(source):
-    display(Markdown(&#39;```python\n&#39; + source + &#39;\n```&#39;))
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -565,10 +573,10 @@ def pretty_print_source(source):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.core.quant import BinaryQuant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">BinaryQuant</span>
 
-source = inspect.getsource(BinaryQuant)
-pretty_print_source(source)
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">BinaryQuant</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -633,7 +641,7 @@ pretty_print_source(source)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.core.scaling import ParameterScaling
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParameterScaling</span>
 </pre></div>
 </div>
 </div>
@@ -644,13 +652,13 @@ pretty_print_source(source)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import torch
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-# set seed for notebook
-torch.manual_seed(0)
+<span class="c1"># set seed for notebook</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-manual_tensor_quant = BinaryQuant(scaling_impl=ParameterScaling(scaling_init=0.1))
-manual_tensor_quant(torch.randn(4, 4))
+<span class="n">manual_tensor_quant</span> <span class="o">=</span> <span class="n">BinaryQuant</span><span class="p">(</span><span class="n">scaling_impl</span><span class="o">=</span><span class="n">ParameterScaling</span><span class="p">(</span><span class="n">scaling_init</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+<span class="n">manual_tensor_quant</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -678,15 +686,15 @@ manual_tensor_quant(torch.randn(4, 4))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.inject import ExtendedInjector
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExtendedInjector</span>
 
-class MyBinaryQuantizer(ExtendedInjector):
-    tensor_quant = BinaryQuant
-    scaling_impl=ParameterScaling
-    scaling_init=0.1
+<span class="k">class</span><span class="w"> </span><span class="nc">MyBinaryQuantizer</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+    <span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">BinaryQuant</span>
+    <span class="n">scaling_impl</span><span class="o">=</span><span class="n">ParameterScaling</span>
+    <span class="n">scaling_init</span><span class="o">=</span><span class="mf">0.1</span>
 
-inj_tensor_quant = MyBinaryQuantizer.tensor_quant
-inj_tensor_quant(torch.randn(4, 4))
+<span class="n">inj_tensor_quant</span> <span class="o">=</span> <span class="n">MyBinaryQuantizer</span><span class="o">.</span><span class="n">tensor_quant</span>
+<span class="n">inj_tensor_quant</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -715,11 +723,11 @@ inj_tensor_quant(torch.randn(4, 4))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class MyChildBinaryQuantizer(MyBinaryQuantizer):
-    scaling_init=1.0
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyChildBinaryQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
+    <span class="n">scaling_init</span><span class="o">=</span><span class="mf">1.0</span>
 
-child_inj_tensor_quant = MyChildBinaryQuantizer.tensor_quant
-child_inj_tensor_quant(torch.randn(4, 4))
+<span class="n">child_inj_tensor_quant</span> <span class="o">=</span> <span class="n">MyChildBinaryQuantizer</span><span class="o">.</span><span class="n">tensor_quant</span>
+<span class="n">child_inj_tensor_quant</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -743,18 +751,18 @@ child_inj_tensor_quant(torch.randn(4, 4))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class MyBinaryImpl(ExtendedInjector):
-    tensor_quant = BinaryQuant
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyBinaryImpl</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+    <span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">BinaryQuant</span>
 
-class MyScalingImpl(ExtendedInjector):
-    scaling_impl=ParameterScaling
-    scaling_init=0.1
+<span class="k">class</span><span class="w"> </span><span class="nc">MyScalingImpl</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+    <span class="n">scaling_impl</span><span class="o">=</span><span class="n">ParameterScaling</span>
+    <span class="n">scaling_init</span><span class="o">=</span><span class="mf">0.1</span>
 
-class MyComposedBinaryQuantizer(MyBinaryImpl, MyScalingImpl):
-    pass
+<span class="k">class</span><span class="w"> </span><span class="nc">MyComposedBinaryQuantizer</span><span class="p">(</span><span class="n">MyBinaryImpl</span><span class="p">,</span> <span class="n">MyScalingImpl</span><span class="p">):</span>
+    <span class="k">pass</span>
 
-comp_inj_tensor_quant = MyComposedBinaryQuantizer.tensor_quant
-comp_inj_tensor_quant(torch.randn(4, 4))
+<span class="n">comp_inj_tensor_quant</span> <span class="o">=</span> <span class="n">MyComposedBinaryQuantizer</span><span class="o">.</span><span class="n">tensor_quant</span>
+<span class="n">comp_inj_tensor_quant</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -783,10 +791,10 @@ comp_inj_tensor_quant(torch.randn(4, 4))
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.proxy import WeightQuantProxyFromInjector
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightQuantProxyFromInjector</span>
 
-class MyBinaryWeightQuantizer(MyBinaryQuantizer):
-    proxy_class = WeightQuantProxyFromInjector
+<span class="k">class</span><span class="w"> </span><span class="nc">MyBinaryWeightQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">WeightQuantProxyFromInjector</span>
 </pre></div>
 </div>
 </div>
@@ -795,13 +803,13 @@ class MyBinaryWeightQuantizer(MyBinaryQuantizer):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.nn import QuantConv2d
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantConv2d</span>
 
-binary_weight_quant_conv = QuantConv2d(3, 2, (3,3), weight_quant=MyBinaryWeightQuantizer)
-try:
-    quant_weight = binary_weight_quant_conv.quant_weight()
-except TypeError:
-    pass
+<span class="n">binary_weight_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">quant_weight</span> <span class="o">=</span> <span class="n">binary_weight_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
+<span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+    <span class="k">pass</span>
 <br/></pre></div>
 </div>
 </div>
@@ -811,12 +819,12 @@ except TypeError:
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class MySignedBinaryWeightQuantizer(MyBinaryWeightQuantizer):
-    signed = True
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MySignedBinaryWeightQuantizer</span><span class="p">(</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">):</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span>
 
-binary_weight_quant_conv = QuantConv2d(3, 2, (3,3), weight_quant=MySignedBinaryWeightQuantizer)
-signed_quant_weight = binary_weight_quant_conv.quant_weight()
-signed_quant_weight
+<span class="n">binary_weight_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
+<span class="n">signed_quant_weight</span> <span class="o">=</span> <span class="n">binary_weight_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
+<span class="n">signed_quant_weight</span>
 </pre></div>
 </div>
 </div>
@@ -856,7 +864,7 @@ IntQuantTensor(value=tensor([[[[ 0.1000,  0.1000, -0.1000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message(signed_quant_weight.is_valid)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">signed_quant_weight</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -874,8 +882,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>small_scale_quant_conv = QuantConv2d(3, 2, (3,3), weight_quant=MyBinaryWeightQuantizer, weight_signed=True)
-small_scale_quant_conv.quant_weight()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">small_scale_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">,</span> <span class="n">weight_signed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">small_scale_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -921,15 +929,15 @@ IntQuantTensor(value=tensor([[[[-0.1000, -0.1000,  0.1000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.proxy import ActQuantProxyFromInjector
-from brevitas.nn import QuantIdentity
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActQuantProxyFromInjector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
 
-class MySignedBinaryActQuantizer(MyBinaryQuantizer):
-    proxy_class = ActQuantProxyFromInjector
-    signed = True
+<span class="k">class</span><span class="w"> </span><span class="nc">MySignedBinaryActQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">ActQuantProxyFromInjector</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span>
 
-binary_relu = QuantIdentity(act_quant=MySignedBinaryActQuantizer, return_quant_tensor=True)
-binary_relu(torch.randn(4, 4))
+<span class="n">binary_relu</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="n">MySignedBinaryActQuantizer</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">binary_relu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -959,9 +967,9 @@ IntQuantTensor(value=tensor([[-0.1000,  0.1000, -0.1000, -0.1000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>small_scale_binary_identity = QuantIdentity(
-    act_quant=MySignedBinaryActQuantizer, scaling_init=0.001, return_quant_tensor=True)
-small_scale_binary_identity(torch.randn(4, 4))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">small_scale_binary_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+    <span class="n">act_quant</span><span class="o">=</span><span class="n">MySignedBinaryActQuantizer</span><span class="p">,</span> <span class="n">scaling_init</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">small_scale_binary_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -986,13 +994,13 @@ IntQuantTensor(value=tensor([[ 0.0010, -0.0010, -0.0010,  0.0010],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.inject import value
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject</span><span class="w"> </span><span class="kn">import</span> <span class="n">value</span>
 
-class ParamFromMaxWeightQuantizer(MySignedBinaryWeightQuantizer):
+<span class="k">class</span><span class="w"> </span><span class="nc">ParamFromMaxWeightQuantizer</span><span class="p">(</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">):</span>
 
-    @value
-    def scaling_init(module):
-        return module.weight.abs().max()
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaling_init</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1002,8 +1010,8 @@ class ParamFromMaxWeightQuantizer(MySignedBinaryWeightQuantizer):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>param_from_max_quant_conv = QuantConv2d(3, 2, (3, 3), weight_quant=ParamFromMaxWeightQuantizer)
-param_from_max_quant_conv.quant_weight()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">param_from_max_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
+<span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1044,7 +1052,7 @@ IntQuantTensor(value=tensor([[[[ 0.1820, -0.1820, -0.1820],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message((param_from_max_quant_conv.weight_quant.scale() == param_from_max_quant_conv.weight.abs().max()).item())
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">((</span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1061,10 +1069,10 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from torch import nn
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
 
-float_conv = nn.Conv2d(3, 2, (3, 3))
-float_conv.weight.abs().max()
+<span class="n">float_conv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">float_conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1082,7 +1090,7 @@ tensor(0.1924, grad_fn=&lt;MaxBackward1&gt;)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>param_from_max_quant_conv.load_state_dict(float_conv.state_dict())
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1114,10 +1122,10 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas import config
-config.IGNORE_MISSING_KEYS = True
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
 
-param_from_max_quant_conv.load_state_dict(float_conv.state_dict())
+<span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1136,7 +1144,7 @@ param_from_max_quant_conv.load_state_dict(float_conv.state_dict())
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>param_from_max_quant_conv.quant_weight()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1183,10 +1191,10 @@ IntQuantTensor(value=tensor([[[[ 0.1924,  0.1924, -0.1924],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_conv1 = QuantConv2d(3, 2, (3, 3), weight_quant=MySignedBinaryWeightQuantizer)
-quant_conv2 = QuantConv2d(3, 2, (3, 3), weight_quant=MySignedBinaryWeightQuantizer)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
+<span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
 
-assert_with_message(quant_conv1.weight_quant is not quant_conv2.weight_quant)
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1205,10 +1213,10 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_conv1 = QuantConv2d(3, 2, (3, 3), weight_quant=MySignedBinaryWeightQuantizer)
-quant_conv2 = QuantConv2d(3, 2, (3, 3), weight_quant=quant_conv1.weight_quant)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
+<span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
 
-assert_with_message(quant_conv1.weight_quant is quant_conv2.weight_quant)
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1224,7 +1232,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message((quant_conv1.weight_quant.scale() == quant_conv2.weight_quant.scale()).item())
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">((</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1241,21 +1249,21 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>class SharedParamFromMeanWeightQuantizer(MySignedBinaryWeightQuantizer):
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">SharedParamFromMeanWeightQuantizer</span><span class="p">(</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">):</span>
 
-    @value
-    def scaling_init(module):
-        if isinstance(module, tuple):
-            return torch.cat((module[0].weight.view(-1), module[1].weight.view(-1))).abs().mean()
-        else:
-            return module.weight.abs().mean()
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaling_init</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">((</span><span class="n">module</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">module</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
-quant_conv1 = QuantConv2d(3, 2, (3, 3), weight_quant=SharedParamFromMeanWeightQuantizer)
-old_quant_conv1_scale = quant_conv1.weight_quant.scale()
-quant_conv2 = QuantConv2d(3, 2, (3, 3), weight_quant=quant_conv1.weight_quant)
-new_quant_conv1_scale = quant_conv1.weight_quant.scale()
+<span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">SharedParamFromMeanWeightQuantizer</span><span class="p">)</span>
+<span class="n">old_quant_conv1_scale</span> <span class="o">=</span> <span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">()</span>
+<span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
+<span class="n">new_quant_conv1_scale</span> <span class="o">=</span> <span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">()</span>
 
-assert_with_message(not (old_quant_conv1_scale == new_quant_conv1_scale).item())
+<span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="p">(</span><span class="n">old_quant_conv1_scale</span> <span class="o">==</span> <span class="n">new_quant_conv1_scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1271,7 +1279,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>assert_with_message((new_quant_conv1_scale == quant_conv2.weight_quant.scale()).item())
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">((</span><span class="n">new_quant_conv1_scale</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1304,10 +1312,10 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_conv_w_init = QuantConv2d(3, 2, (3, 3), weight_quant=ParamFromMaxWeightQuantizer)
-torch.nn.init.uniform_(quant_conv_w_init.weight)
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv_w_init</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
 
-assert_with_message(not (quant_conv_w_init.weight.abs().max() == quant_conv_w_init.weight_quant.scale()).item())
+<span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1324,9 +1332,9 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_conv_w_init.weight_quant.init_tensor_quant()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">init_tensor_quant</span><span class="p">()</span>
 
-assert_with_message((quant_conv_w_init.weight.abs().max() == quant_conv_w_init.weight_quant.scale()).item())
+<span class="n">assert_with_message</span><span class="p">((</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1350,53 +1358,53 @@ idea then that the flags can be set through keyword arguments of the respective 
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.core.quant import ClampedBinaryQuant
-from brevitas.proxy import WeightQuantProxyFromInjector, ActQuantProxyFromInjector
-from brevitas.inject import this
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClampedBinaryQuant</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightQuantProxyFromInjector</span><span class="p">,</span> <span class="n">ActQuantProxyFromInjector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject</span><span class="w"> </span><span class="kn">import</span> <span class="n">this</span>
 
 
-class CommonQuantizer(ExtendedInjector):
-    scaling_impl = ParameterScaling
-    signed=True
+<span class="k">class</span><span class="w"> </span><span class="nc">CommonQuantizer</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+    <span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterScaling</span>
+    <span class="n">signed</span><span class="o">=</span><span class="kc">True</span>
 
-    @value
-    def tensor_quant(is_clamped):
-        # returning a class to auto-wire from a value function
-        # wouldn&#39;t be allowed in a standard Injector
-        if is_clamped:
-            return ClampedBinaryQuant
-        else:
-            return BinaryQuant
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tensor_quant</span><span class="p">(</span><span class="n">is_clamped</span><span class="p">):</span>
+        <span class="c1"># returning a class to auto-wire from a value function</span>
+        <span class="c1"># wouldn&#39;t be allowed in a standard Injector</span>
+        <span class="k">if</span> <span class="n">is_clamped</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ClampedBinaryQuant</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BinaryQuant</span>
 
-    @value
-    def scaling_shape(scaling_per_output_channel):
-        if scaling_per_output_channel:
-            # returning this.something from a value function
-            # wouldn&#39;t be allowed in a standard Injector
-            return this.per_channel_broadcastable_shape
-        else:
-            return ()
-
-
-class AdvancedWeightQuantizer(CommonQuantizer):
-    proxy_class = WeightQuantProxyFromInjector
-
-    @value
-    def per_channel_broadcastable_shape(module):
-        return (module.weight.shape[0], 1, 1, 1)
-
-    @value
-    def scaling_init(module, scaling_per_output_channel):
-        if scaling_per_output_channel:
-            num_ch = module.weight.shape[0]
-            return module.weight.abs().view(num_ch, -1).max(dim=1)[0].view(-1, 1, 1, 1)
-        else:
-            return module.weight.abs().max()
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaling_shape</span><span class="p">(</span><span class="n">scaling_per_output_channel</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">scaling_per_output_channel</span><span class="p">:</span>
+            <span class="c1"># returning this.something from a value function</span>
+            <span class="c1"># wouldn&#39;t be allowed in a standard Injector</span>
+            <span class="k">return</span> <span class="n">this</span><span class="o">.</span><span class="n">per_channel_broadcastable_shape</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">()</span>
 
 
-class AdvancedActQuantizer(CommonQuantizer):
-    scaling_init = 0.01
-    proxy_class = ActQuantProxyFromInjector
+<span class="k">class</span><span class="w"> </span><span class="nc">AdvancedWeightQuantizer</span><span class="p">(</span><span class="n">CommonQuantizer</span><span class="p">):</span>
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">WeightQuantProxyFromInjector</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">per_channel_broadcastable_shape</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaling_init</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">scaling_per_output_channel</span><span class="p">:</span>
+            <span class="n">num_ch</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">num_ch</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">AdvancedActQuantizer</span><span class="p">(</span><span class="n">CommonQuantizer</span><span class="p">):</span>
+    <span class="n">scaling_init</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">ActQuantProxyFromInjector</span>
 </pre></div>
 </div>
 </div>
@@ -1408,12 +1416,12 @@ class AdvancedActQuantizer(CommonQuantizer):
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>per_channel_quant_conv = QuantConv2d(
-    3, 2, (3, 3),
-    weight_quant=AdvancedWeightQuantizer,
-    weight_is_clamped=False,
-    weight_scaling_per_output_channel=True)
-per_channel_quant_conv.quant_weight()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">per_channel_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+    <span class="n">weight_quant</span><span class="o">=</span><span class="n">AdvancedWeightQuantizer</span><span class="p">,</span>
+    <span class="n">weight_is_clamped</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">per_channel_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1457,8 +1465,8 @@ IntQuantTensor(value=tensor([[[[ 0.1612, -0.1612, -0.1612],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>per_channel_quant_conv.load_state_dict(float_conv.state_dict())
-per_channel_quant_conv.quant_weight()
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">per_channel_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+<span class="n">per_channel_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1503,11 +1511,11 @@ IntQuantTensor(value=tensor([[[[ 0.1924,  0.1924, -0.1924],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.nn import QuantIdentity
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
 
-quant_identity = QuantIdentity(
-    act_quant=AdvancedActQuantizer, is_clamped=True, scaling_per_output_channel=False)
-quant_identity(torch.randn(4, 4))
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+    <span class="n">act_quant</span><span class="o">=</span><span class="n">AdvancedActQuantizer</span><span class="p">,</span> <span class="n">is_clamped</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1528,10 +1536,10 @@ tensor([[ 0.0100,  0.0100, -0.0100,  0.0100],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>from brevitas.nn import QuantIdentity
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
 
-quant_identity = QuantIdentity(
-    act_quant=AdvancedActQuantizer, is_clamped=True, scaling_per_output_channel=True)
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+    <span class="n">act_quant</span><span class="o">=</span><span class="n">AdvancedActQuantizer</span><span class="p">,</span> <span class="n">is_clamped</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1652,10 +1660,10 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[36]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>quant_identity = QuantIdentity(
-    act_quant=AdvancedActQuantizer, is_clamped=True, scaling_per_output_channel=True,
-    per_channel_broadcastable_shape=(4, 1), return_quant_tensor=True)
-quant_identity(torch.randn(4, 4))
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+    <span class="n">act_quant</span><span class="o">=</span><span class="n">AdvancedActQuantizer</span><span class="p">,</span> <span class="n">is_clamped</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">per_channel_broadcastable_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
