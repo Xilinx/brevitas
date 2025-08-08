@@ -118,7 +118,7 @@ class TestQuantReLU:
             Identity)
 
     def test_parameter_forced_signedness(self):
-        # Check that a positive init value but with `force_signed_scale` set to True
+        # Check that a positive init value but with `is_scale_unsigned` set to False
         # will cause the scale to also be signed
         stats_act = QuantReLU(
             bit_width=BIT_WIDTH,
@@ -127,7 +127,7 @@ class TestQuantReLU:
             scaling_stats_permute_dims=None,
             scaling_init=torch.tensor(1.),
             collect_stats_steps=1,
-            force_signed_scale=True)
+            is_scale_unsigned=False)
         assert isinstance(
             stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
             .restrict_clamp_scaling.apply_abs,
