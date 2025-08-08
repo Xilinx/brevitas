@@ -242,18 +242,9 @@ class SolveScaleSignedness(ExtendedInjector):
 
     @value
     def is_scale_unsigned(
-            scaling_impl_type,
             scaling_stats_impl=None,
-            scaling_init=None,
-            force_signed_scale=False):
-        if scaling_impl_type in (ScalingImplType.STATS,
-                                 ScalingImplType.AFFINE_STATS,
-                                 ScalingImplType.PARAMETER_FROM_STATS):
-            return scaling_stats_impl.is_scale_unsigned
-
-        else:
-            assert scaling_init is not None
-
+            scaling_init=None):
+        if scaling_init is not None:
             if not isinstance(scaling_init, torch.Tensor):
                 scaling_init = torch.tensor(scaling_init)
 
@@ -262,6 +253,9 @@ class SolveScaleSignedness(ExtendedInjector):
                 is_scale_negative = scaling_init < 0
             else:
                 is_scale_negative = any(scaling_init.flatten() < 0)
-
-            # NOR between the two variables
-            return not (force_signed_scale or is_scale_negative)
+            return not is_scale_negative
+        elif hasattr(scaling_stats_impl, 'is_scale_unsigned'):
+            return scaling_stats_impl.is_scale_unsigned
+        else:
+            # If it is not possible to infer the scale of the sign, we assume it is unsigned
+            return True
