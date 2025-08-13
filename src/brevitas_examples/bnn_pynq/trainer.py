@@ -205,7 +205,7 @@ class Trainer(object):
 
         # Resume scheduler, if any
         if args.resume and not args.evaluate and self.scheduler is not None:
-            self.scheduler.last_epoch = package['epoch'] - 1
+            self.scheduler.last_epoch = package['epoch']
 
     def validate(self, args):
         if args.export_qonnx or args.export_qcdq_onnx:
@@ -229,7 +229,7 @@ class Trainer(object):
         torch.save({
             'state_dict': self.model.state_dict(),
             'optim_dict': self.optimizer.state_dict(),
-            'epoch': epoch + 1,
+            'epoch': epoch,
             'best_val_acc': self.best_val_acc,},
                    best_path)
 
@@ -239,7 +239,7 @@ class Trainer(object):
         if self.args.detect_nan:
             torch.autograd.set_detect_anomaly(True)
 
-        for epoch in range(self.starting_epoch, self.args.epochs):
+        for epoch in range(self.starting_epoch, self.args.epochs+1):
 
             # Set to training mode
             self.model.train()
