@@ -124,7 +124,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # For CV eval scripts
-    session.install('-e', '.[test, tts, stt, vision]', *cmd)
+    session.install('-e', '.[test, tts, stt, vision, export]', *cmd)
     session.run(
         'pytest',
         '-n',
