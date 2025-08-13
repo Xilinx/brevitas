@@ -158,7 +158,7 @@ class Trainer(object):
             self.logger.info("Saving checkpoint model to {}".format(new_path))
             exit(0)
 
-        if args.gpus is not None and len(args.gpus) == 1:
+        if args.gpus is not None:
             model = model.to(device=self.device)
         if args.gpus is not None and len(args.gpus) > 1:
             model = nn.DataParallel(model, args.gpus)
