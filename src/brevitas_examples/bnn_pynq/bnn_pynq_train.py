@@ -112,7 +112,7 @@ def launch(cmd_args):
 
     # Avoid creating new folders etc.
     if args.evaluate:
-        args.dry_run = True  # Comment out to export ONNX models from pre-trained
+        args.dry_run = True
 
     # Init trainer
     trainer = Trainer(args)
@@ -121,6 +121,10 @@ def launch(cmd_args):
     if args.evaluate:
         with torch.no_grad():
             trainer.eval_model()
+            if args.export_qonnx:
+                trainer.export_qonnx()
+            if args.export_qcdq_onnx:
+                trainer.export_qcdq_onnx()
     else:
         trainer.train_model()
 

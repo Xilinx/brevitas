@@ -18,6 +18,7 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import MNIST
 
+import brevitas.config as config
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_qonnx
 
@@ -68,6 +69,9 @@ class Trainer(object):
 
         model, cfg = model_with_cfg(args.network, args.pretrained)
 
+        # Catch invalid settings
+        self.validate(args)
+
         # Init arguments
         self.args = args
         prec_name = "_{}W{}A".format(
@@ -85,6 +89,11 @@ class Trainer(object):
             if not args.resume:
                 os.mkdir(self.output_dir_path)
                 os.mkdir(self.checkpoints_dir_path)
+        # If we want to export a ONNX model, we still need to make output dirs
+        if args.export_qonnx or args.export_qcdq_onnx:
+            self.output_onnx_path = os.path.join(self.output_dir_path, "onnx")
+            os.makedirs(self.output_onnx_path, exist_ok=True)
+
         self.logger = Logger(self.output_dir_path, args.dry_run)
 
         # Randomness
@@ -134,10 +143,7 @@ class Trainer(object):
 
         # Resume checkpoint, if any
         if args.resume:
-            print('Loading model checkpoint at: {}'.format(args.resume))
-            package = torch.load(args.resume, map_location='cpu')
-            model_state_dict = package['state_dict']
-            model.load_state_dict(model_state_dict, strict=args.strict)
+            model = self.load_checkpoint(model, args.resume, args.strict)
 
         if args.state_dict_to_pth:
             state_dict = model.state_dict()
@@ -151,29 +157,6 @@ class Trainer(object):
             os.rename(path, new_path)
             self.logger.info("Saving checkpoint model to {}".format(new_path))
             exit(0)
-
-        if args.export_qonnx:
-            name = args.network.lower()
-            path = os.path.join(self.checkpoints_dir_path, name)
-            export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
-            with open(path, "rb") as f:
-                bytes = f.read()
-                readable_hash = sha256(bytes).hexdigest()[:8]
-            new_path = os.path.join(
-                self.checkpoints_dir_path, "{}-qonnx-{}.onnx".format(name, readable_hash))
-            os.rename(path, new_path)
-            self.logger.info("Exporting QONNX to {}".format(new_path))
-        if args.export_qcdq_onnx:
-            name = args.network.lower()
-            path = os.path.join(self.checkpoints_dir_path, name)
-            export_onnx_qcdq(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
-            with open(path, "rb") as f:
-                bytes = f.read()
-                readable_hash = sha256(bytes).hexdigest()[:8]
-            new_path = os.path.join(
-                self.checkpoints_dir_path, "{}-qcdq-{}.onnx".format(name, readable_hash))
-            os.rename(path, new_path)
-            self.logger.info("Exporting QCDQ ONNX to {}".format(new_path))
 
         if args.gpus is not None and len(args.gpus) == 1:
             model = model.to(device=self.device)
@@ -223,6 +206,22 @@ class Trainer(object):
         # Resume scheduler, if any
         if args.resume and not args.evaluate and self.scheduler is not None:
             self.scheduler.last_epoch = package['epoch'] - 1
+
+    def validate(self, args):
+        if args.export_qonnx or args.export_qcdq_onnx:
+            assert not config.JIT_ENABLED, "JIT must be disabled for ONNX export, please run with BREVITAS_JIT=0"
+
+    # Load checkpoint onto CPU
+    def load_checkpoint(self, model, checkpoint_path, strict):
+        if type(self.model, nn.DataParallel):
+            self.logger.log.info("Converting Model from `nn.DataParallel` to `nn.Module`")
+            model = model.module
+        print('Loading model checkpoint at: {}'.format(checkpoint_path))
+        package = torch.load(checkpoint_path, map_location='cpu')
+        model_state_dict = package['state_dict']
+        model.load_state_dict(model_state_dict, strict=strict)
+        model.to(device="cpu")
+        return model
 
     def checkpoint_best(self, epoch, name):
         best_path = os.path.join(self.checkpoints_dir_path, name)
@@ -318,7 +317,14 @@ class Trainer(object):
 
         # training ends
         if not self.args.dry_run:
-            return os.path.join(self.checkpoints_dir_path, "best.tar")
+            best_path = os.path.join(self.checkpoints_dir_path, "best.tar")
+            if self.args.export_qonnx or self.args.export_qonnx:
+                self.model = self.load_checkpoint(self.model, best_path, strict=True)
+            if self.args.export_qonnx:
+                self.export_qonnx()
+            if self.args.export_qcdq_onnx:
+                self.export_qcdq_onnx()
+            return best_path
 
     def eval_model(self, epoch=None):
         eval_meters = EvalEpochMeters()
@@ -371,3 +377,31 @@ class Trainer(object):
             self.logger.eval_batch_cli_log(eval_meters, i, len(self.test_loader))
 
         return eval_meters.top1.avg
+
+    def export_onnx(self, onnx_type):
+        name = self.args.network.lower()
+        path = os.path.join(self.output_onnx_path, name)
+        model = self.model.to(device="cpu") # Switch to CPU for ONNX export
+        if onnx_type == "qonnx":
+            logstr = "QONNX"
+            export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+        elif onnx_type == "qcdq":
+            logstr = "QCDQ ONNX"
+            export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+            export_onnx_qcdq(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+        else:
+            self.logger.error(f"Unknown ONNX export format: {onnx_type}, expected qonnx or qcdq")
+            exit(1)
+        with open(path, "rb") as f:
+            bytes = f.read()
+            readable_hash = sha256(bytes).hexdigest()[:8]
+        new_path = os.path.join(
+            self.output_onnx_path, "{}-{}-{}.onnx".format(name, onnx_type, readable_hash))
+        os.rename(path, new_path)
+        self.logger.info("Exporting {} to {}".format(logstr, new_path))
+
+    def export_qonnx(self):
+        self.export_onnx(onnx_type="qonnx")
+
+    def export_qcdq_onnx(self):
+        self.export_onnx(onnx_type="qcdq")
