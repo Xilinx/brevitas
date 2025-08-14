@@ -403,6 +403,8 @@ class Trainer(object):
         name = self.args.network.lower()
         path = os.path.join(self.output_onnx_path, name)
         model = self.to_cpu(self.model) # Switch to CPU for ONNX export
+        training_state = model.training
+        model.eval()
         if onnx_type == "qonnx":
             logstr = "QONNX"
             export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
@@ -420,6 +422,7 @@ class Trainer(object):
             self.output_onnx_path, "{}-{}-{}.onnx".format(name, onnx_type, readable_hash))
         os.rename(path, new_path)
         self.logger.info("Exporting {} to {}".format(logstr, new_path))
+        model.train(training_state)
 
     def export_qonnx(self):
         self.export_onnx(onnx_type="qonnx")
