@@ -223,11 +223,12 @@ class Trainer(object):
 
     # Load checkpoint onto CPU
     def load_checkpoint(self, model, checkpoint_path, strict):
+
         def maybe_remove_prefix(state_dict, prefix='module'):
             new_state_dict = dict()
             flag = False
-            prefix_dot=f"{prefix}."
-            for k,v in state_dict.items():
+            prefix_dot = f"{prefix}."
+            for k, v in state_dict.items():
                 if k.startswith(prefix_dot):
                     flag = True
                     new_key = "".join(k.split(prefix_dot)[1:])
@@ -262,7 +263,7 @@ class Trainer(object):
         if self.args.detect_nan:
             torch.autograd.set_detect_anomaly(True)
 
-        for epoch in range(self.starting_epoch, self.args.epochs+1):
+        for epoch in range(self.starting_epoch, self.args.epochs + 1):
 
             # Set to training mode
             self.model.train()
@@ -404,7 +405,7 @@ class Trainer(object):
     def export_onnx(self, onnx_type):
         name = self.args.network.lower()
         path = os.path.join(self.output_onnx_path, name)
-        model = self.to_cpu(self.model) # Switch to CPU for ONNX export
+        model = self.to_cpu(self.model)  # Switch to CPU for ONNX export
         training_state = model.training
         model.eval()
         if onnx_type == "qonnx":
