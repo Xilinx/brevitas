@@ -211,14 +211,35 @@ class Trainer(object):
         if args.export_qonnx or args.export_qcdq_onnx:
             assert not config.JIT_ENABLED, "JIT must be disabled for ONNX export, please run with BREVITAS_JIT=0"
 
-    # Load checkpoint onto CPU
-    def load_checkpoint(self, model, checkpoint_path, strict):
-        if type(self.model, nn.DataParallel):
+    # Move model to CPU for reloading state_dicts or export - handles if model is data parallel
+    def to_cpu(self, model):
+        if isinstance(model, nn.DataParallel):
             self.logger.log.info("Converting Model from `nn.DataParallel` to `nn.Module`")
             model = model.module
+        model = model.to(device="cpu")
+        return model
+
+    # Load checkpoint onto CPU
+    def load_checkpoint(self, model, checkpoint_path, strict):
+        def maybe_remove_prefix(state_dict, prefix='module'):
+            new_state_dict = dict()
+            flag = False
+            prefix_dot=f"{prefix}."
+            for k,v in state_dict.items():
+                if k.startswith(prefix_dot):
+                    flag = True
+                    new_key = "".join(k.split(prefix_dot)[1:])
+                    new_state_dict[new_key] = v
+                else:
+                    new_state_dict[k] = v
+            if flag:
+                self.logger.info(f"Renaming state_dict keys to remove {prefix}")
+            return new_state_dict
+
+        model = self.to_cpu(model)
         print('Loading model checkpoint at: {}'.format(checkpoint_path))
         package = torch.load(checkpoint_path, map_location='cpu')
-        model_state_dict = package['state_dict']
+        model_state_dict = maybe_remove_prefix(package['state_dict'])
         model.load_state_dict(model_state_dict, strict=strict)
         model.to(device="cpu")
         return model
@@ -381,7 +402,7 @@ class Trainer(object):
     def export_onnx(self, onnx_type):
         name = self.args.network.lower()
         path = os.path.join(self.output_onnx_path, name)
-        model = self.model.to(device="cpu") # Switch to CPU for ONNX export
+        model = self.to_cpu(self.model) # Switch to CPU for ONNX export
         if onnx_type == "qonnx":
             logstr = "QONNX"
             export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
