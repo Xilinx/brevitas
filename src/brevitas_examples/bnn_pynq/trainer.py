@@ -210,6 +210,8 @@ class Trainer(object):
     def validate(self, args):
         if args.export_qonnx or args.export_qcdq_onnx:
             assert not config.JIT_ENABLED, "JIT must be disabled for ONNX export, please run with BREVITAS_JIT=0"
+        if "RESNET" in args.network and args.gpus is not None and not args.evaluate:
+            assert len(args.gpus) == 1, "Training ResNet models is currently not supported with multiple GPUs, see: https://github.com/Xilinx/brevitas/issues/1349"
 
     # Move model to CPU for reloading state_dicts or export - handles if model is data parallel
     def to_cpu(self, model):
