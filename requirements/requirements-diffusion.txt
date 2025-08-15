@@ -1,4 +1,4 @@
-accelerate
+accelerate<1.10
 diffusers
 pandas
 torchmetrics[image]
