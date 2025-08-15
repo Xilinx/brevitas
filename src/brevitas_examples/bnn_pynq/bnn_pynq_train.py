@@ -73,6 +73,8 @@ def parse_args(args):
         "--state_dict_to_pth",
         action='store_true',
         help="Saves a model state_dict into a pth and then exits")
+    parser.add_argument("--export_qonnx", action='store_true', help="Export QONNX Model")
+    parser.add_argument("--export_qcdq_onnx", action='store_true', help="Export QCDQ ONNX Model")
     return parser.parse_args(args)
 
 
@@ -119,6 +121,10 @@ def launch(cmd_args):
     if args.evaluate:
         with torch.no_grad():
             trainer.eval_model()
+            if args.export_qonnx:
+                trainer.export_qonnx()
+            if args.export_qcdq_onnx:
+                trainer.export_qcdq_onnx()
     else:
         trainer.train_model()
 
