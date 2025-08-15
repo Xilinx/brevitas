@@ -1,3 +1,6 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from abc import ABC
 from typing import Any
 from typing import Optional
