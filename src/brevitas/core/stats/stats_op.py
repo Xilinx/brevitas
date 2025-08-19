@@ -116,6 +116,75 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         return result
 
 
+class SigmaStdInterval(brevitas.jit.ScriptModule):
+
+    def __init__(
+            self,
+            sigma: float,
+            stats_reduce_dim: Optional[int] = None,
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            keepdim: bool = False) -> None:
+        super(SigmaStdInterval, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+        self.epsilon = std_dev_epsilon
+        self.sigma = StatelessBuffer(torch.tensor(sigma, dtype=dtype, device=device))
+        self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
+        self.keepdim = keepdim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        sigma = self.sigma()
+        if self.stats_reduce_dim is None:
+            max_val = torch.max(x)
+            min_val = torch.min(x)
+            std_val = torch.sqrt(torch.var(x) + self.epsilon)
+        else:
+            max_val = torch.max(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+            min_val = torch.min(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+            std_val = torch.sqrt(torch.var(x, dim=self.stats_reduce_dim) + self.epsilon)
+            std_val = std_val.view(-1)
+        min_val = torch.clamp(min_val, max=self.zero())
+        max_range = torch.abs(max_val - min_val)
+        std_range = 2. * sigma * std_val
+        val_range = torch.where(std_range < max_range, std_range, max_range)
+        return val_range
+
+
+class NegativeSigmaOrZero(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim', 'keepdim']
+
+    def __init__(
+            self,
+            sigma: float,
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON,
+            stats_reduce_dim: Optional[int] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            keepdim: bool = False) -> None:
+        super(NegativeSigmaOrZero, self).__init__()
+        self.keepdim = keepdim
+        self.stats_reduce_dim = stats_reduce_dim
+        self.epsilon = std_dev_epsilon
+        self.sigma = StatelessBuffer(torch.tensor(sigma, dtype=dtype, device=device))
+        self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tensor:
+        sigma = self.sigma()
+        if self.stats_reduce_dim is None:
+            min_val = torch.min(x)
+            std_val = torch.sqrt(torch.var(x) + self.epsilon)
+        else:
+            min_val = torch.min(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+            std_val = torch.sqrt(torch.var(x, dim=self.stats_reduce_dim) + self.epsilon)
+            std_val = std_val.view(-1)
+        val = torch.where(-sigma * std_val > min_val, -sigma * std_val, min_val)
+        val = torch.clamp(val, max=self.zero())
+        return val
+
+
 class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q', 'keepdim']
 

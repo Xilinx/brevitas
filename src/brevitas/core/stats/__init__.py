@@ -18,7 +18,9 @@ from .stats_op import MeanSigmaStd
 from .stats_op import MSE
 from .stats_op import NegativeMinOrZero
 from .stats_op import NegativePercentileOrZero
+from .stats_op import NegativeSigmaOrZero
 from .stats_op import PercentileInterval
+from .stats_op import SigmaStdInterval
 from .stats_wrapper import _ParameterListStats
 from .stats_wrapper import _RuntimeStats
 from .stats_wrapper import _Stats

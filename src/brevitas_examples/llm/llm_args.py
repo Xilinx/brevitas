@@ -78,7 +78,7 @@ def create_args_parser() -> ArgumentParser:
         '--weight-quant-type',
         type=str,
         default='sym',
-        choices=['sym', 'asym'],
+        choices=['sym', 'asym', 'gauss'],
         help='Weight quantization type. Default: asym.')
     parser.add_argument(
         '--weight-quant-format',
