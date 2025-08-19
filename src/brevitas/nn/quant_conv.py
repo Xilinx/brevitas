@@ -75,6 +75,8 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         self.is_same_padded_strided = is_same_padded_strided
 
@@ -162,6 +164,8 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         self.is_same_padded_strided = is_same_padded_strided
 
@@ -251,6 +255,8 @@ class QuantConv3d(QuantWBIOL, Conv3d):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         self.is_same_padded_strided = is_same_padded_strided
 

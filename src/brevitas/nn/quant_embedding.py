@@ -47,7 +47,8 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
             _weight=_weight,
             device=device,
             dtype=dtype)
-        QuantWeightMixin.__init__(self, weight_quant=weight_quant, **kwargs)
+        QuantWeightMixin.__init__(
+            self, weight_quant=weight_quant, device=device, dtype=dtype, **kwargs)
         self.accept_quant_tensor = False
         self.return_quant_tensor = return_quant_tensor
 

@@ -46,6 +46,8 @@ class QuantLinear(QuantWBIOL, Linear):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
 
     @property

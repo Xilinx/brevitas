@@ -43,12 +43,26 @@ class QuantProxyMixin(object):
             kwargs_prefix: str,
             **kwargs):
         proxy_name = proxy_prefix + 'quant'
+        filtered_kwargs = filter_kwargs(kwargs_prefix, kwargs)
+
+        # `device` and `dtype` are special keywords, propagated through no matter the prefix
+        # `None` is the default value for these parameters when they are not specified
+
+        # When applying quantization, if we use `meta` device to avoid memory duplication, we need
+        # to keep track of the original device for the eventual quantization parameters
+        # If not, they would be stuck in `meta` and error out
+        device = kwargs.get('device') if kwargs.get('device') not in [
+            'meta', torch.device('meta')] else kwargs.get('quant_device')
+        dtype = kwargs.get('dtype')
+        filtered_kwargs['device'] = device
+        filtered_kwargs['dtype'] = dtype
+
         if quant is None:
-            quant_injector = none_quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
+            quant_injector = none_quant_injector.let(**filtered_kwargs)
             quant = quant_injector.proxy_class(self, quant_injector)
         elif isclass(quant) and issubclass(quant, (Injector, ExtendedInjector)):
             quant_injector = quant
-            quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
+            quant_injector = quant_injector.let(**filtered_kwargs)
             quant = quant_injector.proxy_class(self, quant_injector)
         else:
             if not isinstance(quant, proxy_protocol):

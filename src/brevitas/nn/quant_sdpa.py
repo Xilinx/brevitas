@@ -142,8 +142,12 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
         self.pre_process_k = pre_process_k
         self.pre_process_v = pre_process_v
 
+        special_keys = ['device', 'dtype', 'quant_dtype']
+
         def filter_kwargs(prefix):
-            return {k[len(prefix):]: v for k, v in kwargs.items() if k.startswith(prefix)}
+            return {
+                k[len(prefix):]: v for k,
+                v in kwargs.items() if k.startswith(prefix) or k in special_keys}
 
         self.q_scaled_quant = QuantIdentity(act_quant=q_scaled_quant, **filter_kwargs('q_scaled_'))
         self.k_transposed_quant = QuantIdentity(

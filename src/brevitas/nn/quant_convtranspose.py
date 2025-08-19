@@ -74,6 +74,8 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         self._output_size = None
 
@@ -169,6 +171,8 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         self._output_size = None
 
@@ -264,6 +268,8 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **kwargs)
         self._output_size = None
 
