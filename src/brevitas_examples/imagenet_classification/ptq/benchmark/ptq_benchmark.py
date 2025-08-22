@@ -12,13 +12,13 @@ from typing import Optional
 from typing import Tuple
 
 from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.common.benchmark.utils import BenchmarkUtils
+from brevitas_examples.common.benchmark.utils import GridSearchBenchmarkUtils
 from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import create_args_parser
 from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import \
     validate as validate_args
 
 
-class ImagenetPTQBenchmarkUtils(BenchmarkUtils):
+class ImagenetPTQBenchmarkUtils(GridSearchBenchmarkUtils):
 
     argument_parser: ArgumentParser = create_args_parser()
     eval_metrics: List[str] = ["quant_top1"]
