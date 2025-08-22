@@ -77,6 +77,11 @@ class BenchmarkSearchMixin(ABC):
     def gen_search_space(cls, args_dict: Dict[str, Any], script_args: Namespace) -> List[Dict[str, Any]]:
         pass
 
+    @classmethod
+    @abstractmethod
+    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+        pass
+
 
 class GridSearchMixin(BenchmarkSearchMixin):
 
@@ -199,6 +204,39 @@ class GridSearchMixin(BenchmarkSearchMixin):
         end_index = script_args.end_index if script_args.end_index > 0 else len(q)
         q = q[start_index:end_index]
         return q
+
+    @classmethod
+    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+        print(f"Num. experiments: {len(args_queue)}")
+        _print_indented_dict("Benchmark args.:", vars(script_args))
+        # Return if there are not valid combination
+        if len(args_queue) == 0:
+            return
+        # Retrieve the arguments that are not set to non-default values
+        args_combinations = defaultdict(set)
+        for _, _, args_dict in args_queue:
+            for key, value in args_dict.items():
+                if isinstance(value, list):
+                    # Convert lists to tuples to make sure values are hashable
+                    value = tuple(value)
+                args_combinations[key].add(value)
+        # Retrieve defaults of argument parser
+        args_parser_defaults = {action.dest: action.default for action in cls.argument_parser._actions}
+        args_keys = list(args_combinations.keys())
+        # Iterate over the keys removing entries with a length of 1 that are set to the default value
+        for key in args_keys:
+            if len(args_combinations[key]) == 1 and key in args_parser_defaults:
+                value = next(iter(args_combinations[key]))
+                default_value = args_parser_defaults[key]
+                if isinstance(default_value, list):
+                    # Cast to tuple for comparison
+                    default_value = tuple(default_value)
+                if value == default_value:
+                    del args_combinations[key]
+        args_combinations_dict = {
+            f"--{key.replace('_','-')}": maybe_sort_values(value) for key,
+            value in args_combinations.items()}
+        _print_indented_dict("Non-default args.:", args_combinations_dict)
 
 
 def _make_float(value: Any) -> Any:
@@ -416,38 +454,6 @@ def maybe_sort_values(values):
     return sorted_values
 
 
-def print_benchmark_summary(
-        args_queue: List[Dict], script_args: Namespace, entrypoint_parser: ArgumentParser) -> None:
-    print(f"Num. experiments: {len(args_queue)}")
-    _print_indented_dict("Benchmark args.:", vars(script_args))
-    # Return if there are not valid combination
-    if len(args_queue) == 0:
-        return
-    # Retrieve the arguments that are not set to non-default values
-    args_combinations = defaultdict(set)
-    for _, _, args_dict in args_queue:
-        for key, value in args_dict.items():
-            if isinstance(value, list):
-                # Convert lists to tuples to make sure values are hashable
-                value = tuple(value)
-            args_combinations[key].add(value)
-    # Retrieve defaults of argument parser
-    args_parser_defaults = {action.dest: action.default for action in entrypoint_parser._actions}
-    args_keys = list(args_combinations.keys())
-    # Iterate over the keys removing entries with a length of 1 that are set to the default value
-    for key in args_keys:
-        if len(args_combinations[key]) == 1 and key in args_parser_defaults:
-            value = next(iter(args_combinations[key]))
-            default_value = args_parser_defaults[key]
-            if isinstance(default_value, list):
-                # Cast to tuple for comparison
-                default_value = tuple(default_value)
-            if value == default_value:
-                del args_combinations[key]
-    args_combinations_dict = {
-        f"--{key.replace('_','-')}": maybe_sort_values(value) for key,
-        value in args_combinations.items()}
-    _print_indented_dict("Non-default args.:", args_combinations_dict)
 
 
 def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
@@ -468,7 +474,7 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     # Generate a list of experiments
     q = entrypoint_utils.gen_search_space(args_dict, script_args)
     # Show a summary of the configuration to be run in the benchmark execution
-    print_benchmark_summary(q, script_args, entrypoint_parser)
+    entrypoint_utils.print_benchmark_summary(q, script_args)
     # In the case of a dry-run, just stop after the output of the benchmark summary
     if script_args.dry_run:
         exit()
