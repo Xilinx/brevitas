@@ -60,6 +60,147 @@ class BenchmarkUtils(ABC):
         pass
 
 
+class BenchmarkSearchMixin(ABC):
+
+    @classmethod
+    @abstractmethod
+    def standardize_args(cls, args: Namespace) -> Dict[str, Any]:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def parse_config_args(args: List[str]) -> Namespace:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def gen_search_space(cls, args_dict: Dict[str, Any], script_args: Namespace) -> List[Dict[str, Any]]:
+        pass
+
+
+class GridSearchMixin(BenchmarkSearchMixin):
+
+    @classmethod
+    def standardize_args(cls, script_args: str) -> Dict[str, List]:
+        # Construct a full set of arguments where each argument is contained into a list
+        if script_args.config is not None:
+            with open(script_args.config, 'r') as f:
+                args_dict = yaml.safe_load(f)
+            # Add defaults if only a subset of keys are specified
+            for action in cls.argument_parser._actions:
+                if action.dest not in args_dict:
+                    args_dict[action.dest] = [action.default]
+        else:
+            args_dict = {
+                action.dest: [action.default] if action.choices is None else action.choices
+                for action in cls.argument_parser._actions}
+            # Remove unnecessary keys
+            del args_dict["help"]
+            del args_dict["config"]
+            # Save YAML in the results folder
+            with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
+                yaml.dump(args_dict, f)
+        return args_dict
+
+    @staticmethod
+    def parse_config_args(args: List[str]) -> Namespace:
+        parser = ArgumentParser()
+        parser.add_argument(
+            '--config',
+            type=str,
+            default=None,
+            help=
+            'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml). Default: %(default)s.'
+        )
+        parser.add_argument(
+            '--results-folder',
+            type=str,
+            default="./",
+            help='Folder to store the experiment results. Default: %(default)s.')
+        parser.add_argument(
+            '--gpus',
+            type=str,
+            default="0",
+            help=
+            'Specify the identifiers of the GPUs to use in a comma-separated list. Default: %(default)s.'
+        )
+        parser.add_argument(
+            '--num-gpus-per-process',
+            type=int,
+            default=1,
+            help='Number of GPUs to each for running each argument combination. Default: %(default)s.')
+        parser.add_argument(
+            '--max-num-retries',
+            type=int,
+            default=1,
+            help=
+            'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Whether to skip running experiments (default: %(default)s).",
+        )
+        parser.add_argument(
+            '--start-index',
+            type=int,
+            default=0,
+            help=
+            'Index from which to start current run. Note, the index is inclusive, e.g., a value of 3 will allow all processes from 3 onwards to run (default: %(default)s).'
+        )
+        parser.add_argument(
+            '--end-index',
+            type=int,
+            default=-1,
+            help=
+            'Index from which to end current run. Note, the index is exclusive, e.g., a value of 10 will allow all processes from 0-9 to run.0 A negative value runs all jobs from `--start-index` (default: %(default)s).'
+        )
+        parser.add_argument(
+            '--shuffle-seed',
+            type=int,
+            default=None,
+            help=
+            'The seed to use to shuffle the jobs. If None, no shuffling will be applied. Default: %(default)s.'
+        )
+        return parser.parse_args(args)
+
+    @classmethod
+    def gen_search_space(cls, args_dict: Dict[str, Any], script_args: Namespace) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+        # Generate combinations of arguments
+        args_keys, args_values = zip(*args_dict.items())
+        # Extract the keys that are known to the argument parser
+        parser_keys = set(action.dest for action in cls.argument_parser._actions)
+        # Retrieve argument combinations that are valid for the entrypoint
+        q = []
+        for v in itertools.product(*args_values):
+            args_dict = dict(zip(args_keys, v))
+            try:
+                # Separate the arguments that are know to the parser and the extra
+                # arguments that are used, for instance, in rotation optimization
+                args = {}
+                extra_args = []
+                for key, value in args_dict.items():
+                    if key in parser_keys:
+                        args[key] = value
+                    else:
+                        extra_args += [f"--{key.replace('_', '-')}", str(value)]
+                args = SimpleNamespace(**args)
+                # Only keep valid configurations
+                cls.validate(args, extra_args)
+                q.append((args, extra_args, args_dict))
+            except AssertionError:
+                # Invalid configuration
+                pass
+        if script_args.shuffle_seed is not None:
+            random.seed(script_args.shuffle_seed)
+            random.shuffle(q)
+        start_index = script_args.start_index
+        end_index = script_args.end_index if script_args.end_index > 0 else len(q)
+        q = q[start_index:end_index]
+        return q
+
+
 def _make_float(value: Any) -> Any:
     try:
         float_value = float(value)
@@ -72,6 +213,10 @@ def _print_indented_dict(message: str, dictionary: Dict) -> None:
     print(message)
     for key, value in dictionary.items():
         print(f"\t{key}: {value}")
+
+
+class GridSearchBenchmarkUtils(BenchmarkUtils, GridSearchMixin):
+    pass
 
 
 # Ensures that the bytestring is the same irrespective
@@ -203,69 +348,6 @@ def run_args_bucket_process(
                 break
 
 
-def parse_config_args(args: List[str]) -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml). Default: %(default)s.'
-    )
-    parser.add_argument(
-        '--results-folder',
-        type=str,
-        default="./",
-        help='Folder to store the experiment results. Default: %(default)s.')
-    parser.add_argument(
-        '--gpus',
-        type=str,
-        default="0",
-        help=
-        'Specify the identifiers of the GPUs to use in a comma-separated list. Default: %(default)s.'
-    )
-    parser.add_argument(
-        '--num-gpus-per-process',
-        type=int,
-        default=1,
-        help='Number of GPUs to each for running each argument combination. Default: %(default)s.')
-    parser.add_argument(
-        '--max-num-retries',
-        type=int,
-        default=1,
-        help=
-        'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        default=False,
-        help="Whether to skip running experiments (default: %(default)s).",
-    )
-    parser.add_argument(
-        '--start-index',
-        type=int,
-        default=0,
-        help=
-        'Index from which to start current run. Note, the index is inclusive, e.g., a value of 3 will allow all processes from 3 onwards to run (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--end-index',
-        type=int,
-        default=-1,
-        help=
-        'Index from which to end current run. Note, the index is exclusive, e.g., a value of 10 will allow all processes from 0-9 to run.0 A negative value runs all jobs from `--start-index` (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--shuffle-seed',
-        type=int,
-        default=None,
-        help=
-        'The seed to use to shuffle the jobs. If None, no shuffling will be applied. Default: %(default)s.'
-    )
-    return parser.parse_args(args)
-
-
 def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.DataFrame:
     row_data_list = []
     job_config = None
@@ -373,7 +455,7 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     # if processes are started in fork mode
     multiprocessing.set_start_method('spawn')
     # Parse benchmark arguments
-    script_args = parse_config_args(args)
+    script_args = entrypoint_utils.parse_config_args(args)
     # Retrieve the argument parser for the entrypoint
     entrypoint_parser = entrypoint_utils.argument_parser
     # Instantiate directory for storing the results
@@ -382,54 +464,9 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     # If a benchmark YAML is passed, use that to retrieve argument combinations,
     # otherwise generate all possible combinations of arguments from the
     # entrypoint_parser
-    if script_args.config is not None:
-        with open(script_args.config, 'r') as f:
-            args_dict = yaml.safe_load(f)
-        # Add defaults if only a subset of keys are specified
-        for action in entrypoint_parser._actions:
-            if action.dest not in args_dict:
-                args_dict[action.dest] = [action.default]
-    else:
-        args_dict = {
-            action.dest: [action.default] if action.choices is None else action.choices
-            for action in entrypoint_parser._actions}
-        # Remove unnecessary keys
-        del args_dict["help"]
-        del args_dict["config"]
-        # Save YAML in the results folder
-        with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
-            yaml.dump(args_dict, f)
-    # Generate combinations of arguments
-    args_keys, args_values = zip(*args_dict.items())
-    # Extract the keys that are known to the argument parser
-    parser_keys = set(action.dest for action in entrypoint_parser._actions)
-    # Retrieve argument combinations that are valid for the entrypoint
-    q = []
-    for v in itertools.product(*args_values):
-        args_dict = dict(zip(args_keys, v))
-        try:
-            # Separate the arguments that are know to the parser and the extra
-            # arguments that are used, for instance, in rotation optimization
-            args = {}
-            extra_args = []
-            for key, value in args_dict.items():
-                if key in parser_keys:
-                    args[key] = value
-                else:
-                    extra_args += [f"--{key.replace('_', '-')}", str(value)]
-            args = SimpleNamespace(**args)
-            # Only keep valid configurations
-            entrypoint_utils.validate(args, extra_args)
-            q.append((args, extra_args, args_dict))
-        except AssertionError:
-            # Invalid configuration
-            pass
-    if script_args.shuffle_seed is not None:
-        random.seed(script_args.shuffle_seed)
-        random.shuffle(q)
-    start_index = script_args.start_index
-    end_index = script_args.end_index if script_args.end_index > 0 else len(q)
-    q = q[start_index:end_index]
+    args_dict = entrypoint_utils.standardize_args(script_args)
+    # Generate a list of experiments
+    q = entrypoint_utils.gen_search_space(args_dict, script_args)
     # Show a summary of the configuration to be run in the benchmark execution
     print_benchmark_summary(q, script_args, entrypoint_parser)
     # In the case of a dry-run, just stop after the output of the benchmark summary
