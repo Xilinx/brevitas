@@ -62,7 +62,7 @@ class ConstScaling(brevitas.jit.ScriptModule):
             self,
             scaling_init: Union[float, Tensor],
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = None,
+            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -140,7 +140,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             scaling_init: Union[float, Tensor],
             scaling_shape: Optional[Tuple[int, ...]] = None,
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = None,
+            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -209,7 +209,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_shape: Tuple[int, ...],
             force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = None,
+            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -346,7 +346,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = None,
+            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
             scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
