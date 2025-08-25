@@ -241,9 +241,7 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
 class SolveScaleSignedness(ExtendedInjector):
 
     @value
-    def is_scale_unsigned(
-            scaling_stats_impl=None,
-            scaling_init=None):
+    def is_scale_unsigned(scaling_stats_impl=None, scaling_init=None):
         if scaling_init is not None:
             if not isinstance(scaling_init, torch.Tensor):
                 scaling_init = torch.tensor(scaling_init)
