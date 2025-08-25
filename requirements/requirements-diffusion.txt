@@ -1,5 +1,5 @@
 accelerate<1.10
-diffusers
+diffusers<=0.34
 pandas
 torchmetrics[image]
 tqdm
