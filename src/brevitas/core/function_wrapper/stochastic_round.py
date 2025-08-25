@@ -41,6 +41,8 @@ class StochasticRoundSte(torch.nn.Module):
 
     @torch.jit.ignore
     def forward(self, x):
+        if x.device != self.generator.device:
+            self.device = torch.Generator(device=x.device)
         if self.deterministic_inference and not self.training:
             return self.inference_fn(x)
         return self.round_fn(x)
