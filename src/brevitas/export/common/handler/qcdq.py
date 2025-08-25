@@ -173,10 +173,12 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
             mantissa_bit_width,
             is_ocp,
             is_fnuz,
-            is_groupwise=False):
+            is_groupwise=False,
+            group_dim=0):
         scale_orig_shape = scale.shape
         axis = self.quant_axis(scale)
-        scale = scale.squeeze()
+        scale = scale.squeeze(group_dim + 1)
+
         if self.flatten_dequantize_params and not is_groupwise:
             scale = scale.flatten()
         scale = to_0dim_if_scalar(scale)
@@ -318,7 +320,8 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
                 quant_weight.mantissa_bit_width,
                 module.is_ocp,
                 module.is_fnuz,
-                is_groupwise=is_groupwise)
+                is_groupwise=is_groupwise,
+                group_dim = quant_weight.group_dim)
         else:
             self.symbolic_kwargs = None
 
