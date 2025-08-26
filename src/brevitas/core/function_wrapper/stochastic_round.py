@@ -30,7 +30,8 @@ class StochasticRoundSte(torch.nn.Module):
     def __init__(self, deterministic_inference=True, seed=None, device=None) -> None:
         super().__init__()
         self.generator = torch.Generator(device=device)
-        if seed is not None:
+        self.seed = seed
+        if self.seed is not None:
             self.generator.manual_seed(seed)
         self.round_fn = stochastic_round_ste_fn(self.generator)
         self.deterministic_inference = deterministic_inference
@@ -41,6 +42,11 @@ class StochasticRoundSte(torch.nn.Module):
 
     @torch.jit.ignore
     def forward(self, x):
+        if x.device != self.generator.device:
+            self.generator = torch.Generator(device=x.device)
+            if self.seed is not None:
+                self.generator.manual_seed(self.seed)
+            self.round_fn = stochastic_round_ste_fn(self.generator)
         if self.deterministic_inference and not self.training:
             return self.inference_fn(x)
         return self.round_fn(x)
