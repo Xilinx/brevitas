@@ -11,8 +11,8 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.torch_utils import compute_channel_view_shape
 
 from .mixin import *
 from .utils import merge_bn
@@ -155,6 +155,11 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             quant_bias = self.bias_quant(self.bias, quant_input, quant_weight)
         else:
             quant_bias = None
+
+        if not self.return_quant_tensor:
+            quant_input = _unpack_quant_tensor(quant_input)
+            quant_weight = _unpack_quant_tensor(quant_input)
+            quant_bias = _unpack_quant_tensor(quant_bias)
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
         quant_output = self.output_quant(output_tensor)
