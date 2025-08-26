@@ -270,7 +270,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             self,
             x: torch.Tensor,
             quant_input: Optional[Union[Tensor, IntQuantTensor]] = None,
-            create_quant_tensor: bool = True) -> Union[Tensor, IntQuantTensor]:
+            return_quant_tensor: bool = True) -> Union[Tensor, IntQuantTensor]:
         if isinstance(quant_input,
                       IntQuantTensor) and not self.training and self.cache_inference_quant_act:
             cached_inp = _CachedIO(quant_input.detach(), self.cache_quant_io_metadata_only)
@@ -288,7 +288,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
 
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
-            if create_quant_tensor:
+            if return_quant_tensor:
                 return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
@@ -356,7 +356,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             x: Tensor,
             input: Optional[Union[Tensor, IntQuantTensor]] = None,
             weight: Optional[Union[Tensor, IntQuantTensor]] = None,
-            create_quant_tensor: bool = True) -> Union[Tensor, IntQuantTensor]:
+            return_quant_tensor: bool = True) -> Union[Tensor, IntQuantTensor]:
         out = x
         if self.is_quant_enabled:
             input_scale = self.compute_bias_scale(input, weight)
@@ -372,7 +372,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            if create_quant_tensor:
+            if return_quant_tensor:
                 out = IntQuantTensor(
                     out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
                 if not self.training and self.cache_inference_quant_bias:
