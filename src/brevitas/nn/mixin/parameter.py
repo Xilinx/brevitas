@@ -74,10 +74,10 @@ class QuantWeightMixin(QuantProxyMixin):
             out = self.weight_quant(
                 weights_to_quantize[weight_slice_tuple],
                 quant_input,
-                create_quant_tensor=return_quant_tensor)
+                return_quant_tensor=return_quant_tensor)
         else:
             out = self.weight_quant(
-                weights_to_quantize[weight_slice_tuple], create_quant_tensor=return_quant_tensor)
+                weights_to_quantize[weight_slice_tuple], return_quant_tensor=return_quant_tensor)
         if subtensor_slice_list is not None:
             # Restore the quantizer behaviour to full tensor quantization
             # The modules to slice should have been cached already at this point
