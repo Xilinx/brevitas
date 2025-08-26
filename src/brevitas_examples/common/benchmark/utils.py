@@ -12,6 +12,7 @@ import hashlib
 import itertools
 import multiprocessing
 from multiprocessing import Queue
+import numpy as np
 import os
 import random
 import sys
@@ -25,6 +26,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Type
+from typing import Union
 
 import pandas as pd
 import yaml
@@ -203,6 +205,208 @@ class GridSearchMixin(BenchmarkSearchMixin):
         start_index = script_args.start_index
         end_index = script_args.end_index if script_args.end_index > 0 else len(q)
         q = q[start_index:end_index]
+        return q
+
+    @classmethod
+    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+        print(f"Num. experiments: {len(args_queue)}")
+        _print_indented_dict("Benchmark args.:", vars(script_args))
+        # Return if there are not valid combination
+        if len(args_queue) == 0:
+            return
+        # Retrieve the arguments that are not set to non-default values
+        args_combinations = defaultdict(set)
+        for _, _, args_dict in args_queue:
+            for key, value in args_dict.items():
+                if isinstance(value, list):
+                    # Convert lists to tuples to make sure values are hashable
+                    value = tuple(value)
+                args_combinations[key].add(value)
+        # Retrieve defaults of argument parser
+        args_parser_defaults = {action.dest: action.default for action in cls.argument_parser._actions}
+        args_keys = list(args_combinations.keys())
+        # Iterate over the keys removing entries with a length of 1 that are set to the default value
+        for key in args_keys:
+            if len(args_combinations[key]) == 1 and key in args_parser_defaults:
+                value = next(iter(args_combinations[key]))
+                default_value = args_parser_defaults[key]
+                if isinstance(default_value, list):
+                    # Cast to tuple for comparison
+                    default_value = tuple(default_value)
+                if value == default_value:
+                    del args_combinations[key]
+        args_combinations_dict = {
+            f"--{key.replace('_','-')}": maybe_sort_values(value) for key,
+            value in args_combinations.items()}
+        _print_indented_dict("Non-default args.:", args_combinations_dict)
+
+
+# A node in a tree of (possibly) dependent arguments
+class RandomArgNode:
+
+    def __init__(self, rand_type: str, rand_values: Any, default: Any, dependent_args: Optional[List] = None) -> None:
+        self.rand_type
+        self.rand_values
+        self.default
+        self.dependent_args
+
+    def get_dependent_values(self, value):
+        # Calculate dependent args
+        if self.dependent_args is not None:
+            dependent_values = []
+            for key, arg, enable_values in self.dependent_args:
+                if value in enable_values:
+                    dependent_values.append(arg.value())
+                else:
+                    dependent_values.append(arg.get_default())
+        else:
+            dependent_values = None
+
+    def get_default(self):
+        value = self.default
+        dependent_values = self.get_dependent_values(value)
+        return value, dependent_values
+
+    def value(self):
+        # Calculate own argument
+        if self.rand_type == "const":
+            value = self.rand_values
+        elif self.rand_type == "choices":
+            value = random.choice(self.rand_values)
+        elif self.rand_type == "linear":
+            value = random.uniform(self.rand_values[0], self.rand_values[1])
+        elif self.rand_type == "log2":
+            value = 2**random.uniform(np.log2(self.rand_values[0]), np.log2(self.rand_values[1]))
+        elif self.rand_type == "exp2":
+            value = np.log2(random.uniform(2**self.rand_values[0], 2**self.rand_values[1]))
+        else:
+            raise ValueError(f"{self.rand_type} is not a valid random type. Choices are: 'const', 'choices', 'linear', 'log2'")
+
+        dependent_values = self.get_dependent_values(value)
+        return value, dependent_values
+
+class RandomSearchMixin(BenchmarkSearchMixin):
+
+    argument_configuration = {}
+    standardized_args = {}
+
+    @classmethod
+    def standardize_args(cls, script_args: str) -> Dict[str, List]:
+        # Construct a full set of arguments where each argument is contained into a list
+        if script_args.config is not None:
+            with open(script_args.config, 'r') as f:
+                args_dict = yaml.safe_load(f)
+            # Add defaults if only a subset of keys are specified
+            for action in cls.argument_parser._actions:
+                if action.dest not in args_dict:
+                    args_dict[action.dest] = {"rand_type": "const", "rand_values": action.default}
+        else:
+            args_dict = {
+                action.dest: {"rand_type": "const", "rand_values": action.default} if action.choices is None else {"rand_type": "choices", "rand_values": action.choices}
+                for action in cls.argument_parser._actions}
+            # Remove unnecessary keys
+            del args_dict["help"]
+            del args_dict["config"]
+            # Save YAML in the results folder
+            with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
+                yaml.dump(args_dict, f)
+        cls.standardized_args = args_dict
+        return args_dict
+
+    @staticmethod
+    def parse_config_args(args: List[str]) -> Namespace:
+        parser = ArgumentParser()
+        parser.add_argument(
+            '--config',
+            type=str,
+            default=None,
+            help=
+            'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml). Default: %(default)s.'
+        )
+        parser.add_argument(
+            '--results-folder',
+            type=str,
+            default="./",
+            help='Folder to store the experiment results. Default: %(default)s.')
+        parser.add_argument(
+            '--gpus',
+            type=str,
+            default="0",
+            help=
+            'Specify the identifiers of the GPUs to use in a comma-separated list. Default: %(default)s.'
+        )
+        parser.add_argument(
+            '--num-gpus-per-process',
+            type=int,
+            default=1,
+            help='Number of GPUs to each for running each argument combination. Default: %(default)s.')
+        parser.add_argument(
+            '--max-num-retries',
+            type=int,
+            default=1,
+            help=
+            'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Whether to skip running experiments (default: %(default)s).",
+        )
+        parser.add_argument(
+            '--num-experiments',
+            type=int,
+            default=1,
+            help=
+            'Number of random experiments to generate (default: %(default)s).'
+        )
+        parser.add_argument(
+            '--seed',
+            type=int,
+            default=0,
+            help=
+            'The seed to use for the search (default: %(default)s).'
+        )
+        return parser.parse_args(args)
+
+    @classmethod
+    def gen_search_space(cls, args_dict: Dict[str, Any], script_args: Namespace) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+        def recursive_generator_tree(config_dict, args_dict):
+            generator_tree = {}
+            for k,v in config_dict:
+                dependent_args = None
+                da_key = "dependent_args"
+                if da_key in config_dict[k]:
+                    if config_dict[k][da_key] is not None:
+                        dependent_args = recursive_generator_tree(config_dict[k][da_key], args_dict)
+                generator_tree[k] = RandomArgNode(**args_dict[k], default=cls.argument_parser.get_default(k), dependent_args=depedent_args)
+            return generator_tree
+                
+        # Construct the generator tree
+        generator_tree = recursive_generator_tree(argument_configuration, args_dict)
+        # Extract the keys that are known to the argument parser
+        parser_keys = set(action.dest for action in cls.argument_parser._actions)
+        # Retrieve argument combinations that are valid for the entrypoint
+        q = []
+        while len(q) < script_args.num_experiments:
+            args_dict = dict(zip(args_keys, v))
+            try:
+                # Separate the arguments that are know to the parser and the extra
+                # arguments that are used, for instance, in rotation optimization
+                args = {}
+                extra_args = []
+                for key, value in args_dict.items():
+                    if key in parser_keys:
+                        args[key] = value
+                    else:
+                        extra_args += [f"--{key.replace('_', '-')}", str(value)]
+                args = SimpleNamespace(**args)
+                # Only keep valid configurations
+                cls.validate(args, extra_args)
+                q.append((args, extra_args, args_dict))
+            except AssertionError:
+                # Invalid configuration
+                pass
         return q
 
     @classmethod
