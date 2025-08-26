@@ -173,7 +173,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
             *args,
             **kwargs)
 
-    if isinstance(quant_input, IntQuantTensor) and isinstance(quant_weight, IntQuantTensor):
+    if compute_output_quant_tensor:
         output_bit_width = max_acc_bit_width(
             quant_input.bit_width,
             quant_weight.bit_width,
