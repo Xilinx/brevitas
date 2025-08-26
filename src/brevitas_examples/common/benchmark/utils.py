@@ -12,6 +12,7 @@ import hashlib
 import itertools
 import multiprocessing
 from multiprocessing import Queue
+import numpy as np
 import os
 import random
 import sys
@@ -25,6 +26,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Type
+from typing import Union
 
 import pandas as pd
 import yaml
@@ -181,7 +183,7 @@ class GridSearchMixin(BenchmarkSearchMixin):
         for v in itertools.product(*args_values):
             args_dict = dict(zip(args_keys, v))
             try:
-                # Separate the arguments that are know to the parser and the extra
+                # Separate the arguments that are known to the parser and the extra
                 # arguments that are used, for instance, in rotation optimization
                 args = {}
                 extra_args = []
@@ -239,6 +241,193 @@ class GridSearchMixin(BenchmarkSearchMixin):
         _print_indented_dict("Non-default args.:", args_combinations_dict)
 
 
+# A node in a tree of (possibly) dependent arguments
+class RandomArgNode:
+
+    def __init__(self, rand_type: str, rand_values: Any) -> None:
+        self.rand_type = rand_type
+        self.rand_values = rand_values
+
+    def value(self):
+        # Calculate own argument
+        if self.rand_type == "const":
+            value = self.rand_values
+        elif self.rand_type == "choices":
+            value = random.choice(self.rand_values)
+        elif self.rand_type == "linear":
+            value = random.uniform(self.rand_values[0], self.rand_values[1])
+        elif self.rand_type == "log2":
+            value = 2**random.uniform(np.log2(self.rand_values[0]), np.log2(self.rand_values[1]))
+        elif self.rand_type == "exp2":
+            value = np.log2(random.uniform(2**self.rand_values[0], 2**self.rand_values[1]))
+        else:
+            raise ValueError(f"{self.rand_type} is not a valid random type. Choices are: 'const', 'choices', 'linear', 'log2'")
+
+        return value
+
+    def __str__(self):
+        if self.rand_type == "const":
+            id_str = f"type: {self.rand_type}, value: {self.rand_values}"
+        elif self.rand_type == "choices":
+            id_str = f"type: {self.rand_type}, values: {self.rand_values}"
+        elif self.rand_type == "linear":
+            id_str = f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
+        elif self.rand_type == "log2":
+            id_str = f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
+        elif self.rand_type == "exp2":
+            id_str = f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
+        else:
+            raise ValueError(f"{self.rand_type} is not a valid random type. Choices are: 'const', 'choices', 'linear', 'log2'")
+        return id_str
+
+class RandomSearchMixin(BenchmarkSearchMixin):
+
+    @classmethod
+    def standardize_args(cls, script_args: str) -> Dict[str, List]:
+        # Construct a full set of arguments where each argument is contained into a list
+        if script_args.config is not None:
+            with open(script_args.config, 'r') as f:
+                args_dict = yaml.safe_load(f)
+            # Add defaults if only a subset of keys are specified
+            for action in cls.argument_parser._actions:
+                if action.dest not in args_dict:
+                    args_dict[action.dest] = {"rand_type": "const", "rand_values": action.default}
+        else:
+            args_dict = {
+                action.dest: {"rand_type": "const", "rand_values": action.default} if action.choices is None else {"rand_type": "choices", "rand_values": action.choices}
+                for action in cls.argument_parser._actions}
+            # Remove unnecessary keys
+            del args_dict["help"]
+            del args_dict["config"]
+            # Save YAML in the results folder
+            with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
+                yaml.dump(args_dict, f)
+        return args_dict
+
+    @staticmethod
+    def parse_config_args(args: List[str]) -> Namespace:
+        parser = ArgumentParser()
+        parser.add_argument(
+            '--config',
+            type=str,
+            default=None,
+            help=
+            'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml). Default: %(default)s.'
+        )
+        parser.add_argument(
+            '--results-folder',
+            type=str,
+            default="./",
+            help='Folder to store the experiment results. Default: %(default)s.')
+        parser.add_argument(
+            '--gpus',
+            type=str,
+            default="0",
+            help=
+            'Specify the identifiers of the GPUs to use in a comma-separated list. Default: %(default)s.'
+        )
+        parser.add_argument(
+            '--num-gpus-per-process',
+            type=int,
+            default=1,
+            help='Number of GPUs to each for running each argument combination. Default: %(default)s.')
+        parser.add_argument(
+            '--max-num-retries',
+            type=int,
+            default=1,
+            help=
+            'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Whether to skip running experiments (default: %(default)s).",
+        )
+        parser.add_argument(
+            '--num-experiments',
+            type=int,
+            default=1,
+            help=
+            'Number of random experiments to generate (default: %(default)s).'
+        )
+        parser.add_argument(
+            '--max-experimental-configs',
+            type=int,
+            default=100000,
+            help=
+            'Maximum number of experimental configurations to try before giving up (default: %(default)s).'
+        )
+        parser.add_argument(
+            '--seed',
+            type=int,
+            default=0,
+            help=
+            'The seed to use for the search (default: %(default)s).'
+        )
+        return parser.parse_args(args)
+
+    @classmethod
+    def gen_search_space(cls, args_dict: Dict[str, Any], script_args: Namespace) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+        generator_dict = {k: RandomArgNode(**v) for k,v in args_dict.items()}
+        # Extract the keys that are known to the argument parser
+        parser_keys = set(action.dest for action in cls.argument_parser._actions)
+        # Retrieve argument combinations that are valid for the entrypoint
+        q = []
+        for i in range(script_args.max_experimental_configs):
+            if len(q) >= script_args.num_experiments:
+                break
+            args_dict = {k: v.value() for k,v in generator_dict.items()}
+            try:
+                # Separate the arguments that are known to the parser and the extra
+                # arguments that are used, for instance, in rotation optimization
+                args = {}
+                extra_args = []
+                for key, value in args_dict.items():
+                    if key in parser_keys:
+                        args[key] = value
+                    else:
+                        extra_args += [f"--{key.replace('_', '-')}", str(value)]
+                args = SimpleNamespace(**args)
+                # Only keep valid configurations
+                cls.validate(args, extra_args)
+                q.append((args, extra_args, args_dict))
+            except AssertionError:
+                # Invalid configuration
+                pass
+        return q
+
+    @classmethod
+    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+        print(f"Num. experiments: {len(args_queue)}")
+        _print_indented_dict("Benchmark args.:", vars(script_args))
+        # Return if there are not valid combination
+        if len(args_queue) == 0:
+            return
+        # Retrieve the arguments that are not set to non-default values
+        # Reconstruct the dictionary of random args
+        args_combinations = {k: RandomArgNode(**v) for k,v in cls.standardize_args(script_args).items()}
+        # Retrieve defaults of argument parser
+        args_parser_defaults = {action.dest: action.default for action in cls.argument_parser._actions}
+        args_keys = list(args_combinations.keys())
+        # Iterate over the keys removing entries which are rand_type="const" and the default value
+        for key in args_keys:
+            if args_combinations[key].rand_type == "const" and key in args_parser_defaults:
+                value = args_combinations[key].value()
+                default_value = args_parser_defaults[key]
+                if isinstance(default_value, list):
+                    # Cast to tuple for comparison
+                    default_value = tuple(default_value)
+                if isinstance(value, list):
+                    value = tuple(value)
+                if value == default_value:
+                    del args_combinations[key]
+        args_combinations_dict = {
+            f"--{key.replace('_','-')}": str(value) for key,
+            value in args_combinations.items()}
+        _print_indented_dict("Non-default args.:", args_combinations_dict)
+
+
 def _make_float(value: Any) -> Any:
     try:
         float_value = float(value)
@@ -254,6 +443,10 @@ def _print_indented_dict(message: str, dictionary: Dict) -> None:
 
 
 class GridSearchBenchmarkUtils(BenchmarkUtils, GridSearchMixin):
+    pass
+
+
+class RandomSearchBenchmarkUtils(BenchmarkUtils, RandomSearchMixin):
     pass
 
 
