@@ -140,9 +140,8 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
         inp_shape = x.shape
         x, scale, zero_point, *other = self.module_forward(x)
 
-        # If we skip quant tensor, we return the flattened version of the groupwise tensor
-        if self.skip_create_quant_tensor:
-            x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
+        # When we skip quant tensor, we return the flattened version of the groupwise tensor
+        x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
         output_args = tuple([x, scale, zero_point] + list(other))
         return output_args
 

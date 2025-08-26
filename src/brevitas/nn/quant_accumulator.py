@@ -37,7 +37,7 @@ class TruncQuantAccumulator(TruncMixin, QuantLayerMixin, Module):
 
     def forward(self, input: QuantTensor):
         x = self.unpack_input(input)
-        x = self.trunc_quant(x)
+        x = self.trunc_quant(x, return_quant_tensor=self.return_quant_tensor)
         return self.pack_output(x)
 
 
@@ -61,5 +61,5 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
 
     def forward(self, input: QuantTensor):
         x = self.unpack_input(input)
-        x = self.clamp_quant(x)
+        x = self.clamp_quant(x, return_quant_tensor=self.return_quant_tensor)
         return self.pack_output(x)

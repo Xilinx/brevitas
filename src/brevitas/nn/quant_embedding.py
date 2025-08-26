@@ -60,7 +60,7 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
         return self.num_embeddings
 
     def forward(self, inp):
-        quant_weight = self.quant_weight()
+        quant_weight = self.quant_weight(return_quant_tensor=self.return_quant_tensor)
         out = embedding(
             inp,
             quant_weight,
