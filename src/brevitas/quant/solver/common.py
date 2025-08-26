@@ -32,7 +32,8 @@ __all__ = [
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
-    'SolveDtypeDeviceFromTrackedParameterList']
+    'SolveDtypeDeviceFromTrackedParameterList',
+    'SolveScaleSignedness']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -93,7 +94,9 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_impl(scaling_stats_op):
+    def scaling_stats_impl(scaling_stats_op=None):
+        if scaling_stats_op is None:
+            return None
         if scaling_stats_op == StatsOp.MAX:
             return AbsMax
         elif scaling_stats_op == StatsOp.MAX_AVE:
@@ -233,3 +236,24 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
             return tracked_parameter_list[0].device
         else:
             return None
+
+
+class SolveScaleSignedness(ExtendedInjector):
+
+    @value
+    def is_scale_unsigned(scaling_stats_impl=None, scaling_init=None):
+        if scaling_init is not None:
+            if not isinstance(scaling_init, torch.Tensor):
+                scaling_init = torch.tensor(scaling_init)
+
+            # Check if any of the init values is negative
+            if scaling_init.shape == ():
+                is_scale_negative = scaling_init < 0
+            else:
+                is_scale_negative = any(scaling_init.flatten() < 0)
+            return not is_scale_negative
+        elif hasattr(scaling_stats_impl, 'is_scale_unsigned'):
+            return scaling_stats_impl.is_scale_unsigned
+        else:
+            # If it is not possible to infer the scale of the sign, we assume it is unsigned
+            return True

@@ -6,6 +6,7 @@ from .clamp import FloatClamp
 from .clamp import ScalarClamp
 from .clamp import TensorClamp
 from .learned_round import LearnedRoundSte
+from .misc import Abs
 from .misc import Identity
 from .misc import InplaceLogTwo
 from .misc import LogTwo

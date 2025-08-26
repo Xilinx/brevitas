@@ -91,7 +91,7 @@ def test_float_to_quant_float(inp, minifloat_format):
             inf_values=None,
             nan_values=None,
             saturating=True)
-        float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
+        float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: torch.tensor(1.))
         float_quant = FloatQuant(
             bit_width=bit_width,
             float_scaling_impl=float_scaling_impl,
