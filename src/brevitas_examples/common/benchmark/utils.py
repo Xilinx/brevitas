@@ -257,9 +257,9 @@ class RandomArgNode:
         elif self.rand_type == "linear":
             value = random.uniform(self.rand_values[0], self.rand_values[1])
         elif self.rand_type == "log2":
-            value = 2**random.uniform(np.log2(self.rand_values[0]), np.log2(self.rand_values[1]))
+            value = float(2**random.uniform(np.log2(self.rand_values[0]), np.log2(self.rand_values[1])))
         elif self.rand_type == "exp2":
-            value = np.log2(random.uniform(2**self.rand_values[0], 2**self.rand_values[1]))
+            value = float(np.log2(random.uniform(2**self.rand_values[0], 2**self.rand_values[1])))
         else:
             raise ValueError(f"{self.rand_type} is not a valid random type. Choices are: 'const', 'choices', 'linear', 'log2'")
 
