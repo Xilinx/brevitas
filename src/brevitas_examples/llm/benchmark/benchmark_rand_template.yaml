@@ -1,0 +1,280 @@
+act_calibration:
+  rand_type: const
+  rand_values: false
+act_equalization:
+  rand_type: choices
+  rand_values: [null, "layerwise", "fx"]
+act_equalization_alpha:
+  rand_type: linear
+  rand_values: [0.05, 0.95]
+attn_bit_width:
+  rand_type: const
+  rand_values: null
+attn_group_size:
+  rand_type: const
+  rand_values: null
+attn_param_method:
+  rand_type: const
+  rand_values: null
+attn_quant_config:
+  rand_type: const
+  rand_values: qkvs
+attn_quant_format:
+  rand_type: const
+  rand_values: null
+attn_quant_granularity:
+  rand_type: const
+  rand_values: null
+attn_quant_type:
+  rand_type: const
+  rand_values: null
+attn_scale_precision:
+  rand_type: const
+  rand_values: null
+attn_scale_type:
+  rand_type: const
+  rand_values: null
+awq_clip:
+  rand_type: const
+  rand_values: false
+awq_scale:
+  rand_type: const
+  rand_values: false
+bias_corr:
+  rand_type: const
+  rand_values: false
+bos_preprocessing:
+  rand_type: const
+  rand_values: null
+checkpoint_name:
+  rand_type: const
+  rand_values: null
+compile_eval:
+  rand_type: const
+  rand_values: false
+compile_ptq:
+  rand_type: const
+  rand_values: false
+convert_layernorm_to_rmsnorm:
+  rand_type: const
+  rand_values: false
+dataset:
+  rand_type: const
+  rand_values: wikitext2
+disable_create_weight_orig:
+  rand_type: const
+  rand_values: false
+dtype:
+  rand_type: const
+  rand_values: auto
+eager_quant_sdpa_class:
+  rand_type: const
+  rand_values: auto
+eval:
+  rand_type: const
+  rand_values: false
+expansion_step:
+  rand_type: const
+  rand_values: 1
+export_prefix:
+  rand_type: const
+  rand_values: null
+export_target:
+  rand_type: const
+  rand_values: null
+few_shot_eval:
+  rand_type: const
+  rand_values: null
+few_shot_limit:
+  rand_type: const
+  rand_values: null
+few_shot_override_batch_size:
+  rand_type: const
+  rand_values: null
+few_shot_tasks:
+  rand_type: const
+  rand_values:
+  - arc_challenge
+  - arc_easy
+  - winogrande
+  - piqa
+few_shot_zeroshot:
+  rand_type: const
+  rand_values: false
+gpfq:
+  rand_type: const
+  rand_values: false
+gptq:
+  rand_type: const
+  rand_values: false
+gpxq_act_order:
+  rand_type: const
+  rand_values: false
+gpxq_block_name:
+  rand_type: const
+  rand_values: null
+gpxq_max_accumulator_bit_width:
+  rand_type: const
+  rand_values: null
+gpxq_max_accumulator_tile_size:
+  rand_type: const
+  rand_values: null
+gpxq_use_quant_activations:
+  rand_type: const
+  rand_values: false
+input_bit_width:
+  rand_type: const
+  rand_values: null
+input_group_size:
+  rand_type: const
+  rand_values: 64
+input_param_method:
+  rand_type: const
+  rand_values: stats
+input_quant_format:
+  rand_type: const
+  rand_values: int
+input_quant_granularity:
+  rand_type: const
+  rand_values: per_tensor
+input_quant_type:
+  rand_type: const
+  rand_values: asym
+input_scale_precision:
+  rand_type: const
+  rand_values: float_scale
+input_scale_type:
+  rand_type: const
+  rand_values: static
+learned_round:
+  rand_type: const
+  rand_values: null
+learned_round_fast_update:
+  rand_type: const
+  rand_values: false
+learned_round_iters:
+  rand_type: const
+  rand_values: 200
+learned_round_lr:
+  rand_type: const
+  rand_values: 0.005
+learned_round_scale:
+  rand_type: const
+  rand_values: false
+learned_round_scale_lr:
+  rand_type: const
+  rand_values: 0.01
+learned_round_scale_momentum:
+  rand_type: const
+  rand_values: 0.9
+ln_affine_merge:
+  rand_type: const
+  rand_values: false
+load_checkpoint:
+  rand_type: const
+  rand_values: false
+magr:
+  rand_type: const
+  rand_values: false
+magr_alpha:
+  rand_type: const
+  rand_values: 0.01
+model:
+  rand_type: const
+  rand_values: facebook/opt-125m
+no_quantize:
+  rand_type: const
+  rand_values: false
+nsamples:
+  rand_type: const
+  rand_values: 128
+nsamples_rot_calibration:
+  rand_type: const
+  rand_values: 800
+optimize_rotations:
+  rand_type: const
+  rand_values: false
+qronos:
+  rand_type: const
+  rand_values: false
+qronos_alpha:
+  rand_type: const
+  rand_values: 1.0e-06
+quant_sdpa:
+  rand_type: const
+  rand_values: null
+quantize_input_zero_point:
+  rand_type: const
+  rand_values: false
+quantize_last_layer:
+  rand_type: const
+  rand_values: false
+quantize_weight_zero_point:
+  rand_type: const
+  rand_values: false
+replace_rmsnorm:
+  rand_type: const
+  rand_values: false
+rotation:
+  rand_type: const
+  rand_values: null
+rotation_layers_to_expand:
+  rand_type: const
+  rand_values: []
+rotation_mode:
+  rand_type: const
+  rand_values: had
+rotation_orphan_sink:
+  rand_type: const
+  rand_values: false
+rotation_sdpa_regions:
+  rand_type: const
+  rand_values: false
+scale_rounding_func_type:
+  rand_type: const
+  rand_values: null
+scaling_min_val:
+  rand_type: const
+  rand_values: 0.0001
+seed:
+  rand_type: const
+  rand_values: 0
+seqlen:
+  rand_type: const
+  rand_values: 2048
+svd_quant:
+  rand_type: const
+  rand_values: false
+svd_quant_iters:
+  rand_type: const
+  rand_values: 1
+svd_quant_rank:
+  rand_type: const
+  rand_values: 32
+weight_bit_width:
+  rand_type: const
+  rand_values: 8
+weight_equalization:
+  rand_type: const
+  rand_values: false
+weight_group_dim:
+  rand_type: const
+  rand_values: null
+weight_group_size:
+  rand_type: const
+  rand_values: 128
+weight_param_method:
+  rand_type: const
+  rand_values: stats
+weight_quant_format:
+  rand_type: const
+  rand_values: int
+weight_quant_granularity:
+  rand_type: const
+  rand_values: per_group
+weight_quant_type:
+  rand_type: const
+  rand_values: sym
+weight_scale_precision:
+  rand_type: const
+  rand_values: float_scale
