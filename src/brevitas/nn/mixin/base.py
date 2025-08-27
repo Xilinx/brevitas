@@ -97,7 +97,7 @@ class QuantLayerMixin(ExportMixin):
         return inp
 
     def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        if self.return_quant_tensor:
+        if False:  # self.return_quant_tensor:
             assert isinstance(quant_output, QuantTensor), 'QuantLayer is not correctly configured, check if warnings were raised'
             return quant_output
         else:
