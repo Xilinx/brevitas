@@ -557,6 +557,40 @@ def quantize_llm(args, extra_args=None):
             remove_hooks(model)
             with load_quant_model_mode(model):
                 model.load_state_dict(torch.load(args.checkpoint_name, map_location='cpu'))
+            model.eval()
+            for name, module in model.named_modules():
+                import brevitas.nn as qnn
+                if isinstance(module, qnn.QuantLinear):
+                    qw = module.quant_weight()
+                    print(f"{name}")
+                    print(torch.unique(qw.value / qw.scale))
+                    print(qw.scale.shape)
+                    print(qw.bit_width)
+                    print(qw.zero_point)
+                    print(qw.signed)
+
+                    # In case you want to test the activation quantization function
+                    qi = module.input_quant
+                    x = torch.rand((2,module.in_features), device=model.device, dtype=model.dtype)
+                    qx = qi(x)
+                    print(torch.unique((qx.value / qx.scale) - qx.zero_point))
+                    #print(qx.scale) # Dynamic!
+                    #print(qx.zero_point) # Dynamic!
+                    print(qx.bit_width)
+                    print(qx.signed_t)
+                elif isinstance(module, qnn.QuantScaledDotProductAttention):
+                    # Find the attention quantization modules
+                    for ni, qi in module.named_modules():
+                        if isinstance(module, qnn.QuantIdentity):
+                            rqt = qi.return_quant_tensor
+                            qi.return_quant_tensor = True
+                            qa = qi(torch.rand((1,2,3,4), device=qi.device, dtype=qi.dtype))
+                            qi.return_quant_tensor = rqt
+                            print(f"{name}-{ni}")
+                            print(qa.scale)
+                            print(qa.bit_width)
+                            print(qa.zero_point)
+                            print(qa.signed_t)
             model = offload_model(model)
 
         if args.gptq and not args.load_checkpoint:
