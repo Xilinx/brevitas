@@ -26,6 +26,7 @@ setup(
     long_description=read(PROJECT_ROOT, 'README.md'),
     long_description_content_type="text/markdown",
     author="AMD Research and Advanced Development",
+    author_email="brevitas-external@amd.com",
     url="https://github.com/Xilinx/brevitas",
     python_requires=">=3.8",
     install_requires=read_requirements('requirements.txt'),
