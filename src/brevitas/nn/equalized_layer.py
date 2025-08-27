@@ -81,7 +81,7 @@ class RotatedModule(torch.nn.Module):
         self.expansion_step = expansion_step
         self.expand_input = expand_input
 
-    def forward(self, inp, **kwargs):
+    def rotate(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
         if self.expand_input:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
@@ -100,6 +100,10 @@ class RotatedModule(torch.nn.Module):
             inp = matmul_hadU_cuda(inp, had_K, K)
         else:
             inp = matmul_hadU(inp)
+        return inp
+
+    def forward(self, inp, **kwargs):
+        inp = self.rotate(inp, **kwargs)
         o = self.layer(inp)
 
         return o

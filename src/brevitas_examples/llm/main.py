@@ -591,6 +591,12 @@ def quantize_llm(args, extra_args=None):
                             print(qa.bit_width)
                             print(qa.zero_point)
                             print(qa.signed_t)
+                elif isinstance(module, qnn.equalized_layer.RotatedModule):
+                    x = torch.eye(module.layer.in_features, device=model.device, dtype=model.dtype)
+                    had = module.rotate(x)
+                    print(had.shape)
+                    print(had[:4,:4])
+                    print(had[:8,:8])
             model = offload_model(model)
 
         if args.gptq and not args.load_checkpoint:
