@@ -98,7 +98,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
-        self.skip_create_quant_tensor = False
+        self.skip_create_quant_tensor = True
 
     def compile_quant(self, compile_export=False):
         fullgraph = not self.is_groupwise
@@ -254,7 +254,7 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def __init__(self):
         super().__init__()
-        self.skip_create_quant_tensor = False
+        self.skip_create_quant_tensor = True
 
     def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
@@ -275,7 +275,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         self.cache_inference_quant_act = True
         self.cache_quant_io_metadata_only = True
         self.cache_class = _CachedIO
-        self.skip_create_quant_tensor = False
+        self.skip_create_quant_tensor = True
 
     def retrieve_attribute(self, attribute):
         if self._cached_act is not None:

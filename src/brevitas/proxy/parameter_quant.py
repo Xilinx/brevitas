@@ -95,7 +95,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_inference_quant_weight_metadata_only = False
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
-        self.skip_create_quant_tensor = False
+        self.skip_create_quant_tensor = True
 
     def compile_quant(self, compile_export=False):
         if compile_export and hasattr(self, 'export_handler') and self.export_handler is not None:
@@ -178,7 +178,7 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
         self.cache_inference_quant_bias = False
         self.cache_inference_quant_bias_metadata_only = False
         self.requires_input_scale = self.quant_injector.requires_input_scale
-        self.skip_create_quant_tensor = False
+        self.skip_create_quant_tensor = True
 
     @property
     def tracked_parameter_list(self):
