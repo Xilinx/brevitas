@@ -156,7 +156,7 @@ Weights, activations, biases quantization
 
    class QuantWeightActBiasLeNet(Module):
        def __init__(self):
-           super(LowPrecisionLeNet, self).__init__()
+           super(QuantWeightActBiasLeNet, self).__init__()
            self.quant_inp = qnn.QuantIdentity(bit_width=4, return_quant_tensor=True)
            self.conv1 = qnn.QuantConv2d(3, 6, 5, bias=True, weight_bit_width=4, bias_quant=Int32Bias)
            self.relu1 = qnn.QuantReLU(bit_width=4, return_quant_tensor=True)
