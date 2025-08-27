@@ -6,7 +6,7 @@ from utils import generate_exclusion_list
 
 TORCHVISION_VERSION_DICT = {
     '1.9.1': '0.10.1',
-    '1.10.1': '0.12.2',
+    '1.10.1': '0.11.2',
     '1.11.0': '0.12.0',
     '1.12.1': '0.13.1',
     '1.13.1': '0.14.1',
