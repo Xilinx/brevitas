@@ -158,7 +158,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         if not self.return_quant_tensor:
             quant_input = _unpack_quant_tensor(quant_input)
-            quant_weight = _unpack_quant_tensor(quant_input)
+            quant_weight = _unpack_quant_tensor(quant_weight)
             quant_bias = _unpack_quant_tensor(quant_bias)
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
