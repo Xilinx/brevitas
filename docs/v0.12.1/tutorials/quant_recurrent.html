@@ -1,0 +1,1807 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Quantized RNNs and LSTMs &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/quant_recurrent';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="ONNX Export" href="onnx_export.html" />
+    <link rel="prev" title="Anatomy of a Quantizer" href="anatomy_quantizer.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="tvmcon2021.html">Brevitas TVMCon 2021 tutorial</a></li>
+
+
+
+
+
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="quant_tensor_quant_conv2d_overview.html">An overview of QuantTensor and QuantConv2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quant_activation_overview.html">An Overview of Quantized Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="anatomy_quantizer.html">Anatomy of a Quantizer</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Quantized RNNs and LSTMs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onnx_export.html">ONNX Export</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Tutorials</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Quantized...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="Quantized-RNNs-and-LSTMs">
+<h1>Quantized RNNs and LSTMs<a class="headerlink" href="#Quantized-RNNs-and-LSTMs" title="Permalink to this heading">#</a></h1>
+<p>With version 0.8, Brevitas introduces support for quantized recurrent layers through <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code>. As with other Brevitas quantized layers, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> can be used as drop-in replacement for their floating-point variants, but they also go further and support some additional structural recurrent options not found in upstream PyTorch. Similarly to other quantized layers, both <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> can take in different quantizers for different tensors
+involved in their computation.</p>
+<section id="QuantRNN">
+<h2>QuantRNN<a class="headerlink" href="#QuantRNN" title="Permalink to this heading">#</a></h2>
+<p>We start by looking at <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
+
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">QuantRNN</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">nonlinearity</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;tanh&#39;</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">batch_first</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">bidirectional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">weight_quant</span><span class="o">=</span><span class="n">Int8WeightPerTensorFloat</span><span class="p">,</span>
+        <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">,</span>
+        <span class="n">io_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">gate_acc_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">return_quant_tensor</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="nb">super</span><span class="p">(</span><span class="n">QuantRNN</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="n">layer_impl</span><span class="o">=</span><span class="n">_QuantRNNLayer</span><span class="p">,</span>
+        <span class="n">input_size</span><span class="o">=</span><span class="n">input_size</span><span class="p">,</span>
+        <span class="n">hidden_size</span><span class="o">=</span><span class="n">hidden_size</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span>
+        <span class="n">nonlinearity</span><span class="o">=</span><span class="n">nonlinearity</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+        <span class="n">batch_first</span><span class="o">=</span><span class="n">batch_first</span><span class="p">,</span>
+        <span class="n">bidirectional</span><span class="o">=</span><span class="n">bidirectional</span><span class="p">,</span>
+        <span class="n">weight_quant</span><span class="o">=</span><span class="n">weight_quant</span><span class="p">,</span>
+        <span class="n">bias_quant</span><span class="o">=</span><span class="n">bias_quant</span><span class="p">,</span>
+        <span class="n">io_quant</span><span class="o">=</span><span class="n">io_quant</span><span class="p">,</span>
+        <span class="n">gate_acc_quant</span><span class="o">=</span><span class="n">gate_acc_quant</span><span class="p">,</span>
+        <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="n">shared_input_hidden_weights</span><span class="p">,</span>
+        <span class="n">return_quant_tensor</span><span class="o">=</span><span class="n">return_quant_tensor</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> supports all arguments of <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>, plus it exposes four different quantizers: <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> controls quantization of the weight tensor, <code class="docutils literal notranslate"><span class="pre">bias_quant</span></code> controls quantization of the bias, <code class="docutils literal notranslate"><span class="pre">io_quant</span></code> controls quantization of the input/output, and <code class="docutils literal notranslate"><span class="pre">gate_acc_quant</span></code> controls quantization of the output of the gate, before the nonlinearity is applied.</p>
+<p>Compared to other layers like <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code>, a couple of things can be observed. First, input and output quantization are fused together into <code class="docutils literal notranslate"><span class="pre">io_quant</span></code>. This is because of the recurrent structure of RNN layers, where the output is fed back as input. Second, all quantizers are already set by default. This is different from a layer like <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code>, where only <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> has a default quantizer.</p>
+<p>As with <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> defines a stack of potentially multiple layers, controlled by setting <code class="docutils literal notranslate"><span class="pre">num_layers</span></code>, that can be set to bidirectional with <code class="docutils literal notranslate"><span class="pre">bidirectional=True</span></code>. Internally, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> is organized into a two level nesting of <code class="docutils literal notranslate"><span class="pre">ModuleList</span></code>, one for the different layer(s), and one for the direction(s):</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">rnn_sublayer</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">sublayer_number</span><span class="p">][</span><span class="mi">1</span> <span class="k">if</span> <span class="n">right_to_left_direction</span> <span class="k">else</span> <span class="mi">0</span><span class="p">]</span>
+
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn_0_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_0_right_to_left</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn_1_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_1_right_to_left</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
+  warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
+</pre></div></div>
+</div>
+<p>Setting <code class="docutils literal notranslate"><span class="pre">num_layers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> and/or <code class="docutils literal notranslate"><span class="pre">bidirectional=True</span></code> has different implications on different quantizers. For <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code>, <code class="docutils literal notranslate"><span class="pre">gate_acc_quant</span></code> and <code class="docutils literal notranslate"><span class="pre">bias_quant</span></code>, the same quantizer <em>definition</em> is shared among different layers/directions, but each layer/direction is allocated its own instance of the quantizer.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>Conversely, for <code class="docutils literal notranslate"><span class="pre">io_quant</span></code> the same <em>instance</em> is gonna be shared among all layers and directions. This is to make sure that input/output tensors that are internally concatenated together share the same quantization scale/zero-point/bitwidth.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">io_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">io_quant</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>Finally, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> supports an additional flag, <code class="docutils literal notranslate"><span class="pre">shared_input_hidden_weights</span></code>. This allows, whenever <code class="docutils literal notranslate"><span class="pre">bidirectional=True</span></code>, to share the input-to-hidden weights among the two directions, an optimization introduced first by DeepSpeech back in the day to save on the number of parameters, with minimal impact on the quality of results.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">count_weights</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="s1">&#39;weight&#39;</span> <span class="ow">in</span> <span class="n">n</span><span class="p">)</span>
+
+<span class="n">quant_rnn_single_direction</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_bidirectional</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">quant_rnn_bidirectional_shared_input_hidden</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for single direction QuantRNN: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_single_direction</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for bidirectional QuantRNN: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_bidirectional</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for bidirectional QuantRNN with shared input-hidden weights: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_bidirectional_shared_input_hidden</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<br/><br/></pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Number of weights for single direction QuantRNN: 600
+Number of weights for bidirectional QuantRNN: 1200
+Number of weights for bidirectional QuantRNN with shared input-hidden weights: 1000
+</pre></div></div>
+</div>
+<p>As with other Brevitas layers, it’s possible to directly modify a quantizer by passing keyword arguments with a matching prefix. For example, to set 4b per-channel weights and 6b io quantization:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_4b</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">io_bit_width</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">quant_rnn_4b_0_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn_4b</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">input_hidden_weight</span> <span class="o">=</span> <span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
+<span class="n">hidden_hidden_weight</span> <span class="o">=</span> <span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">hidden_weight</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input-hidden weight bit-width: </span><span class="si">{</span><span class="n">input_hidden_weight</span><span class="o">.</span><span class="n">bit_width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hidden-hidden weight bit-width: </span><span class="si">{</span><span class="n">hidden_hidden_weight</span><span class="o">.</span><span class="n">bit_width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;I/O quant bit-width: </span><span class="si">{</span><span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">io_quant</span><span class="o">.</span><span class="n">bit_width</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input-hidden weight scale: </span><span class="si">{</span><span class="n">input_hidden_weight</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hidden-hidden weight scale: </span><span class="si">{</span><span class="n">hidden_hidden_weight</span><span class="o">.</span><span class="n">scale</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Input-hidden weight bit-width: 4.0
+Hidden-hidden weight bit-width: 4.0
+I/O quant bit-width: 6.0
+Input-hidden weight scale: tensor([[0.0297],
+        [0.0311],
+        [0.0298],
+        [0.0295],
+        [0.0316],
+        [0.0311],
+        [0.0318],
+        [0.0309],
+        [0.0317],
+        [0.0309],
+        [0.0316],
+        [0.0319],
+        [0.0319],
+        [0.0318],
+        [0.0315],
+        [0.0310],
+        [0.0319],
+        [0.0319],
+        [0.0318],
+        [0.0312]], grad_fn=&lt;DivBackward0&gt;)
+Hidden-hidden weight scale: tensor([[0.0297],
+        [0.0311],
+        [0.0298],
+        [0.0295],
+        [0.0316],
+        [0.0311],
+        [0.0318],
+        [0.0309],
+        [0.0317],
+        [0.0309],
+        [0.0316],
+        [0.0319],
+        [0.0319],
+        [0.0318],
+        [0.0315],
+        [0.0310],
+        [0.0319],
+        [0.0319],
+        [0.0318],
+        [0.0312]], grad_fn=&lt;DivBackward0&gt;)
+</pre></div></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> follows the same <code class="docutils literal notranslate"><span class="pre">forward</span></code> interface of <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>, with a couple of exceptions. Packed variable length inputs are currently not supported, and unbatched inputs are not supported. Other than that, everything else is the same.</p>
+<p>Inputs are expected to have shape <code class="docutils literal notranslate"><span class="pre">(batch,</span> <span class="pre">sequence,</span> <span class="pre">features)</span></code> for <code class="docutils literal notranslate"><span class="pre">batch_first=False</span></code>, or <code class="docutils literal notranslate"><span class="pre">(sequence,</span> <span class="pre">batch,</span> <span class="pre">features)</span></code> for <code class="docutils literal notranslate"><span class="pre">batch_first=True</span></code>. The layer returns a tuple with <code class="docutils literal notranslate"><span class="pre">(outputs,</span> <span class="pre">hidden_states)</span></code>, where <code class="docutils literal notranslate"><span class="pre">outputs</span></code> has shape <code class="docutils literal notranslate"><span class="pre">(sequence,</span> <span class="pre">batch,</span> <span class="pre">hidden_size</span> <span class="pre">*</span> <span class="pre">num_directions)</span></code> with <code class="docutils literal notranslate"><span class="pre">num_directions=2</span></code> when <code class="docutils literal notranslate"><span class="pre">bidirectional=True</span></code>, for <code class="docutils literal notranslate"><span class="pre">batch_first=False</span></code>, or <code class="docutils literal notranslate"><span class="pre">(batch,</span> <span class="pre">sequence,</span> <span class="pre">hidden_size</span> <span class="pre">*</span> <span class="pre">num_directions)</span></code> for <code class="docutils literal notranslate"><span class="pre">batch_first=True</span></code>, while <code class="docutils literal notranslate"><span class="pre">hidden_states</span></code> has shape
+<code class="docutils literal notranslate"><span class="pre">(num_directions</span> <span class="pre">*</span> <span class="pre">num_layers,</span> <span class="pre">batch,</span> <span class="pre">hidden_size)</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">outputs</span><span class="p">,</span> <span class="n">hidden_states</span> <span class="o">=</span> <span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output size: </span><span class="si">{</span><span class="n">outputs</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hidden states size: </span><span class="si">{</span><span class="n">hidden_states</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Output size: torch.Size([2, 5, 20])
+Hidden states size: torch.Size([1, 2, 20])
+</pre></div></div>
+</div>
+<p>As with other quantized layers, it’s possible to return a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> with <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>. As a reminder, a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is just a data structure that captures the quantization metadata associated with a quantized tensor:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+(IntQuantTensor(value=tensor([[[-0.0062, -0.2872,  0.7931,  0.4309,  0.5495, -0.4558,  0.2373,
+            0.6807,  0.4621,  0.6120, -0.1124,  0.3872,  0.3060,  0.7681,
+           -0.3684,  0.0437, -0.7369, -0.3247,  0.7743,  0.3372],
+          [ 0.5450,  0.2962, -0.3969,  0.3555, -0.5628,  0.2429, -0.4976,
+            0.1777, -0.1244,  0.0296, -0.2607,  0.0948,  0.5036, -0.3673,
+            0.5213, -0.2962,  0.7524,  0.0770, -0.0948, -0.0948],
+          [ 0.2691, -0.6624, -0.5434,  0.4968, -0.6624,  0.0983,  0.1345,
+            0.1242, -0.0517, -0.3726,  0.3053,  0.1604,  0.3208,  0.0983,
+            0.3105,  0.4243,  0.2794,  0.1604,  0.1035, -0.0724],
+          [ 0.1284, -0.3337, -0.5263, -0.0449, -0.5263,  0.3081, -0.1733,
+            0.5648,  0.4942, -0.1412,  0.1733,  0.3337,  0.6225,  0.3401,
+            0.5070, -0.1412,  0.0642, -0.3722,  0.2888,  0.1155],
+          [ 0.0579, -0.0058, -0.4054, -0.1564, -0.5560, -0.3301,  0.3533,
+            0.0058, -0.1622, -0.3765,  0.1216,  0.0695, -0.4054,  0.0927,
+            0.6139, -0.1390,  0.7066,  0.1274,  0.1622, -0.2896]],
+
+         [[ 0.1374,  0.5745,  0.0624, -0.2373,  0.3060,  0.3310, -0.5183,
+            0.1186,  0.1124,  0.2997,  0.0375,  0.6369, -0.5308,  0.6307,
+           -0.5683,  0.7556,  0.2997, -0.4933,  0.3934, -0.4871],
+          [ 0.1066, -0.1244, -0.1718,  0.4266,  0.5569,  0.0178,  0.1185,
+           -0.3910,  0.2133,  0.0178, -0.1066, -0.2903,  0.1837, -0.2547,
+           -0.2903,  0.0770,  0.3495,  0.2547,  0.2311, -0.6161],
+          [-0.0880, -0.1966,  0.3001, -0.0569,  0.4140, -0.1552, -0.1345,
+            0.4554,  0.5175,  0.1242, -0.2898,  0.1966, -0.0414,  0.3985,
+           -0.1708, -0.0621, -0.1708,  0.0828,  0.2225,  0.0517],
+          [ 0.2118,  0.5648, -0.2824, -0.0449,  0.5840,  0.3209, -0.5648,
+            0.3530,  0.4043, -0.4942, -0.3786,  0.0257,  0.5327, -0.1990,
+           -0.1348, -0.8215,  0.3016,  0.5327,  0.5648, -0.1155],
+          [-0.0290, -0.1738,  0.0695,  0.3765,  0.1738,  0.0579, -0.4054,
+           -0.2664,  0.4923,  0.2143, -0.4170,  0.4112,  0.5502,  0.7066,
+           -0.6024,  0.7356,  0.0348,  0.1043, -0.1911, -0.4518]]],
+        grad_fn=&lt;CatBackward0&gt;), scale=tensor(0.0059, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)),
+ IntQuantTensor(value=tensor([[[ 0.0579, -0.0058, -0.4054, -0.1564, -0.5560, -0.3301,  0.3533,
+            0.0058, -0.1622, -0.3765,  0.1216,  0.0695, -0.4054,  0.0927,
+            0.6139, -0.1390,  0.7066,  0.1274,  0.1622, -0.2896],
+          [-0.0290, -0.1738,  0.0695,  0.3765,  0.1738,  0.0579, -0.4054,
+           -0.2664,  0.4923,  0.2143, -0.4170,  0.4112,  0.5502,  0.7066,
+           -0.6024,  0.7356,  0.0348,  0.1043, -0.1911, -0.4518]]],
+        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0058, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
+</pre></div></div>
+</div>
+<p>Similarly, a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> can be passed in as input. However, whenever <code class="docutils literal notranslate"><span class="pre">io_quant</span></code> is set (which it is by default), the input is gonna be re-quantized:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantIdentity</span>
+
+<span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quant_rnn</span><span class="p">(</span><span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/_tensor.py:1255: UserWarning: Named tensors and all their associated APIs are an experimental feature and subject to change. Please do not use them for anything important until they are released as stable. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/c10/core/TensorImpl.h:1758.)
+  return super(Tensor, self).rename(names)
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+(IntQuantTensor(value=tensor([[[ 0.2111,  0.1267,  0.0060,  0.6153, -0.7721, -0.3740, -0.5188,
+            0.6273,  0.4162,  0.2051,  0.2292,  0.7239,  0.6032,  0.2533,
+            0.5067,  0.6635,  0.1206, -0.5730,  0.0483,  0.3318],
+          [ 0.5742,  0.0194, -0.3807, -0.0710, -0.6000,  0.1807,  0.1355,
+            0.4129,  0.3807,  0.3936, -0.0903,  0.1549,  0.1032,  0.0645,
+            0.4775, -0.0645,  0.1161, -0.0065,  0.0194, -0.1097],
+          [ 0.0453, -0.4533,  0.1036, -0.0194, -0.2979,  0.3432,  0.0777,
+            0.6346, -0.0842,  0.3302,  0.4727,  0.4856, -0.4144,  0.7382,
+           -0.0453,  0.5439,  0.2266, -0.4792,  0.4403, -0.1036],
+          [ 0.3198,  0.2741, -0.6395,  0.0971, -0.6052, -0.5196,  0.1770,
+           -0.5025, -0.1256,  0.2056,  0.2684, -0.6395, -0.0285, -0.7309,
+            0.7194, -0.7194,  0.1542, -0.3426, -0.6509,  0.0343],
+          [ 0.0000, -0.4004,  0.3151, -0.0263, -0.5842, -0.1641, -0.3939,
+            0.0263, -0.2429,  0.6499, -0.5186,  0.1247, -0.2101,  0.8337,
+           -0.1444,  0.6762, -0.1641, -0.5317, -0.1707, -0.0197]],
+
+         [[ 0.2111, -0.2111, -0.3197, -0.0241, -0.5067, -0.0241, -0.2895,
+            0.1749, -0.4283,  0.0000, -0.3680,  0.5308, -0.1267,  0.5248,
+            0.1206,  0.2654,  0.6394, -0.1327,  0.2292, -0.3800],
+          [ 0.6775, -0.3355, -0.1807,  0.2774, -0.8259, -0.2000, -0.0065,
+            0.5678,  0.4000,  0.2258,  0.4387,  0.2710,  0.5355,  0.1290,
+            0.6710, -0.0645, -0.2710, -0.3613,  0.6388,  0.5226],
+          [-0.0065, -0.0777, -0.6475, -0.1684, -0.3820,  0.3885,  0.0065,
+            0.1943, -0.3238, -0.2525, -0.1230, -0.0453, -0.0777,  0.3432,
+            0.4921, -0.1101,  0.8224,  0.2396,  0.1554, -0.3885],
+          [-0.0514, -0.4111, -0.4625, -0.1713, -0.3369,  0.2512, -0.2969,
+           -0.4111, -0.2341,  0.3597, -0.1998,  0.0000,  0.2741,  0.7137,
+           -0.1256,  0.1370, -0.0742, -0.5938, -0.5424, -0.4168],
+          [ 0.3479,  0.5974, -0.3939,  0.1444, -0.6762,  0.1969, -0.6499,
+            0.4136,  0.5383, -0.3085,  0.4070,  0.4070,  0.6630, -0.0263,
+            0.2823, -0.1510,  0.1313, -0.5186,  0.4464, -0.0066]]],
+        grad_fn=&lt;CatBackward0&gt;), scale=tensor(0.0062, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)),
+ IntQuantTensor(value=tensor([[[ 0.0000, -0.4004,  0.3151, -0.0263, -0.5842, -0.1641, -0.3939,
+            0.0263, -0.2429,  0.6499, -0.5186,  0.1247, -0.2101,  0.8337,
+           -0.1444,  0.6762, -0.1641, -0.5317, -0.1707, -0.0197],
+          [ 0.3479,  0.5974, -0.3939,  0.1444, -0.6762,  0.1969, -0.6499,
+            0.4136,  0.5383, -0.3085,  0.4070,  0.4070,  0.6630, -0.0263,
+            0.2823, -0.1510,  0.1313, -0.5186,  0.4464, -0.0066]]],
+        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0066, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
+</pre></div></div>
+</div>
+<p>As with <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>, by default the initial hidden state is initialized to 0, but a custom hidden state of shape <code class="docutils literal notranslate"><span class="pre">(num_directions</span> <span class="pre">*</span> <span class="pre">num_layers,</span> <span class="pre">batch,</span> <span class="pre">hidden_size)</span></code> can be passed in:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+(IntQuantTensor(value=tensor([[[-0.3777, -0.2074,  0.7184,  0.9110,  0.0148, -0.1926, -0.7110,
+            0.1926, -0.4222, -0.9480,  0.2592,  0.2222, -0.2370, -0.5407,
+            0.5851, -0.2370,  0.3555,  0.1703,  0.4444, -0.2222],
+          [ 0.4814, -0.7355, -0.1605,  0.3878, -0.5282,  0.2073,  0.0000,
+            0.3677,  0.1805, -0.1204, -0.4614,  0.2474,  0.7021,  0.0401,
+            0.4346,  0.4480, -0.3143,  0.0401,  0.6887,  0.6753],
+          [ 0.5038, -0.3650, -0.6936,  0.0146, -0.9345,  0.0000,  0.1679,
+           -0.3066,  0.1825,  0.4089,  0.0949, -0.2555,  0.3870, -0.2482,
+            0.5914, -0.0803,  0.1314, -0.4235, -0.3797,  0.1168],
+          [ 0.1795,  0.1795,  0.0449,  0.0449,  0.2308,  0.0898, -0.1282,
+            0.5579,  0.1731, -0.1795,  0.1603,  0.3142,  0.1090,  0.5835,
+           -0.1475,  0.0449,  0.1795, -0.0256,  0.8143, -0.2437],
+          [-0.0066,  0.4804,  0.0066, -0.1184,  0.6843, -0.0197,  0.1448,
+            0.1842,  0.6383, -0.1908, -0.0066, -0.1053, -0.1316,  0.0461,
+           -0.0066, -0.2764,  0.3751,  0.3619,  0.5001, -0.1316]],
+
+         [[ 0.5110, -0.3555,  0.6443, -0.8221,  0.4888, -0.2074,  0.0444,
+            0.4888,  0.5999,  0.4370,  0.0000,  0.5036, -0.7628,  0.9332,
+           -0.6147,  0.7332,  0.3629,  0.9184,  0.7702, -0.8887],
+          [ 0.8492, -0.3410, -0.3878,  0.1404, -0.3410,  0.3143, -0.1204,
+            0.5817,  0.4413,  0.5550,  0.6486, -0.1070,  0.6285, -0.4948,
+            0.2006,  0.1605,  0.0535, -0.4079,  0.3811,  0.4948],
+          [ 0.6060,  0.7666, -0.8688, -0.6863, -0.5111, -0.0803, -0.6425,
+           -0.0146, -0.3577,  0.3431, -0.6571,  0.5622,  0.0000,  0.7374,
+           -0.1314, -0.3650,  0.7520,  0.2336, -0.2847, -0.8250],
+          [ 0.3014,  0.2950, -0.0898, -0.3142,  0.4040,  0.4681, -0.0705,
+           -0.2052,  0.8143, -0.1603,  0.3334, -0.6733,  0.0834,  0.0898,
+           -0.4937,  0.1924,  0.0064,  0.4104,  0.6348, -0.3527],
+          [-0.6449,  0.5856, -0.0263, -0.0197,  0.8357, -0.5856,  0.0395,
+           -0.3422,  0.8028,  0.0855, -0.7238, -0.6317,  0.2764, -0.0461,
+           -0.4211, -0.5988,  0.2632,  0.4014, -0.7501, -0.5659]]],
+        grad_fn=&lt;CatBackward0&gt;), scale=tensor(0.0069, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)),
+ IntQuantTensor(value=tensor([[[-0.0066,  0.4804,  0.0066, -0.1184,  0.6843, -0.0197,  0.1448,
+            0.1842,  0.6383, -0.1908, -0.0066, -0.1053, -0.1316,  0.0461,
+           -0.0066, -0.2764,  0.3751,  0.3619,  0.5001, -0.1316],
+          [-0.6449,  0.5856, -0.0263, -0.0197,  0.8357, -0.5856,  0.0395,
+           -0.3422,  0.8028,  0.0855, -0.7238, -0.6317,  0.2764, -0.0461,
+           -0.4211, -0.5988,  0.2632,  0.4014, -0.7501, -0.5659]]],
+        grad_fn=&lt;UnsqueezeBackward0&gt;), scale=tensor(0.0066, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True)))
+</pre></div></div>
+</div>
+<p>As with other Brevitas layers, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> can be initialized from a pretrained floating-point <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>. For the purpose of this tutorial, can simulate it from an untrained <code class="docutils literal notranslate"><span class="pre">torch.nn.RNN</span></code>. As for other quantized layers, setting <code class="docutils literal notranslate"><span class="pre">brevitas.config.IGNORE_MISSING_KEYS</span></code> might be necessary (depending on which quantizers are set). With the default quantizers, an error on activation scale keys would be triggered, so we set it to true:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">RNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
+
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">float_rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">quant_rnn</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_rnn</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;All keys matched successfully&gt;
+</pre></div></div>
+</div>
+<p>Similar to other quantized layers, quantization on a certain tensor can be disabled by setting a quantizer to <code class="docutils literal notranslate"><span class="pre">None</span></code>. Setting all quantizers to <code class="docutils literal notranslate"><span class="pre">None</span></code> recovers the same behaviour as the floating-point variant:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">RNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantRNN</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
+<span class="n">ATOL</span> <span class="o">=</span> <span class="mf">1e-6</span>
+
+<span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">123456</span><span class="p">)</span>
+
+<span class="n">float_rnn</span> <span class="o">=</span> <span class="n">RNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Set both layers to the same state_dict</span>
+<span class="n">quant_rnn</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_rnn</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+
+<span class="c1"># Generate random input</span>
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="c1"># Check outputs are the same</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">ATOL</span><span class="p">))</span>
+<span class="c1"># Check hidden states are the same</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">ATOL</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+True
+</pre></div></div>
+</div>
+<p>As with other quantized layers, we can leverage other prebuilt quantizers too. For example, to perform binary weight quantization:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.binary</span><span class="w"> </span><span class="kn">import</span> <span class="n">SignedBinaryWeightPerTensorConst</span>
+
+<span class="n">binary_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">SignedBinaryWeightPerTensorConst</span><span class="p">)</span>
+<span class="n">binary_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+(tensor([[[-0.3684, -0.0946, -0.4480,  0.0050,  0.1543,  0.6322,  0.1643,
+            0.1693,  0.2937,  0.5227,  0.2290, -0.3534, -0.3883,  0.4331,
+            0.0000,  0.1693, -0.4331,  0.3634, -0.0050,  0.1941],
+          [-0.2240, -0.0199, -0.3534,  0.0946,  0.3485,  0.3534,  0.1941,
+            0.1643,  0.1145,  0.4082,  0.2987, -0.0647, -0.0946,  0.1543,
+            0.1145, -0.0498,  0.0647,  0.1493,  0.0299, -0.1195]],
+
+         [[ 0.0776, -0.0776, -0.5670,  0.4178, -0.0239,  0.4476,  0.2029,
+           -0.0836,  0.3521,  0.7042,  0.6326,  0.4058, -0.4118, -0.0477,
+           -0.2387, -0.0179, -0.4416, -0.4237, -0.3282, -0.1074],
+          [-0.2626,  0.3581,  0.2328, -0.2268, -0.2686, -0.3103,  0.4536,
+            0.3461,  0.3103,  0.3163,  0.3282, -0.3163, -0.7639,  0.0179,
+            0.0060,  0.0776, -0.5849, -0.5252,  0.1790,  0.2984]],
+
+         [[-0.5411,  0.3147,  0.6184, -0.3037, -0.1877, -0.3755,  0.1767,
+           -0.1767, -0.1491, -0.1049,  0.2871, -0.0552, -0.0883,  0.0331,
+            0.4749, -0.3147,  0.0331,  0.1767,  0.7013, -0.2264],
+          [-0.0773, -0.1877,  0.4749, -0.2264, -0.4583,  0.0166, -0.3534,
+           -0.5743,  0.5411,  0.1160, -0.0442, -0.0442,  0.3037,  0.0166,
+           -0.1325, -0.1657, -0.0718,  0.1215,  0.6240,  0.3092]],
+
+         [[-0.0627, -0.1882, -0.4642, -0.1443,  0.4705,  0.3137, -0.2447,
+            0.0063, -0.1129,  0.3011,  0.1882,  0.2572,  0.2384, -0.0376,
+            0.1129, -0.1380,  0.1380,  0.3011, -0.0251, -0.0063],
+          [-0.6399,  0.5771,  0.2133,  0.2572,  0.7967,  0.1631, -0.2384,
+           -0.4078, -0.3199,  0.0753,  0.6524,  0.0690, -0.1819, -0.2258,
+            0.3889, -0.4078, -0.3764,  0.2258,  0.5458, -0.1756]],
+
+         [[-0.5704,  0.6139, -0.1209, -0.5173,  0.4447,  0.0048,  0.3481,
+           -0.5946, -0.5221,  0.1644, -0.2949, -0.1789, -0.1982,  0.2707,
+            0.2900, -0.5124, -0.4399, -0.0725,  0.4351,  0.6091],
+          [ 0.0435,  0.2030, -0.4447, -0.2659,  0.1547,  0.0580,  0.4254,
+            0.5559,  0.1740,  0.4254,  0.4592,  0.2369, -0.4496, -0.3336,
+            0.3046,  0.1354, -0.3626, -0.2659, -0.2079, -0.4641]]],
+        grad_fn=&lt;CatBackward0&gt;),
+ tensor([[[-0.5704,  0.6139, -0.1209, -0.5173,  0.4447,  0.0048,  0.3481,
+           -0.5946, -0.5221,  0.1644, -0.2949, -0.1789, -0.1982,  0.2707,
+            0.2900, -0.5124, -0.4399, -0.0725,  0.4351,  0.6091],
+          [ 0.0435,  0.2030, -0.4447, -0.2659,  0.1547,  0.0580,  0.4254,
+            0.5559,  0.1740,  0.4254,  0.4592,  0.2369, -0.4496, -0.3336,
+            0.3046,  0.1354, -0.3626, -0.2659, -0.2079, -0.4641]]],
+        grad_fn=&lt;UnsqueezeBackward0&gt;))
+</pre></div></div>
+</div>
+</section>
+<section id="QuantLSTM">
+<h2>QuantLSTM<a class="headerlink" href="#QuantLSTM" title="Permalink to this heading">#</a></h2>
+<p>We now look at <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
+
+<span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">QuantLSTM</span><span class="o">.</span><span class="fm">__init__</span><span class="p">)</span>
+<span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">batch_first</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">bidirectional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">weight_quant</span><span class="o">=</span><span class="n">Int8WeightPerTensorFloat</span><span class="p">,</span>
+        <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">,</span>
+        <span class="n">io_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">gate_acc_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">sigmoid_quant</span><span class="o">=</span><span class="n">Uint8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">tanh_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">cell_state_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span>
+        <span class="n">coupled_input_forget_gates</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">cat_output_cell_states</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">shared_intra_layer_gate_acc_quant</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">shared_cell_state_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">return_quant_tensor</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="nb">super</span><span class="p">(</span><span class="n">QuantLSTM</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="n">layer_impl</span><span class="o">=</span><span class="n">_QuantLSTMLayer</span><span class="p">,</span>
+        <span class="n">input_size</span><span class="o">=</span><span class="n">input_size</span><span class="p">,</span>
+        <span class="n">hidden_size</span><span class="o">=</span><span class="n">hidden_size</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span>
+        <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+        <span class="n">batch_first</span><span class="o">=</span><span class="n">batch_first</span><span class="p">,</span>
+        <span class="n">bidirectional</span><span class="o">=</span><span class="n">bidirectional</span><span class="p">,</span>
+        <span class="n">weight_quant</span><span class="o">=</span><span class="n">weight_quant</span><span class="p">,</span>
+        <span class="n">bias_quant</span><span class="o">=</span><span class="n">bias_quant</span><span class="p">,</span>
+        <span class="n">io_quant</span><span class="o">=</span><span class="n">io_quant</span><span class="p">,</span>
+        <span class="n">gate_acc_quant</span><span class="o">=</span><span class="n">gate_acc_quant</span><span class="p">,</span>
+        <span class="n">sigmoid_quant</span><span class="o">=</span><span class="n">sigmoid_quant</span><span class="p">,</span>
+        <span class="n">tanh_quant</span><span class="o">=</span><span class="n">tanh_quant</span><span class="p">,</span>
+        <span class="n">cell_state_quant</span><span class="o">=</span><span class="n">cell_state_quant</span><span class="p">,</span>
+        <span class="n">cifg</span><span class="o">=</span><span class="n">coupled_input_forget_gates</span><span class="p">,</span>
+        <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="n">shared_input_hidden_weights</span><span class="p">,</span>
+        <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="n">shared_intra_layer_weight_quant</span><span class="p">,</span>
+        <span class="n">shared_intra_layer_gate_acc_quant</span><span class="o">=</span><span class="n">shared_intra_layer_gate_acc_quant</span><span class="p">,</span>
+        <span class="n">shared_cell_state_quant</span><span class="o">=</span><span class="n">shared_cell_state_quant</span><span class="p">,</span>
+        <span class="n">return_quant_tensor</span><span class="o">=</span><span class="n">return_quant_tensor</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cat_output_cell_states</span> <span class="ow">and</span> <span class="n">cell_state_quant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">shared_cell_state_quant</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Concatenating cell states requires shared cell quantizers.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">return_quant_tensor</span> <span class="ow">and</span> <span class="n">cell_state_quant</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;return_quant_tensor=True requires cell_state_quant != None.&quot;</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">cat_output_cell_states</span> <span class="o">=</span> <span class="n">cat_output_cell_states</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>As with <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code>, <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> supports all options of <code class="docutils literal notranslate"><span class="pre">torch.nn.LSTM</span></code>. Everything said so far on <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> applies to <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> too, but there a bunch of things more to be aware of.</p>
+<p><code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> accepts a few more quantizers: <code class="docutils literal notranslate"><span class="pre">sigmoid_quant</span></code>, <code class="docutils literal notranslate"><span class="pre">tanh_quant</span></code> and <code class="docutils literal notranslate"><span class="pre">cell_state_quant</span></code>. As with <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code>, setting <code class="docutils literal notranslate"><span class="pre">bidirectional=True</span></code> and/or <code class="docutils literal notranslate"><span class="pre">num_layers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> triggers sharing the instance of certain quantizers, but not others. In particular <code class="docutils literal notranslate"><span class="pre">io_quant</span></code> is shared among all layers and directions, as it was the case for <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code>. <code class="docutils literal notranslate"><span class="pre">cell_state_quant</span></code> is shared by default, but setting <code class="docutils literal notranslate"><span class="pre">shared_cell_state_quant=False</span></code> can disable that. However, that requires setting
+<code class="docutils literal notranslate"><span class="pre">cat_output_cell_states=False</span></code>, as otherwise we would find ourselves with a concenation of cell states that have been quantized with different quantizers, which is considered illegal in Brevitas.</p>
+<p>LSTMs have four gates, each with its input-hidden and hidden-hidden weights. Brevitas takes in one <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> definition, but then four different instances of the weight quantizer are instantiated, and each gate is quantized differently, meaning it can have its own scale and zero-point. To force sharing the same weight quantizer across all gates, <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> supports setting <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_weight_quant=True</span></code>. The same reasoning applies to the quantization of the output of each
+gate, before the activation functions, which is controlled by the <code class="docutils literal notranslate"><span class="pre">gate_acc_quant</span></code> quantizer. To force the same quantizer instance to be shared, <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_gate_acc_quant=True</span></code> can be set. Different sigmoid and tanh functions instead are always allocated different quantizer instances.</p>
+<p>Finally, <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> also supports the coupled input-forget gates (CIFG), where the forget gate is defined as <code class="docutils literal notranslate"><span class="pre">forget_gate</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">-</span> <span class="pre">input_gate</span></code>, by setting <code class="docutils literal notranslate"><span class="pre">coupled_input_forget_gates=True</span></code>. This is an optimization to save on some compute and number of parameters, and is orthogonal to all other settings, such as <code class="docutils literal notranslate"><span class="pre">shared_input_hidden_weights</span></code>.</p>
+</section>
+<section id="Just-in-time-compilation">
+<h2>Just-in-time compilation<a class="headerlink" href="#Just-in-time-compilation" title="Permalink to this heading">#</a></h2>
+<p>Custom recurrent layer can be quite slow at training time. With quantization added in, it only gets worse. To mitigate the issue, both <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> support jit compilation. Setting the env variable <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code> triggers end-to-end compilation of the quantized recurrent cell through PyTorch TorchScript compiler.</p>
+</section>
+<section id="Calibration">
+<h2>Calibration<a class="headerlink" href="#Calibration" title="Permalink to this heading">#</a></h2>
+<p>As of version 0.8 of Brevitas, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> don’t support quantized activations calibration through <code class="docutils literal notranslate"><span class="pre">calibration_mode</span></code>nor bias correction through <code class="docutils literal notranslate"><span class="pre">bias_correction_mode</span></code>. This will be added in a future version.</p>
+</section>
+<section id="Export">
+<h2>Export<a class="headerlink" href="#Export" title="Permalink to this heading">#</a></h2>
+<p>As of Brevitas 0.8, export of quantized recurrent layers is still a work in progress. As a proof of concept, there is partial support only for export of <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> to ONNX QCDQ, a way to represented quantization in ONNX only with standard ops (QuantizeLinear-&gt;Clip-&gt;DequantizeLinear), and to QONNX, a custom set of quantized operators introduced by Brevitas on top of ONNX. Two use cases are supported: (1) only <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> is set, supported by both QCDQ and QONNX, and (2) all quantizers are
+set, supported only by QONNX. In both cases, <code class="docutils literal notranslate"><span class="pre">bidirectional=True</span></code> and <code class="docutils literal notranslate"><span class="pre">num_layers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> are supported. We first define an utility function to visualize the network through netron, which requires <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">netron</span></code>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">IPython.display</span><span class="w"> </span><span class="kn">import</span> <span class="n">IFrame</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">show_netron</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">netron</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">3.</span><span class="p">)</span>
+        <span class="n">netron</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">,</span> <span class="n">port</span><span class="p">),</span> <span class="n">browse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">IFrame</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="s2">&quot;100%&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">pass</span>
+</pre></div>
+</div>
+</div>
+<section id="QuantLSTM-weight-only-quantization-export">
+<h3>QuantLSTM weight-only quantization export<a class="headerlink" href="#QuantLSTM-weight-only-quantization-export" title="Permalink to this heading">#</a></h3>
+<p>For use case (1), we leverage export to ONNX QCDQ. Qeight quantization is represented with QCDQ nodes, while the standard ONNX <code class="docutils literal notranslate"><span class="pre">LSTM</span></code> operator is adopted for the recurrent cell. With this approach, we can represent any weight bit width &gt;= 2. Opset 14 is required. For the purpose of this 1 layer, 1 direction example we keep the default <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> set, we add <code class="docutils literal notranslate"><span class="pre">weight_bit_width=4</span></code>, while we disable the other quantizers:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+
+<span class="n">quant_lstm_weight_only</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_4b.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8080</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8080/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+<p>Note that the model can then be accelerated in <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">export_path</span><span class="p">)</span>
+<span class="n">input_name</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+<span class="n">np_input</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># (seq_len, batch_size, input_size)</span>
+<span class="n">pred_onnx</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="n">input_name</span><span class="p">:</span> <span class="n">np_input</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2025-05-09 15:50:53.160701448 [W:onnxruntime:, graph.cc:1283 Graph] Initializer onnx::LSTM_93 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
+</pre></div></div>
+</div>
+<p>CIFG is also supported in a way that follows the semantics of <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+
+<span class="n">quant_lstm_weight_only_cifg</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">coupled_input_forget_gates</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_cifg_4b.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_cifg</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8082</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8082/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+<p>As before we can run it with <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">onnxruntime</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ort</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">export_path</span><span class="p">)</span>
+<span class="n">input_name</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">get_inputs</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+<span class="n">np_input</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>  <span class="c1"># (seq_len, batch_size, input_size)</span>
+<span class="n">pred_onnx</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">{</span><span class="n">input_name</span><span class="p">:</span> <span class="n">np_input</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2025-05-09 15:50:53.687943522 [W:onnxruntime:, graph.cc:1283 Graph] Initializer onnx::LSTM_87 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
+</pre></div></div>
+</div>
+<p>For the 2 layers, 2 directions use case:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
+  warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://localhost:8083
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8083/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+<p>Shared input-hidden weights are also supported:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers_shared</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers_shared</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
+  warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8085</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; at http://localhost:8085
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8085/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+<p>We can observe how setting <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_weight_quant=True</span></code> affects the network. Now, for each layer and for each direction within a layer, all weight quantizers share the same scale/zp/bit-width:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
+  warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at http://localhost:8086
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8086/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+<p>Alternatively, if we set both <code class="docutils literal notranslate"><span class="pre">shared_input_hidden_weights=True</span></code> and <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_weight_quant=True</span></code>, the side effect is that all quantizers among both directions in a given layer are gonna have the same scale/zp/bit-width.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+
+<span class="n">quant_lstm_weight_only_bidirectional_2_layers</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span>
+    <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:59: UserWarning: Keyword arguments are being passed but they not being used.
+  warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8087</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39; at http://localhost:8087
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8087/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+</section>
+<section id="QuantLSTM-full-quantization-export">
+<h3>QuantLSTM full quantization export<a class="headerlink" href="#QuantLSTM-full-quantization-export" title="Permalink to this heading">#</a></h3>
+<p>For use case (2) we export to QONNX. Weight quantization is represented with <code class="docutils literal notranslate"><span class="pre">Quant</span></code> nodes, while a custom quantized LSTM operator <code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> operator is generated for the recurrent cell. Note that currently <code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> is not yet supported for execution in the <code class="docutils literal notranslate"><span class="pre">qonnx</span></code> library. In a future version of Brevitas, <code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> will instead be lowered to a series of standard ops + <code class="docutils literal notranslate"><span class="pre">Quant</span></code> nodes. For the purpose example, we keep all quantizers at default:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantLSTM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_qonnx</span>
+
+<span class="n">quant_lstm</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm.onnx&#39;</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_qonnx</span><span class="p">(</span><span class="n">quant_lstm</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8088</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Serving &#39;quant_lstm.onnx&#39; at http://localhost:8088
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<iframe
+    width="100%"
+    height="400"
+    src="http://localhost:8088/"
+    frameborder="0"
+    allowfullscreen
+
+></iframe></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> takes the following series of inputs.</p>
+<ul class="simple">
+<li><p>quant_input,</p></li>
+<li><p>quant_hidden_state,</p></li>
+<li><p>quant_cell_state,</p></li>
+<li><p>quant_weight_ii,</p></li>
+<li><p>quant_weight_if,</p></li>
+<li><p>quant_weight_ic,</p></li>
+<li><p>quant_weight_io,</p></li>
+<li><p>quant_weight_hi,</p></li>
+<li><p>quant_weight_hf,</p></li>
+<li><p>quant_weight_hc,</p></li>
+<li><p>quant_weight_ho,</p></li>
+<li><p>quant_bias_input,</p></li>
+<li><p>quant_bias_forget,</p></li>
+<li><p>quant_bias_cell,</p></li>
+<li><p>quant_bias_output,</p></li>
+<li><p>output_scale,</p></li>
+<li><p>output_zero_point,</p></li>
+<li><p>output_bit_width,</p></li>
+<li><p>cell_state_scale,</p></li>
+<li><p>cell_state_zero_point,</p></li>
+<li><p>cell_state_bit_width,</p></li>
+<li><p>input_acc_scale,</p></li>
+<li><p>input_acc_zero_point,</p></li>
+<li><p>input_acc_bit_width,</p></li>
+<li><p>forget_acc_scale,</p></li>
+<li><p>forget_acc_zero_point,</p></li>
+<li><p>forget_acc_bit_width,</p></li>
+<li><p>cell_acc_scale,</p></li>
+<li><p>cell_acc_zero_point,</p></li>
+<li><p>cell_acc_bit_width,</p></li>
+<li><p>output_acc_scale,</p></li>
+<li><p>output_acc_zero_point,</p></li>
+<li><p>output_acc_bit_width,</p></li>
+<li><p>input_sigmoid_scale,</p></li>
+<li><p>input_sigmoid_zero_point,</p></li>
+<li><p>input_sigmoid_bit_width,</p></li>
+<li><p>forget_sigmoid_scale,</p></li>
+<li><p>forget_sigmoid_zero_point,</p></li>
+<li><p>forget_sigmoid_bit_width,</p></li>
+<li><p>cell_tanh_scale,</p></li>
+<li><p>cell_tanh_zero_point,</p></li>
+<li><p>cell_tanh_bit_width,</p></li>
+<li><p>output_sigmoid_scale,</p></li>
+<li><p>output_sigmoid_zero_point,</p></li>
+<li><p>output_sigmoid_bit_width,</p></li>
+<li><p>hidden_state_tanh_scale,</p></li>
+<li><p>hidden_state_tanh_zero_point,</p></li>
+<li><p>hidden_state_tanh_bit_width</p></li>
+</ul>
+<p>All previous use cases illustrated for the weight-only quantization scenario are also supported.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="anatomy_quantizer.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Anatomy of a Quantizer</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="onnx_export.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">ONNX Export</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantRNN">QuantRNN</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantLSTM">QuantLSTM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Just-in-time-compilation">Just-in-time compilation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Calibration">Calibration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Export">Export</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantLSTM-weight-only-quantization-export">QuantLSTM weight-only quantization export</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantLSTM-full-quantization-export">QuantLSTM full quantization export</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/tutorials/quant_recurrent.nblink.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

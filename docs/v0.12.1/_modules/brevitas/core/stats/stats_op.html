@@ -1,0 +1,1364 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>brevitas.core.stats.stats_op &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../../../../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../../../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../../../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/core/stats/stats_op';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../../../../about.html" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">brevitas.cor...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for brevitas.core.stats.stats_op</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABCMeta</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parameter</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.ops_ste</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarSignedClampMinSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatelessBuffer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">max_int</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant_tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">_unpack_quant_tensor</span>
+<span class="c1"># Use custom implementation of kthvalue as work around to (b)float16 kernel limitations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">kthvalue</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.stats_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">SCALAR_SHAPE</span>
+
+<span class="n">DEFAULT_STD_DEV_EPSILON</span> <span class="o">=</span> <span class="mf">1e-8</span>
+
+
+<div class="viewcode-block" id="UnsignedScaleStat"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.UnsignedScaleStat">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">UnsignedScaleStat</span><span class="p">():</span>
+
+<div class="viewcode-block" id="UnsignedScaleStat.is_scale_unsigned"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.UnsignedScaleStat.is_scale_unsigned">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_scale_unsigned</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="SignedScaleStats"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.SignedScaleStats">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">SignedScaleStats</span><span class="p">():</span>
+
+<div class="viewcode-block" id="SignedScaleStats.is_scale_unsigned"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.SignedScaleStats.is_scale_unsigned">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_scale_unsigned</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="kc">False</span></div></div>
+
+
+<div class="viewcode-block" id="NegativeMinOrZero"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.NegativeMinOrZero">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">NegativeMinOrZero</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;keepdim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NegativeMinOrZero</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+
+<div class="viewcode-block" id="NegativeMinOrZero.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.NegativeMinOrZero.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">min_val</span></div></div>
+
+
+<div class="viewcode-block" id="AbsPercentile"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsPercentile">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AbsPercentile</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;keepdim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">high_percentile_q</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+            <span class="n">percentile_q</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AbsPercentile</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">percentile_q</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;percentile_q is deprecated, please pass high_percentile_q.&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">high_percentile_q</span> <span class="o">&lt;=</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;q has to be a percentage&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">=</span> <span class="n">high_percentile_q</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+
+<div class="viewcode-block" id="AbsPercentile.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsPercentile.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># k is 1-indexed, so round away from zero</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">k</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># assuming x is two dimensional, get the other dimension</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">())</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Only 2-dim input is supported.&quot;</span>
+            <span class="n">other_dim</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">dim_slice</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">narrow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">other_dim</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># k is 1-indexed, so round away from zero</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">*</span> <span class="n">dim_slice</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">abs</span><span class="p">(),</span> <span class="n">k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">result</span></div></div>
+
+
+<div class="viewcode-block" id="NegativePercentileOrZero"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.NegativePercentileOrZero">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">NegativePercentileOrZero</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="s1">&#39;keepdim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">low_percentile_q</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NegativePercentileOrZero</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">=</span> <span class="n">low_percentile_q</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+
+<div class="viewcode-block" id="NegativePercentileOrZero.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.NegativePercentileOrZero.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># k is 1-indexed, so round away from zero</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">numel</span><span class="p">()))</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">k</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># assuming x is two dimensional, get the other dimension</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">())</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Only 2-dim input is supported.&quot;</span>
+            <span class="n">other_dim</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">dim_slice</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">narrow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">other_dim</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># k is 1-indexed, so round away from zero</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">*</span> <span class="n">dim_slice</span><span class="o">.</span><span class="n">numel</span><span class="p">()))</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">result</span></div></div>
+
+
+<div class="viewcode-block" id="PercentileInterval"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">PercentileInterval</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;low_q&#39;</span><span class="p">,</span> <span class="s1">&#39;high_q&#39;</span><span class="p">,</span> <span class="s1">&#39;keepdim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">low_percentile_q</span><span class="p">,</span>
+            <span class="n">high_percentile_q</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">PercentileInterval</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">low_q</span> <span class="o">=</span> <span class="n">low_percentile_q</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">high_q</span> <span class="o">=</span> <span class="n">high_percentile_q</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+
+<div class="viewcode-block" id="PercentileInterval.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">low_k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_q</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">numel</span><span class="p">()))</span>
+            <span class="c1"># k is 1-indexed, so round away from zero</span>
+            <span class="n">high_k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_q</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+            <span class="n">low_result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">low_k</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">high_result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">high_k</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># assuming x is two dimensional, get the other dimension</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">())</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Only 2-dim input is supported.&quot;</span>
+            <span class="n">other_dim</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">dim_slice</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">narrow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">other_dim</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">low_k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_q</span> <span class="o">*</span> <span class="n">dim_slice</span><span class="o">.</span><span class="n">numel</span><span class="p">()))</span>
+            <span class="c1"># k is 1-indexed, so round away from zero</span>
+            <span class="n">high_k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_q</span> <span class="o">*</span> <span class="n">dim_slice</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+            <span class="n">low_result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">low_k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">high_result</span> <span class="o">=</span> <span class="n">kthvalue</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">high_k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># We need to make sure the lower bound is not positive to align with zero-point statistics</span>
+        <span class="n">low_result</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">low_result</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">())</span>
+        <span class="n">interval</span> <span class="o">=</span> <span class="n">high_result</span> <span class="o">-</span> <span class="n">low_result</span>
+        <span class="n">abs_interval</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">abs_interval</span></div></div>
+
+
+<div class="viewcode-block" id="AbsMax"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMax">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AbsMax</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AbsMax</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+
+<div class="viewcode-block" id="AbsMax.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMax.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="AbsMinMax"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMinMax">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AbsMinMax</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;keepdim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AbsMinMax</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zero</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+
+<div class="viewcode-block" id="AbsMinMax.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMinMax.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">max_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># We need to make sure the lower bound is not positive to align with zero-point statistics</span>
+        <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">max_val</span> <span class="o">-</span> <span class="n">min_val</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AbsMaxAve"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMaxAve">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AbsMaxAve</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AbsMaxAve</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="AbsMaxAve.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMaxAve.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span></div></div>
+
+
+<div class="viewcode-block" id="AbsMaxL2"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMaxL2">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AbsMaxL2</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AbsMaxL2</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="AbsMaxL2.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsMaxL2.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">per_channel_max</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">per_channel_max</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">per_channel_max</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">out</span></div></div>
+
+
+<div class="viewcode-block" id="AbsAve"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsAve">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">AbsAve</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">AbsAve</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="AbsAve.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsAve.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="MeanSigmaStd"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanSigmaStd">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">MeanSigmaStd</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">std_dev_epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_STD_DEV_EPSILON</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MeanSigmaStd</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">impl</span> <span class="o">=</span> <span class="n">_MeanSigmaStdImpl</span><span class="p">(</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">std_dev_epsilon</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+
+<div class="viewcode-block" id="MeanSigmaStd.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanSigmaStd.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div></div>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_MeanSigmaStdImpl</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;output_shape&#39;</span><span class="p">,</span> <span class="s1">&#39;epsilon&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">std_dev_epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_STD_DEV_EPSILON</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">_MeanSigmaStdImpl</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">=</span> <span class="n">std_dev_epsilon</span>
+
+    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">abs_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mean_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">abs_val</span><span class="p">)</span>
+            <span class="n">std_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">abs_val</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mean_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)</span>
+            <span class="n">std_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">abs_val</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">)</span>
+            <span class="n">mean_val</span> <span class="o">=</span> <span class="n">mean_val</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">std_val</span> <span class="o">=</span> <span class="n">std_val</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mean_val</span> <span class="o">+</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">std_val</span>
+
+
+<div class="viewcode-block" id="MeanLearnedSigmaStd"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanLearnedSigmaStd">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">MeanLearnedSigmaStd</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">,</span> <span class="n">UnsignedScaleStat</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">stats_output_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">std_dev_epsilon</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_STD_DEV_EPSILON</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MeanLearnedSigmaStd</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">impl</span> <span class="o">=</span> <span class="n">_MeanSigmaStdImpl</span><span class="p">(</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">std_dev_epsilon</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">stats_output_shape</span> <span class="o">==</span> <span class="n">SCALAR_SHAPE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">stats_output_shape</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
+
+<div class="viewcode-block" id="MeanLearnedSigmaStd.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanLearnedSigmaStd.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># trick to get a tensor type</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_from_state_dict</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span>
+            <span class="n">error_msgs</span><span class="p">):</span>
+        <span class="n">value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;sigma&#39;</span>
+        <span class="n">retrocomp_value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;learned_sigma&#39;</span>
+        <span class="k">if</span> <span class="n">retrocomp_value_key</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>  <span class="c1"># retrocompatibility</span>
+            <span class="n">state_dict</span><span class="p">[</span><span class="n">value_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">retrocomp_value_key</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MeanLearnedSigmaStd</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_load_from_state_dict</span><span class="p">(</span>
+            <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">)</span>
+        <span class="n">sigma_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;sigma&#39;</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="ow">and</span> <span class="n">sigma_key</span> <span class="ow">in</span> <span class="n">missing_keys</span><span class="p">:</span>
+            <span class="n">missing_keys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">sigma_key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="KLMinimizerThreshold"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">KLMinimizerThreshold</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Based on:</span>
+<span class="sd">    https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/contrib/quantization.py</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signed</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">,</span> <span class="n">num_bins</span><span class="o">=</span><span class="mi">1000</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_eps</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">KLMinimizerThreshold</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">=</span> <span class="n">num_bins</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smoothing_eps</span> <span class="o">=</span> <span class="n">smoothing_eps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="o">=</span> <span class="n">signed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">absmax_impl</span> <span class="o">=</span> <span class="n">AbsMax</span><span class="p">()</span>
+
+<div class="viewcode-block" id="KLMinimizerThreshold.smooth_normalize_distribution"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.smooth_normalize_distribution">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">smooth_normalize_distribution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">eps</span><span class="p">):</span>
+        <span class="n">is_zeros</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">n_zeros</span> <span class="o">=</span> <span class="n">is_zeros</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">n_nonzeros</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">numel</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_zeros</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">n_nonzeros</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">eps1</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">n_zeros</span> <span class="o">/</span> <span class="n">n_nonzeros</span>
+        <span class="n">hist</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">hist</span> <span class="o">+=</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">is_zeros</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="n">eps1</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_nonzeros</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">categorical</span><span class="o">.</span><span class="n">Categorical</span><span class="p">(</span><span class="n">logits</span><span class="o">=</span><span class="n">hist</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dist</span></div>
+
+<div class="viewcode-block" id="KLMinimizerThreshold.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.forward">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">absmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">absmax_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_width_impl</span><span class="p">()</span>
+        <span class="n">num_quantized_bins</span> <span class="o">=</span> <span class="n">max_int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">signed</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
+        <span class="n">thresholds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">num_quantized_bins</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">divergence</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">thresholds</span><span class="p">)</span>
+        <span class="n">quantized_bins</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_quantized_bins</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">hist</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">histc</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span><span class="p">,</span> <span class="nb">min</span><span class="o">=-</span><span class="n">absmax</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="n">absmax</span><span class="p">)</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
+        <span class="n">hist_edges</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">absmax</span><span class="p">,</span> <span class="n">absmax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_quantized_bins</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">p_bin_idx_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">i</span>
+            <span class="n">p_bin_idx_stop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">thresholds</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">num_quantized_bins</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">hist_edges</span><span class="p">[</span><span class="n">p_bin_idx_stop</span><span class="p">]</span>
+            <span class="n">sliced_nd_hist</span> <span class="o">=</span> <span class="n">hist</span><span class="p">[</span><span class="n">p_bin_idx_start</span><span class="p">:</span><span class="n">p_bin_idx_stop</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">sliced_nd_hist</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+            <span class="n">left_outlier_count</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">hist</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">p_bin_idx_start</span><span class="p">])</span>
+            <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">left_outlier_count</span>
+            <span class="n">right_outlier_count</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">hist</span><span class="p">[</span><span class="n">p_bin_idx_stop</span><span class="p">:])</span>
+            <span class="n">p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">right_outlier_count</span>
+            <span class="n">is_nonzeros</span> <span class="o">=</span> <span class="p">(</span><span class="n">sliced_nd_hist</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+            <span class="n">num_merged_bins</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">numel</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">//</span> <span class="n">num_quantized_bins</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_quantized_bins</span><span class="p">):</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">j</span> <span class="o">*</span> <span class="n">num_merged_bins</span>
+                <span class="n">stop</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">num_merged_bins</span>
+                <span class="n">quantized_bins</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">sliced_nd_hist</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">quantized_bins</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sliced_nd_hist</span><span class="p">[</span><span class="n">num_quantized_bins</span> <span class="o">*</span> <span class="n">num_merged_bins</span><span class="p">:]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_quantized_bins</span><span class="p">):</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">j</span> <span class="o">*</span> <span class="n">num_merged_bins</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">num_quantized_bins</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">stop</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">stop</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">num_merged_bins</span>
+                <span class="n">norm</span> <span class="o">=</span> <span class="n">is_nonzeros</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">norm</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">q</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span> <span class="o">=</span> <span class="n">quantized_bins</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">norm</span>
+            <span class="n">q</span><span class="p">[</span><span class="n">sliced_nd_hist</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_normalize_distribution</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">smoothing_eps</span><span class="p">)</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth_normalize_distribution</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">smoothing_eps</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">q</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">divergence</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">num_quantized_bins</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">divergence</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">num_quantized_bins</span> <span class="o">//</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">kl</span><span class="o">.</span><span class="n">kl_divergence</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+        <span class="n">min_divergence_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">divergence</span><span class="p">)</span>
+        <span class="n">opt_threshold</span> <span class="o">=</span> <span class="n">thresholds</span><span class="p">[</span><span class="n">min_divergence_idx</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">opt_threshold</span></div></div>
+
+
+<div class="viewcode-block" id="L1Norm"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">L1Norm</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;ScriptModule implementation to collect per-channel L1 normalization stats</span>
+<span class="sd">    for weight normalization-based quantization.&quot;&quot;&quot;</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">L1Norm</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="L1Norm.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Need to be able to return the max per-channel L1 norm as a scalar</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;L1 normalization is not supported per-tensor yet.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="L2Norm"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">L2Norm</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;ScriptModule implementation to collect per-channel L2 normalization stats</span>
+<span class="sd">    for weight normalization-based quantization.&quot;&quot;&quot;</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">L2Norm</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="L2Norm.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Need to be able to return the max per-channel L2 norm as a scalar</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;L2 normalization is not supported per-tensor yet.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_set_local_loss_mode</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;local_loss_mode&#39;</span><span class="p">):</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">local_loss_mode</span> <span class="o">=</span> <span class="n">enabled</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_set_observer_mode</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">,</span> <span class="n">previous_observer_mode</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;observer_only&#39;</span><span class="p">):</span>
+            <span class="n">previous_observer_mode</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">observer_only</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">observer_only</span> <span class="o">=</span> <span class="n">enabled</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_observer_mode</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">previous_observer_mode</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;observer_only&#39;</span><span class="p">):</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">observer_only</span> <span class="o">=</span> <span class="n">previous_observer_mode</span><span class="p">[</span><span class="n">m</span><span class="p">]</span>
+
+
+<span class="c1"># If modules are offloaded, during local loss mode we need to re-allocate params after the search is complete</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_restore_params</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;local_loss_mode&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;allocate_params&#39;</span><span class="p">):</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">allocate_params</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MSE"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">MSE</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="c1"># References:</span>
+    <span class="c1"># https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py</span>
+    <span class="c1"># https://github.com/wimh966/outlier_suppression/blob/main/quant_transformer/quantization/observer.py</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">proxy_module</span><span class="p">,</span>
+            <span class="n">mse_init_op</span><span class="p">,</span>
+            <span class="n">inner_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">mse_search_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;fibonacci&#39;</span><span class="p">,</span>
+            <span class="n">mse_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MSE</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mse_init_op</span> <span class="o">=</span> <span class="n">mse_init_op</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span> <span class="o">=</span> <span class="n">inner_stats_input_view_shape_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proxy_forward</span> <span class="o">=</span> <span class="n">proxy_module</span><span class="o">.</span><span class="n">forward</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">_set_local_loss_mode</span><span class="p">(</span><span class="n">proxy_module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_observer_mode</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">_set_observer_mode</span><span class="p">(</span>
+            <span class="n">proxy_module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restore_observer_mode</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_restore_observer_mode</span><span class="p">(</span>
+            <span class="n">proxy_module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restore_offload_param</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_restore_params</span><span class="p">(</span><span class="n">proxy_module</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">=</span> <span class="n">mse_iters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_method</span> <span class="o">=</span> <span class="n">mse_search_method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="MSE.mse_loss_fn"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE.mse_loss_fn">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">mse_loss_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">quant_value</span><span class="p">):</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">quant_value</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># stats_reduce_dim applies to the permuted and reshaped tensor</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">loss</span></div>
+
+<div class="viewcode-block" id="MSE.evaluate_loss"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE.evaluate_loss">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">candidate</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="n">candidate</span>
+        <span class="c1"># Set to local_loss_mode before calling the proxy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_observer_mode</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">quant_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">proxy_forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">quant_value</span> <span class="o">=</span> <span class="n">_unpack_quant_tensor</span><span class="p">(</span><span class="n">quant_value</span><span class="p">)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mse_loss_fn</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">quant_value</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restore_observer_mode</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">loss</span></div>
+
+<div class="viewcode-block" id="MSE.mse_grid_search"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE.mse_grid_search">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">mse_grid_search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xl</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">best_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">xl</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">candidate</span> <span class="o">=</span> <span class="p">(</span><span class="n">xl</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_loss</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+            <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">loss</span> <span class="o">&lt;</span> <span class="n">best_loss</span><span class="p">,</span> <span class="n">candidate</span><span class="p">,</span> <span class="n">best_candidate</span><span class="p">)</span>
+            <span class="n">best_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">best_loss</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">best_candidate</span></div>
+
+<div class="viewcode-block" id="MSE.mse_fib_search"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE.mse_fib_search">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">mse_fib_search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xl</span><span class="p">,</span> <span class="n">xr</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">fib_seq</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">seq</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">:</span>
+                <span class="nb">next</span> <span class="o">=</span> <span class="n">seq</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">seq</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+                <span class="n">seq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">next</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">seq</span>
+
+        <span class="c1"># vectorized variant of</span>
+        <span class="c1"># https://indrag49.github.io/Numerical-Optimization/solving-one-dimensional-optimization-problems.html#fibonacci-search-method</span>
+        <span class="n">F</span> <span class="o">=</span> <span class="n">fib_seq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">)</span>
+        <span class="n">L0</span> <span class="o">=</span> <span class="n">xr</span> <span class="o">-</span> <span class="n">xl</span>
+        <span class="n">Li</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">F</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">])</span> <span class="o">*</span> <span class="n">L0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">x1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Li</span> <span class="o">&gt;</span> <span class="n">L0</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">xr</span> <span class="o">-</span> <span class="n">Li</span><span class="p">,</span> <span class="n">xl</span> <span class="o">+</span> <span class="n">Li</span><span class="p">)</span>
+            <span class="n">x2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Li</span> <span class="o">&gt;</span> <span class="n">L0</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">xl</span> <span class="o">+</span> <span class="n">Li</span><span class="p">,</span> <span class="n">xr</span> <span class="o">-</span> <span class="n">Li</span><span class="p">)</span>
+            <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_loss</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_loss</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+            <span class="n">xr</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">f1</span> <span class="o">&lt;=</span> <span class="n">f2</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">xr</span><span class="p">)</span>
+            <span class="n">xl</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">f1</span> <span class="o">&gt;=</span> <span class="n">f2</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">xl</span><span class="p">)</span>
+            <span class="n">Li</span> <span class="o">=</span> <span class="p">(</span><span class="n">F</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">F</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">-</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)])</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">f1</span> <span class="o">!=</span> <span class="n">f2</span><span class="p">,</span> <span class="n">L0</span><span class="p">,</span> <span class="n">xr</span> <span class="o">-</span> <span class="n">xl</span><span class="p">)</span>
+            <span class="n">L0</span> <span class="o">=</span> <span class="n">xr</span> <span class="o">-</span> <span class="n">xl</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">f1</span> <span class="o">&lt;=</span> <span class="n">f2</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MSE.mse_search"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE.mse_search">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">mse_search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x_view</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">init</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mse_init_op</span><span class="p">(</span><span class="n">x_view</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">init</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_method</span> <span class="o">==</span> <span class="s1">&#39;grid&#39;</span><span class="p">:</span>
+            <span class="n">best_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mse_grid_search</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_method</span> <span class="o">==</span> <span class="s1">&#39;fibonacci&#39;</span><span class="p">:</span>
+            <span class="n">best_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mse_fib_search</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">init</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Search method </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">search_method</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+        <span class="c1"># Save for evaluation by other modules (e.g. zp) invoking local loss mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="n">best_candidate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restore_offload_param</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">best_candidate</span></div>
+
+<div class="viewcode-block" id="MSE.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MSE.forward">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mse_search</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This is invoked for the zero-point whenever scale is being optimized first</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mse_init_op</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span></div></div>
+
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerScale"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">HalfQuadraticOptimizerScale</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="c1"># References:</span>
+    <span class="c1"># https://mobiusml.github.io/hqq_blog/</span>
+    <span class="c1"># https://github.com/mobiusml/hqq?tab=readme-ov-file</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">proxy_module</span><span class="p">,</span>
+            <span class="n">hqo_init_op_scale</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+            <span class="n">inner_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+            <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">int_scaling_impl</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">bit_width_impl</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">hqo_beta_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e5</span><span class="p">,</span>
+            <span class="n">hqo_kappa_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.01</span><span class="p">,</span>
+            <span class="n">hqo_lp_norm_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">.7</span><span class="p">,</span>
+            <span class="n">hqo_iters_scale</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">HalfQuadraticOptimizerScale</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hqo_init_op</span> <span class="o">=</span> <span class="n">hqo_init_op_scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span> <span class="o">=</span> <span class="n">inner_stats_input_view_shape_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proxy_forward</span> <span class="o">=</span> <span class="n">proxy_module</span><span class="o">.</span><span class="n">forward</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">_set_local_loss_mode</span><span class="p">(</span><span class="n">proxy_module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_observer_mode</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">_set_observer_mode</span><span class="p">(</span>
+            <span class="n">proxy_module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restore_observer_mode</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_restore_observer_mode</span><span class="p">(</span>
+            <span class="n">proxy_module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hqo_iters</span> <span class="o">=</span> <span class="n">hqo_iters_scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">hqo_beta_scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span> <span class="o">=</span> <span class="n">hqo_kappa_scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lp_norm</span> <span class="o">=</span> <span class="n">hqo_lp_norm_scale</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">int_scaling_impl</span> <span class="o">=</span> <span class="n">int_scaling_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
+        <span class="k">if</span> <span class="n">scaling_min_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scaling_min_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerScale.parameter_search"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.parameter_search">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parameter_search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xl</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">best_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">candidate</span> <span class="o">=</span> <span class="n">xl</span>
+        <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">candidate</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hqo_iters</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="n">candidate</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_observer_mode</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">quant_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">proxy_forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">restore_observer_mode</span><span class="p">()</span>
+                <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">quant_tensor</span><span class="o">.</span><span class="n">value</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+                <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">loss</span> <span class="o">&lt;</span> <span class="n">best_loss</span><span class="p">,</span> <span class="n">candidate</span><span class="p">,</span> <span class="n">best_candidate</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">loss</span> <span class="o">&gt;=</span> <span class="n">best_loss</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">best_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">best_loss</span><span class="p">)</span>
+                <span class="n">W_e</span> <span class="o">=</span> <span class="n">shrink_lp_op</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">quant_tensor</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lp_norm</span><span class="p">)</span>
+                <span class="n">zero_point</span> <span class="o">=</span> <span class="n">quant_tensor</span><span class="o">.</span><span class="n">zero_point</span>
+                <span class="n">num</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">W_e</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="n">den</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">quant_tensor</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="n">quant_tensor</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span> <span class="o">-</span> <span class="n">zero_point</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">num</span> <span class="o">!=</span> <span class="mf">0.</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">den</span> <span class="o">!=</span> <span class="mf">0.</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">candidate</span> <span class="o">=</span> <span class="n">masked_median</span><span class="p">(</span><span class="n">num</span> <span class="o">/</span> <span class="n">den</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">candidate</span> <span class="o">=</span> <span class="n">masked_median</span><span class="p">(</span>
+                        <span class="n">num</span> <span class="o">/</span> <span class="n">den</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)</span>
+                <span class="n">candidate</span> <span class="o">=</span> <span class="n">candidate</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span><span class="p">)</span>
+                <span class="n">candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+                <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">()</span>
+                <span class="n">int_threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_scaling_impl</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
+                <span class="n">candidate</span> <span class="o">=</span> <span class="n">candidate</span> <span class="o">*</span> <span class="n">int_threshold</span>
+                <span class="n">candidate</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">candidate</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">candidate</span><span class="p">)]</span>
+                <span class="n">candidate</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">candidate</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">candidate</span><span class="p">)]</span>
+                <span class="n">beta</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span>
+        <span class="k">return</span> <span class="n">best_candidate</span></div>
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerScale.optimize"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.optimize">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x_view</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">init</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hqo_init_op</span><span class="p">(</span><span class="n">x_view</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="n">best_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_search</span><span class="p">(</span><span class="n">init</span><span class="p">,</span> <span class="n">x_view</span><span class="p">)</span>
+
+        <span class="c1"># Save for evaluation by other modules (e.g. zp) invoking local loss mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="n">best_candidate</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">best_candidate</span></div>
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerScale.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerScale.forward">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This is invoked for the zero-point whenever scale is being optimized first</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hqo_init_op</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span></div></div>
+
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerZeroPoint"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">HalfQuadraticOptimizerZeroPoint</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="c1"># References:</span>
+    <span class="c1"># https://mobiusml.github.io/hqq_blog/</span>
+    <span class="c1"># https://github.com/mobiusml/hqq?tab=readme-ov-file</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">proxy_module</span><span class="p">,</span>
+            <span class="n">keepdim</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+            <span class="n">hqo_init_op_zp</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+            <span class="n">inner_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">hqo_beta_zp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e0</span><span class="p">,</span>
+            <span class="n">hqo_kappa_zp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.01</span><span class="p">,</span>
+            <span class="n">hqo_lp_norm_zp</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">.5</span><span class="p">,</span>
+            <span class="n">hqo_iters_zp</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">HalfQuadraticOptimizerZeroPoint</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hqo_init_op_zp</span> <span class="o">=</span> <span class="n">hqo_init_op_zp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span> <span class="o">=</span> <span class="n">inner_stats_input_view_shape_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proxy_forward</span> <span class="o">=</span> <span class="n">proxy_module</span><span class="o">.</span><span class="n">forward</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">_set_local_loss_mode</span><span class="p">(</span><span class="n">proxy_module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_observer_mode</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">enabled</span><span class="p">:</span> <span class="n">_set_observer_mode</span><span class="p">(</span>
+            <span class="n">proxy_module</span><span class="p">,</span> <span class="n">enabled</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restore_observer_mode</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_restore_observer_mode</span><span class="p">(</span>
+            <span class="n">proxy_module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previous_observer_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">hqo_beta_zp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span> <span class="o">=</span> <span class="n">hqo_kappa_zp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lp_norm</span> <span class="o">=</span> <span class="n">hqo_lp_norm_zp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hqo_iters</span> <span class="o">=</span> <span class="n">hqo_iters_zp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span> <span class="o">=</span> <span class="n">keepdim</span>
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerZeroPoint.parameter_search"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.parameter_search">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parameter_search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xl</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">best_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">candidate</span> <span class="o">=</span> <span class="n">xl</span>
+        <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">candidate</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hqo_iters</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="n">candidate</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_observer_mode</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">quant_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">proxy_forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">set_local_loss_mode</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">restore_observer_mode</span><span class="p">()</span>
+                <span class="n">qt_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">quant_tensor</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+                <span class="n">qt_scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">quant_tensor</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+                <span class="n">qt_zp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">quant_tensor</span><span class="o">.</span><span class="n">zero_point</span><span class="p">)</span>
+                <span class="n">qt_int</span> <span class="o">=</span> <span class="n">qt_value</span> <span class="o">/</span> <span class="n">qt_scale</span> <span class="o">+</span> <span class="n">qt_zp</span>
+                <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">qt_value</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                <span class="n">best_candidate</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">loss</span> <span class="o">&lt;</span> <span class="n">best_loss</span><span class="p">,</span> <span class="n">candidate</span><span class="p">,</span> <span class="n">best_candidate</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">loss</span> <span class="o">&gt;=</span> <span class="n">best_loss</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">best_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">best_loss</span><span class="p">)</span>
+                <span class="n">W_e</span> <span class="o">=</span> <span class="n">shrink_lp_op</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">qt_value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lp_norm</span><span class="p">)</span>
+
+                <span class="c1"># Compared to the original formulation, the value we&#39;re looking for is:</span>
+                <span class="c1"># - scaled by qt_scale</span>
+                <span class="c1"># - opposite sign</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">W_e</span><span class="p">)</span> <span class="o">-</span> <span class="n">qt_int</span> <span class="o">*</span> <span class="n">qt_scale</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">candidate</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">candidate</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">keepdim</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kappa</span>
+        <span class="k">return</span> <span class="n">best_candidate</span></div>
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerZeroPoint.optimize"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.optimize">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x_view</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">init</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hqo_init_op_zp</span><span class="p">(</span><span class="n">x_view</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+
+        <span class="n">best_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_search</span><span class="p">(</span><span class="n">init</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Save for evaluation by other modules (e.g. zp) invoking local loss mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="n">best_candidate</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">empty_cache</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">best_candidate</span></div>
+
+<div class="viewcode-block" id="HalfQuadraticOptimizerZeroPoint.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.HalfQuadraticOptimizerZeroPoint.forward">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_loss_mode</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This is invoked for the zero-point whenever scale is being optimized first</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hqo_init_op_zp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">internal_candidate</span></div></div>
+
+
+<div class="viewcode-block" id="masked_median"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.masked_median">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">masked_median</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the median of tensor x along dim, ignoring values where mask is False.</span>
+<span class="sd">    x and mask need to be broadcastable.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (Tensor): Tensor to compute median of.</span>
+<span class="sd">        mask (BoolTensor): Same shape as x with True where x is valid and False</span>
+<span class="sd">            where x should be masked. Mask should not be all False in any column of</span>
+<span class="sd">            dimension dim to avoid NaNs from zero division.</span>
+<span class="sd">        dim (int, optional): Dimension to take median of. Defaults to 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor: Same shape as x, except dimension dim reduced.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># uncomment this assert for safety but might impact performance</span>
+    <span class="c1"># assert (</span>
+    <span class="c1">#     mask.sum(dim=dim).ne(0).all()</span>
+    <span class="c1"># ), &quot;mask should not be all False in any column, causes zero division&quot;</span>
+    <span class="n">x_nan</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">x_median</span> <span class="o">=</span> <span class="n">x_nan</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">x_median</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x_nan</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="n">keepdim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x_median</span></div>
+
+
+<span class="c1"># Shrinking operator</span>
+<div class="viewcode-block" id="shrink_lp_op"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.shrink_lp_op">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">shrink_lp_op</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lp_norm</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">lp_norm</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">beta</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">beta</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">lp_norm</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span></div>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

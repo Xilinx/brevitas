@@ -1,0 +1,709 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Shark-AI Export &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/export_shark';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Settings" href="../settings.html" />
+    <link rel="prev" title="GGUF Export" href="export_gguf.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compile.html">Brevitas and Compile</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_gguf.html">GGUF Export</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Shark-AI Export</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guides</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Shark-AI Export</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="shark-ai-export">
+<h1>Shark-AI Export<a class="headerlink" href="#shark-ai-export" title="Permalink to this heading">#</a></h1>
+<p><a class="reference external" href="https://github.com/nod-ai/shark-ai">Shark-AI</a> is a new AMD open-source compilation tool,
+that can target the latest AMD hardware and most recent state-of-the-art
+networks, with options for both quantized and full precision configurations.</p>
+<p>Within Brevitas, we are closely collaborating with the team behind Shark-AI to provide an easy to use
+quantization flow for all the latest and greatest SOTA models, that can then be deployed through
+Shark-AI.</p>
+<p>Current preliminary support is focused on LLM, but we are already planning the next steps
+of this integration to enable support to other types of architectures.</p>
+<p>The current recommended way to export a model to Shark-AI is through our LLM entrypoint.</p>
+<section id="llm-entrypoint">
+<h2>LLM Entrypoint<a class="headerlink" href="#llm-entrypoint" title="Permalink to this heading">#</a></h2>
+<p>Brevitas’ LLM entrypoint allows the user to load, quantize, test, and export many of the LLM available on
+HuggingFace, by simply passing a series of command line arguments that can control, among other things:</p>
+<ul class="simple">
+<li><p>Weights and activations bit width</p></li>
+<li><p>Weights and activation quantization format (int vs float, asym vs sym, etc.)</p></li>
+<li><p>PTQ algorithms to apply and their options</p></li>
+<li><p>and much more…</p></li>
+</ul>
+<p>Exporting a HuggingFace model for Shark-AI can be as easy as running the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brevitas_ptq_llm<span class="w"> </span>--model<span class="w"> </span>org/model<span class="w"> </span>--input-bit-width<span class="w"> </span><span class="m">8</span><span class="w"> </span>--weight-bit-width<span class="w"> </span><span class="m">8</span><span class="w"> </span>--input-quant-format<span class="w"> </span>float_fnuz_e4m3<span class="w"> </span>--weight-quant-format<span class="w"> </span>float_fnuz_e4m3<span class="w"> </span>--input-quant-granularity<span class="w"> </span>per_tensor<span class="w"> </span>--weight-quant-granularity<span class="w"> </span>per_tensor<span class="w"> </span>--act-calibration<span class="w"> </span>--input-quant-type<span class="w"> </span>sym<span class="w"> </span>--export-target<span class="w"> </span>shark<span class="w"> </span>--eval<span class="w"> </span>--export-prefix<span class="w"> </span>path/to/folder
+</pre></div>
+</div>
+<p>In particular, this quantization configuration corresponds to the following:</p>
+<ul class="simple">
+<li><p>All linear layers (except for the last one) weights and activations quantized to FP8</p></li>
+<li><p>Per tensor scale factors for both</p></li>
+</ul>
+<p>Many more options are available through the entrypoint, such as the possibility to quantize KV cache
+or the entire attention operator.
+For example, to also perform FP8 attention quantization, simply add:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--quant-sdpa<span class="w"> </span>eager<span class="w"> </span>--attn-quant-config<span class="w"> </span>qkv
+</pre></div>
+</div>
+<p>Other options that can be specified by the user include the possibility to change the scale factors granularity or decide
+what PTQ algorithms to use.
+For a more exhaustive list of options, check our <a class="reference external" href="https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/llm/README.md">README</a>.</p>
+<p>Currently, dynamic activation quantization is not supported in Shark-AI.
+Furthemore, although Shark-AI has supports for per-group scale factors, it is not easy to target
+that configuration starting from Brevitas’ entrypoint.</p>
+<p>Both Integer and FP8 quantization are supported for accelerated execution.</p>
+<p>Not all the available PTQ algorithms can be used when exporting to Shark-AI.
+In particular, the following are not supported:</p>
+<ul class="simple">
+<li><p>QuaRot/SpinQuant with standalone Hadamard rotations</p></li>
+<li><p>SVDQuant</p></li>
+<li><p>Learned Round</p></li>
+</ul>
+<p>This still leaves a lot of options available, such as:</p>
+<ul class="simple">
+<li><p>MagR</p></li>
+<li><p>Activation Equalization (i.e., SmoothQuant)</p></li>
+<li><p>AWQ</p></li>
+<li><p>QuaRot/SpinQuant with only fused Hadamard rotations</p></li>
+<li><p>GPTQ/GPFQ</p></li>
+<li><p>Qronos</p></li>
+<li><p>Bias Correction</p></li>
+</ul>
+</section>
+<section id="compilation-step">
+<h2>Compilation step<a class="headerlink" href="#compilation-step" title="Permalink to this heading">#</a></h2>
+<p>Once the export process is completed, a <cite>dataset.irpa</cite> file will be create in the folder specified as
+argument to <cite>export-prefix</cite>.</p>
+<p>To use this file through Shark-AI, make sure to follow the <a class="reference external" href="https://github.com/nod-ai/shark-ai/blob/main/docs/user_guide.md">installation instructions</a>:</p>
+<p>Before running your accelerated LLM, there are two steps required through Shark-AI, export and compilation.</p>
+<p>The export command can be run as follow:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>sharktank.examples.export_paged_llm_v1<span class="w"> </span>--irpa-file<span class="o">=</span>path/to/folder/dataset.irpa<span class="w"> </span>--output-mlir<span class="o">=</span>model.mlir<span class="w"> </span>--output-config<span class="o">=</span>config.json<span class="w"> </span>--bs-prefill<span class="o">=</span><span class="m">16</span><span class="w"> </span>--bs-decode<span class="o">=</span><span class="m">16</span><span class="w"> </span>--activation-dtype<span class="o">=</span>float32<span class="w"> </span>--attention-dtype<span class="o">=</span>float8_e4m3fnuz<span class="w"> </span>--attention-kernel<span class="o">=</span>sharktank<span class="w"> </span>--kv-cache-dtype<span class="o">=</span>float8_e4m3fnuz<span class="w"> </span>--use-hf<span class="w"> </span>--use-attention-mask
+</pre></div>
+</div>
+<p>This command assumes that also the attention part of the network was quantized to FP8. If that is not
+the case, replace the attention dtype flag with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--attention-dtype<span class="o">=</span>float32
+</pre></div>
+</div>
+<p>After this step, you should have a new file called <cite>model.mlir</cite>, which is what we need for the compilation phase,
+which can be done as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>iree-compile<span class="w"> </span>./model.mlir<span class="w"> </span>--iree-hal-target-device<span class="o">=</span>hip<span class="w"> </span>--iree-hip-target<span class="o">=</span>gfx942<span class="w"> </span>-o<span class="w"> </span>model.vmfb<span class="w"> </span>--iree-opt-level<span class="o">=</span>O3<span class="w"> </span>--iree-hal-indirect-command-buffers<span class="o">=</span><span class="nb">true</span><span class="w">  </span>--iree-stream-resource-memory-model<span class="o">=</span>discrete<span class="w">  </span>--iree-hal-memoization<span class="o">=</span><span class="nb">true</span>
+</pre></div>
+</div>
+<p>This command specifically targets MI300X,but other options are available.</p>
+<p>For more information about the various flags in the export and compilation command, please reach out directly
+to Shark-AI.</p>
+<p>Once these commands have completed succesfully, the <cite>model.vmfb</cite> file can be used for accelerated inference of your model.</p>
+<p>For example, to run the benchmark, run the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>iree-benchmark-module<span class="w"> </span>--hip_use_streams<span class="o">=</span><span class="nb">true</span><span class="w"> </span>--benchmark_repetitions<span class="o">=</span><span class="m">5</span><span class="w"> </span>--parameters<span class="o">=</span><span class="s2">&quot;model=path/to/dataset.irpa&quot;</span><span class="w"> </span>--device<span class="o">=</span><span class="s1">&#39;hip://1&#39;</span><span class="w">  </span>--iree-hip-target<span class="o">=</span>gfx942<span class="w"> </span>--module<span class="o">=</span>model.vmfb<span class="w"> </span>--function<span class="o">=</span>prefill_bs16<span class="w"> </span>--input<span class="o">=</span>16x1024xsi64<span class="w"> </span>--input<span class="o">=</span>16xsi64<span class="w"> </span>--input<span class="o">=</span>16x32xsi64<span class="w"> </span>--input<span class="o">=</span>4096x2097152xf8E4M3FNUZ
+</pre></div>
+</div>
+<p>For more information and options, such as the possibility to start the Shortfin LLM server, check the
+tutorial avaialble in the <a class="reference external" href="https://github.com/nod-ai/shark-ai/blob/main/docs/shortfin/llm/user/llama_serving.md">Shark-AI repository</a></p>
+<p>This is still an experimental flow and lots of changes and improvements will be made in the future,
+including the possibility of breaking changes.</p>
+</section>
+<section id="next-steps">
+<h2>Next steps<a class="headerlink" href="#next-steps" title="Permalink to this heading">#</a></h2>
+<p>Currently, Brevitas entrypoint allows to quantize many commonly used LLM directly from HuggingFace,
+applying the user desired quantization algorithms and then exporting them in a format that Shark-AI
+is able to consume.</p>
+<p>On the other hand, not all model families have been tested with Shark-AI. Moreover, the Shark-AI repository
+redefines some models from scratch to ensure the best compatibility and performance when deploying on AMD
+hardware.
+In this context, export from HuggingFace to Shark-AI might cause slightly mismatches and inaccuracies.</p>
+<p>For this reason, we are working to quantize directly the models defined within Shark-AI.
+This flow will allow to insert quantization within a Shark model, apply all the quantization algorithms,
+and then swap back quantized layers with the original versions, before proceeding to the <cite>irpa</cite> export, which will
+be natively handled by the Shark model itself.</p>
+<p>If you have further questions, please feel free to reach open an issue either in Brevitas or Shark-AI
+and we will do our best to support you.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="export_gguf.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">GGUF Export</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../settings.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Settings</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#llm-entrypoint">LLM Entrypoint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compilation-step">Compilation step</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next steps</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/user_guide/export_shark.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

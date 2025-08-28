@@ -533,6 +533,31 @@ document.write(`
         <span class="k">return</span> <span class="n">scalar_clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span><span class="p">)</span></div></div>
 
 
+<div class="viewcode-block" id="ScalarSignedClampMinSte"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.scalar_clamp_min_ste`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;min_val&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ScalarSignedClampMinSte</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># Verify that the minimum value is set to a non-zero value, as when min_val == 0.0,</span>
+        <span class="c1"># this module implements the identity but the gradient returned at x = 0.0, is zero,</span>
+        <span class="c1"># instead of 1.</span>
+        <span class="k">assert</span> <span class="nb">abs</span><span class="p">(</span><span class="n">min_val</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;min_val has to be greater than zero.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">min_val</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ScalarSignedClampMinSte.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="c1"># NOTE: The previous implementation of this operation was</span>
+        <span class="c1"># torch.copysign(scalar_clamp_min_ste(abs_binary_sign_grad(x), self.min_val), x) which is more</span>
+        <span class="c1"># readable but resulted in a -1. gradient when x = -0.0, since torch.copysign distinguishes</span>
+        <span class="c1"># between positive and negative zero.</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">)</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">scalar_clamp_min_ste</span><span class="p">(</span>
+            <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span><span class="p">)</span></div></div>
+
+
 <div class="viewcode-block" id="TensorClampSte"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.TensorClampSte">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">TensorClampSte</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.tensor_clamp_ste`.</span>

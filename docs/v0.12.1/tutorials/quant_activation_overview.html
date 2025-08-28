@@ -1,0 +1,1411 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>An Overview of Quantized Activations &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/quant_activation_overview';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Anatomy of a Quantizer" href="anatomy_quantizer.html" />
+    <link rel="prev" title="An overview of QuantTensor and QuantConv2d" href="quant_tensor_quant_conv2d_overview.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="tvmcon2021.html">Brevitas TVMCon 2021 tutorial</a></li>
+
+
+
+
+
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="quant_tensor_quant_conv2d_overview.html">An overview of QuantTensor and QuantConv2d</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">An Overview of Quantized Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="anatomy_quantizer.html">Anatomy of a Quantizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quant_recurrent.html">Quantized RNNs and LSTMs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onnx_export.html">ONNX Export</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Tutorials</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">An Overview...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="An-Overview-of-Quantized-Activations">
+<h1>An Overview of Quantized Activations<a class="headerlink" href="#An-Overview-of-Quantized-Activations" title="Permalink to this heading">#</a></h1>
+<div class="line-block">
+<div class="line">In this second tutorial, we take a deeper look at quantized activation.</div>
+<div class="line">We were already introduced to quantized activations in the previous tutorial, when we looked at input and output quantization of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with the <code class="docutils literal notranslate"><span class="pre">Int8ActPerTensorFloat</span></code> quantizer. The same result can be obtained with different syntax by coupling <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> layers, which by default uses the <code class="docutils literal notranslate"><span class="pre">Int8ActPerTensorFloat</span></code> quantizer. As an example, we compare - on the <em>same input</em> - the result of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with <code class="docutils literal notranslate"><span class="pre">output_quant</span></code> enabled with the result of a
+<code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> followed by a <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>:</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># helpers</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_with_message</span><span class="p">(</span><span class="n">condition</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">condition</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantConv2d</span><span class="p">,</span> <span class="n">QuantIdentity</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># set a seed to make sure the random weight init is reproducible</span>
+<span class="n">output_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># reproduce the same random weight init as above</span>
+<span class="n">default_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">output_identity_quant</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">()</span>
+
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">out_tensor1</span> <span class="o">=</span> <span class="n">output_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+<span class="n">out_tensor2</span> <span class="o">=</span> <span class="n">output_identity_quant</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span>
+
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor1</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out_tensor2</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/_tensor.py:1255: UserWarning: Named tensors and all their associated APIs are an experimental feature and subject to change. Please do not use them for anything important until they are released as stable. (Triggered internally at /opt/conda/conda-bld/pytorch_1670525541990/work/c10/core/TensorImpl.h:1758.)
+  return super(Tensor, self).rename(names)
+[W NNPACK.cpp:53] Could not initialize NNPACK! Reason: Unsupported hardware.
+</pre></div></div>
+</div>
+<p>We can observe a similar behaviour if we enable input quantization too:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">input_output_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span>
+    <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">default_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">input_identity_quant</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">()</span>
+<span class="n">output_identity_quant</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">()</span>
+
+<span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">out_tensor1</span> <span class="o">=</span> <span class="n">input_output_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+<span class="n">out_tensor2</span> <span class="o">=</span> <span class="n">output_identity_quant</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="p">(</span><span class="n">input_identity_quant</span><span class="p">(</span><span class="n">inp</span><span class="p">)))</span>
+
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor1</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out_tensor2</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>From an algorithmic point of view then the two different implementation are doing the same thing. However, as it will become clearer in later tutorials, there are currently some scenarios where picking one style over the other can make a difference when it comes to exporting to a format such as standard ONNX. In the meantime, we can just keep in mind that both alternatives exist.</p>
+<p>As it was the case with <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>, when we disable quantization of an activation, the layer behaves as its floating-point variant. In the case of <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, that means behaving like an identity function:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">disabled_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">((</span><span class="n">inp</span> <span class="o">==</span> <span class="n">disabled_quant_identity</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>Again, as it was the case for <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>, quantized activation layers can also return a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">return_quant_identity</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+<span class="n">out_tensor</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+IntQuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
+          [ 0.5136, -0.5897, -0.5707,  0.1902, -0.0761],
+          [-0.4946, -1.5029, -0.1902,  0.4376,  1.3317],
+          [-1.6361,  2.0736,  1.7122,  2.3780, -1.1224],
+          [-0.3234, -1.0844, -0.0761, -0.0951, -0.7610]],
+
+         [[-1.5980,  0.0190, -0.7419,  0.1902,  0.6278],
+          [ 0.6468, -0.2473, -0.5327,  1.1605,  0.4376],
+          [-0.7990, -1.2936, -0.7419, -1.3127, -0.2283],
+          [-2.4351, -0.0761,  0.2283,  0.7990, -0.1902],
+          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]],
+       grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0190, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">assert_with_message</span><span class="p">(</span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>As expected, a <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> with quantization disabled behaves like an identity function also when a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is passed in. However, depending on whather <code class="docutils literal notranslate"><span class="pre">return_quant_tensor</span></code> is set to <code class="docutils literal notranslate"><span class="pre">False</span></code> or not, quantization metadata might be stripped out, i.e. the input <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is going to be returned as an implicitly quantized <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out_torch_tensor</span> <span class="o">=</span> <span class="n">disabled_quant_identity</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">out_torch_tensor</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
+          [ 0.5136, -0.5897, -0.5707,  0.1902, -0.0761],
+          [-0.4946, -1.5029, -0.1902,  0.4376,  1.3317],
+          [-1.6361,  2.0736,  1.7122,  2.3780, -1.1224],
+          [-0.3234, -1.0844, -0.0761, -0.0951, -0.7610]],
+
+         [[-1.5980,  0.0190, -0.7419,  0.1902,  0.6278],
+          [ 0.6468, -0.2473, -0.5327,  1.1605,  0.4376],
+          [-0.7990, -1.2936, -0.7419, -1.3127, -0.2283],
+          [-2.4351, -0.0761,  0.2283,  0.7990, -0.1902],
+          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]],
+       grad_fn=&lt;AliasBackward0&gt;)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_disabled_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">identity_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_identity</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">identity_out_tensor</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+IntQuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
+          [ 0.5136, -0.5897, -0.5707,  0.1902, -0.0761],
+          [-0.4946, -1.5029, -0.1902,  0.4376,  1.3317],
+          [-1.6361,  2.0736,  1.7122,  2.3780, -1.1224],
+          [-0.3234, -1.0844, -0.0761, -0.0951, -0.7610]],
+
+         [[-1.5980,  0.0190, -0.7419,  0.1902,  0.6278],
+          [ 0.6468, -0.2473, -0.5327,  1.1605,  0.4376],
+          [-0.7990, -1.2936, -0.7419, -1.3127, -0.2283],
+          [-2.4351, -0.0761,  0.2283,  0.7990, -0.1902],
+          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]],
+       grad_fn=&lt;AliasBackward0&gt;), scale=tensor(0.0190, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+</pre></div></div>
+</div>
+<p>Moving on from <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, let’s take a look at <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>. Anything we said so far about <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> also applies to <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>. The difference though is that <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> implements a ReLU function followed by quantization, while <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> is really just the quantization operator. Additionally, by default <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> adopts the <code class="docutils literal notranslate"><span class="pre">Uint8ActPerTensorFloat</span></code>, meaning that the output of quantization is <em>unsigned</em>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantReLU</span>
+
+<span class="n">return_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">return_quant_relu</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+IntQuantTensor(value=tensor([[[[0.0000, 0.0000, 0.0000, 0.5974, 1.5402],
+          [0.5041, 0.0000, 0.0000, 0.1867, 0.0000],
+          [0.0000, 0.0000, 0.0000, 0.4481, 1.3255],
+          [0.0000, 2.0817, 1.7083, 2.3804, 0.0000],
+          [0.0000, 0.0000, 0.0000, 0.0000, 0.0000]],
+
+         [[0.0000, 0.0187, 0.0000, 0.1867, 0.6254],
+          [0.6348, 0.0000, 0.0000, 1.1668, 0.4387],
+          [0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+          [0.0000, 0.0000, 0.2334, 0.7935, 0.0000],
+          [0.0000, 0.0000, 0.0000, 0.0000, 1.9230]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0093, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
+</pre></div></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>, like <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, is also special compared to other non-linear quantized activation layers as it preserves the metadata of an input <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> even when quantization is disabled:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_disabled_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">relu_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_relu</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">scale</span> <span class="o">==</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">zero_point</span> <span class="o">==</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">zero_point</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">bit_width</span> <span class="o">==</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">bit_width</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+tensor(True)
+tensor(True)
+tensor(True)
+</pre></div></div>
+</div>
+<p>That doesn’t apply to other layers like, say, <code class="docutils literal notranslate"><span class="pre">QuantSigmoid</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantSigmoid</span>
+
+<span class="n">return_disabled_quant_sigmoid</span> <span class="o">=</span> <span class="n">QuantSigmoid</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">sigmoid_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_sigmoid</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<span class="n">sigmoid_out_tensor</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[11], line 4</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> <span class="ansi-bold" style="color: rgb(0,0,255)">brevitas</span><span class="ansi-bold" style="color: rgb(0,0,255)">.</span><span class="ansi-bold" style="color: rgb(0,0,255)">nn</span> <span class="ansi-bold" style="color: rgb(0,135,0)">import</span> QuantSigmoid
+<span class="ansi-green-intense-fg ansi-bold">      3</span> return_disabled_quant_sigmoid <span style="color: rgb(98,98,98)">=</span> QuantSigmoid(act_quant<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, return_quant_tensor<span style="color: rgb(98,98,98)">=</span><span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)
+<span class="ansi-green-fg">----&gt; 4</span> sigmoid_out_tensor <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">return_disabled_quant_sigmoid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">out_tensor</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span> sigmoid_out_tensor
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/torch/nn/modules/module.py:1194</span>, in <span class="ansi-cyan-fg">Module._call_impl</span><span class="ansi-blue-fg">(self, *input, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1190</span> <span style="color: rgb(95,135,135)"># If we don&#39;t have any hooks, we want to skip the rest of the logic in</span>
+<span class="ansi-green-intense-fg ansi-bold">   1191</span> <span style="color: rgb(95,135,135)"># this function, and just call forward.</span>
+<span class="ansi-green-intense-fg ansi-bold">   1192</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> (<span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_backward_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_forward_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>_forward_pre_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> _global_backward_hooks
+<span class="ansi-green-intense-fg ansi-bold">   1193</span>         <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> _global_forward_hooks <span class="ansi-bold" style="color: rgb(175,0,255)">or</span> _global_forward_pre_hooks):
+<span class="ansi-green-fg">-&gt; 1194</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-yellow-bg">forward_call</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">input</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1195</span> <span style="color: rgb(95,135,135)"># Do not call functions when jit is used</span>
+<span class="ansi-green-intense-fg ansi-bold">   1196</span> full_backward_hooks, non_full_backward_hooks <span style="color: rgb(98,98,98)">=</span> [], []
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/quant_layer.py:53</span>, in <span class="ansi-cyan-fg">QuantNonLinearActLayer.forward</span><span class="ansi-blue-fg">(self, input)</span>
+<span class="ansi-green-intense-fg ansi-bold">     51</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> out
+<span class="ansi-green-intense-fg ansi-bold">     52</span> out <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>act_quant(quant_input)
+<span class="ansi-green-fg">---&gt; 53</span> out <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">pack_output</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">out</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     54</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> out
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:101</span>, in <span class="ansi-cyan-fg">QuantLayerMixin.pack_output</span><span class="ansi-blue-fg">(self, quant_output)</span>
+<span class="ansi-green-intense-fg ansi-bold">     99</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">pack_output</span>(<span style="color: rgb(0,135,0)">self</span>, quant_output: Union[Tensor, QuantTensor]) <span style="color: rgb(98,98,98)">-</span><span style="color: rgb(98,98,98)">&gt;</span> Union[Tensor, QuantTensor]:
+<span class="ansi-green-intense-fg ansi-bold">    100</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>return_quant_tensor:
+<span class="ansi-green-fg">--&gt; 101</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">isinstance</span>(quant_output, QuantTensor), <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">QuantLayer is not correctly configured, check if warnings were raised</span><span style="color: rgb(175,0,0)">&#39;</span>
+<span class="ansi-green-intense-fg ansi-bold">    102</span>         <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> quant_output
+<span class="ansi-green-intense-fg ansi-bold">    103</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+
+<span class="ansi-red-fg">AssertionError</span>: QuantLayer is not correctly configured, check if warnings were raised
+</pre></div></div>
+</div>
+<p>Something to always keep in mind is that the non-linearity of a quantized activation layer is always called on the <em>dequantized</em> representation of the input. For example, let’s say we first quantize a floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code> with an unsigned shifted quantizer such as <code class="docutils literal notranslate"><span class="pre">ShiftedUint8ActPerTensorFloat</span></code>, i.e. with zero-point such that the integer representation of its output is non-negative. Then, we pass this tensor as input to a <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> with quantization <em>disabled</em>. The fact that
+the input to <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> in its integer form is unsigned doesn’t mean <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> won’t have any effect, as ReLU is called on the dequantized representation, which includes both <em>positive</em> and <em>negative</em> values:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.quant.shifted_scaled_int</span><span class="w"> </span><span class="kn">import</span> <span class="n">ShiftedUint8ActPerTensorFloat</span>
+
+<span class="n">shifted_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="n">ShiftedUint8ActPerTensorFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">return_disabled_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">return_disabled_quant_relu</span><span class="p">(</span><span class="n">shifted_quant_identity</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+IntQuantTensor(value=tensor([[[[0.0000, 0.0000, 0.0000, 0.5854, 1.5485],
+          [0.5099, 0.0000, 0.0000, 0.1888, 0.0000],
+          [0.0000, 0.0000, 0.0000, 0.4532, 1.3219],
+          [0.0000, 2.0772, 1.6996, 2.3794, 0.0000],
+          [0.0000, 0.0000, 0.0000, 0.0000, 0.0000]],
+
+         [[0.0000, 0.0189, 0.0000, 0.1888, 0.6232],
+          [0.6421, 0.0000, 0.0000, 1.1708, 0.4343],
+          [0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+          [0.0000, 0.0000, 0.2266, 0.7931, 0.0000],
+          [0.0000, 0.0000, 0.0000, 0.0000, 1.9262]]]], grad_fn=&lt;ReluBackward0&gt;), scale=tensor(0.0189, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(129., grad_fn=&lt;WhereBackward0&gt;), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
+</pre></div></div>
+</div>
+<p>Let’s now consider the very common scenario of a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> followed by a <code class="docutils literal notranslate"><span class="pre">ReLU</span></code> or <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>. In particular, let’s say we have a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with output quantization <em>enabled</em> followed by a <code class="docutils literal notranslate"><span class="pre">ReLU</span></code>:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">output_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">output_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+tensor([[[[0.0000, 0.0000, 0.0000],
+          [1.3134, 1.2557, 1.0392],
+          [0.4186, 0.0000, 0.0000]],
+
+         [[0.7361, 0.5340, 0.8516],
+          [0.2887, 0.3175, 0.0000],
+          [0.8949, 1.6743, 0.0722]],
+
+         [[0.0000, 0.0000, 0.0289],
+          [0.0000, 0.0000, 0.2021],
+          [0.0000, 0.0000, 0.4907]]]], grad_fn=&lt;ReluBackward0&gt;)
+</pre></div></div>
+</div>
+<p>We compare it against a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with default settings (i.e. output quantization <em>disabled</em>), followed by a <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> with default settings (i.e. activation quantization <em>enabled</em>):</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">default_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">default_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">()</span>
+<span class="n">default_quant_relu</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+tensor([[[[0.0000, 0.0000, 0.0000],
+          [1.3078, 1.2555, 1.0397],
+          [0.4185, 0.0000, 0.0000]],
+
+         [[0.7454, 0.5427, 0.8566],
+          [0.2943, 0.3269, 0.0000],
+          [0.8893, 1.6674, 0.0785]],
+
+         [[0.0065, 0.0000, 0.0262],
+          [0.0000, 0.0000, 0.1962],
+          [0.0000, 0.0000, 0.4839]]]], grad_fn=&lt;MulBackward0&gt;)
+</pre></div></div>
+</div>
+<div class="line-block">
+<div class="line">We can see the results are close but not quite the same.</div>
+<div class="line">In the first case, we quantized the output of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with an 8-bit signed quantizer, and then we passed it through a <code class="docutils literal notranslate"><span class="pre">ReLU</span></code>, meaning that half of the numerical range covered by the signed quantizer is now lost, and by all practical means the output can now be treated as a 7-bit unsigned number (although it’s not explicitly marked as such). In the second case, we perform unsigned 8-bit quantization after <code class="docutils literal notranslate"><span class="pre">ReLU</span></code>. Because the range covered by the quantizer now includes only
+non-negative numbers, we don’t waste a bit as in the previous case.</div>
+</div>
+<p>Regarding some premade activation quantizers, such as <code class="docutils literal notranslate"><span class="pre">Uint8ActPerTensorFloat</span></code>, <code class="docutils literal notranslate"><span class="pre">ShiftedUint8ActPerTensorFloat</span></code>, and <code class="docutils literal notranslate"><span class="pre">Int8ActPerTensorFloat</span></code>, a word of caution that anticipates some of the themes of the next tutorial. To minimize user interaction, Brevitas initializes scale and zero-point by collecting statistics for a number of training steps (by default 30). This can be seen as a sort of very basic calibration step, although it typically happens during training and with quantization
+already enabled. These statistics are accumulated in an exponential moving average that at end of the collection phase is used to initialize a learned <em>parameter</em>. During the collection phase then, the quantizer behaves differently between <code class="docutils literal notranslate"><span class="pre">train()</span></code> and <code class="docutils literal notranslate"><span class="pre">eval()</span></code> mode. In <code class="docutils literal notranslate"><span class="pre">train()</span></code> mode, the statistics for that particular batch are returned. In <code class="docutils literal notranslate"><span class="pre">eval()</span></code> mode, the exponential moving average is returned. After the collection phase is over the learned parameter is returned in both execution
+modes. We can easily observe this behaviour with an example. Let’s first define a quantized activation and two random input tensors:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">inp1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">inp2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>We then compare the output scale factor of the two tensors between <code class="docutils literal notranslate"><span class="pre">train()</span></code> and <code class="docutils literal notranslate"><span class="pre">eval()</span></code> mode. The ones in train mode in general are different. The ones in eval mode are the same.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
+<span class="n">out2_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="ow">not</span> <span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_train</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_identity</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">out1_eval</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
+<span class="n">out2_eval</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">out1_eval</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>By default, the only layer that is an exception to this is <code class="docutils literal notranslate"><span class="pre">QuantHardTanh</span></code>. That is because the interface to <code class="docutils literal notranslate"><span class="pre">torch.nn.HardTanh</span></code> already requires users to manually specify <code class="docutils literal notranslate"><span class="pre">min_val</span></code> and <code class="docutils literal notranslate"><span class="pre">max_val</span></code>, so Brevitas preserves that both when quantization is enabled or disabled. With quantization enabled, by default those values are used for initialization, but then the range is learned. Let’s look at an example. Run the cell below, and we expect it to throw an error because of missing
+attributes:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantHardTanh</span>
+
+<span class="n">QuantHardTanh</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">DependencyError</span>                           Traceback (most recent call last)
+Cell <span class="ansi-green-fg">In[18], line 3</span>
+<span class="ansi-green-intense-fg ansi-bold">      1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> <span class="ansi-bold" style="color: rgb(0,0,255)">brevitas</span><span class="ansi-bold" style="color: rgb(0,0,255)">.</span><span class="ansi-bold" style="color: rgb(0,0,255)">nn</span> <span class="ansi-bold" style="color: rgb(0,135,0)">import</span> QuantHardTanh
+<span class="ansi-green-fg">----&gt; 3</span> <span class="ansi-yellow-bg">QuantHardTanh</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/quant_activation.py:96</span>, in <span class="ansi-cyan-fg">QuantHardTanh.__init__</span><span class="ansi-blue-fg">(self, act_quant, input_quant, return_quant_tensor, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">     90</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(
+<span class="ansi-green-intense-fg ansi-bold">     91</span>         <span style="color: rgb(0,135,0)">self</span>,
+<span class="ansi-green-intense-fg ansi-bold">     92</span>         act_quant: Optional[ActQuantType] <span style="color: rgb(98,98,98)">=</span> Int8ActPerTensorFloatMinMaxInit,
+<span class="ansi-green-intense-fg ansi-bold">     93</span>         input_quant: Optional[ActQuantType] <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>,
+<span class="ansi-green-intense-fg ansi-bold">     94</span>         return_quant_tensor: <span style="color: rgb(0,135,0)">bool</span> <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">False</span>,
+<span class="ansi-green-intense-fg ansi-bold">     95</span>         <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>kwargs):
+<span class="ansi-green-fg">---&gt; 96</span>     <span class="ansi-yellow-bg">QuantNLAL</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span>
+<span class="ansi-green-intense-fg ansi-bold">     97</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     98</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">act_impl</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">nn</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">Hardtanh</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     99</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">passthrough_act</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg ansi-bold" style="color: rgb(0,135,0)">True</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">    100</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">input_quant</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">input_quant</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">    101</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">act_quant</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">act_quant</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">    102</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">return_quant_tensor</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">return_quant_tensor</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">    103</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/quant_layer.py:34</span>, in <span class="ansi-cyan-fg">QuantNonLinearActLayer.__init__</span><span class="ansi-blue-fg">(self, act_impl, passthrough_act, input_quant, act_quant, return_quant_tensor, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">     32</span> QuantLayerMixin<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, return_quant_tensor)
+<span class="ansi-green-intense-fg ansi-bold">     33</span> QuantInputMixin<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, input_quant, <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>kwargs)
+<span class="ansi-green-fg">---&gt; 34</span> <span class="ansi-yellow-bg">QuantNonLinearActMixin</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">act_impl</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">passthrough_act</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">act_quant</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/act.py:66</span>, in <span class="ansi-cyan-fg">QuantNonLinearActMixin.__init__</span><span class="ansi-blue-fg">(self, act_impl, passthrough_act, act_quant, act_proxy_prefix, act_kwargs_prefix, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">     55</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(
+<span class="ansi-green-intense-fg ansi-bold">     56</span>         <span style="color: rgb(0,135,0)">self</span>,
+<span class="ansi-green-intense-fg ansi-bold">     57</span>         act_impl: Optional[Type[Module]],
+<span class="ansi-green-fg">   (...)</span>
+<span class="ansi-green-intense-fg ansi-bold">     61</span>         act_kwargs_prefix<span style="color: rgb(98,98,98)">=</span><span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">&#39;</span>,
+<span class="ansi-green-intense-fg ansi-bold">     62</span>         <span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>kwargs):
+<span class="ansi-green-intense-fg ansi-bold">     63</span>     prefixed_kwargs <span style="color: rgb(98,98,98)">=</span> {
+<span class="ansi-green-intense-fg ansi-bold">     64</span>         act_kwargs_prefix <span style="color: rgb(98,98,98)">+</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">act_impl</span><span style="color: rgb(175,0,0)">&#39;</span>: act_impl,
+<span class="ansi-green-intense-fg ansi-bold">     65</span>         act_kwargs_prefix <span style="color: rgb(98,98,98)">+</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">passthrough_act</span><span style="color: rgb(175,0,0)">&#39;</span>: passthrough_act}
+<span class="ansi-green-fg">---&gt; 66</span>     <span class="ansi-yellow-bg">QuantProxyMixin</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span>
+<span class="ansi-green-intense-fg ansi-bold">     67</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     68</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">quant</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">act_quant</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     69</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">proxy_prefix</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">act_proxy_prefix</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     70</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">kwargs_prefix</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">act_kwargs_prefix</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     71</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">proxy_protocol</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">ActQuantProxyProtocol</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     72</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg">none_quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg">NoneActQuant</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     73</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">prefixed_kwargs</span><span class="ansi-yellow-bg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">     74</span> <span class="ansi-yellow-bg">        </span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">*</span><span class="ansi-yellow-bg">kwargs</span><span class="ansi-yellow-bg">)</span>
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/nn/mixin/base.py:52</span>, in <span class="ansi-cyan-fg">QuantProxyMixin.__init__</span><span class="ansi-blue-fg">(self, quant, proxy_protocol, none_quant_injector, proxy_prefix, kwargs_prefix, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">     50</span>     quant_injector <span style="color: rgb(98,98,98)">=</span> quant
+<span class="ansi-green-intense-fg ansi-bold">     51</span>     quant_injector <span style="color: rgb(98,98,98)">=</span> quant_injector<span style="color: rgb(98,98,98)">.</span>let(<span style="color: rgb(98,98,98)">*</span><span style="color: rgb(98,98,98)">*</span>filter_kwargs(kwargs_prefix, kwargs))
+<span class="ansi-green-fg">---&gt; 52</span>     quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">proxy_class</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     53</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">     54</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span class="ansi-bold" style="color: rgb(175,0,255)">not</span> <span style="color: rgb(0,135,0)">isinstance</span>(quant, proxy_protocol):
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:221</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjector.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
+<span class="ansi-green-intense-fg ansi-bold">    220</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, quant_layer, quant_injector):
+<span class="ansi-green-fg">--&gt; 221</span>     <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">super</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    222</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>cache_class <span style="color: rgb(98,98,98)">=</span> _CachedIO
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:94</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjectorBase.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
+<span class="ansi-green-intense-fg ansi-bold">     93</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>, quant_layer, quant_injector):
+<span class="ansi-green-fg">---&gt; 94</span>     <span class="ansi-yellow-bg">QuantProxyFromInjector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg" style="color: rgb(0,0,255)">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     95</span>     ActQuantProxyProtocol<span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,255)">__init__</span>(<span style="color: rgb(0,135,0)">self</span>)
+<span class="ansi-green-intense-fg ansi-bold">     96</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>is_passthrough_act <span style="color: rgb(98,98,98)">=</span> _is_passthrough_act(quant_injector)
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/quant_proxy.py:80</span>, in <span class="ansi-cyan-fg">QuantProxyFromInjector.__init__</span><span class="ansi-blue-fg">(self, quant_layer, quant_injector)</span>
+<span class="ansi-green-intense-fg ansi-bold">     78</span> <span style="color: rgb(95,135,135)"># Use a normal list and not a ModuleList since this is a pointer to parent modules</span>
+<span class="ansi-green-intense-fg ansi-bold">     79</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tracked_module_list <span style="color: rgb(98,98,98)">=</span> []
+<span class="ansi-green-fg">---&gt; 80</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">add_tracked_module</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">quant_layer</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">     81</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>disable_quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-bold" style="color: rgb(0,135,0)">False</span>
+<span class="ansi-green-intense-fg ansi-bold">     82</span> <span style="color: rgb(95,135,135)"># Torch.compile compatibility requires this</span>
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/quant_proxy.py:120</span>, in <span class="ansi-cyan-fg">QuantProxyFromInjector.add_tracked_module</span><span class="ansi-blue-fg">(self, module)</span>
+<span class="ansi-green-intense-fg ansi-bold">    118</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>tracked_module_list<span style="color: rgb(98,98,98)">.</span>append(module)
+<span class="ansi-green-intense-fg ansi-bold">    119</span>     <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>update_tracked_modules()
+<span class="ansi-green-fg">--&gt; 120</span>     <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">init_tensor_quant</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    121</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">    122</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">RuntimeError</span>(<span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(175,0,0)">Trying to add None as a parent module.</span><span style="color: rgb(175,0,0)">&#34;</span>)
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/proxy/runtime_quant.py:149</span>, in <span class="ansi-cyan-fg">ActQuantProxyFromInjectorBase.init_tensor_quant</span><span class="ansi-blue-fg">(self)</span>
+<span class="ansi-green-intense-fg ansi-bold">    148</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> <span style="color: rgb(0,0,255)">init_tensor_quant</span>(<span style="color: rgb(0,135,0)">self</span>):
+<span class="ansi-green-fg">--&gt; 149</span>     tensor_quant <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg" style="color: rgb(0,135,0)">self</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">quant_injector</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">tensor_quant</span>
+<span class="ansi-green-intense-fg ansi-bold">    150</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(175,0,0)">&#39;</span><span style="color: rgb(175,0,0)">act_impl</span><span style="color: rgb(175,0,0)">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>quant_injector:
+<span class="ansi-green-intense-fg ansi-bold">    151</span>         act_impl <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(0,135,0)">self</span><span style="color: rgb(98,98,98)">.</span>quant_injector<span style="color: rgb(98,98,98)">.</span>act_impl
+
+File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/20231115_brv_pt1.13.1/lib/python3.10/site-packages/brevitas/inject/__init__.py:129</span>, in <span class="ansi-cyan-fg">_ExtendedInjectorType.__getattr__</span><span class="ansi-blue-fg">(cls, attrname)</span>
+<span class="ansi-green-intense-fg ansi-bold">    126</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">    127</span>         message <span style="color: rgb(98,98,98)">=</span> <span style="color: rgb(175,0,0)">&#34;</span><span class="ansi-bold" style="color: rgb(175,95,135)">{!r}</span><span style="color: rgb(175,0,0)"> can not resolve attribute </span><span class="ansi-bold" style="color: rgb(175,95,135)">{!r}</span><span style="color: rgb(175,0,0)">&#34;</span><span style="color: rgb(98,98,98)">.</span>format(
+<span class="ansi-green-intense-fg ansi-bold">    128</span>             <span style="color: rgb(0,135,0)">cls</span><span style="color: rgb(98,98,98)">.</span><span style="color: rgb(0,0,135)">__name__</span>, current_attr)
+<span class="ansi-green-fg">--&gt; 129</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> DependencyError(message)
+<span class="ansi-green-intense-fg ansi-bold">    131</span> marker, attribute, args, have_defaults <span style="color: rgb(98,98,98)">=</span> spec
+<span class="ansi-green-intense-fg ansi-bold">    133</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">set</span>(args)<span style="color: rgb(98,98,98)">.</span>issubset(cached):
+
+<span class="ansi-red-fg">DependencyError</span>: &#39;Int8ActPerTensorFloatMinMaxInit&#39; can not resolve attribute &#39;max_val&#39; while building &#39;scaling_init_impl&#39;
+</pre></div></div>
+</div>
+<p>As expected, we get an error concering a missing <code class="docutils literal notranslate"><span class="pre">max_val</span></code> attribute. Let’s try to pass it then, together with <code class="docutils literal notranslate"><span class="pre">min_val</span></code>:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_hard_tanh</span> <span class="o">=</span> <span class="n">QuantHardTanh</span><span class="p">(</span><span class="n">max_val</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>The layer is now correctly initialized. We can see that the output scale factors are all the same between <code class="docutils literal notranslate"><span class="pre">train()</span></code> and <code class="docutils literal notranslate"><span class="pre">eval()</span></code> mode:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
+<span class="n">quant_hard_tanh</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">out2_eval</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
+<span class="n">assert_with_message</span><span class="p">(</span><span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+True
+</pre></div></div>
+</div>
+<p>In all of the examples that have currently been looked at in this tutorial, we have used per-tensor quantization. I.e., the output tensor of the activation, if quantized, was always quantized on a per-tensor level, with a single scale and zero-point quantization parameter per output tensor. However, one can also do per-channel quantization, where each output channel of the tensor has its own quantization parameters. In the example below, we look at per-tensor quantization of an input tensor that
+has 3 channels and 256 elements in the height and width dimensions. We purposely mutate the 1st channel to have its dynamic range be 3 times larger than the other 2 channels. We then feed it through a <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>, whose default behavior is to quantize at a per-tensor granularity.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out_channels</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">inp3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">)</span>  <span class="c1"># (B, C, H, W)</span>
+<span class="n">inp3</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*=</span> <span class="mi">3</span>
+
+<span class="n">per_tensor_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">per_tensor_quant_relu</span><span class="p">(</span><span class="n">inp3</span><span class="p">)</span>
+<span class="n">out_tensor</span><span class="o">.</span><span class="n">scale</span> <span class="o">*</span> <span class="p">((</span><span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+tensor(2.9998, grad_fn=&lt;MulBackward0&gt;)
+</pre></div></div>
+</div>
+<p>We can see that the per-tensor scale parameter has calibrated itself to provide a full quantization range of 3, matching that of the channel with the largest dynamic range.</p>
+<p>We can take a look at the <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> object, and in particular look at what the <code class="docutils literal notranslate"><span class="pre">scaling_impl</span></code> object is composed of. It is responsible for gathering statistics for determining the quantization parameters, and we can see that its <code class="docutils literal notranslate"><span class="pre">stats_input_view_shape_impl</span></code> attribute is set to be an instance of <code class="docutils literal notranslate"><span class="pre">OverTensorView</span></code>. This is defined <a class="reference external" href="https://github.com/Xilinx/brevitas/blob/200456825f3b4b8db414f2b25b64311f82d3991a/src/brevitas/core/function_wrapper/shape.py#L78">here</a>, and serves to
+flatten out the observed tensor into a 1D tensor and, in this case, use the <code class="docutils literal notranslate"><span class="pre">AbsPercentile</span></code> observer to calculate the quantization parameters during the gathering statistics stage of QAT.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">per_tensor_quant_relu</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+QuantReLU(
+  (input_quant): ActQuantProxyFromInjector(
+    (_zero_hw_sentinel): StatelessBuffer()
+  )
+  (act_quant): ActQuantProxyFromInjector(
+    (_zero_hw_sentinel): StatelessBuffer()
+    (fused_activation_quant_proxy): FusedActivationQuantProxy(
+      (activation_impl): ReLU()
+      (tensor_quant): RescalingIntQuant(
+        (int_quant): IntQuant(
+          (float_to_int_impl): RoundSte()
+          (tensor_clamp_impl): TensorClamp()
+          (delay_wrapper): DelayWrapper(
+            (delay_impl): _NoDelay()
+          )
+          (input_view_impl): Identity()
+        )
+        (scaling_impl): ParameterFromRuntimeStatsScaling(
+          (stats_input_view_shape_impl): OverTensorView()
+          (stats): _Stats(
+            (stats_impl): AbsPercentile()
+          )
+          (restrict_scaling): _RestrictValue(
+            (restrict_value_impl): FloatRestrictValue()
+          )
+          (restrict_threshold): _RestrictValue(
+            (restrict_value_impl): FloatRestrictValue()
+          )
+          (clamp_scaling): _ClampValue(
+            (clamp_min_ste): ScalarClampMinSte()
+          )
+          (restrict_inplace_preprocess): Identity()
+          (restrict_scaling_pre): Identity()
+          (restrict_threshold_pre): Identity()
+        )
+        (int_scaling_impl): IntScaling()
+        (zero_point_impl): ZeroZeroPoint(
+          (zero_point): StatelessBuffer()
+        )
+        (msb_clamp_bit_width_impl): BitWidthConst(
+          (bit_width): StatelessBuffer()
+        )
+      )
+    )
+  )
+)
+</pre></div></div>
+</div>
+<p>Next, we initialise a new <code class="docutils literal notranslate"><span class="pre">QuantRelU</span></code> instance, but this time we specify that we desire per-channel quantization i.e. <code class="docutils literal notranslate"><span class="pre">scaling_per_output_channel=True</span></code>. This will implictly call <code class="docutils literal notranslate"><span class="pre">scaling_stats_input_view_shape_impl</span></code>, defined <a class="reference external" href="https://github.com/Xilinx/brevitas/blob/200456825f3b4b8db414f2b25b64311f82d3991a/src/brevitas/quant/solver/common.py#L184">here</a>, and will change the <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> from using a per-tensor view when gathering stats to a per output channel view
+(<code class="docutils literal notranslate"><span class="pre">`OverOutputChannelView</span></code> &lt;<a class="github reference external" href="https://github.com/Xilinx/brevitas/blob/200456825f3b4b8db414f2b25b64311f82d3991a/src/brevitas/core/function_wrapper/shape.py#L52">Xilinx/brevitas</a>&gt;`__). This simply permutes the tensor into a 2D tensor, with dim 0 equal to the number of output channels.</p>
+<p>To accomplish this, we also need to give it some extra information: <code class="docutils literal notranslate"><span class="pre">scaling_stats_permute_dims</span></code> and <code class="docutils literal notranslate"><span class="pre">per_channel_broadcastable_shape</span></code>. <code class="docutils literal notranslate"><span class="pre">scaling_stats_permute_dims</span></code> is responsible for defining how we do the permutation. <code class="docutils literal notranslate"><span class="pre">per_channel_broadcastable_shape</span></code> is necessary to understand along which dimensions the scale factor has to be broadcasted, so that the scale factor values are applied along the channel dimensions of the input. By default, PyTorch will broadcast along the first rightmost
+dimension for which the shapes of the two tensors match. To make sure that we apply the scale factor in our desired output channel dimension, we need to tell PyTorch how to correctly broadcast the scale factors. Therefore the scale factor will have as many dimensions as the input tensors, with all the shapes equal to 1 apart from the channel dimension.</p>
+<p>Below, we can see that in the per-channel <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> instance, the <code class="docutils literal notranslate"><span class="pre">stats_input_view_shape_impl</span></code> is now <code class="docutils literal notranslate"><span class="pre">OverOutputChannelView</span></code>, and uses a <code class="docutils literal notranslate"><span class="pre">PermuteDims</span></code> <a class="reference external" href="https://github.com/Xilinx/brevitas/blob/200456825f3b4b8db414f2b25b64311f82d3991a/src/brevitas/core/function_wrapper/shape.py#L21">instance</a> to do the permutation of the tensor to, in this case, a 2D tensor.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">per_chan_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                <span class="n">per_channel_broadcastable_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="mi">1</span> <span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+                                <span class="n">scaling_stats_permute_dims</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                                <span class="p">)</span>
+<span class="n">per_chan_quant_relu</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+QuantReLU(
+  (input_quant): ActQuantProxyFromInjector(
+    (_zero_hw_sentinel): StatelessBuffer()
+  )
+  (act_quant): ActQuantProxyFromInjector(
+    (_zero_hw_sentinel): StatelessBuffer()
+    (fused_activation_quant_proxy): FusedActivationQuantProxy(
+      (activation_impl): ReLU()
+      (tensor_quant): RescalingIntQuant(
+        (int_quant): IntQuant(
+          (float_to_int_impl): RoundSte()
+          (tensor_clamp_impl): TensorClamp()
+          (delay_wrapper): DelayWrapper(
+            (delay_impl): _NoDelay()
+          )
+          (input_view_impl): Identity()
+        )
+        (scaling_impl): ParameterFromRuntimeStatsScaling(
+          (stats_input_view_shape_impl): OverOutputChannelView(
+            (permute_impl): PermuteDims()
+          )
+          (stats): _Stats(
+            (stats_impl): AbsPercentile()
+          )
+          (restrict_scaling): _RestrictValue(
+            (restrict_value_impl): FloatRestrictValue()
+          )
+          (restrict_threshold): _RestrictValue(
+            (restrict_value_impl): FloatRestrictValue()
+          )
+          (clamp_scaling): _ClampValue(
+            (clamp_min_ste): ScalarClampMinSte()
+          )
+          (restrict_inplace_preprocess): Identity()
+          (restrict_scaling_pre): Identity()
+          (restrict_threshold_pre): Identity()
+        )
+        (int_scaling_impl): IntScaling()
+        (zero_point_impl): ZeroZeroPoint(
+          (zero_point): StatelessBuffer()
+        )
+        (msb_clamp_bit_width_impl): BitWidthConst(
+          (bit_width): StatelessBuffer()
+        )
+      )
+    )
+  )
+)
+</pre></div></div>
+</div>
+<p>We can also observe the effect on the quantization parameters:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out_channel</span> <span class="o">=</span> <span class="n">per_chan_quant_relu</span><span class="p">(</span><span class="n">inp3</span><span class="p">)</span>
+<span class="n">out_channel</span><span class="o">.</span><span class="n">scale</span> <span class="o">*</span> <span class="p">((</span><span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">)</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+tensor([[[[2.9998]],
+
+         [[1.0000]],
+
+         [[1.0000]]]], grad_fn=&lt;MulBackward0&gt;)
+</pre></div></div>
+</div>
+<p>We can see that the number of elements in the quantization scale of the outputted tensor is now 3, matching those of the 3-channel tensor! Furthermore, we see that each channel has an 8-bit quantization range that matches its data distribution, which is much more ideal in terms of reducing quantization mismatch. However, it’s important to note that some hardware providers don’t efficiently support per-channel quantization in production, so it’s best to check if your targetted hardware will allow
+per-channel quantization.</p>
+<p>Finally, a reminder that mixing things up is perfectly legal and encouraged in Brevitas. For example, a <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> with <code class="docutils literal notranslate"><span class="pre">act_quant=Int8ActPerTensorFloatMinMaxInit</span></code> is equivalent to a default <code class="docutils literal notranslate"><span class="pre">QuantHardTanh</span></code>, or conversely a <code class="docutils literal notranslate"><span class="pre">QuantHardTanh</span></code> with <code class="docutils literal notranslate"><span class="pre">act_quant=Int8ActPerTensorFloat</span></code> is equivalent to a default <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>. This is allowed by the fact that - as it will be explained in the next tutorial - the same layer can accept different keyword arguments when different
+quantizers are set. So a QuantIdentity with <code class="docutils literal notranslate"><span class="pre">act_quant=Int8ActPerTensorFloatMinMaxInit</span></code> is going to expect arguments <code class="docutils literal notranslate"><span class="pre">min_val</span></code> and <code class="docutils literal notranslate"><span class="pre">max_val</span></code> the same way a default <code class="docutils literal notranslate"><span class="pre">QuantHardTanh</span></code> would.</p>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="quant_tensor_quant_conv2d_overview.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">An overview of QuantTensor and QuantConv2d</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="anatomy_quantizer.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Anatomy of a Quantizer</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/tutorials/quant_activation_overview.nblink.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

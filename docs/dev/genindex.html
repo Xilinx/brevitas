@@ -432,11 +432,14 @@ document.write(`
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
  
 </div>
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.Abs">Abs (class in brevitas.core.function_wrapper.misc)</a>
+</li>
       <li><a href="api_reference/brevitas.function.html#brevitas.function.ops_ste.abs_binary_sign_grad">abs_binary_sign_grad() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl">abs_binary_sign_grad_impl() (in module brevitas.ops.autograd_ste_ops)</a>
@@ -787,6 +790,8 @@ document.write(`
 </li>
         <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.clamp.TensorClamp.forward">(brevitas.core.function_wrapper.clamp.TensorClamp method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.Abs.forward">(brevitas.core.function_wrapper.misc.Abs method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.Identity.forward">(brevitas.core.function_wrapper.misc.Identity method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.InplaceLogTwo.forward">(brevitas.core.function_wrapper.misc.InplaceLogTwo method)</a>
@@ -808,6 +813,8 @@ document.write(`
         <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.RoundToZeroSte.forward">(brevitas.core.function_wrapper.ops_ste.RoundToZeroSte method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward">(brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte.forward">(brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.TensorClampSte.forward">(brevitas.core.function_wrapper.ops_ste.TensorClampSte method)</a>
 </li>
@@ -964,10 +971,10 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.inplace_tensor_add">inplace_tensor_add() (in module brevitas.core.utils)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.inplace_tensor_mul">inplace_tensor_mul() (in module brevitas.core.utils)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.InplaceLogTwo">InplaceLogTwo (class in brevitas.core.function_wrapper.misc)</a>
 </li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.InplaceTensorClampSte">InplaceTensorClampSte (class in brevitas.core.function_wrapper.ops_ste)</a>
@@ -980,6 +987,12 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.IntScaling">IntScaling (class in brevitas.core.scaling.int_scaling)</a>
 </li>
+      <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.SignedScaleStats.is_scale_unsigned">is_scale_unsigned() (brevitas.core.stats.stats_op.SignedScaleStats class method)</a>
+
+      <ul>
+        <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.UnsignedScaleStat.is_scale_unsigned">(brevitas.core.stats.stats_op.UnsignedScaleStat class method)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -1327,9 +1340,13 @@ document.write(`
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.ScalarClampSteFn">ScalarClampSteFn (class in brevitas.ops.autograd_ste_ops)</a>
 </li>
+      <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte">ScalarSignedClampMinSte (class in brevitas.core.function_wrapper.ops_ste)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.shrink_lp_op">shrink_lp_op() (in module brevitas.core.stats.stats_op)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.SignedScaleStats">SignedScaleStats (class in brevitas.core.stats.stats_op)</a>
 </li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.SingleArgStatelessBuffer">SingleArgStatelessBuffer (class in brevitas.core.utils)</a>
 </li>
@@ -1396,6 +1413,14 @@ document.write(`
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncMsbScaling">TruncMsbScaling (class in brevitas.core.scaling.standalone)</a>
 </li>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.TruncScalingWrapper">TruncScalingWrapper (class in brevitas.core.scaling.standalone)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.UnsignedScaleStat">UnsignedScaleStat (class in brevitas.core.stats.stats_op)</a>
 </li>
   </ul></td>
 </tr></table>

@@ -1,0 +1,903 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>brevitas.function.ops_ste &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../../../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/brevitas/function/ops_ste';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../../../about.html" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">brevitas.fun...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for brevitas.function.ops_ste</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Implementation of various functions with a straight-through gradient estimators, dispatched to</span>
+<span class="sd">either a native just-in-time compiled backend (when env ``BREVITAS_JIT=1``) or to an autograd</span>
+<span class="sd">Function implemented in :obj:`~brevitas.ops.autograd_ste_ops` (when env ``BREVITAS_JIT=0``).</span>
+
+<span class="sd">The native backend is enabled when ``BREVITAS_JIT`` is enabled to allow for end-to-end compilation</span>
+<span class="sd">of the built-in quantizers, since as of Pytorch 1.8.1 a torch.autograd.Function is not supported by</span>
+<span class="sd">the compiler.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">binary_sign</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">dpu_round</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">round_to_zero</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">tensor_clamp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function.ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">tensor_clamp_</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;round_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ceil_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;floor_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;tensor_clamp_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;tensor_clamp_ste_&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;scalar_clamp_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;scalar_clamp_min_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;binary_sign_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ternary_sign_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;round_to_zero_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;dpu_round_ste&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;abs_binary_sign_grad&#39;</span><span class="p">]</span>
+
+<span class="k">if</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">NATIVE_STE_BACKEND_LOADED</span><span class="p">:</span>
+    <span class="n">fn_prefix</span> <span class="o">=</span> <span class="n">torch</span>
+    <span class="n">script_flag</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">fn_prefix</span> <span class="o">=</span> <span class="n">brevitas</span>
+    <span class="n">script_flag</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ignore</span>
+
+
+<div class="viewcode-block" id="round_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.round_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">round_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.round` with a straight-through gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.round_ste_impl` (with env</span>
+<span class="sd">        ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, -1.7], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = round_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 2., -2.], grad_fn=&lt;RoundSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">round_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ceil_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.ceil_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ceil_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.ceil` with a straight-through gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.ceil_ste_impl` (with env</span>
+<span class="sd">        ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, -1.7], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = ceil_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 2., -1.], grad_fn=&lt;CeilSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">ceil_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="floor_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.floor_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">floor_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.floor` with a straight-through gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.floor_ste_impl` (with env</span>
+<span class="sd">        ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, -1.7], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = floor_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1., -2.], grad_fn=&lt;FloorSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">floor_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="tensor_clamp_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">tensor_clamp_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`~brevitas.function.ops.tensor_clamp` with a straight-through</span>
+<span class="sd">    gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val</span>
+<span class="sd">    and max_val is always None.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl` (with</span>
+<span class="sd">        env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with</span>
+<span class="sd">        ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = tensor_clamp_ste(x, torch.tensor([-1.0, -0.5, -0.5]), torch.tensor([1.0, 0.5, 0.5]))</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1.0000,  0.4000, -0.5000], grad_fn=&lt;TensorClampSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1, 0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">tensor_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">tensor_clamp_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output</span></div>
+
+
+<div class="viewcode-block" id="tensor_clamp_ste_"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste_">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">tensor_clamp_ste_</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`~brevitas.function.ops.tensor_clamp_` with a straight-through</span>
+<span class="sd">    gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val</span>
+<span class="sd">    and max_val is always None.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl_` (with</span>
+<span class="sd">        env ``BREVITAS_JIT=0``) or its C++ just-in-time compiled variant (with ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = tensor_clamp_ste_(x, torch.tensor([-1.0, -0.5, -0.5]), torch.tensor([1.0, 0.5, 0.5]))</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1.0000,  0.4000, -0.5000], grad_fn=&lt;InplaceTensorClampSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; (y == x).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1, 0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">tensor_clamp_</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">tensor_clamp_ste_impl_</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output</span></div>
+
+
+<div class="viewcode-block" id="scalar_clamp_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">scalar_clamp_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.clamp` with a straight-through gradient estimator</span>
+<span class="sd">    for the gradient of the output w.r.t. to ``x``, while the gradient of ``y`` w.r.t. to ``min_val``</span>
+<span class="sd">    and ``max_val`` is always ``None``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x: input tensor to clamp.</span>
+<span class="sd">        min_val: scalar value to use as lower bound for the input tensor.</span>
+<span class="sd">        max_val: scalar value to use as upper bound for the input tensor.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor: clamped output tensor.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl`</span>
+<span class="sd">        (with env ``BREVITAS_JIT=0``) or its C++ just-in-time compiled variant</span>
+<span class="sd">        (with ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = scalar_clamp_ste(x, -1.0, 1.0)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1.0000,  0.4000, -1.0000], grad_fn=&lt;ScalarClampSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1, 0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">scalar_clamp_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="scalar_clamp_min_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_min_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">scalar_clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.clamp_min` with a straight-through gradient estimator</span>
+<span class="sd">    for the gradient of output y w.r.t. to ``x``, while the gradient of y w.r.t. to ``min_val`` is</span>
+<span class="sd">    always ``None``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x: input tensor to clamp.</span>
+<span class="sd">        min_val: scalar value to use as lower bound for the input tensor.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tensor: clamped output tensor.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl`</span>
+<span class="sd">        (with env ``BREVITAS_JIT=0``) or its C++ just-in-time compiled variant</span>
+<span class="sd">        (with ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = scalar_clamp_min_ste(x, -1.0)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1.5000,  0.4000, -1.0000], grad_fn=&lt;ScalarClampMinSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1, 0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">scalar_clamp_min_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="binary_sign_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">binary_sign_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`~brevitas.function.ops.binary_sign` with a straight-through</span>
+<span class="sd">    gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.binary_sign_ste_impl` (with</span>
+<span class="sd">        env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with</span>
+<span class="sd">        ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, 0.0, -0.5], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = binary_sign_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1.,  1., -1.], grad_fn=&lt;BinarySignSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, 0.2, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">binary_sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">binary_sign_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ternary_sign_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ternary_sign_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.sign` with a straight-through gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl` (with</span>
+<span class="sd">        env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with</span>
+<span class="sd">        ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, 0.0, -0.5], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = ternary_sign_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1.,  0., -1.], grad_fn=&lt;TernarySignSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, 0.2, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">ternary_sign_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="round_to_zero_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.round_to_zero_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">round_to_zero_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`~brevitas.function.ops.round_to_zero` with a straight-through</span>
+<span class="sd">    gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl` (with</span>
+<span class="sd">        env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with</span>
+<span class="sd">        ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, -1.7], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = round_to_zero_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 1., -1.], grad_fn=&lt;RoundToZeroSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">round_to_zero</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">round_to_zero_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dpu_round_ste"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.dpu_round_ste">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">dpu_round_ste</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`~brevitas.function.ops.dpu_round` with a straight-through</span>
+<span class="sd">    gradient estimator.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.dpu_round_ste_impl` (with</span>
+<span class="sd">        env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with</span>
+<span class="sd">        ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([1.7, -1.7], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = dpu_round_ste(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([ 2., -2.], grad_fn=&lt;DPURoundSteFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1, -0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">dpu_round</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">dpu_round_ste_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="abs_binary_sign_grad"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.ops_ste.abs_binary_sign_grad">[docs]</a><span class="nd">@script_flag</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">abs_binary_sign_grad</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that implements :func:`torch.abs` with a binary-sign backward, in order to</span>
+<span class="sd">    have subgradient 1 in 0. Compare with :func:`torch.abs`&#39; subgradient of 0 in 0.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl`</span>
+<span class="sd">        (with env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with</span>
+<span class="sd">        ``BREVITAS_JIT=1``).</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; x = torch.tensor([0.0], requires_grad=True)</span>
+<span class="sd">        &gt;&gt;&gt; y = abs_binary_sign_grad(x)</span>
+<span class="sd">        &gt;&gt;&gt; y</span>
+<span class="sd">        tensor([0.], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)</span>
+<span class="sd">        &gt;&gt;&gt; grad = torch.tensor([0.1])</span>
+<span class="sd">        &gt;&gt;&gt; y.backward(grad)</span>
+<span class="sd">        &gt;&gt;&gt; (x.grad == grad).all().item()</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">_C</span><span class="o">.</span><span class="n">_get_tracing_state</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fn_prefix</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">autograd_ste_ops</span><span class="o">.</span><span class="n">abs_binary_sign_grad_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
