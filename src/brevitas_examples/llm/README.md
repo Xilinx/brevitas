@@ -5,7 +5,7 @@
 The requirements can be installed as followed:
 
 ```bash
-pip install -e .[export,diffusion]
+pip install -e .[export,llm]
 ```
 
 ## Run
