@@ -88,7 +88,7 @@ class ConstScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_scale_threshold_impl, is_scale_unsigned)
+            restrict_value_impl=restrict_scale_threshold_impl, is_scale_unsigned=is_scale_unsigned)
         if isinstance(scaling_init, Tensor):
             scaling_init = scaling_init.to(device=device, dtype=dtype)
             scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
@@ -193,7 +193,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_scale_threshold_impl, is_scale_unsigned)
+            restrict_value_impl=restrict_scale_threshold_impl, is_scale_unsigned=is_scale_unsigned)
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
