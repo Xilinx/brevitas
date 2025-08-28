@@ -2,6 +2,16 @@
 
 This folder contains examples about how to leverage quantized layers and quantization flows offered by Brevitas for the task of ImageNet classification.
 
+## Requirements
+
+The requirements can be installed as followed:
+
+```bash
+pip install -e .[export,vision]
+```
+
+## Description
+
 Brevitas allows to define quantized models in two different ways:
 - *By hand*, writing a quantized model using ``brevitas.nn`` quantized layers, possibly by modifying an original PyTorch floating-point model definition.
 - *Programmatically*, by taking a floating-point model as input and replacing `torch.nn` layers with `brevitas.nn` layers according to some user-defined criteria.

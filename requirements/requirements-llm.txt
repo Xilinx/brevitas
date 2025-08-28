@@ -4,7 +4,6 @@ gguf==0.17.0
 lm_eval
 onnx
 onnxruntime<1.21
-onnxscript
 optimum
 pandas
 torch>=2.3

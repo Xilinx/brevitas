@@ -6,6 +6,12 @@ Feel free to open an issue if you face any issue.
 
 ## Requirements
 
+The basic requirements can be installed as followed:
+
+```bash
+pip install -e .[export,diffusion]
+```
+
 For MLPerf inference execution, it is recommended to follow the MLPerf instruction to download the dataset and all relevant files,
 such as pre-generated latents and captions for calibration.
 
