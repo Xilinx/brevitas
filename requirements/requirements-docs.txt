@@ -8,4 +8,4 @@ sphinx-gallery==0.10.1
 sphinxcontrib-napoleon==0.7
 sphinxemoji==0.2.0
 lxml==4.9.3
-sphinx-multiversion @ git+https://github.com/Holzhaus/sphinx-multiversion.git@ec101ba44132ddf1bd32e462912dd60296856387
+#sphinx-multiversion @ git+https://github.com/Holzhaus/sphinx-multiversion.git@ec101ba44132ddf1bd32e462912dd60296856387
