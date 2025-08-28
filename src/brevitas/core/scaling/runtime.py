@@ -31,7 +31,6 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter],
             scaling_shape: Tuple[int, ...],
-            is_scale_unsigned: bool = True,
             force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
@@ -63,8 +62,7 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_affine_rescaling_init=scaling_affine_rescaling_init,
             scaling_affine_shifting_init=scaling_affine_shifting_init,
             dtype=dtype,
-            device=device,
-            is_scale_unsigned=is_scale_unsigned)
+            device=device)
 
     @brevitas.jit.script_method
     def forward(
