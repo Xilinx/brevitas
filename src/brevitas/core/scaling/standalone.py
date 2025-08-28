@@ -446,10 +446,9 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.abs_value = _AbsValue(is_unsigned=is_scale_unsigned)
-        self.restrict_scaling = _RestrictValue(restrict_scaling_impl, is_scale_unsigned)
+        self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.restrict_threshold = _RestrictValue(restrict_threshold_impl)
-        self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_scale_threshold_impl, is_scale_unsigned)
+        self.restrict_scale_threshold = _RestrictValue(restrict_scale_threshold_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
         self.local_loss_mode: bool = brevitas.jit.Attribute(
             False, bool)  # required to support MSE eval or variants
@@ -487,12 +486,12 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.init_scale()
             value = self.clamp_scaling(self.restrict_scaling(self.value))
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
-            value = self.restrict_clamp_scale_threshold(value / threshold)
+            value = self.restrict_scale_threshold(value / threshold)
             return value
         else:
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = self.clamp_scaling(self.restrict_scaling(self.value))
-            value = self.restrict_clamp_scale_threshold(value / threshold)
+            value = self.restrict_scale_threshold(value / threshold)
             return value
 
     @brevitas.jit.script_method
@@ -512,7 +511,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
             out = self.abs_value(out)
-            out = self.restrict_clamp_scale_threshold(out / threshold)
+            out = self.restrict_scale_threshold(out / threshold)
             # We can clamp after restrict val since the learned parameter is already in log-domain
             out = self.clamp_scaling(out)
         return out
