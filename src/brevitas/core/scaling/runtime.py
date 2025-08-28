@@ -109,7 +109,7 @@ class _StatsScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_value_impl=restrict_scale_threshold_impl, is_scale_unsigned=is_scale_unsigned)
+            restrict_value_impl=restrict_scale_threshold_impl, is_unsigned=is_scale_unsigned)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.clamp_scaling = _ClampValue(scaling_min_val)
@@ -243,7 +243,7 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_value_impl=restrict_scale_threshold_impl, is_scale_unsigned=is_scale_unsigned)
+            restrict_value_impl=restrict_scale_threshold_impl, is_unsigned=is_scale_unsigned)
         self.restrict_scaling_pre = self.restrict_clamp_scaling.restrict_value_impl.restrict_init_module(
         )
         self.restrict_threshold_pre = self.restrict_clamp_threshold.restrict_value_impl.restrict_init_module(
