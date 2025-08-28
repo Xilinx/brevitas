@@ -239,7 +239,7 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.scaling_min_val = scaling_min_val
         self.input_view_impl = input_view_impl
         self.restrict_clamp_scaling = _RestrictClampValue(
-            scaling_min_val, restrict_scaling_impl, is_scale_signed)
+            scaling_min_val, restrict_scaling_impl, is_scale_unsigned)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
