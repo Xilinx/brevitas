@@ -64,7 +64,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
     'jit_disabled',])])
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-PYTHON_VERSIONS = ('3.9',)
+PYTHON_VERSIONS = ('3.9', '3.10', '3.11', '3.12')
 
 PYTORCH_VERSIONS = (
     '1.12.1', '1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1', '2.8.0')
