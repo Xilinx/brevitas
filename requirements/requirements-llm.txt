@@ -1,4 +1,4 @@
-accelerate<1.10
+accelerate
 datasets
 gguf==0.17.0
 lm_eval
