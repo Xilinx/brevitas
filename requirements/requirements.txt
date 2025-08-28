@@ -3,6 +3,6 @@ numpy<=1.26.4
 packaging
 setuptools<70.0
 sympy
-torch>=1.9.1
+torch>=1.12
 typing-extensions>=3.7.4
 unfoldNd
