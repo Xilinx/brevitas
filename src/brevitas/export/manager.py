@@ -98,6 +98,12 @@ def _restore_act_caching_mode(m: Module):
         del m.cache_inference_quant_act_backup
 
 
+def _restore_weight_caching_mode(m: Module):
+    if hasattr(m, "cache_inference_quant_weight_backup"):
+        m.cache_inference_quant_weight = m.cache_inference_quant_weight_backup
+        del m.cache_inference_quant_weight_backup
+
+
 def _set_recurrent_layer_export_mode(model: Module, enabled: bool):
     for m in model.modules():
         if isinstance(m, QuantRecurrentLayerMixin) and hasattr(m, 'export_mode'):
