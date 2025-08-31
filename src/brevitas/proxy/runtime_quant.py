@@ -195,8 +195,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif self.export_mode:
             y = self.fused_activation_quant_proxy.activation_impl(y)
             y = self.export_handler(y)
-            return_quant_tensor = isinstance(y, tuple)
-            if not return_quant_tensor:
+            if not isinstance(y, tuple):
                 y = (y, None)
         else:
             y = self.fused_activation_quant_proxy(y)
