@@ -203,22 +203,23 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
 
-        if return_quant_tensor:
-            # If the second value (i.e., scale) is None, then quant is disabled
-            if y[1] is not None:
-                out = self.create_quant_tensor(y, x=x)
-            elif self.is_passthrough_act and isinstance(x, QuantTensor):
-                # preserve scale/zp/bit/sign even without output quant
-                y = y[0]
-                out = self.create_quant_tensor(y, x=x)
-            else:
-                out = y[0]
+        # If the second value (i.e., scale) is None, then quant is disabled
+        if y[1] is not None:
+            out = self.create_quant_tensor(y, x=x)
+        elif self.is_passthrough_act and isinstance(x, QuantTensor):
+            # preserve scale/zp/bit/sign even without output quant
+            y = y[0]
+            out = self.create_quant_tensor(y, x=x)
         else:
             out = y[0]
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_out
+
+        if not return_quant_tensor and isinstance(out, QuantTensor):
+            out = out.value
+
         return out
 
 
@@ -268,11 +269,10 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            if return_quant_tensor:
-                out = IntQuantTensor(
-                    out_value, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
-            else:
-                out = out_value
+            out = IntQuantTensor(
+                out_value, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            if not return_quant_tensor:
+                out = out.value
             return out
         return x
 
@@ -317,13 +317,13 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             else:
                 out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            if not return_quant_tensor:
-                return out_value
             out = IntQuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
             if not self.training and self.cache_inference_quant_act:
                 cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
                 self._cached_act = cached_out
+            if not return_quant_tensor:
+                out = out.value
             return out
         else:
             return x

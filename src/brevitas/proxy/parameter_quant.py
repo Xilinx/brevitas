@@ -159,14 +159,12 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                     out = self.create_quant_tensor(out)
             else:
                 out = self.tensor_quant(x)
-                if return_quant_tensor:
-                    out = self.create_quant_tensor(out)
-                    if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
-                        self._cached_weight = self.cache_class(
-                            out.detach(),
-                            metadata_only=self.cache_inference_quant_weight_metadata_only)
-                else:
-                    out = out[0]
+                out = self.create_quant_tensor(out)
+                if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
+                    self._cached_weight = self.cache_class(
+                        out.detach(), metadata_only=self.cache_inference_quant_weight_metadata_only)
+                if not return_quant_tensor:
+                    out = out.value
         else:  # quantization disabled
             out = x
         return out
@@ -286,12 +284,16 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
 
             if self.export_mode:
                 out = self.export_mode(x, input_bit_width, input_is_signed)
-                return_quant_tensor = isinstance(out, tuple)
+                if isinstance(out, tuple):
+                    out = IntQuantTensor(
+                        out, scale, zero_point, bit_width, self.is_signed, self.training)
             else:
                 out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.tensor_quant(x, input_bit_width, input_is_signed)
-            if not return_quant_tensor:
-                return out
-            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+                out = IntQuantTensor(
+                    out, scale, zero_point, bit_width, self.is_signed, self.training)
+                if not return_quant_tensor:
+                    out = out.value
+            return out
         else:  # quantization disabled
             return x
 
