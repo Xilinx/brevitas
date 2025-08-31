@@ -375,13 +375,14 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            if return_quant_tensor:
-                out = IntQuantTensor(
-                    out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
-                if not self.training and self.cache_inference_quant_bias:
-                    cached_bias = _CachedIO(
-                        out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
-                    self._cached_bias = cached_bias
+            out = IntQuantTensor(
+                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            if not self.training and self.cache_inference_quant_bias:
+                cached_bias = _CachedIO(
+                    out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
+                self._cached_bias = cached_bias
+            if not return_quant_tensor:
+                out = out.value
         else:
             out = x
         return out
