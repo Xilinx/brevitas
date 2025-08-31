@@ -195,6 +195,9 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif self.export_mode:
             y = self.fused_activation_quant_proxy.activation_impl(y)
             y = self.export_handler(y)
+            return_quant_tensor = isinstance(y, tuple)
+            if not return_quant_tensor:
+                y = (y, None)
         else:
             y = self.fused_activation_quant_proxy(y)
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
@@ -310,6 +313,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             if self.export_mode:
                 out_tuple = self.export_handler(
                     x.value, x.scale, x.zero_point, x.bit_width, x.signed)
+                return_quant_tensor = isinstance(out_tuple)
             else:
                 out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
             out_value, out_scale, out_zp, out_bit_width = out_tuple

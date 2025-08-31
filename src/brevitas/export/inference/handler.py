@@ -81,7 +81,9 @@ class IntInferencetHandler(InferenceHandler):
         return (x - zero_point) * scale
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
-        return self.dequantize(self.quantize(x, self.scale, self.zero_point), self.scale, self.zero_point), self.scale, self.zero_point, self.bit_width
+        return self.dequantize(
+            self.quantize(x, self.scale, self.zero_point), self.scale,
+            self.zero_point)  #, self.scale, self.zero_point, self.bit_width
 
 
 class IntWeightInferencetHandler(IntInferencetHandler):
@@ -108,7 +110,7 @@ class IntWeightInferencetHandler(IntInferencetHandler):
         else:
             x = self.inner_forward(x, self.scale, self.zero_point)
 
-        return x, self.scale, self.zero_point, self.bit_width
+        return x  #, self.scale, self.zero_point, self.bit_width
 
 
 class DynamicIntInferenceHandler(IntInferencetHandler):
@@ -143,7 +145,7 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
         # When we skip quant tensor, we return the flattened version of the groupwise tensor
         x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
         output_args = tuple([x, scale, zero_point] + list(other))
-        return output_args
+        return x
 
 
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
@@ -181,7 +183,7 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
 
             # If we skip quant tensor, we return the flattened version of the groupwise tensor
             out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
-        return out, scale, zero_point, self.bit_width
+        return out  #, scale, zero_point, self.bit_width
 
 
 class FloatInferencetHandler(InferenceHandler):
@@ -252,7 +254,9 @@ class FloatInferencetHandler(InferenceHandler):
         return (x - zero_point) * scale
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        return self.dequantize(self.quantize(x, self.scale, self.zero_point), self.scale, self.zero_point), self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+        return self.dequantize(
+            self.quantize(x, self.scale, self.zero_point), self.scale, self.zero_point
+        )  #, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
 class FloatWeightInferencetHandler(FloatInferencetHandler):
@@ -278,7 +282,7 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
             x = self.cached_weight
         else:
             x = self.inner_forward(x, self.scale, self.zero_point)
-        return x, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+        return x  # , self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
 class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
@@ -300,8 +304,8 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
         x, scale, zero_point, *other = self.module_forward(x)
         # If we skip quant tensor, we return the flattened version of the groupwise tensor
         x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
-        output_args = tuple([x, scale, zero_point] + list(other))
-        return output_args
+        # output_args = tuple([x, scale, zero_point] + list(other))
+        return x
 
 
 class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
@@ -341,7 +345,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
             out = self.inner_forward(x, scale, zero_point)
             out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
 
-        return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+        return out  #, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
 class DynamicFloatInferenceHandler(FloatInferencetHandler):

@@ -155,10 +155,8 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             # - quantization flow
             if self.export_mode:
                 out = self.export_handler(x)
-                if return_quant_tensor:
+                if isinstance(out, tuple):
                     out = self.create_quant_tensor(out)
-                else:
-                    out = out[0]
             else:
                 out = self.tensor_quant(x)
                 if return_quant_tensor:
@@ -286,9 +284,12 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
 
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
-            if return_quant_tensor:
+            if self.export_mode:
+                out = self.export_mode(x, input_bit_width, input_is_signed)
+                return_quant_tensor = isinstance(out, tuple)
+            else:
+                out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.tensor_quant(x, input_bit_width, input_is_signed)
+            if not return_quant_tensor:
                 return out
             return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
