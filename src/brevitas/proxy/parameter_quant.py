@@ -360,10 +360,9 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             input: Optional[Union[Tensor, IntQuantTensor]] = None,
             weight: Optional[Union[Tensor, IntQuantTensor]] = None,
             return_quant_tensor: bool = True) -> Union[Tensor, IntQuantTensor]:
-        out = x
+
         if self.is_quant_enabled:
             input_scale = self.compute_bias_scale(input, weight)
-            impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None and self.is_quant_enabled:
                 input_scale = self.scale()
                 if input_scale is None:
@@ -371,18 +370,27 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             elif self.requires_input_scale and input_scale is not None and self.is_quant_enabled:
                 input_scale = input_scale.view(-1)
 
-            if self.requires_input_scale and self.is_quant_enabled:
-                out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
+            impl = self.export_handler if self.export_mode else self.tensor_quant
+            if self.export_mode:
+                if self.requires_input_scale:
+                    out = impl(x, input_scale)
+                else:
+                    out = impl(x)
+                if isinstance(out, tuple):
+                    out = IntQuantTensor(*out, self.is_signed, self.training)
             else:
-                out, out_scale, out_zp, out_bit_width = impl(x)
-            out = IntQuantTensor(
-                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
-            if not self.training and self.cache_inference_quant_bias:
-                cached_bias = _CachedIO(
-                    out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
-                self._cached_bias = cached_bias
-            if not return_quant_tensor:
-                out = out.value
+                if self.requires_input_scale:
+                    out = impl(x, input_scale)
+                else:
+                    out = impl(x)
+
+                out = IntQuantTensor(*out, self.is_signed, self.training)
+                if not self.training and self.cache_inference_quant_bias:
+                    cached_bias = _CachedIO(
+                        out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
+                    self._cached_bias = cached_bias
+                if not return_quant_tensor:
+                    out = out.value
         else:
             out = x
         return out
