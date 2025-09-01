@@ -20,7 +20,6 @@ from brevitas.nn import QuantSigmoid
 from brevitas.nn import QuantTanh
 from brevitas.nn.mixin import QuantBiasMixin
 from brevitas.nn.mixin import QuantWeightMixin
-from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
@@ -39,22 +38,13 @@ QuantTupleLongDisabled = List[Tuple[Tensor,
                                     Optional[Tensor]]]
 
 
-class GateWeight(QuantWeightMixin, QuantLayerMixin, nn.Module):
+class GateWeight(QuantWeightMixin, nn.Module):
 
-    def __init__(
-            self,
-            input_features,
-            output_features,
-            weight_quant,
-            return_quant_tensor,
-            dtype,
-            device,
-            **kwargs):
+    def __init__(self, input_features, output_features, weight_quant, dtype, device, **kwargs):
         nn.Module.__init__(self)
         self.weight = nn.Parameter(
             torch.randn(output_features, input_features, dtype=dtype, device=device))
         QuantWeightMixin.__init__(self, weight_quant=weight_quant, **kwargs)
-        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
 
     @property
     def output_channel_dim(self):
@@ -65,7 +55,7 @@ class GateWeight(QuantWeightMixin, QuantLayerMixin, nn.Module):
         return self.weight.size(self.output_channel_dim)
 
     def forward(self):
-        return self.weight_quant(self.weight, return_quant_tensor=self.return_quant_tensor)
+        return self.weight_quant(self.weight)
 
 
 class GateParams(QuantBiasMixin, nn.Module):
@@ -78,7 +68,6 @@ class GateParams(QuantBiasMixin, nn.Module):
             weight_quant,
             bias_quant,
             input_weight,
-            return_quant_tensor,
             dtype,
             device,
             **kwargs):
@@ -93,7 +82,6 @@ class GateParams(QuantBiasMixin, nn.Module):
                 input_size,
                 hidden_size,
                 weight_quant=weight_quant,
-                return_quant_tensor=return_quant_tensor,
                 dtype=dtype,
                 device=device,
                 **kwargs)
@@ -103,7 +91,6 @@ class GateParams(QuantBiasMixin, nn.Module):
             hidden_size,
             hidden_size,
             weight_quant=input_weight.weight_quant,
-            return_quant_tensor=return_quant_tensor,
             dtype=dtype,
             device=device)
 
@@ -145,8 +132,7 @@ class _QuantRNNCell(nn.Module):
             batch_first: bool,
             output_quant_enabled: bool,
             fast_impl: bool):
-        nn.Module.__init__(self)
-
+        super(_QuantRNNCell, self).__init__()
         self.act_fn = act_fn
         self.gate_acc_quant = gate_acc_quant
         self.output_quant = output_quant
@@ -212,9 +198,7 @@ class _QuantLSTMCell(nn.Module):
             output_quant_enabled: bool,
             cell_state_quant_enabled: bool,
             fast_impl: bool):
-
-        nn.Module.__init__(self)
-
+        super(_QuantLSTMCell, self).__init__()
         self.output_quant = output_quant
         self.cell_state_quant = cell_state_quant
         self.input_acc_quant = input_acc_quant
@@ -277,8 +261,8 @@ class _QuantLSTMCell(nn.Module):
         quant_out_gate = self.output_sigmoid_quant(quant_out_gate)[0]
         quant_forget_cell = self.cell_state_quant(quant_forget_gate * quant_cell_state)[0]
         quant_inp_cell = self.cell_state_quant(quant_input_gate * quant_cell_gate)[0]
-        quant_cell_state_tuple = self.cell_state_quant(quant_forget_cell + quant_inp_cell)[0]
-        quant_hidden_state_tanh = self.hidden_state_tanh_quant(quant_cell_state_tuple)[0]
+        quant_cell_state_tuple = self.cell_state_quant(quant_forget_cell + quant_inp_cell)
+        quant_hidden_state_tanh = self.hidden_state_tanh_quant(quant_cell_state_tuple[0])[0]
         quant_hidden_state = quant_out_gate * quant_hidden_state_tanh
         quant_hidden_state_tuple = self.output_quant(quant_hidden_state)
         return quant_hidden_state_tuple, quant_cell_state_tuple
@@ -395,7 +379,6 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
             weight_quant,
             bias_quant,
             input_weight,
-            return_quant_tensor=return_quant_tensor,
             dtype=dtype,
             device=device,
             **kwargs)
@@ -591,7 +574,6 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             weight_quant,
             bias_quant,
             input_forget_weight,
-            return_quant_tensor=return_quant_tensor,
             dtype=dtype,
             device=device,
             **kwargs)
@@ -608,7 +590,6 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
                 weight_quant,
                 bias_quant,
                 input_input_weight,
-                return_quant_tensor=return_quant_tensor,
                 dtype=dtype,
                 device=device,
                 **kwargs)
@@ -619,7 +600,6 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             weight_quant,
             bias_quant,
             input_cell_weight,
-            return_quant_tensor=return_quant_tensor,
             dtype=dtype,
             device=device,
             **kwargs)
@@ -630,7 +610,6 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             weight_quant,
             bias_quant,
             input_output_weight,
-            return_quant_tensor=return_quant_tensor,
             dtype=dtype,
             device=device,
             **kwargs)
