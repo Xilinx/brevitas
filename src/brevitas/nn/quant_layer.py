@@ -143,7 +143,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             return out
 
         is_quant_tensor_required = self.return_quant_tensor or getattr(
-            self.bias_quant, 'requires_input_scale', False)
+            self.bias_quant, 'requires_input_scale', False) or getattr(
+                self.weight_quant, 'requires_quant_input', False)
         quant_input = self.input_quant(inp, return_quant_tensor=is_quant_tensor_required)
         quant_weight = self.quant_weight(quant_input, return_quant_tensor=is_quant_tensor_required)
 
