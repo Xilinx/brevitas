@@ -313,19 +313,20 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
                 return_quant_tensor: bool = True) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             if self.export_mode:
-                out_tuple = self.export_handler(
-                    x.value, x.scale, x.zero_point, x.bit_width, x.signed)
-                return_quant_tensor = isinstance(out_tuple)
+                out = self.export_handler(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
+
+                if isinstance(out, tuple):
+                    out = IntQuantTensor(*out, x.signed, self.training)
+                else:
+                    out = out
             else:
-                out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
-            out_value, out_scale, out_zp, out_bit_width = out_tuple
-            out = IntQuantTensor(
-                out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
-            if not self.training and self.cache_inference_quant_act:
-                cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
-                self._cached_act = cached_out
-            if not return_quant_tensor:
-                out = out.value
+                out = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width, x.signed)
+                out = IntQuantTensor(*out, x.signed, self.training)
+                if not self.training and self.cache_inference_quant_act:
+                    cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
+                    self._cached_act = cached_out
+                if not return_quant_tensor:
+                    out = out.value
             return out
         else:
             return x
