@@ -371,19 +371,20 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             elif self.requires_input_scale and input_scale is not None and self.is_quant_enabled:
                 input_scale = input_scale.view(-1)
 
-            impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.export_mode:
                 if self.requires_input_scale:
-                    out = impl(x, input_scale)
+                    out = self.export_handler(x, input_scale)
                 else:
-                    out = impl(x)
+                    out = self.export_handler(x)
                 if isinstance(out, tuple):
                     out = IntQuantTensor(*out, self.is_signed, self.training)
+                # if not return_quant_tensor:
+                #     out = out.value
             else:
                 if self.requires_input_scale:
-                    out = impl(x, input_scale)
+                    out = self.tensor_quant(x, input_scale)
                 else:
-                    out = impl(x)
+                    out = self.tensor_quant(x)
 
                 out = IntQuantTensor(*out, self.is_signed, self.training)
                 if not self.training and self.cache_inference_quant_bias:
