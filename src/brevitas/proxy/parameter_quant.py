@@ -285,7 +285,9 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             if self.export_mode:
                 out = self.export_handler(x, input_bit_width, input_is_signed)
                 if isinstance(out, tuple):
-                    out = IntQuantTensor(*out, self.is_signed, self.training)
+                    out, scale, zero_point, bit_width, pre_scale, pre_zero_point = out
+                    out = IntQuantTensor(
+                        out, scale, zero_point, bit_width, self.is_signed, self.training)
             else:
                 out, scale, zero_point, bit_width, pre_scale, pre_zero_point = self.tensor_quant(x, input_bit_width, input_is_signed)
                 out = IntQuantTensor(
