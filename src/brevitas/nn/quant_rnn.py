@@ -133,7 +133,7 @@ class _QuantStatesInit(nn.Module):
         return quant_states
 
 
-class _QuantRNNCell(QuantLayerMixin, nn.Module):
+class _QuantRNNCell(nn.Module):
     __constants__ = ['reverse_input', 'batch_first']
 
     def __init__(
@@ -144,10 +144,8 @@ class _QuantRNNCell(QuantLayerMixin, nn.Module):
             reverse_input: bool,
             batch_first: bool,
             output_quant_enabled: bool,
-            fast_impl: bool,
-            return_quant_tensor: bool):
+            fast_impl: bool):
         nn.Module.__init__(self)
-        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
 
         self.act_fn = act_fn
         self.gate_acc_quant = gate_acc_quant
@@ -159,11 +157,9 @@ class _QuantRNNCell(QuantLayerMixin, nn.Module):
     def forward_iter(self, quant_input, quant_state, quant_weight_ih, quant_weight_hh, quant_bias):
         quant_gate_ih = F.linear(quant_input, quant_weight_ih)
         quant_gate_hh = F.linear(quant_state, quant_weight_hh)
-        quant_gate = self.gate_acc_quant(
-            quant_gate_ih + quant_gate_hh + quant_bias, return_quant_tensor=False)
+        quant_gate = self.gate_acc_quant(quant_gate_ih + quant_gate_hh + quant_bias)[0]
         quant_gate = self.act_fn(quant_gate)
-        quant_state_tuple = self.output_quant(
-            quant_gate, return_quant_tensor=self.return_quant_tensor)
+        quant_state_tuple = self.output_quant(quant_gate)
         return quant_state_tuple
 
     def forward(
@@ -194,7 +190,7 @@ class _QuantRNNCell(QuantLayerMixin, nn.Module):
         return quant_outputs
 
 
-class _QuantLSTMCell(QuantLayerMixin, nn.Module):
+class _QuantLSTMCell(nn.Module):
     __constants__ = ['reverse_input', 'batch_first', 'cifg']
 
     def __init__(
@@ -215,11 +211,9 @@ class _QuantLSTMCell(QuantLayerMixin, nn.Module):
             cifg: bool,
             output_quant_enabled: bool,
             cell_state_quant_enabled: bool,
-            fast_impl: bool,
-            return_quant_tensor: bool):
+            fast_impl: bool):
 
         nn.Module.__init__(self)
-        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
 
         self.output_quant = output_quant
         self.cell_state_quant = cell_state_quant
@@ -258,45 +252,35 @@ class _QuantLSTMCell(QuantLayerMixin, nn.Module):
         # Input gate
         quant_ii_gate = F.linear(quant_input, quant_weight_ii)
         quant_hi_gate = F.linear(quant_hidden_state, quant_weight_hi)
-        quant_input_gate = self.input_acc_quant(
-            quant_ii_gate + quant_hi_gate + quant_bias_input, return_quant_tensor=False)
-        quant_input_gate = self.input_sigmoid_quant(quant_input_gate, return_quant_tensor=False)
+        quant_input_gate = self.input_acc_quant(quant_ii_gate + quant_hi_gate + quant_bias_input)[0]
+        quant_input_gate = self.input_sigmoid_quant(quant_input_gate)[0]
         # Forget gate
         if self.cifg:
-            quant_ones = self.input_sigmoid_quant.tensor_quant(
-                torch.ones_like(quant_input_gate), return_quant_tensor=False)
+            quant_ones = self.input_sigmoid_quant.tensor_quant(torch.ones_like(quant_input_gate))[0]
             # CIFG is defined as 1 - input_gate, in line with ONNXRuntime
             quant_forget_gate = quant_ones - quant_input_gate
         else:
             quant_if_gate = F.linear(quant_input, quant_weight_if)
             quant_hf_gate = F.linear(quant_hidden_state, quant_weight_hf)
             quant_forget_gate = self.forget_acc_quant(
-                quant_if_gate + quant_hf_gate + quant_bias_forget, return_quant_tensor=False)
-            quant_forget_gate = self.forget_sigmoid_quant(
-                quant_forget_gate, return_quant_tensor=False)
+                quant_if_gate + quant_hf_gate + quant_bias_forget)[0]
+            quant_forget_gate = self.forget_sigmoid_quant(quant_forget_gate)[0]
         # Cell gate
         quant_ic_gate = F.linear(quant_input, quant_weight_ic)
         quant_hc_gate = F.linear(quant_hidden_state, quant_weight_hc)
-        quant_cell_gate = self.cell_acc_quant(
-            quant_ic_gate + quant_hc_gate + quant_bias_cell, return_quant_tensor=False)
-        quant_cell_gate = self.cell_tanh_quant(quant_cell_gate, return_quant_tensor=False)
+        quant_cell_gate = self.cell_acc_quant(quant_ic_gate + quant_hc_gate + quant_bias_cell)[0]
+        quant_cell_gate = self.cell_tanh_quant(quant_cell_gate)[0]
         # Output gate
         quant_io_gate = F.linear(quant_input, quant_weight_io)
         quant_ho_gate = F.linear(quant_hidden_state, quant_weight_ho)
-        quant_out_gate = self.output_acc_quant(
-            quant_io_gate + quant_ho_gate + quant_bias_output, return_quant_tensor=False)
-        quant_out_gate = self.output_sigmoid_quant(quant_out_gate, return_quant_tensor=False)
-        quant_forget_cell = self.cell_state_quant(
-            quant_forget_gate * quant_cell_state, return_quant_tensor=False)
-        quant_inp_cell = self.cell_state_quant(
-            quant_input_gate * quant_cell_gate, return_quant_tensor=False)
-        quant_cell_state_tuple = self.cell_state_quant(
-            quant_forget_cell + quant_inp_cell, return_quant_tensor=False)
-        quant_hidden_state_tanh = self.hidden_state_tanh_quant(
-            quant_cell_state_tuple, return_quant_tensor=False)
+        quant_out_gate = self.output_acc_quant(quant_io_gate + quant_ho_gate + quant_bias_output)[0]
+        quant_out_gate = self.output_sigmoid_quant(quant_out_gate)[0]
+        quant_forget_cell = self.cell_state_quant(quant_forget_gate * quant_cell_state)[0]
+        quant_inp_cell = self.cell_state_quant(quant_input_gate * quant_cell_gate)[0]
+        quant_cell_state_tuple = self.cell_state_quant(quant_forget_cell + quant_inp_cell)[0]
+        quant_hidden_state_tanh = self.hidden_state_tanh_quant(quant_cell_state_tuple)[0]
         quant_hidden_state = quant_out_gate * quant_hidden_state_tanh
-        quant_hidden_state_tuple = self.output_quant(
-            quant_hidden_state, return_quant_tensor=self.return_quant_tensor)
+        quant_hidden_state_tuple = self.output_quant(quant_hidden_state)
         return quant_hidden_state_tuple, quant_cell_state_tuple
 
     def forward(
@@ -393,8 +377,7 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
             reverse_input,
             batch_first,
             io_quant.act_quant.is_quant_enabled,
-            fast_impl=False,
-            return_quant_tensor=return_quant_tensor)
+            fast_impl=False)
         QuantRecurrentLayerMixin.__init__(
             self,
             cell=cell,
@@ -444,8 +427,7 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
                 self.cell.reverse_input,
                 self.cell.batch_first,
                 self.cell.output_quant.is_quant_enabled,
-                fast_impl=True,
-                return_quant_tensor=self.return_quant_tensor)
+                fast_impl=True)
             if brevitas.config.JIT_ENABLED:
                 self._fast_cell = torch.jit.script(self._fast_cell)
             return self._fast_cell
@@ -590,8 +572,7 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             cifg=cifg,
             output_quant_enabled=io_quant.act_quant.is_quant_enabled,
             cell_state_quant_enabled=cell_state_quant.act_quant.is_quant_enabled,
-            fast_impl=False,
-            return_quant_tensor=return_quant_tensor)
+            fast_impl=False)
         QuantRecurrentLayerMixin.__init__(
             self,
             cell=cell,
@@ -703,8 +684,7 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
                 cifg=self.cell.cifg,
                 output_quant_enabled=self.cell.output_quant.is_quant_enabled,
                 cell_state_quant_enabled=self.cell.cell_state_quant.is_quant_enabled,
-                fast_impl=True,
-                return_quant_tensor=self.return_quant_tensor)
+                fast_impl=True)
             if brevitas.config.JIT_ENABLED:
                 self._fast_cell = torch.jit.script(self._fast_cell)
             return self._fast_cell
