@@ -34,7 +34,7 @@ class StaticMaxMantissa(torch.nn.Module):
             dtype: Optional[torch.dtype] = None):
         super().__init__()
         self.pre_computed_max_mantissa = StatelessBuffer(
-            pre_computed_max_mantissa, device=device, dtype=dtype)
+            torch.tensor(pre_computed_max_mantissa, device=device, dtype=dtype))
 
     def forward(self, x):
         return self.pre_computed_max_mantissa
