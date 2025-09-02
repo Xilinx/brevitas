@@ -96,15 +96,13 @@ def get_dataset_for_model(
     np.random.seed(seed)
     torch.random.manual_seed(seed)
 
-    if split not in ["train", "validation"]:
+    test_splits = ["validation", "test"]
+
+    if split not in ["train", *test_splits]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
 
-    raw_dataset = load_raw_dataset(
-        dataset_name=dataset_name,
-        split=split,
-        seed=seed,
-    )
-    if dataset_name == "wikitext2" or (dataset_name == "pile" and split == "validation"):
+    raw_dataset = load_raw_dataset(dataset_name=dataset_name, split=split, seed=seed)
+    if dataset_name == "wikitext2" or (dataset_name == "pile" and split in test_splits):
         # Document level BOS preprocessing is not supported for Wikitext2 as each row does not belong to
         # a single document
         if bos_preprocessing == "document":
@@ -119,8 +117,7 @@ def get_dataset_for_model(
             nsamples=nsamples,
             split=split,
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
-            seed=seed,
-        )
+            seed=seed)
     else:
         data = get_clm_dataset(
             raw_dataset=raw_dataset,
