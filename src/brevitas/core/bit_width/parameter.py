@@ -59,16 +59,6 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             device: Optional[torch.device] = None) -> None:
         super(BitWidthParameter, self).__init__()
 
-        if bit_width < MIN_INT_BIT_WIDTH:
-            raise RuntimeError(
-                "Int bit width has to be at least {}, instead is {}.".format(
-                    MIN_INT_BIT_WIDTH, bit_width))
-
-        if min_bit_width < MIN_INT_BIT_WIDTH:
-            raise RuntimeError(
-                "Min int bit width has to be at least {}, instead is {}.".format(
-                    MIN_INT_BIT_WIDTH, min_bit_width))
-
         if bit_width < min_bit_width:
             raise RuntimeError(
                 "Int bit width has to be at least {}, instead is {}.".format(

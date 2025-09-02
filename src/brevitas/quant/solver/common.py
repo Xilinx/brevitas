@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import this
+
 from brevitas.core.bit_width import *
 from brevitas.core.function_wrapper import *
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
@@ -10,11 +12,14 @@ from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.core.function_wrapper.stochastic_round import StochasticRoundSte
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
+from brevitas.core.quant.float import ComputeMaxMantissa
+from brevitas.core.quant.float import StaticMaxMantissa
 from brevitas.core.restrict_val import *
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
+from brevitas.function.ops import compute_max_mantissa
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
 from brevitas.inject.enum import LearnedRoundImplType
@@ -82,6 +87,49 @@ class SolveRestrictScalingImplFromEnum(ExtendedInjector):
     @value
     def restrict_scaling_impl(restrict_scaling_type):
         return solve_restrict_value_impl_from_enum(restrict_scaling_type)
+
+
+class ExponentBitWidthClass(ExtendedInjector):
+    exponent_bit_width_impl_type = (this << 1).exponent_bit_width_impl_type
+    bit_width = (this << 1).exponent_bit_width
+
+    @value
+    def bit_width_impl_type(exponent_bit_width_impl_type):
+        return solve_bit_width_impl_from_enum(exponent_bit_width_impl_type)
+
+
+class MantissaBitWidthClass(ExtendedInjector):
+    mantissa_bit_width_impl_type = (this << 1).mantissa_bit_width_impl_type
+    bit_width = (this << 1).mantissa_bit_width
+
+    @value
+    def bit_width_impl_type(mantissa_bit_width_impl_type):
+        return solve_bit_width_impl_from_enum(mantissa_bit_width_impl_type)
+
+    @value
+    def pre_computed_max_mantissa(mantissa_bit_width_impl_type, bit_width):
+        if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
+            return StaticMaxMantissa(compute_max_mantissa(bit_width))
+        else:
+            return ComputeMaxMantissa
+
+
+class SolveFloatBitWidthImplFromEnum(ExtendedInjector):
+
+    exp_bit_class = ExponentBitWidthClass
+    mantissa_bit_class = MantissaBitWidthClass
+
+    @value
+    def exponent_bit_width_impl():
+        return this.exp_bit_class.bit_width_impl_type
+
+    @value
+    def mantissa_bit_width_impl():
+        return this.mantissa_bit_class.bit_width_impl_type
+
+    @value
+    def pre_computed_max_mantissa():
+        return this.mantissa_bit_class.pre_computed_max_mantissa
 
 
 class SolveBitWidthImplFromEnum(ExtendedInjector):
