@@ -35,12 +35,6 @@ class ComputeMaxMantissa(torch.nn.Module):
         return x
 
 
-class MinInternalScale(torch.nn.Module):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
 def min_internal_scale(exponent_bias, mantissa_bit_width):
     return 1. - exponent_bias - mantissa_bit_width
 
@@ -50,11 +44,10 @@ class FloatQuant(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            # bit_width_impl: nn.Module,
             signed: bool,
             exponent_bit_width_impl: nn.Module,
             mantissa_bit_width_impl: nn.Module,
-            exponent_bias: int,
+            exponent_bias_impl: nn.Module,
             float_clamp_impl: nn.Module,
             input_view_impl: nn.Module,
             pre_computed_max_mantissa: nn.Module,
@@ -64,23 +57,13 @@ class FloatQuant(brevitas.jit.ScriptModule):
             device: Optional[str] = None,
             dtype: Optional[torch.dtype] = None):
         super(FloatQuant, self).__init__()
-        # if bit_width != exponent_bit_width + mantissa_bit_width + int(signed):
-        #     raise RuntimeError("Mismatch between total bit-width, exponent, mantissa and sign.")
-        # self.bit_width = StatelessBuffer(torch.tensor(float(bit_width), device=device, dtype=dtype))
+
         self.signed: bool = signed
         self.float_to_int_impl = float_to_int_impl
-        # if exponent_bit_width == 0:
-        #     raise RuntimeError("Exponent bit width cannot be 0.")
-        # self.exponent_bit_width = StatelessBuffer(
-        #     torch.tensor(float(exponent_bit_width), device=device, dtype=dtype))
 
-        # self.mantissa_bit_width = StatelessBuffer(
-        #     (torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype)))
-        self.exponent_bias = StatelessBuffer(
-            torch.tensor(float(exponent_bias), device=device, dtype=dtype))
+        self.exponent_bias = exponent_bias_impl
         self.exponent_bit_width = exponent_bit_width_impl
         self.mantissa_bit_width = mantissa_bit_width_impl
-        # self.exponent_bias = exponent_bias_impl
 
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
@@ -98,8 +81,6 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.eps = torch.finfo(dtype).tiny
         self.observer_only = brevitas.jit.Attribute(False, bool)
 
-        # This is more friendly for compile
-        # TODO: This assumes fixed mantissa bit-width
         self.pre_computed_max_mantissa = pre_computed_max_mantissa
 
     @brevitas.jit.script_method

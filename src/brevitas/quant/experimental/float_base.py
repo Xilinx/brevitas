@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from brevitas.core.bit_width.float import StaticExponentBias
 from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
@@ -25,7 +26,7 @@ class FloatBase(SolveTensorQuantFloatToIntImplFromEnum, SolveFloatBitWidthImplFr
     tensor_clamp_impl = TensorClamp
     exponent_bit_width_impl_type = BitWidthImplType.CONST
     mantissa_bit_width_impl_type = BitWidthImplType.CONST
-    exponent_bias_impl_type = BitWidthImplType.CONST
+    exponent_bias_impl = StaticExponentBias
 
     @value
     def exponent_bias(exponent_bit_width):

@@ -4,6 +4,8 @@
 from dependencies import this
 
 from brevitas.core.bit_width import *
+from brevitas.core.bit_width.float import ComputeMaxMantissa
+from brevitas.core.bit_width.float import StaticMaxMantissa
 from brevitas.core.function_wrapper import *
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundIdentity
@@ -12,8 +14,6 @@ from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.core.function_wrapper.stochastic_round import StochasticRoundSte
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
-from brevitas.core.quant.float import ComputeMaxMantissa
-from brevitas.core.quant.float import StaticMaxMantissa
 from brevitas.core.restrict_val import *
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
