@@ -15,26 +15,6 @@ from brevitas.function import compute_max_mantissa
 from brevitas.utils.torch_utils import float_internal_scale
 
 
-class StaticMaxMantissa(torch.nn.Module):
-
-    def __init__(self, pre_computed_max_mantissa: torch.Tensor):
-        super().__init__()
-        self.pre_computed_max_mantissa = pre_computed_max_mantissa
-
-    def forward(self, x):
-        return self.pre_computed_max_mantissa
-
-
-class ComputeMaxMantissa(torch.nn.Module):
-
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        x = compute_max_mantissa(x)
-        return x
-
-
 def min_internal_scale(exponent_bias, mantissa_bit_width):
     return 1. - exponent_bias - mantissa_bit_width
 

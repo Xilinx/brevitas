@@ -32,7 +32,6 @@ def test_float_quant_defaults(minifloat_format):
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                bit_width=bit_width,
                 exponent_bit_width=exponent_bit_width,
                 mantissa_bit_width=mantissa_bit_width,
                 exponent_bias=exponent_bias,
@@ -49,7 +48,6 @@ def test_float_quant_defaults(minifloat_format):
             saturating=True)
         float_scaling = FloatScaling(None, None, True)
         float_quant = FloatQuant(
-            bit_width=bit_width,
             float_scaling_impl=float_scaling,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
@@ -76,7 +74,6 @@ def test_float_to_quant_float(inp, minifloat_format):
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                bit_width=bit_width,
                 exponent_bit_width=exponent_bit_width,
                 mantissa_bit_width=mantissa_bit_width,
                 exponent_bias=exponent_bias,
@@ -93,7 +90,6 @@ def test_float_to_quant_float(inp, minifloat_format):
             saturating=True)
         float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: torch.tensor(1.))
         float_quant = FloatQuant(
-            bit_width=bit_width,
             float_scaling_impl=float_scaling_impl,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
@@ -124,7 +120,6 @@ def test_scaling_impls_called_once(inp, minifloat_format):
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                bit_width=bit_width,
                 exponent_bit_width=exponent_bit_width,
                 mantissa_bit_width=mantissa_bit_width,
                 exponent_bias=exponent_bias,
@@ -142,7 +137,6 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             nan_values=None,
             saturating=True)
         float_quant = FloatQuant(
-            bit_width=bit_width,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias,
@@ -175,7 +169,6 @@ def test_inner_scale(inp, minifloat_format, scale):
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                bit_width=bit_width,
                 exponent_bit_width=exponent_bit_width,
                 mantissa_bit_width=mantissa_bit_width,
                 exponent_bias=exponent_bias,
@@ -193,7 +186,6 @@ def test_inner_scale(inp, minifloat_format, scale):
             nan_values=None,
             saturating=True)
         float_quant = FloatQuant(
-            bit_width=bit_width,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias,
@@ -260,7 +252,6 @@ def test_valid_float_values(minifloat_format_and_value):
         nan_values=None,
         saturating=True)
     float_quant = FloatQuant(
-        bit_width=bit_width,
         exponent_bit_width=exponent_bit_width,
         mantissa_bit_width=mantissa_bit_width,
         exponent_bias=exponent_bias,
