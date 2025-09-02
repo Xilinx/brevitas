@@ -37,7 +37,7 @@ class StaticMaxMantissa(torch.nn.Module):
             torch.tensor(pre_computed_max_mantissa, device=device, dtype=dtype))
 
     def forward(self, x):
-        return self.pre_computed_max_mantissa
+        return self.pre_computed_max_mantissa()
 
 
 class ComputeMaxMantissa(torch.nn.Module):
