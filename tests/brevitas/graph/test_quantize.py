@@ -76,9 +76,6 @@ class QuantLayerCases:
 
         if quant_layer_cls_kwargs is None:
             pytest.skip(f'There is no quant layer defined for {torch_layer_cls.__name__}')
-        # TODO (pml): Investigate this issue
-        elif torch_layer_cls in (torch.nn.LSTM, torch.nn.RNN):
-            pytest.skip(f'state_dict is not correctly loaded for {torch_layer_cls.__name__}')
 
         if torch_layer_cls in (torch.nn.LSTM, torch.nn.RNN):
             layer_kwargs = {'input_size': RNN_INPUT_SIZE, 'hidden_size': RNN_HIDDEN_SIZE}
