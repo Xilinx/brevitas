@@ -45,6 +45,12 @@ def create_args_parser() -> ArgumentParser:
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(
+        '--dataset-eval-split',
+        type=str,
+        choices=['validation', 'test'],
+        default='validation',
+        help='Specify which split to use for the evaluation dataset (default: %(default)s)')
+    parser.add_argument(
         '--gpxq-block-name',
         type=str,
         default=None,
