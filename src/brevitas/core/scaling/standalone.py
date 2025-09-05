@@ -212,7 +212,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
-            device: Optional[torch.device] = None) -> None:
+            device: Optional[torch.device] = None,
+            is_learnable: bool =True) -> None:
         super(ParameterFromStatsFromParameterScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -241,23 +242,28 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
 
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
+        self.is_learnable = is_learnable
+        value_class = Parameter if is_learnable else StatelessBuffer
 
-        self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        self.value = value_class(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        # self.value = value if is_learnable else value()
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
+        value = self.value if self.is_learnable else self.value()
+
         if threshold is None:
             threshold = torch.ones(1).type_as(x)
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            value = torch.abs(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = torch.abs(self.stats_scaling_impl.restrict_clamp_scaling(value))
             value = value / threshold
             return value
         else:
             stats = self.parameter_list_stats(x)
             # workaround to avoid find_ununsed_parameter=True in DDP
-            stats = stats + 0. * self.value
+            stats = stats + 0. * value
             if self.local_loss_mode:
                 # Scaling implementation before/after restrict_val is performed in stats_scaling_impl
                 return self.stats_scaling_impl(stats, threshold)
@@ -266,8 +272,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             stats = self.restrict_inplace_scaling_pre(stats)
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            inplace_tensor_mul(self.value.detach(), stats)
-            value = torch.abs(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            inplace_tensor_mul(value.detach(), stats)
+            value = torch.abs(self.stats_scaling_impl.restrict_clamp_scaling(value))
             value = value / threshold
             self.init_done = True
             return value
@@ -350,7 +356,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
-            device: Optional[torch.device] = None) -> None:
+            device: Optional[torch.device] = None,
+            is_learnable: bool = True) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
 
@@ -365,7 +372,12 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.momentum: Optional[float] = brevitas.jit.Attribute(
             scaling_stats_momentum, Optional[float])
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
-        self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        self.is_learnable = is_learnable
+        value_class = Parameter if is_learnable else StatelessBuffer
+
+        self.value = value_class(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        # self.value = value if is_learnable else value()
+
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.restrict_threshold = _RestrictValue(restrict_threshold_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
@@ -377,17 +389,19 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
 
     def init_scale(self):
         if self.counter <= self.collect_stats_steps:
+            value = self.value if self.is_learnable else self.value()
             self.restrict_inplace_preprocess(self.buffer)
-            inplace_tensor_mul(self.value.detach(), self.buffer)
+            inplace_tensor_mul(value.detach(), self.buffer)
             self.counter = self.collect_stats_steps + 1
 
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor, threshold: Tensor) -> Tensor:
+        value = self.value if self.is_learnable else self.value()
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
             # workaround to avoid find_ununsed_parameter=True in DDP
-            stats = stats + 0. * self.value  # stats gradient will change from None to 0.
+            stats = stats + 0. * value  # stats gradient will change from None to 0.
             clamped_stats = self.clamp_scaling(stats)
             new_counter = self.counter + 1
             # Whenever we are in local loss mode, we don't update the counter nor the buffer
@@ -403,13 +417,13 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             return torch.abs(clamped_stats / threshold)
         elif self.counter == self.collect_stats_steps:
             self.init_scale()
-            value = self.clamp_scaling(self.restrict_scaling(self.value))
+            value = self.clamp_scaling(self.restrict_scaling(value))
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = value / threshold
             return torch.abs(value)
         else:
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
-            value = self.clamp_scaling(self.restrict_scaling(self.value))
+            value = self.clamp_scaling(self.restrict_scaling(value))
             value = value / threshold
             return torch.abs(value)
 
@@ -421,12 +435,13 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             # Threshold division handled inside the training_forward
             return self.training_forward(stats_input, threshold)
         else:
+            value = self.value if self.is_learnable else self.value()
             if self.counter <= self.collect_stats_steps:
                 out = self.buffer
                 # No clamping is necessary since statistics are already clamped in training_forward
                 out = self.restrict_scaling_pre(out)
             else:
-                out = self.value
+                out = value
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
             out = out / threshold
