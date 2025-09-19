@@ -41,10 +41,11 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.signed: bool = signed
         self.float_to_int_impl = float_to_int_impl
 
-        self.exponent_bias = exponent_bias_impl
-        self.exponent_bit_width = exponent_bit_width_impl
-        self.mantissa_bit_width = mantissa_bit_width_impl
-
+        self.exponent_bias_impl = exponent_bias_impl
+        self.exponent_bit_width_impl = exponent_bit_width_impl
+        self.mantissa_bit_width_impl = mantissa_bit_width_impl
+        if exponent_bit_width_impl() == 0:
+            raise RuntimeError("Exponent bit width cannot be 0.")
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
 
@@ -67,9 +68,10 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x = self.input_view_impl(x)
         scaled_x = x / scale
-        fp_internal_scale_min = min_internal_scale(self.exponent_bias(), self.mantissa_bit_width())
+        fp_internal_scale_min = min_internal_scale(
+            self.exponent_bias_impl(), self.mantissa_bit_width_impl())
         internal_scale = float_internal_scale(
-            scaled_x, self.mantissa_bit_width(), fp_internal_scale_min, self.eps)
+            scaled_x, self.mantissa_bit_width_impl(), fp_internal_scale_min, self.eps)
         val_fp_quant = internal_scale * self.float_to_int_impl(scaled_x / internal_scale)
         return val_fp_quant, scale
 
@@ -81,9 +83,9 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def forward(self, x):
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
-                self.exponent_bit_width(),
-                self.pre_computed_max_mantissa(self.mantissa_bit_width()),
-                self.exponent_bias())
+                self.exponent_bit_width_impl(),
+                self.pre_computed_max_mantissa(self.mantissa_bit_width_impl()),
+                self.exponent_bias_impl())
         else:
             float_scaling_impl_value = None
         scale = self.scaling_impl(x, float_scaling_impl_value)
@@ -94,7 +96,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             y, scale = self.quantize(x, scale)
             # after quantizing, clamp to special cases like NaN/inf if they are set
             y, saturating, inf_values, nan_values = self.float_clamp_impl(
-                y, self.exponent_bit_width(), self.pre_computed_max_mantissa(self.mantissa_bit_width()), self.exponent_bias())
+                y, self.exponent_bit_width_impl(), self.pre_computed_max_mantissa(self.mantissa_bit_width_impl()), self.exponent_bias_impl())
             y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
-        return y, scale, self.zero_point_impl(), self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias(), saturating, inf_values, nan_values
+        return y, scale, self.zero_point_impl(), self.exponent_bit_width_impl(), self.mantissa_bit_width_impl(), self.exponent_bias_impl(), saturating, inf_values, nan_values

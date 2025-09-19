@@ -7,11 +7,13 @@ import mock
 import pytest
 import torch
 
+from brevitas.core.bit_width.float import ComputeMaxMantissa
 from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.quant.float import FloatQuant
+from brevitas.core.quant.float import min_internal_scale
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
 from brevitas.function.ops import compute_max_mantissa
@@ -28,13 +30,16 @@ from tests.marker import jit_disabled_for_mock
 @given(minifloat_format=random_minifloat_format())
 def test_float_quant_defaults(minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
-
+    exponent_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bit_width))
+    mantissa_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(mantissa_bit_width))
+    exponent_bias_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bias))
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                exponent_bit_width=exponent_bit_width,
-                mantissa_bit_width=mantissa_bit_width,
-                exponent_bias=exponent_bias,
+                exponent_bit_width_impl=exponent_bit_width_impl,
+                mantissa_bit_width_impl=mantissa_bit_width_impl,
+                exponent_bias_impl=exponent_bias_impl,
+                pre_computed_max_mantissa=ComputeMaxMantissa(),
                 signed=signed,
                 input_view_impl=Identity(),
                 float_clamp_impl=None)
@@ -49,9 +54,10 @@ def test_float_quant_defaults(minifloat_format):
         float_scaling = FloatScaling(None, None, True)
         float_quant = FloatQuant(
             float_scaling_impl=float_scaling,
-            exponent_bit_width=exponent_bit_width,
-            mantissa_bit_width=mantissa_bit_width,
-            exponent_bias=exponent_bias,
+            exponent_bit_width_impl=exponent_bit_width_impl,
+            mantissa_bit_width_impl=mantissa_bit_width_impl,
+            exponent_bias_impl=exponent_bias_impl,
+            pre_computed_max_mantissa=ComputeMaxMantissa(),
             input_view_impl=Identity(),
             signed=signed,
             float_clamp_impl=float_clamp)
@@ -70,13 +76,17 @@ def test_minifloat(minifloat_format):
 @jit_disabled_for_mock()
 def test_float_to_quant_float(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
+    exponent_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bit_width))
+    mantissa_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(mantissa_bit_width))
+    exponent_bias_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bias))
 
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                exponent_bit_width=exponent_bit_width,
-                mantissa_bit_width=mantissa_bit_width,
-                exponent_bias=exponent_bias,
+                exponent_bit_width_impl=exponent_bit_width_impl,
+                mantissa_bit_width_impl=mantissa_bit_width_impl,
+                exponent_bias_impl=exponent_bias_impl,
+                pre_computed_max_mantissa=ComputeMaxMantissa(),
                 input_view_impl=Identity(),
                 signed=signed,
                 float_clamp_impl=None)
@@ -91,9 +101,10 @@ def test_float_to_quant_float(inp, minifloat_format):
         float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: torch.tensor(1.))
         float_quant = FloatQuant(
             float_scaling_impl=float_scaling_impl,
-            exponent_bit_width=exponent_bit_width,
-            mantissa_bit_width=mantissa_bit_width,
-            exponent_bias=exponent_bias,
+            exponent_bit_width_impl=exponent_bit_width_impl,
+            mantissa_bit_width_impl=mantissa_bit_width_impl,
+            exponent_bias_impl=exponent_bias_impl,
+            pre_computed_max_mantissa=ComputeMaxMantissa(),
             input_view_impl=Identity(),
             signed=signed,
             float_clamp_impl=float_clamp)
@@ -115,14 +126,19 @@ def test_float_to_quant_float(inp, minifloat_format):
 def test_scaling_impls_called_once(inp, minifloat_format):
     float_scaling_impl_return = 1.
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
+    exponent_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bit_width))
+    mantissa_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(mantissa_bit_width))
+    exponent_bias_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bias))
+
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.)
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: float_scaling_impl_return)
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                exponent_bit_width=exponent_bit_width,
-                mantissa_bit_width=mantissa_bit_width,
-                exponent_bias=exponent_bias,
+                exponent_bit_width_impl=exponent_bit_width_impl,
+                mantissa_bit_width_impl=mantissa_bit_width_impl,
+                exponent_bias_impl=exponent_bias_impl,
+                pre_computed_max_mantissa=ComputeMaxMantissa(),
                 signed=signed,
                 input_view_impl=Identity(),
                 scaling_impl=scaling_impl,
@@ -137,9 +153,10 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             nan_values=None,
             saturating=True)
         float_quant = FloatQuant(
-            exponent_bit_width=exponent_bit_width,
-            mantissa_bit_width=mantissa_bit_width,
-            exponent_bias=exponent_bias,
+            exponent_bit_width_impl=exponent_bit_width_impl,
+            mantissa_bit_width_impl=mantissa_bit_width_impl,
+            exponent_bias_impl=exponent_bias_impl,
+            pre_computed_max_mantissa=ComputeMaxMantissa(),
             signed=signed,
             input_view_impl=Identity(),
             scaling_impl=scaling_impl,
@@ -163,15 +180,20 @@ def test_scaling_impls_called_once(inp, minifloat_format):
 @jit_disabled_for_mock()
 def test_inner_scale(inp, minifloat_format, scale):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
+    exponent_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bit_width))
+    mantissa_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(mantissa_bit_width))
+    exponent_bias_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bias))
+
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
     float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
     scaling_impl = mock.Mock(side_effect=lambda x, y: scale)
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
-                exponent_bit_width=exponent_bit_width,
-                mantissa_bit_width=mantissa_bit_width,
-                exponent_bias=exponent_bias,
+                exponent_bit_width_impl=exponent_bit_width_impl,
+                mantissa_bit_width_impl=mantissa_bit_width_impl,
+                exponent_bias_impl=exponent_bias_impl,
+                pre_computed_max_mantissa=ComputeMaxMantissa(),
                 signed=signed,
                 input_view_impl=Identity(),
                 scaling_impl=scaling_impl,
@@ -186,9 +208,10 @@ def test_inner_scale(inp, minifloat_format, scale):
             nan_values=None,
             saturating=True)
         float_quant = FloatQuant(
-            exponent_bit_width=exponent_bit_width,
-            mantissa_bit_width=mantissa_bit_width,
-            exponent_bias=exponent_bias,
+            exponent_bit_width_impl=exponent_bit_width_impl,
+            mantissa_bit_width_impl=mantissa_bit_width_impl,
+            exponent_bias_impl=exponent_bias_impl,
+            pre_computed_max_mantissa=ComputeMaxMantissa(),
             signed=signed,
             input_view_impl=Identity(),
             scaling_impl=scaling_impl,
@@ -205,8 +228,10 @@ def test_inner_scale(inp, minifloat_format, scale):
             max_value, max_available_float)
         # call internal scale
         eps = torch.finfo(inp.dtype).tiny
+        fp_internal_scale_min = min_internal_scale(
+            float_quant.exponent_bias_impl(), float_quant.mantissa_bit_width_impl())
         internal_scale = float_internal_scale(
-            scaled_inp, float_quant.mantissa_bit_width(), float_quant.fp_internal_scale_min(), eps)
+            scaled_inp, float_quant.mantissa_bit_width_impl(), fp_internal_scale_min, eps)
         val_fp_quant = internal_scale * float_quant.float_to_int_impl(scaled_inp / internal_scale)
         if signed:
             val_fp_quant = torch.clip(val_fp_quant, -1. * max_val, max_val)
@@ -243,6 +268,10 @@ def test_inner_scale(inp, minifloat_format, scale):
 @torch.no_grad()
 def test_valid_float_values(minifloat_format_and_value):
     minifloat_value, exponent, mantissa, sign, bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format_and_value
+    exponent_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bit_width))
+    mantissa_bit_width_impl = mock.Mock(side_effect=lambda: torch.tensor(mantissa_bit_width))
+    exponent_bias_impl = mock.Mock(side_effect=lambda: torch.tensor(exponent_bias))
+
     scaling_impl = mock.Mock(side_effect=lambda x, y: 1.0)
     float_scaling = FloatScaling(None, None, True)
     float_clamp = FloatClamp(
@@ -252,9 +281,10 @@ def test_valid_float_values(minifloat_format_and_value):
         nan_values=None,
         saturating=True)
     float_quant = FloatQuant(
-        exponent_bit_width=exponent_bit_width,
-        mantissa_bit_width=mantissa_bit_width,
-        exponent_bias=exponent_bias,
+        exponent_bit_width_impl=exponent_bit_width_impl,
+        mantissa_bit_width_impl=mantissa_bit_width_impl,
+        exponent_bias_impl=exponent_bias_impl,
+        pre_computed_max_mantissa=ComputeMaxMantissa(),
         signed=signed,
         input_view_impl=Identity(),
         scaling_impl=scaling_impl,

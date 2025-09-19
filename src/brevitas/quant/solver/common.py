@@ -109,19 +109,19 @@ class MantissaBitWidthClass(ExtendedInjector):
     @value
     def pre_computed_max_mantissa(mantissa_bit_width_impl_type, bit_width):
         if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
-            return StaticMaxMantissa(compute_max_mantissa(bit_width))
+            return StaticMaxMantissa(compute_max_mantissa(torch.tensor(bit_width)))
         else:
             return ComputeMaxMantissa
 
 
 class SolveFloatBitWidthImplFromEnum(ExtendedInjector):
 
-    exp_bit_class = ExponentBitWidthClass
+    exponent_bit_class = ExponentBitWidthClass
     mantissa_bit_class = MantissaBitWidthClass
 
     @value
     def exponent_bit_width_impl():
-        return this.exp_bit_class.bit_width_impl_type
+        return this.exponent_bit_class.bit_width_impl_type
 
     @value
     def mantissa_bit_width_impl():
