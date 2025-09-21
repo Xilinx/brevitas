@@ -1,7 +1,7 @@
 accelerate
 diffusers<=0.34
 pandas
-torch>=2.0
+torch>=2.2
 torchmetrics[image]
 tqdm
 transformers
