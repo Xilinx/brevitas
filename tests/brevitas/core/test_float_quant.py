@@ -48,11 +48,12 @@ class ThreeInputScalingWrapper(torch.nn.Module):
 
 class TwoInputScalingWrapper(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, value):
         super().__init__()
+        self.value = value
 
     def forward(self, x, y):
-        return torch.tensor(1.)
+        return self.value
 
 
 @given(minifloat_format=random_minifloat_format())
@@ -217,7 +218,7 @@ def test_inner_scale(inp, minifloat_format, scale):
 
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
     float_scaling_impl = ThreeInputScalingWrapper()
-    scaling_impl = TwoInputScalingWrapper()
+    scaling_impl = TwoInputScalingWrapper(scale)
     if exponent_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
@@ -303,7 +304,7 @@ def test_valid_float_values(minifloat_format_and_value):
     mantissa_bit_width_impl = BitwidthWrapper(mantissa_bit_width)
     exponent_bias_impl = BitwidthWrapper(exponent_bias)
 
-    scaling_impl = TwoInputScalingWrapper()
+    scaling_impl = TwoInputScalingWrapper(torch.tensor(1.))
     float_scaling = FloatScaling(None, None, True)
     float_clamp = FloatClamp(
         tensor_clamp_impl=TensorClamp(),
