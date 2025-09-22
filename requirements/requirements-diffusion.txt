@@ -4,4 +4,4 @@ pandas
 torch>=2.2
 torchmetrics[image]
 tqdm
-transformers==4.50.0
+transformers
