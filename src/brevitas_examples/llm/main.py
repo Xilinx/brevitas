@@ -667,31 +667,26 @@ def quantize_llm(args, extra_args=None):
             from lighteval.pipeline import ParallelismManager
             from lighteval.pipeline import Pipeline
             from lighteval.pipeline import PipelineParameters
-            from lighteval.utils.utils import EnvConfig
 
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
                 remove_hooks(model)
                 # expects a list
                 few_shot_tasks = ",".join(args.few_shot_tasks)
-                accelerator = Accelerator(
-                    kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
                 evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
                 pipeline_params = PipelineParameters(
-                    launcher_type=ParallelismManager.ACCELERATE,
-                    env_config=EnvConfig(cache_dir=constants.HF_HUB_CACHE),
-                    override_batch_size=args.few_shot_override_batch_size)
+                    launcher_type=ParallelismManager.ACCELERATE)
                 model_config = TransformersModelConfig(
-                    pretrained=args.model,
-                    dtype=dtype,
-                    model_parallel=True,
-                    accelerator=accelerator)
+                    model_name=args.model,
+                    dtype=args.dtype,
+                    batch_size=args.few_shot_override_batch_size,
+                    model_parallel=True)
                 pipeline = Pipeline(
                     tasks=few_shot_tasks,
                     pipeline_parameters=pipeline_params,
                     evaluation_tracker=evaluation_tracker,
                     model=model,
-                    config=model_config)
+                    model_config=model_config)
                 pipeline.evaluate()
             few_shot_eval_results = pipeline.get_results()
             few_shot_eval_results = filter_results(
