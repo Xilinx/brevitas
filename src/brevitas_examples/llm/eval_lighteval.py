@@ -27,6 +27,7 @@
 
 from torch import nn
 
+
 def filter_results(results, tasks):
     # filter out what we actually want to track
     eval_results = dict()
@@ -38,6 +39,7 @@ def filter_results(results, tasks):
                 name = f"{task_name}_{key}"
                 eval_results[name] = val
     return eval_results
+
 
 def run_lighteval(
     model_name: str,
@@ -59,10 +61,7 @@ def run_lighteval(
     from lighteval.pipeline import Pipeline
     from lighteval.pipeline import PipelineParameters
 
-    evaluation_tracker = EvaluationTracker(
-        output_dir=output_dir, 
-        save_details=True
-    )
+    evaluation_tracker = EvaluationTracker(output_dir=output_dir, save_details=True)
 
     pipeline_params = PipelineParameters(
         launcher_type=ParallelismManager.ACCELERATE,
@@ -70,11 +69,7 @@ def run_lighteval(
     )
 
     model_config = TransformersModelConfig(
-        model_name=model_name,
-        dtype=dtype,
-        batch_size=batch_size,
-        model_parallel=True
-    )
+        model_name=model_name, dtype=dtype, batch_size=batch_size, model_parallel=True)
 
     # Pipeline expects a comma-separated list of tasks
     tasks = ",".join(tasks)
