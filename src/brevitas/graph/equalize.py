@@ -164,6 +164,7 @@ class Region:
     acts: Tuple = field(default_factory=tuple)
     name_to_module: Dict = field(default_factory=dict)
     expand_region: bool = False
+    act_axis: int = -1
 
     @property
     def srcs_names(self):
@@ -194,6 +195,9 @@ class Region:
         # we need to slice and potentially select only a subset of input channel from sinks.
         max_shape_sinks = 0
         for name, indexes in self.sinks.items():
+            if indexes == _UNSUPPORTED_OP:
+                # Invalidate region
+                return 0
             max_shape_sinks = max(max_shape_sinks, indexes.offset + (indexes.end - indexes.start))
         return max_shape_sinks
 
@@ -211,6 +215,95 @@ class Region:
         # In all other cases, we need to make sure that the equalizable channels of the sources
         # match the equalizable channels of the sinks
         return self.max_shape_srcs == self.max_shape_sinks
+
+    @property
+    def is_valid_activation_equalization(self):
+        return self.act_axis != -1
+
+    def apply_permute(self, indexes):
+        for src in self.srcs:
+            src.apply_permute(indexes)
+        for sink in self.sinks:
+            sink.apply_permute(indexes)
+
+    @staticmethod
+    def initialize_class(srcs, sinks, name_to_module):
+
+        def internal_name_to_module(name_to_module, name):
+            name = name.split("$")[0]
+            return name_to_module[name]
+
+        new_sink_dict = dict()
+        for name, indexes in sinks.items():
+            module = internal_name_to_module(name_to_module, name)
+            weight_axis = _get_input_axis(module)
+            act_axis = _get_act_axis(module)
+            # For MultiheadAttention, we support only self-attention
+            # For sinks, we only need to modify the weight but not the bias
+            if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
+                # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
+                weight_tensor_name = "in_proj_weight"
+            elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
+                new_sink_dict[name] = _UNSUPPORTED_OP
+                continue
+            else:
+                weight_tensor_name = "weight"
+
+            new_sink_dict[name] = EqualizationSinkWrapper(
+                module=module,
+                weight_tensor_name=weight_tensor_name,
+                weight_axis=weight_axis,
+                act_axis=act_axis,
+                equalization_indexes=indexes)
+
+        new_srcs_dict = dict()
+        for name, indexes in srcs.items():
+            module = internal_name_to_module(name_to_module, name)
+            # If module is not supported, do not perform graph equalization
+            weight_axis = _get_output_axis(module)
+            act_axis = _get_act_axis(module)
+
+            if isinstance(module, nn.MultiheadAttention):
+                module = module.out_proj
+
+            new_srcs_dict[name] = EqualizationSourceWrapper(
+                module=module,
+                weight_tensor_name="weight",
+                weight_axis=weight_axis,
+                equalization_indexes=indexes,
+                bias_tensor_name="bias",
+                bias_axis=0,
+                act_axis=act_axis)
+        act_sink_axes = {name: module.act_axis for (name, module) in new_sink_dict}
+        act_sources_axes = {name: module.act_axis for (name, module) in new_srcs_dict}
+        list_of_sink_axes = [x for x in list(act_sink_axes.values()) if x is not None]
+        list_of_source_axes = [x for x in list(act_sources_axes.values()) if x is not None]
+        if len(list_of_sink_axes) > 0:
+            act_axis = list_of_sink_axes[0]
+        elif len(list_of_source_axes) > 0:
+            act_axis = list_of_source_axes[0]
+        else:
+            act_axis = -1
+
+        # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
+        # do not perform equalization
+        if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
+            act_axis = -1
+        return new_srcs_dict, new_sink_dict, act_axis
+
+    @classmethod
+    def from_dicts(cls, srcs=None, sinks=None, acts=None, name_to_module=None, expand_region=False):
+        if srcs is None:
+            srcs = dict()
+        if sinks is None:
+            sinks = dict()
+        if acts is None:
+            acts = tuple()
+        if name_to_module is None:
+            name_to_module = dict()
+
+        srcs, sinks, act_axis = cls.initialize_class(srcs, sinks, name_to_module)
+        return cls(srcs, sinks, acts, name_to_module, expand_region, act_axis)
 
 
 @dataclass
@@ -483,6 +576,7 @@ class EqualizationModuleWrapper:
             module: nn.Module,
             weight_tensor_name: str,
             weight_axis: int,
+            act_axis: int,
             equalization_indexes: EqualizationIndexes,
             bias_tensor_name: Optional[str] = None,
             bias_axis: int = 0) -> None:
@@ -492,6 +586,7 @@ class EqualizationModuleWrapper:
         self.equalization_indexes = equalization_indexes
         self._bias_tensor_name = bias_tensor_name
         self.bias_axis = bias_axis
+        self.act_axis = act_axis
 
     @property
     def weight(self) -> Optional[nn.Parameter]:
@@ -551,6 +646,7 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
             module: nn.Module,
             weight_tensor_name: str,
             weight_axis: int,
+            act_axis: int,
             equalization_indexes: EqualizationIndexes,
             bias_tensor_name: Optional[str] = None,
             bias_axis: int = 0) -> None:
@@ -558,6 +654,7 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
             module,
             weight_tensor_name,
             weight_axis,
+            act_axis,
             equalization_indexes,
             bias_tensor_name,
             bias_axis)
@@ -583,6 +680,11 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
         weight = weight.cpu().to(torch.float32)
         return scale_fn(weight.reshape(weight.size(0), -1))
 
+    def permute(self, permute_index):
+        self.module.weight.data = self.module.weight.data[permute_index]
+        bias = getattr(self.module, self.bias_tensor_name)
+        bias.data = self.module.weight.data[permute_index]
+
 
 class EqualizationSinkWrapper(EqualizationModuleWrapper):
 
@@ -591,8 +693,9 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
             module: nn.Module,
             weight_tensor_name: str,
             weight_axis: int,
+            act_axis: int,
             equalization_indexes: EqualizationIndexes) -> None:
-        super().__init__(module, weight_tensor_name, weight_axis, equalization_indexes)
+        super().__init__(module, weight_tensor_name, weight_axis, act_axis, equalization_indexes)
 
     def _get_transform_module_kwargs(self) -> Dict[str, Any]:
         channel_range = self.equalization_indexes.end - self.equalization_indexes.start
@@ -606,6 +709,43 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
         weight = transpose(self.weight.cpu().to(torch.float32), self.weight_axis)
         return scale_fn(weight.reshape(
             weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
+
+    def permute(self, permute_index):
+        self.module.weight.data = self.module.weight.data[permute_index]
+        bias = getattr(self.module, self.bias_tensor_name)
+        bias.data = self.module.weight.data[permute_index]
+
+
+@torch.no_grad()
+def _permute(region, list_of_act_val, permute_op_type):
+
+    scale_fn = permute_op_type
+    single_module = region.get_module_from_name(next(iter(region.sinks_names)))
+    device = next(single_module.parameters()).device
+    dtype = next(single_module.parameters()).dtype
+
+    # If equalization criteria are not met, we return a scalar one to indicate that no equalization
+    # has been performed
+    def _no_equalize():
+        return torch.tensor(1., dtype=dtype), []
+
+    # If act_val is enabled, use source or sink weights to determine the activation channel
+    # For example, if the source is BatchNorm, we need to use the information coming from the sinks
+    if not region.is_valid_activation_equalization:
+        return False
+
+    list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
+    if len(list_of_act_val_shapes) > 0:
+        shape_0 = list_of_act_val_shapes[0]
+        if any(shape_0 != shape for shape in list_of_act_val_shapes):
+            return _no_equalize()
+    list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
+    new_indexes = scale_fn(
+        torch.cat([
+            act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
+            for act_val in list_of_act_val],
+                  1))
+    region.permute(new_indexes)
 
 
 # When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
@@ -647,79 +787,27 @@ def _cross_layer_equalization(
         if hasattr(module, 'allocate_params'):
             module.allocate_params(module)
 
-    act_sink_axes = {}
-    act_sources_axes = {}
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     device = next(single_module.parameters()).device
     dtype = next(single_module.parameters()).dtype
 
-    src_axes = {}
-    for name, indexes in region.srcs.items():
-        module = region.get_module_from_name(name)
-        # If module is not supported, do not perform graph equalization
-        weight_axis = _get_output_axis(module)
-        act_sources_axes[name] = _get_act_axis(module)
-
-        if isinstance(module, nn.MultiheadAttention):
-            module = module.out_proj
-
-        src_axes[name] = EqualizationSourceWrapper(
-            module=module,
-            weight_tensor_name="weight",
-            weight_axis=weight_axis,
-            equalization_indexes=indexes,
-            bias_tensor_name="bias",
-            bias_axis=0,
-        )
-
-    sink_axes = {}
-    for name, indexes in region.sinks.items():
-        module = region.get_module_from_name(name)
-        weight_axis = _get_input_axis(module)
-        act_sink_axes[name] = _get_act_axis(module)
-        # For MultiheadAttention, we support only self-attention
-        # For sinks, we only need to modify the weight but not the bias
-        if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
-            # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
-            weight_tensor_name = "in_proj_weight"
-        elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
-            return _no_equalize()
-        else:
-            weight_tensor_name = "weight"
-
-        sink_axes[name] = EqualizationSinkWrapper(
-            module=module,
-            weight_tensor_name=weight_tensor_name,
-            weight_axis=weight_axis,
-            equalization_indexes=indexes,
-        )
-
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
-    axes_to_check = [m.weight_axis for m in list(src_axes.values()) + list(sink_axes.values())]
+    axes_to_check = [
+        m.weight_axis for m in list(region.srcs.values()) + list(region.sinks.values())]
     if None in axes_to_check:
         return _no_equalize()
 
     # If act_val is enabled, use source or sink weights to determine the activation channel
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if list_of_act_val is not None:
-        list_of_sink_axes = [x for x in list(act_sink_axes.values()) if x is not None]
-        list_of_source_axes = [x for x in list(act_sources_axes.values()) if x is not None]
-        if len(list_of_sink_axes) > 0:
-            act_axis = list_of_sink_axes[0]
-        elif len(list_of_source_axes) > 0:
-            act_axis = list_of_source_axes[0]
-        else:
-            return _no_equalize()
-        # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
-        # do not perform equalization
-        if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
-            return _no_equalize()
+        if not region.is_valid_activation_equalization:
+            return False
 
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
     sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
-    for name, module in sink_axes.items():
+    for name, module in region.sinks.items():
         # Sinks can be partially equalized, thus we need to select
         # only the channels we are interested in
         indexes = region.sinks[name]
@@ -731,7 +819,7 @@ def _cross_layer_equalization(
         sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
             sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
 
-    for name, module in src_axes.items():
+    for name, module in region.srcs.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
         indexes = region.srcs[name]
@@ -747,7 +835,7 @@ def _cross_layer_equalization(
             shape_0 = list_of_act_val_shapes[0]
             if any(shape_0 != shape for shape in list_of_act_val_shapes):
                 return _no_equalize()
-        list_of_act_val = [transpose(act_val, act_axis) for act_val in list_of_act_val]
+        list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
         srcs_range_act = scale_fn(
             torch.cat([
                 act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
@@ -755,7 +843,7 @@ def _cross_layer_equalization(
                       1))
 
     if list_of_act_val is not None:
-        if co_optimize_act_weights and len(src_axes) > 0:
+        if co_optimize_act_weights and len(region.srcs) > 0:
             srcs_range = .5 * srcs_range + .5 * srcs_range_act
         else:
             srcs_range = srcs_range_act
@@ -784,11 +872,11 @@ def _cross_layer_equalization(
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
         for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
-            insert_mul_node_fn(scaling_factors, act_val_shape, act_axis)
+            insert_mul_node_fn(scaling_factors, act_val_shape, region.act_axis)
 
     # Whether to apply the scaling in-place or parametrize the weights instead
     rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
-    for module in chain(src_axes.values(), sink_axes.values()):
+    for module in chain(region.srcs.values(), region.sinks.values()):
         rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
     for r in rewriters:
@@ -1102,18 +1190,71 @@ def _extract_regions(
                 sorted_sinks = dict(sorted(state.sinks.items()))
                 sorted_acts = tuple(sorted(state.acts))
                 if return_acts:
-                    region = Region(
+                    region = Region.from_dicts(
                         srcs=sorted_srcs,
                         sinks=sorted_sinks,
                         acts=sorted_acts,
                         name_to_module=state.name_to_module)
                 else:
-                    region = Region(
+                    region = Region.from_dicts(
                         srcs=sorted_srcs, sinks=sorted_sinks, name_to_module=state.name_to_module)
 
                 if region not in regions and region.is_valid:
                     regions.append(region)
     return regions
+
+
+class PermuteGraph(GraphTransform, ABC):
+
+    def __init__(self):
+        super().__init__()
+        self.hooks = []
+        self.hooked_modules = set()
+
+    def output_forward_stats_hook(self, *args, name, batch_dim=0):
+        # Extract the output tensor
+        x = args[-1]
+
+        # Extra check for batch_dim
+        if hasattr(x, 'names') and 'N' in x.names:
+            batch_dim = x.names.index('N')
+
+        self.batch_dim_act_map[name] = batch_dim
+
+        dtype = x.dtype
+        input_scales = self.scale_fn(x.to(torch.float32), dim=batch_dim).to(dtype)
+        if name not in self.float_act_map:
+            self.float_act_map[name] = input_scales
+        else:
+            self.float_act_map[name] = torch.max(self.float_act_map[name], input_scales)
+
+    def setup(self, regions):
+        for region in regions:
+
+            # We assume that the entire region has a unique batch_dim
+            batch_dim = 0
+            for name in region.srcs:
+                module = region.get_module_from_name(name)
+                if hasattr(module, 'batch_first') and not module.batch_first:
+                    batch_dim = 1
+            for name in region.sinks:
+                module = region.get_module_from_name(name)
+                if hasattr(module, 'batch_first') and not module.batch_first:
+                    batch_dim = 1
+
+            region_to_search = region.sinks_names if len(region.acts) == 0 else region.acts
+            for name in region_to_search:
+                module = region.get_module_from_name(name)
+                if module not in self.hooked_modules:
+                    self.hooked_modules.add(module)
+                    hook_fn = partial(
+                        self.output_forward_stats_hook, name=name, batch_dim=batch_dim)
+                    h = module.register_forward_hook(hook_fn)
+                    self.hooks.append(h)
+
+    def remove_hooks(self):
+        for h in self.hooks:
+            h.remove()
 
 
 class EqualizeGraph(GraphTransform):
@@ -1260,7 +1401,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(sinks={prefix: eq_indexes}, name_to_module={prefix: model})
+            region = Region.from_dicts(sinks={prefix: eq_indexes}, name_to_module={prefix: model})
             regions.append(region)
         else:
             for name, module in model.named_children():
@@ -1703,7 +1844,8 @@ class RotationEqualization(GraphTransform):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
+            region = Region.from_dicts(
+                sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
             regions.append(region)
         else:
             for name, module in model.named_children():
@@ -1720,7 +1862,7 @@ class RotationEqualization(GraphTransform):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(
+            region = Region.from_dicts(
                 sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model}, expand_region=True)
             regions.append(region)
         else:
@@ -1849,7 +1991,7 @@ class GraphRotationEqualization(RotationEqualization):
             end_index = head_dim if head_dim != -1 else output_weight.shape[0]
             output_index = EqualizationIndexes(0, end_index, 0)
 
-            region = Region(
+            region = Region.from_dicts(
                 srcs={'value_sdpa': value_index},
                 sinks={'output_sdpa': output_index},
                 name_to_module={
