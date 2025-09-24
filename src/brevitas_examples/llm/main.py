@@ -662,7 +662,7 @@ def quantize_llm(args, extra_args=None):
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
                 remove_hooks(model)
-                # expects a list
+                
                 from brevitas_examples.llm.eval_lighteval import run_lighteval
                 few_shot_eval_results = run_lighteval(
                     model_name=args.model,
