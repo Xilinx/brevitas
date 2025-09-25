@@ -804,7 +804,7 @@ def _cross_layer_equalization(
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if list_of_act_val is not None:
         if not region.is_valid_activation_equalization:
-            return False
+            return _no_equalize()
 
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
