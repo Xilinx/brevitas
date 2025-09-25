@@ -812,7 +812,7 @@ def _cross_layer_equalization(
     for name, module in region.sinks.items():
         # Sinks can be partially equalized, thus we need to select
         # only the channels we are interested in
-        indexes = region.sinks[name]
+        indexes = module.equalization_indexes
         # Compute the range of the channels we need to equalize
         weight_range = module.get_weight_range(scale_fn=scale_fn)
         # Compute the numbers of channels we are equalizing
@@ -824,7 +824,7 @@ def _cross_layer_equalization(
     for name, module in region.srcs.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
-        indexes = region.srcs[name]
+        indexes = module.equalization_indexes
         channel_start = indexes.offset + indexes.start
         channel_end = indexes.offset + indexes.end
         weight_range = module.get_weight_range(
