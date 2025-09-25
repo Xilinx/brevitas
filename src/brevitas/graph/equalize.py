@@ -274,8 +274,8 @@ class Region:
                 bias_tensor_name="bias",
                 bias_axis=0,
                 act_axis=act_axis)
-        act_sink_axes = {name: module.act_axis for (name, module) in new_sink_dict}
-        act_sources_axes = {name: module.act_axis for (name, module) in new_srcs_dict}
+        act_sink_axes = {name: module.act_axis for (name, module) in new_sink_dict.items()}
+        act_sources_axes = {name: module.act_axis for (name, module) in new_srcs_dict.items()}
         list_of_sink_axes = [x for x in list(act_sink_axes.values()) if x is not None]
         list_of_source_axes = [x for x in list(act_sources_axes.values()) if x is not None]
         if len(list_of_sink_axes) > 0:
