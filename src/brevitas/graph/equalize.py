@@ -185,7 +185,8 @@ class Region:
         # number of output channel.
         # Furthermore, all output channels of all the sources are always fully equalized.
         max_shape_srcs = 0
-        for name, indexes in self.srcs.items():
+        for name, module in self.srcs.items():
+            indexes = module.equalization_indexes
             max_shape_srcs = max(max_shape_srcs, indexes.end + indexes.offset)
         return max_shape_srcs
 
@@ -194,7 +195,8 @@ class Region:
         # Compute the number of input channel from the sinks. If we are equalizing through cat,
         # we need to slice and potentially select only a subset of input channel from sinks.
         max_shape_sinks = 0
-        for name, indexes in self.sinks.items():
+        for name, module in self.sinks.items():
+            indexes = module.equalization_indexes
             if indexes == _UNSUPPORTED_OP:
                 # Invalidate region
                 return 0
