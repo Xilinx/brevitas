@@ -164,7 +164,25 @@ class Region:
     acts: Tuple = field(default_factory=tuple)
     name_to_module: Dict = field(default_factory=dict)
     expand_region: bool = False
-    act_axis: int = -1
+    act_axis: Optional[int] = None
+
+    def __eq__(self, other):
+        if not isinstance(other, Region):
+            return False
+
+        if len(self.srcs) != len(other.srcs):
+            return False
+        for k, v in other.srcs.items():
+            if k not in self.srcs:
+                return False
+
+        if len(self.sinks) != len(other.sinks):
+            return False
+        for k, v in other.sinks.items():
+            if k not in self.sinks:
+                return False
+
+        return True
 
     @property
     def srcs_names(self):
@@ -197,6 +215,7 @@ class Region:
         max_shape_sinks = 0
         for name, module in self.sinks.items():
             indexes = module.equalization_indexes
+
             if indexes == _UNSUPPORTED_OP:
                 # Invalidate region
                 return 0
@@ -220,7 +239,7 @@ class Region:
 
     @property
     def is_valid_activation_equalization(self):
-        return self.act_axis != -1
+        return self.act_axis is not None
 
     def apply_permute(self, indexes):
         for src in self.srcs:
@@ -285,12 +304,12 @@ class Region:
         elif len(list_of_source_axes) > 0:
             act_axis = list_of_source_axes[0]
         else:
-            act_axis = -1
+            act_axis = None
 
         # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
         # do not perform equalization
         if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
-            act_axis = -1
+            act_axis = None
         return new_srcs_dict, new_sink_dict, act_axis
 
     @classmethod
@@ -1203,6 +1222,7 @@ def _extract_regions(
 
                 if region not in regions and region.is_valid:
                     regions.append(region)
+
     return regions
 
 
