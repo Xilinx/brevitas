@@ -61,6 +61,31 @@ def run_lighteval(
     from lighteval.pipeline import Pipeline
     from lighteval.pipeline import PipelineParameters
 
+    # TODO (pml): Deprecate after upgrading to transformers>=4.54.0 in Brevitas,
+    # as this version is required for lighteval>=4.54.0, which features the override
+    # of _init_model.
+    from typing import override
+
+    from lighteval.models.abstract_model import LightevalModel
+    from lighteval.models.model_loader import TransformersModel
+
+    class BrevitasPipeline(Pipeline):
+
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+
+        @override
+        def _init_model(self, model_config, model):
+            # Verify that both the model and model_config are passed
+            assert model is not None and model_config is not None, "Provide both a model and a model config."
+            assert not isinstance(model, LightevalModel), "A LigthevalModel and a model config cannot be provided simultaneously."
+
+            return TransformersModel.from_model(
+                model=model,
+                config=model_config,
+                accelerator=self.accelerator,
+            )
+
     evaluation_tracker = EvaluationTracker(output_dir=output_dir, save_details=True)
 
     pipeline_params = PipelineParameters(
@@ -74,7 +99,7 @@ def run_lighteval(
     # Pipeline expects a comma-separated list of tasks
     tasks = ",".join(tasks)
 
-    pipeline = Pipeline(
+    pipeline = BrevitasPipeline(
         tasks=tasks,
         pipeline_parameters=pipeline_params,
         evaluation_tracker=evaluation_tracker,
