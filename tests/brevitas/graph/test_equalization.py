@@ -72,11 +72,14 @@ def test_resnet18_equalization():
         equalized_layers.update(r[1])
 
     # Check that we found all the expected regions
+    print(len(regions))
     for region, expected_region in zip(regions, resnet_18_regions):
         srcs = region.srcs_names
         sources_check = set(srcs) == set(expected_region[0])
         sinks = region.sinks_names
         sinks_check = set(sinks) == set(expected_region[1])
+        print(len(srcs), len(expected_region[0]))
+        print(srcs)
         assert sources_check
         assert sinks_check
 

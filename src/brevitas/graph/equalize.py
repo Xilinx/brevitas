@@ -242,10 +242,10 @@ class Region:
         return self.act_axis is not None
 
     def apply_permute(self, indexes):
-        for src in self.srcs:
-            src.apply_permute(indexes)
-        for sink in self.sinks:
-            sink.apply_permute(indexes)
+        for src in self.srcs.values():
+            src.permute(indexes)
+        for sink in self.sinks.values():
+            sink.permute(indexes)
 
     @staticmethod
     def initialize_class(srcs, sinks, name_to_module):
@@ -270,7 +270,7 @@ class Region:
             else:
                 weight_tensor_name = "weight"
 
-            new_sink_dict[name] = EqualizationSinkWrapper(
+            new_sink_dict[name] = SinkWrapper(
                 module=module,
                 weight_tensor_name=weight_tensor_name,
                 weight_axis=weight_axis,
@@ -287,7 +287,7 @@ class Region:
             if isinstance(module, nn.MultiheadAttention):
                 module = module.out_proj
 
-            new_srcs_dict[name] = EqualizationSourceWrapper(
+            new_srcs_dict[name] = SourceWrapper(
                 module=module,
                 weight_tensor_name="weight",
                 weight_axis=weight_axis,
@@ -339,6 +339,7 @@ class WalkRegionState:
     supported_sinks: set = _supported_layers
     scale_invariant_function: set = _scale_invariant_op
     scale_invariant_layers: set = _scale_invariant_layers
+    residual_fns: set = _residual_fns
 
     cat_encoutered: bool = False
     offset: int = 0
@@ -391,6 +392,24 @@ def _select_scale_computation_fn(
         return _channel_range
     else:
         raise RuntimeError(f"Scale computation type {scale_computation_type} not supported")
+
+
+class rotate_permute_mode:
+
+    def __init__(self, model, **kwargs):
+        self.rotation = GraphRotationEqualization(**kwargs)
+        self.model = model
+        self.rewriters = None
+
+    def __enter__(self):
+        model, rewriters = self.rotation.apply(self.model)
+        self.model = model
+        self.rewriters = rewriters
+        self.rotation.permute_class.setup_permute()
+
+    def __exit__(self, *args, **kwargs):
+        print(args, kwargs)
+        self.rotation.permute_class.apply_permute()
 
 
 class activation_equalization_mode:
@@ -590,7 +609,7 @@ def transpose(tensor: torch.Tensor, axis: int):
     return tensor.permute(shape)
 
 
-class EqualizationModuleWrapper:
+class ModuleWrapper:
 
     def __init__(
             self,
@@ -660,7 +679,7 @@ class EqualizationModuleWrapper:
             transform_module=transform_module_class(**transform_module_kwargs))
 
 
-class EqualizationSourceWrapper(EqualizationModuleWrapper):
+class SourceWrapper(ModuleWrapper):
 
     def __init__(
             self,
@@ -702,12 +721,21 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
         return scale_fn(weight.reshape(weight.size(0), -1))
 
     def permute(self, permute_index):
-        self.module.weight.data = self.module.weight.data[permute_index]
-        bias = getattr(self.module, self.bias_tensor_name)
-        bias.data = self.module.weight.data[permute_index]
+        permutation_list = []
+        print(type(self.module), self.weight_axis)
+        for i, v in enumerate(self.module.weight.shape):
+            if self.weight_axis == i:
+                permutation_list.append(permute_index)
+            else:
+                s = slice(0, v, 1)
+                permutation_list.append(s)
+        self.module.weight.data = self.module.weight.data[permutation_list]
+        if hasattr(self.module, self._bias_tensor_name):
+            bias = getattr(self.module, self._bias_tensor_name)
+            bias.data = self.module.bias.data[permutation_list]
 
 
-class EqualizationSinkWrapper(EqualizationModuleWrapper):
+class SinkWrapper(ModuleWrapper):
 
     def __init__(
             self,
@@ -732,41 +760,103 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
             weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
 
     def permute(self, permute_index):
-        self.module.weight.data = self.module.weight.data[permute_index]
-        bias = getattr(self.module, self.bias_tensor_name)
-        bias.data = self.module.weight.data[permute_index]
+        permutation_list = []
+        for i, v in enumerate(self.module.weight.shape):
+            if self.weight_axis == i:
+                permutation_list.append(permute_index)
+            else:
+                s = slice(0, v, 1)
+                permutation_list.append(s)
+        self.module.weight.data = self.module.weight.data[permutation_list]
+
+
+def new_axis(x, block_size=32):
+    # x is the activation going in to the rotation
+    # shape of x is (batch_size * tokens, vec_size)
+    # vec_size is also interpreted as channels
+
+    # normalize all vectors to have the same l1 norm to remove outlier tokens
+    x_ = x / torch.sum(torch.abs(x), axis=-1, keepdims=True)
+
+    # sort the maximum abs values in each channel in descending order and get the indices
+    idx = torch.flip(torch.argsort(torch.max(torch.abs(x_), axis=0, keepdims=True).values), [1])
+
+    # reshape into chunks: the first chunk has indices for the highest magnitude
+    idx = idx.reshape(block_size, idx.shape[-1] // block_size)
+    # flip the odd chunks
+    idx[1::2] = torch.fliplr(idx[1::2])
+    # transpose to distribute the chunks into blocks
+    idx = torch.transpose(idx, 0, 1)
+    idx = idx.flatten()
+    return idx
+
+
+def new_axis(x, block_size=8) -> None:
+    import numpy as np
+    x = x.numpy()
+    print(x)
+    print(x.shape)
+    # x is the activation going in to the rotation
+    # shape of x is (batch_size * tokens, vec_size)
+    # vec_size is also interpreted as channels
+
+    # normalize all vectors to have the same l1 norm to remove outlier tokens
+    x_ = x / np.sum(np.abs(x), axis=-1, keepdims=True)
+
+    # sort the maximum abs values in each channel in descending order and get the indices
+    idx = np.argsort(np.max(np.abs(x_), axis=0))[..., ::-1]
+    print(idx.shape)
+
+    # reshape into chunks: the first chunk has indices for the highest magnitude
+    idx = idx.reshape(block_size, idx.shape[-1] // block_size)
+    # flip the odd chunks
+    idx[1::2] = np.fliplr(idx[1::2])
+    # transpose to distribute the chunks into blocks
+    idx = np.transpose(idx)
+    idx = idx.flatten()
+    return idx
 
 
 @torch.no_grad()
-def _permute(region, list_of_act_val, permute_op_type):
+def _permute(region, list_of_act_val):
 
-    scale_fn = permute_op_type
+    # scale_fn = permute_op_type
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     device = next(single_module.parameters()).device
     dtype = next(single_module.parameters()).dtype
 
     # If equalization criteria are not met, we return a scalar one to indicate that no equalization
     # has been performed
-    def _no_equalize():
-        return torch.tensor(1., dtype=dtype), []
+    def _no_permute():
+        return
 
     # If act_val is enabled, use source or sink weights to determine the activation channel
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if not region.is_valid_activation_equalization:
-        return False
+        return _no_permute()
 
     list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
     if len(list_of_act_val_shapes) > 0:
         shape_0 = list_of_act_val_shapes[0]
         if any(shape_0 != shape for shape in list_of_act_val_shapes):
-            return _no_equalize()
+            return _no_permute()
     list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
-    new_indexes = scale_fn(
-        torch.cat([
-            act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
-            for act_val in list_of_act_val],
-                  1))
-    region.permute(new_indexes)
+    list_of_act_val = torch.cat([
+        act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32) for act_val in list_of_act_val
+    ],
+                                1)
+
+    list_of_act_val = transpose(list_of_act_val, region.act_axis)
+    # new_indexes = new_axis(
+    #     torch.cat([
+    #         act_val.reshape(act_val.size(-1), -1).cpu().to(torch.float32)
+    #         for act_val in list_of_act_val],
+    #               1))
+    print(list_of_act_val.shape)
+    new_indexes = new_axis(list_of_act_val)
+    print(new_indexes)
+    print(region)
+    region.apply_permute(new_indexes)
 
 
 # When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
@@ -945,10 +1035,15 @@ def _equalize(
 
 
 def _is_supported_module(
-        graph_model: GraphModule, node: Node, supported_layers: Set = _supported_layers) -> bool:
+        graph_model: GraphModule,
+        node: Node,
+        supported_layers: Set = _supported_layers,
+        whitelist_layers: Optional[List[torch.nn.Module]] = None) -> bool:
     if node.op == 'call_module':
         module = get_module(graph_model, node.target)
         if isinstance(module, supported_layers):
+            if whitelist_layers is not None and module not in whitelist_layers:
+                return False
             # We support only self-attention
             if isinstance(module, nn.MultiheadAttention):
                 kwargs = dict(node.kwargs)
@@ -1014,7 +1109,7 @@ def find_srcs_channel_dim(state, model, inp_node):
         weight = get_weight_source(module)
         channel = weight.shape[0]
         return channel
-    elif _is_add(inp_node):
+    elif _is_add(inp_node, state.residual_fns):
         all_channels = []
         for n in inp_node.all_input_nodes:
             all_channels.append(find_srcs_channel_dim(state, model, n))
@@ -1057,11 +1152,11 @@ def _is_cat(node):
     return node_target in (torch.cat,)
 
 
-def _is_add(node):
+def _is_add(node, residual_fns):
     node_target = node.meta.get('orig_target', node.target)
     return (
         node.op == 'call_method' and node_target in _residual_methods or
-        node.op == 'call_function' and node_target in _residual_fns)
+        node.op == 'call_function' and node_target in residual_fns)
 
 
 def find_srcs(graph_model: GraphModule, starting_node: Node,
@@ -1092,8 +1187,7 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
                     node, state.scale_invariant_function):
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
-        elif (node.op == 'call_method' and node_target in _residual_methods or
-              node.op == 'call_function' and node_target in _residual_fns):
+        elif _is_add(node, state.residual_fns):
             state.update_offset = False
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
@@ -1140,8 +1234,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
                 graph_model, node, state.scale_invariant_layers) or _is_scale_invariant_function(
                     node, state.scale_invariant_function):
             find_sinks(graph_model, node, state)
-        elif (node.op == 'call_method' and node_target in _residual_methods or
-              node.op == 'call_function' and node_target in _residual_fns):
+        elif _is_add(node, state.residual_fns):
             state.update_offset = False
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
@@ -1188,14 +1281,15 @@ def _extract_regions(
         graph_model: GraphModule,
         add_mul_node: bool = False,
         return_acts: bool = False,
-        state_impl_kwargs=None) -> List[Region]:
+        state_impl_kwargs: Optional[Dict] = None,
+        whitelist_layers: Optional[List] = None) -> List[Region]:
     regions = list()
     for node in graph_model.graph.nodes:
         if state_impl_kwargs is not None:
             state = WalkRegionState(**state_impl_kwargs)
         else:
             state = WalkRegionState()
-        if _is_supported_module(graph_model, node, state.supported_srcs) or (
+        if _is_supported_module(graph_model, node, state.supported_srcs, whitelist_layers) or (
                 add_mul_node and _is_scale_varying_activation(graph_model, node)):
             if _is_scale_varying_activation(graph_model, node):
                 module = get_module(graph_model, node.target)
@@ -1226,22 +1320,51 @@ def _extract_regions(
     return regions
 
 
-class PermuteGraph(GraphTransform, ABC):
+class PermuteGraph():
 
     def __init__(self):
         super().__init__()
         self.hooks = []
         self.hooked_modules = set()
+        self.supported_srcs = (nn.Embedding, RotatedModule, nn.Linear)
+        self.supported_sinks = (nn.Linear, RotatedModule)
+        common_scale_invariant = list(_scale_invariant_layers)
+        common_scale_invariant.extend([torch.nn.GELU, torch.nn.SELU])
+        mul_ops = [torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__]
+        self.residual_fns = list(_residual_fns)
+        self.residual_fns.extend(mul_ops)
+        try:
+            from transformers.activations import ACT2CLS
+            activations = [x if not isinstance(x, tuple) else x[0] for x in ACT2CLS.values()]
+            common_scale_invariant.extend(activations)
+        except:
+            pass
+        self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
+        self.scale_invariant_function = ()
+        self.regions = list()
+        self.float_act_map = dict()
+        self.scale_fn = _channel_maxabs
 
-    def output_forward_stats_hook(self, *args, name, batch_dim=0):
-        # Extract the output tensor
-        x = args[-1]
+    def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
+        # Check for MHA Cross attention, and if found, skip it
+        # When using hf/accelerate, we need to check the signature of the original forward
+        forward_to_check = module._old_forward if hasattr(
+            module, '_old_forward') else module.forward
+        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
+                self.float_act_map[name] = None
+                return
+
+        input_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
+        if use_inp:
+            x = kwargs[input_kwarg][0]
+        elif not use_inp:
+            x = args[-1]
 
         # Extra check for batch_dim
         if hasattr(x, 'names') and 'N' in x.names:
             batch_dim = x.names.index('N')
-
-        self.batch_dim_act_map[name] = batch_dim
 
         dtype = x.dtype
         input_scales = self.scale_fn(x.to(torch.float32), dim=batch_dim).to(dtype)
@@ -1250,8 +1373,22 @@ class PermuteGraph(GraphTransform, ABC):
         else:
             self.float_act_map[name] = torch.max(self.float_act_map[name], input_scales)
 
-    def setup(self, regions):
-        for region in regions:
+    def extract_permute_regions(self, graph_model, whitelist_layers=None):
+        regions = _extract_regions(
+            graph_model,
+            state_impl_kwargs={
+                'supported_srcs': self.supported_srcs,
+                'supported_sinks': self.supported_sinks,
+                'scale_invariant_layers': self.scale_invariant_layers,
+                'scale_invariant_function': self.scale_invariant_function,
+                'residual_fns': self.residual_fns},
+            whitelist_layers=None)
+        for r in regions:
+            if r not in self.regions:
+                self.regions.append(r)
+
+    def setup_permute(self):
+        for region in self.regions:
 
             # We assume that the entire region has a unique batch_dim
             batch_dim = 0
@@ -1264,15 +1401,20 @@ class PermuteGraph(GraphTransform, ABC):
                 if hasattr(module, 'batch_first') and not module.batch_first:
                     batch_dim = 1
 
-            region_to_search = region.sinks_names if len(region.acts) == 0 else region.acts
+            region_to_search = region.sinks_names
             for name in region_to_search:
                 module = region.get_module_from_name(name)
                 if module not in self.hooked_modules:
                     self.hooked_modules.add(module)
-                    hook_fn = partial(
-                        self.output_forward_stats_hook, name=name, batch_dim=batch_dim)
+                    hook_fn = partial(self.forward_stats_hook, name=name, batch_dim=batch_dim)
                     h = module.register_forward_hook(hook_fn)
                     self.hooks.append(h)
+
+    def apply_permute(self):
+        for region in self.regions:
+            region_names = region.sinks_names
+            list_of_act_val = [self.float_act_map[name] for name in region_names]
+            _permute(region, list_of_act_val=list_of_act_val)
 
     def remove_hooks(self):
         for h in self.hooks:
@@ -1452,7 +1594,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         for region in self.regions:
             name = list(region.sinks.keys())[0]
             module = region.get_module_from_name(name)
-            if self.float_act_map.get(module, None) == None:
+            if self.float_act_map.get(module) == None:
                 logging.info(f"Module {name} not found during layerwise activation equalization")
                 continue
             insert_mul_fn = partial(
@@ -1904,6 +2046,7 @@ class GraphRotationEqualization(RotationEqualization):
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
+            apply_permute: bool = False,
             expansion_step: int = None,
             delay_rewriters: bool = False,
             return_rewriters: bool = False) -> None:
@@ -1922,9 +2065,17 @@ class GraphRotationEqualization(RotationEqualization):
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
         self.expansion_step = expansion_step
+        
         self.delay_rewriters = delay_rewriters
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
+
+        self.apply_permute = apply_permute
+        if apply_permute:
+            self.permute_class = PermuteGraph()
+        else:
+            self.permute_class = None
+
         if use_parametrized_rotations:
             # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
@@ -2075,12 +2226,19 @@ class GraphRotationEqualization(RotationEqualization):
 
         # We update mergeable regions to include also non-mergeable ones
         added_regions = 0
+        orphan_only_regions = []
         for o_r in orphan_regions:
             # Layerwise have only a single sink named 'sinks0'
             id_sink = id(o_r.get_module_from_name('sinks0'))
             if id_sink not in eq_layers:
-                regions.append(o_r)
+                orphan_only_regions.append(o_r)
                 added_regions += 1
+        if self.permute_class:
+            for o_r in orphan_only_regions:
+                self.permute_class.extract_permute_regions(
+                    graph_model, list(o_r.name_to_module.values()))
+
+        regions.extend(orphan_only_regions)
         logging.debug(f"Adding {added_regions} sink-only regions")
 
         if overlap:
