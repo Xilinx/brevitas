@@ -104,6 +104,26 @@ class ImageNetCases:
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
 
+    @pytest_cases.parametrize(
+        "run_dict",
+        [
+            {
+                "model_name": "resnet18",
+                "target_backend": "layerwise",
+                "learned_round": "hard_sigmoid",
+                "learned_round_iters": 2,
+                "quant_top1": 83.3333},
+            {
+                "model_name": "resnet18",
+                "target_backend": "layerwise",
+                "learned_round_mode": "blockwise",
+                "learned_round": "hard_sigmoid",
+                "learned_round_iters": 2,
+                "quant_top1": 83.3333},],
+        ids=["res-layerwise", "res-blockwise"])
+    def case_small_models_learned_round(self, run_dict, default_run_args, request):
+        yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
+
 
 @pytest.mark.vision
 @pytest_cases.parametrize_with_cases("args_and_metrics", cases=ImageNetCases)

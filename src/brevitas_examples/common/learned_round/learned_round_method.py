@@ -3,7 +3,8 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import List, Tuple
+from typing import List
+from typing import Tuple
 
 import torch
 from torch import nn
@@ -14,7 +15,6 @@ from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 
-# TODO: Rename to block loss
 class BlockLoss(ABC):
 
     @abstractmethod

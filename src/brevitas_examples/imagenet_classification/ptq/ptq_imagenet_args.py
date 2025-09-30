@@ -145,7 +145,7 @@ def create_args_parser() -> ArgumentParser:
         '--learned-round',
         default=None,
         type=str,
-        choices=[None, 'linear_round', 'hard_sigmoid_round', 'sigmoid_round'],
+        choices=[None, 'identity', 'hard_sigmoid', 'sigmoid'],
         help='Learned round type (default: None)')
     parser.add_argument(
         '--learned-round-block-name',

@@ -437,7 +437,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--learned-round',
         default=None,
-        choices=[None, 'linear_round'],
+        choices=[None, 'identity'],
         help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     parser.add_argument(
         '--learned-round-fast-update',
