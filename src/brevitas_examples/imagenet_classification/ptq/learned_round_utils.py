@@ -114,39 +114,54 @@ def vision_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
     return block(inputs)
 
 
+# TODO (pml): Transition to `args` being a nested dictionary, which is translated
+# an validated to `Config`` (e.g. using the package dacite)
 def parse_args_to_dataclass(args: Namespace) -> Config:
-    config_dict = {
-        "learned_round_args": {
-            "learned_round_param": args.learned_round,
-            "learned_round_kwargs": None,
-            "loss_cls": args.learned_round_loss,
-            "loss_kwargs": None,
-            "fast_update": False,},
-        "training_args": {
-            "optimizers_args": [{
-                "optimizer_cls":
-                    "adam",
-                "lr":
-                    args.learned_round_lr,
-                "optimizer_kwargs": {},
-                "lr_scheduler_args":
-                    None if args.learned_round_lr_scheduler is None else {
-                        "lr_scheduler_cls":
-                            args.learned_round_lr_scheduler,
-                        "lr_scheduler_kwargs":
-                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
-                    }},],
-            "optimizers_targets": ["learned_round"],
-            "batch_size": args.learned_round_batch_size,
-            "iters": args.learned_round_iters,
-            "loss_scaling_factor": 1.,
-            "use_best_model": False,
-            "use_amp": True,
-            "amp_dtype": "float16",}}
-    # TODO (pml): Decide what to do with this dependency
-    from dacite import from_dict
-    config = from_dict(data_class=Config, data=config_dict)
-    return config
+    from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
+    from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+    from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+    from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+
+    lr_scheduler_args = None
+    if args.learned_round_lr_scheduler is not None:
+        lr_scheduler_args = LRSchedulerArgs(
+            lr_scheduler_cls=args.learned_round_lr_scheduler,
+            lr_scheduler_kwargs={
+                "start_factor": 1.0,
+                "end_factor": 0.0,
+                "total_iters": args.learned_round_iters,},
+        )
+
+    optim_args = OptimizerArgs(
+        optimizer_cls="adam",
+        lr=args.learned_round_lr,
+        optimizer_kwargs={},
+        lr_scheduler_args=lr_scheduler_args,
+    )
+
+    training_args = TrainingArgs(
+        optimizers_args=[optim_args],
+        optimizers_targets=["learned_round"],
+        batch_size=args.learned_round_batch_size,
+        iters=args.learned_round_iters,
+        loss_scaling_factor=1.0,
+        use_best_model=False,
+        use_amp=True,
+        amp_dtype="float16",
+    )
+
+    learned_round_args = LearnedRoundArgs(
+        learned_round_param=args.learned_round,
+        learned_round_kwargs=None,
+        loss_cls=args.learned_round_loss,
+        loss_kwargs=None,
+        fast_update=False,
+    )
+
+    return Config(
+        learned_round_args=learned_round_args,
+        training_args=training_args,
+    )
 
 
 def apply_learned_round(

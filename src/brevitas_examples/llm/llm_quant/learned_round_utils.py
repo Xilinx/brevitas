@@ -158,54 +158,63 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     return kwargs
 
 
+# TODO (pml): Transition to `args` being a nested dictionary, which is translated
+# an validated to `Config`` (e.g. using the package dacite)
 def parse_args_to_dataclass(args: Namespace) -> Config:
-    config_dict = {
-        "learned_round_args": {
-            "learned_round_param": args.learned_round,
-            "learned_round_kwargs": None,
-            "loss_cls": "mse",
-            "loss_kwargs": None,
-            "loss_scaling_factor": 1000.,
-            "fast_update": args.learned_round_fast_update,},
-        "training_args": {
-            "optimizers_args": [
-                {
-                    "optimizer_cls": "sign_sgd",
-                    "lr": args.learned_round_lr,
-                    "optimizer_kwargs": {},
-                    "lr_scheduler_args": {
-                        "lr_scheduler_cls":
-                            "linear",
-                        "lr_scheduler_kwargs":
-                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
-                    }},
-                {
-                    "optimizer_cls": "sgd",
-                    "lr": args.learned_round_scale_lr,
-                    "optimizer_kwargs": {
-                        "momentum": args.learned_round_scale_momentum,},
-                    "lr_scheduler_args": {
-                        "lr_scheduler_cls":
-                            "linear",
-                        "lr_scheduler_kwargs":
-                            f'{{"start_factor": 1.0, "end_factor": 0.0, "total_iters": {args.learned_round_iters}}}'
-                    }}],
-            "optimizers_targets": ["learned_round"] +
-                                  (["scales"] if args.learned_round_scale else []),
-            "batch_size":
-                8,
-            "iters":
-                args.learned_round_iters,
-            "use_best_model":
-                True,
-            "use_amp":
-                True,
-            "amp_dtype":
-                "float16",}}
-    # TODO (pml): Decide what to do with this dependency
-    from dacite import from_dict
-    config = from_dict(data_class=Config, data=config_dict)
-    return config
+    from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
+    from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+    from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+    from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+
+    def _parse_lr_scheduler_args(args: Namespace) -> LRSchedulerArgs:
+        return LRSchedulerArgs(
+            lr_scheduler_cls="linear",
+            lr_scheduler_kwargs={
+                "start_factor": 1.0,
+                "end_factor": 0.0,
+                "total_iters": args.learned_round_iters,},
+        )
+
+    # Optimizer for learned round parameters
+    learned_round_optim_args = OptimizerArgs(
+        optimizer_cls="sign_sgd",
+        lr=args.learned_round_lr,
+        optimizer_kwargs={},
+        lr_scheduler_args=_parse_lr_scheduler_args(args),
+    )
+
+    # Optimizer for scales
+    scales_optim_args = OptimizerArgs(
+        optimizer_cls="sgd",
+        lr=args.learned_round_scale_lr,
+        optimizer_kwargs={
+            "momentum": args.learned_round_scale_momentum,},
+        lr_scheduler_args=_parse_lr_scheduler_args(args),
+    )
+
+    training_args = TrainingArgs(
+        optimizers_args=[learned_round_optim_args, scales_optim_args],
+        optimizers_targets=["learned_round"] + (["scales"] if args.learned_round_scale else []),
+        batch_size=8,
+        iters=args.learned_round_iters,
+        loss_cls="mse",
+        use_best_model=True,
+        use_amp=True,
+        amp_dtype="float16",
+    )
+
+    learned_round_args = LearnedRoundArgs(
+        learned_round_param=args.learned_round,
+        learned_round_kwargs=None,
+        loss_kwargs=None,
+        loss_scaling_factor=1000.0,
+        fast_update=args.learned_round_fast_update,
+    )
+
+    return Config(
+        learned_round_args=learned_round_args,
+        training_args=training_args,
+    )
 
 
 def apply_learned_round(
