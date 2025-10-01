@@ -1952,7 +1952,7 @@ class GraphRotationEqualization(RotationEqualization):
                 logging.debug(
                     f"Added {parameter_number_post - parameter_number_pre} parameters to the model")
 
-        graph_model = apply_rewriters(graph_model, rewriters, self.delay_writers)
+        graph_model = apply_rewriters(graph_model, rewriters, self.delay_rewriters)
 
         if self.return_rewriters:
             return graph_model, rewriters
