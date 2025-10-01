@@ -1761,7 +1761,7 @@ class GraphRotationEqualization(RotationEqualization):
         self.expansion_step = expansion_step
         self.delay_rewriters = delay_rewriters
         if not self.delay_rewriters:
-            assert return_rewriters, "If rewriters are not applied immediately, they must be returned and applied at a second moment"
+            assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
         if use_parametrized_rotations:
             # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
