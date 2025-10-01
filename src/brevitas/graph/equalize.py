@@ -1968,7 +1968,7 @@ def apply_rewriters(model: torch.nn.Module, rewriters: List, delay_rewriters: bo
     if delay_rewriters:
         return model
     if not hasattr(model, '_hf_map'):
-        for r in inplace_rewriters:
+        for r in rewriters:
             model = r.apply(model)
         return model
 
