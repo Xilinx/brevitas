@@ -1468,12 +1468,11 @@ def random_orthogonal_matrix(size):
     return q
 
 
-def _apply_rotate(
+def _compute_rotations(
         model: nn.Module,
         regions: List[Region],
         full_rotation_method='had',
         fuse_rotations: bool = True,
-        delay_rewriters: bool = False,
         expansion_step: int = 1):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
@@ -1933,7 +1932,7 @@ class GraphRotationEqualization(RotationEqualization):
 
         if len(regions) > 0:
             rewriters.extend(
-                _apply_rotate(
+                _compute_rotations(
                     graph_model,
                     first_set,
                     self.full_rotation_method,
@@ -1941,7 +1940,7 @@ class GraphRotationEqualization(RotationEqualization):
                     delay_rewriters=self.delay_rewriters,
                     expansion_step=first_exp_step))
             rewriters.extend(
-                _apply_rotate(
+                _compute_rotations(
                     graph_model,
                     second_set,
                     self.full_rotation_method,
@@ -2093,5 +2092,5 @@ class LayerwiseActivationRotation(RotationEqualization):
         if len(expanded_regions) > 0:
             regions.extend(expanded_regions)
         if len(regions) > 0:
-            _apply_rotate(model, regions, expansion_step=self.expansion_step)
+            _compute_rotations(model, regions, expansion_step=self.expansion_step)
         return model
