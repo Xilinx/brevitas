@@ -397,7 +397,8 @@ def _select_scale_computation_fn(
 class rotate_permute_mode:
 
     def __init__(self, model, **kwargs):
-        self.rotation = GraphRotationEqualization(**kwargs)
+        self.rotation = GraphRotationEqualization(
+            **kwargs, use_parametrized_rotations=True, apply_inplace_rotations=False)
         self.model = model
         self.rewriters = None
 
@@ -408,8 +409,9 @@ class rotate_permute_mode:
         self.rotation.permute_class.setup_permute()
 
     def __exit__(self, *args, **kwargs):
-        print(args, kwargs)
         self.rotation.permute_class.apply_permute()
+        for r in self.rewriters:
+            r.apply(self.model)
 
 
 class activation_equalization_mode:
@@ -722,7 +724,6 @@ class SourceWrapper(ModuleWrapper):
 
     def permute(self, permute_index):
         permutation_list = []
-        print(type(self.module), self.weight_axis)
         for i, v in enumerate(self.module.weight.shape):
             if self.weight_axis == i:
                 permutation_list.append(permute_index)
@@ -794,8 +795,6 @@ def new_axis(x, block_size=32):
 def new_axis(x, block_size=8) -> None:
     import numpy as np
     x = x.numpy()
-    print(x)
-    print(x.shape)
     # x is the activation going in to the rotation
     # shape of x is (batch_size * tokens, vec_size)
     # vec_size is also interpreted as channels
@@ -805,7 +804,6 @@ def new_axis(x, block_size=8) -> None:
 
     # sort the maximum abs values in each channel in descending order and get the indices
     idx = np.argsort(np.max(np.abs(x_), axis=0))[..., ::-1]
-    print(idx.shape)
 
     # reshape into chunks: the first chunk has indices for the highest magnitude
     idx = idx.reshape(block_size, idx.shape[-1] // block_size)
@@ -847,15 +845,9 @@ def _permute(region, list_of_act_val):
                                 1)
 
     list_of_act_val = transpose(list_of_act_val, region.act_axis)
-    # new_indexes = new_axis(
-    #     torch.cat([
-    #         act_val.reshape(act_val.size(-1), -1).cpu().to(torch.float32)
-    #         for act_val in list_of_act_val],
-    #               1))
-    print(list_of_act_val.shape)
+
     new_indexes = new_axis(list_of_act_val)
-    print(new_indexes)
-    print(region)
+
     region.apply_permute(new_indexes)
 
 
@@ -1867,7 +1859,7 @@ def _compute_rotations(
                 module.in_features = int(new_hidden)
 
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
-            rewriter_class = ModuleInstanceTransformTensor if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
+            rewriter_class = ModuleInstanceTransformTensor if fuse_rotations else ModuleInstanceRegisterParametrization
             # Obtain rewriters for applying the rotations
             rewriter = rewriter_class(
                 module=module,
@@ -1891,7 +1883,6 @@ def _compute_rotations(
                         "expansion_step": expansion_step,
                         "expand_input": region.expand_region})
                 rewriters.append(rewriter)
-
     return rewriters
 
 

@@ -66,9 +66,8 @@ class ConvGroupConvModel(nn.Module):
         return x
 
 
-def test_cose():
+def test_rotation_permute():
     inp = torch.LongTensor([[0, 1, 2, 2], [2, 1, 0, 1]])
-    print(inp.shape)
     model = ConvGroupConvModel()
     model(inp)
     model, _ = torch._dynamo.export(model)(inp)
@@ -78,4 +77,3 @@ def test_cose():
     o1 = model(inp)
 
     assert torch.allclose(o, o1)
-    assert True
