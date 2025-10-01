@@ -1759,7 +1759,7 @@ class GraphRotationEqualization(RotationEqualization):
         self.sdpa_regions = sdpa_regions
         self.expansion_step = expansion_step
         self.delay_rewriters = delay_rewriters
-        if not self.delay_rewriters:
+        if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
         if use_parametrized_rotations:
             # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
@@ -1967,13 +1967,14 @@ def apply_rewriters(model: torch.nn.Module, rewriters: List, delay_rewriters: bo
 
     if delay_rewriters:
         return model
+
     if not hasattr(model, '_hf_map'):
         for r in rewriters:
             model = r.apply(model)
         return model
 
+    # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
     if len(model._hf_map.values()) > 1:
-        # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
         inplace_rewriters = [
             r for r in rewriters if not isinstance(r, ModuleInstanceRegisterParametrization)]
         parametrization_rewriters = [r for r in rewriters if r not in inplace_rewriters]
