@@ -1473,7 +1473,7 @@ def _apply_rotate(
         regions: List[Region],
         full_rotation_method='had',
         fuse_rotations: bool = True,
-        apply_inplace_rotations: bool = True,
+        delay_rewriters: bool = False,
         expansion_step: int = 1):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
@@ -1587,13 +1587,11 @@ def _apply_rotate(
                         "expansion_step": expansion_step,
                         "expand_input": region.expand_region})
                 rewriters.append(rewriter)
-    if apply_inplace_rotations:
+
+    if not delay_rewriters:
         for r in rewriters:
-            # The parametrizations need to be registered after the potential HF hooks have been
-            # removed, as otherwise the device maps will not match the structure of the
-            # model's state_dict after the registration of the parametrizations.
-            if not isinstance(r, ModuleInstanceRegisterParametrization):
-                model = r.apply(model)
+            model = r.apply(model)
+
     return rewriters
 
 
@@ -1748,6 +1746,7 @@ class GraphRotationEqualization(RotationEqualization):
             full_rotation_method: str = 'had',
             layers_to_expand: Optional[List[str]] = None,
             expansion_step: int = None,
+            delay_rewriters: bool = False,
             return_rewriters: bool = False) -> None:
         super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 
@@ -1764,6 +1763,9 @@ class GraphRotationEqualization(RotationEqualization):
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
         self.expansion_step = expansion_step
+        self.delay_rewriters = delay_rewriters
+        if not self.delay_rewriters:
+            assert return_rewriters, "If rewriters are not applied immediately, they must be returned and applied at a second moment"
         if use_parametrized_rotations:
             # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
@@ -1940,6 +1942,7 @@ class GraphRotationEqualization(RotationEqualization):
                     first_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
+                    delay_rewriters=self.delay_rewriters,
                     expansion_step=first_exp_step))
             rewriters.extend(
                 _apply_rotate(
@@ -1947,6 +1950,7 @@ class GraphRotationEqualization(RotationEqualization):
                     second_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
+                    delay_rewriters=self.delay_rewriters,
                     expansion_step=second_exp_step))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
