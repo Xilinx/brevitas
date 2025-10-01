@@ -1961,7 +1961,7 @@ class GraphRotationEqualization(RotationEqualization):
 
 
 @torch.no_grad()
-def apply_rewriters(model: torch.nn.Module, rewriters: List, delay_rewriters: bool = False):
+def apply_rewriters(model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
     from brevitas_examples.common.accelerate_utils.accelerate import offload_model
     from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 
