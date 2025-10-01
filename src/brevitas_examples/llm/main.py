@@ -113,15 +113,15 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     for r in rewriters:
         r.apply(model)
 
-    # If we optimize rotations, it is safer to apply rewriters later, in case the model is split
-    # across multiple gpus
-    # TODO: we can replace this with a check on _hf_map maybe
-    delay_rewriters = args.optimize_rotations
+    # Since we apply the rewriters to a different, non-fx model, we need only to compute them
+    # And apply them in a second moment on the non-fx model
+    delay_rewriters = True
+    return_rewriters = True
 
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
-        return_rewriters=True,
+        return_rewriters=return_rewriters,
         sdpa_regions=args.rotation_sdpa_regions,
         use_parametrized_rotations=args.optimize_rotations,
         delay_rewriters=delay_rewriters,

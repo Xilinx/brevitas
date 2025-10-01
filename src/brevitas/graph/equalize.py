@@ -1937,7 +1937,6 @@ class GraphRotationEqualization(RotationEqualization):
                     first_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
-                    delay_rewriters=self.delay_rewriters,
                     expansion_step=first_exp_step))
             rewriters.extend(
                 _compute_rotations(
@@ -1945,7 +1944,6 @@ class GraphRotationEqualization(RotationEqualization):
                     second_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
-                    delay_rewriters=self.delay_rewriters,
                     expansion_step=second_exp_step))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
