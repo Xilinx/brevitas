@@ -15,7 +15,6 @@ from torchvision import models
 
 from brevitas import torch_version
 from brevitas.fx import symbolic_trace
-from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.equalize import _apply_had_device
 from brevitas.graph.equalize import _apply_ort_device
 from brevitas.graph.equalize import _batch_norm
@@ -26,6 +25,7 @@ from brevitas.graph.equalize import _get_output_axis
 from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -499,21 +499,20 @@ def test_compute_rotations(
                 regions_unfused,
                 full_rotation_method=full_rotation_method,
                 fuse_rotations=False)
-    # Register parametrizations after calling _compute_rotations, as these are not inmediately registered since they alter the structure of the
-    # model, thus potentially causing a crash if the model is offloaded
-    for r in rewriters:
-        if isinstance(r, ModuleInstanceRegisterParametrization):
-            rotated_model_unfused = r.apply(rotated_model_unfused)
+
+    apply_rewriters(rotated_model_unfused, rewriters)
+
     # Apply rotations on the model with fused rotations
     with patch('brevitas.graph.equalize.random_orthogonal_matrix',
                partial(_random_orthogonal_matrix, generator=generator_clone)):
         regions_fused = list(
             map(lambda x: _instantiate_region(x, rotated_model_fused), regions_dicts))
-        _compute_rotations(
+        r = _compute_rotations(
             rotated_model_fused,
             regions_fused,
             full_rotation_method=full_rotation_method,
             fuse_rotations=True)
+        apply_rewriters(rotated_model_fused, r)
 
     # Compute outputs for each model
     model_output = model(sample_inputs)
