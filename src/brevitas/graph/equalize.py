@@ -1588,10 +1588,6 @@ def _apply_rotate(
                         "expand_input": region.expand_region})
                 rewriters.append(rewriter)
 
-    if not delay_rewriters:
-        for r in rewriters:
-            model = r.apply(model)
-
     return rewriters
 
 
@@ -1959,10 +1955,42 @@ class GraphRotationEqualization(RotationEqualization):
                 logging.debug(
                     f"Added {parameter_number_post - parameter_number_pre} parameters to the model")
 
+        graph_model = apply_rewriters(graph_model, rewriters, self.delay_writers)
+
         if self.return_rewriters:
             return graph_model, rewriters
         else:
             return graph_model
+
+
+@torch.no_grad()
+def apply_rewriters(model: torch.nn.Module, rewriters: List, delay_rewriters: bool = False):
+    from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+    from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+
+    if delay_rewriters:
+        return model
+    if not hasattr(model, '_hf_map'):
+        for r in inplace_rewriters:
+            model = r.apply(model)
+        return model
+
+    if len(model._hf_map.values()) > 1:
+        # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
+        inplace_rewriters = [
+            r for r in rewriters if not isinstance(r, ModuleInstanceRegisterParametrization)]
+        parametrization_rewriters = [r for r in rewriters if r not in inplace_rewriters]
+    else:
+        inplace_rewriters = rewriters
+
+    for r in inplace_rewriters:
+        model = r.apply(model)
+    model = remove_hooks(model)
+    with torch.no_grad():
+        for r in parametrization_rewriters:
+            model = r.apply(model)
+    model = offload_model(model)
+    return model
 
 
 class LayerNormToRMS(GraphTransform):
