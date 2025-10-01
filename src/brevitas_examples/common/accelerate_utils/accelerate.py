@@ -29,6 +29,10 @@ from brevitas.utils.python_utils import recurse_getattr
 logger = logging.getLogger(__name__)
 
 
+def is_main_process():
+    return int(os.environ.get('LOCAL_RANK', -1)) in [-1, 0]
+
+
 def align_input(model, device_map):
     if set(device_map.values()) == {"cpu"} or set(device_map.values()) == {"cpu", "disk"}:
         main_device = "cpu"
@@ -315,7 +319,11 @@ def offload_call_function(model: torch.fx.GraphModule, device_map: Dict):
     model.graph.lint()
 
 
-def remove_hooks(model: torch.nn.Module):
+def remove_hooks(model: torch.nn.Module) -> torch.nn.Module:
+
+    if not is_main_process():
+        return model
+
     for module in model.modules():
         if hasattr(module, "_hf_hook"):
             if hasattr(module, "allocate_params"):
@@ -395,6 +403,8 @@ def offload_model(
 
     This functions if compatible both with classic nn.Modules, and with torch.fx.GraphModule.
     """
+    if not is_main_process():
+        return model
 
     # FX vs non-FX model need different offloading
     config._FULL_STATE_DICT = True

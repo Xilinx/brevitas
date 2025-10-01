@@ -17,6 +17,7 @@ from transformers import AutoTokenizer
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
+from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.base import ModuleInstanceTransformTensor
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -109,24 +110,38 @@ def fused_rotation_no_fx(model, calibration_loader, args):
 
     for r in rewriters:
         r.apply(model)
+
     new_model = offload_model(new_model)
+    # If we optimize rotations, it is safer to apply rewriters later, in case the model is split
+    # across multiple gpus
+    # TODO: we can replace this with a check on _hf_map maybe
+    delay_rewriters = args.optimize_rotations
+
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
         return_rewriters=True,
         sdpa_regions=args.rotation_sdpa_regions,
         use_parametrized_rotations=args.optimize_rotations,
+        delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand)
     new_model, rewriters = eq.apply(new_model)
-    rewriters = fix_rewriter(rewriters, model, 'weight')
-    with torch.no_grad():
-        for r in rewriters:
-            # The weights between model and new_model are tied, so this check prevents
-            # rotating the weights twice
-            if not isinstance(r, ModuleInstanceTransformTensor):
-                model = r.apply(model)
     remove_hooks(new_model)
+
+    # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
+    rewriters = fix_rewriter(rewriters, model, 'weight')
+    safe_rewriters = [
+        r for r in rewriters if not isinstance(r, ModuleInstanceRegisterParametrization)]
+    unsafe_rewriters = [r for r in rewriters if r not in safe_rewriters]
+    model = offload_model(model)
+    with torch.no_grad():
+        for r in safe_rewriters:
+            model = r.apply(model)
+    model = remove_hooks(model)
+    with torch.no_grad():
+        for r in unsafe_rewriters:
+            model = r.apply(model)
 
 
 def set_seed(seed):
