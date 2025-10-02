@@ -137,6 +137,8 @@ def extract_trainable_rotation_matrices(model: nn.Module) -> List[nn.Parameter]:
     ids_rot = set()
     for module in model.modules():
         if isinstance(module, RotationWeightParametrization):
+            if module.rot_mat is None or not isinstance(module.rot_mat, torch.nn.Parameter):
+                continue
             if id(module.rot_mat) not in ids_rot:
                 ids_rot.add(id(module.rot_mat))
                 trainable_rotations.append(module.rot_mat)
