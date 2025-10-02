@@ -771,47 +771,29 @@ class SinkWrapper(ModuleWrapper):
         self.module.weight.data = self.module.weight.data[permutation_list]
 
 
-def new_axis(x, block_size=32):
+def new_axis(x, block_size):
     # x is the activation going in to the rotation
     # shape of x is (batch_size * tokens, vec_size)
     # vec_size is also interpreted as channels
 
     # normalize all vectors to have the same l1 norm to remove outlier tokens
-    x_ = x / torch.sum(torch.abs(x), axis=-1, keepdims=True)
+    x_ = x / torch.sum(torch.abs(x), dim=-1, keepdim=True)
 
     # sort the maximum abs values in each channel in descending order and get the indices
-    idx = torch.flip(torch.argsort(torch.max(torch.abs(x_), axis=0, keepdims=True).values), [1])
+    _, idx = torch.sort(torch.max(torch.abs(x_), dim=0).values, descending=True)
 
     # reshape into chunks: the first chunk has indices for the highest magnitude
-    idx = idx.reshape(block_size, idx.shape[-1] // block_size)
-    # flip the odd chunks
-    idx[1::2] = torch.fliplr(idx[1::2])
+    idx = idx.view(block_size, idx.shape[-1] // block_size)
+
+    # flip the odd chunks (dim=1 is equivalent to np.fliplr)
+    idx[1::2] = torch.flip(idx[1::2], dims=[1])
+
     # transpose to distribute the chunks into blocks
-    idx = torch.transpose(idx, 0, 1)
+    idx = idx.t()
+
+    # flatten
     idx = idx.flatten()
-    return idx
 
-
-def new_axis(x, block_size=8) -> None:
-    import numpy as np
-    x = x.numpy()
-    # x is the activation going in to the rotation
-    # shape of x is (batch_size * tokens, vec_size)
-    # vec_size is also interpreted as channels
-
-    # normalize all vectors to have the same l1 norm to remove outlier tokens
-    x_ = x / np.sum(np.abs(x), axis=-1, keepdims=True)
-
-    # sort the maximum abs values in each channel in descending order and get the indices
-    idx = np.argsort(np.max(np.abs(x_), axis=0))[..., ::-1]
-
-    # reshape into chunks: the first chunk has indices for the highest magnitude
-    idx = idx.reshape(block_size, idx.shape[-1] // block_size)
-    # flip the odd chunks
-    idx[1::2] = np.fliplr(idx[1::2])
-    # transpose to distribute the chunks into blocks
-    idx = np.transpose(idx)
-    idx = idx.flatten()
     return idx
 
 
