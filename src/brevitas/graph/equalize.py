@@ -1963,8 +1963,12 @@ class GraphRotationEqualization(RotationEqualization):
 @torch.no_grad()
 def apply_rewriters(
         model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
-    from brevitas_examples.common.accelerate_utils.accelerate import offload_model
-    from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+    try:
+        from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+        from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+    except:
+        offload_model = None
+        remove_hooks = None
 
     if delay_rewriters:
         return model
@@ -1974,6 +1978,8 @@ def apply_rewriters(
             model = r.apply(model)
         return model
 
+    if offload_model is None or remove_hooks is None:
+        raise RuntimeError("Accelerate is not installed")
     # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
     if len(model._hf_map.values()) > 1:
         inplace_rewriters = [
