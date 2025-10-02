@@ -398,7 +398,7 @@ class rotate_permute_mode:
 
     def __init__(self, model, **kwargs):
         self.rotation = GraphRotationEqualization(
-            **kwargs, use_parametrized_rotations=True, apply_inplace_rotations=False)
+            **kwargs, use_parametrized_rotations=True, delay_rewriters=True)
         self.model = model
         self.rewriters = None
 
@@ -771,7 +771,7 @@ class SinkWrapper(ModuleWrapper):
         self.module.weight.data = self.module.weight.data[permutation_list]
 
 
-def new_axis(x, block_size):
+def new_axis(x, block_size=32):
     # x is the activation going in to the rotation
     # shape of x is (batch_size * tokens, vec_size)
     # vec_size is also interpreted as channels
@@ -2038,7 +2038,7 @@ class GraphRotationEqualization(RotationEqualization):
         self.return_rewriters = return_rewriters
         self.sdpa_regions = sdpa_regions
         self.expansion_step = expansion_step
-        
+
         self.delay_rewriters = delay_rewriters
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
