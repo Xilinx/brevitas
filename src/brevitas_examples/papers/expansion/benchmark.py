@@ -10,7 +10,7 @@ class ExpansionBenchmark(LLMBenchmarkUtils):
     def validate(args, extra_args=None):
         super(LLMBenchmarkUtils, ExpansionBenchmark).validate(args, extra_args)
         if len(args.rotation_layers_to_expand) == 0:
-            assert args.expansion_step == 1
+            assert args.expansion_step == 7
 
 
 if __name__ == "__main__":
