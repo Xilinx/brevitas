@@ -115,6 +115,7 @@ rotation_layers_to_expand:
 - - 'down_proj'
   - 'o_proj'
 expansion_step:
+- 0
 - 7
 scale_rounding_func_type:
 - null
