@@ -55,19 +55,18 @@ def run_lighteval(
     Returns:
         results (dict): Evaluation results containing metrics and scores for all tasks.
     """
-    from lighteval.logging.evaluation_tracker import EvaluationTracker
-    from lighteval.models.transformers.transformers_model import TransformersModelConfig
-    from lighteval.pipeline import ParallelismManager
-    from lighteval.pipeline import Pipeline
-    from lighteval.pipeline import PipelineParameters
-
     # TODO (pml): Deprecate after upgrading to transformers>=4.54.0 in Brevitas,
     # as this version is required for lighteval>=4.54.0, which features the override
     # of _init_model.
     from typing import override
 
+    from lighteval.logging.evaluation_tracker import EvaluationTracker
     from lighteval.models.abstract_model import LightevalModel
     from lighteval.models.model_loader import TransformersModel
+    from lighteval.models.transformers.transformers_model import TransformersModelConfig
+    from lighteval.pipeline import ParallelismManager
+    from lighteval.pipeline import Pipeline
+    from lighteval.pipeline import PipelineParameters
 
     class BrevitasPipeline(Pipeline):
 
