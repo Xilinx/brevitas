@@ -1959,24 +1959,32 @@ class GraphRotationEqualization(RotationEqualization):
         else:
             return graph_model
 
+    def apply_rewriters(self, model, rewriters, delay_rewriters):
+        # In some circumstances, it might be useful to apply model transformations at a later moment
+        # The user should not be resposible for this in any case
+        if delay_rewriters:
+            return model
+        # If the model has `_hf_map`, it means accelerate was used, and we need to be careful when
+        # applying model transformations
+        if hasattr(model, '_hf_map'):
+            apply_rewriters_accelerate(model, rewriters)
+        else:
+            apply_rewriters(model, rewriters)
+
 
 @torch.no_grad()
 def apply_rewriters(
         model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
-    try:
-        from brevitas_examples.common.accelerate_utils.accelerate import offload_model
-        from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-    except:
-        offload_model = None
-        remove_hooks = None
+    for r in rewriters:
+        model = r.apply(model)
+    return model
 
-    if delay_rewriters:
-        return model
 
-    if not hasattr(model, '_hf_map'):
-        for r in rewriters:
-            model = r.apply(model)
-        return model
+@torch.no_grad()
+def apply_rewriters_accelerate(
+        model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
+    from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+    from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 
     if offload_model is None or remove_hooks is None:
         raise RuntimeError("Accelerate is not installed")
