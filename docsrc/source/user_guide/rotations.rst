@@ -139,11 +139,11 @@ non-FX model.
 
 The advantage of this approach is that we do not lose the hierarchical structure of the original model,
 which is a side effect of `torch.dynamo._export`.
-Mantaining this hierarchical structure allows to optimize the execution of certain PTQ algorithms like
+Maintaining this hierarchical structure allows us to optimize the execution of certain PTQ algorithms like
 GPTQ or Qronos, by optimizing one block at a time and caching intermediate representations.
 
 
-Moreover, similarly to [5]_, Brevitas can leverage the Cailey-SGD optimizer to further optimize the rotations..
+Moreover, similarly to [5]_, Brevitas can leverage the Cailey-SGD optimizer to further optimize the rotations.
 The rotation training procedure relies on the
 `HF Trainer <https://huggingface.co/docs/transformers/en/main_classes/trainer>`_ class, and, therefore,
 can be configured by passing arguments accepted by the dataclass
