@@ -6,6 +6,6 @@ onnx
 onnxruntime<1.21
 optimum[onnxruntime]
 pandas
-torch>=2.3
+torch>=2.4
 tqdm
 transformers[sentencepiece]==4.50.0

@@ -46,11 +46,6 @@ from tests.marker import requires_pt_ge
 ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
 
-MODEL_PT_VERSION_REQUIREMENTS = {
-    "hf-internal-testing/tiny-random-LlamaForCausalLM": "2.0",
-    "hf-internal-testing/tiny-random-MistralForCausalLM": "2.0",
-    "hf-internal-testing/tiny-random-OPTForCausalLM": "2.4",}
-
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     assert dataset_name == "c4", f"Expected dataset_name to be c4 but got {dataset_name} instead"
@@ -72,9 +67,6 @@ def validate_args(parser: ArgumentParser, args: Namespace) -> None:
     a, da = parse_args_and_defaults(args, parser)
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
-    req_pt = MODEL_PT_VERSION_REQUIREMENTS[args.model]
-    if torch_version < version.parse(req_pt):
-        pytest.skip(f"{args.model} requires PyTorch version {req_pt}")
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")

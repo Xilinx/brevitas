@@ -4,12 +4,10 @@
 import pytest_cases
 
 from tests.brevitas_examples.common import process_args_and_metrics
-from tests.marker import requires_pt_ge
 
 
 class LLMRunCases:
 
-    @requires_pt_ge('2.3')
     @pytest_cases.parametrize(
         "run_dict",
         [
@@ -161,7 +159,6 @@ class LLMPerplexityCases:
     def case_small_models_learned_round_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
 
-    @requires_pt_ge('2.4')
     @pytest_cases.parametrize(
         "run_dict",
         [
@@ -526,7 +523,6 @@ class LLMQuantLayerCountCases:
 
 class LLMRotationOptimizationCases:
 
-    @requires_pt_ge('2.4')
     @pytest_cases.parametrize(
         "run_dict",
             [
