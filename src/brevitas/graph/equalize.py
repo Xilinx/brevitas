@@ -1952,14 +1952,14 @@ class GraphRotationEqualization(RotationEqualization):
                 logging.debug(
                     f"Added {parameter_number_post - parameter_number_pre} parameters to the model")
 
-        graph_model = self.apply_rewriters(graph_model, rewriters, self.delay_rewriters)
+        graph_model = self.transform_model(graph_model, rewriters, self.delay_rewriters)
 
         if self.return_rewriters:
             return graph_model, rewriters
         else:
             return graph_model
 
-    def apply_rewriters(self, model, rewriters, delay_rewriters):
+    def transform_model(self, model, rewriters, delay_rewriters):
         # In some circumstances, it might be useful to apply model transformations at a later moment
         # The user should not be resposible for this in any case
         if delay_rewriters:
@@ -1967,9 +1967,9 @@ class GraphRotationEqualization(RotationEqualization):
         # If the model has `_hf_map`, it means accelerate was used, and we need to be careful when
         # applying model transformations
         if hasattr(model, '_hf_map'):
-            apply_rewriters_accelerate(model, rewriters)
+            return apply_rewriters_accelerate(model, rewriters)
         else:
-            apply_rewriters(model, rewriters)
+            return apply_rewriters(model, rewriters)
 
 
 @torch.no_grad()
