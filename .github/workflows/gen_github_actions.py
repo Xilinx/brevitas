@@ -29,7 +29,7 @@ NOTEBOOK_YML = 'notebook.yml'
 ENDTOEND_YML = 'end_to_end.yml'
 
 # Reduced Test for PRs, except when a review is requested
-PYTHON_VERSIONS_REDUCED = ('3.9',)
+PYTHON_VERSIONS_REDUCED = ('3.10',)
 
 PYTORCH_LIST_REDUCED = ["1.13.1", "2.4.1", "2.7.1"]
 
@@ -59,7 +59,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
     'jit_disabled',])])
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-PYTHON_VERSIONS = ('3.9', '3.10')
+PYTHON_VERSIONS = ('3.10', '3.11')
 
 PYTORCH_VERSIONS = (
     '1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
