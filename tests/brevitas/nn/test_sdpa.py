@@ -11,7 +11,6 @@ from brevitas.nn import QuantScaledDotProductAttention
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
-from tests.marker import requires_pt_ge
 
 ATOL = 1e-6
 EMBED_DIM = 9
@@ -24,7 +23,6 @@ DROPOUT_SEED = 42
 
 class TestScaledDotProductAttention:
 
-    @requires_pt_ge('2.0')
     # Check what kwargs are properly filtered and override defaults
     def test_sdpa_init(self):
         extra_kwargs = {
@@ -69,7 +67,6 @@ class TestScaledDotProductAttention:
                 checked = True
             assert checked, f"Unmatched kwarg: {k}"
 
-    @requires_pt_ge('2.0')
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])
@@ -106,7 +103,6 @@ class TestScaledDotProductAttention:
         assert torch.isclose(out, ref_out, atol=ATOL).all()
         assert torch.isclose(out, ref_out, atol=ATOL).all()
 
-    @requires_pt_ge('2.0')
     @pytest.mark.parametrize("dropout_p", [0.0, 0.5])
     @pytest.mark.parametrize("is_causal", [True, False])
     @pytest.mark.parametrize("scale", [None, 0.3])

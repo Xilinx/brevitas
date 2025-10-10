@@ -52,7 +52,6 @@ from torch.optim.lr_scheduler import LinearLR
 
 from brevitas import torch_version
 from tests.conftest import SEED
-from tests.marker import requires_pt_ge
 
 torch.manual_seed(SEED)
 
@@ -79,7 +78,6 @@ class TestOptimSignSGD:
 
     @device_dtype_parametrize
     @pytest_cases.parametrize("lr", [0.1])
-    @requires_pt_ge('2.1')  # TODO: revisit this
     def test_sign_sgd_single_update(self, device, dtype, lr):
         from brevitas.optim.sign_sgd import SignSGD
 
@@ -102,7 +100,6 @@ class TestOptimSignSGD:
     @device_dtype_parametrize
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
-    @requires_pt_ge('2.1')
     def test_forloop_goes_right_direction(self, device, dtype, optimizer_kwargs, lr_scheduler_args):
         from brevitas.optim.sign_sgd import SignSGD
 
@@ -145,7 +142,6 @@ class TestOptimSignSGD:
     @pytest_cases.parametrize("optimizer_kwargs", OPTIMIZER_KWARGS)
     @pytest_cases.parametrize("lr_scheduler_args", LR_SCHEDULER_ARGS)
     @pytest_cases.parametrize("dtype", [torch.float16, torch.float32])
-    @requires_pt_ge('2.1')
     def test_forloop_goes_right_direction_multigpu(
             self, dtype, optimizer_kwargs, lr_scheduler_args):
         from brevitas.optim.sign_sgd import SignSGD

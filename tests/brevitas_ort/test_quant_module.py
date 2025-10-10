@@ -11,7 +11,6 @@ from pytest_cases import parametrize_with_cases
 import torch
 
 from brevitas import torch_version
-from tests.marker import requires_pt_ge
 
 from .common import *
 from .quant_module_cases import QuantAvgPoolCases
@@ -21,7 +20,6 @@ from .quant_module_cases import QuantWBIOLCases
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qonnx'])
-@requires_pt_ge('1.10')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
@@ -75,7 +73,6 @@ def test_ort_wbiol(model, export_type, current_cases):
 
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
-@requires_pt_ge('1.10')
 def test_ort_avgpool(model, current_cases):
     in_size = (1, IN_CH, FEATURES, FEATURES)
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
@@ -88,7 +85,6 @@ def test_ort_avgpool(model, current_cases):
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qonnx_opset14'])
-@requires_pt_ge('1.10')
 def test_ort_lstm(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)

@@ -20,7 +20,6 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
-from tests.marker import requires_pt_ge
 
 TORCH_COMPILE_ATOL = 0.35
 BATCH = 1
@@ -127,7 +126,6 @@ def torchvision_model_compile(model_name, quantize_fn):
     return shared_quant_fn(model_name, quantize_fn)
 
 
-@requires_pt_ge('2.2')
 def test_torchvision_compile(torchvision_model_compile):
     torch._dynamo.config.capture_scalar_outputs = True
     if torchvision_model_compile is None:
