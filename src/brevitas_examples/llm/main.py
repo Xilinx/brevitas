@@ -194,6 +194,14 @@ def fx_required(args):
     return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
 
 
+# Recursive function unwrap equalized layers
+def find_equalized_layer(layer):
+    if hasattr(layer, 'layer'):
+        return find_equalized_layer(layer.layer)
+    else:
+        return layer
+
+
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
     set_seed(args.seed)
@@ -430,7 +438,7 @@ def quantize_llm(args, extra_args=None):
                 last_node = [node for node in model.graph.nodes if node.op == 'call_module'][-1]
                 last_module = get_module(model, last_node.target)
                 # In case we have layerwise rotation/equalization, we need to pick the wrapped module
-                last_module = last_module.layer if hasattr(last_module, 'layer') else last_module
+                last_module = find_equalized_layer(last_module)
                 last_layer_kwargs = layer_map[type(last_module)][1]
                 prev_weight_quant = deepcopy(last_layer_kwargs['weight_quant'])
                 prev_input_quant = deepcopy(last_layer_kwargs['input_quant'])
