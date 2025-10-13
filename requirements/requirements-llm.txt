@@ -2,6 +2,7 @@ accelerate
 datasets
 gguf==0.17.0
 lm_eval
+numexpr<2.14.0
 onnx
 onnxruntime<1.21
 optimum[onnxruntime]
