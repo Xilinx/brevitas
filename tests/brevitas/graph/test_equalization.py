@@ -237,6 +237,7 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, devi
 @pytest_cases.parametrize("layerwise", [True, False])
 @pytest_cases.parametrize("fuse_scaling", [True, False])
 def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, fuse_scaling: bool):
+    model, coverage = model_dict
 
     try:
         model = getattr(models, model)(pretrained=True, transform_input=False)
