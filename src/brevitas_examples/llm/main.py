@@ -198,8 +198,7 @@ def fx_required(args):
 def find_equalized_layer(layer):
     if hasattr(layer, 'layer'):
         return find_equalized_layer(layer.layer)
-    else:
-        return layer
+    return layer
 
 
 def quantize_llm(args, extra_args=None):
