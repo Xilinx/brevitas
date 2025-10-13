@@ -237,17 +237,6 @@ def test_act_equalization_models(toy_model, layerwise, fuse_scaling, dtype, devi
 @pytest_cases.parametrize("layerwise", [True, False])
 @pytest_cases.parametrize("fuse_scaling", [True, False])
 def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool, fuse_scaling: bool):
-    if not fuse_scaling and parse('1.9.0') > torch_version:
-        pytest.skip("Parametrizations were not available in PyTorch versions below 1.9.0")
-    model, coverage = model_dict
-
-    if model == 'googlenet' and torch_version == version.parse('1.8.1'):
-        pytest.skip(
-            'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
-        )
-    if 'vit' in model and torch_version < version.parse('1.13'):
-        pytest.skip(
-            f'ViT supported from torch version 1.13, current torch version is {torch_version}')
 
     try:
         model = getattr(models, model)(pretrained=True, transform_input=False)

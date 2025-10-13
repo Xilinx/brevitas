@@ -651,8 +651,7 @@ def case_mha(
         request,
         io_quantizer):
     extra_kwargs = {}
-    if torch_version >= version.parse('1.9.1'):
-        extra_kwargs['batch_first'] = batch_first
+    extra_kwargs['batch_first'] = batch_first
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_mha)

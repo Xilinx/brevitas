@@ -96,9 +96,6 @@ def test_quant_tensor_init():
 @pytest.mark.parametrize('quant_fn', [to_quant_tensor, to_float_quant_tensor])
 def test_quant_tensor_operators(op, quant_fn):
 
-    if quant_fn == to_float_quant_tensor and torch_version < version.parse('1.13'):
-        pytest.skip("Torch 1.13 is required for JIT to be compatible with FloatQuantTensor")
-
     # Avoid 0 values
     x = 1 + torch.rand(4, 4)
 

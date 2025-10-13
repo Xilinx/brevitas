@@ -18,9 +18,6 @@ from ...export_fixture import rm_onnx
 
 @jit_disabled_for_export()
 def test_simple_fp8_export():
-    if torch_version < version.parse('2.1.0'):
-        pytest.skip(f"OCP FP8 types not supported by {torch_version}")
-
     model = qnn.QuantLinear(3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat)
     outfile = f'weight_fp8.onnx'
     export_onnx_qcdq(model, torch.randn(1, 3), outfile, export_weight_q_node=True)
@@ -30,9 +27,6 @@ def test_simple_fp8_export():
 
 @jit_disabled_for_export()
 def test_qonnx_simple_fp8_export(request, qonnx_export_fn):
-    if torch_version < version.parse('2.1.0'):
-        pytest.skip(f"OCP FP8 types not supported by {torch_version}")
-
     model = qnn.QuantLinear(
         3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = f'qonnx_act_weight_fp8_{request.node.callspec.id}.onnx'
@@ -43,9 +37,6 @@ def test_qonnx_simple_fp8_export(request, qonnx_export_fn):
 
 @jit_disabled_for_export()
 def test_fp8_export_activation():
-    if torch_version < version.parse('2.1.0'):
-        pytest.skip(f"OCP FP8 types not supported by {torch_version}")
-
     model = qnn.QuantLinear(3, 16, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = f'act_fp8.onnx'
     export_onnx_qcdq(model, torch.randn(1, 3), outfile, export_weight_q_node=True)
@@ -55,9 +46,6 @@ def test_fp8_export_activation():
 
 @jit_disabled_for_export()
 def test_fp8_export_export_activation():
-    if torch_version < version.parse('2.1.0'):
-        pytest.skip(f"OCP FP8 types not supported by {torch_version}")
-
     model = qnn.QuantLinear(
         3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = 'weight_act_fp8.onnx'
