@@ -155,7 +155,7 @@ class GeneralizedTrainer(Trainer):
             # Compute the distillation loss
             distill_loss = GeneralizedTrainer.generalized_jsd_loss(
                 student_logits=outputs.logits,
-                teacher_logits=fp_ouputs.logits,
+                teacher_logits=fp_outputs.logits,
                 beta=self.beta,
                 temperature=self.temperature,
             )
