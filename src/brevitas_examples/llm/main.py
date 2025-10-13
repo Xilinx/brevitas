@@ -194,7 +194,7 @@ def fx_required(args):
     return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
 
 
-# Recursive function unwrap equalized layers
+# Recursive function to unwrap equalized layers
 def find_equalized_layer(layer):
     if hasattr(layer, 'layer'):
         return find_equalized_layer(layer.layer)
