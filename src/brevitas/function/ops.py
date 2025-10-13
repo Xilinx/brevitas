@@ -202,6 +202,8 @@ def min_int(
 
 
 def compute_max_mantissa(mantissa_bit_width: Tensor) -> Tensor:
+    # `.data` is needed for avoind errors during gradient computation.
+    # TODO: Check if/how `.data` affects gradient propagation and accuracy
     return torch.sum((2. ** torch.arange(0, -1. * mantissa_bit_width.data - 1., -1.)))
 
 
