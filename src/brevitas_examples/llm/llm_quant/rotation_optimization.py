@@ -44,6 +44,22 @@ class TrainingArguments(transformers.TrainingArguments):
 
 
 class GeneralizedTrainer(Trainer):
+    # Adapted from https://github.com/huggingface/trl
+    # Under the following LICENSE:
+
+    # Copyright 2024 The HuggingFace Team. All rights reserved.
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # you may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at
+    #
+    #     http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
 
     def __init__(self, args: TrainingArguments = None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
@@ -126,11 +142,11 @@ class GeneralizedTrainer(Trainer):
         Subclass and override for custom behavior.
         """
         # If distillation loss is used, we need to retrieve the original model's outputs
-        return_outputs = return_outputs if not self.use_distillation_loss else True
+        distillation_return_outputs = return_outputs if not self.use_distillation_loss else True
 
-        loss = super().compute_loss(model, inputs, return_outputs, num_items_in_batch)
+        loss = super().compute_loss(model, inputs, distillation_return_outputs, num_items_in_batch)
 
-        if return_outputs:
+        if distillation_return_outputs:
             loss, outputs = loss
 
         if self.use_distillation_loss:
@@ -143,12 +159,11 @@ class GeneralizedTrainer(Trainer):
                 beta=self.beta,
                 temperature=self.temperature,
             )
+            if (self.args.average_tokens_across_devices and
+                (self.model_accepts_loss_kwargs or self.compute_loss_func) and
+                    num_items_in_batch is not None):
+                distill_loss = distill_loss * self.accelerator.num_processes
             loss = self.gamma * loss + (1. - self.gamma) * distill_loss
-
-        if (self.args.average_tokens_across_devices and
-            (self.model_accepts_loss_kwargs or self.compute_loss_func) and
-                num_items_in_batch is not None):
-            loss *= self.accelerator.num_processes
 
         return (loss, outputs) if return_outputs else loss
 
