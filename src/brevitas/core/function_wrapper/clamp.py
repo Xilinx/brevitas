@@ -151,7 +151,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
         min_value = torch.tensor(0.) if not self.signed else -max_value
 
         # Compute masks
-        if not self.saturating():
+        if not self.saturating:
             inf_mask = x.isinf()
             p_max_val_mask = x > max_value
             n_max_val_mask = x < min_value
