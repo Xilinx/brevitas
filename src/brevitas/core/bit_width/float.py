@@ -14,7 +14,7 @@ class StaticMaxMantissa(torch.nn.Module):
     Module that returns a pre-computed maximum mantissa value.
 
     Args:
-        pre_computed_max_mantissa (torch.Tensor): Pre-computed maximum mantissa tensor.
+        compute_max_mantissa (torch.Tensor): Pre-computed maximum mantissa tensor.
 
     Examples:
         >>> max_mantissa = torch.tensor(7.0)
@@ -29,15 +29,15 @@ class StaticMaxMantissa(torch.nn.Module):
 
     def __init__(
             self,
-            pre_computed_max_mantissa: torch.Tensor,
+            compute_max_mantissa: torch.Tensor,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None):
         super().__init__()
-        self.pre_computed_max_mantissa = StatelessBuffer(
-            torch.tensor(pre_computed_max_mantissa, device=device, dtype=dtype))
+        self.compute_max_mantissa = StatelessBuffer(
+            torch.tensor(compute_max_mantissa, device=device, dtype=dtype))
 
     def forward(self, x):
-        return self.pre_computed_max_mantissa()
+        return self.compute_max_mantissa()
 
 
 class ComputeMaxMantissa(torch.nn.Module):

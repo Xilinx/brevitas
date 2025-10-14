@@ -30,7 +30,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             exponent_bias_impl: nn.Module,
             float_clamp_impl: nn.Module,
             input_view_impl: nn.Module,
-            pre_computed_max_mantissa: nn.Module,
+            compute_max_mantissa: nn.Module,
             scaling_impl: Optional[nn.Module] = None,
             float_scaling_impl: Optional[nn.Module] = None,
             float_to_int_impl: nn.Module = RoundSte(),
@@ -62,7 +62,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.eps = torch.finfo(dtype).tiny
         self.observer_only = brevitas.jit.Attribute(False, bool)
 
-        self.pre_computed_max_mantissa = pre_computed_max_mantissa
+        self.compute_max_mantissa = compute_max_mantissa
 
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -84,7 +84,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
                 self.exponent_bit_width_impl(),
-                self.pre_computed_max_mantissa(self.mantissa_bit_width_impl()),
+                self.compute_max_mantissa(self.mantissa_bit_width_impl()),
                 self.exponent_bias_impl())
         else:
             float_scaling_impl_value = None
@@ -96,7 +96,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             y, scale = self.quantize(x, scale)
             # after quantizing, clamp to special cases like NaN/inf if they are set
             y, saturating, inf_values, nan_values = self.float_clamp_impl(
-                y, self.exponent_bit_width_impl(), self.pre_computed_max_mantissa(self.mantissa_bit_width_impl()), self.exponent_bias_impl())
+                y, self.exponent_bit_width_impl(), self.compute_max_mantissa(self.mantissa_bit_width_impl()), self.exponent_bias_impl())
             y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.exponent_bit_width_impl(), self.mantissa_bit_width_impl(), self.exponent_bias_impl(), saturating, inf_values, nan_values
