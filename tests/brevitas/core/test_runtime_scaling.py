@@ -9,6 +9,7 @@ from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.scaling.runtime import RuntimeStatsScaling
 from brevitas.core.scaling.runtime import StatsFromParameterScaling
 from brevitas.core.stats.stats_op import AbsMax
+from brevitas.core.stats.stats_op import SignedAbsMax
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 
 SCALING_MIN_VAL = 1e-6
@@ -54,3 +55,15 @@ def test_scaling_min_val_dynamic_group():
     pre_scale = scaling_op(inp)
     pre_scale.sum().backward()
     assert not torch.isnan(inp.grad).any()
+
+
+def test_signed_scale_stats():
+    scaling_op = RuntimeStatsScaling(
+        scaling_stats_impl=SignedAbsMax(),
+        scaling_stats_input_view_shape_impl=Identity(),
+        scaling_shape=SCALAR_SHAPE,
+        is_scale_unsigned=False,
+        scaling_min_val=SCALING_MIN_VAL)
+    inp = torch.tensor([-0.5, 0.0, 1.0])
+    pre_scale = scaling_op(inp)
+    assert pre_scale.item() == -1.

@@ -8,6 +8,7 @@ import torch
 from brevitas.core.stats import AbsPercentile
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.stats import PercentileInterval
+from brevitas.core.stats import SignedAbsMax
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
 
@@ -29,6 +30,24 @@ def test_abs_percentile_per_channel():
     abs_percentile = AbsPercentile(v, stats_reduce_dim=1)
     out = abs_percentile(tensor)
     assert out.isclose(torch.Tensor([9, 9])).all().item()
+
+
+class TestSignedAbsMax:
+
+    def test_signed_abs_percentile_per_tensor(self):
+        values = [-0.5, 0., 1.]
+        tensor = torch.tensor(values)
+        signed_abs_max = SignedAbsMax()
+        out = signed_abs_max(tensor)
+        assert out.item() == -1.
+
+    def test_signed_abs_percentile_per_channel(self):
+        values = [-0.5, 0., 1.]
+        tensor = torch.Tensor(values)
+        tensor = tensor.repeat(2, 1)
+        signed_abs_max = SignedAbsMax(stats_reduce_dim=1)
+        out = signed_abs_max(tensor)
+        assert out.isclose(torch.Tensor([-1., -1.])).all().item()
 
 
 class TestPercentile:

@@ -27,16 +27,16 @@ DEFAULT_STD_DEV_EPSILON = 1e-8
 
 class UnsignedScaleStat():
 
-    @classmethod
-    def is_scale_unsigned(cls):
-        True
+    @property
+    def is_scale_unsigned(self):
+        return True
 
 
-class SignedScaleStats():
+class SignedScaleStat():
 
-    @classmethod
-    def is_scale_unsigned(cls):
-        False
+    @property
+    def is_scale_unsigned(self):
+        return False
 
 
 class NegativeMinOrZero(brevitas.jit.ScriptModule):
@@ -188,6 +188,26 @@ class AbsMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
             return torch.max(torch.abs(x))
         else:
             return torch.max(torch.abs(x), dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+
+
+class SignedAbsMax(brevitas.jit.ScriptModule, SignedScaleStat):
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int] = None, keepdim: bool = False) -> None:
+        super(SignedAbsMax, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+        self.keepdim = keepdim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        if self.stats_reduce_dim is None:
+            x_abs = torch.abs(x)
+            indices = torch.argmax(x_abs)
+            return -torch.sign(x.view(-1)[indices]) * x_abs.view(-1)[indices]
+        else:
+            values, indices = torch.max(torch.abs(x), dim=self.stats_reduce_dim, keepdim=True)
+            scale = -torch.sign(torch.gather(x, dim=self.stats_reduce_dim, index=indices)) * values
+            return scale if self.keepdim else scale.squeeze(dim=self.stats_reduce_dim)
 
 
 class AbsMinMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
