@@ -139,7 +139,6 @@ def test_float_to_quant_float(inp, minifloat_format):
             signed=signed,
             float_clamp_impl=float_clamp)
         max_mantissa = compute_max_mantissa(torch.tensor(mantissa_bit_width, dtype=torch.float))
-        mm = cc(torch.tensor(mantissa_bit_width, dtype=torch.float))
         expected_out, *_ = float_quant(inp)
         scale = float_quant.scaling_impl(inp)
         out_quant, scale = float_quant.quantize(inp, scale)
