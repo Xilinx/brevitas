@@ -50,9 +50,12 @@ def filter_results(results, tasks):
     return eval_results
 
 
-# TODO (pml): Deprecate after upgrading to transformers>=4.54.0 in Brevitas,
-# as this version is required for lighteval>=4.54.0, which features the override
-# of _init_model.
+# TODO (pml): The implementation of `_init_model` in `BrevitasPipeline` mimics that
+# of `Pipeline` in `lighteval>=0.11.0`. However, `lighteval>=0.11.0` requires
+# `transformers>=4.54.0`, which clashes with the pin `transformers[sentencepiece]==4.50.0`
+# in `requirements-llm.txt`. Therefore, `BrevitasPipeline` can only be removed once the
+# `transformers` requirement is upgraded to `transformers>=4.54.0`. The following
+# provides extra context on the changes to _init_model: https://github.com/huggingface/lighteval/pull/921.
 class BrevitasPipeline(Pipeline):
 
     def __init__(self, *args, **kwargs) -> None:
