@@ -31,7 +31,7 @@ class BitwidthWrapper(torch.nn.Module):
 
     def __init__(self, value):
         super().__init__()
-        self.value = torch.tensor(value)
+        self.value = torch.tensor(float(value))
 
     def forward(self):
         return self.value
@@ -139,6 +139,7 @@ def test_float_to_quant_float(inp, minifloat_format):
             signed=signed,
             float_clamp_impl=float_clamp)
         max_mantissa = compute_max_mantissa(torch.tensor(mantissa_bit_width, dtype=torch.float))
+        mm = cc(torch.tensor(mantissa_bit_width, dtype=torch.float))
         expected_out, *_ = float_quant(inp)
         scale = float_quant.scaling_impl(inp)
         out_quant, scale = float_quant.quantize(inp, scale)
@@ -252,7 +253,7 @@ def test_inner_scale(inp, minifloat_format, scale):
 
         # scale inp manually
         scaled_inp = inp / scale
-        max_mantissa = compute_max_mantissa(torch.tensor(mantissa_bit_width))
+        max_mantissa = compute_max_mantissa(torch.tensor(float(mantissa_bit_width)))
         max_val = max_float(
             torch.tensor(exponent_bit_width), max_mantissa, torch.tensor(exponent_bias))
         max_available_float = float_clamp.max_available_float
