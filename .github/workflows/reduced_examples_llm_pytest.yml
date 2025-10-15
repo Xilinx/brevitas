@@ -17,7 +17,7 @@ jobs:
 
 
       matrix:
-        python_version: ['3.9']
+        python_version: ['3.10']
         pytorch_version: ['2.4.1']
         platform: ['ubuntu-latest']
         jit_status: ['jit_disabled']
