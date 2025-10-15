@@ -31,6 +31,8 @@ class BitwidthWrapper(torch.nn.Module):
 
     def __init__(self, value):
         super().__init__()
+        # We need to cast the bitwidth to a float to ensure correct computation
+        # This is also done throughout the codebase
         self.value = torch.tensor(float(value))
 
     def forward(self):
