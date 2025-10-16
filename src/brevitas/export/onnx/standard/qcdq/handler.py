@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+import warnings
 from warnings import warn
 
 import torch
@@ -75,8 +76,9 @@ class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
     def validate(self, module):
         if getattr(self, '_export_q_node', True):
             if module.rounding_mode.upper() != 'ROUND':
+                warnings.warn("Exporting different rounding function than ROUND requires exporting" \
+                            " and storing fake quantized weights. This could cause OOM issues.")
                 self.export_fake_quantized = True
-            # assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         super().validate(module)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
@@ -104,7 +106,6 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         if getattr(self, '_export_q_node', True):
             if module.rounding_mode.upper() != 'ROUND':
                 self.export_fake_quantized = True
-            # assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
         self.validate_8b_bit_width(module.bit_width(), le_then=True)

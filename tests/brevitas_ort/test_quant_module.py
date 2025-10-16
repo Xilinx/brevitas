@@ -25,6 +25,7 @@ from .quant_module_cases import QuantWBIOLCases
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
+    rounding = case_id.split('-')[0]
     impl = case_id.split('-')[
         -2]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
     quantizer = case_id.split('-')[-6]
@@ -32,6 +33,10 @@ def test_ort_wbiol(model, export_type, current_cases):
     i_bit_width = case_id.split('-')[-3]
     onnx_opset = 14
     export_q_weight = False
+
+    if rounding == 'floor':
+        export_q_weight = True
+
     if 'per_channel' in quantizer and 'asymmetric' in quantizer:
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:

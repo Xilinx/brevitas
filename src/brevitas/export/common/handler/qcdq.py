@@ -232,6 +232,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             if self._export_q_node:
                 self.prepare_quantize_from_floating_point(module)
@@ -462,6 +463,7 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             self.symbolic_kwargs['exponent_bit_width'] = module.exponent_bit_width()
             self.symbolic_kwargs['mantissa_bit_width'] = module.mantissa_bit_width()
@@ -541,6 +543,7 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
     handled_layer = ActQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+
         # compute axis before redefining scale
         axis = cls.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
@@ -556,6 +559,7 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             self.symbolic_kwargs['bit_width'] = module.bit_width()
 
@@ -791,6 +795,7 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             self.symbolic_kwargs = {
                 'narrow_range': module.is_narrow_range,
