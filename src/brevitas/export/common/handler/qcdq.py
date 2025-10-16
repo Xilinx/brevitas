@@ -73,6 +73,8 @@ class CDQCastMixin(DQCastMixin, ABC):
 
 class FloatQMixin(ABC):
 
+    export_fake_quantized = False
+
     @abstractmethod
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         pass
@@ -97,6 +99,8 @@ class FloatQMixin(ABC):
 
 
 class QMixin(BitWidthHandlerMixin, ABC):
+
+    export_fake_quantized = False
 
     @classmethod
     @abstractmethod
@@ -262,12 +266,16 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
                 quant_weight.mantissa_bit_width,
                 module.is_ocp,
                 module.is_fnuz)
+            if self.export_fake_quantized:
+                self.symbolic_kwargs['fake_quant_weights'] = quant_weight.value
         else:
             self.symbolic_kwargs = None
 
     def quantize_from_floating_point(self, x: Tensor):
         # Workaround for equal_cpu RuntimeError
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        if self.export_fake_quantized:
+            x = self.symbolic_kwargs['fake_quant_weights']
         # Before quantization, cast input to float32
         if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)
@@ -337,6 +345,8 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
             scale = self.cast_fn(scale, torch.float32)
         self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
             scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
+        if self.export_fake_quantized:
+            self.symbolic_kwargs['fake_quant_weights'] = quant_weight.value
 
     def prepare_quantize_from_integer(self, module):
         int_weights = {
@@ -373,6 +383,8 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     def quantize_from_floating_point(self, x: Tensor):
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
         # Before quantization, cast input to float32
+        if self.export_fake_quantized:
+            x = self.symbolic_kwargs['fake_quant_weights']
         if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())

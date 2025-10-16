@@ -74,7 +74,9 @@ class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
 
     def validate(self, module):
         if getattr(self, '_export_q_node', True):
-            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+            if module.rounding_mode.upper() != 'ROUND':
+                self.export_fake_quantized = True
+            # assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         super().validate(module)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
@@ -100,7 +102,9 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         # ONNX QuantizeLinear supports only 8b output with round to nearest even.
         # Below 8b quantization is supported through clipping.
         if getattr(self, '_export_q_node', True):
-            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+            if module.rounding_mode.upper() != 'ROUND':
+                self.export_fake_quantized = True
+            # assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
