@@ -25,8 +25,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import override
-
 from lighteval.logging.evaluation_tracker import EvaluationTracker
 from lighteval.models.abstract_model import LightevalModel
 from lighteval.models.model_loader import TransformersModel
@@ -61,7 +59,6 @@ class BrevitasPipeline(Pipeline):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    @override
     def _init_model(self, model_config, model):
         # Verify that both the model and model_config are passed
         assert model is not None and model_config is not None, "Provide both a model and a model config."
