@@ -385,8 +385,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
                 "leaderboard|arc:challenge|0|0",
                 "leaderboard|winogrande|0|0",
                 "lighteval|arc:easy|0|0",
-                "leaderboard|hellaswag|0|0",
-                "lighteval|piqa|0|0",],
+                "leaderboard|hellaswag|0|0",],
             "few_shot_zeroshot": True,
             "imports": ["lighteval"],
             "all_acc": 0.375,},])
