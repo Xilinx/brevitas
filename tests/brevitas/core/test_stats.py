@@ -3,6 +3,7 @@
 
 import math
 
+import pytest
 import torch
 
 from brevitas.core.stats import AbsPercentile
@@ -34,12 +35,25 @@ def test_abs_percentile_per_channel():
 
 class TestSignedAbsMax:
 
-    def test_signed_abs_percentile_per_tensor(self):
-        values = [-0.5, 0., 1.]
-        tensor = torch.tensor(values)
-        signed_abs_max = SignedAbsMax()
+    @pytest.mark.parametrize(
+        "values, exp_out, exp_grad",
+        [
+            # Maximum absolute value is positive
+            ([-0.5, 0.0, 1.0], -1.0, [0., 0., -1.]),
+            # Maximum absolute value is negative
+            ([-1.0, 0.0, 0.5], 1.0, [-1., 0., 0.]),
+            # All values are zero
+            ([0.0, 0.0, 0.0], 0.0, [0.0, 0.0, 0.0]),
+            # Maximum absolute value is in two entries
+            ([0.0, 1.0, 1.0], -1.0, [0.0, -1.0, 0.0])])
+    @pytest.mark.parametrize("stats_reduce_dim", [None, 0])
+    def test_signed_abs_out_grad(self, values, exp_out, exp_grad, stats_reduce_dim):
+        tensor = torch.tensor(values, requires_grad=True)
+        signed_abs_max = SignedAbsMax(stats_reduce_dim)
         out = signed_abs_max(tensor)
-        assert out.item() == -1.
+        out.backward()
+        assert out.isclose(torch.tensor(exp_out)).all().item()
+        assert tensor.grad.isclose(torch.tensor(exp_grad)).all().item()
 
     def test_signed_abs_percentile_per_channel(self):
         values = [-0.5, 0., 1.]

@@ -161,6 +161,8 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
             return AbsMinMax
         elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
             return PercentileInterval
+        elif scaling_stats_op == StatsOp.SIGNED_MAX:
+            return SignedAbsMax
         else:
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
 
@@ -290,7 +292,9 @@ class SolveScaleSignedness(ExtendedInjector):
 
     @value
     def is_scale_unsigned(scaling_stats_impl=None, scaling_init=None):
-        if scaling_init is not None:
+        if hasattr(scaling_stats_impl, 'is_scale_unsigned'):
+            return scaling_stats_impl.is_scale_unsigned
+        elif scaling_init is not None:
             if not isinstance(scaling_init, torch.Tensor):
                 scaling_init = torch.tensor(scaling_init)
 
@@ -300,8 +304,6 @@ class SolveScaleSignedness(ExtendedInjector):
             else:
                 is_scale_negative = any(scaling_init.flatten() < 0)
             return not is_scale_negative
-        elif hasattr(scaling_stats_impl, 'is_scale_unsigned'):
-            return scaling_stats_impl.is_scale_unsigned
         else:
             # If it is not possible to infer the scale of the sign, we assume it is unsigned
             return True
