@@ -3,7 +3,6 @@
 
 from contextlib import nullcontext
 from copy import deepcopy
-from datetime import timedelta
 import functools
 import os
 import pprint
@@ -655,43 +654,20 @@ def quantize_llm(args, extra_args=None):
             print("Few shot eval results")
             pprint.pprint(few_shot_eval_results)
         elif args.few_shot_eval == 'lighteval':
-            from accelerate import Accelerator
-            from accelerate import InitProcessGroupKwargs
-            from huggingface_hub import constants
-            from lighteval.logging.evaluation_tracker import EvaluationTracker
-            from lighteval.models.transformers.transformers_model import TransformersModelConfig
-            from lighteval.pipeline import ParallelismManager
-            from lighteval.pipeline import Pipeline
-            from lighteval.pipeline import PipelineParameters
-            from lighteval.utils.utils import EnvConfig
 
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**calibration_loader[0])
                 remove_hooks(model)
-                # expects a list
-                few_shot_tasks = ",".join(args.few_shot_tasks)
-                accelerator = Accelerator(
-                    kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
-                evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
-                pipeline_params = PipelineParameters(
-                    launcher_type=ParallelismManager.ACCELERATE,
-                    env_config=EnvConfig(cache_dir=constants.HF_HUB_CACHE),
-                    override_batch_size=args.few_shot_override_batch_size)
-                model_config = TransformersModelConfig(
-                    pretrained=args.model,
-                    dtype=dtype,
-                    model_parallel=True,
-                    accelerator=accelerator)
-                pipeline = Pipeline(
-                    tasks=few_shot_tasks,
-                    pipeline_parameters=pipeline_params,
-                    evaluation_tracker=evaluation_tracker,
+
+                from brevitas_examples.llm.eval_lighteval import run_lighteval
+                few_shot_eval_results = run_lighteval(
+                    model_name=args.model,
                     model=model,
-                    config=model_config)
-                pipeline.evaluate()
-            few_shot_eval_results = pipeline.get_results()
-            few_shot_eval_results = filter_results(
-                few_shot_eval_results, list(few_shot_eval_results["results"].keys()))
+                    tasks=args.few_shot_tasks,
+                    dtype=args.dtype,
+                    batch_size=args.few_shot_override_batch_size,
+                )
+            # Print nicely formatted results
             pprint.pprint(few_shot_eval_results)
         remove_hooks(model)
         if args.checkpoint_name is not None and not args.load_checkpoint:
