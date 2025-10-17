@@ -15,8 +15,7 @@ from .common import *
 
 class QuantWBIOLCases:
 
-    @parametrize(
-        'rounding_type', ['round', 'floor'], ids=[f'rtype_{r}' for r in ['round', 'floor']])
+    @parametrize('rounding_type', ['round', 'floor'], ids=[r for r in ['round', 'floor']])
     @parametrize('impl', QUANT_WBIOL_IMPL, ids=[f'{c.__name__}' for c in QUANT_WBIOL_IMPL])
     @parametrize('input_bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])

@@ -3,6 +3,7 @@
 
 from functools import reduce
 from operator import mul
+import os
 
 from packaging.version import parse
 import pytest
@@ -19,6 +20,14 @@ from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import QuantWBIOLCases
 
 
+def rm_onnx(path):
+    os.remove(path)
+    try:
+        os.remove(f"{path}.data")
+    except OSError:
+        pass  # Dynamo-based export will always create this file, Torchscript export will not
+
+
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qonnx'])
 @requires_pt_ge('1.10')
@@ -27,14 +36,14 @@ def test_ort_wbiol(model, export_type, current_cases):
     case_id = get_case_id(cases_generator_func)
     rounding = case_id.split('-')[0]
     impl = case_id.split('-')[
-        -2]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
-    quantizer = case_id.split('-')[-6]
-    o_bit_width = case_id.split('-')[-5]
-    i_bit_width = case_id.split('-')[-3]
+        -3]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
+    quantizer = case_id.split('-')[-7]
+    o_bit_width = case_id.split('-')[-6]
+    i_bit_width = case_id.split('-')[-4]
     onnx_opset = 14
     export_q_weight = False
 
-    if rounding == 'floor':
+    if rounding == 'round':
         export_q_weight = True
 
     if 'per_channel' in quantizer and 'asymmetric' in quantizer:
@@ -61,7 +70,7 @@ def test_ort_wbiol(model, export_type, current_cases):
     elif impl in ('QuantConv3d', 'QuantConvTranspose3d'):
         in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
     else:
-        raise RuntimeError("Unsupported operation")
+        raise RuntimeError(f"Unsupported operation {impl}")
 
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
 
@@ -78,6 +87,8 @@ def test_ort_wbiol(model, export_type, current_cases):
         onnx_opset=onnx_opset,
         export_q_weight=export_q_weight)
 
+    rm_onnx(export_name)
+
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
 @requires_pt_ge('1.10')
@@ -89,6 +100,7 @@ def test_ort_avgpool(model, current_cases):
     export_name = 'qcdq_quant_avgpool.onnx'
     assert is_brevitas_ort_close(
         model, inp, export_name, 'qcdq', tolerance=INT_TOLERANCE, first_output_only=True)
+    rm_onnx(export_name)
 
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
@@ -110,3 +122,4 @@ def test_ort_lstm(model, export_type, current_cases):
     model.eval()
     export_name = f'lstm_export_{case_id}.onnx'
     assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=FLOAT_TOLERANCE)
+    rm_onnx(export_name)
