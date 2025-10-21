@@ -1,7 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-from brevitas import torch_version
 from packaging import version
+
+from brevitas import torch_version
+
 
 def onnx_export_opset():
     try:
