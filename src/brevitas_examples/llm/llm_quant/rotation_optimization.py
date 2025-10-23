@@ -92,6 +92,7 @@ class GeneralizedTrainer(Trainer):
             loss: Scalar tensor with the generalized JSD loss
         """
 
+        top_ori_logits, indices = teacher_logits.topk(1000, dim=-1, sorted=False)
         # Apply temperature scaling
         student_logits = student_logits / temperature
         teacher_logits = teacher_logits / temperature
@@ -99,6 +100,7 @@ class GeneralizedTrainer(Trainer):
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
         teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
+        teacher_probs = F.softmax(teacher_logits, dim=-1).gather(-1, indices).flatten(0, -2)
 
         # Compute the log of the mixture distribution
         # log(a + b) = log(exp(log(a)) + exp(log(b))) -> for mixture
@@ -115,9 +117,11 @@ class GeneralizedTrainer(Trainer):
             mixture_log_probs, teacher_log_probs, reduction="none", log_target=True)
         kl_student = F.kl_div(
             mixture_log_probs, student_log_probs, reduction="none", log_target=True)
-
+        student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
+        jsd = F.kl_div(student_log_probs, teacher_probs, reduction="batchmean")
         # Compute the Generalized Jensen-Shannon Divergence
-        jsd = beta * kl_teacher + (1 - beta) * kl_student
+        # jsd = beta * kl_teacher + (1 - beta) * kl_student
+        return jsd
 
         # Masking
         if labels is not None:
@@ -151,7 +155,7 @@ class GeneralizedTrainer(Trainer):
 
         if self.use_distillation_loss:
             with torch.no_grad(), quantization_status_manager(model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
-                fp_ouputs = model(**inputs)
+                fp_outputs = model(**inputs)
             # Compute the distillation loss
             distill_loss = GeneralizedTrainer.generalized_jsd_loss(
                 student_logits=outputs.logits,
@@ -231,6 +235,7 @@ def apply_rotation_optimization(
     train_dataset: DatasetToDevice,
     training_args: TrainingArguments,
 ) -> None:
+    import geoopt
 
     # Prepare dataset and model for training
     train_dataset = _prepare_train_dataset(train_dataset)
@@ -248,7 +253,9 @@ def apply_rotation_optimization(
     trainable_rotations = extract_trainable_rotation_matrices(model)
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
-    optimizer = CaileySGD(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
+    optimizer = geoopt.optim.RiemannianSGD(
+        trainable_rotations, lr=training_args.learning_rate, stabilize=10, weight_decay=0
+    )  #CaileySGD(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
     trainer = GeneralizedTrainer(
         model=model,
         tokenizer=tokenizer,
