@@ -14,18 +14,11 @@ import torch
 from brevitas import torch_version
 from tests.marker import requires_pt_ge
 
+from ..export_fixture import rm_onnx
 from .common import *
 from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import QuantWBIOLCases
-
-
-def rm_onnx(path):
-    os.remove(path)
-    try:
-        os.remove(f"{path}.data")
-    except OSError:
-        pass  # Dynamo-based export will always create this file, Torchscript export will not
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
