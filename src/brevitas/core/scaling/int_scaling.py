@@ -16,7 +16,10 @@ class IntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed', 'narrow_range']
 
     def __init__(
-            self, narrow_range: bool, signed: Optional[bool] = None, dtype: torch.dtype = None):
+            self,
+            narrow_range: bool,
+            signed: Optional[bool] = None,
+            dtype: Optional[torch.dtype] = None):
         super(IntScaling, self).__init__()
         self.signed = signed
         self.narrow_range = narrow_range
