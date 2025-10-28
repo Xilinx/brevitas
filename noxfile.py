@@ -76,7 +76,7 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, export]', *cmd)
+    session.install('-e', '.[test, export, numpy]', *cmd)
     if jit_status == 'jit_enabled':
         session.run('pytest', '-k', 'not _full', 'tests/brevitas/nn/test_nn_quantizers.py', '-v')
         session.run(
@@ -124,7 +124,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # For CV eval scripts
-    session.install('-e', '.[test, tts, stt, vision, export]', *cmd)
+    session.install('-e', '.[test, tts, stt, vision, export, numpy]', *cmd)
     session.run(
         'pytest',
         '-n',
@@ -147,7 +147,7 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]', *cmd)
+    session.install('-e', '.[test, llm, export, numpy]', *cmd)
     session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_llm.py')
 
 
@@ -162,7 +162,7 @@ def tests_brevitas_examples_diffusion(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, diffusion, export]', *cmd)
+    session.install('-e', '.[test, diffusion, export, numpy]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-k', 'diffusion', 'tests/brevitas_examples/test_diffusion.py')
 
@@ -176,7 +176,7 @@ def tests_brevitas_examples_vision(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, vision, export]', *cmd)
+    session.install('-e', '.[test, vision, export, numpy]', *cmd)
     session.run('pytest', '-n', 'logical', '-k', 'vision', 'tests/brevitas_examples/test_vision.py')
 
 
@@ -186,7 +186,7 @@ def tests_brevitas_install_dev(session, pytorch):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test]', *cmd)
+    session.install('-e', '.[test, numpy]', *cmd)
     session.env['BREVITAS_VERBOSE'] = '1'
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas/test_brevitas_import.py')
 
@@ -197,7 +197,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, tts, stt]', *cmd)
+    session.install('-e', '.[test, tts, stt, numpy]', *cmd)
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_examples/test_examples_import.py')
 
 
@@ -207,7 +207,7 @@ def tests_brevitas_finn_integration(session, pytorch):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, stt, finn_integration]', *cmd)
+    session.install('-e', '.[test, stt, finn_integration, numpy]', *cmd)
     env = {'FINN_INST_NAME': 'finn'}
     session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
 
@@ -218,7 +218,7 @@ def tests_brevitas_ort_integration(session, pytorch):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, ort_integration]', *cmd)
+    session.install('-e', '.[test, ort_integration, numpy]', *cmd)
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_ort')
 
 
@@ -228,7 +228,7 @@ def tests_brevitas_notebook(session, pytorch):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, ort_integration, notebook]', *cmd)
+    session.install('-e', '.[test, ort_integration, notebook, numpy]', *cmd)
     session.run(
         'pytest',
         '-n',
@@ -247,5 +247,5 @@ def tests_brevitas_end_to_end(session, pytorch):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, ort_integration]', *cmd)
+    session.install('-e', '.[test, ort_integration, numpy]', *cmd)
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_end_to_end')
