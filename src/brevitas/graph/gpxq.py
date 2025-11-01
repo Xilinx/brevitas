@@ -50,9 +50,10 @@ class gpxq_mode(quantization_status_manager):
         use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
             GPxQ. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
-        device ()
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
+        device (str): Device the buffers are stored on. Default: cpu
+        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
     Example:
         >>> with torch.no_grad():
