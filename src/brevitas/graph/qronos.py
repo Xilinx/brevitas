@@ -145,7 +145,7 @@ class Qronos(GPFQ):
         assert not torch.isnan(self.H).any(), f"Error in {self.name}"
         assert not torch.isnan(self.G).any(), f"Error in {self.name}"
 
-        Dh: Tensor = torch.zeros((self.groups, self.columns), dtype=self.dtype)
+        Dh: Tensor = torch.zeros((self.groups, self.columns), device=self.device, dtype=self.dtype)
         for group_index in range(self.groups):
             Dh[group_index].copy_(self.H[group_index].diag())
         Dhi = torch.where(Dh != 0, 1. / Dh, torch.zeros_like(Dh)).to(dev)  # D^{-1}
