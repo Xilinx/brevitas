@@ -228,7 +228,7 @@ class GPxQ(ABC):
     def use_intermediate_buffer(self):
         # By default, we are optimizing for minimizing peak memory usage, which is
         # when self.device=='cpu'. Since the compute is done on the GPU but the buffers
-        # are on the GPU, we optimize the CPU to GPU transfer using in-place copy to 
+        # are on the GPU, we optimize the CPU to GPU transfer using in-place copy to
         # pinned memory in an intermediate buffer, usually self.B
         return self.device == 'cpu'
 
