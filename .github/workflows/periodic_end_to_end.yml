@@ -18,6 +18,27 @@ jobs:
 
 
         exclude:
+          - python_version: '3.9'
+            pytorch_version: '2.9.0'
+
+          - python_version: '3.11'
+            pytorch_version: '1.12.1'
+
+          - python_version: '3.11'
+            pytorch_version: '1.13.1'
+
+          - python_version: '3.12'
+            pytorch_version: '1.12.1'
+
+          - python_version: '3.12'
+            pytorch_version: '1.13.1'
+
+          - python_version: '3.12'
+            pytorch_version: '2.0.1'
+
+          - python_version: '3.12'
+            pytorch_version: '2.1.1'
+
           - platform: 'windows-latest'
 
 

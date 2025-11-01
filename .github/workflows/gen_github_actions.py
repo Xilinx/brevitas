@@ -81,6 +81,15 @@ ALL_SUPPORTED_PYTORCH_VERSIONS = (
     '2.7.1',
     '2.8.0',
     '2.9.0')
+ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
+    [['python_version', [
+        '3.9',]], ['pytorch_version', [
+            '2.9.0',]]],
+    [['python_version', [
+        '3.11',]], ['pytorch_version', ['1.12.1', '1.13.1']]],
+    [['python_version', [
+        '3.12',]], ['pytorch_version', ['1.12.1', '1.13.1', '2.0.1', '2.1.1']]],])
+
 PYTHON_VERSIONS = ('3.10', '3.11')
 
 PYTORCH_VERSIONS = ('2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1')
@@ -236,7 +245,7 @@ def gen_pytest_yml():
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + PYTEST_YML)
     pytest = Action(
         'Pytest',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + ALL_SUPPORTED_EXCLUSION_LIST,
         combine_od_list([MATRIX_ALL_SUPPORTED, PYTEST_MATRIX_EXTRA_REDUCED]),
         PYTEST_STEP_LIST,
         STRATEGY)
@@ -320,7 +329,7 @@ def gen_test_develop_install_yml():
     test_develop_install.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + DEVELOP_INSTALL_YML)
     test_develop_install = Action(
         'Test develop install',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + ALL_SUPPORTED_EXCLUSION_LIST,
         MATRIX_ALL_SUPPORTED,
         TEST_INSTALL_DEV_STEP_LIST,
         STRATEGY)
@@ -357,7 +366,7 @@ def gen_test_brevitas_ort_integration():
     test_ort_integration.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + ORT_INTEGRATION_YML)
     test_ort_integration = Action(
         'Test Brevitas-ORT integration',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + ALL_SUPPORTED_EXCLUSION_LIST,
         MATRIX_ALL_SUPPORTED,
         ORT_INTEGRATION_STEP_LIST,
         STRATEGY)
@@ -381,7 +390,7 @@ def gen_test_brevitas_notebook():
     tests_brevitas_notebooks.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + NOTEBOOK_YML)
     tests_brevitas_notebooks = Action(
         'Test Notebook execution',
-        EXCLUDE_LIST + NOTEBOOK_EXCLUDE_LIST,
+        EXCLUDE_LIST + ALL_SUPPORTED_EXCLUSION_LIST + NOTEBOOK_EXCLUDE_LIST,
         MATRIX_ALL_SUPPORTED,
         NOTEBOOK_STEP_LIST,
         STRATEGY)
@@ -405,7 +414,7 @@ def gen_test_brevitas_end_to_end():
     tests_brevitas_end_to_end.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + ENDTOEND_YML)
     tests_brevitas_end_to_end = Action(
         'Test End-to-end flows',
-        EXCLUDE_LIST + END_TO_END_EXCLUDE_LIST,
+        EXCLUDE_LIST + ALL_SUPPORTED_EXCLUSION_LIST + END_TO_END_EXCLUDE_LIST,
         MATRIX_ALL_SUPPORTED,
         ENDTOEND_STEP_LIST,
         STRATEGY)
