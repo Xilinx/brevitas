@@ -115,10 +115,8 @@ FLEXML_QUANT_ACT_MAP = {
             'min_val': lambda module: module.min_val,
             'return_quant_tensor': True}),
     nn.Hardswish: (
-        qnn.QuantHardSwish,
-        {
-            'act_quant': Uint8ActPerTensorFixedPoint,
-            'return_quant_tensor': True}),
+        qnn.QuantHardSwish, {
+            'act_quant': Uint8ActPerTensorFixedPoint, 'return_quant_tensor': True}),
     nn.Sigmoid: (
         qnn.QuantSigmoid, {
             'act_quant': Uint8ActPerTensorFixedPoint,

@@ -26,19 +26,19 @@ class TestQuantReLU:
 
 
 class TestQuantHardSwish:
-    
+
     def test_module_init_default(self):
         mod = QuantHardSwish()
-        
+
     def test_module_init_const_scaling(self):
         mod = QuantHardSwish(max_val=6, scaling_impl_type='CONST')
-    
+
     def test_forward_pass(self):
         mod = QuantHardSwish()
         inp = torch.randn(1, 20, 10, 10)
         out = mod(inp)
         assert out.shape == inp.shape
-    
+
     def test_output_non_negative(self):
         mod = QuantHardSwish()
         mod.eval()
@@ -46,21 +46,22 @@ class TestQuantHardSwish:
         inp = torch.tensor([5.0, 10.0, 100.0])
         out = mod(inp)
         assert (out >= 0).all().item()
-    
+
     def test_training_eval_modes(self):
         mod = QuantHardSwish()
         inp = torch.randn(2, 6, 16, 16)
-        
+
         # Training mode
         mod.train()
         out_train = mod(inp)
         assert out_train.shape == inp.shape
-        
+
         # Eval mode
         mod.eval()
         out_eval = mod(inp)
         assert out_eval.shape == inp.shape
-    
+
+
 class TestQuantDelay:
 
     @pytest.mark.parametrize("bw_quant_type", [(4, "INT"), (1, "BINARY"), (2, "TERNARY")])

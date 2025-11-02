@@ -118,7 +118,8 @@ class QuantIdentity(QuantNLAL):
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
-        
+
+
 class QuantHardSwish(QuantNLAL):
 
     def __init__(
