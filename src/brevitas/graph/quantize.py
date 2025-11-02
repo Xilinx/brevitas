@@ -236,7 +236,7 @@ LAYERWISE_COMPUTE_LAYER_MAP: Dict[Type[torch.nn.Module], LayerMapValueType] = {
             'bias_quant': Int32Bias,
             'return_quant_tensor': False})}
 
-UNSIGNED_ACT_TUPLE = (nn.ReLU, nn.ReLU6, nn.Sigmoid, nn.Hardsigmoid)
+UNSIGNED_ACT_TUPLE = (nn.ReLU, nn.ReLU6, nn.Sigmoid, nn.Hardsigmoid, nn.Hardswish)
 
 QUANT_ACT_MAP = {
     nn.ReLU: (qnn.QuantReLU, {
@@ -251,6 +251,11 @@ QUANT_ACT_MAP = {
             'act_quant': Int8ActPerTensorFloatMinMaxInit,
             'max_val': lambda module: module.max_val,
             'min_val': lambda module: module.min_val,
+            'return_quant_tensor': True}),
+    nn.Hardswish: (
+        qnn.QuantHardSwish,
+        {
+            'act_quant': Uint8ActPerTensorFloat,
             'return_quant_tensor': True}),
     nn.Sigmoid:
         (qnn.QuantSigmoid, {
