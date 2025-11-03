@@ -26,7 +26,8 @@ __all__ = ['ScaleBias', 'QuantScaleBias']
 
 class ScaleBias(Module):
 
-    def __init__(self, num_features: int, bias: bool, runtime_shape: Tuple[int] = (1, -1, 1, 1)):
+    def __init__(
+        self, num_features: int, bias: bool, runtime_shape: Tuple[int, ...] = (1, -1, 1, 1)):
         super(ScaleBias, self).__init__()
         self.num_features = num_features
         self.weight = Parameter(torch.ones(num_features))
@@ -50,7 +51,7 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
             bias_quant: Optional[BiasQuantType] = None,
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
-            runtime_shape: Tuple[int] = (1, -1, 1, 1),
+            runtime_shape: Tuple[int, ...] = (1, -1, 1, 1),
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         ScaleBias.__init__(self, num_features, bias, runtime_shape)
