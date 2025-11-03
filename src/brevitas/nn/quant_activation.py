@@ -121,17 +121,30 @@ class QuantIdentity(QuantNLAL):
 
 
 class QuantHardSwish(QuantNLAL):
+    """
+    Quantized HardSwish activation.
+
+    This is a baseline implementation using symmetric signed quantization.
+    HardSwish output range is approximately [-0.33, ∞) which means symmetric
+    quantization wastes a significant portion of the negative range.
+
+    For hardware-specific optimizations, consider:
+    - Asymmetric quantization with learned zero-point for better range utilization
+    - Hardware-specific quantization schemes that match your deployment target
+
+    Users should validate this implementation works for their specific use case.
+    """
 
     def __init__(
             self,
-            act_quant: Optional[ActQuantType] = Uint8ActPerTensorFloat,
+            act_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
             input_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
             self,
             act_impl=nn.Hardswish,
-            passthrough_act=True,
+            passthrough_act=False,
             input_quant=input_quant,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,

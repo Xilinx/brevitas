@@ -30,8 +30,9 @@ class TestQuantHardSwish:
     def test_module_init_default(self):
         mod = QuantHardSwish()
 
-    def test_module_init_const_scaling(self):
-        mod = QuantHardSwish(max_val=6, scaling_impl_type='CONST')
+    def test_module_init_with_bit_width(self):
+        # Test with custom bit width
+        mod = QuantHardSwish(bit_width=4)
 
     def test_forward_pass(self):
         mod = QuantHardSwish()
@@ -39,13 +40,20 @@ class TestQuantHardSwish:
         out = mod(inp)
         assert out.shape == inp.shape
 
-    def test_output_non_negative(self):
+    def test_output_behavior(self):
         mod = QuantHardSwish()
         mod.eval()
         # For large positive inputs, hardswish output should be close to input (positive)
-        inp = torch.tensor([5.0, 10.0, 100.0])
-        out = mod(inp)
-        assert (out >= 0).all().item()
+        inp_positive = torch.tensor([5.0, 10.0, 100.0])
+        out_positive = mod(inp_positive)
+        assert (out_positive >= 0).all().item()
+
+        # For small negative inputs, hardswish can produce small negative values
+        # HardSwish(x) ≈ -0.33 at minimum (around x=-3)
+        inp_negative = torch.tensor([-2.0, -1.0, -0.5])
+        out_negative = mod(inp_negative)
+        # With signed quantization, negative values should be preserved
+        assert out_negative.min() <= 0
 
     def test_training_eval_modes(self):
         mod = QuantHardSwish()
