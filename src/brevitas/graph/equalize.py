@@ -279,6 +279,48 @@ def _select_scale_computation_fn(
         raise RuntimeError(f"Scale computation type {scale_computation_type} not supported")
 
 
+## Accelerate specific functions
+# TODO: refactor and move this somewhere else
+
+
+def maybe_offload_params_accelerate(module):
+    if hasattr(module, 'offload_params'):
+        module.offload_params(module)
+
+
+def maybe_allocate_params_accelerate(module):
+    if hasattr(module, 'allocate_params'):
+        module.allocate_params(module)
+
+
+def is_model_offloaded_accelerate(model):
+    return hasattr(model, '_hf_map')
+
+
+@torch.no_grad()
+def apply_rewriters_accelerate(
+        model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
+    from brevitas_examples.common.accelerate_utils.accelerate import offload_model
+    from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+
+    # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
+    if len(model._hf_map.values()) > 1:
+        inplace_rewriters = [
+            r for r in rewriters if not isinstance(r, ModuleInstanceRegisterParametrization)]
+        parametrization_rewriters = [r for r in rewriters if r not in inplace_rewriters]
+    else:
+        inplace_rewriters = rewriters
+
+    for r in inplace_rewriters:
+        model = r.apply(model)
+    model = remove_hooks(model)
+    with torch.no_grad():
+        for r in parametrization_rewriters:
+            model = r.apply(model)
+    model = offload_model(model)
+    return model
+
+
 class activation_equalization_mode:
 
     def __init__(
@@ -644,8 +686,7 @@ def _cross_layer_equalization(
     # If a module has `allocate_params` attribute, we must load the weights following that method
     for name in (region.srcs_names + region.sinks_names):
         module = region.get_module_from_name(name)
-        if hasattr(module, 'allocate_params'):
-            module.allocate_params(module)
+        maybe_allocate_params_accelerate(module)
 
     act_sink_axes = {}
     act_sources_axes = {}
@@ -797,8 +838,7 @@ def _cross_layer_equalization(
     # If a module has `offload_params` attribute, we must offload the weights following that method
     for name in (region.srcs_names + region.sinks_names):
         module = region.get_module_from_name(name)
-        if hasattr(module, 'offload_params'):
-            module.offload_params(module)
+        maybe_offload_params_accelerate(module)
 
     return scaling_factors, rewriters
 
@@ -1966,7 +2006,7 @@ class GraphRotationEqualization(RotationEqualization):
             return model
         # If the model has `_hf_map`, it means accelerate was used, and we need to be careful when
         # applying model transformations
-        if hasattr(model, '_hf_map'):
+        if is_model_offloaded_accelerate(model):
             return apply_rewriters_accelerate(model, rewriters)
         else:
             return apply_rewriters(model, rewriters)
@@ -1977,32 +2017,6 @@ def apply_rewriters(
         model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
     for r in rewriters:
         model = r.apply(model)
-    return model
-
-
-@torch.no_grad()
-def apply_rewriters_accelerate(
-        model: torch.nn.Module, rewriters: List[Transform], delay_rewriters: bool = False):
-    from brevitas_examples.common.accelerate_utils.accelerate import offload_model
-    from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-
-    if offload_model is None or remove_hooks is None:
-        raise RuntimeError("Accelerate is not installed")
-    # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
-    if len(model._hf_map.values()) > 1:
-        inplace_rewriters = [
-            r for r in rewriters if not isinstance(r, ModuleInstanceRegisterParametrization)]
-        parametrization_rewriters = [r for r in rewriters if r not in inplace_rewriters]
-    else:
-        inplace_rewriters = rewriters
-
-    for r in inplace_rewriters:
-        model = r.apply(model)
-    model = remove_hooks(model)
-    with torch.no_grad():
-        for r in parametrization_rewriters:
-            model = r.apply(model)
-    model = offload_model(model)
     return model
 
 
