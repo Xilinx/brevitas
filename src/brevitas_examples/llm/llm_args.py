@@ -62,9 +62,11 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--gpxq-buffer-device',
         type=str,
-        choices=['auto', 'cpu', 'cuda'],
+        choices=['cpu', 'same'],
         default='cpu',
-        help='Device for GPxQ buffers. Default %(default)s')
+        help=
+        'Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default %(default)s'
+    )
     parser.add_argument(
         '--gpxq-buffer-dtype',
         type=lambda s: getattr(torch, s),

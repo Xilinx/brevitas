@@ -198,8 +198,8 @@ class GPxQ(ABC):
         self.name = name
         self.act_order = act_order
         self.create_weight_orig = create_weight_orig
-        # device and dtype of buffers; auto for device means using the same device for the buffer as the layer weights
-        self.device = layer.weight.device if device == 'auto' else device
+        # device and dtype of buffers; 'same' means using the same device for the buffer as the layer weights
+        self.device = layer.weight.device if device == 'same' else device
         self.dtype = dtype
 
         weight_shape = torch.tensor(layer.weight.shape)
