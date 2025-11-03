@@ -137,7 +137,7 @@ class QuantHardSwish(QuantNLAL):
 
     def __init__(
             self,
-            act_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
+            act_quant: Optional[ActQuantType] = Uint8ActPerTensorFloat,
             input_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
             **kwargs):
