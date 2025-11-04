@@ -84,11 +84,11 @@ The most important options for the class are:
 
 * orphan_sink: Whether to add standalone, unmerged rotations for the regions that do not support fusion
 * full_rotation_method: Allows to select between Hadamard ('had') or orthogonal ('ort') rotations
-* sdpa_regions: detect where torch.nn.functional.scaled_dot_product is placed in the network and appropriately
-applies rotations in the layers around it. This assumes a typical attention structure around SDPA,
-with the presence of QKV linear layers before, and an Output linear layer afterwards.
-* use_parametrized_rotations: Register rotations are parametrization, allowing for a subsequent optimization,
-for example through Caley SGD.
+* sdpa_regions: detect where torch.nn.functional.scaled_dot_product is placed in the network and appropriately applies rotations in the layers around it.
+* use_parametrized_rotations: Register rotations are parametrization, allowing for a subsequent optimization, for example through Caley SGD.
+
+It is important to note that *sdpa_regions* makes some assumptions about the structure of the attention
+block, with the presence of QKV linear layers before, and an Output linea layer afterwards.
 
 .. code-block:: python
 
