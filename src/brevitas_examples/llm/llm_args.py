@@ -68,11 +68,6 @@ def create_args_parser() -> ArgumentParser:
         'Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default %(default)s'
     )
     parser.add_argument(
-        '--gpxq-buffer-dtype',
-        type=lambda s: getattr(torch, s),
-        default=torch.float32,
-        help='Datatype for the GPxQ buffers. Default: %(default)s')
-    parser.add_argument(
         '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
     parser.add_argument(
         '--weight-param-method',
