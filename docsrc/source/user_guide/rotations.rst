@@ -14,9 +14,9 @@ Moreover, some rotations can be fused into the module weights, thus preserving f
 
 Although random orthogonal rotations generally improve quantization amenability in low-bit regimes,
 the quantized network performance  exhibits a large variance under different random rotations,
-as observed in [4]_. Consequently, these authors propose to further optimize the rotations to
+as observed in [3]_. Consequently, these authors propose to further optimize the rotations to
 improve quantized performance. In order to do so, they leverage the Cailey-SGD optimizer to ensure
-that the optimized rotations stay within the Stiefel manifold during optimization [5]_.
+that the optimized rotations stay within the Stiefel manifold during optimization [4]_.
 
 
 Rotations in Brevitas
@@ -84,9 +84,9 @@ The most important options for the class are:
 
 * orphan_sink: Whether to add standalone, unmerged rotations for the regions that do not support fusion
 * full_rotation_method: Allows to select between Hadamard ('had') or orthogonal ('ort') rotations
-* sdpa_regions: detect where torch.nn.functional.scaled_dot_product is placed in the network and appropriately 
-applies rotations in the layers around it. This assumes a typical attention structure around SDPA,
-with the presence of QKV linear layers before, and an Output linear layer afterwards.
+* sdpa_regions: detect where torch.nn.functional.scaled_dot_product is placed in the network and appropriately
+    applies rotations in the layers around it. This assumes a typical attention structure around SDPA,
+    with the presence of QKV linear layers before, and an Output linear layer afterwards.
 * use_parametrized_rotations: Register rotations are parametrization, allowing for a subsequent optimization,
 for example through Caley SGD.
 
@@ -123,11 +123,10 @@ QuaRot [2]_.
 Optimized Fused Rotations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If `use_parametrized_rotations` is True, the rotations are registered as parametrizations ([6]_),
+If `use_parametrized_rotations` is True, the rotations are registered as parametrizations ([5]_),
 and as a parameters.
 After adding the quantization blocks to the network, it is thus necessary to optimize the rotations and
 then fuse them into the corresponding weights.
-
 
 Brevitas offers an example of how to accomplish that in our LLM entrypoint (`brevitas_ptq_llm`).
 
@@ -143,7 +142,7 @@ Maintaining this hierarchical structure allows us to optimize the execution of c
 GPTQ or Qronos, by optimizing one block at a time and caching intermediate representations.
 
 
-Moreover, similarly to [5]_, Brevitas can leverage the Cailey-SGD optimizer to further optimize the rotations.
+Moreover, similarly to [3]_, Brevitas can leverage the Cailey-SGD optimizer to further optimize the rotations.
 The rotation training procedure relies on the
 `HF Trainer <https://huggingface.co/docs/transformers/en/main_classes/trainer>`_ class, and, therefore,
 can be configured by passing arguments accepted by the dataclass
@@ -175,13 +174,12 @@ of a ``HuggingfaceTB/SmolLM2-135M`` model, with its weights quantized to 4 bits:
    log_on_each_node: false
 
 
-Note that the training parameters used in the SpinQuant paper [5]_ can be found in their `repository <https://github.com/facebookresearch/SpinQuant>`_.
+Note that the training parameters used in the SpinQuant paper [3]_ can be found in their `repository <https://github.com/facebookresearch/SpinQuant>`_.
 
 .. rubric:: References
 
 .. [1] Ashkboos, S., Croci, M. L., Nascimento, M. G. D., Hoefler, T., & Hensman, J. (2024). Slicegpt: Compress large language models by deleting rows and columns. arXiv preprint arXiv:2401.15024.
 .. [2] Ashkboos, S., Mohtashami, A., Croci, M., Li, B., Cameron, P., Jaggi, M., ... & Hensman, J. (2025). Quarot: Outlier-free 4-bit inference in rotated llms. Advances in Neural Information Processing Systems, 37, 100213-100240.
-.. [3] Tseng, A., Chee, J., Sun, Q., Kuleshov, V., & De Sa, C. (2024). Quip#: Even better llm quantization with hadamard incoherence and lattice codebooks. arXiv preprint arXiv:2402.04396.
-.. [4] Liu, Z., Zhao, C., Fedorov, I., Soran, B., Choudhary, D., Krishnamoorthi, R., ... & Blankevoort, T. (2024). Spinquant: Llm quantization with learned rotations. arXiv preprint arXiv:2405.16406.
-.. [5] Li, J., Fuxin, L., & Todorovic, S. (2020). Efficient riemannian optimization on the stiefel manifold via the cayley transform. arXiv preprint arXiv:2002.01113.
-.. [6] https://docs.pytorch.org/tutorials/intermediate/parametrizations.html
+.. [3] Liu, Z., Zhao, C., Fedorov, I., Soran, B., Choudhary, D., Krishnamoorthi, R., ... & Blankevoort, T. (2024). Spinquant: Llm quantization with learned rotations. arXiv preprint arXiv:2405.16406.
+.. [4] Li, J., Fuxin, L., & Todorovic, S. (2020). Efficient riemannian optimization on the stiefel manifold via the cayley transform. arXiv preprint arXiv:2002.01113.
+.. [5] https://docs.pytorch.org/tutorials/intermediate/parametrizations.html
