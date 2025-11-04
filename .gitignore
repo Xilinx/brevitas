@@ -71,5 +71,3 @@ docsrc/source/_templates/
 
 # Notebooks
 /notebooks/.ipynb_checkpoints/
-
-venv/
