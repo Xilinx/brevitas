@@ -154,6 +154,7 @@ Following, we provide a minimal example configuration for optimizing, in a singl
 of a ``HuggingfaceTB/SmolLM2-135M`` model, with its weights quantized to 4 bits:
 
 .. code-block:: yaml
+
    dataset: wikitext2
    eval: true
    model: HuggingfaceTB/SmolLM2-135M
