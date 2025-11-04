@@ -88,7 +88,7 @@ The most important options for the class are:
     applies rotations in the layers around it. This assumes a typical attention structure around SDPA,
     with the presence of QKV linear layers before, and an Output linear layer afterwards.
 * use_parametrized_rotations: Register rotations are parametrization, allowing for a subsequent optimization,
-for example through Caley SGD.
+    for example through Caley SGD.
 
 .. code-block:: python
 
