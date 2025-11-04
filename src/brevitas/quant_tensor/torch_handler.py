@@ -70,7 +70,6 @@ def hardtanh_qt_handler(*args, **kwargs):
     return quant_invariant_handler(F.hardtanh, *args, **kwargs)
 
 
-@implements(F.hardswish)
 def hardswish_qt_handler(*args, **kwargs):
     return quant_invariant_handler(F.hardswish, *args, **kwargs)
 
