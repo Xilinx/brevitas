@@ -294,7 +294,13 @@ def maybe_allocate_params_accelerate(module):
 
 
 def is_model_offloaded_accelerate(model):
+    # If the model has `_hf_map`, it means accelerate was used, and we need to be careful when
+    # applying model transformations
     return hasattr(model, '_hf_map')
+
+
+def num_accelerators(model):
+    return len(model._hf_map.values())
 
 
 @torch.no_grad()
@@ -304,7 +310,7 @@ def apply_rewriters_accelerate(
     from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 
     # if we use _hf_map to check and all the model is on a single GPU, then all rewriters are safe
-    if len(model._hf_map.values()) > 1:
+    if num_accelerators(model) > 1:
         inplace_rewriters = [
             r for r in rewriters if not isinstance(r, ModuleInstanceRegisterParametrization)]
         parametrization_rewriters = [r for r in rewriters if r not in inplace_rewriters]
@@ -2004,8 +2010,6 @@ class GraphRotationEqualization(RotationEqualization):
         # The user should not be resposible for this in any case
         if delay_rewriters:
             return model
-        # If the model has `_hf_map`, it means accelerate was used, and we need to be careful when
-        # applying model transformations
         if is_model_offloaded_accelerate(model):
             return apply_rewriters_accelerate(model, rewriters)
         else:
