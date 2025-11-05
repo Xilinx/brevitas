@@ -70,10 +70,6 @@ def hardtanh_qt_handler(*args, **kwargs):
     return quant_invariant_handler(F.hardtanh, *args, **kwargs)
 
 
-def hardswish_qt_handler(*args, **kwargs):
-    return quant_invariant_handler(F.hardswish, *args, **kwargs)
-
-
 @implements(F.alpha_dropout)
 def alpha_dropout_handler(*args, **kwargs):
     return quant_invariant_handler(F.alpha_dropout, *args, **kwargs)
