@@ -106,7 +106,8 @@ class WeightFloatBitWidthWeightedBySize(BitWidthWeighted):
         def hook_fn(module, input, output: QuantTensor):
             num_elements = reduce(mul, output.value.size(), 1)
             self.weighted_bit_width_list.append(
-                num_elements * (output.mantissa_bit_width + output.exponent_bit_width + 1))
+                num_elements *
+                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -126,7 +127,8 @@ class ActivationFloatBitWidthWeightedBySize(BitWidthWeighted):
         def hook_fn(module, input, output: QuantTensor):
             num_elements = reduce(mul, output.value.size()[1:], 1)  # exclude batch size
             self.weighted_bit_width_list.append(
-                num_elements * (output.mantissa_bit_width + output.exponent_bit_width + 1))
+                num_elements *
+                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
