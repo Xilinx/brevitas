@@ -12,7 +12,6 @@ from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantLinear
-from brevitas.nn import QuantScaleBias
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector

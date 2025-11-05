@@ -713,7 +713,7 @@ IntQuantTensor(value=tensor([[[[-0.0018,  0.1273, -0.1937],
 </pre></div></div>
 </div>
 <p>Notice how the quantized weights are wrapped in a data structure implemented by Brevitas called <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. A <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is a way to represent an affine quantized tensor with all its metadata, meaning: the <code class="docutils literal notranslate"><span class="pre">value</span></code> of the quantized tensor in <em>dequantized</em> format, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code>, <code class="docutils literal notranslate"><span class="pre">bit_width</span></code>, whether the quantized value it’s <code class="docutils literal notranslate"><span class="pre">signed</span></code> or not, and whether the tensor was generated in <code class="docutils literal notranslate"><span class="pre">training</span></code> mode.</p>
-<p>As expected, we have that the quantized value (in dequantized format) can be computer from its integer representation, together with zero-point and scale:</p>
+<p>As expected, we have that the quantized value (in dequantized format) can be computed from its integer representation, together with zero-point and scale:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
@@ -752,7 +752,7 @@ True
 True
 </pre></div></div>
 </div>
-<p>Calling <code class="docutils literal notranslate"><span class="pre">is_valid</span></code> is relative expensive, so it should be using sparingly, but there are a few cases where a non-valid QuantTensor might be generated that is important to be aware of. Say we have two QuantTensor as output of the same quantized activation, and we want to sum them together:</p>
+<p>Calling <code class="docutils literal notranslate"><span class="pre">is_valid</span></code> is relatively expensive, so it should be used sparingly, but there are a few cases where a non-valid QuantTensor might be generated that are important to be aware of. Say we have two QuantTensor as output of the same quantized activation, and we want to sum them together:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
@@ -826,7 +826,7 @@ IntQuantTensor(value=tensor([[[[-0.1106,  1.1945, -0.4972, -2.0968,  0.7175],
 True
 </pre></div></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> implements <code class="docutils literal notranslate"><span class="pre">__torch_function__</span></code> to handle being called from torch functional operators (e.g. ops under <code class="docutils literal notranslate"><span class="pre">torch.nn.functional</span></code>). Passing a QuantTensor to supported ops that are invariant to quantization, e.g. max-pooling, preserve the the validity of a QuantTensor. Example:</p>
+<p><code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> implements <code class="docutils literal notranslate"><span class="pre">__torch_function__</span></code> to handle being called from torch functional operators (e.g. ops under <code class="docutils literal notranslate"><span class="pre">torch.nn.functional</span></code>). Passing a QuantTensor to supported ops that are invariant to quantization, e.g. max-pooling, preserves the the validity of a QuantTensor. Example:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
@@ -889,7 +889,7 @@ tensor([[[[ 0.4770,  0.2212,  0.0691,  0.5650],
 </section>
 <section id="Input-Quantization">
 <h2>Input Quantization<a class="headerlink" href="#Input-Quantization" title="Permalink to this heading">#</a></h2>
-<p>We can obtain a valid output <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> by making sure that both input and weight of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> are quantized. To do so, we can set a quantizer for <code class="docutils literal notranslate"><span class="pre">input_quant</span></code>. In this example we pick a <em>signed 8-bit</em> quantizer with <em>per-tensor floating-point scale factor</em>:</p>
+<p>We can obtain a valid output <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> by making sure that both the inputs and weights of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> are quantized. To do so, we can set a quantizer for <code class="docutils literal notranslate"><span class="pre">input_quant</span></code>. In this example we pick a <em>signed 8-bit</em> quantizer with <em>per-tensor floating-point scale factor</em>:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
@@ -939,7 +939,7 @@ IntQuantTensor(value=tensor([[[[-0.3568, -0.1883,  0.3589],
 True
 </pre></div></div>
 </div>
-<p>What happens internally is that the input tensor passed to <code class="docutils literal notranslate"><span class="pre">input_quant_conv</span></code> is being quantized before being passed to the convolution operator. That means we are now computing a convolution between two quantized tensors, which mimplies that the output of the operation is also quantized. As expected then <code class="docutils literal notranslate"><span class="pre">out_tensor</span></code> is marked as valid.</p>
+<p>What happens internally is that the input tensor passed to <code class="docutils literal notranslate"><span class="pre">input_quant_conv</span></code> is being quantized before being passed to the convolution operator. That means we are now computing a convolution between two quantized tensors, which implies that the output of the operation is also quantized. As expected, <code class="docutils literal notranslate"><span class="pre">out_tensor</span></code> is then marked as valid.</p>
 <p>Another important thing to notice is how the <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> field of <code class="docutils literal notranslate"><span class="pre">out_tensor</span></code> is relatively high at <em>21 bits</em>. In Brevitas, the assumption is always that the output bit-width of an operator reflects the worst-case size of the <em>accumulator</em> required by that operation. In other terms, given the <em>size</em> of the input and weight tensors and their <em>bit-widths</em>, 21 is the bit-width that would be required to represent the largest possible output value that could be generated. This makes sure that
 the affine quantization invariant is always respected.</p>
 <p>We could have obtained a similar result by directly passing as input a QuantTensor. In this example we are directly defining a QuantTensor ourselves, but it could also be the output of a previous layer.</p>
@@ -1000,7 +1000,7 @@ IntQuantTensor(value=tensor([[[[ 7.2000e-03, -3.7000e-03,  7.7000e-03, -2.4000e-
 True
 </pre></div></div>
 </div>
-<p><strong>Note</strong>: how we are explicitly forcing <code class="docutils literal notranslate"><span class="pre">value</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> and <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> to be floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>, as this is expected by Brevitas but it’s currently not enforced automatically at initialization time.</p>
+<p><strong>Note</strong> how we are explicitly forcing <code class="docutils literal notranslate"><span class="pre">value</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> and <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> to be floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>, as this is expected by Brevitas but it’s currently not enforced automatically at initialization time.</p>
 <p>If we now pass in <code class="docutils literal notranslate"><span class="pre">quant_tensor_input</span></code> to <code class="docutils literal notranslate"><span class="pre">return_quant_conv</span></code>, we will see that indeed the output is a valid 21-bit <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
@@ -1079,7 +1079,7 @@ IntQuantTensor(value=tensor([[[[-0.0073,  0.0040, -0.0011],
 </section>
 <section id="Output-Quantization">
 <h2>Output Quantization<a class="headerlink" href="#Output-Quantization" title="Permalink to this heading">#</a></h2>
-<p>Let’s now look at would have happened if we instead enabled output quantization:</p>
+<p>Let’s now look at what would have happened if we had instead enabled output quantization:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
@@ -1353,7 +1353,7 @@ File <span class="ansi-green-fg">/proj/xlabs/users/nfraser/opt/miniforge3/envs/2
 <span class="ansi-red-fg">RuntimeError</span>: Input scale required
 </pre></div></div>
 </div>
-<p>Not all scenarios require bias quantization to depend on the scale factor of the input. In those cases, biases can be quantized the same way weights are quantized, and have their own scale factor. In Brevitas, a predefined quantizer that reflects this other scenario is <code class="docutils literal notranslate"><span class="pre">Int8BiasPerTensorFloatInternalScaling</span></code>. In this case then a valid quantized input is not required:</p>
+<p>Not all scenarios require bias quantization to depend on the scale factor of the input. In those cases, biases can be quantized in the same way weights are quantized, and have their own scale factor. In Brevitas, a predefined quantizer that reflects this other scenario is <code class="docutils literal notranslate"><span class="pre">Int8BiasPerTensorFloatInternalScaling</span></code>. In this case then a valid quantized input is not required:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>

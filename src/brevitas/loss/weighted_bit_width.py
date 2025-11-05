@@ -25,6 +25,7 @@ class BitWidthWeighted(object):
         self.model: nn.Module = model
         self.weighted_bit_width_list: List[torch.Tensor] = []
         self.tot_num_elements: int = 0
+        self.list_of_hooks = []
         self.register_hooks()
 
     @abstractmethod
@@ -51,6 +52,10 @@ class BitWidthWeighted(object):
     def log(self):
         return self.retrieve(as_average=True).detach().clone()
 
+    def remove_hooks(self):
+        for h in self.list_of_hooks:
+            h.remove()
+
 
 class WeightBitWidthWeightedBySize(BitWidthWeighted):
 
@@ -67,7 +72,8 @@ class WeightBitWidthWeightedBySize(BitWidthWeighted):
 
         for name, module in self.model.named_modules():
             if has_learned_weight_bit_width(module):
-                module.register_forward_hook(hook_fn)
+                h = module.register_forward_hook(hook_fn)
+                self.list_of_hooks.append(h)
 
 
 class ActivationBitWidthWeightedBySize(BitWidthWeighted):
@@ -85,7 +91,8 @@ class ActivationBitWidthWeightedBySize(BitWidthWeighted):
 
         for name, module in self.model.named_modules():
             if has_learned_activation_bit_width(module):
-                module.register_forward_hook(hook_fn)
+                h = module.register_forward_hook(hook_fn)
+                self.list_of_hooks.append(h)
 
 
 class WeightFloatBitWidthWeightedBySize(BitWidthWeighted):
@@ -99,12 +106,14 @@ class WeightFloatBitWidthWeightedBySize(BitWidthWeighted):
         def hook_fn(module, input, output: QuantTensor):
             num_elements = reduce(mul, output.value.size(), 1)
             self.weighted_bit_width_list.append(
-                num_elements * (output.mantissa_bit_width + output.exponent_bit_width))
+                num_elements *
+                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
             if has_learned_weight_bit_width(module):
-                module.register_forward_hook(hook_fn)
+                h = module.register_forward_hook(hook_fn)
+                self.list_of_hooks.append(h)
 
 
 class ActivationFloatBitWidthWeightedBySize(BitWidthWeighted):
@@ -118,12 +127,14 @@ class ActivationFloatBitWidthWeightedBySize(BitWidthWeighted):
         def hook_fn(module, input, output: QuantTensor):
             num_elements = reduce(mul, output.value.size()[1:], 1)  # exclude batch size
             self.weighted_bit_width_list.append(
-                num_elements * (output.mantissa_bit_width + output.exponent_bit_width))
+                num_elements *
+                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
             if has_learned_activation_bit_width(module):
-                module.register_forward_hook(hook_fn)
+                h = module.register_forward_hook(hook_fn)
+                self.list_of_hooks.append(h)
 
 
 class QuantLayerOutputBitWidthWeightedByOps(BitWidthWeighted):

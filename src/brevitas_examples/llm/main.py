@@ -17,7 +17,7 @@ from transformers import AutoTokenizer
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
-from brevitas.graph.base import ModuleInstanceTransformTensor
+from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
@@ -91,42 +91,45 @@ def filter_results(results, tasks):
 def fused_rotation_no_fx(model, calibration_loader, args):
     model.config.use_cache = False
     with torch.no_grad():
-        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+        fx_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
-        new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
+        fx_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
 
     layers_to_expand = []
     if args.rotation is not None:
-        for name, _ in new_model.named_modules():
+        for name, _ in fx_model.named_modules():
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(new_model)
+    apply_layernorm_affine_merge(fx_model)
     # NOTE: This call breaks ties between the the lm_head and the embedding layer
-    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
+    fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
         r.apply(model)
-    new_model = offload_model(new_model)
+
+    # Since we apply the rewriters to a different, non-fx model, we need only to compute them
+    # And apply them in a second moment on the non-fx model
+    delay_rewriters = True
+    return_rewriters = True
+
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
-        return_rewriters=True,
+        return_rewriters=return_rewriters,
         sdpa_regions=args.rotation_sdpa_regions,
         use_parametrized_rotations=args.optimize_rotations,
+        delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand)
-    new_model, rewriters = eq.apply(new_model)
+    fx_model, rewriters = eq.apply(fx_model)
+
+    model = offload_model(model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
-    with torch.no_grad():
-        for r in rewriters:
-            # The weights between model and new_model are tied, so this check prevents
-            # rotating the weights twice
-            if not isinstance(r, ModuleInstanceTransformTensor):
-                model = r.apply(model)
-    remove_hooks(new_model)
+
+    model = apply_rewriters(model, rewriters, delay_rewriters=False)
 
 
 def set_seed(seed):

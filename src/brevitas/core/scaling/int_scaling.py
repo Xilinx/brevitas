@@ -4,6 +4,7 @@
 from typing import Optional
 from typing import Union
 
+import torch
 from torch import Tensor
 
 import brevitas
@@ -14,10 +15,15 @@ from brevitas.function.ops import min_int
 class IntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed', 'narrow_range']
 
-    def __init__(self, narrow_range: bool, signed: Optional[bool] = None):
+    def __init__(
+            self,
+            narrow_range: bool,
+            signed: Optional[bool] = None,
+            dtype: Optional[torch.dtype] = None):
         super(IntScaling, self).__init__()
         self.signed = signed
         self.narrow_range = narrow_range
+        self.dtype = dtype
 
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor, signed: Optional[Union[bool, Tensor]] = None) -> Tensor:
@@ -28,9 +34,9 @@ class IntScaling(brevitas.jit.ScriptModule):
         # Workaround: required for compatibility with the JIT for PT=2.2.2
         is_signed = bool(is_signed.item()) if isinstance(is_signed, Tensor) else is_signed
         if is_signed:
-            return -min_int(is_signed, self.narrow_range, bit_width)
+            return -min_int(is_signed, self.narrow_range, bit_width).to(dtype=self.dtype)
         else:
-            return max_int(is_signed, self.narrow_range, bit_width)
+            return max_int(is_signed, self.narrow_range, bit_width).to(dtype=self.dtype)
 
 
 class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
