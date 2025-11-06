@@ -3,6 +3,7 @@
 
 import torch
 from torch import Tensor
+
 try:
     from torch.linalg import LinAlgError
 except:
@@ -83,13 +84,14 @@ class GPTAQ(Qronos):
                 self.L[i] = torch.linalg.cholesky(self.L[i])
                 self.L[i] = torch.cholesky_inverse(self.L[i])
                 self.L[i] = torch.linalg.cholesky(self.L[i], upper=True)
-                # calculate their P matrix and adjust with their ad-hoc scaling; this is not reported in
-                # their paper, but it is used in their code, reportedly to stabilize results. They do not
-                # explain where it comes from in their derivations, but they set it to 0.25 by default, 
-                # presumably from light hyperparameter tuning. We expose this here since it is unclear if
-                # it is sensitive to models, bit widths, datasets, etc. For the relevant PR, see
+                # calculate P matrix and adjust with ad-hoc scaling; this is not reported in the GPTAQ
+                # paper, but it is used in their official code, reportedly to stabilize results. They do not
+                # explain where it comes from in their derivations, but they set it to 0.25 by default,
+                # presumably from light hyperparameter tuning. It is unclear if alpha is sensitive to models,
+                # bit widths, datasets, etc. For the relevant issue and discussion, see
                 # https://github.com/Intelligent-Computing-Lab-Panda/GPTAQ/issues/4
-                self.P[i] = self.alpha * (((self.P[i].to(dev) @ self.L[i].T.to(dev)).triu_(diagonal=1)) @ self.L[i].to(dev)).to(self.device)
+                self.P[i] = self.alpha * (((self.P[i].to(dev) @ self.L[i].T.to(dev)).triu_(
+                    diagonal=1)) @ self.L[i].to(dev)).to(self.device)
         except LinAlgError as e:
             warnings.warn(
                 f'Failed to compute the inverse of the Hessian for layer {self.name} '
