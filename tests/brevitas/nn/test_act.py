@@ -48,12 +48,12 @@ class TestQuantHardSwish:
         out_positive = mod(inp_positive)
         assert (out_positive >= 0).all().item()
 
-        # For small negative inputs, hardswish can produce small negative values
+        # For small negative inputs, unquantized hardswish can produce small negative values
         # HardSwish(x) ≈ -0.33 at minimum (around x=-3)
+        # With unsigned quantization (default), these small negative values are clamped to zero
         inp_negative = torch.tensor([-2.0, -1.0, -0.5])
         out_negative = mod(inp_negative)
-        # With signed quantization, negative values should be preserved
-        assert out_negative.min() <= 0
+        assert (out_negative >= 0).all().item()
 
     def test_training_eval_modes(self):
         mod = QuantHardSwish()
