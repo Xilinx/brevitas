@@ -124,9 +124,9 @@ class QuantHardSwish(QuantNLAL):
     """
     Quantized HardSwish activation.
 
-    This is a baseline implementation using symmetric signed quantization.
-    HardSwish output range is approximately [-0.33, ∞) which means symmetric
-    quantization wastes a significant portion of the negative range.
+    This is a baseline implementation using unsigned quantization (Uint8ActPerTensorFloat).
+    HardSwish output range is approximately [-0.33, ∞), and unsigned quantization clamps
+    the small negative values to zero, which is acceptable for most use cases.
 
     For hardware-specific optimizations, consider:
     - Asymmetric quantization with learned zero-point for better range utilization
