@@ -51,6 +51,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
 from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
+from brevitas_examples.llm.llm_quant.gpxq import apply_gptaq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
 from brevitas_examples.llm.llm_quant.gpxq import apply_qronos
@@ -618,6 +619,16 @@ def quantize_llm(args, extra_args=None):
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device)
             print("Qronos applied.")
+
+        if args.gptaq and not args.load_checkpoint:
+            print("Applying GPTAQ...")
+            apply_gptaq(
+                model,
+                calibration_loader,
+                act_order=args.gpxq_act_order,
+                block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device)
+            print("GPTAQ applied.")
 
         if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")
