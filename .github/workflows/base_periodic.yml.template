@@ -2,7 +2,7 @@ name: &{name}
 
 on:
   schedule:
-  - cron: '0 0 * * 6' # 12:00am UTC every Saturday
+  - cron: '37 19 * * 5' # 7:37am UTC every Friday
 
 jobs:
   build:
