@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Any
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -15,13 +16,18 @@ import brevitas.config as config
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.core.stats.stats_wrapper import _Stats
-from brevitas.core.zero_point import PreZeroCenterZeroPoint
 from brevitas.function import get_upper_bound_on_l1_norm
 
 __all__ = [
     "ParameterPreScalingWeightNorm",
     "AccumulatorAwareParameterPreScaling",
     "AccumulatorAwareZeroCenterParameterPreScaling"]
+
+
+# Avoid ciruclar imports
+def get_PreZeroCenterZeroPoint_class() -> Any:
+    from brevitas.core.zero_point import PreZeroCenterZeroPoint
+    return PreZeroCenterZeroPoint
 
 
 class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
@@ -197,7 +203,7 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
     @brevitas.jit.script_method
     def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
         """Takes weights, input bit-width, and input sign as input and returns the pre-clipping
-        scaling factor per-channel, which is $s \cdot \Vert v \Vert_1 / g$"""
+        scaling factor per-channel, which is $s \\cdot \\Vert v \\Vert_1 / g$"""
         value = self.inner_forward(weights, input_bit_width, input_is_signed)
         return value
 
@@ -248,7 +254,7 @@ class AccumulatorAwareZeroCenterParameterPreScaling(AccumulatorAwareParameterPre
             restrict_pre_scaling_impl,
             pre_scaling_min_val)
         assert isinstance(
-            pre_zero_point_impl, PreZeroCenterZeroPoint
+            pre_zero_point_impl, get_PreZeroCenterZeroPoint_class()
         ), "Error: A2Q+ requires a pre-clipping zero-centering zero-point."
         self.pre_zero_point = pre_zero_point_impl
 
@@ -264,7 +270,7 @@ class AccumulatorAwareZeroCenterParameterPreScaling(AccumulatorAwareParameterPre
     @brevitas.jit.script_method
     def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
         """Takes weights, input bit-width, and input sign as input and returns the pre-clipping
-        scaling factor per-channel, which is $s \cdot \Vert v - \mu_v \Vert_1 / g$"""
+        scaling factor per-channel, which is $s \\cdot \\Vert v - \\mu_v \\Vert_1 / g$"""
         # NOTE: A2Q+ requires zero-centering the floating-point weights, which means that the
         # calculation of the l1-norm needs to be done over the zero-centered weights.
         z = self.pre_zero_point.get_zero_center(weights)
