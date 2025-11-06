@@ -5,12 +5,14 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 from typing import Callable
 
+import torch
 from torch import Tensor
 import torch.nn as nn
 
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.zero_point import _ScaleShiftZeroPoint
 from brevitas.function.ops_ste import abs_binary_sign_grad
+from brevitas.function.ops_ste import floor_ste
 
 
 # TODO: restore JIT compatibility
@@ -74,3 +76,17 @@ class RuntimeDynamicStatsZeroPoint(nn.Module):
         x = abs_binary_sign_grad(x)
         x = self.scale_shift_zero_point(x, scale, bit_width)
         return x
+
+
+def _calculate_midmax_bias(mantissa_bit_width):
+    return 1 - torch.log2(torch.tensor((2 - 2**(-mantissa_bit_width - 1)))).detach() # extra 1 for the implicit bit
+
+
+class RoundMidMaxSte(nn.Module):
+    def __init__(self, mantissa_bit_width):
+        super().__init__()
+        self.mantissa_bit_width = mantissa_bit_width
+        self.midmax_round_bias = _calculate_midmax_bias(mantissa_bit_width) # Only works with static mantissa bitwidth
+
+    def forward(self, x):
+        return floor_ste(x + self.midmax_round_bias)
