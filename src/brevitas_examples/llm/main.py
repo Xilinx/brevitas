@@ -335,9 +335,11 @@ def quantize_llm(args, extra_args=None):
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
+        model = offload_model(model)
         eq = LayerwiseActivationRotation(
             layers_to_expand=layers_to_expand, expansion_step=args.expansion_step)
         model = eq.apply(model)
+        remove_hooks(model)
     elif args.rotation == 'fused_no_fx':
         fused_rotation_no_fx(model, calibration_loader, args)
 

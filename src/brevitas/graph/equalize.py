@@ -1774,6 +1774,17 @@ class RotationEqualization(GraphTransform):
                 full_name = prefix + '.' + name if prefix != '' else name
                 self.find_module_by_name(module, regions, full_name)
 
+    def transform_model(
+            self, model: nn.Module, rewriters: List[Transform], delay_rewriters: bool) -> nn.Module:
+        # In some circumstances, it might be useful to apply model transformations at a later moment
+        # The user should not be resposible for this in any case
+        if delay_rewriters:
+            return model
+        if is_model_offloaded_accelerate(model):
+            return apply_rewriters_accelerate(model, rewriters)
+        else:
+            return apply_rewriters(model, rewriters)
+
 
 class GraphRotationEqualization(RotationEqualization):
 
@@ -2005,16 +2016,6 @@ class GraphRotationEqualization(RotationEqualization):
         else:
             return graph_model
 
-    def transform_model(self, model, rewriters, delay_rewriters):
-        # In some circumstances, it might be useful to apply model transformations at a later moment
-        # The user should not be resposible for this in any case
-        if delay_rewriters:
-            return model
-        if is_model_offloaded_accelerate(model):
-            return apply_rewriters_accelerate(model, rewriters)
-        else:
-            return apply_rewriters(model, rewriters)
-
 
 @torch.no_grad()
 def apply_rewriters(
@@ -2114,9 +2115,10 @@ class LayerwiseActivationRotation(RotationEqualization):
         self.supported_sinks = (nn.Linear)
 
     def apply(self, model: nn.Module) -> nn.Module:
+        regions: List[Region] = []
+        rewriters: List[Transform] = []
 
         blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
-        regions: List[Region] = []
         self.find_module(model, regions, blacklist_layers=blacklist_orphan_layers)
         expanded_regions = []
         self.find_module_by_name(model, expanded_regions)
@@ -2124,5 +2126,6 @@ class LayerwiseActivationRotation(RotationEqualization):
         if len(expanded_regions) > 0:
             regions.extend(expanded_regions)
         if len(regions) > 0:
-            _compute_rotations(model, regions, expansion_step=self.expansion_step)
+            rewriters.extend(_compute_rotations(model, regions, expansion_step=self.expansion_step))
+        model = self.transform_model(model, rewriters, delay_rewriters=False)
         return model
