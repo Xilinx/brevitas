@@ -67,14 +67,14 @@ def compute_perplexity(
         sample_length = sample["input_ids"].shape[1]
         for start_index in range(0, sample_length, context_length * 2):
             end_index = min(start_index + sample_length, sample_length - 1)
-
-            subsample = {
-                "input_ids": sample["input_ids"][:, start_index:end_index + 1],
-                "attention_mask": sample["attention_mask"][:, start_index:end_index + 1],}
-
-            # In case we are using torch.fx, we can not have optional inputs, and we have traced the model with past_key_values inputs, thus we need them here as well.
-            if "past_key_values" in sample and isinstance(model, torch.fx.GraphModule):
-                subsample["past_key_values"] = sample["past_key_values"]
+            if 'attention_mask' in sample:
+                subsample = {
+                    "input_ids": sample["input_ids"][:, start_index:end_index + 1],
+                    "attention_mask": sample["attention_mask"][:, start_index:end_index + 1],}
+            else:
+                subsample = {
+                    "input_ids": sample["input_ids"][:, start_index:end_index + 1],
+                    "cache_position": sample["cache_position"][start_index:end_index + 1]}
 
             use_accelerate = hasattr(model, "hf_device_map")
             if not use_accelerate or (use_accelerate and not hasattr(model, "_hf_hook")):
@@ -87,7 +87,9 @@ def compute_perplexity(
                 for name, val in subsample.items():
                     subsample[name] = recursive_to_device(val, device)
 
-            lm_logits = model(**subsample)["logits"]
+            lm_logits = model(**subsample)
+            if isinstance(lm_logits, dict) and 'logits' in lm_logits:
+                lm_logits = lm_logits['logits']
 
             reference_labels = subsample["input_ids"][:, context_length:]
 

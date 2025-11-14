@@ -13,6 +13,7 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
+from transformers.integrations.executorch import TorchExportableModuleForDecoderOnlyLM
 
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
@@ -237,7 +238,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
+        require_fx=require_fx,
         device=None)
 
     validation_loader = get_dataset_for_model(
@@ -249,7 +250,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split=args.dataset_eval_split,
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
+        require_fx=require_fx,
         device=None)
 
     if args.optimize_rotations:
@@ -284,7 +285,9 @@ def quantize_llm(args, extra_args=None):
 
     if require_fx:
         with torch.no_grad():
-            model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+            model.generation_config = None
+            model = TorchExportableModuleForDecoderOnlyLM(model)
+            model, guards = torch._dynamo.export(model.model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
     model.eval()

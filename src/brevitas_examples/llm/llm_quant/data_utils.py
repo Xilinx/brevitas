@@ -143,24 +143,10 @@ def get_dataset_for_model(
             num_kv_heads = num_heads
         head_dim = normalized_config.hidden_size // num_heads
         num_layers = normalized_config.num_layers
-
         for sample in data:
-            sample["past_key_values"] = tuple((
-                torch.zeros(
-                    1,
-                    num_kv_heads,
-                    0,
-                    head_dim,
-                    device=sample["input_ids"].device,
-                    dtype=sample["input_ids"].dtype),
-                torch.zeros(
-                    1,
-                    num_kv_heads,
-                    0,
-                    head_dim,
-                    device=sample["input_ids"].device,
-                    dtype=sample["input_ids"].dtype),
-            ) for _ in range(num_layers))
+            del sample['attention_mask']
+            cache_position = torch.arange((sample['input_ids'].shape[1]), dtype=torch.long)
+            sample['cache_position'] = cache_position
 
     data = DatasetToDevice(data, device=device)
 
