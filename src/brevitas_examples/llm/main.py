@@ -245,7 +245,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx,
+        require_fx=require_fx and args.export_target is not None,
         device=None)
 
     validation_loader = get_dataset_for_model(
@@ -257,7 +257,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split=args.dataset_eval_split,
         seed=args.seed,
-        require_fx=require_fx,
+        require_fx=require_fx and args.export_target is not None,
         device=None)
 
     if args.optimize_rotations:
