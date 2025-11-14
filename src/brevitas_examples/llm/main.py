@@ -90,10 +90,16 @@ def filter_results(results, tasks):
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
-    model.config.use_cache = False
     with torch.no_grad():
+        # We set generation_config to None so that it is automatically set within the wrapper
         model.generation_config = None
-        fx_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+        # Wrapping the model applies certain patches to make it work with dynamo
+        # But then we can unwrap it immediately
+        model = TorchExportableModuleForDecoderOnlyLM(model).model.model
+        # Caching should be disabled to make it work with dynamo
+        # The other alternative is to use static_cache
+        model.config.use_cache = False
+        fx_model, guards = torch._dynamo.export(model)(calibration_loader[0]['input_ids'])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
         fx_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
@@ -286,9 +292,15 @@ def quantize_llm(args, extra_args=None):
 
     if require_fx:
         with torch.no_grad():
+            # We set generation_config to None so that it is automatically set within the wrapper
             model.generation_config = None
-            model = TorchExportableModuleForDecoderOnlyLM(model)
-            model, guards = torch._dynamo.export(model.model)(**calibration_loader[0])
+            # Wrapping the model applies certain patches to make it work with dynamo
+            # But then we can unwrap it immediately
+            model = TorchExportableModuleForDecoderOnlyLM(model).model.model
+            # Caching should be disabled to make it work with dynamo
+            # The other alternative is to use static_cache
+            model.config.use_cache = False
+            model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
     model.eval()
