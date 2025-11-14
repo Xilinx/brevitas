@@ -92,6 +92,7 @@ def filter_results(results, tasks):
 def fused_rotation_no_fx(model, calibration_loader, args):
     model.config.use_cache = False
     with torch.no_grad():
+        model.generation_config = None
         fx_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
