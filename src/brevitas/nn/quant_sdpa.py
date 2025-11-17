@@ -92,7 +92,7 @@ class ScaledDotProductAttention(Module):
                 An error is thrown if both attn_mask and is_causal are set.
             scale (optional float, keyword-only): Scaling factor applied prior to softmax. If None, the default value is set
                 to :math:`\frac{1}{\sqrt{E}}`.
-            enable_gqa (bool): Ignored to make calling interface compatible with PyTorch >v2.5. Always set to False.
+            enable_gqa (bool): If set to True, Grouped Query Attention (GQA) is enabled, by default it is set to False.
 
         Returns:
             output (Tensor): Attention output; shape :math:`(N, ..., Hq, L, Ev)`.
@@ -182,7 +182,7 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
                 An error is thrown if both attn_mask and is_causal are set.
             scale (optional float, keyword-only): Scaling factor applied prior to softmax. If None, the default value is set
                 to :math:`\frac{1}{\sqrt{E}}`.
-            enable_gqa (bool): Ignored to make calling interface compatible with PyTorch >v2.5. Always set to False.
+            enable_gqa (bool): If set to True, Grouped Query Attention (GQA) is enabled, by default it is set to False.
 
         Returns:
             output (Tensor): Attention output; shape :math:`(N, ..., Hq, L, Ev)`.
@@ -218,6 +218,10 @@ class QuantScaledDotProductAttention(Module, LayerProtocol, ExportMixin):
             else:
                 attn_bias += attn_mask
         query, key, value = self.pre_process_q(query), self.pre_process_k(key), self.pre_process_v(value)
+
+        if enable_gqa:
+            key = key.repeat_interleave(query.size(-3) // key.size(-3), -3)
+            value = value.repeat_interleave(query.size(-3) // value.size(-3), -3)
 
         q_scaled = self.q_scaled_quant(query * scale_factor)
         k_transpose = self.k_transposed_quant(key.transpose(-2, -1))
