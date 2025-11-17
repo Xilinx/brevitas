@@ -48,16 +48,14 @@ def filter_results(results, tasks):
     return eval_results
 
 
-# TODO (pml): The implementation of `_init_model` in `BrevitasPipeline` mimics that
-# of `Pipeline` in `lighteval>=0.11.0`. However, `lighteval>=0.11.0` requires
-# `transformers>=4.54.0`, which clashes with the pin `transformers[sentencepiece]==4.50.0`
-# in `requirements-llm.txt`. Therefore, `BrevitasPipeline` can only be removed once the
-# `transformers` requirement is upgraded to `transformers>=4.54.0`. The following
-# provides extra context on the changes to _init_model: https://github.com/huggingface/lighteval/pull/921.
+# TODO: Although we have update lighteval and transformers version, we still rely on custom BrevitasPipeline
+# This allows us to set `_cache ` to None and re-compute results based on current configuration, rather
+# than loading pre-computed results
 class BrevitasPipeline(Pipeline):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.model._cache = None
 
     def _init_model(self, model_config, model):
         # Verify that both the model and model_config are passed
