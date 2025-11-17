@@ -1,4 +1,4 @@
 onnx
 onnxoptimizer
 onnxscript
-qonnx
+qonnx>=0.4.0

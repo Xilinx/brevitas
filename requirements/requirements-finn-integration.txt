@@ -3,5 +3,5 @@ onnx
 onnxoptimizer
 onnxruntime>=1.15.0
 onnxscript
-qonnx
+qonnx>=0.4.0
 toposort
