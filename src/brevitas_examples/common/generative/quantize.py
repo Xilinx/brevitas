@@ -12,6 +12,7 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
+from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
@@ -79,7 +80,6 @@ from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZe
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-from brevitas_examples.common.generative.quant_blocks import RoundMidMaxSte
 
 WEIGHT_QUANT_MAP = {
     'int': {
@@ -307,7 +307,8 @@ def generate_quantizers(
         attn_kwargs = dict()
 
     if scale_rounding_func_type is not None:
-        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
+        scale_rounding_func_dict = {
+            'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         input_kwargs = {**input_kwargs, **{'restrict_value_float_to_int_impl': scale_type}}
 
@@ -372,7 +373,8 @@ def generate_quantizers(
         **weight_float_format)
 
     if scale_rounding_func_type is not None:
-        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
+        scale_rounding_func_dict = {
+            'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         weight_quant = weight_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
 
