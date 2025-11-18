@@ -13,7 +13,6 @@ from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-from transformers.integrations.executorch import TorchExportableModuleForDecoderOnlyLM
 
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
@@ -60,6 +59,7 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affi
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
@@ -91,14 +91,7 @@ def filter_results(results, tasks):
 
 def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
-        # We set generation_config to None so that it is automatically set within the wrapper
-        model.generation_config = None
-        # Wrapping the model applies certain patches to make it work with dynamo
-        # But then we can unwrap it immediately
-        model = TorchExportableModuleForDecoderOnlyLM(model).model.model
-        # Caching should be disabled to make it work with dynamo
-        # The other alternative is to use static_cache
-        model.config.use_cache = False
+        model = make_dynamo_compatible(model)
         fx_model, guards = torch._dynamo.export(model)(calibration_loader[0]['input_ids'])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
@@ -292,14 +285,7 @@ def quantize_llm(args, extra_args=None):
 
     if require_fx:
         with torch.no_grad():
-            # We set generation_config to None so that it is automatically set within the wrapper
-            model.generation_config = None
-            # Wrapping the model applies certain patches to make it work with dynamo
-            # But then we can unwrap it immediately
-            model = TorchExportableModuleForDecoderOnlyLM(model).model.model
-            # Caching should be disabled to make it work with dynamo
-            # The other alternative is to use static_cache
-            model.config.use_cache = False
+            model = make_dynamo_compatible(model)
             model, guards = torch._dynamo.export(model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None

@@ -3,6 +3,7 @@
 
 import torch
 import torch.nn.functional as F
+from transformers.integrations.executorch import TorchExportableModuleForDecoderOnlyLM
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 
 from brevitas.graph import TorchFunctionalToModule
@@ -54,4 +55,16 @@ def add_zero_bias_to_linear(model: torch.nn.Module) -> torch.nn.Module:
                                     device=module.weight.device,
                                     dtype=module.weight.dtype)),
                 )
+    return model
+
+
+def make_dynamo_compatible(model):
+    # We set generation_config to None so that it is automatically set within the wrapper
+    model.generation_config = None
+    # Wrapping the model applies certain patches to make it work with dynamo
+    # But then we can unwrap it immediately
+    model = TorchExportableModuleForDecoderOnlyLM(model).model.model
+    # Caching should be disabled to make it work with dynamo
+    # The other alternative is to use static_cache
+    model.config.use_cache = False
     return model
