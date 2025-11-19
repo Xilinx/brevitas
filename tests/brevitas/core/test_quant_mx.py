@@ -149,6 +149,7 @@ edge_cases = [
     torch.tensor([[3.875 if i == 0 else 1.0 for i in range(32)]]),  # MXFP8E4M3, MidMax
 ]
 
+
 @example(inp=edge_cases[0])
 @example(inp=edge_cases[1])
 @given(inp=float_tensor_nz_st(shape=(1, 32), max_val=RANGE, min_val=-RANGE))

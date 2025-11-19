@@ -68,10 +68,7 @@ class MXMixin(ExtendedInjector):
     def midmax_mantissa_bit_bias(
             exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
             saturating):
-        return get_midmax_mantissa_bit_bias(
-            mantissa_bit_width,
-            nan_values,
-            inf_values)
+        return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
 
 
 class MXWeightMixin(MXMixin):
