@@ -97,6 +97,7 @@ def get_min_available_float(
     return min_value
 
 
+# TODO: Allow dynamically changing this value at runtime
 def get_midmax_mantissa_bit_bias(
         mantissa_bit_width: int, nan_values: Tuple[str], inf_values: Tuple[str]) -> float:
     # Calculate how much bias needs to be added midmax calculation, based on the amount of reserved values for inf, nan
