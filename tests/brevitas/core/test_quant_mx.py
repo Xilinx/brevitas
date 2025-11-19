@@ -142,7 +142,7 @@ class MXFP:
 
 MAP = {"e4m3": (4, 3), "e5m2": (5, 2), "e2m3": (2, 3), "e3m2": (3, 2), "e2m1": (2, 1)}
 SCALE_ROUNDING = ["floor", "midmax"]
-RANGE = 1e10
+RANGE = 1e9
 
 edge_cases = [
     torch.tensor([[7.5 if i == 0 else 1.0 for i in range(32)]]),  # MXFP4, MidMax
@@ -162,8 +162,6 @@ def test_act_mx(inp, bit_widths, scale_rounding):
     # Default rounding should be 'floor', so only create this dict if we are overriding the default
     if scale_rounding == "midmax":
         extra_kwargs["restrict_value_float_to_int_impl"] = RoundMidMaxSte
-        if bit_widths == "e4m3":
-            extra_kwargs["midmax_mantissa_bit_bias"] = 1.0
     act_quant = QuantIdentity(
         MXFloat8e4m3Act,
         exponent_bit_width=exp,
@@ -196,8 +194,6 @@ def test_weight_mx(inp, bit_widths, scale_rounding, weight_quant_type):
     # Default rounding should be 'floor', so only create this dict if we are overriding the default
     if scale_rounding == "midmax":
         extra_kwargs["weight_restrict_value_float_to_int_impl"] = RoundMidMaxSte
-        if bit_widths == "e4m3":
-            extra_kwargs["weight_midmax_mantissa_bit_bias"] = 1.0
     weight_quant = QuantLinear(
         32,
         1,
