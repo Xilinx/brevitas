@@ -91,6 +91,17 @@ class StaticExponentBias(torch.nn.Module):
 
 
 class ComputeExponentBias(torch.nn.Module):
+    """
+    Module that returns a runtime-computed exponent bias value.
+
+    Args:
+        exponent_bit_width_impl: Module that returns the exponent bit width
+
+    Examples:
+        >>> exp_bias = ComputeExponentBias(4.)
+        >>> exp_bias()
+        tensor(7.)
+    """
 
     def __init__(self, exponent_bit_width_impl):
         super().__init__()
