@@ -88,3 +88,13 @@ class StaticExponentBias(torch.nn.Module):
 
     def forward(self):
         return self.exponent_bias()
+
+
+class ComputeExponentBias(torch.nn.Module):
+
+    def __init__(self, exponent_bit_width_impl):
+        super().__init__()
+        self.exponent_bit_width_impl = exponent_bit_width_impl
+
+    def forward(self):
+        return 2 ** (self.exponent_bit_width_impl() - 1) - 1
