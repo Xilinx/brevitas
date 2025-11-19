@@ -145,8 +145,8 @@ SCALE_ROUNDING = ["floor", "midmax"]
 RANGE = 1e10
 
 edge_cases = [
-    torch.tensor([[7.5 if i == 0 else 1.0 for i in range(32)]]), # MXFP4, MidMax
-    torch.tensor([[3.875 if i == 0 else 1.0 for i in range(32)]]), # MXFP8E4M3, MidMax
+    torch.tensor([[7.5 if i == 0 else 1.0 for i in range(32)]]),  # MXFP4, MidMax
+    torch.tensor([[3.875 if i == 0 else 1.0 for i in range(32)]]),  # MXFP8E4M3, MidMax
 ]
 
 @example(inp=edge_cases[0])

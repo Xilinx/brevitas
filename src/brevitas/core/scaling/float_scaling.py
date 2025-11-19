@@ -49,14 +49,19 @@ class FloatScaling(brevitas.jit.ScriptModule):
 
 
 def _calculate_midmax_bias(mantissa_bit_width: Tensor, midmax_mantissa_bit_bias: float):
-    return torch.log2((2 - 2**(-mantissa_bit_width - 1 + midmax_mantissa_bit_bias))) # extra 1 for the implicit bit
+    return torch.log2(
+        (2 -
+         2 ** (-mantissa_bit_width - 1 + midmax_mantissa_bit_bias)))  # extra 1 for the implicit bit
 
 
 class RoundMidMaxSte(nn.Module):
+
     def __init__(self, mantissa_bit_width_impl: nn.Module, midmax_mantissa_bit_bias: float = 0.0):
         super().__init__()
         self.mantissa_bit_width_impl = mantissa_bit_width_impl
         self.midmax_mantissa_bit_bias = midmax_mantissa_bit_bias
 
     def forward(self, x: Tensor):
-        return ceil_ste(x - _calculate_midmax_bias(self.mantissa_bit_width_impl(), self.midmax_mantissa_bit_bias))
+        return ceil_ste(
+            x -
+            _calculate_midmax_bias(self.mantissa_bit_width_impl(), self.midmax_mantissa_bit_bias))
