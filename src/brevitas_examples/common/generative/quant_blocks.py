@@ -5,7 +5,8 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 from typing import Callable
 
-import torch
+from torch import Tensor
+import torch.nn as nn
 
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.zero_point import _ScaleShiftZeroPoint
