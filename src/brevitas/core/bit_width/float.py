@@ -81,7 +81,8 @@ class StaticExponentBias(torch.nn.Module):
         a checkpoint but will be properly handled during device transfers and dtype conversions.
     """
 
-    def __init__(self, exponent_bias, device=None, dtype=None):
+    def __init__(
+            self, exponent_bias: float, device: torch.device = None, dtype: torch.dtype = None):
         super().__init__()
         self.exponent_bias = StatelessBuffer(
             torch.tensor(float(exponent_bias), device=device, dtype=dtype))
@@ -103,7 +104,7 @@ class ComputeExponentBias(torch.nn.Module):
         tensor(7.)
     """
 
-    def __init__(self, exponent_bit_width_impl):
+    def __init__(self, exponent_bit_width_impl: torch.nn.Module):
         super().__init__()
         self.exponent_bit_width_impl = exponent_bit_width_impl
 
