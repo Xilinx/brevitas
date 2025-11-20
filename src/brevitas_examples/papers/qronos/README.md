@@ -16,4 +16,7 @@
 }
 ```
 
+> [!IMPORTANT]
+> These yaml files work with transformers==4.50.1 and lighteval==0.9.2
+
 Please use https://github.com/i-colbert/brevitas/tree/qronos/src/brevitas_examples/llm to reproduce the experiments used for the paper.
