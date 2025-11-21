@@ -5,7 +5,7 @@ lighteval[math]
 lm_eval
 numexpr<2.14.0
 onnx
-onnxruntime<1.21
+onnxruntime
 optimum[onnxruntime]
 pandas
 # TODO (pml): Remove when unpinning `transformers`, as `lighteval>=0.10.0`

@@ -1,4 +1,4 @@
-onnx==1.17.0
+onnx
 onnxoptimizer
-onnxscript<0.5.4
-qonnx
+onnxscript
+qonnx>=0.4.0
