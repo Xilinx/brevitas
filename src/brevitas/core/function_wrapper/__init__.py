@@ -16,6 +16,7 @@ from .ops_ste import DPURoundSte
 from .ops_ste import FloorSte
 from .ops_ste import InplaceTensorClampSte
 from .ops_ste import RoundSte
+from .ops_ste import SparseRoundSte
 from .ops_ste import RoundToZeroSte
 from .ops_ste import ScalarClampMinSte
 from .ops_ste import ScalarSignedClampMinSte

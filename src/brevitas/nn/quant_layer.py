@@ -85,6 +85,10 @@ class QuantInputOutputLayer(QuantOutputMixin, QuantInputMixin, QuantLayerMixin):
             if self.act_quant.is_quant_enabled:
                 self.input_quant = self.output_quant
 
+        if kwargs.get('weight_sparsity_ratio', None):
+            self.sparsity_ratio = kwargs['weight_sparsity_ratio']
+        self.sparsity_mask = None
+
     @property
     def requires_export_handler(self):
         return self.input_quant.is_quant_enabled or self.act_quant.is_quant_enabled

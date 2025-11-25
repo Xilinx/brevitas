@@ -4,9 +4,8 @@
 """
 ScriptModule wrappers of various functions defined in :obj:`~brevitas.function.ops_ste`.
 """
-
+import math
 import torch
-
 import brevitas
 from brevitas.function.ops_ste import *
 
@@ -23,6 +22,31 @@ class RoundSte(brevitas.jit.ScriptModule):
     def forward(self, x: torch.Tensor):
         return round_ste(x)
 
+class SparseRoundSte(RoundSte):
+    def __init__(self) -> None:
+        self.sparsity_ratio = None
+        super().__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        x = super().forward(x)
+        if not x.sparsity_ratio:
+            raise ValueError("Sparsity ratio not set or defined")
+        else:
+            if self.training:
+                print("SparseRoundSte in training mode")
+                k = math.ceil((1. - x.sparsity_ratio) * x.shape[-1]) # assuming last dim is the one to sparsify
+                _, indices = torch.topk(torch.abs(x), k, dim=-1)
+                mask = torch.zeros_like(x).scatter_(-1, indices, 1)
+                x = x * mask
+                x.sparsity_mask = mask
+            else:
+                print("SparseRoundSte in evaluation mode")
+                if not x.sparsity_mask:
+                    raise ValueError("Sparsity mask not found for evaluation mode")
+                else:
+                    x = x * self.sparsity_mask
+        return x
 
 class FloorSte(brevitas.jit.ScriptModule):
     """
