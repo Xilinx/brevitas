@@ -23,29 +23,22 @@ class RoundSte(brevitas.jit.ScriptModule):
         return round_ste(x)
 
 class SparseRoundSte(RoundSte):
-    def __init__(self) -> None:
-        self.sparsity_ratio = None
+    def __init__(self, sparsity_ratio) -> None:
+        self.sparsity_ratio = float(sparsity_ratio)
+        self.sparsity_mask = None
         super().__init__()
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = super().forward(x)
-        if not x.sparsity_ratio:
-            raise ValueError("Sparsity ratio not set or defined")
+        if self.training:
+            k = math.ceil((1. - self.sparsity_ratio) * x.shape[-1]) # assuming last dim is the one to sparsify
+            _, indices = torch.topk(torch.abs(x), k, dim=-1)
+            mask = torch.zeros_like(x).scatter_(-1, indices, 1)
+            x = x * mask
+            self.sparsity_mask = mask
         else:
-            if self.training:
-                print("SparseRoundSte in training mode")
-                k = math.ceil((1. - x.sparsity_ratio) * x.shape[-1]) # assuming last dim is the one to sparsify
-                _, indices = torch.topk(torch.abs(x), k, dim=-1)
-                mask = torch.zeros_like(x).scatter_(-1, indices, 1)
-                x = x * mask
-                x.sparsity_mask = mask
-            else:
-                print("SparseRoundSte in evaluation mode")
-                if not x.sparsity_mask:
-                    raise ValueError("Sparsity mask not found for evaluation mode")
-                else:
-                    x = x * self.sparsity_mask
+            x = x * self.sparsity_mask
         return x
 
 class FloorSte(brevitas.jit.ScriptModule):

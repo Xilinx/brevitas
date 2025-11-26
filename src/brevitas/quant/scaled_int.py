@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.function_wrapper import SparseRoundSte
 from brevitas.quant.base import *
 from brevitas.quant.base import HQOSymmetricScale
 from brevitas.quant.solver.act import ActQuantSolver
@@ -178,6 +179,16 @@ class Int8WeightPerTensorFloatMSE(MSESymmetricScale, Int8WeightPerTensorFloat):
     """
     pass
 
+class Int8WeightPerTensorFloatMSESparse(Int8WeightPerTensorFloatMSE):
+    """
+    Int8WeightPerTensorFloatMSE with an optional sparsity mask.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFloatMSESparse, weight_sparsity_ratio=0.75)
+    """
+    float_to_int_impl=SparseRoundSte
+    sparsity_ratio=0.
 
 class Int8WeightPerChannelFloat(NarrowIntQuant,
                                 MaxStatsScaling,
