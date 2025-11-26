@@ -120,10 +120,20 @@ EXAMPLES_PYTEST_STEP_LIST = [
         )]),]
 
 EXAMPLES_LLM_PYTEST_STEP_LIST = [
-    od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
+    od([('name', 'Run Nox session for brevitas_examples LLM'), ('shell', 'bash'),
         (
             'run',
             'nox -v -s tests_brevitas_examples_llm-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+        )]),
+    od([('name', 'Run Nox session for brevitas_examples LLM Export'), ('shell', 'bash'),
+        (
+            'run',
+            'nox -v -s tests_brevitas_examples_llm_export-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+        )]),
+    od([('name', 'Run Nox session for brevitas_examples LLM LightEval'), ('shell', 'bash'),
+        (
+            'run',
+            'nox -v -s tests_brevitas_examples_llm_lighteval-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 EXAMPLES_DIFFUSION_PYTEST_STEP_LIST = [

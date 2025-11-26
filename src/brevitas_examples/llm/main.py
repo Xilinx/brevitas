@@ -9,7 +9,6 @@ import pprint
 import sys
 
 import numpy as np
-from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
@@ -148,6 +147,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
     elif args.export_target == 'onnx_qcdq':
+        # Local import to allow for optional install
+        from optimum.exporters.onnx import onnx_export_from_model
+
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
