@@ -1,7 +1,7 @@
 accelerate
 datasets
 gguf==0.17.0
-lighteval[math]
+lighteval[math,extended_tasks]
 numexpr<2.14.0
 onnx
 onnxruntime<1.21
