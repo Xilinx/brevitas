@@ -4,6 +4,7 @@ gguf==0.17.0
 numexpr<2.14.0
 onnx
 onnxruntime<1.21
+optimum
 pandas
 pydantic
 torch>=2.4
