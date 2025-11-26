@@ -291,8 +291,11 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
 class SolveScaleSignedness(ExtendedInjector):
 
     @value
-    def is_scale_unsigned(scaling_stats_impl=None, scaling_init=None):
-        if hasattr(scaling_stats_impl, 'is_scale_unsigned'):
+    def is_scale_unsigned(restrict_scaling_impl=None, scaling_stats_impl=None, scaling_init=None):
+        # TODO (pml): Should I handle LOG_FP too?
+        if isinstance(restrict_scaling_impl, PowerOfTwoRestrictValue):
+            return True
+        elif hasattr(scaling_stats_impl, 'is_scale_unsigned'):
             return scaling_stats_impl.is_scale_unsigned
         elif scaling_init is not None:
             if not isinstance(scaling_init, torch.Tensor):

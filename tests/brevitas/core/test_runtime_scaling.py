@@ -11,9 +11,11 @@ from brevitas.core.scaling.runtime import StatsFromParameterScaling
 from brevitas.core.stats.stats_op import AbsMax
 from brevitas.core.stats.stats_op import SignedAbsMax
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import StatsOp
 from brevitas.quant.solver.act import SolveActScalingImplFromEnum
+from brevitas.quant.solver.common import SolveRestrictScalingImplFromEnum
 from brevitas.quant.solver.common import SolveScaleSignedness
 from brevitas.quant.solver.common import SolveScalingStatsOpFromEnum
 
@@ -89,3 +91,35 @@ def test_signed_scale_stats_injector():
     inp = torch.tensor([-0.5, 0.0, 1.0])
     pre_scale = scaling_op(inp)
     assert pre_scale.item() == -1.
+
+
+def test_signed_scale_stats_restrict_val():
+    scaling_op = RuntimeStatsScaling(
+        scaling_stats_impl=SignedAbsMax(),
+        scaling_stats_input_view_shape_impl=Identity(),
+        scaling_shape=SCALAR_SHAPE,
+        is_scale_unsigned=True,
+        restrict_scaling_impl=PowerOfTwoRestrictValue(),
+        scaling_min_val=SCALING_MIN_VAL)
+    inp = torch.tensor([-0.5, 0.0, 1.0])
+    pre_scale = scaling_op(inp)
+    assert pre_scale.item() == 1.
+
+
+def test_signed_scale_stats_injector_restrict_val():
+
+    class SignedStatsScaling(SolveActScalingImplFromEnum,
+                             SolveScalingStatsOpFromEnum,
+                             SolveRestrictScalingImplFromEnum,
+                             SolveScaleSignedness):
+        scaling_impl_type = ScalingImplType.STATS
+        scaling_stats_op = StatsOp.SIGNED_MAX
+        scaling_stats_input_view_shape_impl = Identity
+        restrict_scaling_type = RestrictValueType.POWER_OF_TWO
+        scaling_shape = SCALAR_SHAPE
+        scaling_min_val = SCALING_MIN_VAL
+
+    scaling_op = SignedStatsScaling.scaling_impl
+    inp = torch.tensor([-0.5, 0.0, 1.0])
+    pre_scale = scaling_op(inp)
+    assert pre_scale.item() == 1.

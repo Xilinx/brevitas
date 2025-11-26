@@ -43,16 +43,10 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
         else:
             self.restrict_value_impl = Identity()
 
-        if is_unsigned:
-            self.apply_abs = Abs()
-        else:
-            self.apply_abs = Identity()
-
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         x = self.restrict_value_impl(x)
         x = self.clamp_min_ste(x)
-        x = self.apply_abs(x)
         return x
 
 
