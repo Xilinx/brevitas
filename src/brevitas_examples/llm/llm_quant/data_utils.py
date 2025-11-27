@@ -129,7 +129,6 @@ def get_dataset_for_model(
             fuse_documents=fuse_documents)
 
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
-
     if require_fx:
         config = AutoConfig.from_pretrained(model_name_or_path)
 
@@ -144,6 +143,7 @@ def get_dataset_for_model(
             num_kv_heads = num_heads
         head_dim = normalized_config.hidden_size // num_heads
         num_layers = normalized_config.num_layers
+
         for sample in data:
             sample["past_key_values"] = tuple((
                 torch.zeros(
@@ -161,6 +161,7 @@ def get_dataset_for_model(
                     device=sample["input_ids"].device,
                     dtype=sample["input_ids"].dtype),
             ) for _ in range(num_layers))
+
     data = DatasetToDevice(data, device=device)
 
     return data
