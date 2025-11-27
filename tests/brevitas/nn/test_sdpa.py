@@ -89,7 +89,7 @@ class TestScaledDotProductAttention:
 
         # GQA means that there is a ration between KV head_dim and Q head_dim, in this case 2:1
         if extra_kwargs.get("enable_gqa", False):
-            kv_head_dim = int(HEAD_DIM / 2)
+            kv_head_dim = HEAD_DIM // 2
         else:
             kv_head_dim = HEAD_DIM
 
