@@ -160,7 +160,7 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]', 'optimum[onnxruntime]' * cmd)
+    session.install('-e', '.[test, llm, export]', 'optimum[onnxruntime]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-m', 'onnx_export_llm', 'tests/brevitas_examples/test_llm.py')
 
