@@ -81,6 +81,7 @@ class make_dynamo_compatible:
         # Caching should be disabled to make it work with dynamo
         # The other alternative is to use static_cache
         self.model.config.use_cache = False
+        return self
 
     def __exit__(self, *args, **kwargs):
         self.model.config = self.model_config
