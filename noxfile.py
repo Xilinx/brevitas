@@ -174,7 +174,7 @@ def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]', 'lighteval[math]', *cmd)
+    session.install('-e', '.[test, llm]', 'lighteval[math]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-m', 'lighteval_llm', 'tests/brevitas_examples/test_llm.py')
 
