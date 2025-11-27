@@ -382,10 +382,10 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,
             "few_shot_tasks": [
-                "leaderboard|arc:challenge|0|0",
-                "leaderboard|winogrande|0|0",
-                "lighteval|arc:easy|0|0",
-                "leaderboard|hellaswag|0|0",],
+                "arc:challenge|0",
+                "winogrande|0",
+                "arc:easy|0",
+                "hellaswag|0",],
             "few_shot_zeroshot": True,
             "imports": ["lighteval"],
             "all_acc": 0.375,},])
