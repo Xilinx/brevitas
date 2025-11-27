@@ -64,7 +64,7 @@ def make_dynamo_compatible(model):
     # Because getattr does not fall back to default with `config` class, we need to manually fill
     # `head_dim` if it is None
     # https://github.com/huggingface/transformers/blob/47b0e478f324b54f177ea7998a0791870fdd0324/src/transformers/integrations/executorch.py#L538
-    if getattr(model.config.head_dim, None):
+    if getattr(model.config, 'head_dim', None):
         model.config.head_dim = model.config.hidden_size // model.config.num_attention_heads
     # Wrapping the model applies certain patches to make it work with dynamo
     # But then we can unwrap it immediately
