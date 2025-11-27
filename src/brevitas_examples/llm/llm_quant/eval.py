@@ -67,6 +67,7 @@ def compute_perplexity(
         sample_length = sample["input_ids"].shape[1]
         for start_index in range(0, sample_length, context_length * 2):
             end_index = min(start_index + sample_length, sample_length - 1)
+
             subsample = {
                 "input_ids": sample["input_ids"][:, start_index:end_index + 1],
                 "attention_mask": sample["attention_mask"][:, start_index:end_index + 1],}
