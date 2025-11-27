@@ -25,6 +25,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
+import pathlib
 import re
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
@@ -174,11 +176,12 @@ def run_lighteval(
     """
 
     evaluation_tracker = EvaluationTracker(output_dir=output_dir, save_details=True)
+    parent_folder = pathlib.Path(os.path.abspath(__file__)).parent
 
     pipeline_params = PipelineParameters(
         launcher_type=ParallelismManager.ACCELERATE,
         max_samples=max_samples,
-        custom_tasks_directory='./eval_lighteval.py')
+        custom_tasks_directory=parent_folder + '/eval_lighteval.py')
 
     model_config = TransformersModelConfig(
         model_name=model_name, dtype=dtype, batch_size=batch_size, model_parallel=True)
