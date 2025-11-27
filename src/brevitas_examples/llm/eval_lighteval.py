@@ -177,11 +177,12 @@ def run_lighteval(
 
     evaluation_tracker = EvaluationTracker(output_dir=output_dir, save_details=True)
     parent_folder = pathlib.Path(os.path.abspath(__file__)).parent
+    full_path = os.path.join(parent_folder, '/eval_lighteval.py')
 
     pipeline_params = PipelineParameters(
         launcher_type=ParallelismManager.ACCELERATE,
         max_samples=max_samples,
-        custom_tasks_directory=parent_folder + '/eval_lighteval.py')
+        custom_tasks_directory=full_path)
 
     model_config = TransformersModelConfig(
         model_name=model_name, dtype=dtype, batch_size=batch_size, model_parallel=True)
