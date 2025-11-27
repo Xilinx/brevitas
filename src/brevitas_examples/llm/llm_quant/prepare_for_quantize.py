@@ -59,11 +59,17 @@ def add_zero_bias_to_linear(model: torch.nn.Module) -> torch.nn.Module:
 
 
 def make_dynamo_compatible(model):
-    # We set generation_config to None so that it is automatically set within the wrapper
-    model.generation_config = None
+    # We set cache_implementation to `static` for compatibility with dynamo
+    model.generation_config.cache_implementation = "static"
+    # Because getattr does not fall back to default with `config` class, we need to manually fill
+    # `head_dim` if it is None
+    # https://github.com/huggingface/transformers/blob/47b0e478f324b54f177ea7998a0791870fdd0324/src/transformers/integrations/executorch.py#L538
+    if model.config.head_dim is None:
+        model.config.head_dim = model.config.hidden_size // model.config.num_attention_heads
     # Wrapping the model applies certain patches to make it work with dynamo
     # But then we can unwrap it immediately
-    model = TorchExportableModuleForDecoderOnlyLM(model).model.model
+    model = TorchExportableModuleForDecoderOnlyLM(
+        model, batch_size=1, max_cache_len=2048).model.model
     # Caching should be disabled to make it work with dynamo
     # The other alternative is to use static_cache
     model.config.use_cache = False
