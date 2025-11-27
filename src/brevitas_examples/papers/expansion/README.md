@@ -12,7 +12,7 @@
 ```
 
 > [!IMPORTANT]
-> These yaml files work with transformers==4.50.1 and lighteval==0.9.2
+> These yaml files work with brevitas==0.12.1, transformers==4.50.1, and lighteval==0.9.2
 
 
 Please use `benchmark.py` to reproduce the experiments used for the paper, as follows:

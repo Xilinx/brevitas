@@ -90,8 +90,8 @@ def filter_results(results, tasks):
 
 def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad():
-        model = make_dynamo_compatible(model)
-        fx_model, guards = torch._dynamo.export(model)(calibration_loader[0]['input_ids'])
+        with make_dynamo_compatible(model) as dynamo_comp:
+            fx_model, guards = torch._dynamo.export(dynamo_comp.model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
         fx_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
@@ -287,8 +287,8 @@ def quantize_llm(args, extra_args=None):
 
     if require_fx:
         with torch.no_grad():
-            model = make_dynamo_compatible(model)
-            model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+            with make_dynamo_compatible(model) as dynamo_comp:
+                model, guards = torch._dynamo.export(dynamo_comp.model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
     model.eval()

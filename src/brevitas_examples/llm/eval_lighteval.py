@@ -89,6 +89,7 @@ def piqa_harness(line, task_name: str = None):
     )
 
 
+# For HS, we have always tested against validation split
 hellaswag_lm_eval = LightevalTaskConfig(
     name="hellaswag_lm_eval",
     prompt_function=hellaswag_harness,
@@ -105,6 +106,8 @@ hellaswag_lm_eval = LightevalTaskConfig(
     version=0,
 )
 
+# For PIQA, most recent lighteval tests against validation and test split.
+# Previous versions of lighteval tested only against validation.
 piqa_lm_eval = LightevalTaskConfig(
     name="piqa_lm_eval",
     prompt_function=piqa_harness,

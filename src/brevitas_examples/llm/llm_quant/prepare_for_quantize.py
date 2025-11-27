@@ -58,19 +58,29 @@ def add_zero_bias_to_linear(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
-def make_dynamo_compatible(model):
-    # We set cache_implementation to `static` for compatibility with dynamo
-    model.generation_config.cache_implementation = "static"
-    # Because getattr does not fall back to default with `config` class, we need to manually fill
-    # `head_dim` if it is None
-    # https://github.com/huggingface/transformers/blob/47b0e478f324b54f177ea7998a0791870fdd0324/src/transformers/integrations/executorch.py#L538
-    if not hasattr(model.config, 'head_dim') or model.config.head_dim is None:
-        model.config.head_dim = model.config.hidden_size // model.config.num_attention_heads
-    # Wrapping the model applies certain patches to make it work with dynamo
-    # But then we can unwrap it immediately
-    model = TorchExportableModuleForDecoderOnlyLM(
-        model, batch_size=1, max_cache_len=2048).model.model
-    # Caching should be disabled to make it work with dynamo
-    # The other alternative is to use static_cache
-    model.config.use_cache = False
-    return model
+class make_dynamo_compatible:
+
+    def __init__(self, model):
+        self.model = model
+        self.model_config = model.config
+
+    def __enter__(self):
+        # We set cache_implementation to `static` for compatibility with dynamo
+        self.model.generation_config.cache_implementation = "static"
+        # Because getattr does not fall back to default with `config` class, we need to manually fill
+        # `head_dim` if it is None
+        # https://github.com/huggingface/transformers/blob/47b0e478f324b54f177ea7998a0791870fdd0324/src/transformers/integrations/executorch.py#L538
+        if not hasattr(self.model.config, 'head_dim') or self.model.config.head_dim is None:
+            self.model.config.head_dim = self.model.config.hidden_size // self.model.config.num_attention_heads
+        # Wrapping the model applies certain patches to make it work with dynamo,
+        # but then we can unwrap it immediately.
+        # We need to specify batch_size and max_cache_len. The latter is not important since we disable
+        # cache anyway while we trace the model.
+        self.model = TorchExportableModuleForDecoderOnlyLM(
+            self.model, batch_size=1, max_cache_len=1).model.model
+        # Caching should be disabled to make it work with dynamo
+        # The other alternative is to use static_cache
+        self.model.config.use_cache = False
+
+    def __exit__(self, *args, **kwargs):
+        self.model.config = self.model_config
