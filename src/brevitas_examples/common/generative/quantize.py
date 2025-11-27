@@ -256,6 +256,7 @@ def generate_quantizers(
         weight_quant_format='int',
         weight_group_dim=None,
         weight_scaling_impl_type='parameter_from_stats',
+        weight_sparsity_ratio=None,
         input_bit_width=None,
         input_quant_format='',
         input_scale_precision=None,
@@ -382,6 +383,9 @@ def generate_quantizers(
 
     if scaling_min_val is not None:
         weight_quant = weight_quant.let(**{'scaling_min_val': scaling_min_val})
+
+    if weight_sparsity_ratio is not None:
+        weight_quant = weight_quant.let(**{'sparsity_ratio': weight_sparsity_ratio})
 
     if weight_kwargs is not None:
         weight_quant = weight_quant.let(**weight_kwargs)

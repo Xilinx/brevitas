@@ -31,6 +31,8 @@ class SparseRoundSte(RoundSte):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = super().forward(x)
+        if self.sparsity_mask is None:
+            self.sparsity_mask = torch.ones_like(x)
         if self.training:
             k = math.ceil((1. - self.sparsity_ratio) * x.shape[-1]) # assuming last dim is the one to sparsify
             _, indices = torch.topk(torch.abs(x), k, dim=-1)
