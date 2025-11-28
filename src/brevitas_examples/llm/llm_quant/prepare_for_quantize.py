@@ -63,6 +63,10 @@ class make_dynamo_compatible:
     def __init__(self, model):
         self.model = model
         self.model_config = model.config
+        if hasattr(self.model.generation_config, 'cache_implementation'):
+            self.model_cache_implementation = self.model.generation_config.cache_implementation
+        else:
+            self.model_cache_implementation = None
 
     def __enter__(self):
         # We set cache_implementation to `static` for compatibility with dynamo
@@ -84,4 +88,7 @@ class make_dynamo_compatible:
         return self
 
     def __exit__(self, *args, **kwargs):
+        # Restore configuration
         self.model.config = self.model_config
+        if self.model_cache_implementation is not None:
+            self.model.generation_config.cache_implementation = self.model_cache_implementation
