@@ -164,6 +164,8 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
             scaling_stats_impl = AbsMinMax
         elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
             scaling_stats_impl = PercentileInterval
+        elif scaling_stats_op == StatsOp.SIGNED_MAX:
+            scaling_stats_impl = SignedAbsMax
         else:
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
 
