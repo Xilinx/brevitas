@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
 from dependencies import this
 
 from brevitas.core.bit_width import *
@@ -19,6 +21,7 @@ from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
+from brevitas.core.stats.stats_op import wrap_signed_stat
 from brevitas.function.ops import compute_max_mantissa
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -142,29 +145,31 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_impl(scaling_stats_op=None):
-        if scaling_stats_op is None:
-            return None
-        if scaling_stats_op == StatsOp.MAX:
-            return AbsMax
-        elif scaling_stats_op == StatsOp.MAX_AVE:
-            return AbsMaxAve
-        elif scaling_stats_op == StatsOp.AVE:
-            return AbsAve
-        elif scaling_stats_op == StatsOp.MEAN_SIGMA_STD:
-            return MeanSigmaStd
-        elif scaling_stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
-            return MeanLearnedSigmaStd
-        elif scaling_stats_op == StatsOp.PERCENTILE:
-            return AbsPercentile
-        elif scaling_stats_op == StatsOp.MIN_MAX:
-            return AbsMinMax
-        elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
-            return PercentileInterval
-        elif scaling_stats_op == StatsOp.SIGNED_MAX:
-            return SignedAbsMax
-        else:
+    def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
+        STATS_IMPL_MAP = {
+            StatsOp.MAX.name: AbsMax,
+            StatsOp.MAX_AVE.name: AbsMaxAve,
+            StatsOp.AVE.name: AbsAve,
+            StatsOp.MEAN_SIGMA_STD.name: MeanSigmaStd,
+            StatsOp.MEAN_LEARN_SIGMA_STD.name: MeanLearnedSigmaStd,
+            StatsOp.PERCENTILE.name: AbsPercentile,
+            StatsOp.MIN_MAX.name: AbsMinMax,
+            StatsOp.PERCENTILE_INTERVAL.name: PercentileInterval,
+            StatsOp.SIGNED_MAX.name: SignedAbsMax,}
+        if scaling_stats_op.name not in STATS_IMPL_MAP:
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
+
+        scaling_stats_impl = STATS_IMPL_MAP[scaling_stats_op.name]
+
+        # For power of two scales, the stat needs to be unsigned
+        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and not scaling_stats_impl.is_scale_unsigned:
+            warnings.warn(
+                f"Statistic {scaling_stats_impl.__name__} is signed, which is incompatible with the restriction to "
+                f"power of twos, so its absolute value will be taken. Consider switching to an unsigned statistic."
+            )
+            scaling_stats_impl = wrap_signed_stat(scaling_stats_impl)
+
+        return scaling_stats_impl
 
 
 class SolveAffineRescalingFromEnum(ExtendedInjector):

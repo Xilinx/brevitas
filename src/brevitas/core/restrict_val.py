@@ -2,17 +2,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-from typing import Callable
 from typing import Optional
 from typing import Tuple
-from typing import Union
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.core.function_wrapper import Abs
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import InplaceLogTwo
 from brevitas.core.function_wrapper import LogTwo
@@ -31,8 +28,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_min_val: Optional[float] = None,
-            restrict_value_impl: Optional[Module] = None,
-            is_unsigned=True):
+            restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarSignedClampMinSte(scaling_min_val)
@@ -78,21 +74,6 @@ class _ClampValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         x = self.clamp_min_ste(x)
-        return x
-
-
-class _AbsValue(brevitas.jit.ScriptModule):
-
-    def __init__(self, is_unsigned: bool = True):
-        super(_AbsValue, self).__init__()
-        if is_unsigned:
-            self.apply_abs = Abs()
-        else:
-            self.apply_abs = Identity()
-
-    @brevitas.jit.script_method
-    def forward(self, x: Tensor):
-        x = self.apply_abs(x)
         return x
 
 

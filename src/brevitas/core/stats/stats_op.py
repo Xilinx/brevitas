@@ -1,10 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from abc import ABCMeta
 import math
 from typing import Optional
 from typing import Tuple
+from typing import Type
 
 import torch
 from torch import Tensor
@@ -25,18 +25,24 @@ from .stats_wrapper import SCALAR_SHAPE
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
 
-class UnsignedScaleStat():
-
-    @property
-    def is_scale_unsigned(self):
-        return True
+class UnsignedScaleStat:
+    is_scale_unsigned = True
 
 
-class SignedScaleStat():
+class SignedScaleStat:
+    is_scale_unsigned = False
 
-    @property
-    def is_scale_unsigned(self):
-        return False
+
+def wrap_signed_stat(stat_cls: Type) -> Type:
+
+    class SignedStatWrapper(stat_cls):
+        is_scale_unsigned = True
+
+        @brevitas.jit.script_method
+        def forward(self, x: Tensor) -> Tensor:
+            return torch.abs(super().forward(x))
+
+    return SignedStatWrapper
 
 
 class NegativeMinOrZero(brevitas.jit.ScriptModule):
