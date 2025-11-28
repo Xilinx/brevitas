@@ -512,11 +512,15 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
     mse_search_method = 'grid'
 
+    @value
+    def is_scale_unsigned():
+        return this.mse_init_op.is_scale_unsigned
+
 
 class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
-    mse_init_op = AbsMinMax
+    mse_init_op = AbsMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
@@ -524,6 +528,10 @@ class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     permute_dims = (this << 1).permute_dims
     inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
     mse_search_method = 'grid'
+
+    @value
+    def is_scale_unsigned():
+        return this.mse_init_op.is_scale_unsigned
 
 
 class MSEZeroPointSubInjector(ExtendedInjector):
@@ -562,10 +570,6 @@ class MSEAsymmetricScale(ExtendedInjector):
     def scaling_stats_impl():
         return this.mse_scale.stats_impl
 
-    @value
-    def is_scale_unsigned():
-        return this.mse_scale.mse_init_op.is_scale_unsigned
-
 
 class MSESymmetricScale(ExtendedInjector):
     """
@@ -588,10 +592,6 @@ class MSESymmetricScale(ExtendedInjector):
     @value
     def scaling_stats_impl():
         return this.mse_scale.stats_impl
-
-    @value
-    def is_scale_unsigned():
-        return this.mse_scale.mse_init_op.is_scale_unsigned
 
 
 class MSEZeroPoint(ExtendedInjector):

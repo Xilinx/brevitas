@@ -10,8 +10,14 @@ from brevitas.core.stats import AbsPercentile
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.stats import PercentileInterval
 from brevitas.core.stats import SignedAbsMax
+from brevitas.core.stats.stats_op import mse_fib_search
+from brevitas.core.stats.stats_op import mse_grid_search
+from brevitas.nn.quant_linear import QuantLinear
+from brevitas.quant.base import MSESymmetricScaleSubInjector
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
+from tests.conftest import SEED
 
 
 def test_abs_percentile_per_tensor():
@@ -107,3 +113,60 @@ class TestPercentile:
         low_result = torch.clamp(range[0], max=torch.tensor(0.0))
         expected_out = torch.abs(range[1] - low_result)
         assert torch.allclose(out, expected_out)
+
+
+class TestMSE:
+
+    @pytest.mark.parametrize("xl, xr, exp_sol_x", [(0.5, 5., 1.), (-5., -0.5, -1.)])
+    @pytest.mark.parametrize("mse_solver", [mse_grid_search, mse_fib_search])
+    def test_mse_solver(self, xl, xr, exp_sol_x, mse_solver):
+        num_iter = 10
+        exp_sol_x = torch.tensor(exp_sol_x)
+        xl, xr = torch.tensor(xl), torch.tensor(xr)
+        loss_fn = lambda x: torch.square(x - exp_sol_x)
+        sol_x, _ = mse_solver(xl, xr, loss_fn, num_iter)
+        assert torch.dist(sol_x, exp_sol_x) <= torch.abs(xr - xl) / num_iter
+
+    @pytest.mark.parametrize("mse_search_method", ["grid", "fibonacci"])
+    def test_mse_quant_linear(self, mse_search_method):
+        IN_FEATURES = 3
+        OUT_FEATURES = 4
+        INPS = torch.randn((1, IN_FEATURES))
+        ABS_TOL = 1e-2
+        # Optimal MSE scale
+        exp_value = torch.tensor([
+            [-1.8645],
+            [1.0992],
+            [1.6788],
+            [-0.9831],])
+        # Initialize weights
+        generator = torch.Generator(device="cpu")
+        generator.manual_seed(SEED)
+        w = torch.randn((OUT_FEATURES, IN_FEATURES), generator=generator)
+
+        _mse_search_method = mse_search_method
+
+        class SignedInt2WeightPerChannelFloatMSE(Int8WeightPerChannelFloatMSE):
+            # Ensure a signed scale stats is sued within MSE
+            class _Override(MSESymmetricScaleSubInjector):
+                mse_init_op = SignedAbsMax
+                mse_iters = 100
+                mse_search_method = _mse_search_method
+
+            mse_scale = _Override
+
+            bit_width = 2
+            narrow_range = False
+
+        # Create a model with the given quantizer
+        quant_linear = QuantLinear(
+            in_features=IN_FEATURES,
+            out_features=OUT_FEATURES,
+            weight_quant=SignedInt2WeightPerChannelFloatMSE)
+        quant_linear.weight.data = w
+        # Run a forward to initialize the scales
+        quant_linear(INPS)
+        # Verify that scales match the expected values
+        assert torch.all(
+            torch.abs(quant_linear.weight_quant.tensor_quant.scaling_impl.value -
+                      exp_value) < ABS_TOL)

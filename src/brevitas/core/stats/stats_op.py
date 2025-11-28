@@ -498,6 +498,46 @@ def _restore_params(module):
             m.allocate_params(m)
 
 
+# TODO (pml): Add guard to ensure xl <= xr?
+def mse_fib_search(xl, xr, loss_fn, num_iter):
+
+    def fib_seq(n):
+        if n <= 0:
+            return [0]
+        seq = [0, 1]
+        while len(seq) <= n:
+            next = seq[-1] + seq[-2]
+            seq.append(next)
+        return seq
+
+    # vectorized variant of
+    # https://indrag49.github.io/Numerical-Optimization/solving-one-dimensional-optimization-problems.html#fibonacci-search-method
+    F = fib_seq(num_iter)
+    L0 = xr - xl
+    Li = (F[num_iter - 2] / F[num_iter]) * L0
+    for i in range(2, num_iter + 1):
+        x1 = torch.where(Li > L0 / 2, xr - Li, xl + Li)
+        x2 = torch.where(Li > L0 / 2, xl + Li, xr - Li)
+        f1, f2 = loss_fn(x1), loss_fn(x2)
+        xr = torch.where(f1 <= f2, x2, xr)
+        xl = torch.where(f1 >= f2, x1, xl)
+        Li = (F[num_iter - i] / F[num_iter - (i - 2)]) * torch.where(f1 != f2, L0, xr - xl)
+        L0 = xr - xl
+    return torch.where(f1 <= f2, x1, x2), torch.min(f1, f2)
+
+
+# TODO (pml): Can we have a torch.no_grad()
+def mse_grid_search(xl, xr, loss_fn, num_iter):
+    best_loss = loss_fn(xl)
+    best_candidate = xl
+    for ts in torch.linspace(1. / (num_iter - 1), 1., num_iter - 1):
+        candidate = (xl + (xr - xl) * ts).detach()
+        loss = loss_fn(candidate)
+        best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
+        best_loss = torch.min(loss, best_loss)
+    return best_candidate, best_loss
+
+
 class MSE(torch.nn.Module):
     # References:
     # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
@@ -510,7 +550,8 @@ class MSE(torch.nn.Module):
             inner_stats_input_view_shape_impl: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
-            mse_iters: int = 20):
+            mse_iters: int = 20,
+            is_scale_unsigned: bool = True):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -527,6 +568,7 @@ class MSE(torch.nn.Module):
         self.search_method = mse_search_method
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
+        self.is_scale_unsigned = is_scale_unsigned
 
     def mse_loss_fn(self, x, quant_value):
         loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
@@ -550,52 +592,28 @@ class MSE(torch.nn.Module):
         self.restore_observer_mode()
         return loss
 
-    def mse_grid_search(self, xl, x):
-        best_loss = torch.tensor(float('inf'), device=x.device, dtype=x.dtype)
-        best_candidate = xl
-        for i in range(2, self.num + 1):
-            candidate = (xl * i).detach()
-            loss = self.evaluate_loss(x, candidate)
-            best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
-            best_loss = torch.min(loss, best_loss)
-        return best_candidate
+    def _mse_search(self, xl, xr, loss_fn):
+        if self.search_method == 'grid':
+            return mse_grid_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=self.num)
+        elif self.search_method == 'fibonacci':
+            return mse_fib_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=self.num)
 
-    def mse_fib_search(self, xl, xr, x):
-
-        def fib_seq(n):
-            if n <= 0:
-                return [0]
-            seq = [0, 1]
-            while len(seq) <= n:
-                next = seq[-1] + seq[-2]
-                seq.append(next)
-            return seq
-
-        # vectorized variant of
-        # https://indrag49.github.io/Numerical-Optimization/solving-one-dimensional-optimization-problems.html#fibonacci-search-method
-        F = fib_seq(self.num)
-        L0 = xr - xl
-        Li = (F[self.num - 2] / F[self.num]) * L0
-        for i in range(2, self.num + 1):
-            x1 = torch.where(Li > L0 / 2, xr - Li, xl + Li)
-            x2 = torch.where(Li > L0 / 2, xl + Li, xr - Li)
-            f1, f2 = self.evaluate_loss(x, x1), self.evaluate_loss(x, x2)
-            xr = torch.where(f1 <= f2, x2, xr)
-            xl = torch.where(f1 >= f2, x1, xl)
-            Li = (F[self.num - i] / F[self.num - (i - 2)]) * torch.where(f1 != f2, L0, xr - xl)
-            L0 = xr - xl
-        return torch.where(f1 <= f2, x1, x2)
+        raise ValueError(f"Search method {self.search_method} not supported.")
 
     def mse_search(self, x):
         x_view = self.input_view_shape_impl(x)
-        init = self.mse_init_op(x_view).detach()
+        init = torch.abs(self.mse_init_op(x_view)).detach()
         base = init / self.num
-        if self.search_method == 'grid':
-            best_candidate = self.mse_grid_search(base, x)
-        elif self.search_method == 'fibonacci':
-            best_candidate = self.mse_fib_search(base, init, x)
-        else:
-            raise ValueError(f"Search method {self.search_method} not supported.")
+        loss_fn = lambda candidate: self.evaluate_loss(x, candidate)
+        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn)
+        if not self.is_scale_unsigned:
+            best_neg_candidate, best_neg_loss = self._mse_search(
+                xl=-init,
+                xr=-base,
+                loss_fn=loss_fn,
+            )
+            best_candidate = torch.where(
+                best_loss <= best_neg_loss, best_candidate, best_neg_candidate)
         # Save for evaluation by other modules (e.g. zp) invoking local loss mode
         self.internal_candidate = best_candidate
         self.restore_offload_param()
