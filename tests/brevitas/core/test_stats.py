@@ -147,7 +147,7 @@ class TestMSE:
         _mse_search_method = mse_search_method
 
         class SignedInt2WeightPerChannelFloatMSE(Int8WeightPerChannelFloatMSE):
-            # Ensure a signed scale stats is sued within MSE
+            # Ensure a signed scale stats is used within MSE
             class _Override(MSESymmetricScaleSubInjector):
                 mse_init_op = SignedAbsMax
                 mse_iters = 100
