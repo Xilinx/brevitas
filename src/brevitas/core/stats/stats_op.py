@@ -504,7 +504,6 @@ def _restore_params(module):
             m.allocate_params(m)
 
 
-# TODO (pml): Add guard to ensure xl <= xr?
 def mse_fib_search(xl, xr, loss_fn, num_iter):
 
     def fib_seq(n):
@@ -532,7 +531,6 @@ def mse_fib_search(xl, xr, loss_fn, num_iter):
     return torch.where(f1 <= f2, x1, x2), torch.min(f1, f2)
 
 
-# TODO (pml): Can we have a torch.no_grad()
 def mse_grid_search(xl, xr, loss_fn, num_iter):
     best_loss = loss_fn(xl)
     best_candidate = xl

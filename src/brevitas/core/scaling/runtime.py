@@ -22,9 +22,6 @@ from brevitas.core.utils import ParameterWrapper
 from brevitas.core.utils import StatelessBuffer
 
 
-# TODO (pml): Why is not is_scale_unsigned in __init__?
-# The dependency injector yields the following error when adding it:
-#  _dependencies.exceptions.DependencyError: 'is_scale_unsigned' is a circular dependency in the 'StatsFromParameterScaling' constructor
 class StatsFromParameterScaling(brevitas.jit.ScriptModule):
 
     def __init__(
