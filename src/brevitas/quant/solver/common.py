@@ -146,20 +146,26 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
     def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
-        STATS_IMPL_MAP = {
-            StatsOp.MAX.name: AbsMax,
-            StatsOp.MAX_AVE.name: AbsMaxAve,
-            StatsOp.AVE.name: AbsAve,
-            StatsOp.MEAN_SIGMA_STD.name: MeanSigmaStd,
-            StatsOp.MEAN_LEARN_SIGMA_STD.name: MeanLearnedSigmaStd,
-            StatsOp.PERCENTILE.name: AbsPercentile,
-            StatsOp.MIN_MAX.name: AbsMinMax,
-            StatsOp.PERCENTILE_INTERVAL.name: PercentileInterval,
-            StatsOp.SIGNED_MAX.name: SignedAbsMax,}
-        if scaling_stats_op.name not in STATS_IMPL_MAP:
+        if scaling_stats_op is None:
+            scaling_stats_op = None
+        if scaling_stats_op == StatsOp.MAX:
+            scaling_stats_op = AbsMax
+        elif scaling_stats_op == StatsOp.MAX_AVE:
+            scaling_stats_op = AbsMaxAve
+        elif scaling_stats_op == StatsOp.AVE:
+            scaling_stats_op = AbsAve
+        elif scaling_stats_op == StatsOp.MEAN_SIGMA_STD:
+            scaling_stats_op = MeanSigmaStd
+        elif scaling_stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
+            scaling_stats_op = MeanLearnedSigmaStd
+        elif scaling_stats_op == StatsOp.PERCENTILE:
+            scaling_stats_op = AbsPercentile
+        elif scaling_stats_op == StatsOp.MIN_MAX:
+            scaling_stats_op = AbsMinMax
+        elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
+            scaling_stats_op = PercentileInterval
+        else:
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
-
-        scaling_stats_impl = STATS_IMPL_MAP[scaling_stats_op.name]
 
         # For power of two scales, the stat needs to be unsigned
         if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and not scaling_stats_impl.is_scale_unsigned:
