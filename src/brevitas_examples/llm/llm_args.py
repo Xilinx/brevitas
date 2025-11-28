@@ -470,6 +470,13 @@ def create_args_parser() -> ArgumentParser:
         "--awq-clip",
         action="store_true",
         help="Whether to apply AWQ clipping (default: %(default)s).")
+    
+    parser.add_argument(
+        '--gpxq-batchsize',
+        type=int,
+        default=1,
+        help='Batchsize of dataloader for gpxq/qronos forward passes (default: %(default)s).')
+    
     return parser
 
 
