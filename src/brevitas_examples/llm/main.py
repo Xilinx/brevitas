@@ -41,8 +41,8 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.data_utils import get_dataloader_from_dataset
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
@@ -66,35 +66,6 @@ from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
-
-def set_deterministic(seed: int = 42):
-    import random
-    # 1. Set Python built-in RNG seed
-    random.seed(seed)
-
-    # 2. Set NumPy RNG seed
-    np.random.seed(seed)
-
-    # 3. Set PyTorch RNG seed (CPU and CUDA)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # for multi-GPU
-
-    # 4. Ensure deterministic algorithms in PyTorch
-    torch.use_deterministic_algorithms(True)
-
-    # 5. Configure cuDNN for determinism
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    # 6. Optional: enforce environment-level determinism
-    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"  # for CUDA >= 10.2
-    os.environ["PYTHONHASHSEED"] = str(seed)
-
-    print(f"Deterministic mode enabled with seed {seed}")
-
-# Example usage:
-set_deterministic(0)
 
 
 
@@ -273,8 +244,9 @@ def quantize_llm(args, extra_args=None):
         device=None)
 
     # Batched data loader to accelerate GPXQ algorithms
-    if args.gptq or args.gpfq or args.qronos:    
-        calibration_batched_loader = get_dataloader_from_dataset(calibration_loader, batch_size=args.gpxq_batchsize)
+    if args.gptq or args.gpfq or args.qronos:
+        calibration_batched_loader = get_dataloader_from_dataset(
+            calibration_loader, batch_size=args.gpxq_batchsize)
     # breakpoint()
     validation_loader = get_dataset_for_model(
         args.model,
