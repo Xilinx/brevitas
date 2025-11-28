@@ -520,7 +520,7 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
 class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
-    mse_init_op = AbsMax
+    mse_init_op = AbsMinMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
