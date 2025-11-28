@@ -147,23 +147,23 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
     @value
     def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
         if scaling_stats_op is None:
-            scaling_stats_op = None
+            scaling_stats_impl = None
         if scaling_stats_op == StatsOp.MAX:
-            scaling_stats_op = AbsMax
+            scaling_stats_impl = AbsMax
         elif scaling_stats_op == StatsOp.MAX_AVE:
-            scaling_stats_op = AbsMaxAve
+            scaling_stats_impl = AbsMaxAve
         elif scaling_stats_op == StatsOp.AVE:
-            scaling_stats_op = AbsAve
+            scaling_stats_impl = AbsAve
         elif scaling_stats_op == StatsOp.MEAN_SIGMA_STD:
-            scaling_stats_op = MeanSigmaStd
+            scaling_stats_impl = MeanSigmaStd
         elif scaling_stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
-            scaling_stats_op = MeanLearnedSigmaStd
+            scaling_stats_impl = MeanLearnedSigmaStd
         elif scaling_stats_op == StatsOp.PERCENTILE:
-            scaling_stats_op = AbsPercentile
+            scaling_stats_impl = AbsPercentile
         elif scaling_stats_op == StatsOp.MIN_MAX:
-            scaling_stats_op = AbsMinMax
+            scaling_stats_impl = AbsMinMax
         elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
-            scaling_stats_op = PercentileInterval
+            scaling_stats_impl = PercentileInterval
         else:
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
 
