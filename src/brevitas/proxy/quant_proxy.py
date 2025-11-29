@@ -140,7 +140,9 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
             # When tensor_quant is init, we might lose information about the state (train vs eval)
             # and the device. We keep track of them and restore them post initialization.
             training_state = self.training
-            device = self.weight.device
+            # Potentially get the first parameters, if there are any
+            next_param = next(iter(self.parameters()), None)
+            device = next_param.device if next_param is not None else None
             self.init_tensor_quant()
             self.weight_quant.train(training_state)
             self.weight_quant.to(device=device)
