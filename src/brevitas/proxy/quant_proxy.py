@@ -138,7 +138,7 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         # for the parameter already, it's not overwritten
         if config.REINIT_ON_STATE_DICT_LOAD:
             # When tensor_quant is init, we might lose information about the state (train vs eval)
-            # and the device. We keep track of them and restore them post initialization.
+            # We keep track of them and restore them post initialization.
             training_state = self.training
             self.init_tensor_quant()
             self.train(training_state)
