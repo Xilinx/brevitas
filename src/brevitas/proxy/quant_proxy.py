@@ -144,8 +144,8 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
             next_param = next(iter(self.parameters()), None)
             device = next_param.device if next_param is not None else None
             self.init_tensor_quant()
-            self.weight_quant.train(training_state)
-            self.weight_quant.to(device=device)
+            self.train(training_state)
+            self.to(device=device)
 
         # for retrocompatibility with when it wasn't removed
         zero_hw_sentinel_key = prefix + 'zero_hw_sentinel'
