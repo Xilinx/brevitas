@@ -87,10 +87,8 @@ class QuantWeightMixin(QuantProxyMixin):
             # When tensor_quant is init, we might lose information about the state (train vs eval)
             # and the device. We keep track of them and restore them post initialization.
             training_state = self.training
-            device = self.weight.device
             self.weight_quant.init_tensor_quant()
             self.weight_quant.train(training_state)
-            self.weight_quant.to(device=device)
 
 
 class QuantBiasMixin(QuantProxyMixin):
@@ -122,7 +120,5 @@ class QuantBiasMixin(QuantProxyMixin):
             # When tensor_quant is init, we might lose information about the state (train vs eval)
             # and the device. We keep track of them and restore them post initialization.
             training_state = self.training
-            device = self.bias.device
             self.bias_quant.init_tensor_quant()
             self.bias_quant.train(training_state)
-            self.bias_quant.to(device=device)
