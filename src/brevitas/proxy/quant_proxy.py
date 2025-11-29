@@ -143,6 +143,7 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
             # Potentially get the first parameters, if there are any
             next_param = next(iter(self.parameters()), None)
             device = next_param.device if next_param is not None else None
+            device = device if 'meta' not in str(device) else None
             self.init_tensor_quant()
             self.train(training_state)
             self.to(device=device)
