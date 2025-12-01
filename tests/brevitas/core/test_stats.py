@@ -150,7 +150,7 @@ class TestMSE:
             # Ensure a signed scale stats is used within MSE
             class _Override(MSESymmetricScaleSubInjector):
                 mse_init_op = SignedAbsMax
-                mse_iters = 100
+                mse_iters = 200
                 mse_search_method = _mse_search_method
 
             mse_scale = _Override
