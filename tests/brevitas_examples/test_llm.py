@@ -373,11 +373,27 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
 
 
 @pytest_cases.fixture(
-    ids=["lighteval"],
+    ids=["lighteval", "lighteval_rotations"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "no_quantize": True,
+            "eval": False,
+            "few_shot_eval": "lighteval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_tasks": [
+                "arc:challenge|0",
+                "winogrande|0",
+                "arc:easy|0",
+                "hellaswag|0",],
+            "few_shot_zeroshot": True,
+            "imports": ["lighteval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "rotation": "fused_no_fx",
+            "replace_rmsnorm": True,
             "eval": False,
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,

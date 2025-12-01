@@ -1,6 +1,8 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import inspect
+
 import torch
 import torch.nn.functional as F
 from transformers.integrations.executorch import TorchExportableModuleForDecoderOnlyLM
@@ -80,8 +82,18 @@ class make_dynamo_compatible:
         # but then we can unwrap it immediately.
         # We need to specify batch_size and max_cache_len. The latter is not important since we disable
         # cache anyway while we trace the model.
+
+        kwargs = dict()
+        if 'batch_size' in inspect.signature(TorchExportableModuleForDecoderOnlyLM).parameters:
+            kwargs['batch_size'] = 1
+        elif 'max_batch_size' in inspect.signature(
+                TorchExportableModuleForDecoderOnlyLM).parameters:
+            kwargs['max_batch_size'] = 1
+        else:
+            raise RuntimeError("Interface not recognized")
+
         self.model = TorchExportableModuleForDecoderOnlyLM(
-            self.model, batch_size=1, max_cache_len=1).model.model
+            self.model, max_cache_len=1, batch_size=1).model.model
         # Caching should be disabled to make it work with dynamo
         # The other alternative is to use static_cache
         self.model.config.use_cache = False
