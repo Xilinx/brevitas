@@ -118,7 +118,7 @@ class InplaceAbs(torch.nn.Module):
     Examples:
         >>> inplace_abs = InplaceAbs()
         >>> x = torch.tensor(-1.0)
-        >>> inplace_log_two(x)
+        >>> inplace_abs(x)
         >>> x
         tensor(1.)
 
