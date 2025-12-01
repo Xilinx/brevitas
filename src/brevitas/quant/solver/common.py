@@ -175,7 +175,7 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
 
         # For power of two scales, the stat needs to be unsigned
-        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and not scaling_stats_impl.is_scale_unsigned:
+        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and scaling_stats_op is not None and not scaling_stats_impl.is_scale_unsigned:
             warnings.warn(
                 f"Statistic {scaling_stats_impl.__name__} is signed, which is incompatible with the restriction to "
                 f"power of twos, so its absolute value will be taken. Consider switching to an unsigned statistic."
