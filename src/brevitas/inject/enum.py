@@ -30,6 +30,7 @@ class RestrictValueType(AutoName):
 
     """
     FP = auto()
+    POSITIVE_FP = auto()
     LOG_FP = auto()
     INT = auto()
     POWER_OF_TWO = auto()

@@ -16,6 +16,8 @@ from brevitas.core.function_wrapper import LogTwo
 from brevitas.core.function_wrapper import PowerOfTwo
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import ScalarSignedClampMinSte
+from brevitas.core.function_wrapper.misc import Abs
+from brevitas.core.function_wrapper.misc import InplaceAbs
 from brevitas.inject.enum import FloatToIntImplType  # retrocompatibility
 from brevitas.inject.enum import RestrictValueType
 
@@ -209,3 +211,27 @@ class QuantRestrictValue(brevitas.jit.ScriptModule):
             o = o.view(self.scale_dequantized_shape)
 
         return o
+
+
+class PositiveFloatRestrictValue(brevitas.jit.ScriptModule):
+
+    def __init__(self):
+        super(PositiveFloatRestrictValue, self).__init__()
+        self.apply_abs: Module = Abs()
+
+    def restrict_init_float(self, x: float):
+        return math.abs(x)
+
+    def restrict_init_tensor(self, x: Tensor):
+        return torch.abs(x)
+
+    def restrict_init_module(self):
+        return Abs()
+
+    def restrict_init_inplace_module(self):
+        return InplaceAbs()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        x = self.apply_abs(x)
+        return x

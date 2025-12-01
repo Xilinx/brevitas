@@ -77,6 +77,8 @@ def solve_bit_width_impl_from_enum(impl_type):
 def solve_restrict_value_impl_from_enum(impl_type):
     if impl_type == RestrictValueType.FP:
         return FloatRestrictValue
+    elif impl_type == RestrictValueType.POSITIVE_FP:
+        return PositiveFloatRestrictValue
     elif impl_type == RestrictValueType.LOG_FP:
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:

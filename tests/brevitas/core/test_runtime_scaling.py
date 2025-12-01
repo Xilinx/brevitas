@@ -93,7 +93,26 @@ def test_signed_scale_stats_injector():
     assert pre_scale.item() == -1.
 
 
-def test_signed_scale_stats_restrict_val():
+def test_signed_scale_stats_injector_restrict_val_positive_scale():
+
+    class SignedStatsScaling(SolveActScalingImplFromEnum,
+                             SolveScalingStatsOpFromEnum,
+                             SolveRestrictScalingImplFromEnum,
+                             SolveScaleSignedness):
+        scaling_impl_type = ScalingImplType.STATS
+        scaling_stats_op = StatsOp.SIGNED_MAX
+        scaling_stats_input_view_shape_impl = Identity
+        restrict_scaling_type = RestrictValueType.POSITIVE_FP
+        scaling_shape = SCALAR_SHAPE
+        scaling_min_val = SCALING_MIN_VAL
+
+    scaling_op = SignedStatsScaling.scaling_impl
+    inp = torch.tensor([-0.5, 0.0, 1.0])
+    pre_scale = scaling_op(inp)
+    assert pre_scale.item() == 1.
+
+
+def test_signed_scale_stats_restrict_val_po2_scale():
     scaling_op = RuntimeStatsScaling(
         scaling_stats_impl=SignedAbsMax(),
         scaling_stats_input_view_shape_impl=Identity(),
@@ -105,7 +124,7 @@ def test_signed_scale_stats_restrict_val():
     assert torch.all(torch.isnan(pre_scale))
 
 
-def test_signed_scale_stats_injector_restrict_val():
+def test_signed_scale_stats_injector_restrict_val_po2_scale():
 
     class SignedStatsScaling(SolveActScalingImplFromEnum,
                              SolveScalingStatsOpFromEnum,

@@ -596,11 +596,11 @@ class MSE(torch.nn.Module):
         self.restore_observer_mode()
         return loss
 
-    def _mse_search(self, xl, xr, loss_fn):
+    def _mse_search(self, xl, xr, loss_fn, num_iter):
         if self.search_method == 'grid':
-            return mse_grid_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=self.num)
+            return mse_grid_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=num_iter)
         elif self.search_method == 'fibonacci':
-            return mse_fib_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=self.num)
+            return mse_fib_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=num_iter)
 
         raise ValueError(f"Search method {self.search_method} not supported.")
 
@@ -609,12 +609,13 @@ class MSE(torch.nn.Module):
         init = torch.abs(self.mse_init_op(x_view)).detach()
         base = init / self.num
         loss_fn = lambda candidate: self.evaluate_loss(x, candidate)
-        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn)
+        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn, num_iter=self.num if self.is_scale_unsigned else self.num // 2)
         if not self.is_scale_unsigned:
             best_neg_candidate, best_neg_loss = self._mse_search(
                 xl=-init,
                 xr=-base,
                 loss_fn=loss_fn,
+                num_iter=self.num // 2,
             )
             best_candidate = torch.where(
                 best_loss <= best_neg_loss, best_candidate, best_neg_candidate)
