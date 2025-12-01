@@ -153,7 +153,7 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
     def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
         if scaling_stats_op is None:
             scaling_stats_impl = None
-        if scaling_stats_op == StatsOp.MAX:
+        elif scaling_stats_op == StatsOp.MAX:
             scaling_stats_impl = AbsMax
         elif scaling_stats_op == StatsOp.MAX_AVE:
             scaling_stats_impl = AbsMaxAve
