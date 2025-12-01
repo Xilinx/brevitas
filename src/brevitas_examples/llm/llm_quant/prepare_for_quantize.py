@@ -1,8 +1,6 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import inspect
-
 import torch
 import torch.nn.functional as F
 from transformers.integrations.executorch import TorchExportableModuleForDecoderOnlyLM
