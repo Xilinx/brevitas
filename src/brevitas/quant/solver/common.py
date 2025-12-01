@@ -74,9 +74,12 @@ def solve_bit_width_impl_from_enum(impl_type):
         raise Exception(f"{impl_type} not recognized.")
 
 
-def solve_restrict_value_impl_from_enum(impl_type):
+def solve_restrict_value_impl_from_enum(impl_type, is_scale_unsigned=None):
     if impl_type == RestrictValueType.FP:
-        return FloatRestrictValue
+        if is_scale_unsigned:
+            return PositiveFloatRestrictValue
+        else:
+            return FloatRestrictValue
     elif impl_type == RestrictValueType.POSITIVE_FP:
         return PositiveFloatRestrictValue
     elif impl_type == RestrictValueType.LOG_FP:
@@ -90,8 +93,8 @@ def solve_restrict_value_impl_from_enum(impl_type):
 class SolveRestrictScalingImplFromEnum(ExtendedInjector):
 
     @value
-    def restrict_scaling_impl(restrict_scaling_type):
-        return solve_restrict_value_impl_from_enum(restrict_scaling_type)
+    def restrict_scaling_impl(restrict_scaling_type, is_scale_unsigned=None):
+        return solve_restrict_value_impl_from_enum(restrict_scaling_type, is_scale_unsigned)
 
 
 class ExponentBitWidthClass(ExtendedInjector):
