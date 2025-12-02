@@ -13,8 +13,8 @@ import torch
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
-from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 from brevitas_examples.llm.llm_quant.data_utils import collate_fn
+from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
 # Identifiers for the special tokens of DummyTokenizer
 BOS_TOKEN_ID = 0
@@ -199,7 +199,8 @@ def test_llm_dataloader():
         idx += 1
 
     # create dataloader with batch size 2
-    data_loader = data_loader = torch.utils.data.DataLoader(dataset=dataset2device, collate_fn=collate_fn, batch_size=2)
+    data_loader = data_loader = torch.utils.data.DataLoader(
+        dataset=dataset2device, collate_fn=collate_fn, batch_size=2)
     assert len(data_loader) == 1, 'data loader has length != num_samples/batch_size'
     for batch in data_loader:
         assert torch.allclose(batch['input_ids'][0], data[0]['input_ids']), 'input_ids mismatch'
