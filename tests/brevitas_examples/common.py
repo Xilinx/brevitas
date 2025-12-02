@@ -70,13 +70,20 @@ def allclose(x, y, rtol, atol) -> bool:
 
 
 def assert_metrics(
-        results: Dict[str, float], exp_metrics: Dict[str, float], atol: float, rtol: float) -> None:
+        results: Dict[str, float],
+        exp_metrics: Dict[str, float],
+        atol: float,
+        rtol: float,
+        strict: bool = True) -> None:
     # Evalute quality metrics
     for metric, value in results.items():
-        if isinstance(value, torch.Tensor):
-            value = value.detach().cpu().numpy()
-        exp_value = exp_metrics[metric]
-        assert allclose(exp_value, value, rtol=rtol, atol=atol), f"Expected {metric} {exp_value}, measured {value}"
+        # If `strict=True`, all metrics in `results` are checked, so an error is raised
+        # whenever there is a `metric` in `results` that is not registered `exp_metrics`
+        if strict or metric in exp_metrics:
+            if isinstance(value, torch.Tensor):
+                value = value.detach().cpu().numpy()
+            exp_value = exp_metrics[metric]
+            assert allclose(exp_value, value, rtol=rtol, atol=atol), f"Expected {metric} {exp_value}, measured {value}"
 
 
 def assert_layer_types(model: Module, exp_layer_types: Dict[str, str]) -> None:

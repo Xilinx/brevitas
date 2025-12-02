@@ -1,0 +1,841 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Brevitas and Compile &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/compile';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="GGUF Export" href="export_gguf.html" />
+    <link rel="prev" title="Architecture" href="architecture.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Brevitas and Compile</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_gguf.html">GGUF Export</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_shark.html">Shark-AI Export</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guides</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Brevitas and Compile</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="brevitas-and-compile">
+<h1>Brevitas and Compile<a class="headerlink" href="#brevitas-and-compile" title="Permalink to this heading">#</a></h1>
+<section id="flexibility-and-fake-quantization">
+<h2>Flexibility and Fake quantization<a class="headerlink" href="#flexibility-and-fake-quantization" title="Permalink to this heading">#</a></h2>
+<p>Brevitas is inherently based around the concepts of flexibility and fake quantization,
+The first allows us to combine and test lots of different options for quantization,
+for example computing scale factors with AbsMax statistics and zero point with MSE, or compute both of them with percentile,
+but picking different percentile values for each of them.
+The combinations are endless.
+Similarly, this flexibility allows us to have shared infrastructure for PTQ and QAT,
+which from our point of view (the maintainers), it means less code to maintain and test,
+and from the users perspective, it opens new possibilities like a smooth transition from PTQ to QAT with all the related benefits of that.
+The idea of fake quantization instead allows us to replicate and mimic a wide combination of data-types even when the underlying hardware does not support them.</p>
+<p>Both of these concepts come with some caveats,
+in particular both flexibility and fake quantization are inherently difficult to optimize and,
+in eager mode, computationally slower compared to a non-quantized network.</p>
+<p>Flexibility means we cannot optimize and fuse together operations with specialized kernels,
+unless we decide to have specific optimizations for the “most common” configurations.
+Similarly, fake quantization means we do not rely on fast kernel with reduced precision data-types;
+this could be because the data-type we are representing is not supported in hardware, or even if it is,
+there could be no optimized kernels that accounts for quantization in the loop.</p>
+<p>This is well-known price to pay for quantization, with the idea that at inference time,
+once all the decisions have been made and flexibility is not a concern anymore,
+it is possible to deploy a quantized network with highly optimized kernels and great speed-ups compared to their floating point variant.</p>
+</section>
+<section id="compile-your-quantized-network">
+<h2>Compile your quantized network<a class="headerlink" href="#compile-your-quantized-network" title="Permalink to this heading">#</a></h2>
+<p>Starting with torch 2.0, it is now possible to <cite>compile</cite> your code to get on-the-fly speed-up compared to eager execution.
+With the most recent versions of torch, this functionality is greatly improved with support to more operations and patterns.</p>
+<p>However, compile still has some limitations, which might lead to excessive recompilations or failures to compile altogether.</p>
+<p>In Brevitas, we are adding support for compile in different point of the quantization pipeline,
+trying to find a good compromise between ease-of-use, speed-up, and compatibility.</p>
+<p>Currently, there are three main ways to leverage <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> with Brevitas, each with its own pros and cons.</p>
+<p>The first two of these approaches rely on newly introduced <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code>.
+This mode should be used once quantization is finished, and the idea is to trade away some flexibility,
+which is not needed anymore at inference time, in exchange for slightly faster execution times.</p>
+<section id="full-model-compile-quant-inference-mode">
+<h3>Full model compile + <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code><a class="headerlink" href="#full-model-compile-quant-inference-mode" title="Permalink to this heading">#</a></h3>
+<p>The first option is to compile the entire model after entering <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code>.
+Using quant_inference_mode simplifies the compute graph that compile needs to optimize,
+as well as drop the use of <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>.
+The NamedTuple structure is not currently compatible with compile, and even the torch subclass tensors have some outstanding issues.</p>
+<p>This approach might grant the best performance, since the entire model is being optimized.
+On the negative side, model-specific issues might cause compile to fail.
+Similarly, it is easier to fall into too-many-recompilations issue, and the compile process might be extremely slow,
+which means that it becomes beneficial only for long inference runs.
+In this scenario, the user is responsible to compile the model, as in the example below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">MyQuantModel</span><span class="p">()</span>
+<span class="c1"># Quantization code goes here</span>
+<span class="o">...</span>
+<span class="c1"># Inference</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">(),</span> <span class="k">with</span> <span class="n">quant_inference_mode</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="c1"># We need one forward pass to cache quantization-related hyper-params</span>
+    <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">example_input</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="quantizers-compile-quant-inference-mode">
+<h3>Quantizers compile + <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code><a class="headerlink" href="#quantizers-compile-quant-inference-mode" title="Permalink to this heading">#</a></h3>
+<p>The second approach tied to <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code> is the compilation of the quantization functions.
+We noticed that this is already enough to grant a considerable speed-up (numbers below) for some use cases,
+and the lower surface area means that we can control a bit better any potential <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> issue.
+Also, the compilation time is greatly reduced compared to the previous case,
+although the speed-up benefits will also be slightly lower.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">MyQuantModel</span><span class="p">()</span>
+<span class="c1"># Quantization code goes here</span>
+<span class="o">...</span>
+<span class="c1"># Inference</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">(),</span> <span class="k">with</span> <span class="n">quant_inference_mode</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="nb">compile</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="c1"># We need one forward pass to cache quantization-related hyper-params</span>
+    <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">example_input</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Compared to the previous case, compile is handled automatically by the context manager.</p>
+</section>
+<section id="quantizers-compile-ptq">
+<h3>Quantizers compile + PTQ<a class="headerlink" href="#quantizers-compile-ptq" title="Permalink to this heading">#</a></h3>
+<p>The third option is to compile the quantization functions without <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code>.
+In this case, the computational graph is slightly more complicated,
+and the possibility of errors with torch.compile increases.
+The benefit of this approach is that it can be used also during PTQ,
+so not only inference time, which for some algorithms is definitely interesting.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">MyQuantModel</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="s1">&#39;compile_quant&#39;</span><span class="p">):</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">compile_quant</span><span class="p">()</span>
+
+<span class="c1"># Quantization code goes here</span>
+<span class="o">...</span>
+<span class="c1"># Inference</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">(),</span> <span class="k">with</span> <span class="n">quant_inference_mode</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="nb">compile</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="c1"># We need one forward pass to cache quantization-related hyper-params</span>
+    <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">example_input</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>As in the previous case, the user is responsible for compiling the model,
+although we provide some functions in our quantizers to simplify the process.
+NB: this interface might (and very likely will) change in the future.
+This approach is also compatible with <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code>, although it requires to reset
+compilation status, which is not thoroughly tested.</p>
+</section>
+</section>
+<section id="some-results">
+<h2>Some results<a class="headerlink" href="#some-results" title="Permalink to this heading">#</a></h2>
+<section id="id1">
+<h3>Quantizers compile + <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code><a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h3>
+<p>These are small examples of possible speed-ups with compile.
+The runtime includes compilation time, which is especially significant for the WikiText2 inference that has a very short runtime.
+Even then, compile provides a considerable speed-up,
+which becomes more evident with bigger models and longer evaluations (e.g., few-shot).</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id2">
+<caption><span class="caption-text">Sana 1.6B, with per-group fp8 quantization</span><a class="headerlink" href="#id2" title="Permalink to this table">#</a></caption>
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Quant Type</p></th>
+<th class="head"><p>Compile Inference Time (500 samples)</p></th>
+<th class="head"><p>Eager Inference Time (500 samples)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Float</p></td>
+<td><p>Not Measured</p></td>
+<td><p>25m</p></td>
+</tr>
+<tr class="row-odd"><td><p>Weight-only quantization</p></td>
+<td><p>26m</p></td>
+<td><p>1h14m</p></td>
+</tr>
+<tr class="row-even"><td><p>Act + Weight quantization</p></td>
+<td><p>1h15m</p></td>
+<td><p>2h10m</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="pst-scrollable-table-container"><table class="table" id="id3">
+<caption><span class="caption-text">Llama 3.2 1B, with per-group fp8 quantization</span><a class="headerlink" href="#id3" title="Permalink to this table">#</a></caption>
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Quant Type</p></th>
+<th class="head"><p>Compile Inference Time (WikiText2)</p></th>
+<th class="head"><p>Eager Inference Time (WikiText2)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Float</p></td>
+<td><p>Not Measured</p></td>
+<td><p>12s</p></td>
+</tr>
+<tr class="row-odd"><td><p>Weight-only quantization</p></td>
+<td><p>18s</p></td>
+<td><p>40s</p></td>
+</tr>
+<tr class="row-even"><td><p>Act + Weight quantization</p></td>
+<td><p>40s</p></td>
+<td><p>1m</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="known-gotchas">
+<h2>Known Gotchas<a class="headerlink" href="#known-gotchas" title="Permalink to this heading">#</a></h2>
+<p>Although lots of steps were taken to make Brevitas as compile-friendly as possible,
+there are some known cases where recompilations are still necessary or errors might arise.
+A non-comprehensive list can be found below:</p>
+<ul class="simple">
+<li><p>Dynamic Activation quantization requires recompilations, even within inference mode</p></li>
+<li><p>Compiling the entire model after optimizing for PTQ requires resetting the compilation status (e.g., <code class="docutils literal notranslate"><span class="pre">torch._dynamo.reset()</span></code>)</p></li>
+<li><p>Some operations are currently not supported for compile, such as kth-value that we use for percentile statistics</p></li>
+<li><p>When optimizing PTQ, it is generally suggested to skip the activation calibration part, as it may lead to too-many-recompilations errors</p></li>
+<li><p>Compiling inference execution might lead to slightly different output compared to eager execution</p></li>
+<li><p>Compiling PTQ and inference might lead to a more marked difference in outputs compared to eager execution</p></li>
+<li><p>Although we investigated some use cases when compiling quantizers, we did not test all possible combinations</p></li>
+<li><p>We definitely tested very few compile + PTQ cases</p></li>
+<li><p>Some torch versions might have compile regressions</p></li>
+</ul>
+</section>
+<section id="faq">
+<h2>FAQ<a class="headerlink" href="#faq" title="Permalink to this heading">#</a></h2>
+<p>For all the questions below, opening an issue to seek further clarifications is always an option and it is encouraged.
+Please provide minimal example so that we can reproduce your issue.</p>
+<ul class="simple">
+<li><p><em>Compiling the entire model in quant_inference_mode fails, can you help?</em></p></li>
+</ul>
+<p>First it is important to understand whether the error is due to the model itself or quantization.
+Even if compilation fails only with quantization in the loop, it might be too broad for us to fix without over-specialization of code.</p>
+<ul class="simple">
+<li><p><em>Combining quant_inference_mode with compile=True gives me too-many-recompilations error, what should I do?</em></p></li>
+</ul>
+<p>Increasing <code class="docutils literal notranslate"><span class="pre">torch._dynamo.config.cache_size_limit</span></code> or <code class="docutils literal notranslate"><span class="pre">torch._dynamo.config.accumulated_cache_size_limit</span></code> might help.</p>
+<ul class="simple">
+<li><p><em>After compiling, I don’t see any speed-up. Is this normal?</em></p></li>
+</ul>
+<p>Yes, for some combinations of quantizers, compile might provide limited benefits.
+We noticed that minifloat quantization benefits more than integer one, especially with <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code>.
+Similarly, compiling during PTQ might not provide benefits because the slow part of the codebase is not the quantization part,
+but the algorithm itself.</p>
+<ul class="simple">
+<li><p><em>Which PTQ algorithms are compile-friendly?</em></p></li>
+</ul>
+<p>This is undefined.
+In general, it does not only depend on the algorithm itself but also on everything that comes after the compilation process.
+A lot of supported algorithms should be fairly compatible with compile since there’s limited interaction,
+but we have not tested all possible combinations with all possible networks.</p>
+<ul class="simple">
+<li><p><em>What versions of PyTorch should I use?</em></p></li>
+</ul>
+<p>Possibly, always the latest available.
+We are trying to ramp-up our tests across PyTorch versions,
+but there are a lot of new functionalities and bug-fixes every new versions.</p>
+<ul class="simple">
+<li><p><em>I am getting different accuracy with/without compile. Can you fix it?</em></p></li>
+</ul>
+<p>No, this is known issue, due to underlying optimizations we cannot control.</p>
+<ul class="simple">
+<li><p><em>What are the next steps for Brevitas + compile?</em></p></li>
+</ul>
+<p>We would like to expand the optimization area, balancing code refactoring for compile with observed speed-ups.
+An example of this is to compile an entire <code class="docutils literal notranslate"><span class="pre">QuantLayer</span></code>, but we also need to study on the trade-offs.
+We would love to increase of test suite for this, and we welcome all contributions.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="architecture.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Architecture</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="export_gguf.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">GGUF Export</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#flexibility-and-fake-quantization">Flexibility and Fake quantization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compile-your-quantized-network">Compile your quantized network</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#full-model-compile-quant-inference-mode">Full model compile + <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quantizers-compile-quant-inference-mode">Quantizers compile + <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#quantizers-compile-ptq">Quantizers compile + PTQ</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#some-results">Some results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Quantizers compile + <code class="docutils literal notranslate"><span class="pre">quant_inference_mode</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#known-gotchas">Known Gotchas</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#faq">FAQ</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/user_guide/compile.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

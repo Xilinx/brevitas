@@ -1,7 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import this
+
 from brevitas.core.bit_width import *
+from brevitas.core.bit_width.float import ComputeMaxMantissa
+from brevitas.core.bit_width.float import StaticMaxMantissa
 from brevitas.core.function_wrapper import *
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundIdentity
@@ -15,6 +19,7 @@ from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
+from brevitas.function.ops import compute_max_mantissa
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
 from brevitas.inject.enum import LearnedRoundImplType
@@ -32,7 +37,8 @@ __all__ = [
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
-    'SolveDtypeDeviceFromTrackedParameterList']
+    'SolveDtypeDeviceFromTrackedParameterList',
+    'SolveScaleSignedness']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -83,6 +89,49 @@ class SolveRestrictScalingImplFromEnum(ExtendedInjector):
         return solve_restrict_value_impl_from_enum(restrict_scaling_type)
 
 
+class ExponentBitWidthClass(ExtendedInjector):
+    exponent_bit_width_impl_type = (this << 1).exponent_bit_width_impl_type
+    bit_width = (this << 1).exponent_bit_width
+
+    @value
+    def bit_width_impl_type(exponent_bit_width_impl_type):
+        return solve_bit_width_impl_from_enum(exponent_bit_width_impl_type)
+
+
+class MantissaBitWidthClass(ExtendedInjector):
+    mantissa_bit_width_impl_type = (this << 1).mantissa_bit_width_impl_type
+    bit_width = (this << 1).mantissa_bit_width
+
+    @value
+    def bit_width_impl_type(mantissa_bit_width_impl_type):
+        return solve_bit_width_impl_from_enum(mantissa_bit_width_impl_type)
+
+    @value
+    def compute_max_mantissa(mantissa_bit_width_impl_type, bit_width):
+        if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
+            return StaticMaxMantissa(compute_max_mantissa(torch.tensor(float(bit_width))))
+        else:
+            return ComputeMaxMantissa
+
+
+class SolveFloatBitWidthImplFromEnum(ExtendedInjector):
+
+    exponent_bit_class = ExponentBitWidthClass
+    mantissa_bit_class = MantissaBitWidthClass
+
+    @value
+    def exponent_bit_width_impl():
+        return this.exponent_bit_class.bit_width_impl_type
+
+    @value
+    def mantissa_bit_width_impl():
+        return this.mantissa_bit_class.bit_width_impl_type
+
+    @value
+    def compute_max_mantissa():
+        return this.mantissa_bit_class.compute_max_mantissa
+
+
 class SolveBitWidthImplFromEnum(ExtendedInjector):
 
     @value
@@ -93,7 +142,9 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_impl(scaling_stats_op):
+    def scaling_stats_impl(scaling_stats_op=None):
+        if scaling_stats_op is None:
+            return None
         if scaling_stats_op == StatsOp.MAX:
             return AbsMax
         elif scaling_stats_op == StatsOp.MAX_AVE:
@@ -233,3 +284,24 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
             return tracked_parameter_list[0].device
         else:
             return None
+
+
+class SolveScaleSignedness(ExtendedInjector):
+
+    @value
+    def is_scale_unsigned(scaling_stats_impl=None, scaling_init=None):
+        if scaling_init is not None:
+            if not isinstance(scaling_init, torch.Tensor):
+                scaling_init = torch.tensor(scaling_init)
+
+            # Check if any of the init values is negative
+            if scaling_init.shape == ():
+                is_scale_negative = scaling_init < 0
+            else:
+                is_scale_negative = any(scaling_init.flatten() < 0)
+            return not is_scale_negative
+        elif hasattr(scaling_stats_impl, 'is_scale_unsigned'):
+            return scaling_stats_impl.is_scale_unsigned
+        else:
+            # If it is not possible to infer the scale of the sign, we assume it is unsigned
+            return True

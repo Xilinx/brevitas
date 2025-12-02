@@ -173,27 +173,26 @@ class _CachedIOGroupwiseInt:
 
 
 def has_learned_weight_bit_width(module):
-    from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+    from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 
-    if isinstance(module, WeightQuantProxyFromInjector) \
-            and isinstance(module.tensor_quant, RescalingIntQuant) \
-            and isinstance(module.tensor_quant.msb_clamp_bit_width_impl,
-                           BitWidthParameter):
-        return True
+    if isinstance(module, WeightQuantProxyFromInjectorBase):
+        for m in module.modules():
+            if isinstance(m, BitWidthParameter):
+                return True
+        return False
     else:
         return False
 
 
 def has_learned_activation_bit_width(module):
-    from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+    from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
     from brevitas.proxy.runtime_quant import FusedActivationQuantProxy
 
-    if isinstance(module, ActQuantProxyFromInjector) \
-            and isinstance(module.fused_activation_quant_proxy, FusedActivationQuantProxy) \
-            and isinstance(module.fused_activation_quant_proxy.tensor_quant, RescalingIntQuant) \
-            and isinstance(module.fused_activation_quant_proxy.tensor_quant.msb_clamp_bit_width_impl,
-                           BitWidthParameter):
-        return True
+    if isinstance(module, ActQuantProxyFromInjectorBase):
+        for m in module.modules():
+            if isinstance(m, BitWidthParameter):
+                return True
+        return False
     else:
         return False
 

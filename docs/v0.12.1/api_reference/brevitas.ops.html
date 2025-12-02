@@ -1,0 +1,850 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>brevitas.ops package &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/brevitas.ops';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="brevitas.core package" href="brevitas.core.html" />
+    <link rel="prev" title="brevitas.function package" href="brevitas.function.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item  current active">
+  <a class="nav-link dropdown-item nav-internal" href="index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="brevitas.function.html">brevitas.function package</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">brevitas.ops package</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.core.html">brevitas.core package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html">brevitas.core.bit_width package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html">brevitas.core.function_wrapper package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html">brevitas.core.quant package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html">brevitas.core.scaling package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html">brevitas.core.stats package</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">API reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">brevitas.ops package</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="brevitas-ops-package">
+<h1>brevitas.ops package<a class="headerlink" href="#brevitas-ops-package" title="Permalink to this heading">#</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading">#</a></h2>
+</section>
+<section id="module-brevitas.ops.autograd_ste_ops">
+<span id="brevitas-ops-autograd-ste-ops-module"></span><h2>brevitas.ops.autograd_ste_ops module<a class="headerlink" href="#module-brevitas.ops.autograd_ste_ops" title="Permalink to this heading">#</a></h2>
+<p>Implementation of various torch.autograd.Function with straight-through estimators.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.AbsBinarySignGradFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">AbsBinarySignGradFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#AbsBinarySignGradFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.AbsBinarySignGradFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.abs.html#torch.abs" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
+have subgradient 1 in 0. Compare with <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.abs.html#torch.abs" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
+<p><code class="docutils literal notranslate"><span class="pre">AbsBinarySignGradFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl" title="brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.abs_binary_sign_grad" title="brevitas.function.ops_ste.abs_binary_sign_grad"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.abs_binary_sign_grad" title="brevitas.function.ops_ste.abs_binary_sign_grad"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.BinarySignSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">BinarySignSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#BinarySignSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.BinarySignSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.binary_sign" title="brevitas.function.ops.binary_sign"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign()</span></code></a> with a
+straight-through gradient estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">BinarySignSteFn.apply(*args)</span></code> is first aliased to
+<a class="reference internal" href="#brevitas.ops.autograd_ste_ops.binary_sign_ste_impl" title="brevitas.ops.autograd_ste_ops.binary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste_impl(*args)</span></code></a>
+and then wrapped by <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.CeilSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">CeilSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#CeilSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.CeilSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.ceil.html#torch.ceil" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">CeilSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.ceil_ste_impl" title="brevitas.ops.autograd_ste_ops.ceil_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste" title="brevitas.function.ops_ste.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste" title="brevitas.function.ops_ste.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.DPURoundSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">DPURoundSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#DPURoundSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.DPURoundSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.dpu_round" title="brevitas.function.ops.dpu_round"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round()</span></code></a> with a
+straight-through gradient estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DPURoundSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.dpu_round_ste_impl" title="brevitas.ops.autograd_ste_ops.dpu_round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.dpu_round_ste" title="brevitas.function.ops_ste.dpu_round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.dpu_round_ste" title="brevitas.function.ops_ste.dpu_round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.FloorSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">FloorSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#FloorSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.FloorSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.floor.html#torch.floor" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">FloorSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.floor_ste_impl" title="brevitas.ops.autograd_ste_ops.floor_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.floor_ste" title="brevitas.function.ops_ste.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.floor_ste" title="brevitas.function.ops_ste.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.InplaceTensorClampSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">InplaceTensorClampSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#InplaceTensorClampSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.InplaceTensorClampSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.tensor_clamp_" title="brevitas.function.ops.tensor_clamp_"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code></a> with a
+straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
+w.r.t. to min_val and max_val is always None.</p>
+<p><code class="docutils literal notranslate"><span class="pre">InplaceTensorClampSteFn.apply(*args)</span></code> is first aliased to
+<code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl_(*args)</span></code> and then wrapped by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.RoundSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">RoundSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#RoundSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.RoundSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.round.html#torch.round" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient
+estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">RoundSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.round_ste_impl" title="brevitas.ops.autograd_ste_ops.round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_ste" title="brevitas.function.ops_ste.round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_ste" title="brevitas.function.ops_ste.round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste()</span></code></a> for details on the interface and examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.RoundToZeroSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">RoundToZeroSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#RoundToZeroSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.RoundToZeroSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.round_to_zero" title="brevitas.function.ops.round_to_zero"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero()</span></code></a> with a
+straight-through gradient estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">RoundToZeroSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl" title="brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_to_zero_ste" title="brevitas.function.ops_ste.round_to_zero_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.round_to_zero_ste" title="brevitas.function.ops_ste.round_to_zero_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ScalarClampMinSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#ScalarClampMinSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <code class="docutils literal notranslate"><span class="pre">torch.clamp_min</span></code> with a straight-through gradient estimator
+for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to <code class="docutils literal notranslate"><span class="pre">min_val</span></code> is always
+<code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ScalarClampMinSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl" title="brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_min_ste" title="brevitas.function.ops_ste.scalar_clamp_min_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste()</span></code></a> and invoked when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.ScalarClampSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ScalarClampSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#ScalarClampSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.ScalarClampSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <code class="docutils literal notranslate"><span class="pre">torch.clamp</span></code> with a straight-through gradient estimator
+for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to <code class="docutils literal notranslate"><span class="pre">min_val</span></code> and <code class="docutils literal notranslate"><span class="pre">min_val</span></code>
+are always <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ScalarClampSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl" title="brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a> and invoked when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.TensorClampSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">TensorClampSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#TensorClampSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.TensorClampSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.tensor_clamp" title="brevitas.function.ops.tensor_clamp"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code></a> with a
+straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
+w.r.t. to min_val and max_val is always None.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TensorClampSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl" title="brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl(*args)</span></code></a> and then wrapped by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.TernarySignSteFn">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">TernarySignSteFn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/ops/autograd_ste_ops.html#TernarySignSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.TernarySignSteFn" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/autograd.html#torch.autograd.Function" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Autograd function that implements <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.sign.html#torch.sign" title="(in PyTorch v2.7)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TernarySignSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl" title="brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste_impl(*args)</span></code></a> and then wrapped by
+<a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste" title="brevitas.function.ops_ste.ternary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
+See <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste" title="brevitas.function.ops_ste.ternary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a> for details on the interface and
+examples.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">abs_binary_sign_grad_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.AbsBinarySignGradFn" title="brevitas.ops.autograd_ste_ops.AbsBinarySignGradFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbsBinarySignGradFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.binary_sign_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">binary_sign_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.binary_sign_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.BinarySignSteFn" title="brevitas.ops.autograd_ste_ops.BinarySignSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">BinarySignSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.ceil_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ceil_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.ceil_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.CeilSteFn" title="brevitas.ops.autograd_ste_ops.CeilSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">CeilSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.dpu_round_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">dpu_round_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.dpu_round_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.DPURoundSteFn" title="brevitas.ops.autograd_ste_ops.DPURoundSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">DPURoundSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.floor_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">floor_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.floor_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.FloorSteFn" title="brevitas.ops.autograd_ste_ops.FloorSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">FloorSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.round_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">round_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.round_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.RoundSteFn" title="brevitas.ops.autograd_ste_ops.RoundSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">RoundSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">round_to_zero_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.RoundToZeroSteFn" title="brevitas.ops.autograd_ste_ops.RoundToZeroSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">RoundToZeroSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">scalar_clamp_min_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn" title="brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalarClampMinSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">scalar_clamp_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.ScalarClampSteFn" title="brevitas.ops.autograd_ste_ops.ScalarClampSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalarClampSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">tensor_clamp_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.TensorClampSteFn" title="brevitas.ops.autograd_ste_ops.TensorClampSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorClampSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl">
+<span class="sig-prename descclassname"><span class="pre">brevitas.ops.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ternary_sign_ste_impl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl" title="Permalink to this definition">#</a></dt>
+<dd><p>Alias for <a class="reference internal" href="#brevitas.ops.autograd_ste_ops.TernarySignSteFn" title="brevitas.ops.autograd_ste_ops.TernarySignSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">TernarySignSteFn.apply(*args)</span></code></a></p>
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="brevitas.function.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">brevitas.function package</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="brevitas.core.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">brevitas.core package</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.ops.autograd_ste_ops">brevitas.ops.autograd_ste_ops module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.AbsBinarySignGradFn"><code class="docutils literal notranslate"><span class="pre">AbsBinarySignGradFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.BinarySignSteFn"><code class="docutils literal notranslate"><span class="pre">BinarySignSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.CeilSteFn"><code class="docutils literal notranslate"><span class="pre">CeilSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.DPURoundSteFn"><code class="docutils literal notranslate"><span class="pre">DPURoundSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.FloorSteFn"><code class="docutils literal notranslate"><span class="pre">FloorSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.InplaceTensorClampSteFn"><code class="docutils literal notranslate"><span class="pre">InplaceTensorClampSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.RoundSteFn"><code class="docutils literal notranslate"><span class="pre">RoundSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.RoundToZeroSteFn"><code class="docutils literal notranslate"><span class="pre">RoundToZeroSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn"><code class="docutils literal notranslate"><span class="pre">ScalarClampMinSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.ScalarClampSteFn"><code class="docutils literal notranslate"><span class="pre">ScalarClampSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.TensorClampSteFn"><code class="docutils literal notranslate"><span class="pre">TensorClampSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.TernarySignSteFn"><code class="docutils literal notranslate"><span class="pre">TernarySignSteFn</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl"><code class="docutils literal notranslate"><span class="pre">abs_binary_sign_grad_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.binary_sign_ste_impl"><code class="docutils literal notranslate"><span class="pre">binary_sign_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.ceil_ste_impl"><code class="docutils literal notranslate"><span class="pre">ceil_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.dpu_round_ste_impl"><code class="docutils literal notranslate"><span class="pre">dpu_round_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.floor_ste_impl"><code class="docutils literal notranslate"><span class="pre">floor_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.round_ste_impl"><code class="docutils literal notranslate"><span class="pre">round_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl"><code class="docutils literal notranslate"><span class="pre">round_to_zero_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl"><code class="docutils literal notranslate"><span class="pre">scalar_clamp_min_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl"><code class="docutils literal notranslate"><span class="pre">scalar_clamp_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl"><code class="docutils literal notranslate"><span class="pre">ternary_sign_ste_impl()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/api_reference/brevitas.ops.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

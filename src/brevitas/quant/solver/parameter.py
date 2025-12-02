@@ -70,6 +70,8 @@ class SolveParameterScalingInitFromEnum(ExtendedInjector):
 
     @value
     def scaling_init(scaling_init_impl):
+        if scaling_init_impl is None:
+            return None
         scaling_init = scaling_init_impl()
         if isinstance(scaling_init, Tensor):
             return scaling_init.detach()

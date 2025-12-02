@@ -202,7 +202,7 @@ def min_int(
 
 
 def compute_max_mantissa(mantissa_bit_width: Tensor):
-    return torch.sum((2. ** torch.arange(0, -1. * mantissa_bit_width - 1., -1.)))
+    return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
 
 
 @brevitas.jit.ignore

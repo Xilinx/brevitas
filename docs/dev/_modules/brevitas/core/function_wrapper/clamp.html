@@ -168,15 +168,8 @@
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../settings.html">
-    Settings
-  </a>
-</li>
-
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
-    API reference
+  <a class="nav-link nav-internal" href="../../../../papers/index.html">
+    Papers
   </a>
 </li>
 
@@ -189,18 +182,40 @@
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../faq.html">
+  <a class="nav-link nav-internal" href="../../../../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../faq.html">
     FAQ
   </a>
 </li>
 
 
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../about.html">
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -305,15 +320,8 @@ document.write(`
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../settings.html">
-    Settings
-  </a>
-</li>
-
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
-    API reference
+  <a class="nav-link nav-internal" href="../../../../papers/index.html">
+    Papers
   </a>
 </li>
 
@@ -326,8 +334,22 @@ document.write(`
 
 
 <li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
   <a class="nav-link nav-internal" href="../../../../faq.html">
     FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
+    API reference
   </a>
 </li>
 
@@ -570,9 +592,10 @@ document.write(`
         <span class="n">min_value</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">signed</span> <span class="k">else</span> <span class="o">-</span><span class="n">max_value</span>
 
         <span class="c1"># Compute masks</span>
-        <span class="n">inf_mask</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">isinf</span><span class="p">()</span>
-        <span class="n">p_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">max_value</span>
-        <span class="n">n_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">min_value</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">saturating</span><span class="p">:</span>
+            <span class="n">inf_mask</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">isinf</span><span class="p">()</span>
+            <span class="n">p_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">max_value</span>
+            <span class="n">n_max_val_mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">min_value</span>
 
         <span class="c1"># first clamp everything to +- max_value, basically the saturating case</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">saturating_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">min_value</span><span class="p">)</span>

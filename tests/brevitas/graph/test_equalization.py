@@ -15,17 +15,17 @@ from torchvision import models
 
 from brevitas import torch_version
 from brevitas.fx import symbolic_trace
-from brevitas.graph.base import ModuleInstanceRegisterParametrization
 from brevitas.graph.equalize import _apply_had_device
 from brevitas.graph.equalize import _apply_ort_device
-from brevitas.graph.equalize import _apply_rotate
 from brevitas.graph.equalize import _batch_norm
+from brevitas.graph.equalize import _compute_rotations
 from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _get_input_axis
 from brevitas.graph.equalize import _get_output_axis
 from brevitas.graph.equalize import _is_supported_module
 from brevitas.graph.equalize import _supported_layers
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import EqualizationIndexes
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
@@ -428,7 +428,8 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 @pytest_cases.parametrize('fuse_rotations', [False, True], ids=["unfused", "fused"])
 @pytest_cases.parametrize('use_fx', [True, False], ids=["fx", "no-fx"])
-def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_rotations, use_fx):
+def test_compute_rotations(
+        rotation_model, mask, full_rotation_method, device, fuse_rotations, use_fx):
     # Instantiate a residual model for which a collection of regions is available
     model = rotation_model()
     device = torch.device("cuda") if device == 'cuda' else torch.device("cpu")
@@ -485,7 +486,7 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
                    had_K,
                    K: _apply_had_device(
                        tensor, get_hadK(had_K.shape[0])[0], get_hadK(had_K.shape[0])[1])):
-            rewriters = _apply_rotate(
+            rewriters = _compute_rotations(
                 rotated_model_unfused,
                 regions_unfused,
                 full_rotation_method=full_rotation_method,
@@ -493,26 +494,25 @@ def test_apply_rotate(rotation_model, mask, full_rotation_method, device, fuse_r
     elif full_rotation_method == 'ort':
         with patch('brevitas.graph.equalize.random_orthogonal_matrix',
                    partial(_random_orthogonal_matrix, generator=generator)):
-            rewriters = _apply_rotate(
+            rewriters = _compute_rotations(
                 rotated_model_unfused,
                 regions_unfused,
                 full_rotation_method=full_rotation_method,
                 fuse_rotations=False)
-    # Register parametrizations after calling _apply_rotate, as these are not inmediately registered since they alter the structure of the
-    # model, thus potentially causing a crash if the model is offloaded
-    for r in rewriters:
-        if isinstance(r, ModuleInstanceRegisterParametrization):
-            rotated_model_unfused = r.apply(rotated_model_unfused)
+
+    apply_rewriters(rotated_model_unfused, rewriters)
+
     # Apply rotations on the model with fused rotations
     with patch('brevitas.graph.equalize.random_orthogonal_matrix',
                partial(_random_orthogonal_matrix, generator=generator_clone)):
         regions_fused = list(
             map(lambda x: _instantiate_region(x, rotated_model_fused), regions_dicts))
-        _apply_rotate(
+        r = _compute_rotations(
             rotated_model_fused,
             regions_fused,
             full_rotation_method=full_rotation_method,
             fuse_rotations=True)
+        apply_rewriters(rotated_model_fused, r)
 
     # Compute outputs for each model
     model_output = model(sample_inputs)

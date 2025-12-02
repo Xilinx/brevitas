@@ -43,24 +43,31 @@ class GPTQ(GPxQ):
     """
 
     def __init__(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig,
-            num_blocks) -> None:
-        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            num_blocks,
+            device='cpu',
+            dtype=torch.float32) -> None:
+        super().__init__(
+            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
         # Define how many columns to update in each mini-block
         self.blocksize = math.ceil(self.columns / num_blocks)
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
-        self.H = torch.zeros(
-            (self.groups, self.columns, self.columns),
-            device='cpu',
-            dtype=torch.float32,
-        )
-        self.B = torch.zeros(
-            (self.groups, self.columns, self.columns),
-            device='cpu',
-            dtype=torch.float32,
-        )
+        self.H = torch.zeros((self.groups, self.columns, self.columns),
+                             device=self.device,
+                             dtype=self.dtype)
+        if self.use_intermediate_buffer:
+            # Creating an intermediate buffer with pinned memory to improve transfer speeds
+            self.B = torch.zeros((self.groups, self.columns, self.columns),
+                                 pin_memory=torch.cuda.is_available(),
+                                 device=self.device,
+                                 dtype=self.dtype)
         self.nsamples = 0
 
         assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
@@ -74,10 +81,13 @@ class GPTQ(GPxQ):
         # Calcuate the covariance matrix
         self.H *= self.nsamples / (self.nsamples + batch_size)
         self.nsamples += batch_size
-        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(torch.float32)
-        # Optimizing CPU to GPU transfer using in-place copy to pinned memory
-        self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
-        self.H += self.B
+        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(self.dtype)
+        if self.use_intermediate_buffer:
+            # Optimizing CPU to GPU transfer using in-place copy to pinned memory
+            self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+            self.H += self.B
+        else:
+            self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -97,6 +107,8 @@ class GPTQ(GPxQ):
         assert not self.layer.weight_quant.requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
         weight = self.layer.weight.data
         dev = weight.device
 
@@ -140,7 +152,7 @@ class GPTQ(GPxQ):
         try:
             for i in range(self.groups):
                 damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
-                diag = torch.arange(self.columns, device='cpu')
+                diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
@@ -155,21 +167,21 @@ class GPTQ(GPxQ):
                 f'Increasing the number of samples might fix this issue')
             return
         finally:
-            del self.H, self.B
+            del self.H
 
         for i1 in range(0, self.columns, self.blocksize):
             i2 = min(i1 + self.blocksize, self.columns)
             count = i2 - i1
             error_block = torch.zeros_like(
-                weight[:, :, perm[i1:i2]], dtype=torch.float32)  # [groups, OC/groups, i2-i1]
+                weight[:, :, perm[i1:i2]], dtype=self.dtype)  # [groups, OC/groups, i2-i1]
 
             h_inv_block = h_inv[:, i1:i2, i1:i2]
             for i in range(count):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
-                    w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
+                    q = q_groups[group_index].to(self.dtype)  # [OC/groups]
+                    w = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
                     d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
                     error_block[group_index, :, i] = error
@@ -205,6 +217,8 @@ class gptq_mode(gpxq_mode):
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
         gptq_class (GPTQ): The uninitialized class to perform GPTQ. Default: `brevitas.graph.gptq.GPTQ`
+        device (str): Device the buffers are stored on. Default: cpu
+        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
     Example:
         >>> with torch.no_grad():
@@ -227,7 +241,9 @@ class gptq_mode(gpxq_mode):
             num_blocks: int = 100,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gptq_class: GPTQ = GPTQ) -> None:
+            gptq_class: GPTQ = GPTQ,
+            device: str = 'cpu',
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -237,7 +253,9 @@ class gptq_mode(gpxq_mode):
             create_weight_orig,
             use_quant_activations,
             act_order,
-            return_forward_output)
+            return_forward_output,
+            device,
+            dtype)
 
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
@@ -265,4 +283,6 @@ class gptq_mode(gpxq_mode):
             act_order=self.act_order,
             len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig,
-            num_blocks=self.num_blocks)
+            num_blocks=self.num_blocks,
+            device=self.device,
+            dtype=self.dtype)

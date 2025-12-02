@@ -2,11 +2,11 @@
 
 ## Requirements
 
-- transformers
-- datasets
-- torch_mlir (optional for torch-mlir based export)
-- optimum
-- accelerate
+The requirements can be installed as followed:
+
+```bash
+pip install -e .[export,llm]
+```
 
 ## Run
 

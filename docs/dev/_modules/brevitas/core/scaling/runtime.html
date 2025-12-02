@@ -168,15 +168,8 @@
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../settings.html">
-    Settings
-  </a>
-</li>
-
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
-    API reference
+  <a class="nav-link nav-internal" href="../../../../papers/index.html">
+    Papers
   </a>
 </li>
 
@@ -189,18 +182,40 @@
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../faq.html">
+  <a class="nav-link nav-internal" href="../../../../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../faq.html">
     FAQ
   </a>
 </li>
 
 
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../about.html">
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../../about.html">
     About
   </a>
 </li>
 
+                </ul>
+            </li>
+            
   </ul>
 </nav></div>
       
@@ -305,15 +320,8 @@ document.write(`
 
 
 <li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../settings.html">
-    Settings
-  </a>
-</li>
-
-
-<li class="nav-item pst-header-nav-item">
-  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
-    API reference
+  <a class="nav-link nav-internal" href="../../../../papers/index.html">
+    Papers
   </a>
 </li>
 
@@ -326,8 +334,22 @@ document.write(`
 
 
 <li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
   <a class="nav-link nav-internal" href="../../../../faq.html">
     FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
+    API reference
   </a>
 </li>
 
@@ -453,6 +475,7 @@ document.write(`
             <span class="n">force_parameter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
             <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">restrict_scale_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_affine_rescaling_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_affine_shifting_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -472,14 +495,15 @@ document.write(`
             <span class="n">tracked_parameter_list</span><span class="p">,</span>
             <span class="n">force_parameter</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span> <span class="o">=</span> <span class="n">_StatsScaling</span><span class="p">(</span>
-            <span class="n">restrict_scaling_impl</span><span class="p">,</span>
-            <span class="n">restrict_threshold_impl</span><span class="p">,</span>
-            <span class="n">scaling_min_val</span><span class="p">,</span>
-            <span class="n">scaling_shape</span><span class="p">,</span>
-            <span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
-            <span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
-            <span class="n">dtype</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">)</span>
+            <span class="n">restrict_scaling_impl</span><span class="o">=</span><span class="n">restrict_scaling_impl</span><span class="p">,</span>
+            <span class="n">restrict_threshold_impl</span><span class="o">=</span><span class="n">restrict_threshold_impl</span><span class="p">,</span>
+            <span class="n">restrict_scale_threshold_impl</span><span class="o">=</span><span class="n">restrict_scale_threshold_impl</span><span class="p">,</span>
+            <span class="n">scaling_min_val</span><span class="o">=</span><span class="n">scaling_min_val</span><span class="p">,</span>
+            <span class="n">scaling_shape</span><span class="o">=</span><span class="n">scaling_shape</span><span class="p">,</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="o">=</span><span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="o">=</span><span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
 <div class="viewcode-block" id="StatsFromParameterScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.runtime.StatsFromParameterScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
@@ -503,7 +527,9 @@ document.write(`
             <span class="n">scaling_affine_rescaling_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
             <span class="n">scaling_affine_shifting_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">],</span>
-            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">],</span>
+            <span class="n">restrict_scale_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">is_scale_unsigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_StatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="n">_affine_rescaling</span> <span class="o">=</span> <span class="n">scaling_affine_rescaling_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="n">_affine_shift_scale</span> <span class="o">=</span> <span class="n">scaling_affine_shifting_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -519,9 +545,12 @@ document.write(`
                 <span class="n">device</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">affine_rescaling</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">,</span> <span class="n">is_scale_unsigned</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
             <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_threshold_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scale_threshold</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_scale_threshold_impl</span><span class="p">,</span> <span class="n">is_unsigned</span><span class="o">=</span><span class="n">is_scale_unsigned</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span> <span class="o">=</span> <span class="n">restrict_scaling_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span> <span class="o">=</span> <span class="n">restrict_threshold_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span> <span class="o">=</span> <span class="n">_ClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
@@ -538,7 +567,7 @@ document.write(`
         <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
         <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">affine_rescaling</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
         <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
-        <span class="n">stats</span> <span class="o">=</span> <span class="n">stats</span> <span class="o">/</span> <span class="n">threshold</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scale_threshold</span><span class="p">(</span><span class="n">stats</span> <span class="o">/</span> <span class="n">threshold</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">stats</span>
 
 
@@ -549,10 +578,12 @@ document.write(`
             <span class="n">scaling_stats_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">scaling_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">scaling_shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+            <span class="n">is_scale_unsigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
             <span class="n">scaling_affine_rescaling_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_affine_shifting_init</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
             <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">restrict_scale_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">scaling_stats_momentum</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_MOMENTUM</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -571,14 +602,16 @@ document.write(`
             <span class="n">dtype</span><span class="p">,</span>
             <span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_scaling_impl</span> <span class="o">=</span> <span class="n">_StatsScaling</span><span class="p">(</span>
-            <span class="n">restrict_scaling_impl</span><span class="p">,</span>
-            <span class="n">restrict_threshold_impl</span><span class="p">,</span>
-            <span class="n">scaling_min_val</span><span class="p">,</span>
-            <span class="n">scaling_shape</span><span class="p">,</span>
-            <span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
-            <span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
-            <span class="n">dtype</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">)</span>
+            <span class="n">restrict_scaling_impl</span><span class="o">=</span><span class="n">restrict_scaling_impl</span><span class="p">,</span>
+            <span class="n">restrict_threshold_impl</span><span class="o">=</span><span class="n">restrict_threshold_impl</span><span class="p">,</span>
+            <span class="n">restrict_scale_threshold_impl</span><span class="o">=</span><span class="n">restrict_scale_threshold_impl</span><span class="p">,</span>
+            <span class="n">scaling_min_val</span><span class="o">=</span><span class="n">scaling_min_val</span><span class="p">,</span>
+            <span class="n">scaling_shape</span><span class="o">=</span><span class="n">scaling_shape</span><span class="p">,</span>
+            <span class="n">scaling_affine_rescaling_init</span><span class="o">=</span><span class="n">scaling_affine_rescaling_init</span><span class="p">,</span>
+            <span class="n">scaling_affine_shifting_init</span><span class="o">=</span><span class="n">scaling_affine_shifting_init</span><span class="p">,</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">is_scale_unsigned</span><span class="o">=</span><span class="n">is_scale_unsigned</span><span class="p">)</span>
 
 <div class="viewcode-block" id="RuntimeStatsScaling.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.runtime.RuntimeStatsScaling.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
@@ -632,7 +665,9 @@ document.write(`
             <span class="n">scaling_stats_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
             <span class="n">restrict_scaling_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span><span class="p">(),</span>
-            <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">restrict_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">restrict_scale_threshold_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">is_scale_unsigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RuntimeDynamicGroupStatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
         <span class="c1"># Ensure retro-compatibility with shared threshold/scaling restrict</span>
@@ -644,9 +679,12 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">scaling_stats_impl</span> <span class="o">=</span> <span class="n">scaling_stats_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scaling_min_val</span> <span class="o">=</span> <span class="n">scaling_min_val</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">input_view_impl</span> <span class="o">=</span> <span class="n">input_view_impl</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">scaling_min_val</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="p">,</span> <span class="n">is_scale_unsigned</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
             <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_threshold_impl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scale_threshold</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_scale_threshold_impl</span><span class="p">,</span> <span class="n">is_unsigned</span><span class="o">=</span><span class="n">is_scale_unsigned</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="o">.</span><span class="n">restrict_value_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">(</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">restrict_threshold_pre</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_threshold</span><span class="o">.</span><span class="n">restrict_value_impl</span><span class="o">.</span><span class="n">restrict_init_module</span><span class="p">(</span>
@@ -669,6 +707,7 @@ document.write(`
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_scaling_pre</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
         <span class="c1"># Apply restrict_value and clamping</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="o">/</span> <span class="n">threshold</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scale_threshold</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out</span></div></div>
 </pre></div>
 

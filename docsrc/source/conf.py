@@ -83,6 +83,8 @@ elif version_to_build == '':
     # $: End of string
     version_to_build = r'^v([1-9][0-9]*\.\d+\.\d+|0\.(1[0-9]|\d{2,})\.\d+|0\.9\.(?!0+$)\d+)$'
     branch_to_build = 'dev'
+else:
+    branch_to_build = 'dev'
 
 # -- General configuration ---------------------------------------------------
 

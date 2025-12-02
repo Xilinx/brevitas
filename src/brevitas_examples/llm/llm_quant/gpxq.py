@@ -118,7 +118,9 @@ def apply_gptq(
         group_of_parallel_layers=None,
         block_name=None,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=None):
+        max_accumulator_tile_size=None,
+        buffer_device='cpu',
+        buffer_dtype=torch.float32):
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
@@ -134,7 +136,9 @@ def apply_gptq(
             'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': create_weight_orig,
             'use_quant_activations': use_quant_activations,
-            'gptq_class': gptq_class}
+            'gptq_class': gptq_class,
+            'device': buffer_device,
+            'dtype': buffer_dtype}
         block_optimization(model, dataloader, block_name, gptq_mode, context_manager_kwargs)
     else:
         with gptq_mode(model,
@@ -142,7 +146,9 @@ def apply_gptq(
                        group_of_parallel_layers=group_of_parallel_layers,
                        act_order=act_order,
                        create_weight_orig=create_weight_orig,
-                       gptq_class=gptq_class) as gptq:
+                       gptq_class=gptq_class,
+                       device=buffer_device,
+                       dtype=buffer_dtype) as gptq:
             gptq_model = gptq.model
             for _ in tqdm(range(gptq.num_layers)):
                 for inps in dataloader:
@@ -156,7 +162,9 @@ def _dual_optimization_callback(
         act_order=True,
         block_name=None,
         group_of_parallel_layers=None,
-        algorithm_impl=GPFQ):
+        algorithm_impl=GPFQ,
+        device='cpu',
+        dtype=torch.float32):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -170,14 +178,18 @@ def _dual_optimization_callback(
             'act_order': act_order,
             'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': True,
-            'algorithm_impl': algorithm_impl}
+            'algorithm_impl': algorithm_impl,
+            'device': device,
+            'dtype': dtype}
         block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
     else:
         with gpfq_mode(model,
                        act_order=act_order,
                        group_of_parallel_layers=group_of_parallel_layers,
                        create_weight_orig=True,
-                       algorithm_impl=algorithm_impl) as algo:
+                       algorithm_impl=algorithm_impl,
+                       device=device,
+                       dtype=dtype) as algo:
             algo_model = algo.model
             for _ in tqdm(range(algo.num_layers)):
                 for inps in dataloader:
@@ -193,7 +205,9 @@ def apply_gpfq(
         group_of_parallel_layers=None,
         block_name=None,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=None):
+        max_accumulator_tile_size=None,
+        buffer_device='cpu',
+        buffer_dtype=torch.float32):
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
@@ -211,7 +225,9 @@ def apply_gpfq(
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        algorithm_impl=algorithm_impl)
+        algorithm_impl=algorithm_impl,
+        device=buffer_device,
+        dtype=buffer_dtype)
 
 
 @torch.no_grad()
@@ -221,7 +237,9 @@ def apply_qronos(
         act_order=True,
         group_of_parallel_layers=None,
         block_name=None,
-        alpha=1e-6):
+        alpha=1e-6,
+        buffer_device='cpu',
+        buffer_dtype=torch.float32):
     assert alpha > 0, "Error: alpha needs to be strictly positive"
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
@@ -231,7 +249,9 @@ def apply_qronos(
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        algorithm_impl=partial(Qronos, alpha=alpha))
+        algorithm_impl=partial(Qronos, alpha=alpha),
+        device=buffer_device,
+        dtype=buffer_dtype)
 
 
 @torch.no_grad()
@@ -242,13 +262,17 @@ def apply_magr(
         group_of_parallel_layers=None,
         block_name=None,
         alpha=0.01,
-        num_steps=200):
+        num_steps=200,
+        buffer_device='cpu',
+        buffer_dtype=torch.float32):
     if block_name is not None:
         context_manager_kwargs = {
             'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': create_weight_orig,
             'alpha': alpha,
-            'num_steps': num_steps}
+            'num_steps': num_steps,
+            'device': buffer_device,
+            'dtype': buffer_dtype}
         block_optimization(
             model,
             dataloader,
@@ -261,7 +285,9 @@ def apply_magr(
                        group_of_parallel_layers=group_of_parallel_layers,
                        create_weight_orig=create_weight_orig,
                        num_steps=num_steps,
-                       alpha=alpha) as magr:
+                       alpha=alpha,
+                       device=buffer_device,
+                       dtype=buffer_dtype) as magr:
             magr_model = magr.model
             for inps in tqdm(dataloader, desc="Calculating covariances..."):
                 magr_model(**inps)

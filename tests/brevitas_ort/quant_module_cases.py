@@ -15,13 +15,22 @@ from .common import *
 
 class QuantWBIOLCases:
 
+    @parametrize(
+        'rounding_type', ['round', 'floor'], ids=[f'rtype_{r}' for r in ['round', 'floor']])
     @parametrize('impl', QUANT_WBIOL_IMPL, ids=[f'{c.__name__}' for c in QUANT_WBIOL_IMPL])
     @parametrize('input_bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
     @parametrize('output_bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
     @parametrize('quantizers', WBIOL_QUANTIZERS.values(), ids=list(WBIOL_QUANTIZERS.keys()))
     def case_quant_wbiol(
-            self, impl, input_bit_width, weight_bit_width, output_bit_width, quantizers, request):
+            self,
+            rounding_type,
+            impl,
+            input_bit_width,
+            weight_bit_width,
+            output_bit_width,
+            quantizers,
+            request):
 
         # Change the case_id based on current value of Parameters
         set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol)
@@ -29,9 +38,9 @@ class QuantWBIOLCases:
         weight_quant, io_quant = quantizers
         is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
         is_dynamic = io_quant == ShiftedUint8DynamicActPerTensorFloat
-        if is_fp8:
+        if is_fp8 or rounding_type == 'floor':
             if weight_bit_width < 8 or input_bit_width < 8 or output_bit_width < 8:
-                pytest.skip('FP8 export requires total bitwidth equal to 8')
+                pytest.skip('FP8 export and FLOOR rounding require all bitwidths equal to 8')
             torch.use_deterministic_algorithms(False)
         else:
             torch.use_deterministic_algorithms(True)
@@ -60,6 +69,7 @@ class QuantWBIOLCases:
                     input_bit_width=input_bit_width,
                     output_bit_width=output_bit_width,
                     bias_quant=bias_quantizer,
+                    weight_float_to_int_impl_type=rounding_type,
                     return_quant_tensor=return_quant_tensor)
                 self.conv.weight.data.uniform_(-0.01, 0.01)
 

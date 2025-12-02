@@ -15,8 +15,8 @@ jobs:
 
 
       matrix:
-        python_version: ['3.9', '3.10']
-        pytorch_version: ['1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1']
+        python_version: ['3.10', '3.11']
+        pytorch_version: ['2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1']
         platform: ['windows-latest', 'ubuntu-latest']
 
 

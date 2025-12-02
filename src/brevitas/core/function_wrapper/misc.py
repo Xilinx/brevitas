@@ -10,6 +10,25 @@ import torch
 import brevitas
 
 
+class Abs(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of :func:`~torch.abs`.
+
+    Examples:
+        >>> abs_module = Abs()
+        >>> x = torch.tensor([-1.0, 0.0, 1.0])
+        >>> abs_module(x)
+        tensor([1., 0., 1.])
+    """
+
+    def __init__(self) -> None:
+        super(Abs, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.abs(x)
+
+
 class Identity(brevitas.jit.ScriptModule):
     """
     Identity ScriptModule.

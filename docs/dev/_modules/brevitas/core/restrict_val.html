@@ -453,12 +453,13 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">Abs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">InplaceLogTwo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogTwo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">PowerOfTwo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundSte</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarClampMinSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarSignedClampMinSte</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">FloatToIntImplType</span>  <span class="c1"># retrocompatibility</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">RestrictValueType</span>
 
@@ -471,10 +472,11 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">restrict_value_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">restrict_value_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">is_unsigned</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_RestrictClampValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">scaling_min_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scaling_min_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">restrict_value_impl</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -482,10 +484,16 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
 
+        <span class="k">if</span> <span class="n">is_unsigned</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Abs</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span>
 
 
@@ -509,7 +517,7 @@ document.write(`
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_ClampValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">scaling_min_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scaling_min_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span> <span class="o">=</span> <span class="n">scaling_min_val</span>
@@ -517,6 +525,21 @@ document.write(`
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_AbsValue</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_unsigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">_AbsValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">is_unsigned</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Abs</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+
+    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span>
 
 

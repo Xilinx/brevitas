@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 from argparse import Namespace
+from contextlib import ExitStack
 import logging
 import os
 import platform
@@ -46,10 +47,8 @@ from tests.marker import requires_pt_ge
 ATOL_PPL = 1e+01
 RTOL_PPL = 1e-04
 
-MODEL_PT_VERSION_REQUIREMENTS = {
-    "hf-internal-testing/tiny-random-LlamaForCausalLM": "2.0",
-    "hf-internal-testing/tiny-random-MistralForCausalLM": "2.0",
-    "hf-internal-testing/tiny-random-OPTForCausalLM": "2.4",}
+ATOL_ACC = 5e-1
+RTOL_ACC = 1e-5
 
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
@@ -72,9 +71,6 @@ def validate_args(parser: ArgumentParser, args: Namespace) -> None:
     a, da = parse_args_and_defaults(args, parser)
     for k in a.keys():
         assert k in da.keys(), f"Key {k} does not seem to be a valid argument for `quantize_llm`"
-    req_pt = MODEL_PT_VERSION_REQUIREMENTS[args.model]
-    if torch_version < version.parse(req_pt):
-        pytest.skip(f"{args.model} requires PyTorch version {req_pt}")
     if args.replace_rmsnorm:
         if torch_version < version.parse('2.4'):
             pytest.skip("Replacing RMSNorm requires torch 2.4+ or greater")
@@ -272,7 +268,7 @@ def onnx_export_args(default_run_args, request):
     yield process_args_and_metrics(default_run_args, request.param)
 
 
-@pytest.mark.llm
+@pytest.mark.onnx_export_llm
 @jit_disabled_for_export()
 @requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
@@ -374,3 +370,74 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
     with patch("brevitas_examples.llm.main.quantize_llm", quantize_llm_assert_args):
         with patch("brevitas_examples.llm.main.sys.argv", ["main.py", "--config", yaml_file_path]):
             llm_main()
+
+
+@pytest_cases.fixture(
+    ids=["lighteval", "lighteval_rotations"],
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "few_shot_eval": "lighteval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_tasks": [
+                "arc:challenge|0",
+                "winogrande|0",
+                "arc:easy|0",
+                "hellaswag|0",],
+            "few_shot_zeroshot": True,
+            "imports": ["lighteval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "rotation": "fused_no_fx",
+            "replace_rmsnorm": True,
+            "eval": False,
+            "few_shot_eval": "lighteval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_tasks": [
+                "arc:challenge|0",
+                "winogrande|0",
+                "arc:easy|0",
+                "hellaswag|0",],
+            "few_shot_zeroshot": True,
+            "imports": ["lighteval"],
+            "all_acc": 0.375,},])
+def few_shot_eval_args(default_run_args, request):
+    # Skip cases for which the LM evaluation library has not been installed
+    for lib in request.param["imports"]:
+        pytest.importorskip(lib, reason=f"`{lib}` needs to be installed.")
+    del request.param["imports"]
+
+    yield process_args_and_metrics(
+        default_run_args, request.param, extra_keys=["imports", "all_acc"])
+
+
+@pytest.mark.lighteval_llm
+def test_few_shot_eval(caplog, few_shot_eval_args, main):
+    caplog.set_level(logging.INFO)
+    args, _, exp_metrics = few_shot_eval_args
+
+    with ExitStack() as ctx_stack:
+        # Patch LM eval calls when needed
+        if args.few_shot_eval == "lighteval":
+            from brevitas_examples.llm.eval_lighteval import run_lighteval
+            max_samples = args.few_shot_override_batch_size
+
+            def mock_run_lighteval(*args, **kwargs):
+                kwargs["max_samples"] = max_samples
+                return run_lighteval(*args, **kwargs)
+
+            # Patch the call to `run_lighteval`
+            ctx_stack.enter_context(
+                patch(
+                    'brevitas_examples.llm.eval_lighteval.run_lighteval',
+                    side_effect=mock_run_lighteval))
+
+        results, _ = main(args)
+
+    # Verify that LM eval metrics match. `strict` is set to False, as
+    # only a subset of metrics are checked.
+    assert_metrics(results, exp_metrics, atol=ATOL_ACC, rtol=RTOL_ACC, strict=False)
