@@ -178,19 +178,16 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
     for tokenized_text, expected_tokenized_text in zip(tokenized_texts, expected_tokenized_texts):
         assert torch.equal(tokenized_text["input_ids"], expected_tokenized_text)
 
+
 def test_llm_dataloader():
-    data = [
-        {
-            'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64),
-            'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64),
-        },
-        {
-            'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64),
-            'attention_mask': torch.tensor([[1, 0, 1, 0]], dtype=torch.int64),
-        }
-    ]
+    data = [{
+        'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64),
+        'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64),},
+            {
+                'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64),
+                'attention_mask': torch.tensor([[1, 0, 1, 0]], dtype=torch.int64),}]
     dataset2device = DatasetToDevice(data, device='cpu')
-    
+
     # create dataloader with batch size 1 (default)
     data_loader = get_dataloader_from_dataset(dataset2device)
     assert len(data_loader) == 2, 'data loader has length != num_samples/batch_size'
@@ -201,7 +198,7 @@ def test_llm_dataloader():
         assert set(batch.keys()) == set(['input_ids', 'attention_mask']), 'unexpected keys in dataloader'
         idx += 1
 
-    # create dataloader with batch size 2 
+    # create dataloader with batch size 2
     data_loader = get_dataloader_from_dataset(dataset2device, batch_size=2)
     assert len(data_loader) == 1, 'data loader has length != num_samples/batch_size'
     for batch in data_loader:
@@ -212,4 +209,3 @@ def test_llm_dataloader():
         assert torch.allclose(batch['attention_mask'][0], data[0]['attention_mask']), 'attention_mask mismatch'
         assert torch.allclose(batch['attention_mask'][1], data[1]['attention_mask']), 'attention_mask mismatch'
         assert batch['attention_mask'].shape[0] == 2, 'wrong number of attention_mask'
-    

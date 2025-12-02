@@ -37,9 +37,8 @@ import warnings
 import numpy as np
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
-from transformers import AutoConfig
 from torch.utils.data import DataLoader
-
+from transformers import AutoConfig
 
 from brevitas_examples.llm.llm_quant.data import get_clm_dataset
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
@@ -170,6 +169,7 @@ def get_dataset_for_model(
 
     return data
 
+
 def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     kwargs = {}
     for curr_dict in batch:
@@ -186,10 +186,11 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
             kwargs[key] = torch.cat(kwargs[key], dim=0)
     return kwargs
 
+
 def get_dataloader_from_dataset(
     dataset: DatasetToDevice,
     batch_size: int = 1,
     collate_fn: Optional[Callable] = collate_fn,
     **kwargs,
-    )-> DataLoader:
+) -> DataLoader:
     return DataLoader(dataset=dataset, batch_size=batch_size, collate_fn=collate_fn, **kwargs)
