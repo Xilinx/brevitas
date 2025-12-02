@@ -11,6 +11,7 @@ import sys
 import numpy as np
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
+from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
@@ -41,7 +42,7 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data_utils import get_dataloader_from_dataset
+from brevitas_examples.llm.llm_quant.data_utils import collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
@@ -243,8 +244,8 @@ def quantize_llm(args, extra_args=None):
 
     # Batched data loader to accelerate GPXQ algorithms
     if args.gptq or args.gpfq or args.qronos:
-        calibration_batched_loader = get_dataloader_from_dataset(
-            calibration_loader, batch_size=args.gpxq_batchsize)
+        gpxq_calibration_loader = DataLoader(
+            dataset=calibration_loader, batch_size=args.gpxq_batch_size, collate_fn=collate_fn)
 
     validation_loader = get_dataset_for_model(
         args.model,
@@ -594,7 +595,7 @@ def quantize_llm(args, extra_args=None):
             print("Applying GPTQ...")
             apply_gptq(
                 model,
-                calibration_batched_loader,
+                gpxq_calibration_loader,
                 act_order=args.gpxq_act_order,
                 use_quant_activations=args.gpxq_use_quant_activations,
                 create_weight_orig=not args.disable_create_weight_orig,
@@ -608,7 +609,7 @@ def quantize_llm(args, extra_args=None):
             print("Applying GPFQ...")
             apply_gpfq(
                 model,
-                calibration_batched_loader,
+                gpxq_calibration_loader,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
                 buffer_device=args.gpxq_buffer_device,
@@ -620,7 +621,7 @@ def quantize_llm(args, extra_args=None):
             print("Applying Qronos...")
             apply_qronos(
                 model,
-                calibration_batched_loader,
+                gpxq_calibration_loader,
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,

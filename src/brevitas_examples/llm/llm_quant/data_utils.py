@@ -185,12 +185,3 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
         if isinstance(value, list) and len(value) > 0:
             kwargs[key] = torch.cat(kwargs[key], dim=0)
     return kwargs
-
-
-def get_dataloader_from_dataset(
-    dataset: DatasetToDevice,
-    batch_size: int = 1,
-    collate_fn: Optional[Callable] = collate_fn,
-    **kwargs,
-) -> DataLoader:
-    return DataLoader(dataset=dataset, batch_size=batch_size, collate_fn=collate_fn, **kwargs)
