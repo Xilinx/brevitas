@@ -7,6 +7,7 @@ from typing import Tuple
 
 import torch
 from torch import Tensor
+import torch.nn as nn
 
 import brevitas
 from brevitas.core.utils import StatelessBuffer
