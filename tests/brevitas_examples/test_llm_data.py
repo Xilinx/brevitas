@@ -192,7 +192,7 @@ def test_llm_dataloader():
     data_loader = get_dataloader_from_dataset(dataset2device)
     assert len(data_loader) == 2, 'data loader has length != num_samples/batch_size'
     idx = 0
-    for batch in data_loader:
+    for idx, batch in enumerate(data_loader):
         assert torch.allclose(batch['input_ids'], data[idx]['input_ids']), 'input_ids mismatch'
         assert torch.allclose(batch['attention_mask'], data[idx]['attention_mask']), 'attention_mask mismatch'
         assert set(batch.keys()) == set(['input_ids', 'attention_mask']), 'unexpected keys in dataloader'
