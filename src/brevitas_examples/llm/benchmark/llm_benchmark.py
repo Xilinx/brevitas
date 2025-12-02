@@ -17,7 +17,7 @@ from brevitas_examples.llm.llm_args import create_args_parser as create_llm_args
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
 
 
-class LLMBenchmarkUtils(GridSearchBenchmarkUtils):
+class LLMBenchmarkUtilsMixin:
 
     argument_parser: ArgumentParser = create_llm_args_parser()
     eval_metrics: List[str] = ["float_ppl", "quant_ppl"]
@@ -52,6 +52,10 @@ class LLMBenchmarkUtils(GridSearchBenchmarkUtils):
             job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
         from brevitas_examples.llm.main import quantize_llm
         return quantize_llm(args=args, extra_args=extra_args)
+
+
+class LLMBenchmarkUtils(GridSearchBenchmarkUtils, LLMBenchmarkUtilsMixin):
+    pass
 
 
 if __name__ == "__main__":
