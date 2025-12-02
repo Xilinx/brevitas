@@ -14,6 +14,12 @@ class ExpansionBenchmark(LLMBenchmarkUtils):
         else:
             assert args.expansion_step != 0
 
+        assert args.weight_bit_width == args.input_bit_width
+        if args.weight_sparsity_ratio == 0:
+            assert args.weight_quant_type == 'sym'
+        else:
+            assert args.weight_quant_type == 'sym-sparse'
+
 
 if __name__ == "__main__":
     benchmark(ExpansionBenchmark, sys.argv[1:])
