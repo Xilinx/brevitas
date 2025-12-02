@@ -65,9 +65,7 @@ class MXMixin(ExtendedInjector):
         return this.threshold_mixin.restrict_scaling_impl
 
     @value
-    def midmax_mantissa_bit_bias(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
-            saturating):
+    def midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values):
         return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
 
 
