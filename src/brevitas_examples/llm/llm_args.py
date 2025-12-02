@@ -475,7 +475,7 @@ def create_args_parser() -> ArgumentParser:
         '--gpxq-batch-size',
         type=int,
         default=1,
-        help='Batchsize of dataloader for gpxq/qronos forward passes (default: %(default)s).')
+        help='Batch size of dataloader for gpxq/qronos forward passes (default: %(default)s).')
 
     return parser
 
