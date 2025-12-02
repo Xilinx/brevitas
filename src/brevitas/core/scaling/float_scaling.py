@@ -7,7 +7,6 @@ from typing import Tuple
 
 import torch
 from torch import Tensor
-import torch.nn as nn
 
 import brevitas
 from brevitas.core.utils import StatelessBuffer
@@ -48,20 +47,22 @@ class FloatScaling(brevitas.jit.ScriptModule):
         return max_value
 
 
-def _calculate_midmax_bias(mantissa_bit_width: Tensor, midmax_mantissa_bit_bias: float):
+@brevitas.jit.script
+def _calculate_midmax_bias(mantissa_bit_width: Tensor, midmax_mantissa_bit_bias: float) -> Tensor:
     return torch.log2(
         (2 -
          2 ** (-mantissa_bit_width - 1 + midmax_mantissa_bit_bias)))  # extra 1 for the implicit bit
 
 
-class RoundMidMaxSte(nn.Module):
+class RoundMidMaxSte(brevitas.jit.ScriptModule):
 
     def __init__(self, mantissa_bit_width_impl: nn.Module, midmax_mantissa_bit_bias: float = 0.0):
         super().__init__()
         self.mantissa_bit_width_impl = mantissa_bit_width_impl
         self.midmax_mantissa_bit_bias = midmax_mantissa_bit_bias
 
-    def forward(self, x: Tensor):
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tensor:
         return ceil_ste(
             x -
             _calculate_midmax_bias(self.mantissa_bit_width_impl(), self.midmax_mantissa_bit_bias))
