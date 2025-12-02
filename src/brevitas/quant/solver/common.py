@@ -74,14 +74,15 @@ def solve_bit_width_impl_from_enum(impl_type):
         raise Exception(f"{impl_type} not recognized.")
 
 
-def solve_restrict_value_impl_from_enum(impl_type, is_scale_unsigned=None):
+# TODO (pml): For retrocompatibility, the scale is assumed to be unsigned when
+# impl_type == RestrictValueType.FP. In the future, FP should return
+# FloatRestrictValue, with SIGNED_FP being removed in favour of UNSIGNED_FP for
+# consistent naming.
+def solve_restrict_value_impl_from_enum(impl_type):
     if impl_type == RestrictValueType.FP:
-        if is_scale_unsigned:
-            return PositiveFloatRestrictValue
-        else:
-            return FloatRestrictValue
-    elif impl_type == RestrictValueType.POSITIVE_FP:
         return PositiveFloatRestrictValue
+    elif impl_type == RestrictValueType.SIGNED_FP:
+        return FloatRestrictValue
     elif impl_type == RestrictValueType.LOG_FP:
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:
@@ -93,8 +94,8 @@ def solve_restrict_value_impl_from_enum(impl_type, is_scale_unsigned=None):
 class SolveRestrictScalingImplFromEnum(ExtendedInjector):
 
     @value
-    def restrict_scaling_impl(restrict_scaling_type, is_scale_unsigned=None):
-        return solve_restrict_value_impl_from_enum(restrict_scaling_type, is_scale_unsigned)
+    def restrict_scaling_impl(restrict_scaling_type):
+        return solve_restrict_value_impl_from_enum(restrict_scaling_type)
 
 
 class ExponentBitWidthClass(ExtendedInjector):
@@ -175,7 +176,8 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
 
         # For power of two scales, the stat needs to be unsigned
-        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and scaling_stats_op is not None and not scaling_stats_impl.is_scale_unsigned:
+        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and scaling_stats_op in [
+                StatsOp.SIGNED_MAX]:
             warnings.warn(
                 f"Statistic {scaling_stats_impl.__name__} is signed, which is incompatible with the restriction to "
                 f"power of twos, so its absolute value will be taken. Consider switching to an unsigned statistic."
@@ -234,6 +236,8 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
     @value
     def int_scaling_impl(restrict_scaling_type):
         if restrict_scaling_type == RestrictValueType.FP:
+            return IntScaling
+        if restrict_scaling_type == RestrictValueType.SIGNED_FP:
             return IntScaling
         elif restrict_scaling_type == RestrictValueType.LOG_FP:
             return IntScaling
@@ -309,19 +313,5 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
 class SolveScaleSignedness(ExtendedInjector):
 
     @value
-    def is_scale_unsigned(scaling_stats_impl=None, scaling_init=None):
-        if hasattr(scaling_stats_impl, 'is_scale_unsigned'):
-            return scaling_stats_impl.is_scale_unsigned
-        elif scaling_init is not None:
-            if not isinstance(scaling_init, torch.Tensor):
-                scaling_init = torch.tensor(scaling_init)
-
-            # Check if any of the init values is negative
-            if scaling_init.shape == ():
-                is_scale_negative = scaling_init < 0
-            else:
-                is_scale_negative = any(scaling_init.flatten() < 0)
-            return not is_scale_negative
-        else:
-            # If it is not possible to infer the scale of the sign, we assume it is unsigned
-            return True
+    def is_scale_unsigned(restrict_scaling_type=None):
+        return restrict_scaling_type in [RestrictValueType.FP, RestrictValueType.POWER_OF_TWO]

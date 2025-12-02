@@ -3,9 +3,9 @@
 
 import torch
 
-from brevitas.core.function_wrapper.misc import Abs
-from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.quant import QuantType
+from brevitas.core.restrict_val import FloatRestrictValue
+from brevitas.core.restrict_val import PositiveFloatRestrictValue
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
 from brevitas.inject.enum import RestrictValueType
@@ -98,7 +98,10 @@ class TestQuantReLU:
             scaling_stats_op=StatsOp.MAX,
             collect_stats_steps=1,
             scaling_min_val=None)
-        assert stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats.stats_impl.is_scale_unsigned
+        assert isinstance(
+            stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
+            .restrict_scaling.restrict_value_impl,
+            PositiveFloatRestrictValue)
 
     def test_signed_abs_stats_signedness(self):
         # Check that SignedAbsMax is correctly resolved as signed scale
@@ -108,12 +111,17 @@ class TestQuantReLU:
             scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS,
             scaling_stats_permute_dims=None,
             scaling_stats_op=StatsOp.SIGNED_MAX,
+            restrict_scaling_type=RestrictValueType.SIGNED_FP,
             collect_stats_steps=1,
             scaling_min_val=None)
-        assert not stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats.stats_impl.is_scale_unsigned
+        assert isinstance(
+            stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
+            .restrict_scaling.restrict_value_impl,
+            FloatRestrictValue)
 
     def test_po2_signed_abs_stats_signedness(self):
-        # Check that SignedAbsMax is resolved as unsigned for po2 scale
+        # Check that SignedAbsMax is wrapped with an absolute value to prevent taking the logarithm
+        # on a negative number
         stats_act = QuantReLU(
             bit_width=BIT_WIDTH,
             quant_type=QuantType.INT,
@@ -123,4 +131,4 @@ class TestQuantReLU:
             scaling_stats_op=StatsOp.SIGNED_MAX,
             collect_stats_steps=1,
             scaling_min_val=None)
-        assert stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats.stats_impl.is_scale_unsigned
+        assert stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats.stats_impl.__class__.__name__ == "SignedStatWrapper"

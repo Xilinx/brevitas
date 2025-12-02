@@ -125,7 +125,7 @@ def test_signed_scale_stats_injector_restrict_val_positive_scale():
         scaling_impl_type = ScalingImplType.STATS
         scaling_stats_op = StatsOp.SIGNED_MAX
         scaling_stats_input_view_shape_impl = Identity
-        restrict_scaling_type = RestrictValueType.POSITIVE_FP
+        restrict_scaling_type = RestrictValueType.FP
         scaling_shape = SCALAR_SHAPE
         scaling_min_val = SCALING_MIN_VAL
 

@@ -12,6 +12,7 @@ from brevitas.core.stats import PercentileInterval
 from brevitas.core.stats import SignedAbsMax
 from brevitas.core.stats.stats_op import mse_fib_search
 from brevitas.core.stats.stats_op import mse_grid_search
+from brevitas.inject.enum import RestrictValueType
 from brevitas.nn.quant_linear import QuantLinear
 from brevitas.quant.base import MSESymmetricScaleSubInjector
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
@@ -156,6 +157,7 @@ class TestMSE:
             mse_scale = _Override
 
             bit_width = 2
+            restrict_scaling_type = RestrictValueType.SIGNED_FP
             narrow_range = False
 
         # Create a model with the given quantizer

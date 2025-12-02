@@ -514,7 +514,7 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
 
     @value
     def is_scale_unsigned():
-        return this.mse_init_op.is_scale_unsigned
+        return (this << 1).is_scale_unsigned
 
 
 class MSEAsymmetricScaleSubInjector(ExtendedInjector):
@@ -531,7 +531,7 @@ class MSEAsymmetricScaleSubInjector(ExtendedInjector):
 
     @value
     def is_scale_unsigned():
-        return this.mse_init_op.is_scale_unsigned
+        return (this << 1).is_scale_unsigned
 
 
 class MSEZeroPointSubInjector(ExtendedInjector):

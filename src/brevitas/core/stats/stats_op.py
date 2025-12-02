@@ -25,18 +25,9 @@ from .stats_wrapper import SCALAR_SHAPE
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
 
-class UnsignedScaleStat:
-    is_scale_unsigned = True
-
-
-class SignedScaleStat:
-    is_scale_unsigned = False
-
-
 def wrap_signed_stat(stat_cls: Type) -> Type:
 
     class SignedStatWrapper(stat_cls):
-        is_scale_unsigned = True
 
         @brevitas.jit.script_method
         def forward(self, x: Tensor) -> Tensor:
@@ -69,7 +60,7 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
         return min_val
 
 
-class AbsPercentile(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim', 'keepdim']
 
     def __init__(
@@ -137,7 +128,7 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         return result
 
 
-class PercentileInterval(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q', 'keepdim']
 
     def __init__(
@@ -180,7 +171,7 @@ class PercentileInterval(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return abs_interval
 
 
-class AbsMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class AbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int] = None, keepdim: bool = False) -> None:
@@ -196,7 +187,7 @@ class AbsMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
             return torch.max(torch.abs(x), dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
 
 
-class SignedAbsMax(brevitas.jit.ScriptModule, SignedScaleStat):
+class SignedAbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int] = None, keepdim: bool = False) -> None:
@@ -216,7 +207,7 @@ class SignedAbsMax(brevitas.jit.ScriptModule, SignedScaleStat):
             return scale if self.keepdim else scale.squeeze(dim=self.stats_reduce_dim)
 
 
-class AbsMinMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class AbsMinMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'keepdim']
 
     def __init__(
@@ -243,7 +234,7 @@ class AbsMinMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return torch.abs(max_val - min_val)
 
 
-class AbsMaxAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: int) -> None:
@@ -255,7 +246,7 @@ class AbsMaxAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
 
 
-class AbsMaxL2(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class AbsMaxL2(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: int) -> None:
@@ -270,7 +261,7 @@ class AbsMaxL2(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return out
 
 
-class AbsAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class AbsAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
@@ -285,7 +276,7 @@ class AbsAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
             return torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 
 
-class MeanSigmaStd(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class MeanSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -330,7 +321,7 @@ class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
         return mean_val + sigma * std_val
 
 
-class MeanLearnedSigmaStd(brevitas.jit.ScriptModule, UnsignedScaleStat):
+class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
