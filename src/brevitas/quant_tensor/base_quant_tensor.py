@@ -12,7 +12,7 @@ from torch import Tensor
 from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
 
-TOLERANCE = {torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
+TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
 
 
 # Base class for all QuantTensor.

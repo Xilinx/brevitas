@@ -333,6 +333,14 @@ class LLMQuantLayerTypeCases:
                 "model.layers.0.self_attn.q_proj.layer":
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
         {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "rotation": "layerwise",
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.equalized_layer.RotatedModule'>",
+                "model.layers.0.self_attn.q_proj.layer":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
+        {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
             "exp_layer_types": {
@@ -360,6 +368,7 @@ class LLMQuantLayerTypeCases:
             "mistral-fp8_fnuz",
             "llama-mxfp8",
             "llama-int8-act_equalization=layerwise",
+            "llama-int8-rotation=layerwise",
             "mistral-int8-quant-last-layer",
             "llama-int8-svd_quant",
             "opt-quant-sdpa",],)

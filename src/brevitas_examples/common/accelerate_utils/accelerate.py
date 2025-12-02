@@ -315,7 +315,8 @@ def offload_call_function(model: torch.fx.GraphModule, device_map: Dict):
     model.graph.lint()
 
 
-def remove_hooks(model: torch.nn.Module):
+def remove_hooks(model: torch.nn.Module) -> torch.nn.Module:
+
     for module in model.modules():
         if hasattr(module, "_hf_hook"):
             if hasattr(module, "allocate_params"):

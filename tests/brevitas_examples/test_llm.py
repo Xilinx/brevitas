@@ -268,7 +268,7 @@ def onnx_export_args(default_run_args, request):
     yield process_args_and_metrics(default_run_args, request.param)
 
 
-@pytest.mark.llm
+@pytest.mark.onnx_export_llm
 @jit_disabled_for_export()
 @requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
@@ -373,7 +373,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
 
 
 @pytest_cases.fixture(
-    ids=["lighteval"],
+    ids=["lighteval", "lighteval_rotations"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -382,10 +382,26 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,
             "few_shot_tasks": [
-                "leaderboard|arc:challenge|0|0",
-                "leaderboard|winogrande|0|0",
-                "lighteval|arc:easy|0|0",
-                "leaderboard|hellaswag|0|0",],
+                "arc:challenge|0",
+                "winogrande|0",
+                "arc:easy|0",
+                "hellaswag|0",],
+            "few_shot_zeroshot": True,
+            "imports": ["lighteval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "rotation": "fused_no_fx",
+            "replace_rmsnorm": True,
+            "eval": False,
+            "few_shot_eval": "lighteval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_tasks": [
+                "arc:challenge|0",
+                "winogrande|0",
+                "arc:easy|0",
+                "hellaswag|0",],
             "few_shot_zeroshot": True,
             "imports": ["lighteval"],
             "all_acc": 0.375,},])
@@ -399,7 +415,7 @@ def few_shot_eval_args(default_run_args, request):
         default_run_args, request.param, extra_keys=["imports", "all_acc"])
 
 
-@pytest.mark.llm
+@pytest.mark.lighteval_llm
 def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
     args, _, exp_metrics = few_shot_eval_args

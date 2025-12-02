@@ -9,7 +9,6 @@ import pprint
 import sys
 
 import numpy as np
-from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
@@ -17,7 +16,7 @@ from transformers import AutoTokenizer
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
-from brevitas.graph.base import ModuleInstanceTransformTensor
+from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
@@ -59,6 +58,7 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affi
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
@@ -89,44 +89,47 @@ def filter_results(results, tasks):
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
-    model.config.use_cache = False
     with torch.no_grad():
-        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+        with make_dynamo_compatible(model) as dynamo_comp:
+            fx_model, guards = torch._dynamo.export(dynamo_comp.model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
-        new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
+        fx_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
 
     layers_to_expand = []
     if args.rotation is not None:
-        for name, _ in new_model.named_modules():
+        for name, _ in fx_model.named_modules():
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(new_model)
+    apply_layernorm_affine_merge(fx_model)
     # NOTE: This call breaks ties between the the lm_head and the embedding layer
-    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
+    fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
         r.apply(model)
-    new_model = offload_model(new_model)
+
+    # Since we apply the rewriters to a different, non-fx model, we need only to compute them
+    # And apply them in a second moment on the non-fx model
+    delay_rewriters = True
+    return_rewriters = True
+
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
-        return_rewriters=True,
+        return_rewriters=return_rewriters,
         sdpa_regions=args.rotation_sdpa_regions,
         use_parametrized_rotations=args.optimize_rotations,
+        delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand)
-    new_model, rewriters = eq.apply(new_model)
+    fx_model, rewriters = eq.apply(fx_model)
+
+    model = offload_model(model)
     rewriters = fix_rewriter(rewriters, model, 'weight')
-    with torch.no_grad():
-        for r in rewriters:
-            # The weights between model and new_model are tied, so this check prevents
-            # rotating the weights twice
-            if not isinstance(r, ModuleInstanceTransformTensor):
-                model = r.apply(model)
-    remove_hooks(new_model)
+
+    model = apply_rewriters(model, rewriters, delay_rewriters=False)
 
 
 def set_seed(seed):
@@ -144,6 +147,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
     elif args.export_target == 'onnx_qcdq':
+        # Local import to allow for optional install
+        from optimum.exporters.onnx import onnx_export_from_model
+
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
@@ -281,7 +287,8 @@ def quantize_llm(args, extra_args=None):
 
     if require_fx:
         with torch.no_grad():
-            model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+            with make_dynamo_compatible(model) as dynamo_comp:
+                model, guards = torch._dynamo.export(dynamo_comp.model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
     model.eval()
@@ -332,9 +339,11 @@ def quantize_llm(args, extra_args=None):
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
+        model = offload_model(model)
         eq = LayerwiseActivationRotation(
             layers_to_expand=layers_to_expand, expansion_step=args.expansion_step)
         model = eq.apply(model)
+        remove_hooks(model)
     elif args.rotation == 'fused_no_fx':
         fused_rotation_no_fx(model, calibration_loader, args)
 
@@ -365,7 +374,8 @@ def quantize_llm(args, extra_args=None):
             model,
             calibration_loader,
             create_weight_orig=not args.disable_create_weight_orig,
-            alpha=args.magr_alpha)
+            alpha=args.magr_alpha,
+            buffer_device=args.gpxq_buffer_device)
         remove_hooks(model)
         print(f"MagR applied.")
 
@@ -587,6 +597,7 @@ def quantize_llm(args, extra_args=None):
                 use_quant_activations=args.gpxq_use_quant_activations,
                 create_weight_orig=not args.disable_create_weight_orig,
                 block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPTQ applied.")
@@ -598,6 +609,7 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
@@ -609,7 +621,8 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 alpha=args.qronos_alpha,
                 act_order=args.gpxq_act_order,
-                block_name=args.gpxq_block_name)
+                block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device)
             print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:

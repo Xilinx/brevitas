@@ -31,6 +31,7 @@ setup(
     python_requires=">=3.9, <3.13",
     install_requires=read_requirements('requirements.txt'),
     extras_require={
+        "numpy": read_requirements('requirements-numpy.txt'),
         "notebook": read_requirements('requirements-notebook.txt'),
         "dev": read_requirements('requirements-dev.txt'),
         "docs": read_requirements('requirements-docs.txt'),

@@ -4,6 +4,7 @@
 from .hadamard_classifier import HadamardClassifier
 from .quant_accumulator import ClampQuantAccumulator
 from .quant_accumulator import TruncQuantAccumulator
+from .quant_activation import QuantHardSwish
 from .quant_activation import QuantHardTanh
 from .quant_activation import QuantIdentity
 from .quant_activation import QuantReLU

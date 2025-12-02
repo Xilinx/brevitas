@@ -7,6 +7,8 @@ from typing import List
 from typing import Optional
 from warnings import warn
 
+import torch
+
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
@@ -56,6 +58,14 @@ def create_args_parser() -> ArgumentParser:
         default=None,
         help=
         'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
+    )
+    parser.add_argument(
+        '--gpxq-buffer-device',
+        type=str,
+        choices=['cpu', 'same'],
+        default='cpu',
+        help=
+        'Device for GPxQ buffers. "same" means using the same device for the buffer as the layer weights. Default %(default)s'
     )
     parser.add_argument(
         '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')

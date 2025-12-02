@@ -81,23 +81,26 @@ class MagR(GPTQ):
             create_weight_orig,
             gradient_steps: int = 200,
             power_steps: int = 30,
-            alpha: float = 0.01) -> None:
+            alpha: float = 0.01,
+            device='cpu',
+            dtype=torch.float32) -> None:
         # Note: using GPxQ initialization to avoid blocksize initialization and the
         # torch versioning assertion
-        GPxQ.__init__(self, layer, name, None, len_parallel_layers, create_weight_orig)
+        GPxQ.__init__(
+            self, layer, name, None, len_parallel_layers, create_weight_orig, device, dtype)
         self.gradient_steps = gradient_steps
         self.power_steps = power_steps
         self.alpha = alpha
 
         # Initialize covariance matrix and counter. We need it in float32 to compute the inverse
         self.H = torch.zeros((self.groups, self.columns, self.columns),
-                             device='cpu',
-                             dtype=torch.float32,
-                             pin_memory=torch.cuda.is_available())
-        self.B = torch.zeros((self.groups, self.columns, self.columns),
-                             device='cpu',
-                             dtype=torch.float32,
-                             pin_memory=torch.cuda.is_available())
+                             device=self.device,
+                             dtype=self.dtype)
+        if self.use_intermediate_buffer:
+            self.B = torch.zeros((self.groups, self.columns, self.columns),
+                                 device=self.device,
+                                 dtype=self.dtype,
+                                 pin_memory=torch.cuda.is_available())
         self.nsamples = 0
 
     def update_batch(self, module, input, current_layer):
@@ -138,8 +141,8 @@ class MagR(GPTQ):
             # approximate maximum singular value (ie, matrix L2 norm)
             eta = 1. / _power_iteration(self.H[group_index], steps=self.power_steps)
             alpha = self.alpha / (eta * torch.linalg.norm(self.H[group_index], ord=1))
-            wk = weight[group_index].to(torch.float32)
-            gk = weight_orig[group_index].to(torch.float32)  # ground
+            wk = weight[group_index].to(self.dtype)
+            gk = weight_orig[group_index].to(self.dtype)  # ground
             for _ in tqdm(range(self.gradient_steps), leave=False):
                 vk = wk - eta * (wk - gk).matmul(
                     self.H[group_index])  # argument of the proximal operator
@@ -166,6 +169,8 @@ class magr_mode(gpxq_mode):
             MagR. These weights will be used anytime quantization is disabled. Default: True
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
+        device (str): Device the buffers are stored on. Default: cpu
+        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
     Example:
         >>> with torch.no_grad():
@@ -186,7 +191,9 @@ class magr_mode(gpxq_mode):
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             create_weight_orig: bool = True,
-            return_forward_output: bool = False) -> None:
+            return_forward_output: bool = False,
+            device: str = 'cpu',
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -194,7 +201,9 @@ class magr_mode(gpxq_mode):
             group_of_parallel_layers=group_of_parallel_layers,
             inplace=inplace,
             create_weight_orig=create_weight_orig,
-            return_forward_output=return_forward_output)
+            return_forward_output=return_forward_output,
+            device=device,
+            dtype=dtype)
         self.num_steps = num_steps
         self.alpha = alpha
 
@@ -225,4 +234,6 @@ class magr_mode(gpxq_mode):
             len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig,
             gradient_steps=self.num_steps,
-            alpha=self.alpha)
+            alpha=self.alpha,
+            device=self.device,
+            dtype=self.dtype)

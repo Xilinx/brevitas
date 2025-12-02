@@ -32,8 +32,11 @@ class Qronos(GPFQ):
             len_parallel_layers,
             create_weight_orig,
             num_blocks: int = 100,
-            alpha: float = 1e-6) -> None:
-        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
+            alpha: float = 1e-6,
+            device: str = 'cpu',
+            dtype: torch.dtype = torch.float32) -> None:
+        super().__init__(
+            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
         self.blocksize = math.ceil(self.columns / num_blocks)
         self.alpha = alpha
 
@@ -45,7 +48,7 @@ class Qronos(GPFQ):
         current_layer.layer_names.add(self.name)
         # NOTE: batch_size = seqlen for language models here
         inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
-        inp_processed = inp_processed.to(torch.float32)
+        inp_processed = inp_processed.to(self.dtype)
         batch_size = inp_processed.shape[-1]
 
         is_quant_enabled = module.weight_quant.is_quant_enabled
@@ -57,17 +60,23 @@ class Qronos(GPFQ):
         # if quant is not enabled, then it is the float input; if it is a float input
         # then a quant input has already happened and we can update G
         if not is_quant_enabled:
-            # Computing the normalized G matrix using CPU buffer
-            self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
+            # Computing the normalized G matrix
             self.G *= (self.nsamples - batch_size) / self.nsamples
-            self.G += (self.B / self.nsamples)
+            if self.use_intermediate_buffer:
+                self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
+                self.G += (self.B / self.nsamples)
+            else:
+                self.G += inp_processed.bmm(self.quant_input.transpose(2, 1))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
-            # Computing the normalized H matrix using CPU buffer
+            # Computing the normalized H matrix
             self.nsamples += batch_size  # NOTE: only increment with quant inputs
-            self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
             self.H *= (self.nsamples - batch_size) / self.nsamples
-            self.H += (self.B / self.nsamples)
+            if self.use_intermediate_buffer:
+                self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+                self.H += (self.B / self.nsamples)
+            else:
+                self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
             # store the quantized input for computing the H matrix
             assert self.quant_input is None
             self.quant_input = inp_processed
@@ -88,7 +97,8 @@ class Qronos(GPFQ):
             "Error: Qronos requires the original weights to be stored, see `create_weight_orig`."
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
-        del self.B  # free up memory by deleting the buffer
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
 
         weight: Tensor = self.layer.weight.data
         weight_orig: Tensor = self.layer.weight_orig.data
@@ -135,21 +145,21 @@ class Qronos(GPFQ):
         assert not torch.isnan(self.H).any(), f"Error in {self.name}"
         assert not torch.isnan(self.G).any(), f"Error in {self.name}"
 
-        Dh: Tensor = torch.zeros((self.groups, self.columns), dtype=torch.float32)
+        Dh: Tensor = torch.zeros((self.groups, self.columns), device=self.device, dtype=self.dtype)
         for group_index in range(self.groups):
             Dh[group_index].copy_(self.H[group_index].diag())
         Dhi = torch.where(Dh != 0, 1. / Dh, torch.zeros_like(Dh)).to(dev)  # D^{-1}
 
         Uh: Tensor = torch.zeros((self.groups, self.columns, self.columns),
                                  device=dev,
-                                 dtype=torch.float32)
+                                 dtype=self.dtype)
         for group_index in range(self.groups):
             Uh[group_index].copy_(torch.triu(self.H[group_index], 1))  # upper (for future)
 
         # Try/Except in case the inverse cannot be computed
         self.iH = self.H.clone()
-        diag = torch.arange(self.columns, device='cpu')
-        damp = torch.zeros(self.groups, device='cpu')
+        diag = torch.arange(self.columns, device=self.device)
+        damp = torch.zeros(self.groups, device=self.device)
         try:
             for group_index in range(self.groups):
                 # using power iteration to estimate the maximum singular value
@@ -175,9 +185,9 @@ class Qronos(GPFQ):
         q_groups = self.get_quant_weights(0, 0, permutation_list, with_quant_history=True)
         for group_index in range(self.groups):
             perm = permutation_list[group_index]
-            q: Tensor = q_groups[group_index].to(torch.float32)
-            v: Tensor = weight[group_index, :, perm].to(torch.float32)
-            w: Tensor = weight_orig[group_index, :, perm].to(torch.float32)
+            q: Tensor = q_groups[group_index].to(self.dtype)
+            v: Tensor = weight[group_index, :, perm].to(self.dtype)
+            w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
             Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])
             Uv = v.matmul(Uh[group_index, 0, :] * Dhi[group_index, 0])
             q_arg = Gw - Uv
@@ -195,8 +205,8 @@ class Qronos(GPFQ):
         q_groups = self.get_quant_weights(0, 1, permutation_list, with_quant_history=True)
         for group_index in range(self.groups):
             perm = permutation_list[group_index]
-            q: Tensor = q_groups[group_index].to(torch.float32)
-            w: Tensor = weight_orig[group_index, :, perm].to(torch.float32)
+            q: Tensor = q_groups[group_index].to(self.dtype)
+            w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
             Ih = torch.diag(torch.full((self.columns,), damp[group_index], device=dev))
             Gh = self.G[group_index] + Ih
             Gw = w.matmul(Gh[:, 1:] @ self.iH[group_index])
@@ -224,7 +234,7 @@ class Qronos(GPFQ):
             i2 = min(i1 + self.blocksize, self.columns)
             count = i2 - i1
             error_block = torch.zeros_like(
-                weight[:, :, perm[i1:i2]], dtype=torch.float32)  # [groups, OC/groups, i2-i1]
+                weight[:, :, perm[i1:i2]], dtype=self.dtype)  # [groups, OC/groups, i2-i1]
             # we need to decrement once because of the Sherman-Morrison-Woodbury update
             h_inv_block = self.L[:, i1 - 1:i2 - 1, i1 - 1:i2 - 1]
             # correct error within the block
@@ -233,9 +243,9 @@ class Qronos(GPFQ):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
-                    w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
-                    d = h_inv_block[group_index, i, i].to(torch.float32)  # [1]
+                    q = q_groups[group_index].to(self.dtype)  # [OC/groups]
+                    w = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
+                    d = h_inv_block[group_index, i, i].to(self.dtype)  # [1]
                     error = (w - q) / d  # [OC/groups]
                     error_block[group_index, :, i] = error
                     # update the weights

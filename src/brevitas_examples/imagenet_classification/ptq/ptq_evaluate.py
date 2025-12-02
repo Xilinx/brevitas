@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
+import gc
 import os
 import random
 import sys
@@ -270,6 +271,10 @@ def quantize_ptq_imagenet(args: Namespace, extra_args: Optional[List[str]] = Non
     if args.bias_corr:
         print("Applying bias correction:")
         apply_bias_correction(calib_loader, quant_model)
+
+    # Free calibration dataloader from memory
+    del calib_loader
+    gc.collect()
 
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")

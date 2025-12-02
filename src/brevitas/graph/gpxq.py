@@ -52,6 +52,8 @@ class gpxq_mode(quantization_status_manager):
         act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
+        device (str): Device the buffers are stored on. Default: cpu
+        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
     Example:
         >>> with torch.no_grad():
@@ -72,7 +74,9 @@ class gpxq_mode(quantization_status_manager):
             create_weight_orig: bool = True,
             use_quant_activations: bool = True,
             act_order: bool = False,
-            return_forward_output: bool = False) -> None:
+            return_forward_output: bool = False,
+            device: str = 'cpu',
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         # Note that if use_quant_activations = True, the super() context manager
@@ -93,6 +97,9 @@ class gpxq_mode(quantization_status_manager):
         self.num_layers = 0
         # Quantize following magnitude of activation
         self.act_order = act_order
+        # the device and dtype of the buffers
+        self.device = device
+        self.dtype = dtype
 
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
@@ -179,11 +186,21 @@ class gpxq_mode(quantization_status_manager):
 class GPxQ(ABC):
 
     def __init__(
-            self, layer, name, act_order, len_parallel_layers=1, create_weight_orig=True) -> None:
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers=1,
+            create_weight_orig=True,
+            device='cpu',
+            dtype=torch.float32) -> None:
         self.layer = layer
         self.name = name
         self.act_order = act_order
         self.create_weight_orig = create_weight_orig
+        # device and dtype of buffers; 'same' means using the same device for the buffer as the layer weights
+        self.device = layer.weight.device if device == 'same' else device
+        self.dtype = dtype
 
         weight_shape = torch.tensor(layer.weight.shape)
 
@@ -206,6 +223,14 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_metadata = None
+
+    @property
+    def use_intermediate_buffer(self):
+        # By default, we are optimizing for minimizing peak memory usage, which is
+        # when self.device=='cpu'. Since the compute is done on the GPU but the buffers
+        # are on the GPU, we optimize the CPU to GPU transfer using in-place copy to
+        # pinned memory in an intermediate buffer, usually self.B
+        return self.device == 'cpu'
 
     def process_input(self, inp):
         # Input is a tuple, so we take first element

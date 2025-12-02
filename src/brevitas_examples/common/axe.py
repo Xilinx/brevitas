@@ -176,9 +176,18 @@ class A2GPTQ(_AXE, GPTQ):
             create_weight_orig,
             num_blocks,
             max_accumulator_bit_width,
-            max_accumulator_tile_size) -> None:
+            max_accumulator_tile_size,
+            device='cpu',
+            dtype=torch.float32) -> None:
         super().__init__(
-            layer, name, act_order, len_parallel_layers, create_weight_orig, num_blocks)
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            num_blocks,
+            device,
+            dtype)
         assert max_accumulator_bit_width is not None, \
             "Error: max_accumulator_bit_width is not specified."
         if not isinstance(max_accumulator_bit_width, Tensor):
@@ -203,6 +212,8 @@ class A2GPTQ(_AXE, GPTQ):
             )
         if hasattr(self.layer, "allocate_params"):
             self.layer.allocate_params(self.layer)
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
         weight = self.layer.weight.data
         dev = weight.device
 
@@ -256,7 +267,7 @@ class A2GPTQ(_AXE, GPTQ):
         try:
             for i in range(self.groups):
                 damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
-                diag = torch.arange(self.columns, device='cpu')
+                diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
@@ -271,7 +282,7 @@ class A2GPTQ(_AXE, GPTQ):
                 f'Increasing the number of samples might fix this issue')
             return
         finally:
-            del self.H, self.B
+            del self.H
 
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
@@ -284,7 +295,7 @@ class A2GPTQ(_AXE, GPTQ):
             count = i2 - i1
             error_block = torch.zeros_like(
                 weight[:, :, permutation_list[-1][i1:i2]],
-                dtype=torch.float32)  # [groups, OC/groups, i2-i1]
+                dtype=self.dtype)  # [groups, OC/groups, i2-i1]
             h_inv_block = h_inv[:, i1:i2, i1:i2]
             for i in range(count):
                 # need to apply soft thresholding and clamping before quantization
@@ -296,7 +307,7 @@ class A2GPTQ(_AXE, GPTQ):
                     n = neg_limits[group_index, bx]
                     p = pos_limits[group_index, bx]
                     q_arg: Tensor = weight[group_index, :,
-                                           perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
+                                           perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
                     u = self.upper_lim(n, p)
                     l = self.lower_lim(n, p)
                     assert (u - l + 1 >= 0).all()
@@ -310,8 +321,8 @@ class A2GPTQ(_AXE, GPTQ):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [Groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
-                    w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
+                    q = q_groups[group_index].to(self.dtype)  # [OC/groups]
+                    w = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
                     d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
                     error_block[group_index, :, i] = error
@@ -359,8 +370,11 @@ class A2GPFQ(_AXE, GPFQ):
             len_parallel_layers,
             create_weight_orig,
             max_accumulator_bit_width,
-            max_accumulator_tile_size) -> None:
-        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
+            max_accumulator_tile_size,
+            device='cpu',
+            dtype=torch.float32) -> None:
+        super().__init__(
+            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
         assert max_accumulator_bit_width is not None, \
             "Error: max_accumulator_bit_width must be specified."
         if not isinstance(max_accumulator_bit_width, Tensor):
@@ -385,7 +399,8 @@ class A2GPFQ(_AXE, GPFQ):
             )
         if hasattr(self.layer, "allocate_params"):
             self.layer.allocate_params(self.layer)
-        del self.B  # memory management
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
 
         weight = self.layer.weight.data
         if self.create_weight_orig:
@@ -440,8 +455,8 @@ class A2GPFQ(_AXE, GPFQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        Dg: Tensor = torch.zeros((self.groups, self.columns), dtype=torch.float32)
-        Dh: Tensor = torch.zeros((self.groups, self.columns), dtype=torch.float32)
+        Dg: Tensor = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
+        Dh: Tensor = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
         for group_index in range(self.groups):
             Dg[group_index].copy_(self.G[group_index].diag())
             Dh[group_index].copy_(self.H[group_index].diag())
@@ -450,10 +465,10 @@ class A2GPFQ(_AXE, GPFQ):
 
         Lg: Tensor = torch.zeros((self.groups, self.columns, self.columns),
                                  device=dev,
-                                 dtype=torch.float32)
+                                 dtype=self.dtype)
         Lh: Tensor = torch.zeros((self.groups, self.columns, self.columns),
                                  device=dev,
-                                 dtype=torch.float32)
+                                 dtype=self.dtype)
         for group_index in range(self.groups):
             L0g = torch.tril(self.G[group_index], -1)  # L0
             L0h = torch.tril(self.H[group_index], -1)  # \hat{L0}
@@ -480,15 +495,15 @@ class A2GPFQ(_AXE, GPFQ):
                 perm = permutation_list[group_index]
                 i = perm[t]
                 bx = i // self.max_accumulator_tile_size
-                w = weight_orig[group_index, :, perm[:t]].to(torch.float32)
-                q = q_groups[group_index].to(torch.float32)
+                w = weight_orig[group_index, :, perm[:t]].to(self.dtype)
+                q = q_groups[group_index].to(self.dtype)
                 Lw = w.matmul(Lg[group_index, t, :t])
                 Lq = q.matmul(Lh[group_index, t, :t])
-                q_arg = Ds[group_index, t] * weight[group_index, :, i].to(torch.float32) + Lw - Lq
+                q_arg = Ds[group_index, t] * weight[group_index, :, i].to(self.dtype) + Lw - Lq
                 assert not torch.isnan(q_arg).any()
 
                 # calculate the q_max and q_min for the right group and right block
-                s = scales[group_index, bx].to(torch.float32)
+                s = scales[group_index, bx].to(self.dtype)
                 n = neg_limits[group_index, bx]
                 p = pos_limits[group_index, bx]
                 u = self.upper_lim(n, p)
