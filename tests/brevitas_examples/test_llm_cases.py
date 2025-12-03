@@ -677,12 +677,45 @@ class LLMRotationOptimizationCases:
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_calibration": False,
+            "weight_bit_width": 4,
+            "input_bit_width": None,
+            "replace_rmsnorm": True,
+            "rotation": "fused_no_fx",
+            "optimize_rotations": True,
+            "rotation_orphan_sink": False,
+            "rotation_mode": "had",
+            "nsamples_rot_calibration": 2,
+            "dtype": "float32",
+            "extra_args": [
+                "--learning_rate",
+                "1.5",
+                "--gamma",
+                "0.0",
+                "--use-distillation-loss",
+                "True",
+                "--max_steps",
+                "2",
+                "--per_device_train_batch_size",
+                "1",
+                "--gradient_accumulation_steps",
+                "1"],
+            "float_ppl": 32428.475,
+            "quant_ppl": 32435.49609375,
+            "exp_layer_types_count": {
+                "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
+                "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
+                "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
                 "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},],
         ids=[
         "llama_rotation_optimization_ort",
         "llama_rotation_optimization_ort_no_orphan",
         "llama_rotation_optimization_had",
         "llama_rotation_optimization_had_sdpa",
-        "llama_rotation_optimization_had_no_orphan",],)
+        "llama_rotation_optimization_had_no_orphan",
+        "llama_rotation_optimization_had_no_orphan_distillation_loss"],)
     def case_small_models_rotation_optimization(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS+["exp_layer_types_count"])
