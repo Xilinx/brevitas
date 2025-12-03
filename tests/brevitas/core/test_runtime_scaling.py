@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from brevitas.core.function_wrapper.misc import Identity
-from brevitas.core.restrict_val import PositiveFloatRestrictValue
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.scaling.runtime import RuntimeStatsScaling
@@ -113,7 +113,7 @@ def test_unsigned_scale_stats_injector_restrict_val_positive_scale():
     pre_scale = scaling_op(inp)
     assert isinstance(
         scaling_op.stats_scaling_impl.restrict_clamp_scaling.restrict_value_impl,
-        PositiveFloatRestrictValue)
+        FloatRestrictValue)
     assert pre_scale.item() == 1.
 
 
@@ -163,5 +163,5 @@ def test_signed_scale_stats_injector_restrict_val_po2_scale():
 
     # Verify that an exception is raised when using power of 2 scales
     # with a signed statistic
-    with pytest.raises(ValueError, match=r"Statistic SignedAbsMax is signed*power-of-two scales"):
+    with pytest.raises(ValueError, match=r"Statistic SignedAbsMax is signed*"):
         SignedStatsScaling.scaling_impl

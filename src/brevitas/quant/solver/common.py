@@ -76,13 +76,13 @@ def solve_bit_width_impl_from_enum(impl_type):
 
 # TODO (pml): For retrocompatibility, the scale is assumed to be unsigned when
 # impl_type == RestrictValueType.FP. In the future, FP should return
-# SignedRestrictValue, with SIGNED_FP being removed in favour of UNSIGNED_FP for
+# SignedFloatRestrictValue, with SIGNED_FP being removed in favour of UNSIGNED_FP for
 # consistent naming.
 def solve_restrict_value_impl_from_enum(impl_type):
     if impl_type == RestrictValueType.FP:
         return FloatRestrictValue
     elif impl_type == RestrictValueType.SIGNED_FP:
-        return SignedRestrictValue
+        return SignedFloatRestrictValue
     elif impl_type == RestrictValueType.LOG_FP:
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:

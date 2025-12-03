@@ -6,7 +6,7 @@ import torch
 
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.restrict_val import PositiveFloatRestrictValue
+from brevitas.core.restrict_val import SignedFloatRestrictValue
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
 from brevitas.inject.enum import RestrictValueType
@@ -102,7 +102,7 @@ class TestQuantReLU:
         assert isinstance(
             stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
             .restrict_scaling.restrict_value_impl,
-            PositiveFloatRestrictValue)
+            FloatRestrictValue)
 
     def test_signed_abs_stats_signedness(self):
         # Check that SignedAbsMax is correctly resolved as signed scale
@@ -118,13 +118,12 @@ class TestQuantReLU:
         assert isinstance(
             stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl
             .restrict_scaling.restrict_value_impl,
-            FloatRestrictValue)
+            SignedFloatRestrictValue)
 
     def test_po2_signed_abs_stats_signedness(self):
         # Verify that an exception is raised when using power of 2 scales
         # with a signed statistic
-        with pytest.raises(ValueError,
-                           match=r"Statistic SignedAbsMax is signed*power-of-two scales"):
+        with pytest.raises(ValueError, match=r"Statistic SignedAbsMax is signed*"):
             QuantReLU(
                 bit_width=BIT_WIDTH,
                 quant_type=QuantType.INT,

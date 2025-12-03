@@ -103,10 +103,10 @@ class FloatRestrictValue(brevitas.jit.ScriptModule):
         return x
 
 
-class SignedRestrictValue(brevitas.jit.ScriptModule):
+class SignedFloatRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
-        super(SignedRestrictValue, self).__init__()
+        super(SignedFloatRestrictValue, self).__init__()
 
     def restrict_init_float(self, x: float) -> float:
         return x
