@@ -52,7 +52,7 @@ class GeneralizedTrainer(Trainer):
         self.temperature = args.temperature
 
     @staticmethod
-    def generalized_jsd_loss(
+    def distillation_loss(
             student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
 
         if topk > 0:
@@ -90,7 +90,7 @@ class GeneralizedTrainer(Trainer):
             with torch.no_grad(), quantization_status_manager(model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
                 fp_outputs = model(**inputs)
             # Compute the distillation loss
-            distill_loss = GeneralizedTrainer.generalized_jsd_loss(
+            distill_loss = GeneralizedTrainer.distillation_loss(
                 student_logits=outputs.logits,
                 teacher_logits=fp_outputs.logits,
                 temperature=self.temperature,
