@@ -38,106 +38,37 @@ class TrainingArguments(transformers.TrainingArguments):
     gamma: float = field(default=0.1)
     # Softmax temperature for the soft targets
     temperature: float = field(default=1.0)
-    # Interpolation coefficient between 0 and 1, in the generalized
-    # JS divergence
-    beta: float = field(default=0.5)
+    topk: int = field(default=-1)
 
 
 class GeneralizedTrainer(Trainer):
-    # Adapted from https://github.com/huggingface/trl
-    # Under the following LICENSE:
-
-    # Copyright 2024 The HuggingFace Team. All rights reserved.
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    #     http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and
-    # limitations under the License.
 
     def __init__(self, args: TrainingArguments = None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
         self.use_distillation_loss = args.use_distillation_loss
         self.gamma = args.gamma
         self.temperature = args.temperature
-        self.beta = args.beta
 
     @staticmethod
     def generalized_jsd_loss(
-            student_logits,
-            teacher_logits,
-            labels=None,
-            beta=0.5,
-            temperature=1.0,
-            reduction="batchmean"):
-        """
-        Compute the generalized Jensen-Shannon Divergence loss for knowledge distillation using F.kl_div. See Eq. (1)
-        of https://huggingface.co/papers/2306.13649 for the definition.
+            student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
 
-        Args:
-            student_logits: Tensor of shape (batch_size, sequence_length, vocab_size)
-            teacher_logits: Tensor of shape (batch_size, sequence_length, vocab_size)
-            labels: Tensor of shape (batch_size, sequence_length) with -100 for padding tokens to ignore when computing loss
-            beta: Interpolation coefficient between 0 and 1 (default: 0.5)
-            temperature: Softmax temperature (default: 1.0)
-            reduction: Specifies the reduction to apply to the output (default: 'batchmean')
-
-        Returns:
-            loss: Scalar tensor with the generalized JSD loss
-        """
-
-        top_ori_logits, indices = teacher_logits.topk(1000, dim=-1, sorted=False)
+        if topk > 0:
+            top_ori_logits, indices = teacher_logits.topk(topk, dim=-1, sorted=False)
         # Apply temperature scaling
         student_logits = student_logits / temperature
         teacher_logits = teacher_logits / temperature
 
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
-        teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
-        teacher_probs = F.softmax(teacher_logits, dim=-1).gather(-1, indices).flatten(0, -2)
+        teacher_probs = F.softmax(teacher_logits, dim=-1)  #.gather(-1, indices).flatten(0, -2)
+        student_log_probs = student_log_probs  #.gather(-1, indices).flatten(0, -2)
 
-        # Compute the log of the mixture distribution
-        # log(a + b) = log(exp(log(a)) + exp(log(b))) -> for mixture
-        beta = torch.tensor(beta, dtype=student_log_probs.dtype)
-        mixture_log_probs = torch.logsumexp(
-            torch.stack([
-                student_log_probs + torch.log(beta), teacher_log_probs + torch.log(1 - beta)]),
-            dim=0,
-        )
-
-        # Compute KL divergences using F.kl_div
-        # PyTorch differs from the standard mathematical definition, so the order of the probability distributions is swapped compared to that defined in the paper.
-        kl_teacher = F.kl_div(
-            mixture_log_probs, teacher_log_probs, reduction="none", log_target=True)
-        kl_student = F.kl_div(
-            mixture_log_probs, student_log_probs, reduction="none", log_target=True)
-        student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
-        jsd = F.kl_div(student_log_probs, teacher_probs, reduction="batchmean")
-        # Compute the Generalized Jensen-Shannon Divergence
-        # jsd = beta * kl_teacher + (1 - beta) * kl_student
+        if topk > 0:
+            teacher_probs = teacher_probs.gather(-1, indices).flatten(0, -2)
+            student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
+        jsd = F.kl_div(student_log_probs, teacher_probs, reduction=reduction)
         return jsd
-
-        # Masking
-        if labels is not None:
-            mask = labels != -100
-            jsd = jsd[mask]
-
-        # Apply reduction
-        if reduction == "batchmean":
-            return jsd.sum() / mask.sum() if labels is not None else jsd.sum() / (
-                jsd.size(0) * jsd.size(1))
-        elif reduction == "sum":
-            return jsd.sum()
-        elif reduction == "mean":
-            return jsd.mean()
-        else:
-            return jsd
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         """
@@ -160,7 +91,6 @@ class GeneralizedTrainer(Trainer):
             distill_loss = GeneralizedTrainer.generalized_jsd_loss(
                 student_logits=outputs.logits,
                 teacher_logits=fp_outputs.logits,
-                beta=self.beta,
                 temperature=self.temperature,
             )
             if (self.args.average_tokens_across_devices and
@@ -253,9 +183,7 @@ def apply_rotation_optimization(
     trainable_rotations = extract_trainable_rotation_matrices(model)
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
-    optimizer = geoopt.optim.RiemannianSGD(
-        trainable_rotations, lr=training_args.learning_rate, stabilize=10, weight_decay=0
-    )  #CaileySGD(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
+    optimizer = CaileySGD(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
     trainer = GeneralizedTrainer(
         model=model,
         tokenizer=tokenizer,
