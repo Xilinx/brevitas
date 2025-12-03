@@ -38,6 +38,8 @@ class TrainingArguments(transformers.TrainingArguments):
     gamma: float = field(default=0.1)
     # Softmax temperature for the soft targets
     temperature: float = field(default=1.0)
+    # Considering the huge vocabulary size of LLMs, it could be better selecting only the first K
+    # labels when using the distillation loss
     topk: int = field(default=-1)
 
 
