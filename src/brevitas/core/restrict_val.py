@@ -86,7 +86,7 @@ class FloatRestrictValue(brevitas.jit.ScriptModule):
         self.apply_abs: Module = Abs()
 
     def restrict_init_float(self, x: float):
-        return math.abs(x)
+        return math.fabs(x)
 
     def restrict_init_tensor(self, x: Tensor):
         return torch.abs(x)
