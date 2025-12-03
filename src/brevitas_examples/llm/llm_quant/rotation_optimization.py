@@ -31,16 +31,17 @@ class TrainingArguments(transformers.TrainingArguments):
     save_strategy: Optional[str] = field(default="no")
 
     ### Distillation Loss args
-    # Whether to compute the distillation loss
-    use_distillation_loss: bool = field(default=False)
-    # Weight given to the CE loss term in the overall loss
-    # The distillation terms is given a weight of 1 - \gamma
-    gamma: float = field(default=0.1)
-    # Softmax temperature for the soft targets
-    temperature: float = field(default=1.0)
+    use_distillation_loss: bool = field(
+        default=False, metadata={"help": "Whether to compute the distillation loss."})
+    gamma: float = field(
+        default=1., metadata={"help": "Gamma balances CE loss (gamma) vs KE loss (1-gamma)."})
+    temperature: float = field(
+        default=1.0, metadata={"help": "Softmax temperature for the soft targets"})
     # Considering the huge vocabulary size of LLMs, it could be better selecting only the first K
     # labels when using the distillation loss
-    topk: int = field(default=-1)
+    topk: int = field(
+        default=-1,
+        metadata={"help": "Consider the first K logits when computing distillation loss"})
 
 
 class GeneralizedTrainer(Trainer):
