@@ -81,8 +81,32 @@ class _ClampValue(brevitas.jit.ScriptModule):
 
 class FloatRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self) -> None:
+    def __init__(self):
         super(FloatRestrictValue, self).__init__()
+        self.apply_abs: Module = Abs()
+
+    def restrict_init_float(self, x: float):
+        return math.abs(x)
+
+    def restrict_init_tensor(self, x: Tensor):
+        return torch.abs(x)
+
+    def restrict_init_module(self):
+        return Abs()
+
+    def restrict_init_inplace_module(self):
+        return InplaceAbs()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        x = self.apply_abs(x)
+        return x
+
+
+class SignedRestrictValue(brevitas.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super(SignedRestrictValue, self).__init__()
 
     def restrict_init_float(self, x: float) -> float:
         return x
@@ -211,27 +235,3 @@ class QuantRestrictValue(brevitas.jit.ScriptModule):
             o = o.view(self.scale_dequantized_shape)
 
         return o
-
-
-class PositiveFloatRestrictValue(brevitas.jit.ScriptModule):
-
-    def __init__(self):
-        super(PositiveFloatRestrictValue, self).__init__()
-        self.apply_abs: Module = Abs()
-
-    def restrict_init_float(self, x: float):
-        return math.abs(x)
-
-    def restrict_init_tensor(self, x: Tensor):
-        return torch.abs(x)
-
-    def restrict_init_module(self):
-        return Abs()
-
-    def restrict_init_inplace_module(self):
-        return InplaceAbs()
-
-    @brevitas.jit.script_method
-    def forward(self, x: Tensor):
-        x = self.apply_abs(x)
-        return x

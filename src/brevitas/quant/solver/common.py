@@ -21,7 +21,7 @@ from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
-from brevitas.core.stats.stats_op import wrap_signed_stat
+from brevitas.core.stats.stats_op import SIGNEDNESS_STATS
 from brevitas.function.ops import compute_max_mantissa
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -76,13 +76,13 @@ def solve_bit_width_impl_from_enum(impl_type):
 
 # TODO (pml): For retrocompatibility, the scale is assumed to be unsigned when
 # impl_type == RestrictValueType.FP. In the future, FP should return
-# FloatRestrictValue, with SIGNED_FP being removed in favour of UNSIGNED_FP for
+# SignedRestrictValue, with SIGNED_FP being removed in favour of UNSIGNED_FP for
 # consistent naming.
 def solve_restrict_value_impl_from_enum(impl_type):
     if impl_type == RestrictValueType.FP:
-        return PositiveFloatRestrictValue
-    elif impl_type == RestrictValueType.SIGNED_FP:
         return FloatRestrictValue
+    elif impl_type == RestrictValueType.SIGNED_FP:
+        return SignedRestrictValue
     elif impl_type == RestrictValueType.LOG_FP:
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:
@@ -176,13 +176,16 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
 
         # For power of two scales, the stat needs to be unsigned
-        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO and scaling_stats_op in [
-                StatsOp.SIGNED_MAX]:
-            warnings.warn(
-                f"Statistic {scaling_stats_impl.__name__} is signed, which is incompatible with the restriction to "
-                f"power of twos, so its absolute value will be taken. Consider switching to an unsigned statistic."
-            )
-            scaling_stats_impl = wrap_signed_stat(scaling_stats_impl)
+        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
+            if scaling_stats_impl not in SIGNEDNESS_STATS:
+                raise ValueError(
+                    f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
+                    f"Register the statistic using the decorator @register_stat_implementation and "
+                    f"note that only unsigned statistics can be used with power-of-two scales.")
+            if SIGNEDNESS_STATS[scaling_stats_impl]:
+                raise ValueError(
+                    f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
+                    f"be used with power-of-two scales.")
 
         return scaling_stats_impl
 

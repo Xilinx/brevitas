@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest
 import torch
 
 from brevitas.core.quant import QuantType
@@ -120,15 +121,16 @@ class TestQuantReLU:
             FloatRestrictValue)
 
     def test_po2_signed_abs_stats_signedness(self):
-        # Check that SignedAbsMax is wrapped with an absolute value to prevent taking the logarithm
-        # on a negative number
-        stats_act = QuantReLU(
-            bit_width=BIT_WIDTH,
-            quant_type=QuantType.INT,
-            restrict_scaling_type=RestrictValueType.POWER_OF_TWO,
-            scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS,
-            scaling_stats_permute_dims=None,
-            scaling_stats_op=StatsOp.SIGNED_MAX,
-            collect_stats_steps=1,
-            scaling_min_val=None)
-        assert stats_act.act_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats.stats_impl.__class__.__name__ == "SignedStatWrapper"
+        # Verify that an exception is raised when using power of 2 scales
+        # with a signed statistic
+        with pytest.raises(ValueError,
+                           match=r"Statistic SignedAbsMax is signed*power-of-two scales"):
+            QuantReLU(
+                bit_width=BIT_WIDTH,
+                quant_type=QuantType.INT,
+                restrict_scaling_type=RestrictValueType.POWER_OF_TWO,
+                scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS,
+                scaling_stats_permute_dims=None,
+                scaling_stats_op=StatsOp.SIGNED_MAX,
+                collect_stats_steps=1,
+                scaling_min_val=None)

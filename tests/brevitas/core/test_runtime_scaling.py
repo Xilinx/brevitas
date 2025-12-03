@@ -1,6 +1,7 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest
 import torch
 
 from brevitas.core.function_wrapper.misc import Identity
@@ -160,7 +161,7 @@ def test_signed_scale_stats_injector_restrict_val_po2_scale():
         scaling_shape = SCALAR_SHAPE
         scaling_min_val = SCALING_MIN_VAL
 
-    scaling_op = SignedStatsScaling.scaling_impl
-    inp = torch.tensor([-0.5, 0.0, 1.0])
-    pre_scale = scaling_op(inp)
-    assert pre_scale.item() == 1.
+    # Verify that an exception is raised when using power of 2 scales
+    # with a signed statistic
+    with pytest.raises(ValueError, match=r"Statistic SignedAbsMax is signed*power-of-two scales"):
+        SignedStatsScaling.scaling_impl

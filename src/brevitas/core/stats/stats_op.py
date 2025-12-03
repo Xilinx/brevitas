@@ -24,18 +24,23 @@ from .stats_wrapper import SCALAR_SHAPE
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
-
-def wrap_signed_stat(stat_cls: Type) -> Type:
-
-    class SignedStatWrapper(stat_cls):
-
-        @brevitas.jit.script_method
-        def forward(self, x: Tensor) -> Tensor:
-            return torch.abs(super().forward(x))
-
-    return SignedStatWrapper
+SIGNEDNESS_STATS = {}
 
 
+def register_stats_implementation(signed: bool = False):
+    """
+    Decorator to register a stats implementation class.
+    :param signed: Indicates if the implementation returns signed values.
+    """
+
+    def decorator(cls):
+        SIGNEDNESS_STATS[cls] = signed
+        return cls
+
+    return decorator
+
+
+@register_stats_implementation(signed=False)
 class NegativeMinOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'keepdim']
 
@@ -60,6 +65,7 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
         return min_val
 
 
+@register_stats_implementation(signed=False)
 class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim', 'keepdim']
 
@@ -94,6 +100,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
         return result
 
 
+@register_stats_implementation(signed=False)
 class NegativePercentileOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'q', 'keepdim']
 
@@ -128,6 +135,7 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         return result
 
 
+@register_stats_implementation(signed=False)
 class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q', 'keepdim']
 
@@ -171,6 +179,7 @@ class PercentileInterval(brevitas.jit.ScriptModule):
         return abs_interval
 
 
+@register_stats_implementation(signed=False)
 class AbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
@@ -187,6 +196,7 @@ class AbsMax(brevitas.jit.ScriptModule):
             return torch.max(torch.abs(x), dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
 
 
+@register_stats_implementation(signed=True)
 class SignedAbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
@@ -207,6 +217,7 @@ class SignedAbsMax(brevitas.jit.ScriptModule):
             return scale if self.keepdim else scale.squeeze(dim=self.stats_reduce_dim)
 
 
+@register_stats_implementation(signed=False)
 class AbsMinMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'keepdim']
 
@@ -234,6 +245,7 @@ class AbsMinMax(brevitas.jit.ScriptModule):
         return torch.abs(max_val - min_val)
 
 
+@register_stats_implementation(signed=False)
 class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
@@ -246,6 +258,7 @@ class AbsMaxAve(brevitas.jit.ScriptModule):
         return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
 
 
+@register_stats_implementation(signed=False)
 class AbsMaxL2(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
@@ -261,6 +274,7 @@ class AbsMaxL2(brevitas.jit.ScriptModule):
         return out
 
 
+@register_stats_implementation(signed=False)
 class AbsAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
@@ -276,6 +290,7 @@ class AbsAve(brevitas.jit.ScriptModule):
             return torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 
 
+@register_stats_implementation(signed=False)
 class MeanSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
@@ -296,6 +311,7 @@ class MeanSigmaStd(brevitas.jit.ScriptModule):
         return out
 
 
+@register_stats_implementation(signed=False)
 class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'output_shape', 'epsilon']
 
@@ -321,6 +337,7 @@ class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
         return mean_val + sigma * std_val
 
 
+@register_stats_implementation(signed=False)
 class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
@@ -359,6 +376,7 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
             missing_keys.remove(sigma_key)
 
 
+@register_stats_implementation(signed=False)
 class KLMinimizerThreshold(torch.nn.Module):
     """
     Based on:
@@ -433,6 +451,7 @@ class KLMinimizerThreshold(torch.nn.Module):
         return opt_threshold
 
 
+@register_stats_implementation(signed=False)
 class L1Norm(brevitas.jit.ScriptModule):
     """ScriptModule implementation to collect per-channel L1 normalization stats
     for weight normalization-based quantization."""
@@ -451,6 +470,7 @@ class L1Norm(brevitas.jit.ScriptModule):
             return x.norm(p=1, dim=self.stats_reduce_dim, keepdim=True)
 
 
+@register_stats_implementation(signed=False)
 class L2Norm(brevitas.jit.ScriptModule):
     """ScriptModule implementation to collect per-channel L2 normalization stats
     for weight normalization-based quantization."""
