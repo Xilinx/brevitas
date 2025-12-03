@@ -165,7 +165,6 @@ def apply_rotation_optimization(
     train_dataset: DatasetToDevice,
     training_args: TrainingArguments,
 ) -> None:
-    import geoopt
 
     # Prepare dataset and model for training
     train_dataset = _prepare_train_dataset(train_dataset)
