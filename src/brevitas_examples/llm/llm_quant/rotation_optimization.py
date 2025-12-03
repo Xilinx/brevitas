@@ -63,8 +63,8 @@ class GeneralizedTrainer(Trainer):
 
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
-        teacher_probs = F.softmax(teacher_logits, dim=-1)  #.gather(-1, indices).flatten(0, -2)
-        student_log_probs = student_log_probs  #.gather(-1, indices).flatten(0, -2)
+        teacher_probs = F.softmax(teacher_logits, dim=-1)
+        student_log_probs = student_log_probs
 
         if topk > 0:
             teacher_probs = teacher_probs.gather(-1, indices).flatten(0, -2)
