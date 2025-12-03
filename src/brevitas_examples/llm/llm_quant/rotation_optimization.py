@@ -34,7 +34,7 @@ class TrainingArguments(transformers.TrainingArguments):
     use_distillation_loss: bool = field(
         default=False, metadata={"help": "Whether to compute the distillation loss."})
     gamma: float = field(
-        default=1., metadata={"help": "Gamma balances CE loss (gamma) vs KE loss (1-gamma)."})
+        default=1., metadata={"help": "Gamma balances CE loss (gamma) vs KD loss (1-gamma)."})
     temperature: float = field(
         default=1.0, metadata={"help": "Softmax temperature for the soft targets"})
     # Considering the huge vocabulary size of LLMs, it could be better selecting only the first K
@@ -69,8 +69,8 @@ class GeneralizedTrainer(Trainer):
         teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
         student_log_probs = student_log_probs
 
-        jsd = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
-        return jsd
+        loss = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
+        return loss
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         """
