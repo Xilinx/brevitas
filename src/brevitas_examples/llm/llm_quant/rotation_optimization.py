@@ -52,24 +52,23 @@ class GeneralizedTrainer(Trainer):
         self.temperature = args.temperature
 
     @staticmethod
-    def distillation_loss(
+    def forward_kl_loss(
             student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
 
         if topk > 0:
-            top_ori_logits, indices = teacher_logits.topk(topk, dim=-1, sorted=False)
+            teacher_logits, indices = teacher_logits.topk(topk, dim=-1, sorted=False)
+            student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
+
         # Apply temperature scaling
         student_logits = student_logits / temperature
         teacher_logits = teacher_logits / temperature
 
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
-        teacher_probs = F.softmax(teacher_logits, dim=-1)
+        teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
         student_log_probs = student_log_probs
 
-        if topk > 0:
-            teacher_probs = teacher_probs.gather(-1, indices).flatten(0, -2)
-            student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
-        jsd = F.kl_div(student_log_probs, teacher_probs, reduction=reduction)
+        jsd = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
         return jsd
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
@@ -90,7 +89,7 @@ class GeneralizedTrainer(Trainer):
             with torch.no_grad(), quantization_status_manager(model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
                 fp_outputs = model(**inputs)
             # Compute the distillation loss
-            distill_loss = GeneralizedTrainer.distillation_loss(
+            distill_loss = GeneralizedTrainer.forward_kl_loss(
                 student_logits=outputs.logits,
                 teacher_logits=fp_outputs.logits,
                 temperature=self.temperature,
