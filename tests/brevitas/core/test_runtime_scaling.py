@@ -17,10 +17,9 @@ from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import StatsOp
-from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.solver.act import SolveActScalingImplFromEnum
+from brevitas.quant.solver.common import SolveRestrictScaleSign
 from brevitas.quant.solver.common import SolveRestrictScalingImplFromEnum
-from brevitas.quant.solver.common import SolveScaleSignedness
 from brevitas.quant.solver.common import SolveScalingStatsOpFromEnum
 
 SCALING_MIN_VAL = 1e-6
@@ -85,7 +84,7 @@ def test_signed_scale_stats_injector():
     class SignedStatsScaling(SolveActScalingImplFromEnum,
                              SolveScalingStatsOpFromEnum,
                              SolveRestrictScalingImplFromEnum,
-                             SolveScaleSignedness):
+                             SolveRestrictScaleSign):
         scaling_impl_type = ScalingImplType.STATS
         scaling_stats_op = StatsOp.SIGNED_MAX
         scaling_stats_input_view_shape_impl = Identity
@@ -104,7 +103,7 @@ def test_unsigned_scale_stats_injector_restrict_val_positive_scale():
     class SignedStatsScaling(SolveActScalingImplFromEnum,
                              SolveScalingStatsOpFromEnum,
                              SolveRestrictScalingImplFromEnum,
-                             SolveScaleSignedness):
+                             SolveRestrictScaleSign):
         scaling_impl_type = ScalingImplType.STATS
         scaling_stats_op = StatsOp.MAX
         scaling_stats_input_view_shape_impl = Identity
@@ -126,7 +125,7 @@ def test_signed_scale_stats_injector_restrict_val_positive_scale():
     class SignedStatsScaling(SolveActScalingImplFromEnum,
                              SolveScalingStatsOpFromEnum,
                              SolveRestrictScalingImplFromEnum,
-                             SolveScaleSignedness):
+                             SolveRestrictScaleSign):
         scaling_impl_type = ScalingImplType.STATS
         scaling_stats_op = StatsOp.SIGNED_MAX
         scaling_stats_input_view_shape_impl = Identity
@@ -157,7 +156,7 @@ def test_signed_scale_stats_injector_restrict_val_po2_scale():
     class SignedStatsScaling(SolveActScalingImplFromEnum,
                              SolveScalingStatsOpFromEnum,
                              SolveRestrictScalingImplFromEnum,
-                             SolveScaleSignedness):
+                             SolveRestrictScaleSign):
         scaling_impl_type = ScalingImplType.STATS
         scaling_stats_op = StatsOp.SIGNED_MAX
         scaling_stats_input_view_shape_impl = Identity

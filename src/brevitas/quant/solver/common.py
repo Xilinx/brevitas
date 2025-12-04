@@ -41,7 +41,7 @@ __all__ = [
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
     'SolveDtypeDeviceFromTrackedParameterList',
-    'SolveScaleSignedness']
+    'SolveRestrictScaleSign']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -180,8 +180,7 @@ class SolveScalingStatsOpFromEnum(ExtendedInjector):
             if scaling_stats_impl not in SIGNEDNESS_STATS:
                 raise ValueError(
                     f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
-                    f"Register the statistic using the decorator @register_stat_implementation and "
-                    f"note that only unsigned statistics can be used with power-of-two scales.")
+                    f"Register the statistic using the decorator @register_stat_implementation.")
             if SIGNEDNESS_STATS[scaling_stats_impl]:
                 raise ValueError(
                     f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
@@ -313,8 +312,8 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
             return None
 
 
-class SolveScaleSignedness(ExtendedInjector):
+class SolveRestrictScaleSign(ExtendedInjector):
 
     @value
-    def is_scale_unsigned(restrict_scaling_type=None):
+    def restrict_scale_positive(restrict_scaling_type=None):
         return restrict_scaling_type in [RestrictValueType.FP, RestrictValueType.POWER_OF_TWO]

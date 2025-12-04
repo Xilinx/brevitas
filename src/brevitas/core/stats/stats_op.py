@@ -571,7 +571,7 @@ class MSE(torch.nn.Module):
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
             mse_iters: int = 20,
-            is_scale_unsigned: bool = True):
+            restrict_scale_positive: bool = True):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -588,7 +588,7 @@ class MSE(torch.nn.Module):
         self.search_method = mse_search_method
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
-        self.is_scale_unsigned = is_scale_unsigned
+        self.restrict_scale_positive = restrict_scale_positive
 
     def mse_loss_fn(self, x, quant_value):
         loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
@@ -625,8 +625,8 @@ class MSE(torch.nn.Module):
         init = torch.abs(self.mse_init_op(x_view)).detach()
         base = init / self.num
         loss_fn = lambda candidate: self.evaluate_loss(x, candidate)
-        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn, num_iter=self.num if self.is_scale_unsigned else self.num // 2)
-        if not self.is_scale_unsigned:
+        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn, num_iter=self.num if self.restrict_scale_positive else self.num // 2)
+        if not self.restrict_scale_positive:
             best_neg_candidate, best_neg_loss = self._mse_search(
                 xl=-init,
                 xr=-base,
