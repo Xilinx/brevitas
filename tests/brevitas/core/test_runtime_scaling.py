@@ -7,6 +7,7 @@ import torch
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
+from brevitas.core.restrict_val import SignedFloatRestrictValue
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.scaling.runtime import RuntimeStatsScaling
 from brevitas.core.scaling.runtime import StatsFromParameterScaling
@@ -71,6 +72,7 @@ def test_signed_scale_stats():
     scaling_op = RuntimeStatsScaling(
         scaling_stats_impl=SignedAbsMax(),
         scaling_stats_input_view_shape_impl=Identity(),
+        restrict_scaling_impl=SignedFloatRestrictValue(),
         scaling_shape=SCALAR_SHAPE,
         scaling_min_val=SCALING_MIN_VAL)
     inp = torch.tensor([-0.5, 0.0, 1.0])
@@ -82,10 +84,12 @@ def test_signed_scale_stats_injector():
 
     class SignedStatsScaling(SolveActScalingImplFromEnum,
                              SolveScalingStatsOpFromEnum,
+                             SolveRestrictScalingImplFromEnum,
                              SolveScaleSignedness):
         scaling_impl_type = ScalingImplType.STATS
         scaling_stats_op = StatsOp.SIGNED_MAX
         scaling_stats_input_view_shape_impl = Identity
+        restrict_scaling_type = RestrictValueType.SIGNED_FP
         scaling_shape = SCALAR_SHAPE
         scaling_min_val = SCALING_MIN_VAL
 
