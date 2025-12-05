@@ -1,10 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from functools import partial
 import math
 from typing import Optional
 from typing import Tuple
-from typing import Type
 
 import torch
 from torch import Tensor
@@ -624,7 +624,7 @@ class MSE(torch.nn.Module):
         x_view = self.input_view_shape_impl(x)
         init = torch.abs(self.mse_init_op(x_view)).detach()
         base = init / self.num
-        loss_fn = lambda candidate: self.evaluate_loss(x, candidate)
+        loss_fn = partial(self.evaluate_loss, x)
         best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn, num_iter=self.num if self.restrict_scale_positive else self.num // 2)
         if not self.restrict_scale_positive:
             best_neg_candidate, best_neg_loss = self._mse_search(
