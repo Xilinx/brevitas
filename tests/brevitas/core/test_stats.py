@@ -19,6 +19,7 @@ from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
 from tests.conftest import SEED
+from tests.marker import jit_disabled_for_local_loss
 
 
 def test_abs_percentile_per_tensor():
@@ -129,6 +130,7 @@ class TestMSE:
         assert torch.dist(sol_x, exp_sol_x) <= torch.abs(xr - xl) / num_iter
 
     @pytest.mark.parametrize("mse_search_method", ["grid", "fibonacci"])
+    @jit_disabled_for_local_loss()
     def test_mse_quant_linear(self, mse_search_method):
         IN_FEATURES = 3
         OUT_FEATURES = 4
