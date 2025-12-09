@@ -1749,6 +1749,8 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                                 submodule,
                             (WeightQuantProxyFromInjectorBase, BiasQuantProxyFromInjectorBase)):
                             state_dict = submodule.state_dict()
+                            # Currently there is no better way to detect if a module is compiled
+                            is_module_compiled = 'OptimizedModule' in str(type(submodule))
                             break
                     # The rotated tensor is saved by setting leave_parametrized=True
                     parametrize.remove_parametrizations(
@@ -1757,6 +1759,8 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                     # when registering the parametrized parameter
                     if state_dict is not None:
                         submodule.load_state_dict(state_dict)
+                    if is_module_compiled:
+                        submodule.compile_quant()
     return model
 
 
