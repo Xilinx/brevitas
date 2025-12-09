@@ -24,11 +24,7 @@ from .stats_wrapper import SCALAR_SHAPE
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
-# When restricting scales to powers of two, signed statistics cannot be used because
-# taking the logarithm of a negative number would result a in NaN. To avoid this issue,
-# the signedness of the statistic must be tracked. This allows raising an error at
-# dependency-injection time if a signed statistic is combined with a power-of-two
-# scale restriction.
+# The signedness of the statistics needs to be tracked to be used in subsequent checks
 SIGNEDNESS_STATS = {}
 
 
