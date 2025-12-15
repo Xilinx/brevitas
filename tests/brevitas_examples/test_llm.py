@@ -405,7 +405,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "few_shot_zeroshot": True,
             "imports": ["lighteval"],
             "all_acc": 0.375,},])
-def few_shot_eval_args(default_run_args, request):
+def lighteval_args(default_run_args, request):
     # Skip cases for which the LM evaluation library has not been installed
     for lib in request.param["imports"]:
         pytest.importorskip(lib, reason=f"`{lib}` needs to be installed.")
@@ -416,9 +416,9 @@ def few_shot_eval_args(default_run_args, request):
 
 
 @pytest.mark.lighteval
-def test_few_shot_eval(caplog, few_shot_eval_args, main):
+def test_lighteval(caplog, lighteval_args, main):
     caplog.set_level(logging.INFO)
-    args, _, exp_metrics = few_shot_eval_args
+    args, _, exp_metrics = lighteval_args
 
     with ExitStack() as ctx_stack:
         # Patch LM eval calls when needed
@@ -470,7 +470,7 @@ def test_few_shot_eval(caplog, few_shot_eval_args, main):
             "few_shot_zeroshot": True,
             "imports": ["lm_eval"],
             "all_acc": 0.375,},])
-def few_shot_eval_args(default_run_args, request):
+def lm_eval_args(default_run_args, request):
     # Skip cases for which the LM evaluation library has not been installed
     for lib in request.param["imports"]:
         pytest.importorskip(lib, reason=f"`{lib}` needs to be installed.")
@@ -481,9 +481,9 @@ def few_shot_eval_args(default_run_args, request):
 
 
 @pytest.mark.lm_eval
-def test_few_shot_eval(caplog, few_shot_eval_args, main):
+def test_lm_eval(caplog, lm_eval_args, main):
     caplog.set_level(logging.INFO)
-    args, _, exp_metrics = few_shot_eval_args
+    args, _, exp_metrics = lm_eval_args
 
     results, _ = main(args)
 
