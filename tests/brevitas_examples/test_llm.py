@@ -268,7 +268,7 @@ def onnx_export_args(default_run_args, request):
     yield process_args_and_metrics(default_run_args, request.param)
 
 
-@pytest.mark.onnx_export_llm
+@pytest.mark.onnx_export
 @jit_disabled_for_export()
 @requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
@@ -415,7 +415,7 @@ def few_shot_eval_args(default_run_args, request):
         default_run_args, request.param, extra_keys=["imports", "all_acc"])
 
 
-@pytest.mark.lighteval_llm
+@pytest.mark.lighteval
 def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
     args, _, exp_metrics = few_shot_eval_args
@@ -480,7 +480,7 @@ def few_shot_eval_args(default_run_args, request):
         default_run_args, request.param, extra_keys=["imports", "all_acc"])
 
 
-@pytest.mark.lm_eval_llm
+@pytest.mark.lm_eval
 def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
     args, _, exp_metrics = few_shot_eval_args
