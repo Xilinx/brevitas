@@ -403,7 +403,7 @@ def _instantiate_region(region_dict, model) -> Region:
             sorted({sink: EqualizationIndexes(0, IN_FEATURES, 0) for sink in region_dict["sinks"]
                    }.items()))
     sorted_acts = tuple()
-    return Region(
+    return Region.from_dicts(
         srcs=sorted_srcs, sinks=sorted_sinks, acts=sorted_acts, name_to_module=model._modules)
 
 
