@@ -656,7 +656,9 @@ def quantize_llm(args, extra_args=None):
                 model(**calibration_loader[0])
 
                 wrapped_model = HFLM(
-                    pretrained=model, add_bos_token=True)  # need to wrap for LLM eval
+                    pretrained=model,
+                    add_bos_token=True,
+                    batch_size=args.few_shot_override_batch_size)  # need to wrap for LLM eval
                 few_shot_eval_results = evaluator.simple_evaluate(
                     model=wrapped_model,
                     model_args=None,
