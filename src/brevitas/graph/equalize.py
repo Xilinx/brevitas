@@ -344,6 +344,8 @@ class WalkRegionState:
     supported_sinks: set = _supported_layers
     scale_invariant_function: set = _scale_invariant_op
     scale_invariant_layers: set = _scale_invariant_layers
+    residual_fns: set = _residual_fns
+    residual_methods: set = _residual_methods
 
     cat_encoutered: bool = False
     offset: int = 0
