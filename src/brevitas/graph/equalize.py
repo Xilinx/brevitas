@@ -755,7 +755,7 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
             weight_tensor_name = "in_proj_weight"
         else:
             weight_tensor_name = "weight"
-        return cls(module, weight_tensor_name, weight_axis, act_axis, indexes)
+        return cls(module, weight_axis, act_axis, indexes, weight_tensor_name)
 
 
 # When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
