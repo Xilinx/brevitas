@@ -694,17 +694,6 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
             "slice_idxs": (channel_start, channel_end),
             "use_inverse_scaling": False}
 
-    @classmethod
-    def from_module_indexes(cls, module, indexes):
-
-        weight_axis = _get_output_axis(module)
-        act_axis = _get_act_axis(module)
-
-        if isinstance(module, nn.MultiheadAttention):
-            module = module.out_proj
-
-        return cls(module, weight_axis, act_axis, indexes)
-
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
     def get_weight_range(
@@ -717,6 +706,17 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
             weight = _combine_weights_bias(weight, bias_shrinkage, self.bias)
         weight = weight.cpu().to(torch.float32)
         return scale_fn(weight.reshape(weight.size(0), -1))
+
+    @classmethod
+    def from_module_indexes(cls, module, indexes):
+
+        weight_axis = _get_output_axis(module)
+        act_axis = _get_act_axis(module)
+
+        if isinstance(module, nn.MultiheadAttention):
+            module = module.out_proj
+
+        return cls(module, weight_axis, act_axis, indexes)
 
 
 class EqualizationSinkWrapper(EqualizationModuleWrapper):
@@ -827,7 +827,7 @@ def _cross_layer_equalization(
         sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
             sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
 
-    for name, module in region.sinks.items():
+    for name, module in region.srcs.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
         indexes = module.equalization_indexes
