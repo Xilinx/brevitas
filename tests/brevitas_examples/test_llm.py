@@ -439,7 +439,7 @@ def few_shot_eval_args(default_run_args, request):
         default_run_args, request.param, extra_keys=["imports", "all_acc"])
 
 
-@pytest.mark.lighteval
+@pytest.mark.few_shot
 def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
     args, _, exp_metrics = few_shot_eval_args
