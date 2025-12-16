@@ -971,6 +971,13 @@ def _is_scale_invariant_function(node: Node, scale_invariant_op: Set = _scale_in
     return out
 
 
+def _is_add(node, residual_fns, residual_methods):
+    node_target = node.meta.get('orig_target', node.target)
+    return (
+        node.op == 'call_method' and node_target in residual_methods or
+        node.op == 'call_function' and node_target in residual_fns)
+
+
 def get_weight_source(module):
     transpose = lambda weight, axis: weight if axis == 0 else weight.transpose(0, 1)
     if isinstance(module, nn.MultiheadAttention) and not hasattr(module, 'out_proj'):
@@ -1041,13 +1048,6 @@ def cat_handler(graph_model: GraphModule, starting_node: Node, state: WalkRegion
 def _is_cat(node):
     node_target = node.meta.get('orig_target', node.target)
     return node_target in (torch.cat,)
-
-
-def _is_add(node, residual_methods, residual_fns):
-    node_target = node.meta.get('orig_target', node.target)
-    return (
-        node.op == 'call_method' and node_target in residual_methods or
-        node.op == 'call_function' and node_target in residual_fns)
 
 
 def find_srcs(graph_model: GraphModule, starting_node: Node,
@@ -2034,7 +2034,6 @@ class GraphRotationEqualization(RotationEqualization):
 
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
-
         if len(regions) > 0:
             rewriters.extend(
                 _compute_rotations(
