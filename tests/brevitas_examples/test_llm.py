@@ -373,7 +373,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
 
 
 @pytest_cases.fixture(
-    ids=["lighteval", "lighteval_rotations"],
+    ids=["lighteval", "lighteval_rotations", "lm_eval", "lm_eval_rotations"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -404,8 +404,32 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
                 "hellaswag|0",],
             "few_shot_zeroshot": True,
             "imports": ["lighteval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "few_shot_eval": "lm_eval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
+            "few_shot_tasks": ["arc_challenge", "winogrande", "piqa", "hellaswag"],
+            "few_shot_zeroshot": True,
+            "imports": ["lm_eval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "rotation": "fused_no_fx",
+            "replace_rmsnorm": True,
+            "eval": False,
+            "few_shot_eval": "lm_eval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
+            "few_shot_tasks": ["arc_challenge", "winogrande", "piqa", "hellaswag"],
+            "few_shot_zeroshot": True,
+            "imports": ["lm_eval"],
             "all_acc": 0.375,},])
-def lighteval_args(default_run_args, request):
+def few_shot_eval_args(default_run_args, request):
     # Skip cases for which the LM evaluation library has not been installed
     for lib in request.param["imports"]:
         pytest.importorskip(lib, reason=f"`{lib}` needs to be installed.")
@@ -416,9 +440,9 @@ def lighteval_args(default_run_args, request):
 
 
 @pytest.mark.lighteval
-def test_lighteval(caplog, lighteval_args, main):
+def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
-    args, _, exp_metrics = lighteval_args
+    args, _, exp_metrics = few_shot_eval_args
 
     with ExitStack() as ctx_stack:
         # Patch LM eval calls when needed
@@ -437,55 +461,6 @@ def test_lighteval(caplog, lighteval_args, main):
                     side_effect=mock_run_lighteval))
 
         results, _ = main(args)
-
-    # Verify that LM eval metrics match. `strict` is set to False, as
-    # only a subset of metrics are checked.
-    assert_metrics(results, exp_metrics, atol=ATOL_ACC, rtol=RTOL_ACC, strict=False)
-
-
-@pytest_cases.fixture(
-    ids=["lm_eval", "lm_eval_rotations"],
-    params=[
-        {
-            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-            "no_quantize": True,
-            "eval": False,
-            "few_shot_eval": "lm_eval",
-            "few_shot_override_batch_size": 16,
-            "few_shot_limit": 16,
-            "few_shot_tasks": ["arc_challenge", "winogrande", "piqa", "hellaswag"],
-            "few_shot_zeroshot": True,
-            "imports": ["lm_eval"],
-            "all_acc": 0.375,},
-        {
-            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-            "no_quantize": True,
-            "rotation": "fused_no_fx",
-            "replace_rmsnorm": True,
-            "eval": False,
-            "few_shot_eval": "lm_eval",
-            "few_shot_override_batch_size": 16,
-            "few_shot_limit": 16,
-            "few_shot_tasks": ["arc_challenge", "winogrande", "piqa", "hellaswag"],
-            "few_shot_zeroshot": True,
-            "imports": ["lm_eval"],
-            "all_acc": 0.375,},])
-def lm_eval_args(default_run_args, request):
-    # Skip cases for which the LM evaluation library has not been installed
-    for lib in request.param["imports"]:
-        pytest.importorskip(lib, reason=f"`{lib}` needs to be installed.")
-    del request.param["imports"]
-
-    yield process_args_and_metrics(
-        default_run_args, request.param, extra_keys=["imports", "all_acc"])
-
-
-@pytest.mark.lm_eval
-def test_lm_eval(caplog, lm_eval_args, main):
-    caplog.set_level(logging.INFO)
-    args, _, exp_metrics = lm_eval_args
-
-    results, _ = main(args)
 
     # Verify that LM eval metrics match. `strict` is set to False, as
     # only a subset of metrics are checked.
