@@ -267,22 +267,19 @@ class Region:
         # - If sources or sinks have undefined act axis (like Batch Norm), we use the other group
         # - If the act axis of sources and sinks is different, then we set it to None (no axis)
         # - If both are unsupported/undefined, then we set it to None (no axis)
-        act_sink_axes = {name: module.act_axis for (name, module) in new_sink_dict.items()}
-        act_sources_axes = {name: module.act_axis for (name, module) in new_srcs_dict.items()}
-        list_of_sink_axes = [x for x in act_sink_axes.values() if x is not None]
-        list_of_source_axes = [x for x in act_sources_axes.values() if x is not None]
-        if len(list_of_sink_axes) > 0:
-            act_axis = list_of_sink_axes[0]
-        elif len(list_of_source_axes) > 0:
-            act_axis = list_of_source_axes[0]
-        else:
-            act_axis = None
+        list_of_act_axes = [
+            module.act_axis
+            for module in chain(new_sink_dict.values(), new_srcs_dict.values())
+            if module.act_axis is not None]
         # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
         # do not perform equalization
-        if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
-            act_axis = None
+        act_axis = None
+        if len(list_of_act_axes) > 0:
+            act_axis = list_of_act_axes[0]
+            if any([act_axis != axis for axis in list_of_act_axes]):
+                act_axis = None
 
-        return cls(srcs, sinks, acts, name_to_module, expand_region, act_axis)
+        return cls(new_srcs_dict, new_sink_dict, acts, name_to_module, expand_region, act_axis)
 
 
 @dataclass
