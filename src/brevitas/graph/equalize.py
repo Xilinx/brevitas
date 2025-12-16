@@ -674,7 +674,7 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
             act_axis: Optional[int],
             equalization_indexes: EqualizationIndexes,
             weight_tensor_name: str = 'weight',
-            bias_tensor_name: Optional[str] = None,
+            bias_tensor_name: Optional[str] = 'bias',
             bias_axis: int = 0) -> None:
 
         super().__init__(
