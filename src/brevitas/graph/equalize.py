@@ -159,28 +159,18 @@ class EqualizationIndexes:
 # Required for being hashable
 @dataclass(eq=True, frozen=True)
 class Region:
-    srcs: Dict = field(default_factory=dict)
-    sinks: Dict = field(default_factory=dict)
-    acts: Tuple = field(default_factory=tuple)
-    name_to_module: Dict = field(default_factory=dict)
+    srcs: Dict[str, EqualizationIndexes] = field(default_factory=dict)
+    sinks: Dict[str, EqualizationIndexes] = field(default_factory=dict)
+    acts: Tuple[nn.Module] = field(default_factory=tuple)
+    name_to_module: Dict[str, nn.Module] = field(default_factory=dict)
     expand_region: bool = False
     act_axis: Optional[int] = None
 
     def __eq__(self, other):
         if not isinstance(other, Region):
             return False
-
-        def check_set(module_set, other_set):
-            if len(module_set) != len(other_set):
-                return False
-            for k, v in other_set.items():
-                if k not in module_set:
-                    return False
-
-        is_srcs_equal = check_set(self.srcs, other.srcs)
-        is_sinks_equal = check_set(self.sinks, other.sinks)
-
-        return is_srcs_equal and is_sinks_equal
+        # Check that sources/sinks keys match
+        return self.srcs.keys() == other.srcs.keys() and self.sinks.keys() == other.sinks.keys()
 
     @property
     def srcs_names(self):
@@ -239,12 +229,6 @@ class Region:
     def is_valid_activation_equalization(self):
         return self.act_axis is not None
 
-    def apply_permute(self, indexes):
-        for src in self.srcs.values():
-            src.permute(indexes)
-        for sink in self.sinks.values():
-            sink.permute(indexes)
-
     @classmethod
     def from_dicts(
             cls,
@@ -253,60 +237,29 @@ class Region:
             name_to_module: Optional[Dict[str, nn.Module]] = None,
             acts: Optional[Tuple[nn.Module]] = None,
             expand_region: bool = False):
-        if srcs is None:
-            srcs = dict()
-        if sinks is None:
-            sinks = dict()
-        if acts is None:
-            acts = tuple()
-        if name_to_module is None:
-            name_to_module = dict()
 
         def internal_name_to_module(name_to_module, name):
             name = name.split("$")[0]
             return name_to_module[name]
 
+        srcs = dict() if srcs is None else srcs
+        sinks = dict() if sinks is None else sinks
+        acts = tuple() if acts is None else acts
+        name_to_module = dict() if name_to_module is None else name_to_module
+
         new_sink_dict = dict()
         for name, indexes in sinks.items():
             module = internal_name_to_module(name_to_module, name)
-            weight_axis = _get_input_axis(module)
-            act_axis = _get_act_axis(module)
             # For MultiheadAttention, we support only self-attention
-            # For sinks, we only need to modify the weight but not the bias
-            if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
-                # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
-                weight_tensor_name = "in_proj_weight"
-            elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
+            if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
                 new_sink_dict[name] = _UNSUPPORTED_OP
                 continue
-            else:
-                weight_tensor_name = "weight"
-
-            new_sink_dict[name] = EqualizationSinkWrapper(
-                module=module,
-                weight_tensor_name=weight_tensor_name,
-                weight_axis=weight_axis,
-                act_axis=act_axis,
-                equalization_indexes=indexes)
+            new_sink_dict[name] = EqualizationSinkWrapper.from_module_indexes(module, indexes)
 
         new_srcs_dict = dict()
         for name, indexes in srcs.items():
             module = internal_name_to_module(name_to_module, name)
-            # If module is not supported, do not perform graph equalization
-            weight_axis = _get_output_axis(module)
-            act_axis = _get_act_axis(module)
-
-            if isinstance(module, nn.MultiheadAttention):
-                module = module.out_proj
-
-            new_srcs_dict[name] = EqualizationSourceWrapper(
-                module=module,
-                weight_tensor_name="weight",
-                weight_axis=weight_axis,
-                equalization_indexes=indexes,
-                bias_tensor_name="bias",
-                bias_axis=0,
-                act_axis=act_axis)
+            new_srcs_dict[name] = EqualizationSourceWrapper.from_module_indexes(module, indexes)
 
         # Act axis tries to determine the channel/feature dimension of the activation tensor
         # To do this we check sources and sinks, and the type of layers will give us the axis.
@@ -650,10 +603,10 @@ class EqualizationModuleWrapper:
     def __init__(
             self,
             module: nn.Module,
-            weight_tensor_name: str,
             weight_axis: int,
             act_axis: int,
             equalization_indexes: EqualizationIndexes,
+            weight_tensor_name: str = 'weight',
             bias_tensor_name: Optional[str] = None,
             bias_axis: int = 0) -> None:
         self.module = module
@@ -720,18 +673,19 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
     def __init__(
             self,
             module: nn.Module,
-            weight_tensor_name: str,
             weight_axis: int,
-            act_axis: int,
+            act_axis: Optional[int],
             equalization_indexes: EqualizationIndexes,
+            weight_tensor_name: str = 'weight',
             bias_tensor_name: Optional[str] = None,
             bias_axis: int = 0) -> None:
+
         super().__init__(
             module,
-            weight_tensor_name,
             weight_axis,
             act_axis,
             equalization_indexes,
+            weight_tensor_name,
             bias_tensor_name,
             bias_axis)
 
@@ -742,6 +696,17 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
             "start_end_idxs": None,
             "slice_idxs": (channel_start, channel_end),
             "use_inverse_scaling": False}
+
+    @classmethod
+    def from_module_indexes(cls, module, indexes):
+
+        weight_axis = _get_output_axis(module)
+        act_axis = _get_act_axis(module)
+
+        if isinstance(module, nn.MultiheadAttention):
+            module = module.out_proj
+
+        return cls(module, weight_axis, act_axis, indexes)
 
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
@@ -762,11 +727,12 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
     def __init__(
             self,
             module: nn.Module,
-            weight_tensor_name: str,
             weight_axis: int,
             act_axis: int,
-            equalization_indexes: EqualizationIndexes) -> None:
-        super().__init__(module, weight_tensor_name, weight_axis, act_axis, equalization_indexes)
+            equalization_indexes: EqualizationIndexes,
+            weight_tensor_name: str) -> None:
+
+        super().__init__(module, weight_axis, act_axis, equalization_indexes, weight_tensor_name)
 
     def _get_transform_module_kwargs(self) -> Dict[str, Any]:
         channel_range = self.equalization_indexes.end - self.equalization_indexes.start
@@ -780,6 +746,19 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
         weight = transpose(self.weight.cpu().to(torch.float32), self.weight_axis)
         return scale_fn(weight.reshape(
             weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
+
+    @classmethod
+    def from_module_indexes(cls, module, indexes):
+        weight_axis = _get_input_axis(module)
+        act_axis = _get_act_axis(module)
+        # For MultiheadAttention, we support only self-attention
+        # For sinks, we only need to modify the weight but not the bias
+        if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
+            # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
+            weight_tensor_name = "in_proj_weight"
+        else:
+            weight_tensor_name = "weight"
+        return cls(module, weight_tensor_name, weight_axis, act_axis, indexes)
 
 
 # When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
@@ -826,8 +805,7 @@ def _cross_layer_equalization(
 
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
-    axes_to_check = [
-        m.weight_axis for m in list(region.srcs.values()) + list(region.sinks.values())]
+    axes_to_check = [m.weight_axis for m in chain(region.srcs.values(), region.sinks.values())]
     if None in axes_to_check:
         return _no_equalize()
 
