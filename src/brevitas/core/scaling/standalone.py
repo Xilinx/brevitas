@@ -415,7 +415,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             restrict_scale_threshold_impl: Optional[Module] = None,
             scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None,
-            restrict_threshold_with_scale: bool = False,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
@@ -442,7 +441,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
-        self.restrict_threshold_with_scale = restrict_threshold_with_scale
 
     def init_scale(self):
         if self.counter <= self.collect_stats_steps:

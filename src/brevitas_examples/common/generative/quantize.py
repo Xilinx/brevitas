@@ -299,7 +299,7 @@ def generate_quantizers(
 
     # Retrive base quantizer, match against custom float format, or return as-is
     def quant_format_from_string(quant_format, scale=False):
-        quant_format_re = re.compile(r'e[1-8]m[1-8]')
+        quant_format_re = re.compile(r'e[1-8]m[0-8]')
         if quant_format_re.findall(quant_format):
             float_type = quant_format_re.findall(quant_format)[0]
             if scale:
