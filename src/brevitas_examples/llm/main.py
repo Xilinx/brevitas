@@ -34,6 +34,7 @@ from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
+from brevitas_examples.llm.benchmark.test_scale_format import test_scale_quant
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_args import validate
@@ -634,6 +635,7 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
+        test_scale_quant(model)
         # create_weight_orig=True creates a copy of the weights for the model to use when disabling weight
         # quantization so that any downstream optimization can optimize w.r.t. the original reference model.
         # However, it also creates additional tensors that are stored on the CPU, but are cast to the GPU
