@@ -166,7 +166,7 @@ class Region:
     expand_region: bool = False
     act_axis: Optional[int] = None
 
-    def __eq__(self, other: Region) -> bool:
+    def __eq__(self, other) -> bool:
         if not isinstance(other, Region):
             return False
         # Check that sources/sinks keys match
