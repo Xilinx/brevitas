@@ -166,7 +166,7 @@ class Region:
     expand_region: bool = False
     act_axis: Optional[int] = None
 
-    def __eq__(self, other):
+    def __eq__(self, other: Region) -> bool:
         if not isinstance(other, Region):
             return False
         # Check that sources/sinks keys match
@@ -226,7 +226,7 @@ class Region:
         return self.max_shape_srcs == self.max_shape_sinks
 
     @property
-    def is_valid_activation_equalization(self):
+    def is_valid_activation_equalization(self) -> bool:
         return self.act_axis is not None
 
     @classmethod
@@ -236,9 +236,9 @@ class Region:
             sinks: Optional[Dict[str, EqualizationIndexes]] = None,
             name_to_module: Optional[Dict[str, nn.Module]] = None,
             acts: Optional[Tuple[nn.Module]] = None,
-            expand_region: bool = False):
+            expand_region: bool = False) -> Region:
 
-        def internal_name_to_module(name_to_module, name):
+        def internal_name_to_module(name_to_module: Dict[str, nn.Module], name: str) -> nn.Module:
             name = name.split("$")[0]
             return name_to_module[name]
 
@@ -708,7 +708,7 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
         return scale_fn(weight.reshape(weight.size(0), -1))
 
     @classmethod
-    def from_module_indexes(cls, module, indexes):
+    def from_module_indexes(cls, module: nn.Module, indexes: EqualizationIndexes) -> EqualizationSinkWrapper:
 
         weight_axis = _get_output_axis(module)
         act_axis = _get_act_axis(module)
@@ -745,7 +745,7 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
             weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
 
     @classmethod
-    def from_module_indexes(cls, module, indexes):
+    def from_module_indexes(cls, module: nn.Module, indexes: EqualizationIndexes) -> EqualizationSinkWrapper:
         weight_axis = _get_input_axis(module)
         act_axis = _get_act_axis(module)
         # For MultiheadAttention, we support only self-attention
