@@ -635,7 +635,6 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
-        test_scale_quant(model)
         # create_weight_orig=True creates a copy of the weights for the model to use when disabling weight
         # quantization so that any downstream optimization can optimize w.r.t. the original reference model.
         # However, it also creates additional tensors that are stored on the CPU, but are cast to the GPU
