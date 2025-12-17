@@ -166,7 +166,7 @@ class Region:
     expand_region: bool = False
     act_axis: Optional[int] = None
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: 'Region') -> bool:
         if not isinstance(other, Region):
             return False
         # Check that sources/sinks keys match
@@ -236,7 +236,7 @@ class Region:
             sinks: Optional[Dict[str, EqualizationIndexes]] = None,
             name_to_module: Optional[Dict[str, nn.Module]] = None,
             acts: Optional[Tuple[nn.Module]] = None,
-            expand_region: bool = False) -> Region:
+            expand_region: bool = False) -> 'Region':
 
         def internal_name_to_module(name_to_module: Dict[str, nn.Module], name: str) -> nn.Module:
             name = name.split("$")[0]
