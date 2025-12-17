@@ -674,7 +674,7 @@ class LLMRotationOptimizationCases:
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32339.005859375,
+            "quant_ppl": 32351.837890625,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
