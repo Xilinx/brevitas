@@ -213,3 +213,7 @@ class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
     scaling_stats_op = 'min_max'
     scaling_per_output_channel = True
     proxy_class = DynamicActFloatQuantProxyFromInjector
+
+
+class Fp8e4m3WeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3WeightPerChannelFloat):
+    pass

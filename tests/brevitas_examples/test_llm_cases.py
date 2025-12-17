@@ -60,7 +60,10 @@ class LLMRunCases:
                 "learned_round": "linear_round",
                 "learned_round_iters": 1,
                 "gpxq_block_name": "model.layers",
-            },
+            },{
+                "weight_quant_format": "float_e2m1",
+                "weight_param_method": "mse",
+            }
         ],
         ids=[
             "defaults",
@@ -81,6 +84,7 @@ class LLMRunCases:
             "quant_sdpa_functional_per_row",
             "functional_sdpa_quant=True,rotation=fused_no_fx",
             "per_group_w_padding,learned_round=linear_round",
+            "float_e2m1_and_mse"
         ],)
     def case_small_models_toggle_args(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict)

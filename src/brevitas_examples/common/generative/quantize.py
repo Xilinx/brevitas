@@ -70,6 +70,7 @@ from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActP
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
@@ -131,7 +132,10 @@ WEIGHT_QUANT_MAP = {
                 'per_channel': {
                     'sym': Fp8e4m3WeightPerChannelFloat},
                 'per_group': {
-                    'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
+                    'sym': Fp8e4m3WeightSymmetricGroupQuant}},
+            'mse': {
+                'per_channel': {
+                    'sym': Fp8e4m3WeightPerChannelFloatMSE}}}},
     'float_ocp': {
         'float_scale': {
             'stats': {
