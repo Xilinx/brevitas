@@ -708,7 +708,7 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
         return scale_fn(weight.reshape(weight.size(0), -1))
 
     @classmethod
-    def from_module_indexes(cls, module: nn.Module, indexes: EqualizationIndexes) -> EqualizationSinkWrapper:
+    def from_module_indexes(cls, module: nn.Module, indexes: EqualizationIndexes) -> 'EqualizationSourceWrapper':
 
         weight_axis = _get_output_axis(module)
         act_axis = _get_act_axis(module)
@@ -745,7 +745,7 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
             weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
 
     @classmethod
-    def from_module_indexes(cls, module: nn.Module, indexes: EqualizationIndexes) -> EqualizationSinkWrapper:
+    def from_module_indexes(cls, module: nn.Module, indexes: EqualizationIndexes) -> 'EqualizationSinkWrapper':
         weight_axis = _get_input_axis(module)
         act_axis = _get_act_axis(module)
         # For MultiheadAttention, we support only self-attention
