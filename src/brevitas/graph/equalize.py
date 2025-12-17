@@ -39,6 +39,7 @@ from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
+from brevitas.graph.hadamard import is_pow2
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
@@ -1568,7 +1569,8 @@ def _compute_rotations(
         regions: List[Region],
         full_rotation_method='had',
         fuse_rotations: bool = True,
-        expansion_step: int = 1):
+        expansion_step: int = 1,
+        block_rotation_dim: Optional[int] = None):
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1613,6 +1615,10 @@ def _compute_rotations(
                     logging.info("Skipping region")
                     continue
 
+        hidden_dim = hidden_dim if not region.expand_region else expanded_hidden_dim
+        if block_rotation_dim is not None and hidden_dim // block_rotation_dim > 1 and hidden_dim % block_rotation_dim == 0:
+            hidden_dim = block_rotation_dim
+            K = 1 if is_pow2(hidden_dim) else K
         # Cast rotation matrix to the weight dtype
         if rot_mat is not None:
             dtype = next(model.parameters()).dtype
@@ -1634,11 +1640,7 @@ def _compute_rotations(
                     module=module,
                     tensor_name=tensor_name,
                     transform_module=RotationWeightParametrization(
-                        rot_mat=rot_mat,
-                        rot_func=rot_func,
-                        axis=axis,
-                        K=K,
-                        hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
+                        rot_mat=rot_mat, rot_func=rot_func, axis=axis, K=K, hidden_dim=hidden_dim))
                 rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
@@ -1649,8 +1651,8 @@ def _compute_rotations(
             if region.expand_region:
                 rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
-                hidden_dim = module.weight.shape[1]
-                new_hidden = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
+                dim_to_expand = module.weight.shape[1]
+                new_hidden = find_closest_hadamard_number(dim_to_expand, steps=expansion_step)
                 new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
                 # Modify the weights in-place
                 setattr(module, 'weight', torch.nn.Parameter(new_weights))
@@ -1667,7 +1669,7 @@ def _compute_rotations(
                     rot_func=rot_func,
                     axis=weight_axis,
                     K=K,
-                    hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
+                    hidden_dim=hidden_dim))
             rewriters.append(rewriter)
             # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
@@ -1679,7 +1681,8 @@ def _compute_rotations(
                         "had_mat": rot_mat,
                         "k": K,
                         "expansion_step": expansion_step,
-                        "expand_input": region.expand_region})
+                        "expand_input": region.expand_region,
+                        "hidden_dim": hidden_dim})
                 rewriters.append(rewriter)
 
     return rewriters
@@ -1846,6 +1849,7 @@ class GraphRotationEqualization(RotationEqualization):
             rotate_matmul: bool = False,
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
+            block_rotation_dim: Optional[int] = None,
             layers_to_expand: Optional[List[str]] = None,
             expansion_step: int = None,
             delay_rewriters: bool = False,
@@ -1866,6 +1870,8 @@ class GraphRotationEqualization(RotationEqualization):
         self.sdpa_regions = sdpa_regions
         self.expansion_step = expansion_step
         self.delay_rewriters = delay_rewriters
+        self.block_rotation_dim = block_rotation_dim
+
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
         if use_parametrized_rotations:
@@ -2043,14 +2049,16 @@ class GraphRotationEqualization(RotationEqualization):
                     first_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
-                    expansion_step=first_exp_step))
+                    expansion_step=first_exp_step,
+                    block_rotation_dim=self.block_rotation_dim))
             rewriters.extend(
                 _compute_rotations(
                     graph_model,
                     second_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
-                    expansion_step=second_exp_step))
+                    expansion_step=second_exp_step,
+                    block_rotation_dim=self.block_rotation_dim))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
@@ -2158,10 +2166,12 @@ class LayerwiseActivationRotation(RotationEqualization):
             self,
             blacklist_layer: Optional[List] = None,
             layers_to_expand: Optional[List] = None,
-            expansion_step: int = 0):
+            expansion_step: int = 0,
+            block_rotation_dim: Optional[int] = None):
         super().__init__(blacklist_layer, layers_to_expand)
         self.expansion_step = expansion_step
         self.supported_sinks = (nn.Linear)
+        self.block_rotation_dim = block_rotation_dim
 
     def apply(self, model: nn.Module) -> nn.Module:
         regions: List[Region] = []
@@ -2175,6 +2185,11 @@ class LayerwiseActivationRotation(RotationEqualization):
         if len(expanded_regions) > 0:
             regions.extend(expanded_regions)
         if len(regions) > 0:
-            rewriters.extend(_compute_rotations(model, regions, expansion_step=self.expansion_step))
+            rewriters.extend(
+                _compute_rotations(
+                    model,
+                    regions,
+                    expansion_step=self.expansion_step,
+                    block_rotation_dim=self.block_rotation_dim))
         model = self.transform_model(model, rewriters, delay_rewriters=False)
         return model

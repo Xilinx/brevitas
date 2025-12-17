@@ -123,7 +123,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         use_parametrized_rotations=args.optimize_rotations,
         delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
-        layers_to_expand=layers_to_expand)
+        layers_to_expand=layers_to_expand,
+        block_rotation_dim=args.block_rotation_dim)
     fx_model, rewriters = eq.apply(fx_model)
 
     model = offload_model(model)
@@ -335,13 +336,16 @@ def quantize_llm(args, extra_args=None):
             sdpa_regions=args.rotation_sdpa_regions,
             use_parametrized_rotations=args.optimize_rotations,
             expansion_step=args.expansion_step,
-            layers_to_expand=layers_to_expand)
+            layers_to_expand=layers_to_expand,
+            block_rotation_dim=args.block_rotation_dim)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
         model = offload_model(model)
         eq = LayerwiseActivationRotation(
-            layers_to_expand=layers_to_expand, expansion_step=args.expansion_step)
+            layers_to_expand=layers_to_expand,
+            expansion_step=args.expansion_step,
+            block_rotation_dim=args.block_rotation_dim)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'fused_no_fx':

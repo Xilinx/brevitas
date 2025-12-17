@@ -360,6 +360,11 @@ def create_args_parser() -> ArgumentParser:
         help=
         'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
     )
+    parser.add_argument(
+        '--block-rotation-dim',
+        type=int,
+        default=None,
+        help='Perform blockwise rotations when possible. Default: %(default)s')
     parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
     parser.add_argument(
         '--svd-quant-rank',

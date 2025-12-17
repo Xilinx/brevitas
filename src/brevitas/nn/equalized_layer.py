@@ -73,7 +73,8 @@ class RotatedModule(torch.nn.Module):
             had_mat: Optional[torch.Tensor] = None,
             k: Optional[int] = None,
             expansion_step: int = 1,
-            expand_input: bool = False) -> None:
+            expand_input: bool = False,
+            hidden_dim: Optional[int] = None) -> None:
         super().__init__()
         if had_mat is not None:
             self.had_mat = torch.nn.Parameter(had_mat).cpu()
@@ -83,6 +84,7 @@ class RotatedModule(torch.nn.Module):
         self.k = k
         self.expansion_step = expansion_step
         self.expand_input = expand_input
+        self.hidden_dim = hidden_dim
 
     def forward(self, inp, **kwargs):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
@@ -94,6 +96,12 @@ class RotatedModule(torch.nn.Module):
                 num_features, steps=self.expansion_step)
             inp = pad_to_dim(inp, featured_dim, expanded_num_features)
 
+        init_shape = inp.shape
+        if self.hidden_dim is not None:
+            # This allows us to perform hadamard on a subset of the channel dimension
+            # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+            inp = inp.reshape(*init_shape[:-1], init_shape[-1] // self.hidden_dim,
+                              self.hidden_dim).squeeze()
         if is_cuda and fast_hadamard_transform is not None:
             if self.had_mat is None or self.k is None:
                 had_K, K = get_hadK(inp.shape[-1])
@@ -103,6 +111,7 @@ class RotatedModule(torch.nn.Module):
             inp = matmul_hadU_cuda(inp, had_K, K)
         else:
             inp = matmul_hadU(inp)
+        inp = inp.reshape(init_shape)
         o = self.layer(inp)
 
         return o
