@@ -1587,8 +1587,9 @@ def _compute_rotations(
         # Initialize variables
         hidden_dim = region.max_shape_sinks
         expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
-
         if not insert_rotation_module and full_rotation_method == 'ort':
+            assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
+            assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
             rot_mat = random_orthogonal_matrix(hidden_dim)
             rot_func = _apply_ort_device
         elif not insert_rotation_module and not fuse_rotations:
@@ -1607,7 +1608,7 @@ def _compute_rotations(
                 rot_func = _apply_had_device
             except AssertionError as e:
                 logging.info(f"Incompatible dim {hidden_dim} for hadamard rotation")
-                if not insert_rotation_module:
+                if not insert_rotation_module and not region.expand_region and block_rotation_dim is None:
                     logging.info("Falling back to orthogonal matrices")
                     rot_mat = random_orthogonal_matrix(hidden_dim)
                     rot_func = _apply_ort_device
@@ -1616,9 +1617,20 @@ def _compute_rotations(
                     continue
 
         hidden_dim = hidden_dim if not region.expand_region else expanded_hidden_dim
-        if block_rotation_dim is not None and hidden_dim // block_rotation_dim > 1 and hidden_dim % block_rotation_dim == 0:
-            hidden_dim = block_rotation_dim
-            K = 1 if is_pow2(hidden_dim) else K
+        # Check if we are doing block_rotation and if it is compatible with the current shape
+        if block_rotation_dim is not None:
+            if hidden_dim // block_rotation_dim > 1 and hidden_dim % block_rotation_dim == 0:
+                hidden_dim = block_rotation_dim
+                rot_mat, K = get_hadK(block_rotation_dim)
+                if region.expand_region:
+                    expanded_rot_mat, expanded_K = rot_mat, K
+            else:
+                logging.info(
+                    "Block rotation shape is not compatible with the region shape, skipping")
+
+        if region.expand_region:
+            rot_mat, K = expanded_rot_mat, expanded_K
+
         # Cast rotation matrix to the weight dtype
         if rot_mat is not None:
             dtype = next(model.parameters()).dtype
@@ -1647,17 +1659,14 @@ def _compute_rotations(
             module = region.get_module_from_name(name)
             weight_axis = _get_input_axis(module)
 
-            # Only "weight" is rotated
             if region.expand_region:
-                rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
-                dim_to_expand = module.weight.shape[1]
-                new_hidden = find_closest_hadamard_number(dim_to_expand, steps=expansion_step)
-                new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
+                new_weights = pad_to_dim(module.weight.data, weight_axis, expanded_hidden_dim)
                 # Modify the weights in-place
                 setattr(module, 'weight', torch.nn.Parameter(new_weights))
-                module.in_features = int(new_hidden)
+                module.in_features = int(expanded_hidden_dim)
 
+            # Only "weight" is rotated
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
             rewriter_class = ModuleInstanceTransformTensor if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
             # Obtain rewriters for applying the rotations
