@@ -3,8 +3,8 @@
 
 import pytest
 import pytest_cases
-from brevitas import config
 
+from brevitas import config
 from tests.brevitas_examples.common import process_args_and_metrics
 
 
