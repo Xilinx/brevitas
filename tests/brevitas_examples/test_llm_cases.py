@@ -1,7 +1,9 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest
 import pytest_cases
+from brevitas import config
 
 from tests.brevitas_examples.common import process_args_and_metrics
 
@@ -87,6 +89,8 @@ class LLMRunCases:
             "float_e2m1_and_mse"
         ],)
     def case_small_models_toggle_args(self, run_dict, default_run_args, request):
+        if config.JIT_ENABLED and run_dict.get("weight_param_method") == "mse":
+            pytest.skip(reason=f'MSE as weight_param_method requires JIT to be disabled')(f)
         yield process_args_and_metrics(default_run_args, run_dict)
 
 class LLMPerplexityCases:
