@@ -1571,6 +1571,7 @@ def _compute_rotations(
         fuse_rotations: bool = True,
         expansion_step: int = 1,
         block_rotation_dim: Optional[int] = None):
+
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1584,12 +1585,14 @@ def _compute_rotations(
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
+        if not insert_rotation_module and full_rotation_method == 'ort':
+            assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
+            assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
+
         # Initialize variables
         hidden_dim = region.max_shape_sinks
         expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
         if not insert_rotation_module and full_rotation_method == 'ort':
-            assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
-            assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
             rot_mat = random_orthogonal_matrix(hidden_dim)
             rot_func = _apply_ort_device
         elif not insert_rotation_module and not fuse_rotations:
@@ -1626,7 +1629,8 @@ def _compute_rotations(
                     expanded_rot_mat, expanded_K = rot_mat, K
             else:
                 logging.info(
-                    "Block rotation shape is not compatible with the region shape, skipping")
+                    "Block rotation shape is not compatible with the region shape, perfoming normal rotations"
+                )
 
         if region.expand_region:
             rot_mat, K = expanded_rot_mat, expanded_K

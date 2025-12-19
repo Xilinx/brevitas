@@ -429,7 +429,7 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
     'mask',
     itertools.product([False, True], repeat=3),
     ids=lambda mask: "-".join([rot for mask_el, rot in zip(mask, ["R1", "R2", "R3"]) if mask_el]))
-@pytest_cases.parametrize('full_rotation_method', ['ort'])
+@pytest_cases.parametrize('full_rotation_method', ['ort', 'had'])
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 @pytest_cases.parametrize('fuse_rotations', [False, True], ids=["unfused", "fused"])
 @pytest_cases.parametrize('use_fx', [True, False], ids=["fx", "no-fx"])
