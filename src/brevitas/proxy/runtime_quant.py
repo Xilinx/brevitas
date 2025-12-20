@@ -113,6 +113,10 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
                 self.fused_activation_quant_proxy.tensor_quant, dynamic=True, fullgraph=fullgraph)
 
     @property
+    def is_proxy_compiled(self):
+        return 'OptimizedModule' in str(type(self.fused_activation_quant_proxy.tensor_quant))
+
+    @property
     def input_view_impl(self):
         if self.fused_activation_quant_proxy.tensor_quant is not None and not isinstance(
                 self.fused_activation_quant_proxy.tensor_quant, _TensorQuantDisabledIdentity):
