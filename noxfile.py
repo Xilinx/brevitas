@@ -176,7 +176,7 @@ def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
     session.install('-e', '.[test, llm, export]', *cmd, 'lighteval[math]')
-    session.run('pytest', '-n', 'logical', '-m', 'lighteval', 'tests/brevitas_examples/test_llm.py')
+    session.run('pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -190,7 +190,7 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
     session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval')
-    session.run('pytest', '-n', 'logical', '-m', 'lm_eval', 'tests/brevitas_examples/test_llm.py')
+    session.run('pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
