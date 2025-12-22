@@ -113,7 +113,7 @@ def intercept_input(
 def apply_awq(
     model: nn.Module,
     tokenizer,
-    calibration_loader: DatasetToDevice,
+    calibration_dataset: DatasetToDevice,
     args: Namespace,
     auto_scale: bool = True,
     mse_range: bool = True,
@@ -127,7 +127,7 @@ def apply_awq(
         get_blocks_attribute(model) if args.gpxq_block_name is None else args.gpxq_block_name)
 
     # Concatenate input_ids across the batch dimension
-    samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
+    samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_dataset)), dim=0)
 
     first_block = blocks[0]
     cached_args, cached_kwargs = [], []

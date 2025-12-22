@@ -4,6 +4,8 @@
 from dataclasses import dataclass
 from dataclasses import field
 import os
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -12,11 +14,13 @@ from datasets import Dataset
 import torch
 import transformers
 from transformers import Trainer
+from transformers.data.data_collator import InputDataClass
 from transformers.tokenization_utils import PreTrainedTokenizerBase
 
 from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+from brevitas_examples.llm.llm_quant.data_utils import collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
 
@@ -44,28 +48,19 @@ def parse_rotation_optimization_args(extra_args: Optional[List[str]] = None) -> 
 
 
 # Function to create a batch
-def collate_fn(kwargs_list, return_tensors="pt"):
-    kwargs = {}
-    for curr_dict in kwargs_list:
-        for key, value in curr_dict.items():
-            if isinstance(value, torch.Tensor):
-                if key not in kwargs:
-                    kwargs[key] = []
-                kwargs[key].append(value)
-            else:
-                if key not in kwargs:
-                    kwargs[key] = value
-    for key, value in kwargs.items():
-        if isinstance(value, list) and len(value) > 0:
-            kwargs[key] = torch.cat(kwargs[key], dim=0)
-    return kwargs
+def data_collator(kwargs_list: List[InputDataClass], return_tensors: str = "pt") -> Dict[str, Any]:
+    assert (return_tensors == "pt") or (return_tensors is None), f"Only 'pt' is supported as a value for return_tensors. However {return_tensors} was received."
+    return collate_fn(kwargs_list)
 
 
 def _prepare_train_dataset(train_dataset: DatasetToDevice) -> Dataset:
     return DatasetToDevice(
-        data=[{
-            "input_ids": train_datapoint["input_ids"], "labels": train_datapoint["input_ids"]}
-              for train_datapoint in train_dataset.data],
+        data=[
+            {
+                # setting "labels" to train_datapoint["input_ids"] is correct since "labels"
+                # are just input_ids shifted by 1 and this shift is handled later on.
+                "input_ids": train_datapoint["input_ids"],
+                "labels": train_datapoint["input_ids"]} for train_datapoint in train_dataset.data],
         device=None)
 
 
@@ -116,7 +111,7 @@ def apply_rotation_optimization(
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
-        data_collator=collate_fn,
+        data_collator=data_collator,
         optimizers=(optimizer, None))
     trainer.train()
     # After finishing training, set eval mode again

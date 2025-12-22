@@ -166,7 +166,6 @@ def get_dataset_for_model(
             ) for _ in range(num_layers))
 
     data = DatasetToDevice(data, device=device)
-
     return data
 
 

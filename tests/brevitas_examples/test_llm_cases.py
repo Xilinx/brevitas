@@ -122,12 +122,25 @@ class LLMPerplexityCases:
                 "quant_sdpa": "fx",
                 "float_ppl": 51649.797,
                 "quant_ppl": 51688.922},
+            {
+                "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
+                "calibration_batch_size": 2,
+                "seqlen": 4,
+                "gptq": True,
+                "ln_affine_merge": True,
+                "convert_layernorm_to_rmsnorm": True,
+                "replace_rmsnorm": True,
+                "rotation": "fx",
+                "float_ppl": 50467.9575,
+                "quant_ppl": 50464.0117},
         ],
         ids=[
         "llama",
         "llama_float_dynamic_input",
         "mistral",
-        "opt-quant-sdpa",],)
+        "opt-quant-sdpa",
+        "rotation_fx_and_gptq"
+        ],)
     def case_small_models_with_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
 
@@ -157,7 +170,8 @@ class LLMPerplexityCases:
         ],
         ids=[
         "llama",
-        "mistral",],)
+        "mistral",
+        ],)
     def case_small_models_learned_round_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
 
@@ -185,7 +199,7 @@ class LLMPerplexityCases:
             "rotation_orphan_sink": False,
             "rotation_mode": "ort",
             "float_ppl": 32428.475,
-            "quant_ppl": 32351.035,},
+            "quant_ppl": 32406.865,},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_calibration": False,
@@ -236,7 +250,8 @@ class LLMPerplexityCases:
         "llama_fused_rotation_had",
         "llama_fused_rotation_had_no_orphan",
         "llama_layerwise",
-        "llama_fused_rotation_had_no_orphan_expanded"],)
+        "llama_fused_rotation_had_no_orphan_expanded"
+        ],)
     def case_small_models_rotation_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
 
@@ -559,7 +574,7 @@ class LLMRotationOptimizationCases:
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32414.531,
+            "quant_ppl": 32368.255,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -587,7 +602,7 @@ class LLMRotationOptimizationCases:
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32342.799,
+            "quant_ppl": 32367.639,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -615,7 +630,7 @@ class LLMRotationOptimizationCases:
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32491.781,
+            "quant_ppl": 32466.104,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -644,7 +659,7 @@ class LLMRotationOptimizationCases:
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32357.392578125,
+            "quant_ppl": 32352.826,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -672,7 +687,7 @@ class LLMRotationOptimizationCases:
                 "--gradient_accumulation_steps",
                 "1"],
             "float_ppl": 32428.475,
-            "quant_ppl": 32452.111,
+            "quant_ppl": 32482.518,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                 "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
