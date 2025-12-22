@@ -29,6 +29,7 @@ from brevitas.quant.experimental.float_quant_ocp import FpOCPAct
 from brevitas.quant.experimental.float_quant_ocp import FpOCPWeight
 from brevitas.quant.solver.act import ActQuantSolver
 from brevitas.quant.solver.weight import WeightQuantSolver
+from brevitas.utils.float_quant_utils import get_midmax_mantissa_bit_bias
 
 
 class GroupwiseWeightFloatProxyMixin(ExtendedInjector):
@@ -52,7 +53,7 @@ class RestrictThresholdMixin(ExtendedInjector):
     restrict_scaling_impl = PowerOfTwoRestrictValue
 
 
-class MXWeightMixin(ExtendedInjector):
+class MXMixin(ExtendedInjector):
     threshold_mixin = RestrictThresholdMixin
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
@@ -63,14 +64,17 @@ class MXWeightMixin(ExtendedInjector):
     def restrict_threshold_impl():
         return this.threshold_mixin.restrict_scaling_impl
 
+    @value
+    def midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values):
+        return get_midmax_mantissa_bit_bias(mantissa_bit_width, nan_values, inf_values)
 
-class MXActMixin(ExtendedInjector):
-    threshold_mixin = RestrictThresholdMixin
-    group_size = 32
-    restrict_scaling_type = RestrictValueType.POWER_OF_TWO
-    restrict_value_float_to_int_impl = FloorSte
+
+class MXWeightMixin(MXMixin):
+    pass
+
+
+class MXActMixin(MXMixin):
     scaling_impl = RuntimeDynamicGroupStatsScaling
-    scaling_per_output_type = ScalingPerOutputType.GROUP
 
     @value
     def stats_reduce_dim(group_dim):
@@ -79,10 +83,6 @@ class MXActMixin(ExtendedInjector):
             return -1
         else:
             return group_dim + 1
-
-    @value
-    def restrict_threshold_impl():
-        return this.threshold_mixin.restrict_scaling_impl
 
 
 class MXFloat8e4m3Weight(MXWeightMixin,

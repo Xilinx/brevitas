@@ -212,6 +212,13 @@ def max_float(exponent_bit_width: Tensor, max_mantissa: Tensor, exponent_bias: T
     return max_val
 
 
+@brevitas.jit.script
+def calculate_midmax_bias(mantissa_bit_width: Tensor, midmax_mantissa_bit_bias: float) -> Tensor:
+    return torch.log2(
+        (2 -
+         2 ** (-mantissa_bit_width - 1 + midmax_mantissa_bit_bias)))  # extra 1 for the implicit bit
+
+
 def get_upper_bound_on_l1_norm(
         accumulator_bit_width: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
     """Calculate the upper bound on the l1-norm of the weights needed to guarantee overflow avoidance

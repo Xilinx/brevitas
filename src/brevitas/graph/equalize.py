@@ -39,6 +39,7 @@ from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
+from brevitas.graph.hadamard import is_pow2
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
@@ -159,11 +160,18 @@ class EqualizationIndexes:
 # Required for being hashable
 @dataclass(eq=True, frozen=True)
 class Region:
-    srcs: Dict = field(default_factory=dict)
-    sinks: Dict = field(default_factory=dict)
-    acts: Tuple = field(default_factory=tuple)
-    name_to_module: Dict = field(default_factory=dict)
+    srcs: Dict[str, EqualizationIndexes] = field(default_factory=dict)
+    sinks: Dict[str, EqualizationIndexes] = field(default_factory=dict)
+    acts: Tuple[nn.Module] = field(default_factory=tuple)
+    name_to_module: Dict[str, nn.Module] = field(default_factory=dict)
     expand_region: bool = False
+    act_axis: Optional[int] = None
+
+    def __eq__(self, other: 'Region') -> bool:
+        if not isinstance(other, Region):
+            return False
+        # Check that sources/sinks keys match
+        return self.srcs.keys() == other.srcs.keys() and self.sinks.keys() == other.sinks.keys()
 
     @property
     def srcs_names(self):
@@ -184,7 +192,8 @@ class Region:
         # number of output channel.
         # Furthermore, all output channels of all the sources are always fully equalized.
         max_shape_srcs = 0
-        for name, indexes in self.srcs.items():
+        for name, module in self.srcs.items():
+            indexes = module.equalization_indexes
             max_shape_srcs = max(max_shape_srcs, indexes.end + indexes.offset)
         return max_shape_srcs
 
@@ -193,7 +202,12 @@ class Region:
         # Compute the number of input channel from the sinks. If we are equalizing through cat,
         # we need to slice and potentially select only a subset of input channel from sinks.
         max_shape_sinks = 0
-        for name, indexes in self.sinks.items():
+        for name, module in self.sinks.items():
+            indexes = module.equalization_indexes
+
+            if indexes == _UNSUPPORTED_OP:
+                # Invalidate region
+                return 0
             max_shape_sinks = max(max_shape_sinks, indexes.offset + (indexes.end - indexes.start))
         return max_shape_sinks
 
@@ -212,6 +226,62 @@ class Region:
         # match the equalizable channels of the sinks
         return self.max_shape_srcs == self.max_shape_sinks
 
+    @property
+    def is_valid_activation_equalization(self) -> bool:
+        return self.act_axis is not None
+
+    @classmethod
+    def from_dicts(
+            cls,
+            srcs: Optional[Dict[str, EqualizationIndexes]] = None,
+            sinks: Optional[Dict[str, EqualizationIndexes]] = None,
+            name_to_module: Optional[Dict[str, nn.Module]] = None,
+            acts: Optional[Tuple[nn.Module]] = None,
+            expand_region: bool = False) -> 'Region':
+
+        def internal_name_to_module(name_to_module: Dict[str, nn.Module], name: str) -> nn.Module:
+            name = name.split("$")[0]
+            return name_to_module[name]
+
+        srcs = dict() if srcs is None else srcs
+        sinks = dict() if sinks is None else sinks
+        acts = tuple() if acts is None else acts
+        name_to_module = dict() if name_to_module is None else name_to_module
+
+        new_sink_dict = dict()
+        for name, indexes in sinks.items():
+            module = internal_name_to_module(name_to_module, name)
+            # For MultiheadAttention, we support only self-attention
+            if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
+                new_sink_dict[name] = _UNSUPPORTED_OP
+                continue
+            new_sink_dict[name] = EqualizationSinkWrapper.from_module_indexes(module, indexes)
+
+        new_srcs_dict = dict()
+        for name, indexes in srcs.items():
+            module = internal_name_to_module(name_to_module, name)
+            new_srcs_dict[name] = EqualizationSourceWrapper.from_module_indexes(module, indexes)
+
+        # Act axis tries to determine the channel/feature dimension of the activation tensor
+        # To do this we check sources and sinks, and the type of layers will give us the axis.
+        # The logic is the follow:
+        # - If sources or sinks have undefined act axis (like Batch Norm), we use the other group
+        # - If the act axis of sources and sinks is different, then we set it to None (no axis)
+        # - If both are unsupported/undefined, then we set it to None (no axis)
+        list_of_act_axes = [
+            module.act_axis
+            for module in chain(new_sink_dict.values(), new_srcs_dict.values())
+            if module.act_axis is not None]
+        # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
+        # do not perform equalization
+        act_axis = None
+        if len(list_of_act_axes) > 0:
+            act_axis = list_of_act_axes[0]
+            if any([act_axis != axis for axis in list_of_act_axes]):
+                act_axis = None
+
+        return cls(new_srcs_dict, new_sink_dict, acts, name_to_module, expand_region, act_axis)
+
 
 @dataclass
 class WalkRegionState:
@@ -225,6 +295,8 @@ class WalkRegionState:
     supported_sinks: set = _supported_layers
     scale_invariant_function: set = _scale_invariant_op
     scale_invariant_layers: set = _scale_invariant_layers
+    residual_fns: set = _residual_fns
+    residual_methods: set = _residual_methods
 
     cat_encoutered: bool = False
     offset: int = 0
@@ -529,9 +601,10 @@ class EqualizationModuleWrapper:
     def __init__(
             self,
             module: nn.Module,
-            weight_tensor_name: str,
             weight_axis: int,
+            act_axis: int,
             equalization_indexes: EqualizationIndexes,
+            weight_tensor_name: str = 'weight',
             bias_tensor_name: Optional[str] = None,
             bias_axis: int = 0) -> None:
         self.module = module
@@ -540,6 +613,7 @@ class EqualizationModuleWrapper:
         self.equalization_indexes = equalization_indexes
         self._bias_tensor_name = bias_tensor_name
         self.bias_axis = bias_axis
+        self.act_axis = act_axis
 
     @property
     def weight(self) -> Optional[nn.Parameter]:
@@ -597,16 +671,19 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
     def __init__(
             self,
             module: nn.Module,
-            weight_tensor_name: str,
             weight_axis: int,
+            act_axis: Optional[int],
             equalization_indexes: EqualizationIndexes,
-            bias_tensor_name: Optional[str] = None,
+            weight_tensor_name: str = 'weight',
+            bias_tensor_name: Optional[str] = 'bias',
             bias_axis: int = 0) -> None:
+
         super().__init__(
             module,
-            weight_tensor_name,
             weight_axis,
+            act_axis,
             equalization_indexes,
+            weight_tensor_name,
             bias_tensor_name,
             bias_axis)
 
@@ -631,16 +708,30 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
         weight = weight.cpu().to(torch.float32)
         return scale_fn(weight.reshape(weight.size(0), -1))
 
+    @classmethod
+    def from_module_indexes(
+            cls, module: nn.Module, indexes: EqualizationIndexes) -> 'EqualizationSourceWrapper':
+
+        weight_axis = _get_output_axis(module)
+        act_axis = _get_act_axis(module)
+
+        if isinstance(module, nn.MultiheadAttention):
+            module = module.out_proj
+
+        return cls(module, weight_axis, act_axis, indexes)
+
 
 class EqualizationSinkWrapper(EqualizationModuleWrapper):
 
     def __init__(
             self,
             module: nn.Module,
-            weight_tensor_name: str,
             weight_axis: int,
-            equalization_indexes: EqualizationIndexes) -> None:
-        super().__init__(module, weight_tensor_name, weight_axis, equalization_indexes)
+            act_axis: int,
+            equalization_indexes: EqualizationIndexes,
+            weight_tensor_name: str) -> None:
+
+        super().__init__(module, weight_axis, act_axis, equalization_indexes, weight_tensor_name)
 
     def _get_transform_module_kwargs(self) -> Dict[str, Any]:
         channel_range = self.equalization_indexes.end - self.equalization_indexes.start
@@ -654,6 +745,20 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
         weight = transpose(self.weight.cpu().to(torch.float32), self.weight_axis)
         return scale_fn(weight.reshape(
             weight.size(0), -1))[self.equalization_indexes.start:self.equalization_indexes.end]
+
+    @classmethod
+    def from_module_indexes(
+            cls, module: nn.Module, indexes: EqualizationIndexes) -> 'EqualizationSinkWrapper':
+        weight_axis = _get_input_axis(module)
+        act_axis = _get_act_axis(module)
+        # For MultiheadAttention, we support only self-attention
+        # For sinks, we only need to modify the weight but not the bias
+        if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
+            # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
+            weight_tensor_name = "in_proj_weight"
+        else:
+            weight_tensor_name = "weight"
+        return cls(module, weight_axis, act_axis, indexes, weight_tensor_name)
 
 
 # When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
@@ -694,82 +799,29 @@ def _cross_layer_equalization(
         module = region.get_module_from_name(name)
         maybe_allocate_params_accelerate(module)
 
-    act_sink_axes = {}
-    act_sources_axes = {}
     single_module = region.get_module_from_name(next(iter(region.sinks_names)))
     device = next(single_module.parameters()).device
     dtype = next(single_module.parameters()).dtype
 
-    src_axes = {}
-    for name, indexes in region.srcs.items():
-        module = region.get_module_from_name(name)
-        # If module is not supported, do not perform graph equalization
-        weight_axis = _get_output_axis(module)
-        act_sources_axes[name] = _get_act_axis(module)
-
-        if isinstance(module, nn.MultiheadAttention):
-            module = module.out_proj
-
-        src_axes[name] = EqualizationSourceWrapper(
-            module=module,
-            weight_tensor_name="weight",
-            weight_axis=weight_axis,
-            equalization_indexes=indexes,
-            bias_tensor_name="bias",
-            bias_axis=0,
-        )
-
-    sink_axes = {}
-    for name, indexes in region.sinks.items():
-        module = region.get_module_from_name(name)
-        weight_axis = _get_input_axis(module)
-        act_sink_axes[name] = _get_act_axis(module)
-        # For MultiheadAttention, we support only self-attention
-        # For sinks, we only need to modify the weight but not the bias
-        if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
-            # The weight attribute to equalize in nn.MultiheadAttention sinks is named "in_proj_weight"
-            weight_tensor_name = "in_proj_weight"
-        elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
-            return _no_equalize()
-        else:
-            weight_tensor_name = "weight"
-
-        sink_axes[name] = EqualizationSinkWrapper(
-            module=module,
-            weight_tensor_name=weight_tensor_name,
-            weight_axis=weight_axis,
-            equalization_indexes=indexes,
-        )
-
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
-    axes_to_check = [m.weight_axis for m in list(src_axes.values()) + list(sink_axes.values())]
+    axes_to_check = [m.weight_axis for m in chain(region.srcs.values(), region.sinks.values())]
     if None in axes_to_check:
         return _no_equalize()
 
     # If act_val is enabled, use source or sink weights to determine the activation channel
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if list_of_act_val is not None:
-        list_of_sink_axes = [x for x in list(act_sink_axes.values()) if x is not None]
-        list_of_source_axes = [x for x in list(act_sources_axes.values()) if x is not None]
-        if len(list_of_sink_axes) > 0:
-            act_axis = list_of_sink_axes[0]
-        elif len(list_of_source_axes) > 0:
-            act_axis = list_of_source_axes[0]
-        else:
-            return _no_equalize()
-        # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
-        # do not perform equalization
-        if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
+        if not region.is_valid_activation_equalization:
             return _no_equalize()
 
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     srcs_range = -1 * torch.ones(region.max_shape_srcs, device='cpu', dtype=torch.float32)
     sinks_range = -1 * torch.ones(region.max_shape_sinks, device='cpu', dtype=torch.float32)
-    for name, module in sink_axes.items():
+    for name, module in region.sinks.items():
         # Sinks can be partially equalized, thus we need to select
         # only the channels we are interested in
-        indexes = region.sinks[name]
+        indexes = module.equalization_indexes
         # Compute the range of the channels we need to equalize
         weight_range = module.get_weight_range(scale_fn=scale_fn)
         # Compute the numbers of channels we are equalizing
@@ -778,10 +830,10 @@ def _cross_layer_equalization(
         sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
             sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
 
-    for name, module in src_axes.items():
+    for name, module in region.srcs.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
-        indexes = region.srcs[name]
+        indexes = module.equalization_indexes
         channel_start = indexes.offset + indexes.start
         channel_end = indexes.offset + indexes.end
         weight_range = module.get_weight_range(
@@ -794,7 +846,7 @@ def _cross_layer_equalization(
             shape_0 = list_of_act_val_shapes[0]
             if any(shape_0 != shape for shape in list_of_act_val_shapes):
                 return _no_equalize()
-        list_of_act_val = [transpose(act_val, act_axis) for act_val in list_of_act_val]
+        list_of_act_val = [transpose(act_val, region.act_axis) for act_val in list_of_act_val]
         srcs_range_act = scale_fn(
             torch.cat([
                 act_val.reshape(act_val.size(0), -1).cpu().to(torch.float32)
@@ -802,7 +854,7 @@ def _cross_layer_equalization(
                       1))
 
     if list_of_act_val is not None:
-        if co_optimize_act_weights and len(src_axes) > 0:
+        if co_optimize_act_weights and len(region.srcs) > 0:
             srcs_range = .5 * srcs_range + .5 * srcs_range_act
         else:
             srcs_range = srcs_range_act
@@ -831,11 +883,11 @@ def _cross_layer_equalization(
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
         for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
-            insert_mul_node_fn(scaling_factors, act_val_shape, act_axis)
+            insert_mul_node_fn(scaling_factors, act_val_shape, region.act_axis)
 
     # Whether to apply the scaling in-place or parametrize the weights instead
     rewriter_class = ModuleInstanceTransformTensor if fuse_scaling else ModuleInstanceRegisterParametrization
-    for module in chain(src_axes.values(), sink_axes.values()):
+    for module in chain(region.srcs.values(), region.sinks.values()):
         rewriters.extend(module.instantiate_rewriters(rewriter_class, scaling_factors))
 
     for r in rewriters:
@@ -922,6 +974,13 @@ def _is_scale_invariant_function(node: Node, scale_invariant_op: Set = _scale_in
     return out
 
 
+def _is_add(node, residual_fns, residual_methods):
+    node_target = node.meta.get('orig_target', node.target)
+    return (
+        node.op == 'call_method' and node_target in residual_methods or
+        node.op == 'call_function' and node_target in residual_fns)
+
+
 def get_weight_source(module):
     transpose = lambda weight, axis: weight if axis == 0 else weight.transpose(0, 1)
     if isinstance(module, nn.MultiheadAttention) and not hasattr(module, 'out_proj'):
@@ -951,7 +1010,7 @@ def find_srcs_channel_dim(state, model, inp_node):
         weight = get_weight_source(module)
         channel = weight.shape[0]
         return channel
-    elif _is_add(inp_node):
+    elif _is_add(inp_node, state.residual_fns, state.residual_methods):
         all_channels = []
         for n in inp_node.all_input_nodes:
             all_channels.append(find_srcs_channel_dim(state, model, n))
@@ -994,13 +1053,6 @@ def _is_cat(node):
     return node_target in (torch.cat,)
 
 
-def _is_add(node):
-    node_target = node.meta.get('orig_target', node.target)
-    return (
-        node.op == 'call_method' and node_target in _residual_methods or
-        node.op == 'call_function' and node_target in _residual_fns)
-
-
 def find_srcs(graph_model: GraphModule, starting_node: Node,
               state: WalkRegionState) -> Dict[str, Set]:
     node_list = starting_node.all_input_nodes
@@ -1029,8 +1081,7 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
                     node, state.scale_invariant_function):
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
-        elif (node.op == 'call_method' and node_target in _residual_methods or
-              node.op == 'call_function' and node_target in _residual_fns):
+        elif _is_add(node, state.residual_fns, state.residual_methods):
             state.update_offset = False
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
@@ -1077,8 +1128,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
                 graph_model, node, state.scale_invariant_layers) or _is_scale_invariant_function(
                     node, state.scale_invariant_function):
             find_sinks(graph_model, node, state)
-        elif (node.op == 'call_method' and node_target in _residual_methods or
-              node.op == 'call_function' and node_target in _residual_fns):
+        elif _is_add(node, state.residual_fns, state.residual_methods):
             state.update_offset = False
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
@@ -1148,13 +1198,13 @@ def _extract_regions(
                 sorted_sinks = dict(sorted(state.sinks.items()))
                 sorted_acts = tuple(sorted(state.acts))
                 if return_acts:
-                    region = Region(
+                    region = Region.from_dicts(
                         srcs=sorted_srcs,
                         sinks=sorted_sinks,
                         acts=sorted_acts,
                         name_to_module=state.name_to_module)
                 else:
-                    region = Region(
+                    region = Region.from_dicts(
                         srcs=sorted_srcs, sinks=sorted_sinks, name_to_module=state.name_to_module)
 
                 if region not in regions and region.is_valid:
@@ -1306,7 +1356,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(sinks={prefix: eq_indexes}, name_to_module={prefix: model})
+            region = Region.from_dicts(sinks={prefix: eq_indexes}, name_to_module={prefix: model})
             regions.append(region)
         else:
             for name, module in model.named_children():
@@ -1519,7 +1569,9 @@ def _compute_rotations(
         regions: List[Region],
         full_rotation_method='had',
         fuse_rotations: bool = True,
-        expansion_step: int = 1):
+        expansion_step: int = 1,
+        block_rotation_dim: Optional[int] = None):
+
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
     # applied is consistent, irrespective of the value of fuse_rotations. This is due to
@@ -1533,10 +1585,13 @@ def _compute_rotations(
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
+        if not insert_rotation_module and full_rotation_method == 'ort':
+            assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
+            assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
+
         # Initialize variables
         hidden_dim = region.max_shape_sinks
         expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
-
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
             rot_func = _apply_ort_device
@@ -1556,13 +1611,29 @@ def _compute_rotations(
                 rot_func = _apply_had_device
             except AssertionError as e:
                 logging.info(f"Incompatible dim {hidden_dim} for hadamard rotation")
-                if not insert_rotation_module:
+                if not insert_rotation_module and not region.expand_region and block_rotation_dim is None:
                     logging.info("Falling back to orthogonal matrices")
                     rot_mat = random_orthogonal_matrix(hidden_dim)
                     rot_func = _apply_ort_device
                 else:
                     logging.info("Skipping region")
                     continue
+
+        hidden_dim = hidden_dim if not region.expand_region else expanded_hidden_dim
+        # Check if we are doing block_rotation and if it is compatible with the current shape
+        if block_rotation_dim is not None:
+            if hidden_dim // block_rotation_dim > 1 and hidden_dim % block_rotation_dim == 0:
+                hidden_dim = block_rotation_dim
+                rot_mat, K = get_hadK(block_rotation_dim)
+                if region.expand_region:
+                    expanded_rot_mat, expanded_K = rot_mat, K
+            else:
+                logging.info(
+                    "Block rotation shape is not compatible with the region shape, perfoming normal rotations"
+                )
+
+        if region.expand_region:
+            rot_mat, K = expanded_rot_mat, expanded_K
 
         # Cast rotation matrix to the weight dtype
         if rot_mat is not None:
@@ -1585,28 +1656,21 @@ def _compute_rotations(
                     module=module,
                     tensor_name=tensor_name,
                     transform_module=RotationWeightParametrization(
-                        rot_mat=rot_mat,
-                        rot_func=rot_func,
-                        axis=axis,
-                        K=K,
-                        hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
+                        rot_mat=rot_mat, rot_func=rot_func, axis=axis, K=K, hidden_dim=hidden_dim))
                 rewriters.append(rewriter)
 
         for name, indexes in region.sinks.items():
             module = region.get_module_from_name(name)
             weight_axis = _get_input_axis(module)
 
-            # Only "weight" is rotated
             if region.expand_region:
-                rot_mat, K = expanded_rot_mat, expanded_K
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
-                hidden_dim = module.weight.shape[1]
-                new_hidden = find_closest_hadamard_number(hidden_dim, steps=expansion_step)
-                new_weights = pad_to_dim(module.weight.data, weight_axis, new_hidden)
+                new_weights = pad_to_dim(module.weight.data, weight_axis, expanded_hidden_dim)
                 # Modify the weights in-place
                 setattr(module, 'weight', torch.nn.Parameter(new_weights))
-                module.in_features = int(new_hidden)
+                module.in_features = int(expanded_hidden_dim)
 
+            # Only "weight" is rotated
             # If rotations are fused or if the module is an orphan sink, transform is applied directly onto the tensor
             rewriter_class = ModuleInstanceTransformTensor if insert_rotation_module or fuse_rotations else ModuleInstanceRegisterParametrization
             # Obtain rewriters for applying the rotations
@@ -1618,7 +1682,7 @@ def _compute_rotations(
                     rot_func=rot_func,
                     axis=weight_axis,
                     K=K,
-                    hidden_dim=hidden_dim if not region.expand_region else expanded_hidden_dim))
+                    hidden_dim=hidden_dim))
             rewriters.append(rewriter)
             # Replace by RotatedModule in orphan sink
             if insert_rotation_module and len(region.srcs) == 0:
@@ -1630,7 +1694,8 @@ def _compute_rotations(
                         "had_mat": rot_mat,
                         "k": K,
                         "expansion_step": expansion_step,
-                        "expand_input": region.expand_region})
+                        "expand_input": region.expand_region,
+                        "hidden_dim": hidden_dim})
                 rewriters.append(rewriter)
 
     return rewriters
@@ -1749,7 +1814,8 @@ class RotationEqualization(GraphTransform):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
+            region = Region.from_dicts(
+                sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
             regions.append(region)
         else:
             for name, module in model.named_children():
@@ -1766,7 +1832,7 @@ class RotationEqualization(GraphTransform):
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
-            region = Region(
+            region = Region.from_dicts(
                 sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model}, expand_region=True)
             regions.append(region)
         else:
@@ -1796,6 +1862,7 @@ class GraphRotationEqualization(RotationEqualization):
             rotate_matmul: bool = False,
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
+            block_rotation_dim: Optional[int] = None,
             layers_to_expand: Optional[List[str]] = None,
             expansion_step: int = None,
             delay_rewriters: bool = False,
@@ -1816,6 +1883,8 @@ class GraphRotationEqualization(RotationEqualization):
         self.sdpa_regions = sdpa_regions
         self.expansion_step = expansion_step
         self.delay_rewriters = delay_rewriters
+        self.block_rotation_dim = block_rotation_dim
+
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
         if use_parametrized_rotations:
@@ -1906,7 +1975,7 @@ class GraphRotationEqualization(RotationEqualization):
             end_index = head_dim if head_dim != -1 else output_weight.shape[0]
             output_index = EqualizationIndexes(0, end_index, 0)
 
-            region = Region(
+            region = Region.from_dicts(
                 srcs={'value_sdpa': value_index},
                 sinks={'output_sdpa': output_index},
                 name_to_module={
@@ -1986,7 +2055,6 @@ class GraphRotationEqualization(RotationEqualization):
 
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
-
         if len(regions) > 0:
             rewriters.extend(
                 _compute_rotations(
@@ -1994,14 +2062,16 @@ class GraphRotationEqualization(RotationEqualization):
                     first_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
-                    expansion_step=first_exp_step))
+                    expansion_step=first_exp_step,
+                    block_rotation_dim=self.block_rotation_dim))
             rewriters.extend(
                 _compute_rotations(
                     graph_model,
                     second_set,
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
-                    expansion_step=second_exp_step))
+                    expansion_step=second_exp_step,
+                    block_rotation_dim=self.block_rotation_dim))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():
@@ -2109,10 +2179,12 @@ class LayerwiseActivationRotation(RotationEqualization):
             self,
             blacklist_layer: Optional[List] = None,
             layers_to_expand: Optional[List] = None,
-            expansion_step: int = 0):
+            expansion_step: int = 0,
+            block_rotation_dim: Optional[int] = None):
         super().__init__(blacklist_layer, layers_to_expand)
         self.expansion_step = expansion_step
         self.supported_sinks = (nn.Linear)
+        self.block_rotation_dim = block_rotation_dim
 
     def apply(self, model: nn.Module) -> nn.Module:
         regions: List[Region] = []
@@ -2126,6 +2198,11 @@ class LayerwiseActivationRotation(RotationEqualization):
         if len(expanded_regions) > 0:
             regions.extend(expanded_regions)
         if len(regions) > 0:
-            rewriters.extend(_compute_rotations(model, regions, expansion_step=self.expansion_step))
+            rewriters.extend(
+                _compute_rotations(
+                    model,
+                    regions,
+                    expansion_step=self.expansion_step,
+                    block_rotation_dim=self.block_rotation_dim))
         model = self.transform_model(model, rewriters, delay_rewriters=False)
         return model

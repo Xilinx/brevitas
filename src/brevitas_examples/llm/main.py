@@ -10,7 +10,6 @@ import sys
 import warnings
 
 import numpy as np
-from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM
@@ -62,6 +61,7 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affi
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
@@ -92,9 +92,9 @@ def filter_results(results, tasks):
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
-    model.config.use_cache = False
     with torch.no_grad():
-        fx_model, guards = torch._dynamo.export(model)(**next(iter(calibration_loader)))
+        with make_dynamo_compatible(model) as dynamo_comp:
+            fx_model, guards = torch._dynamo.export(dynamo_comp.model)(**next(iter(calibration_loader)))
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
         fx_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
@@ -126,7 +126,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         use_parametrized_rotations=args.optimize_rotations,
         delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
-        layers_to_expand=layers_to_expand)
+        layers_to_expand=layers_to_expand,
+        block_rotation_dim=args.block_rotation_dim)
     fx_model, rewriters = eq.apply(fx_model)
 
     model = offload_model(model)
@@ -150,6 +151,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
     elif args.export_target == 'onnx_qcdq':
+        # Local import to allow for optional install
+        from optimum.exporters.onnx import onnx_export_from_model
+
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
@@ -295,7 +299,8 @@ def quantize_llm(args, extra_args=None):
 
     if require_fx:
         with torch.no_grad():
-            model, guards = torch._dynamo.export(model)(**next(iter(calibration_loader)))
+            with make_dynamo_compatible(model) as dynamo_comp:
+                model, guards = torch._dynamo.export(model)(**next(iter(calibration_loader)))
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
     model.eval()
@@ -342,13 +347,16 @@ def quantize_llm(args, extra_args=None):
             sdpa_regions=args.rotation_sdpa_regions,
             use_parametrized_rotations=args.optimize_rotations,
             expansion_step=args.expansion_step,
-            layers_to_expand=layers_to_expand)
+            layers_to_expand=layers_to_expand,
+            block_rotation_dim=args.block_rotation_dim)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
         model = offload_model(model)
         eq = LayerwiseActivationRotation(
-            layers_to_expand=layers_to_expand, expansion_step=args.expansion_step)
+            layers_to_expand=layers_to_expand,
+            expansion_step=args.expansion_step,
+            block_rotation_dim=args.block_rotation_dim)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'fused_no_fx':
@@ -662,9 +670,10 @@ def quantize_llm(args, extra_args=None):
             from lm_eval.models.huggingface import HFLM
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-
+                batch_size = 'auto' if args.few_shot_override_batch_size is None else args.few_shot_override_batch_size
                 wrapped_model = HFLM(
-                    pretrained=model, add_bos_token=True)  # need to wrap for LLM eval
+                    pretrained=model, add_bos_token=True,
+                    batch_size=batch_size)  # need to wrap for LLM eval
                 few_shot_eval_results = evaluator.simple_evaluate(
                     model=wrapped_model,
                     model_args=None,

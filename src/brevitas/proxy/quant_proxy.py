@@ -137,7 +137,12 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         # but before the state_dict of tensor_quant is loaded, so in case e.g. there is a value
         # for the parameter already, it's not overwritten
         if config.REINIT_ON_STATE_DICT_LOAD:
+            # When tensor_quant is init, we might lose information about the state (train vs eval)
+            # We keep track of them and restore them post initialization.
+            training_state = self.training
             self.init_tensor_quant()
+            self.train(training_state)
+
         # for retrocompatibility with when it wasn't removed
         zero_hw_sentinel_key = prefix + 'zero_hw_sentinel'
         if zero_hw_sentinel_key in unexpected_keys:

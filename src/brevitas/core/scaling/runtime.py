@@ -87,8 +87,7 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             scaling_affine_shifting_init: Optional[float],
             dtype: Optional[torch.dtype],
             device: Optional[torch.device],
-            restrict_scale_threshold_impl: Optional[Module] = None,
-            is_scale_unsigned: bool = True) -> None:
+            restrict_scale_threshold_impl: Optional[Module] = None) -> None:
         super(_StatsScaling, self).__init__()
         _affine_rescaling = scaling_affine_rescaling_init is not None
         _affine_shift_scale = scaling_affine_shifting_init is not None
@@ -104,12 +103,11 @@ class _StatsScaling(brevitas.jit.ScriptModule):
                 device)
         else:
             self.affine_rescaling = Identity()
-        self.restrict_clamp_scaling = _RestrictClampValue(
-            scaling_min_val, restrict_scaling_impl, is_scale_unsigned)
+        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_value_impl=restrict_scale_threshold_impl, is_unsigned=is_scale_unsigned)
+            restrict_value_impl=restrict_scale_threshold_impl)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.clamp_scaling = _ClampValue(scaling_min_val)
@@ -137,7 +135,6 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_stats_input_view_shape_impl: Module,
             scaling_shape: Tuple[int, ...],
-            is_scale_unsigned: bool = True,
             scaling_affine_rescaling_init: Optional[float] = None,
             scaling_affine_shifting_init: Optional[float] = None,
             restrict_scaling_impl: Module = FloatRestrictValue(),
@@ -169,8 +166,7 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_affine_rescaling_init=scaling_affine_rescaling_init,
             scaling_affine_shifting_init=scaling_affine_shifting_init,
             dtype=dtype,
-            device=device,
-            is_scale_unsigned=is_scale_unsigned)
+            device=device)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
@@ -225,8 +221,7 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
             scaling_min_val: Optional[float],
             restrict_scaling_impl: Module = FloatRestrictValue(),
             restrict_threshold_impl: Optional[Module] = None,
-            restrict_scale_threshold_impl: Optional[Module] = None,
-            is_scale_unsigned: bool = True) -> None:
+            restrict_scale_threshold_impl: Optional[Module] = None) -> None:
         super(RuntimeDynamicGroupStatsScaling, self).__init__()
 
         # Ensure retro-compatibility with shared threshold/scaling restrict
@@ -238,12 +233,11 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.scaling_stats_impl = scaling_stats_impl
         self.scaling_min_val = scaling_min_val
         self.input_view_impl = input_view_impl
-        self.restrict_clamp_scaling = _RestrictClampValue(
-            scaling_min_val, restrict_scaling_impl, is_scale_unsigned)
+        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
-            restrict_value_impl=restrict_scale_threshold_impl, is_unsigned=is_scale_unsigned)
+            restrict_value_impl=restrict_scale_threshold_impl)
         self.restrict_scaling_pre = self.restrict_clamp_scaling.restrict_value_impl.restrict_init_module(
         )
         self.restrict_threshold_pre = self.restrict_clamp_threshold.restrict_value_impl.restrict_init_module(

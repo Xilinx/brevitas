@@ -2,23 +2,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-from typing import Callable
 from typing import Optional
 from typing import Tuple
-from typing import Union
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.core.function_wrapper import Abs
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import InplaceLogTwo
 from brevitas.core.function_wrapper import LogTwo
 from brevitas.core.function_wrapper import PowerOfTwo
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import ScalarSignedClampMinSte
+from brevitas.core.function_wrapper.misc import Abs
+from brevitas.core.function_wrapper.misc import InplaceAbs
 from brevitas.inject.enum import FloatToIntImplType  # retrocompatibility
 from brevitas.inject.enum import RestrictValueType
 
@@ -31,8 +30,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_min_val: Optional[float] = None,
-            restrict_value_impl: Optional[Module] = None,
-            is_unsigned=True):
+            restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarSignedClampMinSte(scaling_min_val)
@@ -43,16 +41,10 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
         else:
             self.restrict_value_impl = Identity()
 
-        if is_unsigned:
-            self.apply_abs = Abs()
-        else:
-            self.apply_abs = Identity()
-
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         x = self.restrict_value_impl(x)
         x = self.clamp_min_ste(x)
-        x = self.apply_abs(x)
         return x
 
 
@@ -87,14 +79,23 @@ class _ClampValue(brevitas.jit.ScriptModule):
         return x
 
 
-class _AbsValue(brevitas.jit.ScriptModule):
+class FloatRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, is_unsigned: bool = True):
-        super(_AbsValue, self).__init__()
-        if is_unsigned:
-            self.apply_abs = Abs()
-        else:
-            self.apply_abs = Identity()
+    def __init__(self):
+        super(FloatRestrictValue, self).__init__()
+        self.apply_abs: Module = Abs()
+
+    def restrict_init_float(self, x: float):
+        return math.fabs(x)
+
+    def restrict_init_tensor(self, x: Tensor):
+        return torch.abs(x)
+
+    def restrict_init_module(self):
+        return Abs()
+
+    def restrict_init_inplace_module(self):
+        return InplaceAbs()
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
@@ -102,10 +103,10 @@ class _AbsValue(brevitas.jit.ScriptModule):
         return x
 
 
-class FloatRestrictValue(brevitas.jit.ScriptModule):
+class SignedFloatRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
-        super(FloatRestrictValue, self).__init__()
+        super(SignedFloatRestrictValue, self).__init__()
 
     def restrict_init_float(self, x: float) -> float:
         return x

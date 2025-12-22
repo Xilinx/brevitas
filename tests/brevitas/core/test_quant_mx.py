@@ -11,10 +11,12 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from hypothesis import example
 from hypothesis import given
 import pytest_cases
 import torch
 
+from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_linear import QuantLinear
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
@@ -139,21 +141,36 @@ class MXFP:
 
 
 MAP = {"e4m3": (4, 3), "e5m2": (5, 2), "e2m3": (2, 3), "e3m2": (3, 2), "e2m1": (2, 1)}
+SCALE_ROUNDING = ["floor", "midmax"]
+RANGE = 1e9
+
+edge_cases = [
+    torch.tensor([[7.5 if i == 0 else 1.0 for i in range(32)]]),  # MXFP4, MidMax
+    torch.tensor([[3.875 if i == 0 else 1.0 for i in range(32)]]),  # MXFP8E4M3, MidMax
+]
 
 
-@given(inp=float_tensor_nz_st(shape=(1, 32), max_val=1e10, min_val=-1e10))
+@example(inp=edge_cases[0])
+@example(inp=edge_cases[1])
+@given(inp=float_tensor_nz_st(shape=(1, 32), max_val=RANGE, min_val=-RANGE))
 @pytest_cases.parametrize('bit_widths', list(MAP.keys()))
-def test_act_mx(inp, bit_widths):
+@pytest_cases.parametrize('scale_rounding', SCALE_ROUNDING)
+def test_act_mx(inp, bit_widths, scale_rounding):
     torch.set_printoptions(precision=12, sci_mode=False)
     exp, mant = MAP[bit_widths]
 
+    extra_kwargs = {}
+    # Default rounding should be 'floor', so only create this dict if we are overriding the default
+    if scale_rounding == "midmax":
+        extra_kwargs["restrict_value_float_to_int_impl"] = RoundMidMaxSte
     act_quant = QuantIdentity(
         MXFloat8e4m3Act,
         exponent_bit_width=exp,
         mantissa_bit_width=mant,
         bit_width=mant + exp + 1,
         group_dim=1,
-        return_quant_tensor=True)
+        return_quant_tensor=True,
+        **extra_kwargs)
     act_quant.eval()
     x = inp
 
@@ -161,16 +178,23 @@ def test_act_mx(inp, bit_widths):
 
     qx = act_quant(x)
 
-    y = quantizer.quantize(x)
+    y = quantizer.quantize(x, select=scale_rounding == "midmax")
     assert torch.allclose(qx.value, y, atol=1e-8)
 
 
-@given(inp=float_tensor_nz_st(shape=(1, 32), max_val=1e10, min_val=-1e10))
+@example(inp=edge_cases[0])
+@example(inp=edge_cases[1])
+@given(inp=float_tensor_nz_st(shape=(1, 32), max_val=RANGE, min_val=-RANGE))
 @pytest_cases.parametrize('bit_widths', list(MAP.keys()))
+@pytest_cases.parametrize('scale_rounding', SCALE_ROUNDING)
 @pytest_cases.parametrize('weight_quant_type', ['stats', 'parameter_from_stats'])
-def test_weight_mx(inp, bit_widths, weight_quant_type):
+def test_weight_mx(inp, bit_widths, scale_rounding, weight_quant_type):
     torch.set_printoptions(precision=12, sci_mode=False)
     exp, mant = MAP[bit_widths]
+    extra_kwargs = {}
+    # Default rounding should be 'floor', so only create this dict if we are overriding the default
+    if scale_rounding == "midmax":
+        extra_kwargs["weight_restrict_value_float_to_int_impl"] = RoundMidMaxSte
     weight_quant = QuantLinear(
         32,
         1,
@@ -179,7 +203,8 @@ def test_weight_mx(inp, bit_widths, weight_quant_type):
         weight_scaling_impl_type=weight_quant_type,
         weight_exponent_bit_width=exp,
         weight_mantissa_bit_width=mant,
-        weight_bit_width=mant + exp + 1)
+        weight_bit_width=mant + exp + 1,
+        **extra_kwargs)
 
     x = inp
     weight_quant.weight.data = x
@@ -189,6 +214,6 @@ def test_weight_mx(inp, bit_widths, weight_quant_type):
     qx_weight = weight_quant.quant_weight()
     qx_weight_two = weight_quant.quant_weight()
 
-    y = quantizer.quantize(x)
+    y = quantizer.quantize(x, select=scale_rounding == "midmax")
     assert torch.allclose(qx_weight.value, y, atol=1e-8)
     assert torch.allclose(qx_weight_two.value, y, atol=1e-8)

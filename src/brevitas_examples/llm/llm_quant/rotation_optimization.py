@@ -12,11 +12,13 @@ from typing import Optional
 from accelerate.utils import DistributedType
 from datasets import Dataset
 import torch
+import torch.nn.functional as F
 import transformers
 from transformers import Trainer
 from transformers.data.data_collator import InputDataClass
 from transformers.tokenization_utils import PreTrainedTokenizerBase
 
+from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
@@ -31,6 +33,79 @@ class TrainingArguments(transformers.TrainingArguments):
     # NOTE: Currently, there is no infrastructure to resume training
     # from a checkpoint, so related files are not save by default
     save_strategy: Optional[str] = field(default="no")
+
+    ### Distillation Loss args
+    use_distillation_loss: bool = field(
+        default=False, metadata={"help": "Whether to compute the distillation loss."})
+    gamma: float = field(
+        default=1., metadata={"help": "Gamma balances CE loss (gamma) vs KD loss (1-gamma)."})
+    temperature: float = field(
+        default=1.0, metadata={"help": "Softmax temperature for the soft targets"})
+    # Considering the huge vocabulary size of LLMs, it could be better selecting only the first K
+    # labels when using the distillation loss
+    topk: int = field(
+        default=-1,
+        metadata={"help": "Consider the first K logits when computing distillation loss"})
+
+
+class GeneralizedTrainer(Trainer):
+
+    def __init__(self, args: TrainingArguments = None, **kwargs) -> None:
+        super().__init__(args=args, **kwargs)
+        self.use_distillation_loss = args.use_distillation_loss
+        self.gamma = args.gamma
+        self.temperature = args.temperature
+
+    @staticmethod
+    def forward_kl_loss(
+            student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
+
+        if topk > 0:
+            teacher_logits, indices = teacher_logits.topk(topk, dim=-1, sorted=False)
+            student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
+
+        # Apply temperature scaling
+        student_logits = student_logits / temperature
+        teacher_logits = teacher_logits / temperature
+
+        # Compute log probabilities for student and probabilities for teacher
+        student_log_probs = F.log_softmax(student_logits, dim=-1)
+        teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
+        student_log_probs = student_log_probs
+
+        loss = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
+        return loss
+
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        """
+        How the loss is computed by Trainer. By default, all models return the loss in the first element.
+
+        Subclass and override for custom behavior.
+        """
+        # If distillation loss is used, we need to retrieve the original model's outputs
+        distillation_return_outputs = return_outputs if not self.use_distillation_loss else True
+
+        loss = super().compute_loss(model, inputs, distillation_return_outputs, num_items_in_batch)
+
+        if distillation_return_outputs:
+            loss, outputs = loss
+
+        if self.use_distillation_loss:
+            with torch.no_grad(), quantization_status_manager(model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
+                fp_outputs = model(**inputs)
+            # Compute the distillation loss
+            distill_loss = GeneralizedTrainer.forward_kl_loss(
+                student_logits=outputs.logits,
+                teacher_logits=fp_outputs.logits,
+                temperature=self.temperature,
+            )
+            if (self.args.average_tokens_across_devices and
+                (self.model_accepts_loss_kwargs or self.compute_loss_func) and
+                    num_items_in_batch is not None):
+                distill_loss = distill_loss * self.accelerator.num_processes
+            loss = self.gamma * loss + (1. - self.gamma) * distill_loss
+
+        return (loss, outputs) if return_outputs else loss
 
 
 def parse_rotation_optimization_args(extra_args: Optional[List[str]] = None) -> TrainingArguments:
@@ -105,7 +180,7 @@ def apply_rotation_optimization(
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
     optimizer = CaileySGD(trainable_rotations, lr=training_args.learning_rate, stiefel=True)
-    trainer = Trainer(
+    trainer = GeneralizedTrainer(
         model=model,
         tokenizer=tokenizer,
         args=training_args,

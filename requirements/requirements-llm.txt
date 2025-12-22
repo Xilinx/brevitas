@@ -1,20 +1,12 @@
 accelerate
 datasets
 gguf==0.17.0
-lighteval[math]
-lm_eval
 numexpr<2.14.0
 onnx
 onnxruntime<1.21
-optimum[onnxruntime]
+optimum
 pandas
-# TODO (nf): Remove when unpinning `transformers`
-# peft>=0.18 is incompatible with transformers==4.50.0
-peft<0.18
-# TODO (pml): Remove when unpinning `transformers`, as `lighteval>=0.10.0`
-# requires this dependency explicitely.
-# See https://github.com/huggingface/lighteval/commit/2651750480d9a23ab0153f8ed3ef1d3331a2ea88.
 pydantic
 torch>=2.4
 tqdm
-transformers[sentencepiece]==4.50.0
+transformers[sentencepiece]

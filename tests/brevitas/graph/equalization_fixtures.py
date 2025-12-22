@@ -566,7 +566,7 @@ list_of_rotation_mixtures = ['linear_rms', 'attention_sdpa']
 rotation_fixtures = fixture_union(
     'rotation_fixtures', list_of_rotation_mixtures, ids=list_of_rotation_mixtures)
 
-IN_FEATURES = 12
+IN_FEATURES = 24
 RESIDUAL_MODEL_REGION_DICTS = [
     {
         "srcs": ["embedding", "block1_linear2", "block2_linear2"],

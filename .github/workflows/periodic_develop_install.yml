@@ -1,0 +1,79 @@
+name: Test develop install
+
+on:
+  schedule:
+  - cron: '37 19 * * 5' # 7:37am UTC every Friday
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+
+
+      matrix:
+        python_version: ['3.9', '3.10', '3.11', '3.12']
+        pytorch_version: ['1.12.1', '1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1', '2.6.0', '2.7.1', '2.8.0', '2.9.0']
+        platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
+
+
+        exclude:
+          - python_version: '3.9'
+            pytorch_version: '2.9.0'
+
+          - python_version: '3.11'
+            pytorch_version: '1.12.1'
+
+          - python_version: '3.11'
+            pytorch_version: '1.13.1'
+
+          - python_version: '3.12'
+            pytorch_version: '1.12.1'
+
+          - python_version: '3.12'
+            pytorch_version: '1.13.1'
+
+          - python_version: '3.12'
+            pytorch_version: '2.0.1'
+
+          - python_version: '3.12'
+            pytorch_version: '2.1.1'
+
+
+
+    steps:
+
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+       python-version: ${{ matrix.python_version }}
+
+    - name: Install Nox dependencies
+      shell: bash
+      run: pip install -r requirements/requirements-nox.txt
+
+    - name: Install update
+      shell: bash
+      run: sudo apt-get update
+      if: startsWith(runner.os, 'Linux') == true
+
+    - name: Install libsndfile and libgomp1 on Ubuntu
+      shell: bash
+      run: sudo apt-get install -y libsndfile-dev libgomp1
+      if: startsWith(runner.os, 'Linux') == true
+
+    - name: Install libomp on macOS
+      shell: bash
+      run: brew install libomp
+      if: startsWith(runner.os, 'macOS') == true
+
+    - name: Run Nox session for testing brevitas develop install and imports
+      shell: bash
+      run: nox -v -s tests_brevitas_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+
+    - name: Run Nox session for testing brevitas_examples develop install and imports
+      shell: bash
+      run: nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)

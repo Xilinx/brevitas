@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from abc import ABCMeta
+from functools import partial
 import math
 from typing import Optional
 from typing import Tuple
@@ -24,21 +24,24 @@ from .stats_wrapper import SCALAR_SHAPE
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
-
-class UnsignedScaleStat():
-
-    @classmethod
-    def is_scale_unsigned(cls):
-        True
+# The signedness of the statistics needs to be tracked to be used in subsequent checks
+SIGNEDNESS_STATS = {}
 
 
-class SignedScaleStats():
+def register_stats_implementation(signed: bool = False):
+    """
+    Decorator to register a stats implementation class.
+    :param signed: Indicates if the implementation returns signed values.
+    """
 
-    @classmethod
-    def is_scale_unsigned(cls):
-        False
+    def decorator(cls):
+        SIGNEDNESS_STATS[cls] = signed
+        return cls
+
+    return decorator
 
 
+@register_stats_implementation(signed=False)
 class NegativeMinOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'keepdim']
 
@@ -63,7 +66,8 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
         return min_val
 
 
-class AbsPercentile(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim', 'keepdim']
 
     def __init__(
@@ -97,6 +101,7 @@ class AbsPercentile(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return result
 
 
+@register_stats_implementation(signed=False)
 class NegativePercentileOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'q', 'keepdim']
 
@@ -131,7 +136,8 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         return result
 
 
-class PercentileInterval(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q', 'keepdim']
 
     def __init__(
@@ -174,7 +180,8 @@ class PercentileInterval(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return abs_interval
 
 
-class AbsMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class AbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int] = None, keepdim: bool = False) -> None:
@@ -190,7 +197,29 @@ class AbsMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
             return torch.max(torch.abs(x), dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
 
 
-class AbsMinMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=True)
+class SignedAbsMax(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int] = None, keepdim: bool = False) -> None:
+        super(SignedAbsMax, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+        self.keepdim = keepdim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        if self.stats_reduce_dim is None:
+            x_abs = torch.abs(x)
+            indices = torch.argmax(x_abs)
+            return -torch.sign(x.view(-1)[indices]) * x_abs.view(-1)[indices]
+        else:
+            values, indices = torch.max(torch.abs(x), dim=self.stats_reduce_dim, keepdim=True)
+            scale = -torch.sign(torch.gather(x, dim=self.stats_reduce_dim, index=indices)) * values
+            return scale if self.keepdim else scale.squeeze(dim=self.stats_reduce_dim)
+
+
+@register_stats_implementation(signed=False)
+class AbsMinMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'keepdim']
 
     def __init__(
@@ -217,7 +246,8 @@ class AbsMinMax(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return torch.abs(max_val - min_val)
 
 
-class AbsMaxAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: int) -> None:
@@ -229,7 +259,8 @@ class AbsMaxAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
 
 
-class AbsMaxL2(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class AbsMaxL2(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: int) -> None:
@@ -244,7 +275,8 @@ class AbsMaxL2(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return out
 
 
-class AbsAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class AbsAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
@@ -259,7 +291,8 @@ class AbsAve(brevitas.jit.ScriptModule, UnsignedScaleStat):
             return torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 
 
-class MeanSigmaStd(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class MeanSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -279,6 +312,7 @@ class MeanSigmaStd(brevitas.jit.ScriptModule, UnsignedScaleStat):
         return out
 
 
+@register_stats_implementation(signed=False)
 class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'output_shape', 'epsilon']
 
@@ -304,7 +338,8 @@ class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
         return mean_val + sigma * std_val
 
 
-class MeanLearnedSigmaStd(brevitas.jit.ScriptModule, UnsignedScaleStat):
+@register_stats_implementation(signed=False)
+class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -342,6 +377,7 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule, UnsignedScaleStat):
             missing_keys.remove(sigma_key)
 
 
+@register_stats_implementation(signed=False)
 class KLMinimizerThreshold(torch.nn.Module):
     """
     Based on:
@@ -416,6 +452,7 @@ class KLMinimizerThreshold(torch.nn.Module):
         return opt_threshold
 
 
+@register_stats_implementation(signed=False)
 class L1Norm(brevitas.jit.ScriptModule):
     """ScriptModule implementation to collect per-channel L1 normalization stats
     for weight normalization-based quantization."""
@@ -434,6 +471,7 @@ class L1Norm(brevitas.jit.ScriptModule):
             return x.norm(p=1, dim=self.stats_reduce_dim, keepdim=True)
 
 
+@register_stats_implementation(signed=False)
 class L2Norm(brevitas.jit.ScriptModule):
     """ScriptModule implementation to collect per-channel L2 normalization stats
     for weight normalization-based quantization."""
@@ -478,6 +516,44 @@ def _restore_params(module):
             m.allocate_params(m)
 
 
+def mse_fib_search(xl, xr, loss_fn, num_iter):
+
+    def fib_seq(n):
+        if n <= 0:
+            return [0]
+        seq = [0, 1]
+        while len(seq) <= n:
+            next = seq[-1] + seq[-2]
+            seq.append(next)
+        return seq
+
+    # vectorized variant of
+    # https://indrag49.github.io/Numerical-Optimization/solving-one-dimensional-optimization-problems.html#fibonacci-search-method
+    F = fib_seq(num_iter)
+    L0 = xr - xl
+    Li = (F[num_iter - 2] / F[num_iter]) * L0
+    for i in range(2, num_iter + 1):
+        x1 = torch.where(Li > L0 / 2, xr - Li, xl + Li)
+        x2 = torch.where(Li > L0 / 2, xl + Li, xr - Li)
+        f1, f2 = loss_fn(x1), loss_fn(x2)
+        xr = torch.where(f1 <= f2, x2, xr)
+        xl = torch.where(f1 >= f2, x1, xl)
+        Li = (F[num_iter - i] / F[num_iter - (i - 2)]) * torch.where(f1 != f2, L0, xr - xl)
+        L0 = xr - xl
+    return torch.where(f1 <= f2, x1, x2), torch.min(f1, f2)
+
+
+def mse_grid_search(xl, xr, loss_fn, num_iter):
+    best_loss = loss_fn(xl)
+    best_candidate = xl
+    for ts in torch.linspace(1. / (num_iter - 1), 1., num_iter - 1):
+        candidate = (xl + (xr - xl) * ts).detach()
+        loss = loss_fn(candidate)
+        best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
+        best_loss = torch.min(loss, best_loss)
+    return best_candidate, best_loss
+
+
 class MSE(torch.nn.Module):
     # References:
     # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
@@ -490,7 +566,8 @@ class MSE(torch.nn.Module):
             inner_stats_input_view_shape_impl: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
-            mse_iters: int = 20):
+            mse_iters: int = 20,
+            restrict_scale_positive: bool = True):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -507,6 +584,7 @@ class MSE(torch.nn.Module):
         self.search_method = mse_search_method
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
+        self.restrict_scale_positive = restrict_scale_positive
 
     def mse_loss_fn(self, x, quant_value):
         loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
@@ -530,52 +608,29 @@ class MSE(torch.nn.Module):
         self.restore_observer_mode()
         return loss
 
-    def mse_grid_search(self, xl, x):
-        best_loss = torch.tensor(float('inf'), device=x.device, dtype=x.dtype)
-        best_candidate = xl
-        for i in range(2, self.num + 1):
-            candidate = (xl * i).detach()
-            loss = self.evaluate_loss(x, candidate)
-            best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
-            best_loss = torch.min(loss, best_loss)
-        return best_candidate
+    def _mse_search(self, xl, xr, loss_fn, num_iter):
+        if self.search_method == 'grid':
+            return mse_grid_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=num_iter)
+        elif self.search_method == 'fibonacci':
+            return mse_fib_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=num_iter)
 
-    def mse_fib_search(self, xl, xr, x):
-
-        def fib_seq(n):
-            if n <= 0:
-                return [0]
-            seq = [0, 1]
-            while len(seq) <= n:
-                next = seq[-1] + seq[-2]
-                seq.append(next)
-            return seq
-
-        # vectorized variant of
-        # https://indrag49.github.io/Numerical-Optimization/solving-one-dimensional-optimization-problems.html#fibonacci-search-method
-        F = fib_seq(self.num)
-        L0 = xr - xl
-        Li = (F[self.num - 2] / F[self.num]) * L0
-        for i in range(2, self.num + 1):
-            x1 = torch.where(Li > L0 / 2, xr - Li, xl + Li)
-            x2 = torch.where(Li > L0 / 2, xl + Li, xr - Li)
-            f1, f2 = self.evaluate_loss(x, x1), self.evaluate_loss(x, x2)
-            xr = torch.where(f1 <= f2, x2, xr)
-            xl = torch.where(f1 >= f2, x1, xl)
-            Li = (F[self.num - i] / F[self.num - (i - 2)]) * torch.where(f1 != f2, L0, xr - xl)
-            L0 = xr - xl
-        return torch.where(f1 <= f2, x1, x2)
+        raise ValueError(f"Search method {self.search_method} not supported.")
 
     def mse_search(self, x):
         x_view = self.input_view_shape_impl(x)
-        init = self.mse_init_op(x_view).detach()
+        init = torch.abs(self.mse_init_op(x_view)).detach()
         base = init / self.num
-        if self.search_method == 'grid':
-            best_candidate = self.mse_grid_search(base, x)
-        elif self.search_method == 'fibonacci':
-            best_candidate = self.mse_fib_search(base, init, x)
-        else:
-            raise ValueError(f"Search method {self.search_method} not supported.")
+        loss_fn = partial(self.evaluate_loss, x)
+        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn, num_iter=self.num if self.restrict_scale_positive else self.num // 2)
+        if not self.restrict_scale_positive:
+            best_neg_candidate, best_neg_loss = self._mse_search(
+                xl=-init,
+                xr=-base,
+                loss_fn=loss_fn,
+                num_iter=self.num // 2,
+            )
+            best_candidate = torch.where(
+                best_loss <= best_neg_loss, best_candidate, best_neg_candidate)
         # Save for evaluation by other modules (e.g. zp) invoking local loss mode
         self.internal_candidate = best_candidate
         self.restore_offload_param()
