@@ -18,6 +18,9 @@ from brevitas.graph.utils import get_module
 def replace_rmsnorm_with_torch(model, config):
     assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
     set_of_layers = set(type(x) for x in model.modules() if 'RMS' in type(x).__name__)
+    first_norm = next(iter(set_of_layers))
+    is_gemma = 'Gemma' in first_norm.__name__
+
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     rewriters = [
@@ -31,6 +34,12 @@ def replace_rmsnorm_with_torch(model, config):
     dtype = next(iter(model.parameters())).dtype
     for r in rewriters:
         model = r.apply(model)
+
+    # In Gemma, there is a `+ 1` factor to account for, and we can do that by changing the weights
+    if is_gemma:
+        for m in model.modules():
+            if isinstance(m, torch.nn.RMSNorm):
+                m.weight.data = m.weight.data + 1
     model = model.to(dtype)
     return model
 
