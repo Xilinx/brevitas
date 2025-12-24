@@ -365,6 +365,10 @@ def create_args_parser() -> ArgumentParser:
         type=int,
         default=None,
         help='Perform blockwise rotations when possible. Default: %(default)s')
+    parser.add_argument(
+        '--disable-block-rotation-for-fused',
+        action='store_true',
+        help='Disable block rotations when using fused rotations. Default: %(default)s')
     parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
     parser.add_argument(
         '--svd-quant-rank',

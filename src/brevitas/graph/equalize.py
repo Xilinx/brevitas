@@ -1570,7 +1570,8 @@ def _compute_rotations(
         full_rotation_method='had',
         fuse_rotations: bool = True,
         expansion_step: int = 1,
-        block_rotation_dim: Optional[int] = None):
+        block_rotation_dim: Optional[int] = None,
+        disable_block_rotation_for_fused: bool = False):
 
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
@@ -1620,17 +1621,20 @@ def _compute_rotations(
                     continue
 
         hidden_dim = hidden_dim if not region.expand_region else expanded_hidden_dim
-        # Check if we are doing block_rotation and if it is compatible with the current shape
-        if block_rotation_dim is not None:
-            if hidden_dim // block_rotation_dim > 1 and hidden_dim % block_rotation_dim == 0:
+        # Sometimes we want to use block rotation only for online rotations and full-vector for fused rotations
+        # In this case, we use block rotations only for online rotations and skip fused rotations
+        skip_block_rotation = disable_block_rotation_for_fused and fuse_rotations and not insert_rotation_module
+        if block_rotation_dim is not None and not skip_block_rotation:
+            # Check if we are doing block_rotation and if it is compatible with the current shape
+            if (hidden_dim // block_rotation_dim > 1) and (hidden_dim % block_rotation_dim == 0):
                 hidden_dim = block_rotation_dim
                 rot_mat, K = get_hadK(block_rotation_dim)
                 if region.expand_region:
                     expanded_rot_mat, expanded_K = rot_mat, K
             else:
-                logging.info(
-                    "Block rotation shape is not compatible with the region shape, perfoming normal rotations"
-                )
+                warnings.warn(
+                    "Block rotation shape is not compatible with the shape of this region. "
+                    f"Performing normal rotations with hidden_dim={hidden_dim}.")
 
         if region.expand_region:
             rot_mat, K = expanded_rot_mat, expanded_K
@@ -1896,6 +1900,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             use_parametrized_rotations: bool = False,
             full_rotation_method: str = 'had',
             block_rotation_dim: Optional[int] = None,
+            disable_block_rotation_for_fused: bool = False,
             layers_to_expand: Optional[List[str]] = None,
             expansion_step: int = None,
             delay_rewriters: bool = False,
@@ -1921,6 +1926,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
         self.expansion_step = expansion_step
         self.delay_rewriters = delay_rewriters
         self.block_rotation_dim = block_rotation_dim
+        self.disable_block_rotation_for_fused = disable_block_rotation_for_fused
 
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
@@ -2098,7 +2104,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
                     expansion_step=first_exp_step,
-                    block_rotation_dim=self.block_rotation_dim))
+                    block_rotation_dim=self.block_rotation_dim,
+                    disable_block_rotation_for_fused=self.disable_block_rotation_for_fused))
             rewriters.extend(
                 _compute_rotations(
                     graph_model,
@@ -2106,7 +2113,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                     self.full_rotation_method,
                     fuse_rotations=not self.use_parametrized_rotations,
                     expansion_step=second_exp_step,
-                    block_rotation_dim=self.block_rotation_dim))
+                    block_rotation_dim=self.block_rotation_dim,
+                    disable_block_rotation_for_fused=self.disable_block_rotation_for_fused))
             if len(expanded_regions) > 0:
                 parameter_number_post = 0
                 for m in graph_model.parameters():

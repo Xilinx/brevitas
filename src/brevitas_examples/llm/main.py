@@ -129,6 +129,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand,
         block_rotation_dim=args.block_rotation_dim,
+        disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
         extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
     fx_model, rewriters = eq.apply(fx_model)
 
@@ -350,6 +351,7 @@ def quantize_llm(args, extra_args=None):
             expansion_step=args.expansion_step,
             layers_to_expand=layers_to_expand,
             block_rotation_dim=args.block_rotation_dim,
+            disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
             extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
