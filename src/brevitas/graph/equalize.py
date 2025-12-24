@@ -1866,7 +1866,8 @@ class GraphRotationEqualization(RotationEqualization):
             layers_to_expand: Optional[List[str]] = None,
             expansion_step: int = None,
             delay_rewriters: bool = False,
-            return_rewriters: bool = False) -> None:
+            return_rewriters: bool = False,
+            extra_rmsnorm_classes: Optional[Tuple] = None) -> None:
         super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
 
         self.supported_srcs = (nn.Linear, nn.Embedding)
@@ -1875,6 +1876,8 @@ class GraphRotationEqualization(RotationEqualization):
         common_scale_invariant.remove(torch.nn.ReLU)
         common_scale_invariant.remove(torch.nn.LeakyReLU)
         self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
+        if extra_rmsnorm_classes is not None:
+            self.scale_invariant_layers = self.scale_invariant_layers + extra_rmsnorm_classes
         self.scale_invariant_function = ()
         self.orphan_sink = orphan_sink
         self.rotate_matmul = rotate_matmul
@@ -2143,9 +2146,11 @@ class LayerNormToRMS(GraphTransform):
 
 class MergeLnAffine(GraphTransform):
 
-    def __init__(self) -> None:
+    def __init__(self, extra_rmsnorm_classes: Optional[Tuple] = None) -> None:
         super(MergeLnAffine, self).__init__()
         self.supported_srcs = (RMSNorm, nn.LayerNorm)
+        if extra_rmsnorm_classes is not None:
+            self.supported_srcs = self.supported_srcs + extra_rmsnorm_classes
         self.supported_sinks = (nn.Linear)
 
     def apply(self, graph_model: GraphModule) -> GraphModule:

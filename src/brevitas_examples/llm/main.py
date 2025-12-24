@@ -56,7 +56,7 @@ from brevitas_examples.llm.llm_quant.gpxq import apply_qronos
 from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
-from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
+from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
@@ -89,7 +89,8 @@ def filter_results(results, tasks):
 
 
 def fused_rotation_no_fx(model, calibration_loader, args):
-    with torch.no_grad():
+    with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
+        rmsnorm_classes = patcher.rmsnorm_classes
         with make_dynamo_compatible(model) as dynamo_comp:
             fx_model, guards = torch._dynamo.export(dynamo_comp.model)(**calibration_loader[0])
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
@@ -102,7 +103,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(fx_model)
+    apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
     # NOTE: This call breaks ties between the the lm_head and the embedding layer
     fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
@@ -124,7 +125,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand,
-        block_rotation_dim=args.block_rotation_dim)
+        block_rotation_dim=args.block_rotation_dim,
+        extra_rmsnorm_classes=rmsnorm_classes)
     fx_model, rewriters = eq.apply(fx_model)
 
     model = offload_model(model)
@@ -283,11 +285,13 @@ def quantize_llm(args, extra_args=None):
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
-    if args.replace_rmsnorm:
-        model = replace_rmsnorm_with_torch(model, model.config)
+    # if args.replace_rmsnorm:
+    #     rmsnorm_layers = return_rmsnorm_type(model, model.config)
 
     if require_fx:
-        with torch.no_grad():
+
+        with torch.no_grad(), rmsnorm_patch(model, model.config, enabled=args.replace_rmsnorm) as patcher:
+            rmsnorm_classes = patcher.rmsnorm_classes
             with make_dynamo_compatible(model) as dynamo_comp:
                 model, guards = torch._dynamo.export(dynamo_comp.model)(**calibration_loader[0])
         # Blockwise optimization does not work with FX at the moment
@@ -298,7 +302,7 @@ def quantize_llm(args, extra_args=None):
     # since currently there is support only for merging into Linear
     if args.ln_affine_merge:
         print("Apply LN affine merge...")
-        apply_layernorm_affine_merge(model)
+        apply_layernorm_affine_merge(model, rmsnorm_classes)
         print("LN affine merge applied.")
 
     if args.convert_layernorm_to_rmsnorm:
@@ -337,7 +341,8 @@ def quantize_llm(args, extra_args=None):
             use_parametrized_rotations=args.optimize_rotations,
             expansion_step=args.expansion_step,
             layers_to_expand=layers_to_expand,
-            block_rotation_dim=args.block_rotation_dim)
+            block_rotation_dim=args.block_rotation_dim,
+            extra_rmsnorm_classes=rmsnorm_classes)
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':

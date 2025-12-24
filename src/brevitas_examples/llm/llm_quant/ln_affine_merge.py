@@ -3,38 +3,67 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 SPDX-License-Identifier: MIT
 """
 
+from inspect import signature
+
 from packaging import version
 import torch
 from torch import nn
 
 from brevitas import torch_version
-from brevitas.graph import ModuleInstanceToModuleInstance
+from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph.equalize import _is_scale_invariant_module
 from brevitas.graph.equalize import LayerNormToRMS
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.utils import get_module
 
 
-def replace_rmsnorm_with_torch(model, config):
-    assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
-    set_of_layers = set(type(x) for x in model.modules() if 'RMS' in type(x).__name__)
-    first_norm = next(iter(set_of_layers))
-    dtype = next(model.parameters()).dtype
-    rewriters = []
+class rmsnorm_patch:
 
-    for n, m in model.named_modules():
-        if 'RMS' in type(m).__name__:
-            new_class = type(f"NewRMSNorm", (first_norm, torch.nn.RMSNorm), {})
-            new_instance = new_class.__new__(new_class)
-            new_instance.__dict__ = m.__dict__.copy()
-            rewriter = ModuleInstanceToModuleInstance(m, new_instance)
+    def __init__(self, model, config, enabled=True):
+        self.model = model
+        self.config = config
+        self.enabled = enabled
+        if self.enabled:
+            self.rmsnorm_classes = tuple(
+                set(type(x) for x in model.modules() if 'RMS' in type(x).__name__))
+        else:
+            self.rmsnorm_class = tuple()
+
+    def __enter__(self):
+        assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
+
+        dtype = next(self.model.parameters()).dtype
+        device = next(self.model.parameters()).device
+        rewriters = [
+            ModuleToModuleByClass(
+                rms_cls,
+                torch.nn.RMSNorm,
+                normalized_shape=lambda module: module.weight.shape[0],
+                eps=self.config.rms_norm_eps,
+                dtype=dtype,
+                device=device) for rms_cls in self.rmsnorm_classes]
+        dtype = next(iter(self.model.parameters())).dtype
+        for r in rewriters:
+            self.model = r.apply(self.model)
+
+        self.model = self.model.to(dtype)
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        rewriters = []
+        dtype = next(self.model.parameters()).dtype
+        device = next(self.model.parameters()).device
+        for rms_class in self.rmsnorm_classes:
+            hidden_dim, eps = list(signature(rms_class).parameters.keys())
+            kwargs = {
+                hidden_dim: lambda module: module.normalized_shape, eps: lambda module: module.eps}
+            rewriter = ModuleToModuleByClass(torch.nn.RMSNorm, rms_class, **kwargs)
             rewriters.append(rewriter)
 
-    for r in rewriters:
-        r.apply(model)
+        for r in rewriters:
+            self.model = r.apply(self.model)
 
-    model = model.to(dtype)
-    return model
+        self.model = self.model.to(dtype)
 
 
 def replace_bias(next_module, new_bias):
@@ -108,8 +137,8 @@ def merge_layernorm_affine_params(graph_model):
 
 
 @torch.no_grad()
-def apply_layernorm_affine_merge(graph_model):
-    eq = MergeLnAffine()
+def apply_layernorm_affine_merge(graph_model, rmsnorm_classes):
+    eq = MergeLnAffine(extra_rmsnorm_classes=rmsnorm_classes)
     graph_model = eq.apply(graph_model)
     return graph_model
 
