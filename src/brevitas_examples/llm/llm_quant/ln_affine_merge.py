@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from brevitas import torch_version
-from brevitas.graph.base import ModuleToModuleByClass
+from brevitas.graph import ModuleInstanceToModuleInstance
 from brevitas.graph.equalize import _is_scale_invariant_module
 from brevitas.graph.equalize import LayerNormToRMS
 from brevitas.graph.equalize import MergeLnAffine
@@ -19,27 +19,20 @@ def replace_rmsnorm_with_torch(model, config):
     assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
     set_of_layers = set(type(x) for x in model.modules() if 'RMS' in type(x).__name__)
     first_norm = next(iter(set_of_layers))
-    is_gemma = 'Gemma' in first_norm.__name__
-
     dtype = next(model.parameters()).dtype
-    device = next(model.parameters()).device
-    rewriters = [
-        ModuleToModuleByClass(
-            rms_cls,
-            torch.nn.RMSNorm,
-            normalized_shape=lambda module: module.weight.shape[0],
-            eps=config.rms_norm_eps,
-            dtype=dtype,
-            device=device) for rms_cls in set_of_layers]
-    dtype = next(iter(model.parameters())).dtype
-    for r in rewriters:
-        model = r.apply(model)
+    rewriters = []
 
-    # In Gemma, there is a `+ 1` factor to account for, and we can do that by changing the weights
-    if is_gemma:
-        for m in model.modules():
-            if isinstance(m, torch.nn.RMSNorm):
-                m.weight.data = m.weight.data + 1
+    for n, m in model.named_modules():
+        if 'RMS' in type(m).__name__:
+            new_class = type(f"NewRMSNorm", (first_norm, torch.nn.RMSNorm), {})
+            new_instance = new_class.__new__(new_class)
+            new_instance.__dict__ = m.__dict__.copy()
+            rewriter = ModuleInstanceToModuleInstance(m, new_instance)
+            rewriters.append(rewriter)
+
+    for r in rewriters:
+        r.apply(model)
+
     model = model.to(dtype)
     return model
 
