@@ -120,7 +120,8 @@ def apply_gptq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        percdamp: float = .01):
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
@@ -138,7 +139,8 @@ def apply_gptq(
             'use_quant_activations': use_quant_activations,
             'gptq_class': gptq_class,
             'device': buffer_device,
-            'dtype': buffer_dtype}
+            'dtype': buffer_dtype,
+            'percdamp': percdamp}
         block_optimization(model, dataloader, block_name, gptq_mode, context_manager_kwargs)
     else:
         with gptq_mode(model,
@@ -148,7 +150,8 @@ def apply_gptq(
                        create_weight_orig=create_weight_orig,
                        gptq_class=gptq_class,
                        device=buffer_device,
-                       dtype=buffer_dtype) as gptq:
+                       dtype=buffer_dtype,
+                       percdamp=percdamp) as gptq:
             gptq_model = gptq.model
             for _ in tqdm(range(gptq.num_layers)):
                 for inps in dataloader:

@@ -44,14 +44,16 @@ class GPTQ(GPxQ):
 
     def __init__(
             self,
-            layer,
-            name,
-            act_order,
-            len_parallel_layers,
-            create_weight_orig,
-            num_blocks,
-            device='cpu',
-            dtype=torch.float32) -> None:
+            layer: torch.nn.Module,
+            name: str,
+            act_order: bool,
+            len_parallel_layers: int,
+            create_weight_orig: bool,
+            num_blocks: int,
+            device: str = 'cpu',
+            percdamp: float = .01,
+            dtype: torch.dtype = torch.float32) -> None:
+
         super().__init__(
             layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
 
@@ -69,7 +71,7 @@ class GPTQ(GPxQ):
                                  device=self.device,
                                  dtype=self.dtype)
         self.nsamples = 0
-
+        self.percdamp = percdamp
         assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
 
     def compute_iterative_covariance(self, module, input, current_layer):
@@ -103,7 +105,7 @@ class GPTQ(GPxQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
-    def single_layer_update(self, percdamp=.01, c=1e4):
+    def single_layer_update(self, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
@@ -151,7 +153,7 @@ class GPTQ(GPxQ):
         # Try/Except in case the inverse Hessian cannot be computed
         try:
             for i in range(self.groups):
-                damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
+                damp = self.percdamp * torch.mean(torch.diag(self.H[i, :, :]))
                 diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
@@ -219,6 +221,7 @@ class gptq_mode(gpxq_mode):
         gptq_class (GPTQ): The uninitialized class to perform GPTQ. Default: `brevitas.graph.gptq.GPTQ`
         device (str): Device the buffers are stored on. Default: cpu
         dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
+        percdamp (float): Lambda parameter from GPTQ paper. Fraction of the average diagonal added to the diagonal of H. Default: .01
 
     Example:
         >>> with torch.no_grad():
@@ -243,7 +246,8 @@ class gptq_mode(gpxq_mode):
             act_order: bool = False,
             gptq_class: GPTQ = GPTQ,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32) -> None:
+            dtype: torch.dtype = torch.float32,
+            percdamp: float = .01) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -260,6 +264,7 @@ class gptq_mode(gpxq_mode):
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
+        self.percdamp = percdamp
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -285,4 +290,5 @@ class gptq_mode(gpxq_mode):
             create_weight_orig=create_weight_orig,
             num_blocks=self.num_blocks,
             device=self.device,
-            dtype=self.dtype)
+            dtype=self.dtype,
+            percdamp=self.percdamp)
