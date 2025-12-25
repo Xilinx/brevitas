@@ -27,7 +27,7 @@ class rmsnorm_patch:
             self.rmsnorm_classes = tuple(
                 set(type(x) for x in model.modules() if 'RMS' in type(x).__name__))
         else:
-            self.rmsnorm_class = tuple()
+            self.rmsnorm_classes = tuple()
 
     def __enter__(self):
         assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
