@@ -25,6 +25,7 @@ import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
+from tqdm import tqdm
 
 from brevitas import torch_version
 from brevitas.fx import GraphModule
@@ -39,10 +40,10 @@ from brevitas.graph.base import ModuleInstanceWrapModule
 from brevitas.graph.base import Transform
 from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
-from brevitas.graph.hadamard import is_pow2
 from brevitas.graph.hadamard import matmul_hadU
 from brevitas.graph.hadamard import matmul_hadU_cuda
 from brevitas.graph.hadamard import random_hadamard_matrix
+from brevitas.graph.utils import find_node_for_module
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn import ScaledDotProductAttention
@@ -230,6 +231,12 @@ class Region:
     def is_valid_activation_equalization(self) -> bool:
         return self.act_axis is not None
 
+    def apply_permute(self, indexes):
+        for src in self.srcs.values():
+            src.permute(indexes)
+        for sink in self.sinks.values():
+            sink.permute(indexes)
+
     @classmethod
     def from_dicts(
             cls,
@@ -399,6 +406,166 @@ def apply_rewriters_accelerate(
     return model
 
 
+class rotate_permute_mode:
+
+    def __init__(self, model, permute_fn='massdiff', **kwargs):
+        self.rotation = GraphRotationEqualization(apply_permute=True, **kwargs)
+        self.model = model
+        self.rewriters = None
+        self.permute_fn = _permute_fn_map[permute_fn]
+
+    def __enter__(self):
+        model, rewriters = self.rotation.apply(self.model)
+        self.model = model
+        self.rewriters = rewriters
+        self.rotation.permute_class.setup_permute()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.rotation.permute_class.apply_permute(self.permute_fn)
+        self.rotation.permute_class.remove_hooks()
+
+
+class PermuteGraph:
+    """
+    A class for managing and applying permutations to a computational graph.
+
+    This class is designed to analyze and modify computational graphs by identifying
+    regions of interest, collecting statistics, and applying permutations to optimize
+    or modify the graph's behavior. It supports various neural network layers and
+    operations, and provides hooks for collecting forward pass statistics.
+    """
+
+    def __init__(self, block_rotation_dim: int):
+        super().__init__()
+        self.hooks = []
+        self.hooked_modules = set()
+        self.supported_srcs = (nn.Embedding, RotatedModule, nn.Linear)
+        self.supported_sinks = (nn.Linear, RotatedModule)
+        common_scale_invariant = list(_scale_invariant_layers)
+        common_scale_invariant.extend([torch.nn.GELU, torch.nn.SELU])
+        scale_invariant_functions = (torch.nn.functional.silu,)
+        mul_ops = [torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__]
+        self.residual_fns = list(_residual_fns)
+        self.residual_fns.extend(mul_ops)
+        try:
+            # Add HuggingFace activations if available
+            from transformers.activations import ACT2CLS
+            activations = [x if not isinstance(x, tuple) else x[0] for x in ACT2CLS.values()]
+            common_scale_invariant.extend(activations)
+        except:
+            pass
+        self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
+        self.scale_invariant_function = tuple(scale_invariant_functions)
+        self.regions = list()
+        self.float_act_map = dict()
+        self.float_act_dev = dict()
+        self.block_rotation_dim = block_rotation_dim
+
+    def forward_stats_hook(self, module, *args, name, batch_dim=0, **kwargs):
+        # Check for MHA Cross attention, and if found, skip it
+        # When using hf/accelerate, we need to check the signature of the original forward
+        forward_to_check = module._old_forward if hasattr(
+            module, '_old_forward') else module.forward
+        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
+                return
+
+        inp_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
+        inp = kwargs[inp_kwarg][0]
+
+        # Extra check for batch_dim
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp.rename_(None)
+            inp = inp.transpose(0, batch_dim)
+
+        inp = inp.reshape(-1, inp.shape[-1])  # [batch_size * seq_len, dim]
+        if name not in self.float_act_map:
+            self.float_act_map[name] = []
+            self.float_act_dev[name] = inp.device
+        self.float_act_map[name].append(inp.detach().cpu())
+
+    def setup_permute(self):
+        for region in self.regions:
+            # We assume that the entire region has a unique batch_dim
+            batch_dim = 0
+            for name in region.srcs:
+                module = region.get_module_from_name(name)
+                if hasattr(module, 'batch_first') and not module.batch_first:
+                    batch_dim = 1
+            for name in region.sinks:
+                module = region.get_module_from_name(name)
+                if hasattr(module, 'batch_first') and not module.batch_first:
+                    batch_dim = 1
+
+            for name in region.sinks_names:
+                module = region.get_module_from_name(name)
+                if module not in self.hooked_modules:
+                    self.hooked_modules.add(module)
+                    hook_fn = partial(self.forward_stats_hook, name=name, batch_dim=batch_dim)
+                    h = module.register_forward_hook(hook_fn)
+                    self.hooks.append(h)
+
+    def extract_permute_regions(self, graph_model, regions):
+        state_impl_kwargs = {
+            'supported_srcs': self.supported_srcs,
+            'supported_sinks': self.supported_sinks,
+            'scale_invariant_layers': self.scale_invariant_layers,
+            'scale_invariant_function': self.scale_invariant_function,
+            'residual_fns': self.residual_fns}
+
+        for region in regions:
+            # Directly add regions that already have sources identified
+            if (len(region.srcs) > 0):
+                # Skip the SDPA regions; potential head alignment issues
+                if 'value_sdpa' not in region.srcs_names:
+                    self.regions.append(region)
+                continue
+
+            # Create a new state for the online region
+            state = WalkRegionState(**state_impl_kwargs)
+
+            # Add all sinks from the region to the state
+            for sink_name, sink_wrapper in region.sinks.items():
+                module = region.get_module_from_name(sink_name)
+                node = find_node_for_module(graph_model, module)
+                assert node is not None, f"Error: node {module} not found in graph"
+                eq_indexes = sink_wrapper.equalization_indexes
+                state.add_sinks(node.target, module, eq_indexes)
+                find_srcs(graph_model, node, state)
+
+            # Create a new region with updated sources but same sinks
+            new_region = Region.from_dicts(
+                srcs=state.srcs,
+                sinks=state.sinks,
+                name_to_module=state.name_to_module,
+                expand_region=region.expand_region)
+            self.regions.append(new_region)
+
+    def apply_permute(self, permute_fn=None):
+        for region in tqdm(self.regions, "Calculating permutations..."):
+            # Collect all activation values for this region
+            list_of_act_val = []
+            for name in region.sinks_names:
+                act_vals = self.float_act_map.pop(name)
+                if act_vals is None or len(act_vals) == 0:
+                    continue
+                list_of_act_val.extend(act_vals)
+            # Calculate permutation and apply to this region
+            _permute(
+                region,
+                list_of_act_val=list_of_act_val,
+                block_rotation_dim=self.block_rotation_dim,
+                permute_fn=permute_fn,
+                device=self.float_act_dev[region.sinks_names[0]])
+
+    def remove_hooks(self):
+        for h in self.hooks:
+            h.remove()
+
+
 class activation_equalization_mode:
 
     def __init__(
@@ -462,6 +629,94 @@ def _channel_range(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
 def _channel_maxabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
     out = torch.max(torch.abs(inp), dim=dim)[0]
     return out
+
+
+def _zigzag_sort(indexes, block_size):
+    indexes = indexes.view(block_size, indexes.shape[-1] // block_size)
+    indexes[1::2] = torch.flip(indexes[1::2], dims=[1])
+    indexes = indexes.t()
+    indexes = indexes.flatten()
+    return indexes
+
+
+def zigzag_permute(x, block_rotation_dim):
+    if x.shape[-1] == block_rotation_dim:
+        return torch.arange(block_rotation_dim).to(x.device)
+    scores = _channel_maxabs(x, dim=0)
+    _, indexes = torch.sort(scores, descending=True)
+    indexes = _zigzag_sort(indexes, block_rotation_dim)
+    return indexes
+
+
+def random_permute(x, block_rotation_dim):
+    if x.shape[-1] == block_rotation_dim:
+        return torch.arange(block_rotation_dim).to(x.device)
+    indexes = torch.randperm(x.shape[-1]).to(x.device)
+    return indexes
+
+
+def absmax_permute(x, block_rotation_dim):
+    if x.shape[-1] == block_rotation_dim:
+        return torch.arange(block_rotation_dim).to(x.device)
+    scores = _channel_maxabs(x, dim=0)
+    _, indexes = torch.sort(scores, descending=True)
+    return indexes
+
+
+def massdiff_permute(x, block_rotation_dim):
+    if x.shape[-1] == block_rotation_dim:
+        return torch.arange(block_rotation_dim).to(x.device)
+    # initialize the blocks based on absmax scores
+    scores = torch.abs(x).mean(dim=0)
+    _, indexes = torch.sort(scores, descending=True)
+    num_blocks = x.shape[-1] // block_rotation_dim
+    # initialize the block norms and indexes
+    block_norm = torch.stack([torch.abs(x[:, i]) for i in indexes[:num_blocks]], dim=1)
+    block_idxs = [[i] for i in indexes[:num_blocks]]
+    for i in indexes[num_blocks:]:
+        # find the block that will have the minimum l1-norm after adding the new index
+        norms_after_adding = block_norm + torch.abs(x[:, i]).unsqueeze(1)
+        norms_after_adding = torch.mean(norms_after_adding, dim=0)
+        min_block = torch.argmin(norms_after_adding)
+        # update the block norm and indexes
+        block_norm[:, min_block] += torch.abs(x[:, i])
+        block_idxs[min_block].append(i)
+        # mark block as full
+        if (len(block_idxs[min_block]) == block_rotation_dim):
+            block_norm[:, min_block] = float('inf')
+    indexes = torch.tensor(block_idxs).flatten()
+    return indexes
+
+
+_permute_fn_map = {
+    'zigzag': zigzag_permute,
+    'massdiff': massdiff_permute,
+    'absmax': absmax_permute,
+    'random': random_permute}
+
+
+@torch.no_grad()
+def _permute(region, list_of_act_val, block_rotation_dim, permute_fn, device):
+
+    # If equalization criteria are not met, we return to indicate that no equalization
+    # has been performed
+    def _no_permute():
+        return
+
+    # If act_val is enabled, use source or sink weights to determine the activation channel
+    # For example, if the source is BatchNorm, we need to use the information coming from the sinks
+    if not region.is_valid_activation_equalization:
+        return _no_permute()
+
+    list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
+    if len(list_of_act_val_shapes) > 0:
+        shape_0 = list_of_act_val_shapes[0]
+        if any(shape_0 != shape for shape in list_of_act_val_shapes):
+            return _no_permute()
+
+    list_of_act_val = torch.cat(list_of_act_val, dim=0).to(device)
+    new_indexes = permute_fn(list_of_act_val, block_rotation_dim=block_rotation_dim)
+    region.apply_permute(new_indexes)
 
 
 def _get_input_axis(module: nn.Module) -> Optional[int]:
@@ -720,6 +975,18 @@ class EqualizationSourceWrapper(EqualizationModuleWrapper):
 
         return cls(module, weight_axis, act_axis, indexes)
 
+    def permute(self, permute_index):
+        self.module.weight.data = torch.index_select(
+            self.module.weight.data, self.weight_axis, permute_index.to(self.module.weight.device))
+        if hasattr(self.module, self._bias_tensor_name):
+            bias = getattr(self.module, self._bias_tensor_name)
+            # hasattr returns true if bias=None
+            if bias is not None:
+                bias.data = torch.index_select(
+                    self.module.bias.data,
+                    self.weight_axis,
+                    permute_index.to(self.module.bias.device))
+
 
 class EqualizationSinkWrapper(EqualizationModuleWrapper):
 
@@ -759,6 +1026,10 @@ class EqualizationSinkWrapper(EqualizationModuleWrapper):
         else:
             weight_tensor_name = "weight"
         return cls(module, weight_axis, act_axis, indexes, weight_tensor_name)
+
+    def permute(self, permute_index):
+        self.module.weight.data = torch.index_select(
+            self.module.weight.data, self.weight_axis, permute_index.to(self.module.weight.device))
 
 
 # When fuse_scaling = False, the scaling parameters are instances of nn.Parameter,
@@ -1944,6 +2215,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             block_rotation_dim: Optional[int] = None,
             disable_block_rotation_for_fused: bool = False,
             layers_to_expand: Optional[List[str]] = None,
+            apply_permute: bool = False,
             expansion_step: int = None,
             delay_rewriters: bool = False,
             return_rewriters: bool = False,
@@ -1969,6 +2241,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
         self.delay_rewriters = delay_rewriters
         self.block_rotation_dim = block_rotation_dim
         self.disable_block_rotation_for_fused = disable_block_rotation_for_fused
+
+        self.permute_class = PermuteGraph(block_rotation_dim) if apply_permute else None
 
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
@@ -2060,6 +2334,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             end_index = head_dim if head_dim != -1 else output_weight.shape[0]
             output_index = EqualizationIndexes(0, end_index, 0)
 
+            # NOTE: PermuteGraph.extract_permute_regions looks for these src and
+            # sink names to delineate SDPA regions
             region = Region.from_dicts(
                 srcs={'value_sdpa': value_index},
                 sinks={'output_sdpa': output_index},
@@ -2127,6 +2403,22 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                 regions.append(o_r)
                 added_regions += 1
         logging.debug(f"Adding {added_regions} sink-only regions")
+
+        # Assign regions to permute class if needed
+        if self.permute_class is not None:
+            permute_regions = list()
+            for region in regions:
+                # Permutations are only applied to regions that use block rotations,
+                # so we are copying the logic from _compute_rotations here
+                apply_block_rotation = self.block_rotation_dim is not None
+                if self.disable_block_rotation_for_fused and (len(region.srcs) > 0):
+                    apply_block_rotation = False
+                if apply_block_rotation:
+                    # Check if block rotation is compatible with the current shape
+                    if (region.max_shape_sinks // self.block_rotation_dim > 1) and \
+                        (region.max_shape_sinks % self.block_rotation_dim == 0):
+                        permute_regions.append(region)
+            self.permute_class.extract_permute_regions(graph_model, permute_regions)
 
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
