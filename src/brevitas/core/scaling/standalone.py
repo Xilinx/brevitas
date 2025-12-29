@@ -470,7 +470,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             return clamped_stats / threshold
         elif self.counter == self.collect_stats_steps:
             self.init_scale()
-            value = self.clamp_scaling(self.restrict_scaling(self.value))
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             value = self.restrict_scale_threshold(value / threshold)
             return value
