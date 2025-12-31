@@ -90,7 +90,7 @@ class LLMRunCases:
         ],)
     def case_small_models_toggle_args(self, run_dict, default_run_args, request):
         if config.JIT_ENABLED and run_dict.get("weight_param_method") == "mse":
-            pytest.skip(reason=f'MSE as weight_param_method requires JIT to be disabled')(f)
+            pytest.skip(reason=f'MSE as weight_param_method requires JIT to be disabled')
         yield process_args_and_metrics(default_run_args, run_dict)
 
 class LLMPerplexityCases:
