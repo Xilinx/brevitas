@@ -246,8 +246,7 @@ class gptq_mode(gpxq_mode):
             act_order: bool = False,
             gptq_class: GPTQ = GPTQ,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32,
-            percdamp: float = .01) -> None:
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -264,7 +263,6 @@ class gptq_mode(gpxq_mode):
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
-        self.percdamp = percdamp
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -290,5 +288,4 @@ class gptq_mode(gpxq_mode):
             create_weight_orig=create_weight_orig,
             num_blocks=self.num_blocks,
             device=self.device,
-            dtype=self.dtype,
-            percdamp=self.percdamp)
+            dtype=self.dtype)
