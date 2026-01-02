@@ -178,16 +178,18 @@ class A2GPTQ(_AXE, GPTQ):
             max_accumulator_bit_width,
             max_accumulator_tile_size,
             device='cpu',
+            percdamp: float = .01,
             dtype=torch.float32) -> None:
         super().__init__(
-            layer,
-            name,
-            act_order,
-            len_parallel_layers,
-            create_weight_orig,
-            num_blocks,
-            device,
-            dtype)
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            len_parallel_layers=len_parallel_layers,
+            create_weight_orig=create_weight_orig,
+            num_blocks=num_blocks,
+            device=device,
+            percdamp=percdamp,
+            dtype=dtype)
         assert max_accumulator_bit_width is not None, \
             "Error: max_accumulator_bit_width is not specified."
         if not isinstance(max_accumulator_bit_width, Tensor):
@@ -201,7 +203,7 @@ class A2GPTQ(_AXE, GPTQ):
         assert self.max_accumulator_bit_width > 2, \
             "Error: accumulator bit width needs to be bigger than 2."
 
-    def single_layer_update(self, percdamp=0.01, c=1e4):
+    def single_layer_update(self, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPTQ does not support weight quantizers that require quantized inputs."
         if self.quant_metadata is None:
@@ -266,7 +268,7 @@ class A2GPTQ(_AXE, GPTQ):
         # Try/Except in case the inverse Hessian cannot be computed
         try:
             for i in range(self.groups):
-                damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
+                damp = self.percdamp * torch.mean(torch.diag(self.H[i, :, :]))
                 diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])

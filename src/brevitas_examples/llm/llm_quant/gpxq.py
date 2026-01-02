@@ -120,7 +120,8 @@ def apply_gptq(
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
-        buffer_dtype=torch.float32):
+        buffer_dtype=torch.float32,
+        percdamp: float = .01):
     if max_accumulator_bit_width is not None:
         # Use accumulator-aware extension (AXE) framework
         print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
@@ -130,6 +131,10 @@ def apply_gptq(
             max_accumulator_tile_size=max_accumulator_tile_size)
     else:
         gptq_class = GPTQ
+
+    # Set percdam parameter for any of the two classes
+    gptq_class = partial(gptq_class, percdamp=percdamp)
+
     if block_name is not None:
         context_manager_kwargs = {
             'act_order': act_order,

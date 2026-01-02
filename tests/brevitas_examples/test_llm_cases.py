@@ -61,6 +61,7 @@ class LLMRunCases:
                 "learned_round_iters": 1,
                 "gpxq_block_name": "model.layers",
             },
+            {"gptq": True, "gptq_lambda": 0.5},
         ],
         ids=[
             "defaults",
@@ -81,6 +82,7 @@ class LLMRunCases:
             "quant_sdpa_functional_per_row",
             "functional_sdpa_quant=True,rotation=fused_no_fx",
             "per_group_w_padding,learned_round=linear_round",
+            "gptq_lambda",
         ],)
     def case_small_models_toggle_args(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict)

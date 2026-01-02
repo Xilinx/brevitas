@@ -267,6 +267,13 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
+    parser.add_argument(
+        '--gptq-lambda',
+        default=.01,
+        type=float,
+        help=
+        'Lambda parameter for GPTQ. Fraction of the average diagonal added to the diagonal of H. (default: %(default)s).'
+    )
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
         '--gpxq-act-order', action='store_true', help='Apply GPxQ activation ordering.')
