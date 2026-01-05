@@ -1744,11 +1744,13 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                 if parametrize.is_parametrized(module) and tensor_name in module.parametrizations:
                     # Check if the module has any quantization-related children
                     state_dict = None
+                    is_proxy_compiled = False
                     for submodule in module.modules():
                         if isinstance(
                                 submodule,
                             (WeightQuantProxyFromInjectorBase, BiasQuantProxyFromInjectorBase)):
                             state_dict = submodule.state_dict()
+                            is_proxy_compiled = submodule.is_proxy_compiled
                             break
                     # The rotated tensor is saved by setting leave_parametrized=True
                     parametrize.remove_parametrizations(
@@ -1757,7 +1759,7 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                     # when registering the parametrized parameter
                     if state_dict is not None:
                         submodule.load_state_dict(state_dict)
-                    if submodule.is_proxy_compiled:
+                    if is_proxy_compiled:
                         submodule.compile_quant()
     return model
 
