@@ -23,8 +23,7 @@ class rmsnorm_patch:
     def __init__(self, model, config, enabled=True):
         self.model = model
         self.config = config
-        self.enabled = enabled
-        if self.enabled:
+        if enabled:
             self.rmsnorm_classes = tuple(
                 set(type(x) for x in model.modules() if 'RMS' in type(x).__name__))
         else:
