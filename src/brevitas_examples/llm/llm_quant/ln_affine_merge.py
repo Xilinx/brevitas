@@ -57,7 +57,7 @@ class rmsnorm_patch:
         rewriters = []
         dtype = next(self.model.parameters()).dtype
 
-        for old_module, new_module in self.mapping:
+        for old_module, new_module in self.mapping.items():
             rewriter = ModuleInstanceToModuleInstance(old_module, new_module)
             rewriters.append(rewriter)
 
