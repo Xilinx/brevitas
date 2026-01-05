@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from brevitas import torch_version
+from brevitas.graph import ModuleInstanceToModuleInstance
 from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph.equalize import _is_scale_invariant_module
 from brevitas.graph.equalize import LayerNormToRMS
@@ -28,12 +29,14 @@ class rmsnorm_patch:
                 set(type(x) for x in model.modules() if 'RMS' in type(x).__name__))
         else:
             self.rmsnorm_classes = tuple()
+        self.mapping = dict()
 
     def __enter__(self):
         assert torch_version >= version.parse('2.4'), "torch.nn.RMSNorm requires torch 2.4 or greater"
 
         dtype = next(self.model.parameters()).dtype
         device = next(self.model.parameters()).device
+
         rewriters = [
             ModuleToModuleByClass(
                 rms_cls,
@@ -42,9 +45,10 @@ class rmsnorm_patch:
                 eps=self.config.rms_norm_eps,
                 dtype=dtype,
                 device=device) for rms_cls in self.rmsnorm_classes]
-        dtype = next(iter(self.model.parameters())).dtype
+
         for r in rewriters:
             self.model = r.apply(self.model)
+            self.mapping.update(r.old_new_module_dict)
 
         self.model = self.model.to(dtype)
         return self
@@ -52,12 +56,9 @@ class rmsnorm_patch:
     def __exit__(self, *args, **kwargs):
         rewriters = []
         dtype = next(self.model.parameters()).dtype
-        device = next(self.model.parameters()).device
-        for rms_class in self.rmsnorm_classes:
-            hidden_dim, eps = list(signature(rms_class).parameters.keys())
-            kwargs = {
-                hidden_dim: lambda module: module.normalized_shape, eps: lambda module: module.eps}
-            rewriter = ModuleToModuleByClass(torch.nn.RMSNorm, rms_class, **kwargs)
+
+        for old_module, new_module in self.mapping:
+            rewriter = ModuleInstanceToModuleInstance(old_module, new_module)
             rewriters.append(rewriter)
 
         for r in rewriters:

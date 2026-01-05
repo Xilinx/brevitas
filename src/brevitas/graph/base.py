@@ -435,18 +435,18 @@ class ModuleToModuleByClass(ModuleToModule):
     def __init__(self, old_module_class, new_module_class, **kwargs):
         super().__init__(new_module_class, **kwargs)
         self.old_module_class = old_module_class
+        self.old_new_module_dict = {}
 
     def apply(self, model: GraphModule) -> GraphModule:
-        old_new_module_dict = {}
         for old_module in model.modules():
             # check for equality, not inheritance
             if type(old_module) == self.old_module_class:
                 # init the new module based on the old one
                 new_module = self.init_new_module(old_module)
                 # register modules pair to be replaced
-                old_new_module_dict[old_module] = new_module
+                self.old_new_module_dict[old_module] = new_module
         # replace all pairs registered
-        for old_module, new_module in old_new_module_dict.items():
+        for old_module, new_module in self.old_new_module_dict.items():
             replace_module(model, old_module, new_module)
         return model
 
