@@ -139,7 +139,7 @@ def merge_layernorm_affine_params(graph_model):
 
 @torch.no_grad()
 def apply_layernorm_affine_merge(graph_model, rmsnorm_classes):
-    eq = MergeLnAffine(extra_rmsnorm_classes=rmsnorm_classes)
+    eq = MergeLnAffine(extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
     graph_model = eq.apply(graph_model)
     return graph_model
 

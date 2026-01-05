@@ -1785,10 +1785,23 @@ def _merge_ln(layer_norm, next_module, scale_bias_by_weight):
         _replace_bias(next_module, new_bias)
 
 
+class StateMixin:
+
+    def __init__(self, base_state_kwargs, extra_state_kwargs=None):
+
+        self.full_state_kwargs = dict()
+        extra_state_kwargs = dict() if extra_state_kwargs is None else extra_state_kwargs
+
+        for d in (base_state_kwargs, extra_state_kwargs):
+            for key, value in d.items():
+                current_value = self.full_state_kwargs.get(key, ())
+                current_value = current_value + value
+                self.full_state_kwargs[key] = current_value
+
+
 class RotationEqualization(GraphTransform):
 
     def __init__(self, blacklist_layers, layers_to_expand) -> None:
-        super(RotationEqualization, self).__init__()
         if blacklist_layers is not None:
             self.blacklist_layers = blacklist_layers
         else:
@@ -1797,19 +1810,19 @@ class RotationEqualization(GraphTransform):
             self.layers_to_expand = layers_to_expand
         else:
             self.layers_to_expand = []
-        self.supported_sinks = ()
 
     def find_module(
             self,
             model: nn.Module,
             regions: List[Region],
+            supported_sinks: tuple,
             prefix: str = '',
             blacklist_layers: Optional[List[str]] = None):
         """
         Iterate through the model looking at immediate children of every module to look for supported modules.
         This allows us to stop the search when we meet a top-level module that is supported.
         """
-        if isinstance(model, self.supported_sinks):
+        if isinstance(model, supported_sinks):
             if prefix in blacklist_layers:
                 return
             weight = get_weight_sink(model)
@@ -1820,7 +1833,7 @@ class RotationEqualization(GraphTransform):
         else:
             for name, module in model.named_children():
                 full_name = prefix + '.' + name if prefix != '' else name
-                self.find_module(module, regions, full_name, blacklist_layers)
+                self.find_module(module, regions, supported_sinks, full_name, blacklist_layers)
 
     def find_module_by_name(self, model: nn.Module, regions: List[Region], prefix: str = ''):
         """
@@ -1852,7 +1865,7 @@ class RotationEqualization(GraphTransform):
             return apply_rewriters(model, rewriters)
 
 
-class GraphRotationEqualization(RotationEqualization):
+class GraphRotationEqualization(RotationEqualization, StateMixin):
 
     def __init__(
             self,
@@ -1867,18 +1880,19 @@ class GraphRotationEqualization(RotationEqualization):
             expansion_step: int = None,
             delay_rewriters: bool = False,
             return_rewriters: bool = False,
-            extra_rmsnorm_classes: Optional[Tuple] = None) -> None:
-        super(GraphRotationEqualization, self).__init__(blacklist_layers, layers_to_expand)
+            extra_state_kwargs: Optional[Dict[str, Tuple]] = None) -> None:
+        RotationEqualization.__init__(self, blacklist_layers, layers_to_expand)
 
-        self.supported_srcs = (nn.Linear, nn.Embedding)
-        self.supported_sinks = (nn.Linear)
         common_scale_invariant = list(_scale_invariant_layers)
         common_scale_invariant.remove(torch.nn.ReLU)
         common_scale_invariant.remove(torch.nn.LeakyReLU)
-        self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
-        if extra_rmsnorm_classes is not None:
-            self.scale_invariant_layers = self.scale_invariant_layers + extra_rmsnorm_classes
-        self.scale_invariant_function = ()
+        base_state_kwargs = {
+            'supported_srcs': (nn.Linear, nn.Embedding),
+            'supported_sinks': (nn.Linear,),
+            'scale_invariant_layers': tuple(common_scale_invariant) + (RMSNorm,),
+            'scale_invariant_function': ()}
+        StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
+
         self.orphan_sink = orphan_sink
         self.rotate_matmul = rotate_matmul
         self.full_rotation_method = full_rotation_method
@@ -1995,13 +2009,7 @@ class GraphRotationEqualization(RotationEqualization):
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
-        regions = _extract_regions(
-            graph_model,
-            state_impl_kwargs={
-                'supported_srcs': self.supported_srcs,
-                'supported_sinks': self.supported_sinks,
-                'scale_invariant_layers': self.scale_invariant_layers,
-                'scale_invariant_function': self.scale_invariant_function})
+        regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
 
         expanded_regions = []
         self.find_module_by_name(graph_model, expanded_regions)
@@ -2010,7 +2018,11 @@ class GraphRotationEqualization(RotationEqualization):
 
         if self.orphan_sink:
             blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
-            self.find_module(graph_model, orphan_regions, blacklist_layers=blacklist_orphan_layers)
+            self.find_module(
+                graph_model,
+                orphan_regions,
+                self.full_state_kwargs['supported_sinks'],
+                blacklist_layers=blacklist_orphan_layers)
 
         if len(expanded_regions) > 0:
             parameter_number_pre = 0
@@ -2098,20 +2110,23 @@ def apply_rewriters(
     return model
 
 
-class LayerNormToRMS(GraphTransform):
+class LayerNormToRMS(GraphTransform, StateMixin):
 
-    def __init__(self, return_rewriters=False) -> None:
-        super(LayerNormToRMS, self).__init__()
-        self.supported_srcs = (nn.Linear, nn.Embedding)
-        self.supported_sinks = (nn.LayerNorm)
+    def __init__(
+            self,
+            return_rewriters: bool = False,
+            extra_state_kwargs: Optional[Dict[str, Tuple]] = None) -> None:
+        GraphTransform.__init__(self)
+
+        base_state_kwargs = {
+            'supported_srcs': (nn.Linear, nn.Embedding), 'supported_sinks': (nn.LayerNorm,)}
+        StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
+
         self.return_rewriters = return_rewriters
         assert RMSNorm is not object, 'Update your Pytorch version to 2.4+'
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
-        regions = _extract_regions(
-            graph_model,
-            state_impl_kwargs={
-                'supported_srcs': self.supported_srcs, 'supported_sinks': self.supported_sinks})
+        regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
 
         rewriters = []
         if len(regions) > 0:
@@ -2144,20 +2159,17 @@ class LayerNormToRMS(GraphTransform):
             return graph_model
 
 
-class MergeLnAffine(GraphTransform):
+class MergeLnAffine(GraphTransform, StateMixin):
 
-    def __init__(self, extra_rmsnorm_classes: Optional[Tuple] = None) -> None:
-        super(MergeLnAffine, self).__init__()
+    def __init__(self, extra_state_kwargs: Optional[Dict[str, Tuple]] = None) -> None:
+        GraphTransform.__init__(self)
         self.supported_srcs = (RMSNorm, nn.LayerNorm)
-        if extra_rmsnorm_classes is not None:
-            self.supported_srcs = self.supported_srcs + extra_rmsnorm_classes
-        self.supported_sinks = (nn.Linear)
+        base_state_kwargs = {
+            'supported_srcs': (RMSNorm, nn.LayerNorm), 'supported_sinks': (nn.Linear,)}
+        StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
-        regions = _extract_regions(
-            graph_model,
-            state_impl_kwargs={
-                'supported_srcs': self.supported_srcs, 'supported_sinks': self.supported_sinks})
+        regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
 
         if len(regions) > 0:
             scaled_biases = set()
@@ -2185,18 +2197,23 @@ class LayerwiseActivationRotation(RotationEqualization):
             blacklist_layer: Optional[List] = None,
             layers_to_expand: Optional[List] = None,
             expansion_step: int = 0,
-            block_rotation_dim: Optional[int] = None):
-        super().__init__(blacklist_layer, layers_to_expand)
+            block_rotation_dim: Optional[int] = None,
+            extra_state_kwargs: Optional[Dict[str, Tuple]] = None):
+
+        RotationEqualization.__init__(self, blacklist_layer, layers_to_expand)
         self.expansion_step = expansion_step
-        self.supported_sinks = (nn.Linear)
         self.block_rotation_dim = block_rotation_dim
+        self.supported_sinks = (nn.Linear,)
+        # base_state_kwargs = {'supported_sinks': (nn.Linear,)}
+        # StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
 
     def apply(self, model: nn.Module) -> nn.Module:
         regions: List[Region] = []
         rewriters: List[Transform] = []
 
         blacklist_orphan_layers = self.blacklist_layers + self.layers_to_expand
-        self.find_module(model, regions, blacklist_layers=blacklist_orphan_layers)
+        self.find_module(
+            model, regions, self.supported_sinks, blacklist_layers=blacklist_orphan_layers)
         expanded_regions = []
         self.find_module_by_name(model, expanded_regions)
 

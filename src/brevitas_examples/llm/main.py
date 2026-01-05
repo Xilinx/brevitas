@@ -126,7 +126,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand,
         block_rotation_dim=args.block_rotation_dim,
-        extra_rmsnorm_classes=rmsnorm_classes)
+        extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
     fx_model, rewriters = eq.apply(fx_model)
 
     model = offload_model(model)
@@ -285,11 +285,8 @@ def quantize_llm(args, extra_args=None):
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
-    # if args.replace_rmsnorm:
-    #     rmsnorm_layers = return_rmsnorm_type(model, model.config)
-
+    rmsnorm_classes = ()
     if require_fx:
-
         with torch.no_grad(), rmsnorm_patch(model, model.config, enabled=args.replace_rmsnorm) as patcher:
             rmsnorm_classes = patcher.rmsnorm_classes
             with make_dynamo_compatible(model) as dynamo_comp:
@@ -342,7 +339,7 @@ def quantize_llm(args, extra_args=None):
             expansion_step=args.expansion_step,
             layers_to_expand=layers_to_expand,
             block_rotation_dim=args.block_rotation_dim,
-            extra_rmsnorm_classes=rmsnorm_classes)
+            extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
     elif args.rotation == 'layerwise':
