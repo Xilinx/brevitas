@@ -66,7 +66,7 @@ class BenchmarkSearchMixin(ABC):
 
     @classmethod
     @abstractmethod
-    def standardize_args(cls, args: Namespace) -> Dict[str, Any]:
+    def standardize_args(cls, script_args: Namespace) -> Dict[str, Any]:
         pass
 
     @staticmethod
@@ -89,7 +89,7 @@ class BenchmarkSearchMixin(ABC):
 class GridSearchMixin(BenchmarkSearchMixin):
 
     @classmethod
-    def standardize_args(cls, script_args: str) -> Dict[str, List]:
+    def standardize_args(cls, script_args: Namespace) -> Dict[str, List]:
         # Construct a full set of arguments where each argument is contained into a list
         if script_args.config is not None:
             with open(script_args.config, 'r') as f:
@@ -295,7 +295,7 @@ class RandomArgNode:
 class RandomSearchMixin(BenchmarkSearchMixin):
 
     @classmethod
-    def standardize_args(cls, script_args: str) -> Dict[str, List]:
+    def standardize_args(cls, script_args: Namespace) -> Dict[str, List]:
         # Construct a full set of arguments where each argument is contained into a list
         if script_args.config is not None:
             with open(script_args.config, 'r') as f:
