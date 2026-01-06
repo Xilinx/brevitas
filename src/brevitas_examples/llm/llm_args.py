@@ -489,8 +489,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         if args.weight_quant_rescaling_init is not None:
             assert args.weight_quant_rescaling_init > 0, \
                 'Error: weight_quant_rescaling_init must be positive.'
-        if (int(args.gptq) + int(args.gpfq) + int(args.qronos)) > 1:
-            assert False, "GPTQ, GPFQ, and/or Qronos are enabled together."
+        assert (int(args.gptq) + int(args.gpfq) + int(args.qronos)) <= 1, "GPTQ, GPFQ, and/or Qronos are enabled together."
         if (args.gpfq or args.qronos):
             # create_weight_orig=True creates a copy of the weights for the model to use
             # when disabling weight quantization so that any downstream optimization can
