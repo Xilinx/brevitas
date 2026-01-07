@@ -53,15 +53,12 @@ class rmsnorm_patch:
         return self
 
     def __exit__(self, *args, **kwargs):
-        rewriters = []
         dtype = next(self.model.parameters()).dtype
 
         for old_module, new_module in self.mapping.items():
             rewriter = ModuleInstanceToModuleInstance(old_module, new_module)
-            rewriters.append(rewriter)
+            self.model = rewriter.apply(self.model)
 
-        for r in rewriters:
-            self.model = r.apply(self.model)
 
         self.model = self.model.to(dtype)
 
