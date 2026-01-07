@@ -2204,8 +2204,6 @@ class LayerwiseActivationRotation(RotationEqualization):
         self.expansion_step = expansion_step
         self.block_rotation_dim = block_rotation_dim
         self.supported_sinks = (nn.Linear,)
-        # base_state_kwargs = {'supported_sinks': (nn.Linear,)}
-        # StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
 
     def apply(self, model: nn.Module) -> nn.Module:
         regions: List[Region] = []
