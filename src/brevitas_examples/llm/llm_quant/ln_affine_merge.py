@@ -59,7 +59,6 @@ class rmsnorm_patch:
             rewriter = ModuleInstanceToModuleInstance(old_module, new_module)
             self.model = rewriter.apply(self.model)
 
-
         self.model = self.model.to(dtype)
 
 
