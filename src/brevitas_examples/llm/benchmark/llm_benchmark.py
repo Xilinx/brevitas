@@ -12,12 +12,12 @@ from typing import Optional
 from typing import Tuple
 
 from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.common.benchmark.utils import GridSearchBenchmarkUtils
+from brevitas_examples.common.benchmark.utils import BenchmarkUtils, GridSearchMixin
 from brevitas_examples.llm.llm_args import create_args_parser as create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
 
 
-class LLMBenchmarkUtilsMixin:
+class LLMBenchmarkUtilsBase(BenchmarkUtils):
 
     argument_parser: ArgumentParser = create_llm_args_parser()
     eval_metrics: List[str] = ["float_ppl", "quant_ppl"]
@@ -54,7 +54,7 @@ class LLMBenchmarkUtilsMixin:
         return quantize_llm(args=args, extra_args=extra_args)
 
 
-class LLMBenchmarkUtils(GridSearchBenchmarkUtils, LLMBenchmarkUtilsMixin):
+class LLMBenchmarkUtils(LLMBenchmarkUtilsBase, GridSearchMixin):
     pass
 
 

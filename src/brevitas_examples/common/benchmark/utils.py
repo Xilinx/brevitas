@@ -457,14 +457,6 @@ def _print_indented_dict(message: str, dictionary: Dict) -> None:
         print(f"\t{key}: {value}")
 
 
-class GridSearchBenchmarkUtils(BenchmarkUtils, GridSearchMixin):
-    pass
-
-
-class RandomSearchBenchmarkUtils(BenchmarkUtils, RandomSearchMixin):
-    pass
-
-
 # Ensures that the bytestring is the same irrespective
 # of the order in which the keys are added to the dictionary
 def _dict_to_bytes(dictionary: Dict) -> bytes:

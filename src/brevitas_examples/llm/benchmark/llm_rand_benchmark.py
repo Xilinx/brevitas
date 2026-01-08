@@ -3,13 +3,13 @@
 
 import sys
 
-from llm_benchmark import LLMBenchmarkUtilsMixin
+from llm_benchmark import LLMBenchmarkUtilsBase
 
 from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.common.benchmark.utils import RandomSearchBenchmarkUtils
+from brevitas_examples.common.benchmark.utils import RandomSearchMixin
 
 
-class LLMRandomSearchBenchmarkUtils(RandomSearchBenchmarkUtils, LLMBenchmarkUtilsMixin):
+class LLMRandomSearchBenchmarkUtils(LLMBenchmarkUtilsBase, RandomSearchMixin):
     pass
 
 
