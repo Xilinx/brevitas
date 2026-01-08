@@ -66,7 +66,8 @@ class Qronos(GPFQ):
                 self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
                 self.G += (self.B / self.nsamples)
             else:
-                self.G += inp_processed.bmm(self.quant_input.transpose(2, 1))
+                self.G += (inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
+                    self.quant_input.transpose(2, 1) * (1 / math.sqrt(self.nsamples)))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Computing the normalized H matrix
@@ -76,7 +77,8 @@ class Qronos(GPFQ):
                 self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
                 self.H += (self.B / self.nsamples)
             else:
-                self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
+                self.H += (inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
+                    inp_processed.transpose(2, 1) * (1 / math.sqrt(self.nsamples)))
             # store the quantized input for computing the H matrix
             assert self.quant_input is None
             self.quant_input = inp_processed
