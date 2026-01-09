@@ -1785,17 +1785,17 @@ def _merge_ln(layer_norm, next_module, scale_bias_by_weight):
         _replace_bias(next_module, new_bias)
 
 
-class StateMixin:
+class RegionWalkMixin:
 
     def __init__(
             self,
-            supported_srcs: Tuple[nn.Module] = _supported_layers,
-            supported_sinks: Tuple[nn.Module] = _supported_layers,
-            scale_invariant_layers: Tuple[nn.Module] = _scale_invariant_layers,
-            scale_invariant_functions: Tuple[nn.Module] = _scale_invariant_op,
-            residual_fns: Tuple[nn.Module] = _residual_fns,
-            residual_methods: Tuple[nn.Module] = _residual_methods,
-            extra_state_kwargs=None):
+            supported_srcs: Tuple[Type[nn.Module]] = _supported_layers,
+            supported_sinks: Tuple[Type[nn.Module]] = _supported_layers,
+            scale_invariant_layers: Tuple[Type[nn.Module]] = _scale_invariant_layers,
+            scale_invariant_functions: Tuple[Callable] = _scale_invariant_op,
+            residual_fns: Tuple[Callable] = _residual_fns,
+            residual_methods: Tuple[str] = _residual_methods,
+            extra_state_kwargs: Optional[Dict[str, Tuple[Type[nn.Module]]]] = None):
         self.supported_srcs = supported_srcs
         self.supported_sinks = supported_sinks
         self.scale_invariant_layers = scale_invariant_layers
@@ -1804,13 +1804,12 @@ class StateMixin:
         self.residual_methods = residual_methods
 
         if extra_state_kwargs is not None:
-            for attr_name in extra_state_kwargs:
-                value = extra_state_kwargs[attr_name]
+            for attr_name, value in extra_state_kwargs.items():
                 combined_value = value + getattr(self, attr_name)
                 setattr(self, attr_name, combined_value)
 
     @property
-    def full_state_kwargs(self):
+    def full_state_kwargs(self) -> Dict[str, Tuple[Type[nn.Module]]]:
         return {
             'supported_srcs': self.supported_srcs,
             'supported_sinks': self.supported_sinks,
@@ -1836,7 +1835,7 @@ class RotationEqualization(GraphTransform):
             self,
             model: nn.Module,
             regions: List[Region],
-            supported_sinks: tuple,
+            supported_sinks: Tuple[nn.Module],
             prefix: str = '',
             blacklist_layers: Optional[List[str]] = None):
         """
