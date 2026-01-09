@@ -293,7 +293,7 @@ class WalkRegionState:
 
     supported_srcs: set = _supported_layers
     supported_sinks: set = _supported_layers
-    scale_invariant_function: set = _scale_invariant_op
+    scale_invariant_functions: set = _scale_invariant_op
     scale_invariant_layers: set = _scale_invariant_layers
     residual_fns: set = _residual_fns
     residual_methods: set = _residual_methods
@@ -1027,7 +1027,7 @@ def find_srcs_channel_dim(state, model, inp_node):
         return total_channels
     elif _is_scale_invariant_module(model, inp_node,
                                     state.scale_invariant_layers) or _is_scale_invariant_function(
-                                        inp_node, state.scale_invariant_function):
+                                        inp_node, state.scale_invariant_functions):
         return find_srcs_channel_dim(state, model, inp_node.all_input_nodes[0])
     else:
         return _UNSUPPORTED_OP
@@ -1078,7 +1078,7 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
                 0]
         elif _is_scale_invariant_module(
                 graph_model, node, state.scale_invariant_layers) or _is_scale_invariant_function(
-                    node, state.scale_invariant_function):
+                    node, state.scale_invariant_functions):
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
         elif _is_add(node, state.residual_fns, state.residual_methods):
@@ -1126,7 +1126,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
 
         elif _is_scale_invariant_module(
                 graph_model, node, state.scale_invariant_layers) or _is_scale_invariant_function(
-                    node, state.scale_invariant_function):
+                    node, state.scale_invariant_functions):
             find_sinks(graph_model, node, state)
         elif _is_add(node, state.residual_fns, state.residual_methods):
             state.update_offset = False
@@ -1787,16 +1787,37 @@ def _merge_ln(layer_norm, next_module, scale_bias_by_weight):
 
 class StateMixin:
 
-    def __init__(self, base_state_kwargs, extra_state_kwargs=None):
+    def __init__(
+            self,
+            supported_srcs: Tuple[nn.Module] = _supported_layers,
+            supported_sinks: Tuple[nn.Module] = _supported_layers,
+            scale_invariant_layers: Tuple[nn.Module] = _scale_invariant_layers,
+            scale_invariant_functions: Tuple[nn.Module] = _scale_invariant_op,
+            residual_fns: Tuple[nn.Module] = _residual_fns,
+            residual_methods: Tuple[nn.Module] = _residual_methods,
+            extra_state_kwargs=None):
+        self.supported_srcs = supported_srcs
+        self.supported_sinks = supported_sinks
+        self.scale_invariant_layers = scale_invariant_layers
+        self.scale_invariant_functions = scale_invariant_functions
+        self.residual_fns = residual_fns
+        self.residual_methods = residual_methods
 
-        self.full_state_kwargs = dict()
-        extra_state_kwargs = dict() if extra_state_kwargs is None else extra_state_kwargs
+        if extra_state_kwargs is not None:
+            for attr_name in extra_state_kwargs:
+                value = extra_state_kwargs[attr_name]
+                combined_value = value + getattr(self, attr_name)
+                setattr(self, attr_name, combined_value)
 
-        for d in (base_state_kwargs, extra_state_kwargs):
-            for key, value in d.items():
-                current_value = self.full_state_kwargs.get(key, ())
-                current_value = current_value + value
-                self.full_state_kwargs[key] = current_value
+    @property
+    def full_state_kwargs(self):
+        return {
+            'supported_srcs': self.supported_srcs,
+            'supported_sinks': self.supported_sinks,
+            'scale_invariant_layers': self.scale_invariant_layers,
+            'scale_invariant_functions': self.scale_invariant_functions,
+            'residual_fns': self.residual_fns,
+            'residual_methods': self.residual_methods}
 
 
 class RotationEqualization(GraphTransform):
@@ -1890,8 +1911,8 @@ class GraphRotationEqualization(RotationEqualization, StateMixin):
             'supported_srcs': (nn.Linear, nn.Embedding),
             'supported_sinks': (nn.Linear,),
             'scale_invariant_layers': tuple(common_scale_invariant) + (RMSNorm,),
-            'scale_invariant_function': ()}
-        StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
+            'scale_invariant_functions': ()}
+        StateMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         self.orphan_sink = orphan_sink
         self.rotate_matmul = rotate_matmul
@@ -2120,7 +2141,7 @@ class LayerNormToRMS(GraphTransform, StateMixin):
 
         base_state_kwargs = {
             'supported_srcs': (nn.Linear, nn.Embedding), 'supported_sinks': (nn.LayerNorm,)}
-        StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
+        StateMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         self.return_rewriters = return_rewriters
         assert RMSNorm is not object, 'Update your Pytorch version to 2.4+'
@@ -2166,7 +2187,7 @@ class MergeLnAffine(GraphTransform, StateMixin):
         self.supported_srcs = (RMSNorm, nn.LayerNorm)
         base_state_kwargs = {
             'supported_srcs': (RMSNorm, nn.LayerNorm), 'supported_sinks': (nn.Linear,)}
-        StateMixin.__init__(self, base_state_kwargs, extra_state_kwargs)
+        StateMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
