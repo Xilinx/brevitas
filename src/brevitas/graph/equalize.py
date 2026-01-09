@@ -1885,7 +1885,7 @@ class RotationEqualization(GraphTransform):
             return apply_rewriters(model, rewriters)
 
 
-class GraphRotationEqualization(RotationEqualization, StateMixin):
+class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
 
     def __init__(
             self,
@@ -1911,7 +1911,7 @@ class GraphRotationEqualization(RotationEqualization, StateMixin):
             'supported_sinks': (nn.Linear,),
             'scale_invariant_layers': tuple(common_scale_invariant) + (RMSNorm,),
             'scale_invariant_functions': ()}
-        StateMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
+        RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         self.orphan_sink = orphan_sink
         self.rotate_matmul = rotate_matmul
@@ -2130,7 +2130,7 @@ def apply_rewriters(
     return model
 
 
-class LayerNormToRMS(GraphTransform, StateMixin):
+class LayerNormToRMS(GraphTransform, RegionWalkMixin):
 
     def __init__(
             self,
@@ -2140,7 +2140,7 @@ class LayerNormToRMS(GraphTransform, StateMixin):
 
         base_state_kwargs = {
             'supported_srcs': (nn.Linear, nn.Embedding), 'supported_sinks': (nn.LayerNorm,)}
-        StateMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
+        RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         self.return_rewriters = return_rewriters
         assert RMSNorm is not object, 'Update your Pytorch version to 2.4+'
@@ -2179,14 +2179,14 @@ class LayerNormToRMS(GraphTransform, StateMixin):
             return graph_model
 
 
-class MergeLnAffine(GraphTransform, StateMixin):
+class MergeLnAffine(GraphTransform, RegionWalkMixin):
 
     def __init__(self, extra_state_kwargs: Optional[Dict[str, Tuple]] = None) -> None:
         GraphTransform.__init__(self)
         self.supported_srcs = (RMSNorm, nn.LayerNorm)
         base_state_kwargs = {
             'supported_srcs': (RMSNorm, nn.LayerNorm), 'supported_sinks': (nn.Linear,)}
-        StateMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
+        RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
