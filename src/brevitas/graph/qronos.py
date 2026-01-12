@@ -63,8 +63,9 @@ class Qronos(GPFQ):
             # Computing the normalized G matrix
             self.G *= (self.nsamples - batch_size) / self.nsamples
             if self.use_intermediate_buffer:
-                self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
-                self.G += (self.B / self.nsamples)
+                self.B.copy_((inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
+                    self.quant_input.transpose(2, 1) * (1 / math.sqrt(self.nsamples))))
+                self.G += self.B
             else:
                 self.G += (inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
                     self.quant_input.transpose(2, 1) * (1 / math.sqrt(self.nsamples)))
@@ -74,8 +75,9 @@ class Qronos(GPFQ):
             self.nsamples += batch_size  # NOTE: only increment with quant inputs
             self.H *= (self.nsamples - batch_size) / self.nsamples
             if self.use_intermediate_buffer:
-                self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
-                self.H += (self.B / self.nsamples)
+                self.B.copy_((inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
+                    inp_processed.transpose(2, 1) * (1 / math.sqrt(self.nsamples))))
+                self.H += self.B
             else:
                 self.H += (inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
                     inp_processed.transpose(2, 1) * (1 / math.sqrt(self.nsamples)))
