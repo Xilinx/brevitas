@@ -1590,8 +1590,26 @@ def _compute_rotations(
             assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
             assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
 
-        # Initialize variables
+        # Initialize hidden_dim to the max shape of the sinks
         hidden_dim = region.max_shape_sinks
+
+        # If block_rotation_dim is specified, then we will apply block rotations
+        apply_block_rotation = block_rotation_dim is not None
+
+        # insert_rotation_module is True for orphan sinks (aka online rotations). Sometimes we want to use
+        # block rotations only for online rotations and full-vector for fused rotations.
+        if not insert_rotation_module and disable_block_rotation_for_fused:
+            apply_block_rotation = False
+
+        if apply_block_rotation:
+            # Check block_rotation is compatible with the current shape
+            if (hidden_dim // block_rotation_dim > 1) and (hidden_dim % block_rotation_dim == 0):
+                hidden_dim = block_rotation_dim
+            else:
+                logging.info(
+                    f"Block rotation shape is not compatible with hidden_dim={hidden_dim}."
+                    " Falling back to full-vector rotation.")
+
         expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
         if not insert_rotation_module and full_rotation_method == 'ort':
             rot_mat = random_orthogonal_matrix(hidden_dim)
@@ -1619,22 +1637,6 @@ def _compute_rotations(
                 else:
                     logging.info("Skipping region")
                     continue
-
-        hidden_dim = hidden_dim if not region.expand_region else expanded_hidden_dim
-        # Sometimes we want to use block rotation only for online rotations and full-vector for fused rotations
-        # In this case, we use block rotations only for online rotations and skip fused rotations
-        skip_block_rotation = disable_block_rotation_for_fused and fuse_rotations and not insert_rotation_module
-        if block_rotation_dim is not None and not skip_block_rotation:
-            # Check if we are doing block_rotation and if it is compatible with the current shape
-            if (hidden_dim // block_rotation_dim > 1) and (hidden_dim % block_rotation_dim == 0):
-                hidden_dim = block_rotation_dim
-                rot_mat, K = get_hadK(block_rotation_dim)
-                if region.expand_region:
-                    expanded_rot_mat, expanded_K = rot_mat, K
-            else:
-                warnings.warn(
-                    "Block rotation shape is not compatible with the shape of this region. "
-                    f"Performing normal rotations with hidden_dim={hidden_dim}.")
 
         if region.expand_region:
             rot_mat, K = expanded_rot_mat, expanded_K
