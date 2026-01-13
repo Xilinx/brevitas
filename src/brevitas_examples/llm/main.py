@@ -38,6 +38,7 @@ from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_args import fx_required
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
@@ -199,10 +200,6 @@ def model_export(model, tokenizer, ref_input, args, config=None):
         ds.properties = properties
         ds.root_theta = root_theta
         ds.save(export_path, io_report_callback=None)
-
-
-def fx_required(args):
-    return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
 
 
 # Recursive function to unwrap equalized layers
