@@ -485,6 +485,10 @@ def create_args_parser() -> ArgumentParser:
     return parser
 
 
+def fx_required(args):
+    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
+
+
 def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
     if args.optimize_rotations:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
@@ -494,6 +498,12 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
         assert args.convert_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
+        # FX is not compatible with few-shot evaluation
+        assert args.few_shot_eval != 'lm_eval' or args.few_shot_eval != 'lighteval', "FX is not compatible with few shot evaluation, use fused_no_fx"
+    # Otherwise we might end up tracing through dynamo twice and other weird errors.
+    # Fused_no_fx takes care of all the rotations-related transformations
+    if fx_required(args):
+        assert args.rotation != "fused_no_fx", "fused_no_fx is incompatible with any option that requires FX tracing"
     elif args.rotation == 'fused_no_fx':
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
