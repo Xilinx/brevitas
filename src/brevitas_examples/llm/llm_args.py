@@ -486,7 +486,7 @@ def create_args_parser() -> ArgumentParser:
 
 
 def fx_required(args: Namespace):
-    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx' else False
+    return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
 
 
 def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
