@@ -499,7 +499,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
         assert args.convert_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
         # FX is not compatible with few-shot evaluation
-        assert args.few_shot_eval != 'lm_eval' or args.few_shot_eval != 'lighteval', "FX is not compatible with few shot evaluation, use fused_no_fx"
+        assert args.few_shot_eval is None, "FX is not compatible with few shot evaluation, use fused_no_fx"
     # Otherwise we might end up tracing through dynamo twice and other weird errors.
     # Fused_no_fx takes care of all the rotations-related transformations
     if fx_required(args):
