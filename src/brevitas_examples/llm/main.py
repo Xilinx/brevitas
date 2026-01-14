@@ -68,6 +68,7 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
+from brevitas_examples.llm.llm_quant.run_utils import share_quantizer
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
 logging = setup_logger(__name__)
@@ -213,6 +214,7 @@ def find_equalized_layer(layer):
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
     set_seed(args.seed)
+
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
@@ -477,6 +479,9 @@ def quantize_llm(args, extra_args=None):
 
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+
+        if args.shared_quantizers is not None and len(args.shared_quantizers) > 0:
+            model = share_quantizer(model, args.shared_quantizers)
 
         # Just to be sure
         model.eval()

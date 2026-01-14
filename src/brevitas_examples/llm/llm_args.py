@@ -2,15 +2,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import ArgumentParser
+from argparse import ArgumentTypeError
 from argparse import Namespace
 from typing import List
 from typing import Optional
 from warnings import warn
 
-import torch
-
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
+
+
+def list_of_layers(s):
+    try:
+        list_of_layers = list(map(str, s.split(',')))
+        return list_of_layers
+    except:
+        raise ArgumentTypeError("Layer lists must be in the format x,y u,z")
 
 
 def create_args_parser() -> ArgumentParser:
@@ -19,6 +26,11 @@ def create_args_parser() -> ArgumentParser:
         '--model',
         type=str,
         default="facebook/opt-125m",
+        help='HF model name. Default: facebook/opt-125m.')
+    parser.add_argument(
+        '--shared-quantizers',
+        type=list_of_layers,
+        nargs='*',
         help='HF model name. Default: facebook/opt-125m.')
     parser.add_argument(
         '--dtype',

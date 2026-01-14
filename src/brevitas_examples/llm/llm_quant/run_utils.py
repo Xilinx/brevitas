@@ -20,6 +20,7 @@ limitations under the License.
 """
 
 from contextlib import contextmanager
+from typing import List
 
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
@@ -28,6 +29,7 @@ from torch.utils._pytree import tree_map
 from transformers import AutoConfig
 
 from brevitas.fx.value_tracer import ValueProxy
+from brevitas.graph.utils import get_module
 
 
 def modify_dataloader(model_name_or_path, data, dtype):
@@ -103,3 +105,29 @@ def fix_rewriter(rewriters, old_model_ref, tensor_name):
             if hasattr(m, tensor_name) and id(m.weight) == tensor_id]
         r.old_module_instance = module[0]
     return rewriters
+
+
+def share_quantizer(model: torch.nn.Module, shared_quantizers: List[List[str]]) -> torch.nn.Module:
+    name_list = [name for (name, _) in model.named_modules()]
+    # We first iterate through all the group of layers that share quantization
+    for layers_to_share in shared_quantizers:
+        # We keep track of the quantizers name we want to share
+        # In LLM entrypoint, we only create these quantizers
+        quantizers_reference = {'input_quant': None, 'weight_quant': None, 'act_quant': None}
+        # We iterate through the model to find the shared layers
+        matching_layers = [
+            name for name in name_list if any(map(lambda x: name.endswith(x), layers_to_share))]
+        for name in matching_layers:
+            module = get_module(model, name)
+
+            # We replace all the relevant quantizers
+            for quant_name, quantizer in quantizers_reference.items():
+
+                # We check for which quantizer to replace
+                if hasattr(module, quant_name):
+                    # If the reference was not set, we set it up, otherwise we use
+                    # the reference for all the subsequent quantizers
+                    if quantizer is None:
+                        quantizer = getattr(module, quant_name)
+                    setattr(module, quant_name, quantizer)
+    return model
