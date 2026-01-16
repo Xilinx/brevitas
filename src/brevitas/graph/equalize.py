@@ -1564,6 +1564,49 @@ def random_orthogonal_matrix(size):
     return q
 
 
+def _compute_hidden_dim(
+        region: Region,
+        block_rotation_dim: Optional[int] = None,
+        insert_rotation_module: bool = False,
+        disable_block_rotation_for_fused: bool = False) -> int:
+    """
+    Compute the hidden dimension for rotation per region.
+
+    Since each region may have a different shape and block rotation compatibility,
+    this calculation must be performed on a per-region basis.
+
+    Args:
+        region: The region for which to compute hidden dimension.
+        block_rotation_dim: Optional block rotation dimension for block-wise rotations.
+        insert_rotation_module: Whether this region is an orphan sink (online rotation).
+        disable_block_rotation_for_fused: Whether to disable block rotation for fused rotations.
+
+    Returns:
+        The computed hidden dimension for the region.
+    """
+    # Initialize hidden_dim to the max shape of the sinks
+    hidden_dim = region.max_shape_sinks
+
+    # If block_rotation_dim is specified, then we will apply block rotations
+    apply_block_rotation = block_rotation_dim is not None
+
+    # insert_rotation_module is True for orphan sinks (aka online rotations). Sometimes we want to use
+    # block rotations only for online rotations and full-vector for fused rotations.
+    if not insert_rotation_module and disable_block_rotation_for_fused:
+        apply_block_rotation = False
+
+    if apply_block_rotation:
+        # Check block_rotation is compatible with the current shape
+        if (hidden_dim // block_rotation_dim > 1) and (hidden_dim % block_rotation_dim == 0):
+            hidden_dim = block_rotation_dim
+        else:
+            logging.info(
+                f"Block rotation shape is not compatible with hidden_dim={hidden_dim}."
+                " Falling back to full-vector rotation.")
+
+    return hidden_dim
+
+
 def _compute_rotations(
         model: nn.Module,
         regions: List[Region],
@@ -1590,25 +1633,12 @@ def _compute_rotations(
             assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
             assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
 
-        # Initialize hidden_dim to the max shape of the sinks
-        hidden_dim = region.max_shape_sinks
-
-        # If block_rotation_dim is specified, then we will apply block rotations
-        apply_block_rotation = block_rotation_dim is not None
-
-        # insert_rotation_module is True for orphan sinks (aka online rotations). Sometimes we want to use
-        # block rotations only for online rotations and full-vector for fused rotations.
-        if not insert_rotation_module and disable_block_rotation_for_fused:
-            apply_block_rotation = False
-
-        if apply_block_rotation:
-            # Check block_rotation is compatible with the current shape
-            if (hidden_dim // block_rotation_dim > 1) and (hidden_dim % block_rotation_dim == 0):
-                hidden_dim = block_rotation_dim
-            else:
-                logging.info(
-                    f"Block rotation shape is not compatible with hidden_dim={hidden_dim}."
-                    " Falling back to full-vector rotation.")
+        # Compute hidden_dim per region
+        hidden_dim = _compute_hidden_dim(
+            region=region,
+            block_rotation_dim=block_rotation_dim,
+            insert_rotation_module=insert_rotation_module,
+            disable_block_rotation_for_fused=disable_block_rotation_for_fused)
 
         expanded_hidden_dim, expanded_rot_mat, expanded_K = None, None, None
         if not insert_rotation_module and full_rotation_method == 'ort':
