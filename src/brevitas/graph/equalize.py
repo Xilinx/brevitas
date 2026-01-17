@@ -1640,12 +1640,6 @@ def _compute_rotations(
             assert not region.expand_region, "Orthogonal rotation not compatible with expansion"
             assert block_rotation_dim is None, "Orthogonal rotation not compatible with blockwise rotation"
 
-        # Compute expanded_hidden_dim for weight padding (if applicable)
-        expanded_hidden_dim = None
-        if region.expand_region and expansion_step > 1:
-            expanded_hidden_dim = find_closest_hadamard_number(
-                region.max_shape_sinks, steps=expansion_step)
-
         # Compute hidden_dim per region (includes expansion if applicable)
         hidden_dim = _compute_hidden_dim(
             region=region,
@@ -1709,6 +1703,9 @@ def _compute_rotations(
 
             if region.expand_region:
                 assert isinstance(module, nn.Linear), "Currently only Linear layers support expanded hadamard"
+                # Compute expanded_hidden_dim for weight padding
+                expanded_hidden_dim = find_closest_hadamard_number(
+                    region.max_shape_sinks, steps=expansion_step)
                 new_weights = pad_to_dim(module.weight.data, weight_axis, expanded_hidden_dim)
                 # Modify the weights in-place
                 setattr(module, 'weight', torch.nn.Parameter(new_weights))
