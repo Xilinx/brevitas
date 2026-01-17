@@ -1648,7 +1648,10 @@ def _compute_rotations(
             disable_block_rotation_for_fused=disable_block_rotation_for_fused,
             expansion_step=expansion_step)
 
-        # Compute expanded_hidden_dim for weight padding (if applicable)
+        # NOTE: We need to compute expanded_hidden_dim separately for weight padding in expansion
+        # regions. This is required for proper interop of block rotations and expansion: the weight
+        # must be padded to the expanded dimension before block reduction, but hidden_dim may have
+        # been reduced by block rotation for the parametrizations and rotation matrices.
         if region.expand_region:
             expanded_hidden_dim = find_closest_hadamard_number(
                 region.max_shape_sinks, steps=expansion_step)
