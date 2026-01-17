@@ -94,7 +94,7 @@ class CaileySGD(Optimizer):
         stiefel: bool = False,
         iters: int = 5,
         grad_clip=None,
-        dtype=torch.float32,
+        dtype=None,
     ) -> None:
         defaults = dict(
             lr=lr,
@@ -140,7 +140,7 @@ class CaileySGD(Optimizer):
                 param = p.data
                 param_state = self.state[p]
                 # Store a copy of weights in desired dtype if it is different from param dtype
-                if self.dtype != param.dtype:
+                if self.dtype is not None and self.dtype != param.dtype:
                     if "weight_buffer" not in param_state:
                         param_state["weight_buffer"] = param.clone().to(self.dtype)
                     param = param_state["weight_buffer"]
@@ -154,7 +154,8 @@ class CaileySGD(Optimizer):
                         unity = qr_retraction(unity)
 
                     g = p.grad.data.view(p.size()[0], -1)
-                    g = g.to(self.dtype)
+                    if self.dtype is not None:
+                        g = g.to(self.dtype)
 
                     lr = group["lr"]
 
