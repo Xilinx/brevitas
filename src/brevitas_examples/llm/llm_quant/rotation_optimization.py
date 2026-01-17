@@ -39,8 +39,7 @@ class TrainingArguments(transformers.TrainingArguments):
         default=None,
         metadata={
             "help":
-                "Data type for CaileySGD optimizer computations. None means use parameter dtype. "
-                "Valid values: 'float32', 'float16', 'bfloat16'."})
+                "Data type for CaileySGD optimizer computations. None means use parameter dtype."})
 
     ### Distillation Loss args
     use_distillation_loss: bool = field(
