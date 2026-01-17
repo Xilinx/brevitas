@@ -435,6 +435,7 @@ def compare_model_weights(model_fused, model_unfused, classes_to_compare=(nn.Lin
 @pytest_cases.parametrize('use_fx', [True, False], ids=["fx", "no-fx"])
 @pytest_cases.parametrize('expansion_step', [3, 0], ids=["expansion", "no-expansion"])
 @pytest_cases.parametrize('block_rotation_dim', [12, None])
+@pytest_cases.parametrize('disable_block_rotation_for_fused', [True, False])
 def test_compute_rotations(
         rotation_model,
         mask,
@@ -443,7 +444,8 @@ def test_compute_rotations(
         fuse_rotations,
         use_fx,
         expansion_step,
-        block_rotation_dim):
+        block_rotation_dim,
+        disable_block_rotation_for_fused):
     if expansion_step > 0 and full_rotation_method == 'ort':
         pytest.skip("Expansion is not compatible with orthogonal rotations")
     if block_rotation_dim is not None and full_rotation_method == 'ort':
@@ -518,7 +520,8 @@ def test_compute_rotations(
                 full_rotation_method=full_rotation_method,
                 fuse_rotations=False,
                 expansion_step=expansion_step,
-                block_rotation_dim=block_rotation_dim)
+                block_rotation_dim=block_rotation_dim,
+                disable_block_rotation_for_fused=disable_block_rotation_for_fused)
     elif full_rotation_method == 'ort':
         with patch('brevitas.graph.equalize.random_orthogonal_matrix',
                    partial(_random_orthogonal_matrix, generator=generator)):
@@ -528,7 +531,8 @@ def test_compute_rotations(
                 full_rotation_method=full_rotation_method,
                 fuse_rotations=False,
                 expansion_step=expansion_step,
-                block_rotation_dim=block_rotation_dim)
+                block_rotation_dim=block_rotation_dim,
+                disable_block_rotation_for_fused=disable_block_rotation_for_fused)
 
     apply_rewriters(rotated_model_unfused, rewriters)
 
@@ -545,7 +549,8 @@ def test_compute_rotations(
             full_rotation_method=full_rotation_method,
             fuse_rotations=True,
             expansion_step=expansion_step,
-            block_rotation_dim=block_rotation_dim)
+            block_rotation_dim=block_rotation_dim,
+            disable_block_rotation_for_fused=disable_block_rotation_for_fused)
         apply_rewriters(rotated_model_fused, r)
 
     # Compute outputs for each model
