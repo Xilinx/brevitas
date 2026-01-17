@@ -147,20 +147,6 @@ def _prepare_train_dataset(train_dataset: DatasetToDevice) -> Dataset:
         device=None)
 
 
-def _parse_optimizer_dtype(dtype_str: Optional[str]) -> Optional[torch.dtype]:
-    """Convert string dtype to torch.dtype."""
-    if dtype_str is None:
-        return None
-    dtype_map = {
-        'float32': torch.float32,
-        'float16': torch.float16,
-        'bfloat16': torch.bfloat16,}
-    if dtype_str not in dtype_map:
-        raise ValueError(
-            f"Invalid optimizer_dtype: {dtype_str}. Valid values: {list(dtype_map.keys())}")
-    return dtype_map[dtype_str]
-
-
 def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     # For a PretrainedModel, the Trainer in accelerate calls save_pretrained after
     # finishing the optimization. However, this method no longer works after
@@ -201,9 +187,11 @@ def apply_rotation_optimization(
     trainable_rotations = extract_trainable_rotation_matrices(model)
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
-    optimizer_dtype = _parse_optimizer_dtype(training_args.optimizer_dtype)
     optimizer = CaileySGD(
-        trainable_rotations, lr=training_args.learning_rate, stiefel=True, dtype=optimizer_dtype)
+        trainable_rotations,
+        lr=training_args.learning_rate,
+        stiefel=True,
+        dtype=training_args.optimizer_dtype)
     trainer = GeneralizedTrainer(
         model=model,
         tokenizer=tokenizer,

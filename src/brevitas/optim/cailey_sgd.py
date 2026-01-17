@@ -93,8 +93,8 @@ class CaileySGD(Optimizer):
         nesterov: bool = False,
         stiefel: bool = False,
         iters: int = 5,
-        grad_clip=None,
-        dtype=None,
+        grad_clip: bool = None,
+        dtype: str = None,
     ) -> None:
         defaults = dict(
             lr=lr,
@@ -110,7 +110,7 @@ class CaileySGD(Optimizer):
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(CaileySGD, self).__init__(params, defaults)
-        self.dtype = dtype
+        self.dtype = getattr(torch, dtype) if dtype is not None else dtype
 
     def __setstate__(self, state) -> None:
         super(CaileySGD, self).__setstate__(state)
