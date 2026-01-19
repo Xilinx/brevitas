@@ -328,7 +328,7 @@ class TestLearnedRound:
         assert len(learned_round_modules) == num_round_modules
 
     @pytest.mark.parametrize(
-        "optimizer_str, optimizer", [("sign_sgd", SignSGD), ("Adam", torch.optim.Adam),
+        "optimizer_str, optimizer", [("signsgd", SignSGD), ("Adam", torch.optim.Adam),
                                      ("SGD", torch.optim.SGD)])
     def test_parse_optimizer_class(self, optimizer_str, optimizer):
         assert optimizer == _parse_optimizer_class(optimizer_str)

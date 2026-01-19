@@ -626,13 +626,12 @@ def quantize_llm(args, extra_args=None):
         if args.learned_round:
             print("Applying learned round...")
             if args.load_checkpoint:
-                iters = 1
-                loader = next(iter(**calibration_loader))
+                args.learned_round_iters = 1
+                dataset = [calibration_dataset[0]]
             else:
-                iters = args.learned_round_iters
-                loader = calibration_loader
+                dataset = calibration_dataset
             remove_hooks(model)
-            apply_learned_round(model, loader, args)
+            apply_learned_round(model, dataset, args)
             print("Learned round applied.")
             model = offload_model(model)
 

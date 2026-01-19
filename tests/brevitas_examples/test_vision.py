@@ -119,6 +119,7 @@ class ImageNetCases:
                 "learned_round_mode": "blockwise",
                 "learned_round": "hard_sigmoid",
                 "learned_round_iters": 2,
+                "learned_round_loss": "mse",
                 "quant_top1": 83.3333},],
         ids=["res-layerwise", "res-blockwise"])
     def case_small_models_learned_round(self, run_dict, default_run_args, request):

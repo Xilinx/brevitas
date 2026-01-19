@@ -44,7 +44,7 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
 from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundTrainer
 
 config.IGNORE_MISSING_KEYS = True
 
@@ -144,6 +144,8 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
         optimizers_targets=["learned_round"],
         batch_size=args.learned_round_batch_size,
         iters=args.learned_round_iters,
+        loss_cls=args.learned_round_loss,
+        loss_kwargs=None,
         loss_scaling_factor=1.0,
         use_best_model=False,
         use_amp=True,
@@ -153,8 +155,6 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
     learned_round_args = LearnedRoundArgs(
         learned_round_param=args.learned_round,
         learned_round_kwargs=None,
-        loss_cls=args.learned_round_loss,
-        loss_kwargs=None,
         fast_update=False,
     )
 
@@ -184,7 +184,7 @@ def apply_learned_round(
     get_blocks_fn = functools.partial(get_blocks, block_check_fn=block_check_fn)
 
     config = parse_args_to_dataclass(args)
-    learned_round_optimizer = LearnedRoundOptimizer(config=config)
+    learned_round_optimizer = LearnedRoundTrainer(config=config)
     learned_round_optimizer.apply_learned_round(
         model=model,
         model_forward=vision_forward,

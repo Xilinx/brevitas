@@ -2,8 +2,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from contextlib import contextmanager
+from dataclasses import is_dataclass
 from enum import Enum
 import functools
+<<<<<<< HEAD
+=======
+import json
+from typing import Any
+>>>>>>> 9b0247d5 (Address review comments)
 from typing import Callable
 from typing import Dict
 from typing import Generic
@@ -12,7 +18,10 @@ from typing import List
 from typing import Optional
 from typing import TypeVar
 from typing import Union
+<<<<<<< HEAD
 import warnings
+=======
+>>>>>>> 9b0247d5 (Address review comments)
 
 
 class AutoName(str, Enum):
@@ -73,6 +82,52 @@ def hooked_on_a_function(function, prefunction):
         return function(*args, **kwargs)
 
     return run
+
+
+def convert_str_dict(passed_value: Dict) -> Dict:
+    "Safely checks that a passed value is a dictionary and converts any string values to their appropriate types."
+    for key, value in passed_value.items():
+        if isinstance(value, dict):
+            passed_value[key] = convert_str_dict(value)
+        elif isinstance(value, str):
+            # First check for bool and convert
+            if value.lower() in ("true", "false"):
+                passed_value[key] = value.lower() == "true"
+            # Check for digit
+            elif value.isdigit():
+                passed_value[key] = int(value)
+            elif value.replace(".", "", 1).isdigit():
+                passed_value[key] = float(value)
+
+    return passed_value
+
+
+def parse_dataclass_dicts(data_cls: Any, dict_attributes: List[str]) -> None:
+    """
+    Parses the strings in `dict_attributes` of dataclass `data_cls` to dictionaries.
+    """
+    assert is_dataclass(data_cls), f"data_cls must be a dataclass, but got {type(data_cls)}"
+    for attr in dict_attributes:
+        if not hasattr(data_cls, attr):
+            raise ValueError(f"Dataclass {type(data_cls).__name__} has no attribute named {attr}")
+        kwargs = getattr(data_cls, attr)
+
+        if kwargs is None:
+            kwargs = {}
+        elif isinstance(kwargs, str):
+            # Parse in args that could be `dict` sent in from the CLI as a string
+            kwargs = json.loads(kwargs)
+            # Convert str values to types if applicable
+            kwargs = convert_str_dict(kwargs)
+        elif isinstance(kwargs, dict):
+            pass
+        else:
+            # Raise an error if the attribute cannot be parsed into a dictionary
+            raise ValueError(
+                f"Value set for attribute {attr} of dataclass {type(data_cls).__name__} cannot be converted into a dictionary."
+            )
+        # Set the updated value
+        setattr(data_cls, attr, kwargs)
 
 
 T = TypeVar("T")

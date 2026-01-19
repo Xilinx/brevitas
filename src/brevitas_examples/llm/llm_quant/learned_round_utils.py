@@ -16,7 +16,7 @@ from torch.utils.data.dataloader import DataLoader
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundOptimizer
+from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundTrainer
 
 _T_args = Tuple[torch.Tensor, ...]
 _T_kwargs = Dict[str, Any]
@@ -177,7 +177,7 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
 
     # Optimizer for learned round parameters
     learned_round_optim_args = OptimizerArgs(
-        optimizer_cls="sign_sgd",
+        optimizer_cls="signsgd",
         lr=args.learned_round_lr,
         optimizer_kwargs={},
         lr_scheduler_args=_parse_lr_scheduler_args(args),
@@ -198,6 +198,8 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
         batch_size=8,
         iters=args.learned_round_iters,
         loss_cls="mse",
+        loss_kwargs=None,
+        loss_scaling_factor=1000.0,
         use_best_model=True,
         use_amp=True,
         amp_dtype="float16",
@@ -206,8 +208,6 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
     learned_round_args = LearnedRoundArgs(
         learned_round_param=args.learned_round,
         learned_round_kwargs=None,
-        loss_kwargs=None,
-        loss_scaling_factor=1000.0,
         fast_update=args.learned_round_fast_update,
     )
 
@@ -223,14 +223,14 @@ def apply_learned_round(
     llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=args.gpxq_block_name)
 
     config = parse_args_to_dataclass(args)
-    learned_round_optimizer = LearnedRoundOptimizer(config=config)
+    learned_round_optimizer = LearnedRoundTrainer(config=config)
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=1, collate_fn=collate_fn)
     learned_round_optimizer.apply_learned_round(
         model=model,
         model_forward=llm_forward,
         block_forward=llm_block_forward,
-        dataset=calibration_loader,
+        data_loader=calibration_loader,
         cache=cache,
         get_blocks_fn=llm_block_check_fn,
         model_prepare_fn=llm_learned_round_prepare_fn,

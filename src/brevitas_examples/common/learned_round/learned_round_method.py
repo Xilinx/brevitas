@@ -4,7 +4,10 @@
 from abc import ABC
 from abc import abstractmethod
 from typing import List
+from typing import OrderedDict
+from typing import Protocol
 from typing import Tuple
+from typing import Type
 
 import torch
 from torch import nn
@@ -13,6 +16,20 @@ import torch.nn.functional as F
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
+from brevitas.utils.python_utils import Registry
+
+
+class TargetParamFn(Protocol):
+
+    def __call__(self, module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+        ...
+
+
+class LearnedRoundInitFn(Protocol):
+
+    def __call__(self, module: nn.Module, **kwargs) -> torch.Tensor:
+        ...
 
 
 class BlockLoss(ABC):
@@ -30,15 +47,24 @@ class BlockLoss(ABC):
         pass
 
 
+# Registries for implementations of learned round components
+BLOCK_LOSS_REGISTRY = Registry[Type[BlockLoss]]('BlockLoss registry')
+TARGET_PARAM_FN_REGISTRY = Registry[TargetParamFn]('Parameter retrieval function registry')
+LEARNED_ROUND_INIT_FN_REGISTRY = Registry[LearnedRoundInitFn](
+    'Learned round value initialization function registry')
+
+
 def return_learned_round_quantizers(block: nn.Module) -> List[nn.Module]:
     return [module for module in block.modules() if isinstance(module, LearnedRoundSte)]
 
 
+@LEARNED_ROUND_INIT_FN_REGISTRY.register(
+    names=[LearnedRoundImplType.HARD_SIGMOID.value, LearnedRoundImplType.SIGMOID.value])
 def learned_round_value_init_non_linear(
     layer: nn.Module,
     learned_round_zeta: float = 1.1,
     learned_round_gamma: float = -0.1,
-    **learned_round_impl_kwargs,
+    **kwargs,
 ) -> torch.Tensor:
     floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
     delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
@@ -47,18 +73,13 @@ def learned_round_value_init_non_linear(
     return value
 
 
+@LEARNED_ROUND_INIT_FN_REGISTRY.register(names=LearnedRoundImplType.IDENTITY.value)
 def learned_round_value_init_linear(
     layer: nn.Module,
-    **learned_round_impl_kwargs,
+    **kwargs,
 ) -> torch.Tensor:
     value = torch.zeros_like(layer.weight.data)
     return value
-
-
-LEARNED_ROUND_VALUE_INIT_MAP = {
-    LearnedRoundImplType.HARD_SIGMOID.value: learned_round_value_init_non_linear,
-    LearnedRoundImplType.SIGMOID.value: learned_round_value_init_non_linear,
-    LearnedRoundImplType.IDENTITY.value: learned_round_value_init_linear,}
 
 
 class LinearTempDecay:
@@ -77,6 +98,7 @@ class LinearTempDecay:
             return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
 
+@BLOCK_LOSS_REGISTRY.register(names="regularised_mse")
 class RegularisedMSELoss(BlockLoss):
 
     def __init__(
@@ -129,6 +151,7 @@ class RegularisedMSELoss(BlockLoss):
             b)
 
 
+@BLOCK_LOSS_REGISTRY.register(names="mse")
 class MSELoss(BlockLoss):
 
     def __init__(self, block: nn.Module, **kwargs) -> None:
@@ -140,3 +163,29 @@ class MSELoss(BlockLoss):
 
     def format_loss_components(self, loss: float) -> str:
         return "Loss = {:.4f}".format(loss)
+
+
+# Both `get_round_parameters` and `get_scale_parameters` are meant to be passed as the argument `get_target`
+# of `_get_target_parameters`, which iterates over the modules of a model in a recursive function.
+# The return value indicates whether the submodules of a given module need to be skipped.
+# For instance, for `get_round_parameters`, when a LearnedRoundSte module is found, the
+# learned round parameters are added to `state_dict` and `True` is returned to stop the recursion.
+@TARGET_PARAM_FN_REGISTRY.register(names="learned_round")
+def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+    if isinstance(module, LearnedRoundSte):
+        for param_name, param in module.named_parameters():
+            state_dict[f"{prefix}.{param_name}"] = param
+        # Early stoppping
+        return True
+    return False
+
+
+@TARGET_PARAM_FN_REGISTRY.register(names="scales")
+def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
+    if isinstance(module, WeightQuantProxyFromInjectorBase):
+        for param_name, param in module.named_parameters():
+            if param_name.endswith('scaling_impl.value'):
+                state_dict[f"{prefix}.{param_name}"] = param
+        # Early stoppping
+        return True
+    return False

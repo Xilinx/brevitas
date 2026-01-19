@@ -3,167 +3,71 @@
 
 from dataclasses import dataclass
 from dataclasses import field
-from enum import auto
-import json
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import OrderedDict
 from typing import Type
 from typing import Union
 import warnings
 
 import torch
-from torch import nn
 from torch.optim.optimizer import Optimizer
 
-from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas import optim
 from brevitas.inject.enum import LearnedRoundImplType
-from brevitas.optim.sign_sgd import SignSGD
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
-from brevitas.utils.python_utils import AutoName
+from brevitas.utils.python_utils import parse_dataclass_dicts
+from brevitas_examples.common.learned_round.learned_round_method import BLOCK_LOSS_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
-from brevitas_examples.common.learned_round.learned_round_method import MSELoss
-from brevitas_examples.common.learned_round.learned_round_method import RegularisedMSELoss
+from brevitas_examples.common.learned_round.learned_round_method import TARGET_PARAM_FN_REGISTRY
+from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
 
-OPTIMIZER_MAP = {
-    "sign_sgd": SignSGD,}
-LR_SCHEDULER_MAP = {}
-
-
-# TODO (pml): Is it possible to remove this boilerplate?
-class TargetParametrizations(AutoName):
-    SCALES = auto()
-    LEARNED_ROUND = auto()
-
-    @property
-    def param_fn(self) -> Callable[[nn.Module, OrderedDict, str], bool]:
-        return {
-            TargetParametrizations.SCALES.value: get_scale_parameters,
-            TargetParametrizations.LEARNED_ROUND.value: get_round_parameters}[self.value]
-
-
-class BlockLossType(AutoName):
-    MSE = auto()
-    REGULARISED_MSE = auto()
-
-    @property
-    def loss_class(self) -> Type[BlockLoss]:
-        return {
-            BlockLossType.MSE.value: MSELoss,
-            BlockLossType.REGULARISED_MSE.value: RegularisedMSELoss}[self.value]
-
-
-# Both `get_round_parameters` and `get_scale_parameters` are meant to be passed as the argument `get_target`
-# of `_get_target_parameters`, which iterates over the modules of a model in a recursive function.
-# In the case of `get_round_parameters` the return value indicates whether the submodules of a given module
-# need to be explored. Therefore, when a LearnedRoundSte module is found, the learned round parameters
-# are added to `state_dict` and `True` is returned to stop the recursion.
-def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
-    if isinstance(module, LearnedRoundSte):
-        for param_name, param in module.named_parameters():
-            state_dict[f"{prefix}.{param_name}"] = param
-        # Early stoppping
-        return True
-    return False
-
-
-def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
-    if isinstance(module, WeightQuantProxyFromInjectorBase):
-        for param_name, param in module.named_parameters():
-            if param_name.endswith('scaling_impl.value'):
-                state_dict[f"{prefix}.{param_name}"] = param
-        # Early stoppping
-        return True
-    return False
-
-
-#TODO (pml): Add license from Nanotron
-def _convert_str_dict(passed_value: Dict) -> Dict:
-    "Safely checks that a passed value is a dictionary and converts any string values to their appropriate types."
-    for key, value in passed_value.items():
-        if isinstance(value, dict):
-            passed_value[key] = _convert_str_dict(value)
-        elif isinstance(value, str):
-            # First check for bool and convert
-            if value.lower() in ("true", "false"):
-                passed_value[key] = value.lower() == "true"
-            # Check for digit
-            elif value.isdigit():
-                passed_value[key] = int(value)
-            elif value.replace(".", "", 1).isdigit():
-                passed_value[key] = float(value)
-
-    return passed_value
-
-
-def _parse_dataclass_dicts(data_cls, dict_attributes: List[str]) -> None:
-    """
-    Parses the strings in `dict_attributes` of dataclass `data_cls` to dictionaries.
-    """
-    for attr in dict_attributes:
-        if not hasattr(data_cls, attr):
-            raise ValueError(f"Dataclass {type(data_cls).__name__} has no attribute named {attr}")
-        kwargs = getattr(data_cls, attr)
-
-        if kwargs is None:
-            kwargs = {}
-        elif isinstance(kwargs, str):
-            # Parse in args that could be `dict` sent in from the CLI as a string
-            kwargs = json.loads(kwargs)
-            # Convert str values to types if applicable
-            kwargs = _convert_str_dict(kwargs)
-        elif isinstance(kwargs, dict):
-            pass
-        else:
-            # Raise an error if the attribute cannot be parsed into a dictionary
-            raise ValueError(
-                f"Value set for attribute {attr} of dataclass {type(data_cls).__name__} cannot be converted into a dictionary."
-            )
-        # Set the updated value
-        setattr(data_cls, attr, kwargs)
+OPTIMIZER_NAMESPACES = [torch.optim, optim]
+LR_SCHEDULER_NAMESPACES = [torch.optim.lr_scheduler]
 
 
 def _parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
-    if optimizer_str in OPTIMIZER_MAP:
-        optimizer_class = OPTIMIZER_MAP[optimizer_str]
-    else:
-        optimizer_keys = [
-            optimizer_key for optimizer_key in torch.optim.__dict__.keys()
-            # Check for making sure that only valid optimizer implementations are
-            # retrieved, when matching with the string passed by the user
+    optimizer_namespace_keys = []
+    for namespace in OPTIMIZER_NAMESPACES:
+        optimizer_namespace_keys += [
+            (namespace, optimizer_key)
+            for optimizer_key in namespace.__dict__.keys()
+            # Make sure that only valid optimizer implementations are
+            # retrieved, when matching the string passed by the user
             if (
                 # Verify that the key stars with the one passed by the user
                 optimizer_key.lower() == optimizer_str.lower() and
                 # Verify that key corresponds to a class
-                isinstance(torch.optim.__dict__[optimizer_key], type) and
+                isinstance(namespace.__dict__[optimizer_key], type) and
                 # Make sure the abstract class is not used
                 optimizer_key != "Optimizer" and
                 # An optimizer implements zero_grad and step. Check that this
                 # is the case for the class retrieved from torch.optim
-                hasattr(torch.optim.__dict__[optimizer_key], 'step') and
-                callable(torch.optim.__dict__[optimizer_key].step) and
-                hasattr(torch.optim.__dict__[optimizer_key], 'zero_grad') and
-                callable(torch.optim.__dict__[optimizer_key].zero_grad))]
-        if len(optimizer_keys) == 0:
-            raise ValueError(f"{optimizer_str} is not a valid optimizer.")
-        else:
-            if len(optimizer_keys) > 1:
-                warnings.warn(
-                    f"There are multiple potential matches for optimizer {optimizer_str}. "
-                    f"Defaulting to {optimizer_keys[0]}")
-            optimizer_class = getattr(torch.optim, optimizer_keys[0])
+                hasattr(namespace.__dict__[optimizer_key], 'step') and
+                callable(namespace.__dict__[optimizer_key].step) and
+                hasattr(namespace.__dict__[optimizer_key], 'zero_grad') and
+                callable(namespace.__dict__[optimizer_key].zero_grad))]
 
+    if len(optimizer_namespace_keys) == 0:
+        raise ValueError(
+            f"{optimizer_str} is not a valid optimizer in namespaces {[_namespace.__name__ for _namespace in OPTIMIZER_NAMESPACES]}."
+        )
+
+    namespace, optimizer_name = optimizer_namespace_keys[0]
+    if len(optimizer_namespace_keys) > 1:
+        warnings.warn(
+            f"There are multiple potential matches for optimizer {optimizer_str} ({[_optimizer_name for _, _optimizer_name in optimizer_namespace_keys]}). "
+            f"Defaulting to {optimizer_name} from {namespace.__name__}.")
+
+    optimizer_class = getattr(namespace, optimizer_name)
     return optimizer_class
 
 
 def _parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
-    if lr_scheduler_str in LR_SCHEDULER_MAP:
-        lr_scheduler_class = LR_SCHEDULER_MAP[lr_scheduler_str]
-    else:
-        lr_scheduler_keys = [
-            lr_scheduler_key for lr_scheduler_key in torch.optim.lr_scheduler.__dict__.keys()
+    lr_scheduler_namespace_keys = []
+    for namespace in LR_SCHEDULER_NAMESPACES:
+        lr_scheduler_namespace_keys += [
+            (namespace, lr_scheduler_key)
+            for lr_scheduler_key in torch.optim.lr_scheduler.__dict__.keys()
             # Check for making sure that only valid LRScheduler implementations are
             # retrived, when matching with the string passed by the user
             if
@@ -178,18 +82,19 @@ def _parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
              # is the case for the class retrieved from torch.optim.lr_scheduler
              hasattr(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], 'step') and
              callable(torch.optim.lr_scheduler.__dict__[lr_scheduler_key].step))]
-        if len(lr_scheduler_keys) == 0:
-            warnings.warn(
-                f"There are no matches for LR scheduler {lr_scheduler_str}. "
-                f"No LR scheduler is going to be used.")
-            lr_scheduler_class = None
-        else:
-            if len(lr_scheduler_keys) > 1:
-                warnings.warn(
-                    f"There are multiple potential matches for LR scheduler {lr_scheduler_str}."
-                    f"Defaulting to {lr_scheduler_keys[0]}")
-            lr_scheduler_class = getattr(torch.optim.lr_scheduler, lr_scheduler_keys[0])
 
+    if len(lr_scheduler_namespace_keys) == 0:
+        raise ValueError(
+            f"{lr_scheduler_str} is not a valid lr scheduler in namespaces {[_namespace.__name__ for _namespace in LR_SCHEDULER_NAMESPACES]}."
+        )
+
+    namespace, lr_scheduler_name = lr_scheduler_namespace_keys[0]
+    if len(lr_scheduler_namespace_keys) > 1:
+        warnings.warn(
+            f"There are multiple potential matches for lr scheduler {lr_scheduler_str} ({[_lr_scheduler_name for _, _lr_scheduler_name in lr_scheduler_namespace_keys]}). "
+            f"Defaulting to {lr_scheduler_name} from {namespace.__name__}.")
+
+    lr_scheduler_class = getattr(namespace, lr_scheduler_name)
     return lr_scheduler_class
 
 
@@ -210,7 +115,7 @@ class LRSchedulerArgs:
 
     def __post_init__(self) -> None:
         # Parse in args that could be `dict` sent in from the CLI as a string
-        _parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
+        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
         # Parse string to learning rate scheduler class if needed
         self.lr_scheduler_cls = (
             _parse_lr_scheduler_class(self.lr_scheduler_cls) if isinstance(
@@ -242,7 +147,7 @@ class OptimizerArgs:
 
     def __post_init__(self) -> None:
         # Parse args that could be `dict` sent in from the CLI as a string
-        _parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
+        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
         # Parse optimizer name to class
         self.optimizer_cls = (
             _parse_optimizer_class(self.optimizer_cls)
@@ -255,18 +160,17 @@ class OptimizerArgs:
 class TrainingArgs:
     optimizers_args: List[OptimizerArgs] = field(
         metadata={"help": ("Hyperparameters of the optimizers to use during training.")})
-    optimizers_targets: List[Union[str, TargetParametrizations]] = field(
+    optimizers_targets: List[Union[str, TargetParamFn]] = field(
         metadata={
             "help": ("Targets to be optimized."),
-            "choices": [
-                optimizer_target.value.lower() for optimizer_target in TargetParametrizations],})
+            "choices": TARGET_PARAM_FN_REGISTRY.get_registered_keys(),})
     batch_size: int = field(default=8, metadata={"help": "Batch size per GPU for training."})
     iters: int = field(default=200, metadata={"help": "Number of training iterations."})
     loss_cls: Union[str, Type[BlockLoss]] = field(
         default="mse",
         metadata={
             "help": "Class of the loss to be used for rounding optimization.",
-            "choices": [block_loss_type.value.lower() for block_loss_type in BlockLossType]})
+            "choices": BLOCK_LOSS_REGISTRY.get_registered_keys()})
     loss_kwargs: Optional[Union[Dict, str]] = field(
         default=None,
         metadata={"help": "Extra keyword arguments for the learned round loss."},
@@ -293,7 +197,7 @@ class TrainingArgs:
 
     def __post_init__(self) -> None:
         # Parse in args that could be `dict` sent in from the CLI as a string
-        _parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
+        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
 
         for optimizer_args in self.optimizers_args:
             # Check if the optimizer has an attached learning rate scheduler
@@ -301,7 +205,7 @@ class TrainingArgs:
                 optimizer_args.lr_scheduler_args.lr_scheduler_kwargs["total_iters"] = self.iters
         # Initialize the target parametrizations
         self.optimizers_targets = [
-            TargetParametrizations(optimizer_target.upper())
+            TARGET_PARAM_FN_REGISTRY.get(optimizer_target)
             if isinstance(optimizer_target, str) else optimizer_target
             for optimizer_target in self.optimizers_targets]
         # Parse amp_dtype
@@ -309,7 +213,7 @@ class TrainingArgs:
             self.amp_dtype, str) else self.amp_dtype
         # Retrieve loss
         self.loss_cls = (
-            BlockLossType(self.loss_cls.upper()).loss_class
+            BLOCK_LOSS_REGISTRY.get(self.loss_cls)
             if isinstance(self.loss_cls, str) else self.loss_cls)
 
 
@@ -331,7 +235,7 @@ class LearnedRoundArgs:
 
     def __post_init__(self) -> None:
         # Parse in args that could be `dict` sent in from the CLI as a string
-        _parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
+        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
 
         self.learned_round_param = LearnedRoundImplType(
             self.learned_round_param.upper()) if isinstance(

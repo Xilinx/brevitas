@@ -221,7 +221,9 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
-from brevitas_examples.common.learned_round.learned_round_method import LEARNED_ROUND_VALUE_INIT_MAP
+from brevitas_examples.common.learned_round.learned_round_method import \
+    LEARNED_ROUND_INIT_FN_REGISTRY
+from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
 
 _T_inputs = TypeVar("_T_inputs")
 _T_outputs = TypeVar("_T_output")
@@ -390,8 +392,8 @@ def _insert_learned_round_quantizers(
     for module in model.modules():
         if isinstance(module, QuantWBIOL) and len([
                 m for m in module.modules() if isinstance(m, LearnedRoundSte)]) == 0:
-            value = LEARNED_ROUND_VALUE_INIT_MAP[learned_round_param.value](
-                module, **learned_round_kwargs)
+            learned_round_init_fn = LEARNED_ROUND_INIT_FN_REGISTRY.get(learned_round_param.value)
+            value = learned_round_init_fn(module, **learned_round_kwargs)
             module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
                 float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
                 learned_round_impl_type=learned_round_param,
@@ -401,7 +403,7 @@ def _insert_learned_round_quantizers(
             module.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
-class LearnedRoundOptimizer:
+class LearnedRoundTrainer:
 
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -476,7 +478,7 @@ class LearnedRoundOptimizer:
     def _get_target_parameters(
         self,
         model: nn.Module,
-        get_target: Callable[[nn.Module, OrderedDict, str], bool],
+        get_target: TargetParamFn,
         state_dict: Optional[OrderedDict[str,
                                          nn.Parameter]] = None) -> OrderedDict[str, nn.Parameter]:
 
@@ -500,10 +502,10 @@ class LearnedRoundOptimizer:
         # Iterate over the target parameters
         for optimizer_target in self.config.training_args.optimizers_targets:
             # `get_target_paramets` modifies state_dict in-place
-            state_dict = self._get_target_parameters(model, optimizer_target.param_fn, state_dict)
+            state_dict = self._get_target_parameters(model, optimizer_target, state_dict)
         return state_dict
 
-    def _create_optimizer_and_scheduler(
+    def _create_single_optimizer_and_scheduler(
         self,
         params: List[nn.Parameter],
         optimizer_args: OptimizerArgs,
@@ -518,15 +520,14 @@ class LearnedRoundOptimizer:
             if lr_scheduler_args is not None else None)
         return optimizer, lr_scheduler
 
-    def _create_optimizers_lr_schedulers(
+    def _create_optimizers_and_lr_schedulers(
             self, model: nn.Module) -> List[Tuple[Optimizer, Optional[LRScheduler]]]:
         # Retrieve configuration for optimizers and target parameters
         optimizers_args, optimizer_targets = self.config.training_args.optimizers_args, self.config.training_args.optimizers_targets
         return list(
             map(
-                lambda target_args: self._create_optimizer_and_scheduler(
-                    self._get_target_parameters(model, target_args[0].param_fn).values(),
-                    target_args[1]),
+                lambda target_args: self._create_single_optimizer_and_scheduler(
+                    self._get_target_parameters(model, target_args[0]).values(), target_args[1]),
                 zip(optimizer_targets, optimizers_args)))
 
     def _load_state_dict_target_parameters(self, model: nn.Module, state_dict: OrderedDict) -> None:
@@ -545,7 +546,7 @@ class LearnedRoundOptimizer:
     ) -> Tuple[float, int, int]:
 
         # Initialize optimizers and lr schedulers
-        optim_lr_schedulers = self._create_optimizers_lr_schedulers(model)
+        optim_lr_schedulers = self._create_optimizers_and_lr_schedulers(model)
 
         # Variables needed for printing
         best_loss = torch.finfo(torch.float).max
@@ -639,7 +640,7 @@ class LearnedRoundOptimizer:
             model: nn.Module,
             model_forward: Callable,
             block_forward: Callable,
-            data_loader: Dataset,
+            data_loader: DataLoader,
             cache: Cache,
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
             model_prepare_fn: Optional[Callable] = None,
