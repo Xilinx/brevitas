@@ -124,6 +124,10 @@ class LRSchedulerArgs:
 
 @dataclass
 class OptimizerArgs:
+    target_params: Union[str, TargetParamFn] = field(
+        metadata={
+            "help": ("Targets to be optimized."),
+            "choices": TARGET_PARAM_FN_REGISTRY.get_registered_keys(),})
     optimizer_cls: Union[str, Type[Optimizer]] = field(
         default="adam",
         metadata={"help": "The optimizer to use."},
@@ -152,6 +156,10 @@ class OptimizerArgs:
         self.optimizer_cls = (
             _parse_optimizer_class(self.optimizer_cls)
             if isinstance(self.optimizer_cls, str) else self.optimizer_cls)
+        # Initialize the target parametrizations
+        self.target_params = (
+            TARGET_PARAM_FN_REGISTRY.get(self.target_params)
+            if isinstance(self.target_params, str) else self.target_params)
         if self.lr < 0:
             raise ValueError(f"Expected a positive learning rate but {self.lr} was passed.")
 
@@ -160,10 +168,6 @@ class OptimizerArgs:
 class TrainingArgs:
     optimizers_args: List[OptimizerArgs] = field(
         metadata={"help": ("Hyperparameters of the optimizers to use during training.")})
-    optimizers_targets: List[Union[str, TargetParamFn]] = field(
-        metadata={
-            "help": ("Targets to be optimized."),
-            "choices": TARGET_PARAM_FN_REGISTRY.get_registered_keys(),})
     batch_size: int = field(default=8, metadata={"help": "Batch size per GPU for training."})
     iters: int = field(default=200, metadata={"help": "Number of training iterations."})
     loss_cls: Union[str, Type[BlockLoss]] = field(
@@ -203,11 +207,6 @@ class TrainingArgs:
             # Check if the optimizer has an attached learning rate scheduler
             if optimizer_args.lr_scheduler_args is not None:
                 optimizer_args.lr_scheduler_args.lr_scheduler_kwargs["total_iters"] = self.iters
-        # Initialize the target parametrizations
-        self.optimizers_targets = [
-            TARGET_PARAM_FN_REGISTRY.get(optimizer_target)
-            if isinstance(optimizer_target, str) else optimizer_target
-            for optimizer_target in self.optimizers_targets]
         # Parse amp_dtype
         self.amp_dtype = getattr(torch, self.amp_dtype) if isinstance(
             self.amp_dtype, str) else self.amp_dtype

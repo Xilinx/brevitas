@@ -500,17 +500,19 @@ class LearnedRoundTrainer:
     def _get_all_target_parameters(self, model: nn.Module) -> OrderedDict:
         state_dict = OrderedDict()
         # Iterate over the target parameters
-        for optimizer_target in self.config.training_args.optimizers_targets:
+        for optimizer_args in self.config.training_args.optimizers_args:
+            optimizer_target = optimizer_args.target_params
             # `get_target_paramets` modifies state_dict in-place
             state_dict = self._get_target_parameters(model, optimizer_target, state_dict)
         return state_dict
 
-    def _create_single_optimizer_and_scheduler(
+    def _create_optimizer_and_scheduler(
         self,
-        params: List[nn.Parameter],
+        model: nn.Module,
         optimizer_args: OptimizerArgs,
     ) -> Tuple[Optimizer, Optional[LRScheduler]]:
         # Instantiate optimizer
+        params = self._get_target_parameters(model, optimizer_args.target_params).values()
         optimizer = optimizer_args.optimizer_cls(
             params=params, lr=optimizer_args.lr, **optimizer_args.optimizer_kwargs)
         # Instantiate learning rate schedulers
@@ -519,16 +521,6 @@ class LearnedRoundTrainer:
             lr_scheduler_args.lr_scheduler_cls(optimizer, **lr_scheduler_args.lr_scheduler_kwargs)
             if lr_scheduler_args is not None else None)
         return optimizer, lr_scheduler
-
-    def _create_optimizers_and_lr_schedulers(
-            self, model: nn.Module) -> List[Tuple[Optimizer, Optional[LRScheduler]]]:
-        # Retrieve configuration for optimizers and target parameters
-        optimizers_args, optimizer_targets = self.config.training_args.optimizers_args, self.config.training_args.optimizers_targets
-        return list(
-            map(
-                lambda target_args: self._create_single_optimizer_and_scheduler(
-                    self._get_target_parameters(model, target_args[0]).values(), target_args[1]),
-                zip(optimizer_targets, optimizers_args)))
 
     def _load_state_dict_target_parameters(self, model: nn.Module, state_dict: OrderedDict) -> None:
         prev = config.REINIT_ON_STATE_DICT_LOAD
@@ -546,8 +538,9 @@ class LearnedRoundTrainer:
     ) -> Tuple[float, int, int]:
 
         # Initialize optimizers and lr schedulers
-        optim_lr_schedulers = self._create_optimizers_and_lr_schedulers(model)
-
+        optim_lr_schedulers = [
+            self._create_optimizer_and_scheduler(model, optimizer_args)
+            for optimizer_args in self.config.training_args.optimizers_args]
         # Variables needed for printing
         best_loss = torch.finfo(torch.float).max
         init_loss = -1.0

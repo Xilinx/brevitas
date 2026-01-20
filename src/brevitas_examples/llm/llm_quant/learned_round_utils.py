@@ -177,6 +177,7 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
 
     # Optimizer for learned round parameters
     learned_round_optim_args = OptimizerArgs(
+        target_params="learned_round",
         optimizer_cls="signsgd",
         lr=args.learned_round_lr,
         optimizer_kwargs={},
@@ -185,6 +186,7 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
 
     # Optimizer for scales
     scales_optim_args = OptimizerArgs(
+        target_params="scales",
         optimizer_cls="sgd",
         lr=args.learned_round_scale_lr,
         optimizer_kwargs={
@@ -193,8 +195,8 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
     )
 
     training_args = TrainingArgs(
-        optimizers_args=[learned_round_optim_args, scales_optim_args],
-        optimizers_targets=["learned_round"] + (["scales"] if args.learned_round_scale else []),
+        optimizers_args=[learned_round_optim_args] +
+        ([scales_optim_args] if args.learned_round_scale else []),
         batch_size=8,
         iters=args.learned_round_iters,
         loss_cls="mse",
