@@ -201,7 +201,6 @@ import warnings
 from accelerate.utils.operations import send_to_device
 import torch
 from torch import autocast
-from torch import GradScaler
 from torch import nn
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
@@ -548,7 +547,12 @@ class LearnedRoundTrainer:
 
         scaler = None
         if self.config.training_args.use_amp:
-            scaler = GradScaler(device="cuda" if torch.cuda.is_available() else "cpu")
+            if hasattr(torch, "GradScaler"):
+                scaler = torch.GradScaler(device="cuda" if torch.cuda.is_available() else "cpu")
+            else:
+                # Ensure compatibility with older PyTorch versions
+                scaler = torch.cuda.amp.GradScaler() if torch.cuda.is_available(
+                ) else torch.cpu.amp.GradScaler()
 
         pbar = tqdm(range(self.config.training_args.iters), desc='')
         # Zero-grad before starting
