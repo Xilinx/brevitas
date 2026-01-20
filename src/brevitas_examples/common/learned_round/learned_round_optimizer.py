@@ -410,7 +410,7 @@ class LearnedRoundTrainer:
     def _step(
             self,
             optim_lr_schedulers: List[Tuple[Optimizer, Optional[LRScheduler]]],
-            scaler: Optional[GradScaler] = None) -> None:
+            scaler: Optional['GradScaler'] = None) -> None:
         for optim, lr_scheduler in optim_lr_schedulers:
             if scaler is not None:
                 scaler.step(optim)
@@ -429,7 +429,7 @@ class LearnedRoundTrainer:
         forward: Callable,
         block_loss: BlockLoss,
         inputs: _T_cache,
-        scaler: Optional[GradScaler] = None,
+        scaler: Optional['GradScaler'] = None,
     ) -> Tuple[torch.Tensor, Any]:
         # Compute loss
         loss, loss_components = self._compute_loss(
