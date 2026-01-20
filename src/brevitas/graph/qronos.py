@@ -62,25 +62,24 @@ class Qronos(GPFQ):
         if not is_quant_enabled:
             # Computing the normalized G matrix
             self.G *= (self.nsamples - batch_size) / self.nsamples
+            inp_processed /= math.sqrt(
+                self.nsamples)  # NOTE: quant_input is normalized before, in the H update
             if self.use_intermediate_buffer:
-                self.B.copy_((inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
-                    self.quant_input.transpose(2, 1) * (1 / math.sqrt(self.nsamples))))
+                self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
                 self.G += self.B
             else:
-                self.G += (inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
-                    self.quant_input.transpose(2, 1) * (1 / math.sqrt(self.nsamples)))
+                self.G += inp_processed.bmm(self.quant_input.transpose(2, 1))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Computing the normalized H matrix
             self.nsamples += batch_size  # NOTE: only increment with quant inputs
             self.H *= (self.nsamples - batch_size) / self.nsamples
+            inp_processed /= math.sqrt(self.nsamples)
             if self.use_intermediate_buffer:
-                self.B.copy_((inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
-                    inp_processed.transpose(2, 1) * (1 / math.sqrt(self.nsamples))))
+                self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
                 self.H += self.B
             else:
-                self.H += (inp_processed * (1 / math.sqrt(self.nsamples))).bmm(
-                    inp_processed.transpose(2, 1) * (1 / math.sqrt(self.nsamples)))
+                self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
             # store the quantized input for computing the H matrix
             assert self.quant_input is None
             self.quant_input = inp_processed
