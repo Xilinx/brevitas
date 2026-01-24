@@ -33,6 +33,28 @@ from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import float_internal_scale
 
 
+class GroupwiseMixin(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.skip_create_quant_tensor = True
+        self.register_buffer('group_dim_t', torch.ones(()))
+        self.register_buffer('group_size_t', torch.ones(()))
+
+    @property
+    def group_dim(self):
+        return self.group_dim_t.int().item()
+
+    @property
+    def group_size(self):
+        return self.group_size_t.int().item()
+
+    def prepare_for_export(self, module: nn.Module):
+        if module.is_quant_enabled:
+            self.group_dim_t = torch.tensor(module.group_dim)
+            self.group_size_t = torch.tensor(module.group_size)
+
+
 class InferenceHandler(torch.nn.Module, ABC):
 
     def attach_debug_info(self, module: nn.Module):
@@ -148,7 +170,7 @@ class DynamicIntInferenceHandler(IntInferencetHandler):
         return self.module_forward(x)
 
 
-class GroupwiseIntInferenceHandler(IntInferencetHandler):
+class GroupwiseIntInferenceHandler(IntInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
     def __init__(self):
@@ -156,9 +178,9 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
         self.skip_create_quant_tensor = True
 
     def prepare_for_export(self, module):
+        GroupwiseMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
-            self.group_dim = module.group_dim
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
@@ -173,7 +195,7 @@ class GroupwiseIntInferenceHandler(IntInferencetHandler):
         return output_args
 
 
-class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler):
+class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseWeightQuantProxyFromInjector
 
     def __init__(self):
@@ -327,22 +349,12 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
         return x, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
+class GroupwiseFloatInferenceHandler(FloatInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
     def __init__(self):
         super().__init__()
         self.skip_create_quant_tensor = True
-        self.register_buffer('group_dim_t', torch.ones(()))
-        self.register_buffer('group_size_t', torch.ones(()))
-
-    @property
-    def group_dim(self):
-        return self.group_dim_t.int().item()
-
-    @property
-    def group_size(self):
-        return self.group_size_t.int().item()
 
     def reshape(self, x, group_dim, group_size):
         init_shape = list(x.shape)
@@ -360,10 +372,9 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
         return scale
 
     def prepare_for_export(self, module: nn.Module):
+        GroupwiseMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
-            self.group_dim_t = torch.tensor(module.group_dim)
-            self.group_size_t = torch.tensor(module.group_size)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
@@ -377,29 +388,19 @@ class GroupwiseFloatInferenceHandler(FloatInferencetHandler):
 
     def isolated_forward(self, x):
         inp_shape = x.shape
-        x = self.reshape(x)
+        x = self.reshape(x, self.group_dim, self.group_size)
         scale = self.compute_scale(x)
         zero_point = torch.zeros(0).type_as(x)
         out = self.inner_forward(x, scale, zero_point)
         out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
 
 
-class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
+class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
         super().__init__(scale_shape, zero_point_shape)
         self.skip_create_quant_tensor = True
-        self.register_buffer('group_dim_t', torch.ones(()))
-        self.register_buffer('group_size_t', torch.ones(()))
-
-    @property
-    def group_dim(self):
-        return self.group_dim_t.int().item()
-
-    @property
-    def group_size(self):
-        return self.group_size_t.int().item()
 
     def reshape(self, x, group_dim, group_size):
         init_shape = list(x.shape)
@@ -415,8 +416,6 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler):
         super().prepare_for_export(module)
         if module.is_quant_enabled:
             self.input_view = module.input_view_impl
-            self.group_dim_t = torch.tensor(module.group_dim)
-            self.group_size_t = torch.tensor(module.group_size)
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
