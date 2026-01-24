@@ -3,12 +3,10 @@
 
 from functools import partial
 
-from packaging import version
 import torch
 from torch.nn import Module
 import torch.nn as nn
 
-from brevitas import torch_version
 from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 from brevitas.export.inference.handler import DynamicIntInferenceHandler
 from brevitas.export.inference.handler import FloatInferencetHandler
@@ -85,7 +83,7 @@ class quant_inference_mode:
             # Disable all caching
             # deactivate export mode
             # restore return quant tensor
-            InferenceManager.set_export_mode(self.model, enabled=False)
+            self.export_manager.set_export_mode(self.model, enabled=False)
             self.model.apply(
                 lambda m: _override_bias_caching_mode(m, enabled=False, metadata_only=False))
             self.model.apply(
@@ -105,8 +103,8 @@ class quant_inference_mode:
         # - Disable return quant tensor since all quant metadata is cached
         assert len(self.hook_list) == 1
         self.hook_list[0].remove()
-        self.model.apply(InferenceManager.set_export_handler)
-        InferenceManager.set_export_mode(self.model, enabled=True)
+        self.model.apply(self.export_manager.set_export_handler)
+        self.export_manager.set_export_mode(self.model, enabled=True)
         self.return_quant_tensor_state = QuantizationStatusManager.disable_return_quant_tensor(
             self.model)
         disable_quant_tensor = partial(_override_create_quant_tensor, state=True)

@@ -64,6 +64,19 @@ class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
         out = self.layer(*kwargs.values())
         return out
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        inner_module_prefix = 'layer'
+        extra_key = 'rot_mat'
+        output_dict = super(RotatedModule, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        layer_keys = [k for k in output_dict.keys() if inner_module_prefix in k]
+        for k in layer_keys:
+            v = output_dict.pop(k)
+            output_dict.update({k.replace('layer.', ''): v})
+
+        del output_dict[extra_key]
+        return output_dict
+
 
 class RotatedModule(torch.nn.Module):
 
@@ -115,6 +128,16 @@ class RotatedModule(torch.nn.Module):
         o = self.layer(inp)
 
         return o
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        inner_module_prefix = 'layer'
+        output_dict = super(RotatedModule, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        layer_keys = [k for k in output_dict.keys() if inner_module_prefix in k]
+        for k in layer_keys:
+            v = output_dict.pop(k)
+            output_dict.update({k.replace('layer.', ''): v})
+        return output_dict
 
 
 def functional_rotate_input(inp, transpose=False):

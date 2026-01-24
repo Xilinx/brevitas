@@ -43,6 +43,15 @@ __all__ = [
     'SolveDtypeDeviceFromTrackedParameterList',
     'SolveRestrictScaleSign']
 
+# FLOAT_TO_INT_ENUM_TO_IMPL = {FloatToIntImplType.ROUND: RoundSte,
+#                           FloatToIntImplType.FLOOR: FloorSte,
+#                           FloatToIntImplType.CEIL: CeilSte,
+#                           FloatToIntImplType.ROUND_TO_ZERO: RoundToZeroSte,
+#                           FloatToIntImplType.DPU: DPURoundSte,
+#                           FloatToIntImplType.LEARNED_ROUND: LearnedRoundSte,
+#                           FloatToIntImplType.STOCHASTIC_ROUND: StochasticRoundSte,}
+# FLOAT_TO_INT_IMPL_TO_ENUM = {v:k for k,v in FLOAT_TO_INT_ENUM_TO_IMPL.items()}
+
 
 def solve_float_to_int_impl_from_enum(impl_type):
     if impl_type == FloatToIntImplType.ROUND:
@@ -59,6 +68,25 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return LearnedRoundSte
     elif impl_type == FloatToIntImplType.STOCHASTIC_ROUND:
         return StochasticRoundSte
+    else:
+        raise Exception(f"{impl_type} not recognized.")
+
+
+def solve_float_to_int_enum_from_impl(impl_type):
+    if impl_type == RoundSte:
+        return FloatToIntImplType.ROUND
+    elif impl_type == FloorSte:
+        return FloatToIntImplType.FLOOR
+    elif impl_type == CeilSte:
+        return FloatToIntImplType.CEIL
+    elif impl_type == RoundToZeroSte:
+        return FloatToIntImplType.ROUND_TO_ZERO
+    elif impl_type == DPURoundSte:
+        return FloatToIntImplType.DPU
+    elif impl_type == LearnedRoundSte:
+        return FloatToIntImplType.LEARNED_ROUND
+    elif impl_type == StochasticRoundSte:
+        return FloatToIntImplType.STOCHASTIC_ROUND
     else:
         raise Exception(f"{impl_type} not recognized.")
 
