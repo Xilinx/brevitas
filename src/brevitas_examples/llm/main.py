@@ -18,6 +18,7 @@ from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
 from brevitas.export.inference.manager import quant_inference_mode
+from brevitas.export.inference.vLLM.manager import vLLMExportManager
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
 from brevitas.graph.equalize import apply_rewriters
@@ -719,6 +720,8 @@ def quantize_llm(args, extra_args=None):
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
+                cls = vLLMExportManager()
+                cls.export(model, './')
                 quant_ppl = compute_perplexity(
                     model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
