@@ -244,6 +244,8 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
 
     def prepare_for_export(self, module):
         super().prepare_for_export(module)
+        if module.is_quant_enabled:
+            self.input_view = module.input_view_impl
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
         return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
