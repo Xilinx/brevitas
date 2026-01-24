@@ -26,14 +26,20 @@ from vllm.platforms.rocm import RocmPlatform
 
 import brevitas.nn as qnn
 
+from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
+from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseFloatWeightInferenceHandler
+from ..handler import IntInferencetHandler
 from ..handler import IntWeightInferencetHandler
 
 class_mapping = {
+    'GroupwiseFloatInferenceHandler': GroupwiseFloatInferenceHandler,
     'GroupwiseFloatWeightInferenceHandler': GroupwiseFloatWeightInferenceHandler,
+    'FloatInferencetHandler': FloatInferencetHandler,
     'FloatWeightInferencetHandler': FloatWeightInferencetHandler,
-    'IntWeightInferencetHandler': IntWeightInferencetHandler}
+    'IntWeightInferencetHandler': IntWeightInferencetHandler,
+    'IntInferencetHandler': IntInferencetHandler,}
 
 
 class QuantLinear(LinearMethodBase):
