@@ -5,6 +5,8 @@ from typing import Any
 from typing import List
 from typing import Optional
 
+from brevitas.graph.hadamard import get_hadK
+from brevitas.nn.equalized_layer import EqualizedModule, RotatedModule
 import lm_eval
 from lm_eval import evaluator
 from scipy.linalg import hadamard
@@ -44,7 +46,7 @@ class_mapping = {
 
 class QuantLinear(LinearMethodBase):
 
-    def __init__(self, input_config=None, weight_config=None, bias_config=None, output_config=None):
+    def __init__(self, input_config=None, weight_config=None, bias_config=None, output_config=None, rotation_config=None):
         self.input_quant = self.configure_proxy(input_config)
         if isinstance(weight_config, list):
             self.weight_quant = dict()
@@ -54,24 +56,42 @@ class QuantLinear(LinearMethodBase):
             self.weight_quant = self.configure_proxy(weight_config)
         self.bias_quant = self.configure_proxy(bias_config)
         self.output_quant = self.configure_proxy(output_config)
+        self.rotation = self.configure_rotation(rotation_config)
+
+    def configure_rotation(self, rotation_config):
+        if rotation_config is None:
+            return torch.nn.Identity()
+        rot_mat_shape = rotation_config['rotation_size']['rot_mat_shape']
+        k = rotation_config['rotation_size']['k']
+        had_mat, _ = get_hadK(rot_mat_shape)
+        return RotatedModule(self, had_mat, k)
 
     def configure_proxy(self, quant_config):
+        # No config, no quantizer
         if quant_config is None:
             return torch.nn.Identity()
+        
+        # Extract element that are not part of the state dict
         quant_class_name = quant_config['class_type']
         float_to_int_impl_type = quant_config['float_to_int_impl_type']
         del quant_config['class_type']
         del quant_config['float_to_int_impl_type']
+
+        # Scale and zero-point are the only float elements in the state dict
         for k, v in quant_config.items():
             if not isinstance(v, torch.Tensor):
                 if k == 'scale' or k == 'zero_point':
                     quant_config[k] = torch.tensor(v)
                 else:
                     quant_config[k] = torch.tensor(v, dtype=torch.int)
+
+        # Shapes must be set otherwise the state dict loading will fail
         scale_shape = quant_config['scale'].shape
         zero_point_shape = quant_config['zero_point'].shape
         quant_class_type = class_mapping[quant_class_name]
         quant_class = quant_class_type(scale_shape, zero_point_shape)
+
+        # Set the remaining attributes
         quant_class.float_to_int_impl_type = float_to_int_impl_type
         quant_class.load_state_dict(quant_config)
         return quant_class
@@ -157,6 +177,7 @@ class QuantLinear(LinearMethodBase):
         x: torch.Tensor,
         bias: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        # x = self.rotation.rotation_forward(x)
         x = self.input_quant(x)
         bias = self.bias_quant(bias) if bias is not None else None
         y = x.matmul(layer.weight.t())

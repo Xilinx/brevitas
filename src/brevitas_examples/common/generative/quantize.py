@@ -406,7 +406,7 @@ def generate_quantizers(
         input_quant = None
         linear_input_quant = None
         q_scaled_quant = attn_output_weights_quant = v_quant = k_transposed_quant = None
-
+    print(input_quant)
     # Modify the weight quantizer based on the arguments passed in
     weight_quant = weight_quant.let(
         **{
