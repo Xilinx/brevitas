@@ -16,7 +16,12 @@ import torch.nn.functional as F
 import transformers
 from transformers import Trainer
 from transformers.data.data_collator import InputDataClass
-from transformers.tokenization_utils import PreTrainedTokenizerBase
+
+try:
+    from transformers.tokenization_utils import PreTrainedTokenizerBase
+except:
+    # This has changed in transformers v5
+    from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.optim.cailey_sgd import CaileySGD
