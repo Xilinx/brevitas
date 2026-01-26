@@ -37,7 +37,6 @@ import warnings
 import numpy as np
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
-from torch.utils.data import DataLoader
 from transformers import AutoConfig
 
 from brevitas_examples.llm.llm_quant.data import get_clm_dataset

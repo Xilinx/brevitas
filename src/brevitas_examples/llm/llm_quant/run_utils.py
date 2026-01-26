@@ -20,33 +20,14 @@ limitations under the License.
 """
 
 from contextlib import contextmanager
-import inspect
 
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map
 from transformers import AutoConfig
-from transformers.utils.fx import symbolic_trace
 
 from brevitas.fx.value_tracer import ValueProxy
-
-
-def get_fx(model, is_export=True):
-    forward_signature = inspect.signature(model.forward).parameters
-    if all(input_name in forward_signature
-           for input_name in ["input_ids", "attention_mask", "past_key_values"]):
-        input_names = ["input_ids", "attention_mask", "past_key_values"]
-        if not is_export:
-            input_names.remove('past_key_values')
-    else:
-        raise ValueError(
-            f"Quantization with an FX graph is currently only supported for models taking `input_ids`, `attention_mask` and `past_key_values` as inputs. The model only has the following inputs: {forward_signature}"
-        )
-
-    with torch.no_grad():
-        model = symbolic_trace(model, input_names)
-    return model
 
 
 def modify_dataloader(model_name_or_path, data, dtype):
