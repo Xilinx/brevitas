@@ -88,8 +88,8 @@ class GroupwiseMixin(torch.nn.Module):
         return x
 
     def compute_scale(self, x, group_dim):
-        scale = torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0]
-        scale = torch.pow(2, torch.floor(torch.log2(scale)))
+        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)/448.
+        # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
         return scale
 
     def standalone_forward(self, x):
@@ -323,7 +323,7 @@ class FloatInferencetHandler(InferenceHandler, FloatToIntMixin):
         # Quantize
         x = x / scale
         internal_scale = float_internal_scale(
-            x, self.mantissa_bit_width, self.fp_internal_scale_min, self.eps)
+            x, self.mantissa_bit_width, self.fp_internal_scale_min.to(x.device), self.eps)
         x = internal_scale * self.float_to_int_impl(x / internal_scale)
 
         # Compute masks
@@ -333,9 +333,10 @@ class FloatInferencetHandler(InferenceHandler, FloatToIntMixin):
             n_max_val_mask = -x > self.max_clamp
 
         # Clamp
-        x = torch.clamp(x, self.max_clamp, self.min_clamp)
+        x = torch.clamp(x, self.max_clamp.to(x.device), self.min_clamp.to(x.device))
         if not self.saturating:
             x = self.float_clamp_impl.inf_nan_clamp(x, inf_mask, p_max_val_mask, n_max_val_mask)
+        breakpoint()
 
         return x
 
@@ -372,33 +373,41 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
         return x, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class GroupwiseFloatInferenceHandler(FloatInferencetHandler, GroupwiseMixin):
+class GroupwiseFloatInferenceHandler(FloatInferencetHandler, GroupwiseMixin, FloatToIntMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
         super().__init__(scale_shape, zero_point_shape)
         self.skip_create_quant_tensor = True
+        self.module_forward = None
 
     def prepare_for_export(self, module: nn.Module):
         GroupwiseMixin.prepare_for_export(self, module)
         self.module_forward = None
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
+            if module.tensor_quant is not None:
+                self.float_to_int_impl = module.tensor_quant.float_to_int_impl
+            elif hasattr(module, 'fused_activation_quant_proxy'):
+                self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
+            FloatToIntMixin.prepare_for_export(self, module)
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
         return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        if self.module_forward is None:
+        if False:# self.module_forward is None:
             return self.standalone_forward(x)
         else:
             # In inference mode, we never return quant tensors
+            real_out = self.standalone_forward(x)
             assert self.skip_create_quant_tensor
             inp_shape = x.shape
             x, scale, zero_point, *other = self.module_forward(x)
+            breakpoint()
             # If we skip quant tensor, we return the flattened version of the groupwise tensor
             x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
-            output_args = tuple([x, scale, zero_point] + list(other))
+            output_args = tuple([real_out, scale, zero_point] + list(other))
             return output_args
 
 

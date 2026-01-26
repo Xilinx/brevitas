@@ -90,7 +90,7 @@ class RotatedModule(torch.nn.Module):
             hidden_dim: Optional[int] = None) -> None:
         super().__init__()
         if had_mat is not None:
-            self.had_mat = torch.nn.Parameter(had_mat).cpu()
+            self.had_mat = had_mat.cpu()
         else:
             self.had_mat = None
         self.layer = layer
@@ -99,7 +99,7 @@ class RotatedModule(torch.nn.Module):
         self.expand_input = expand_input
         self.hidden_dim = hidden_dim
 
-    def forward(self, inp, **kwargs):
+    def rotation_forward(self, inp):
         is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
         if self.expand_input:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
@@ -125,7 +125,11 @@ class RotatedModule(torch.nn.Module):
         else:
             inp = matmul_hadU(inp)
         inp = inp.reshape(init_shape)
-        o = self.layer(inp)
+        return inp
+
+    def forward(self, inp, **kwargs):
+        inp = self.rotation_forward(inp)
+        o = self.layer(inp, **kwargs)
 
         return o
 
