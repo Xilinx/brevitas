@@ -9,4 +9,4 @@ pandas
 pydantic
 torch>=2.4
 tqdm
-transformers[sentencepiece]
+transformers[sentencepiece]<5.0
