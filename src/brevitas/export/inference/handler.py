@@ -32,7 +32,9 @@ from brevitas.quant.solver.common import \
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import float_internal_scale
 
+
 class StaticScaleZeroPointMixin(torch.nn.Module):
+
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
         super().__init__()
         self.register_buffer('scale', torch.ones(scale_shape))
@@ -66,6 +68,17 @@ class FloatToIntMixin(torch.nn.Module):
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
+
+            if module.tensor_quant is not None:
+                submodule = module.tensor_quant
+            elif hasattr(module, 'fused_activation_quant_proxy'):
+                submodule = module.fused_activation_quant_proxy.tensor_quant
+
+            if hasattr(submodule, 'int_quant'):
+                self.float_to_int_impl = submodule.int_quant.float_to_int_impl
+            else:
+                self.float_to_int_impl = submodule.float_to_int_impl
+
             # We need the class type
             self.float_to_int_impl_type = solve_float_to_int_enum_from_impl(
                 type(self.float_to_int_impl))
@@ -103,7 +116,7 @@ class GroupwiseMixin(torch.nn.Module):
         return x
 
     def compute_scale(self, x, group_dim):
-        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)/448.
+        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 448.
         # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
         return scale
 
@@ -154,6 +167,7 @@ class IntInferencetHandler(InferenceHandler, FloatToIntMixin):
         self.register_buffer('max_clamp', torch.ones(()))
 
     def prepare_for_export(self, module: nn.Module):
+        FloatToIntMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
             scale = module.scale_() if hasattr(module, 'scale_') else module.scale()
             zero_point = module.zero_point_() if hasattr(module,
@@ -166,11 +180,6 @@ class IntInferencetHandler(InferenceHandler, FloatToIntMixin):
             self.bit_width = module.bit_width()
             self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
             self.max_clamp = max_int(module.is_signed, module.is_narrow_range, self.bit_width)
-            if hasattr(module.tensor_quant, 'int_quant'):
-                self.float_to_int_impl = module.tensor_quant.int_quant.float_to_int_impl
-            elif hasattr(module, 'fused_activation_quant_proxy'):
-                self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.int_quant.float_to_int_impl
-            FloatToIntMixin.prepare_for_export(self, module)
 
     def quantize(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         return torch.clamp(
@@ -281,6 +290,7 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
                 out, self.scale, self.zero_point, self.group_dim, inp_shape)[0]
         return out, self.scale, self.zero_point, self.bit_width
 
+
 class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
     def __init__(self):
@@ -297,6 +307,7 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
         self.eps = 1e-8  #torch.finfo(self.scale.dtype).tiny
 
     def prepare_for_export(self, module):
+        FloatToIntMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
 
             self.exponent_bit_width = module.exponent_bit_width()
@@ -305,12 +316,10 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
             self.saturating = torch.tensor(module.is_saturating())
             self.inf_values = module.inf_values()
             self.nan_values = module.nan_values()
-            if hasattr(module.tensor_quant, 'float_to_int_impl'):
-                self.float_to_int_impl = module.tensor_quant.float_to_int_impl
+            if module.tensor_quant is not None:
                 self.float_clamp_impl = module.tensor_quant.float_clamp_impl
                 self.max_available_float = module.tensor_quant.float_clamp_impl.max_available_float
             elif hasattr(module, 'fused_activation_quant_proxy'):
-                self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
                 self.max_available_float = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl.max_available_float
 
@@ -322,7 +331,6 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
             self.min_clamp = torch.tensor(0.) if not module.is_signed else -self.max_clamp
 
             self.fp_internal_scale_min = 1. - self.exponent_bias - self.mantissa_bit_width
-            FloatToIntMixin.prepare_for_export(self, module)
 
     def quantize(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         # Quantize
@@ -353,8 +361,10 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
 class FloatInferencetHandler(FloatInferenceHandlerBase, StaticScaleZeroPointMixin):
     handled_layer = (ActFloatQuantProxyFromInjector, BiasQuantProxyFromInjector)
+
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
         super().__init__(scale_shape, zero_point_shape)
+
 
 class FloatWeightInferencetHandler(FloatInferenceHandlerBase, StaticScaleZeroPointMixin):
     handled_layer = WeightFloatQuantProxyFromInjector
@@ -411,7 +421,9 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin):
             return output_args
 
 
-class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase, StaticScaleZeroPointMixin, GroupwiseMixin):
+class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
+                                           StaticScaleZeroPointMixin,
+                                           GroupwiseMixin):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
@@ -427,18 +439,6 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase, StaticScal
         shape.insert(extra_dim, group_size)
         x = x.reshape(shape)
         return x
-
-    def prepare_for_export(self, module: nn.Module):
-        super().prepare_for_export(module)
-        if module.is_quant_enabled:
-            self.input_view = module.input_view_impl
-            self.scale = module.scale_() if hasattr(module, 'scale_') else module.scale()
-            self.zero_point = module.zero_point_() if hasattr(
-                module, 'zero_point_') else module.zero_point()
-            # Continguous is used to be extra-safe with torch.compile
-            self.zero_point = self.zero_point.contiguous()
-            self.scale = self.scale.contiguous()
-            self.zero_point = self.zero_point.to(self.scale.device)
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
