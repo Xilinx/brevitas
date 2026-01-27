@@ -399,8 +399,8 @@ class FloatWeightInferencetHandler(FloatInferenceHandlerBase, StaticScaleZeroPoi
 class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
-    def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
-        super().__init__(scale_shape, zero_point_shape)
+    def __init__(self):
+        super().__init__()
         self.module_forward = None
 
     def prepare_for_export(self, module: nn.Module):
