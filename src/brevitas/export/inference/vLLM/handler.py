@@ -1,32 +1,11 @@
-from dataclasses import dataclass
-import json
-import math
-from typing import Any
 from typing import List
 from typing import Optional
 
-from brevitas.graph.hadamard import get_hadK
-from brevitas.nn.equalized_layer import EqualizedModule, RotatedModule
-import lm_eval
-from lm_eval import evaluator
-from scipy.linalg import hadamard
 import torch
-import transformers
-from vllm.model_executor.layers.linear import LinearBase
 from vllm.model_executor.layers.linear import LinearMethodBase
-from vllm.model_executor.layers.linear import MergedColumnParallelLinear
-from vllm.model_executor.layers.linear import QKVParallelLinear
-from vllm.model_executor.layers.linear import RowParallelLinear
-from vllm.model_executor.layers.linear import UnquantizedLinearMethod
-from vllm.model_executor.layers.quantization import QuantizationMethods
-from vllm.model_executor.layers.quantization import register_quantization_config
-from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
-from vllm.model_executor.layers.quantization.utils.quant_utils import is_layer_skipped
-from vllm.platforms import current_platform
-from vllm.platforms.cuda import NvmlCudaPlatform
-from vllm.platforms.rocm import RocmPlatform
 
-import brevitas.nn as qnn
+from brevitas.graph.hadamard import get_hadK
+from brevitas.nn.equalized_layer import RotatedModule
 
 from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
@@ -46,7 +25,13 @@ class_mapping = {
 
 class QuantLinear(LinearMethodBase):
 
-    def __init__(self, input_config=None, weight_config=None, bias_config=None, output_config=None, rotation_config=None):
+    def __init__(
+            self,
+            input_config=None,
+            weight_config=None,
+            bias_config=None,
+            output_config=None,
+            rotation_config=None):
         self.input_quant = self.configure_proxy(input_config)
         if isinstance(weight_config, list):
             self.weight_quant = dict()
@@ -70,7 +55,7 @@ class QuantLinear(LinearMethodBase):
         # No config, no quantizer
         if quant_config is None:
             return torch.nn.Identity()
-        
+
         # Extract element that are not part of the state dict
         quant_class_name = quant_config['class_type']
         float_to_int_impl_type = quant_config['float_to_int_impl_type']
