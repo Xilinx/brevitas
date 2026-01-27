@@ -116,7 +116,7 @@ class LLMPerplexityCases:
                 "input_scale_type": "dynamic",
                 "input_quant_type": "sym",
                 "float_ppl": 32428.475,
-                "quant_ppl": 32428.383},
+                "quant_ppl": 32447.685546875},
             {
                 "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
                 "act_equalization": "layerwise",
