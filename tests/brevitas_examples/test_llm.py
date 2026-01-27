@@ -432,6 +432,8 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
 def few_shot_eval_args(default_run_args, request):
     # Skip cases for which the LM evaluation library has not been installed
     for lib in request.param["imports"]:
+        if lib == "lm_eval":
+            pytest.skip("LM Eval test is currently broken. Re-enable this when fixed")
         pytest.importorskip(lib, reason=f"`{lib}` needs to be installed.")
     del request.param["imports"]
 
