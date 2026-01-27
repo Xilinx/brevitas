@@ -431,7 +431,9 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
-        super().__init__(scale_shape, zero_point_shape)
+        FloatInferenceHandlerBase.__init__(self)
+        StaticScaleZeroPointMixin.__init__(self, scale_shape, zero_point_shape)
+        GroupwiseMixin.__init__(self)
         self.skip_create_quant_tensor = True
 
     def reshape(self, x, group_dim, group_size):
