@@ -301,10 +301,14 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
         self.register_buffer('exponent_bit_width', torch.ones(()))
         self.register_buffer('exponent_bias', torch.ones(()))
         self.register_buffer('fp_internal_scale_min', torch.ones(()))
-        self.register_buffer('saturating', torch.ones(()).to(torch.bool))
+        self.register_buffer('saturating_t', torch.ones(()).to(torch.bool))
         self.inf_values = None
         self.nan_values = None
         self.eps = 1e-8  #torch.finfo(self.scale.dtype).tiny
+
+    @property
+    def saturating(self):
+        return bool(self.saturating_t.item())
 
     def prepare_for_export(self, module):
         FloatToIntMixin.prepare_for_export(self, module)
@@ -313,7 +317,7 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
             self.exponent_bit_width = module.exponent_bit_width()
             self.mantissa_bit_width = module.mantissa_bit_width()
             self.exponent_bias = module.exponent_bias()
-            self.saturating = torch.tensor(module.is_saturating())
+            self.saturating_t = torch.tensor(module.is_saturating())
             self.inf_values = module.inf_values()
             self.nan_values = module.nan_values()
             if module.tensor_quant is not None:
