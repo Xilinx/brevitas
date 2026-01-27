@@ -23,6 +23,7 @@ from vllm.model_executor.layers.quantization.base_config import QuantizationConf
 
 import brevitas.config as config
 from brevitas.export.inference.vLLM.handler import QuantLinear
+from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
