@@ -13,7 +13,6 @@ import torch
 from torch.nn import Module
 import torch.nn as nn
 from vllm.model_executor.layers.linear import LinearBase
-from vllm.model_executor.layers.linear import LinearMethodBase
 from vllm.model_executor.layers.linear import MergedColumnParallelLinear
 from vllm.model_executor.layers.linear import QKVParallelLinear
 from vllm.model_executor.layers.linear import RowParallelLinear
@@ -23,24 +22,7 @@ from vllm.model_executor.layers.quantization import register_quantization_config
 from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
 
 import brevitas.config as config
-from brevitas.export.inference.handler import DynamicFloatInferenceHandler
-from brevitas.export.inference.handler import DynamicIntInferenceHandler
-from brevitas.export.inference.handler import FloatInferencetHandler
-from brevitas.export.inference.handler import FloatWeightInferencetHandler
-from brevitas.export.inference.handler import GroupwiseFloatInferenceHandler
-from brevitas.export.inference.handler import GroupwiseFloatWeightInferenceHandler
-from brevitas.export.inference.handler import GroupwiseIntInferenceHandler
-from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
-from brevitas.export.inference.handler import IntInferencetHandler
-from brevitas.export.inference.handler import IntWeightInferencetHandler
 from brevitas.export.inference.vLLM.handler import QuantLinear
-from brevitas.export.manager import _set_proxy_export_handler
-from brevitas.export.manager import _set_proxy_export_mode
-from brevitas.export.manager import _set_recurrent_layer_export_handler
-from brevitas.export.manager import _set_recurrent_layer_export_mode
-from brevitas.export.manager import BaseManager
-from brevitas.graph.calibrate import QuantizationStatusManager
-from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
@@ -178,8 +160,9 @@ class vLLMExportManager():
                         proxy_dict['class_type'] = export_handler.__class__.__name__
                 if isinstance(module, self.wrap_layers):
                     layer_dict['rotation_config'] = dict()
-                    layer_dict['rotation_config']['rot_mat_shape'] = module.had_mat.shape[0] if module.had_mat is not None else None
+                    layer_dict['rotation_config']['rot_mat_shape'] = module.had_mat.shape[
+                        0] if module.had_mat is not None else None
                     layer_dict['rotation_config']['k'] = module.k
-                    
+
         with open(json_filename, 'w') as f:
             json.dump(json_to_save, f, cls=EncodeTensor)

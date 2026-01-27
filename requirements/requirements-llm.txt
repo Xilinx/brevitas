@@ -10,3 +10,4 @@ pydantic
 torch>=2.4
 tqdm
 transformers[sentencepiece]<5.0
+vllm
