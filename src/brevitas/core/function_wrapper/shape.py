@@ -186,19 +186,21 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x):
+        return dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
 
-        tensor_shape = x.shape
-        tensor_shape_list = list(tensor_shape)
-        x = padding_to_multiple(x, self.group_dim, self.group_size)
 
-        tensor_shape = x.shape
-        tensor_shape_list = list(tensor_shape)
-        tensor_shape_list[self.group_dim] = (
-            tensor_shape_list[self.group_dim] + self.group_size - 1) // self.group_size
-        block_dim = self.group_dim + 1 if self.group_dim != -1 else len(tensor_shape_list)
-        tensor_shape_list.insert(block_dim, self.group_size)
-        x = x.view(tensor_shape_list)
-        return x
+def dynamic_over_sub_channel_block_view(x, group_size, group_dim):
+    tensor_shape = x.shape
+    tensor_shape_list = list(tensor_shape)
+    x = padding_to_multiple(x, group_dim, group_size)
+
+    tensor_shape = x.shape
+    tensor_shape_list = list(tensor_shape)
+    tensor_shape_list[group_dim] = (tensor_shape_list[group_dim] + group_size - 1) // group_size
+    block_dim = group_dim + 1 if group_dim != -1 else len(tensor_shape_list)
+    tensor_shape_list.insert(block_dim, group_size)
+    x = x.view(tensor_shape_list)
+    return x
 
 
 class StatsInputViewShapeImpl(object):

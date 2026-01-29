@@ -10,6 +10,7 @@ from torch import Tensor
 import torch.nn as nn
 
 import brevitas.config as config
+from brevitas.core.function_wrapper.shape import dynamic_over_sub_channel_block_view
 from brevitas.core.function_wrapper.shape import DynamicOverSubChannelBlockView
 from brevitas.function import compute_max_mantissa
 from brevitas.function.ops import max_float
@@ -37,7 +38,6 @@ from brevitas.utils.torch_utils import float_internal_scale
 class StaticScaleZeroPointMixin(torch.nn.Module):
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
-        super().__init__()
         self.register_buffer('scale', torch.ones(scale_shape))
         self.register_buffer('zero_point', torch.ones(zero_point_shape))
 
@@ -54,7 +54,6 @@ class StaticScaleZeroPointMixin(torch.nn.Module):
 class FloatToIntMixin(torch.nn.Module):
 
     def __init__(self):
-        super().__init__()
         self._float_to_int_impl_type = 'round'
 
     @property
@@ -88,7 +87,6 @@ class FloatToIntMixin(torch.nn.Module):
 class GroupwiseMixin(torch.nn.Module):
 
     def __init__(self):
-        super().__init__()
         self.skip_create_quant_tensor = True
         self.register_buffer('group_dim_t', torch.ones(()))
         self.register_buffer('group_size_t', torch.ones(()))
@@ -117,13 +115,13 @@ class GroupwiseMixin(torch.nn.Module):
         return x
 
     def compute_scale(self, x, group_dim):
-        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 448.
+        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 6.
         # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
         return scale
 
     def standalone_forward(self, x):
         inp_shape = x.shape
-        x = self.reshape(x, self.group_dim, self.group_size)
+        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
         scale = self.compute_scale(x, self.group_dim)
         zero_point = torch.zeros(()).type_as(x)
         out = self.inner_forward(x, scale, zero_point)
@@ -159,7 +157,8 @@ class InferenceHandler(torch.nn.Module, ABC):
 class IntInferencetHandlerBase(InferenceHandler, FloatToIntMixin):
 
     def __init__(self):
-        super().__init__()
+        InferenceHandler.__init__(self)
+        FloatToIntMixin.__init__(self)
         self.register_buffer('bit_width', torch.ones(()))
         self.register_buffer('min_clamp', torch.ones(()))
         self.register_buffer('max_clamp', torch.ones(()))
@@ -238,7 +237,8 @@ class GroupwiseIntInferenceHandler(IntInferencetHandlerBase, GroupwiseMixin):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
     def __init__(self):
-        super().__init__()
+        IntInferencetHandlerBase.__init__(self)
+        GroupwiseMixin.__init__(self)
         self.skip_create_quant_tensor = True
 
     def prepare_for_export(self, module):
@@ -300,7 +300,8 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
 class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
     def __init__(self):
-        super().__init__()
+        InferenceHandler.__init__(self)
+        FloatToIntMixin.__init__(self)
         self.register_buffer('min_clamp', torch.ones(()))
         self.register_buffer('max_clamp', torch.ones(()))
         self.register_buffer('mantissa_bit_width', torch.ones(()))
@@ -353,8 +354,7 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
             n_max_val_mask = -x > self.max_clamp
 
         # Clamp
-        # x = torch.clamp(x, self.min_clamp.to(x.device), self.max_clamp.to(x.device))
-        x = self.float_clamp_impl.saturating_clamp(x, self.max_clamp, self.min_clamp)
+        x = torch.clamp(x, self.min_clamp.to(x.device), self.max_clamp.to(x.device))
         if not self.saturating:
             x = self.float_clamp_impl.inf_nan_clamp(x, inf_mask, p_max_val_mask, n_max_val_mask)
 
@@ -409,11 +409,13 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
     def __init__(self):
-        super().__init__()
+        FloatInferenceHandlerBase.__init__(self)
+        GroupwiseMixin.__init__(self)
         self.module_forward = None
 
     def prepare_for_export(self, module: nn.Module):
-        super().prepare_for_export(module)
+        FloatInferenceHandlerBase.prepare_for_export(self, module)
+        GroupwiseMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
@@ -444,7 +446,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
         StaticScaleZeroPointMixin.__init__(self, scale_shape, zero_point_shape)
         GroupwiseMixin.__init__(self)
         self.skip_create_quant_tensor = True
-        self.reshape_op = DynamicOverSubChannelBlockView(self.group_size, self.group_dim)
+        self.cached_weight = None
 
     def reshape(self, x, group_dim, group_size):
         init_shape = list(x.shape)
@@ -470,6 +472,19 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
         return out
 
+    def quantize_forward(self, x: Tensor) -> Tensor:
+        if self.cached_weight is not None:
+            out = self.cached_weight
+        else:
+            inp_shape = x.shape
+            scale = self.scale
+            zero_point = self.zero_point
+            x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
+
+            out = self.quantize(x, scale, zero_point)
+            out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
+        return out, None
+
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
         assert self.skip_create_quant_tensor
@@ -478,8 +493,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
         else:
             scale = self.scale
             zero_point = self.zero_point
-            inp_shape = x.shape
-            x = self.reshape_op(x)
+            x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
 
             out = self.inner_forward(x, scale, zero_point)
             out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
