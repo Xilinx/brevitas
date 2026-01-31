@@ -456,7 +456,7 @@ class PermuteGraph:
         except:
             pass
         self.scale_invariant_layers = tuple(common_scale_invariant) + (RMSNorm,)
-        self.scale_invariant_function = tuple(scale_invariant_functions)
+        self.scale_invariant_functions = tuple(scale_invariant_functions)
         self.regions = list()
         self.float_act_map = dict()
         self.float_act_dev = dict()
@@ -513,7 +513,7 @@ class PermuteGraph:
             'supported_srcs': self.supported_srcs,
             'supported_sinks': self.supported_sinks,
             'scale_invariant_layers': self.scale_invariant_layers,
-            'scale_invariant_function': self.scale_invariant_function,
+            'scale_invariant_functions': self.scale_invariant_functions,
             'residual_fns': self.residual_fns}
 
         for region in regions:

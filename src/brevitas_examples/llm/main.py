@@ -145,7 +145,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             fx_model = rpm.model
             # Run calibration on fx_model to collect activation statistics
             with torch.no_grad():
-                fx_model(**calibration_loader[0])
+                fx_model(**next(iter(calibration_loader)))
             # Get rewriters from the context manager
             rewriters = rpm.rewriters
     else:
