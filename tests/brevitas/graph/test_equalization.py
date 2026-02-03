@@ -659,6 +659,11 @@ def test_rotate_permute_mode(
     # Sample input
     sample_inputs = torch.rand(size=(5, IN_FEATURES)).to(device)
 
+    # Convert to FX graph using torch._dynamo.export
+    with torch.no_grad():
+        fx_model, _ = torch._dynamo.export(model)(sample_inputs)
+    model = fx_model
+
     # Get expected output
     model.eval()
     with torch.no_grad():

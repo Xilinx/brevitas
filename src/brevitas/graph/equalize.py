@@ -409,6 +409,17 @@ def apply_rewriters_accelerate(
 class rotate_permute_mode:
 
     def __init__(self, model, permute_fn='massdiff', **kwargs):
+        # rotate_permute_mode performs a specific transformation sequence:
+        # 1. Identify regions → 2. Apply permutations → 3. Apply rotations
+        # This sequencing requires delay_rewriters=True (defer rotation application)
+        # and return_rewriters=True (to access rotations for later application)
+        if not kwargs.pop('delay_rewriters', True) or not kwargs.pop('return_rewriters', True):
+            warnings.warn(
+                "delay_rewriters and return_rewriters must be True for rotate_permute_mode, ",
+                "overwriting provided value(s).")
+        kwargs['delay_rewriters'] = True
+        kwargs['return_rewriters'] = True
+
         self.rotation = GraphRotationEqualization(apply_permute=True, **kwargs)
         self.model = model
         self.rewriters = None
