@@ -161,9 +161,10 @@ class vLLMExportManager():
                         proxy_dict['class_type'] = export_handler.__class__.__name__
                 if isinstance(module, self.wrap_layers):
                     layer_dict['rotation_config'] = dict()
-                    layer_dict['rotation_config']['rot_mat_shape'] = module.had_mat.shape[
-                        0] if module.had_mat is not None else None
-                    layer_dict['rotation_config']['k'] = module.k
+                    layer_dict['rotation_config'][
+                        'rot_mat_shape'] = module.had_mat.shape[0] if getattr(
+                            module, 'had_mat', None) is not None else None
+                    layer_dict['rotation_config']['k'] = getattr(module, 'k', None)
 
         with open(json_filename, 'w') as f:
             json.dump(json_to_save, f, cls=EncodeTensor)
