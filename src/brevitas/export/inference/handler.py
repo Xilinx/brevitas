@@ -247,7 +247,8 @@ class GroupwiseIntInferenceHandler(IntInferencetHandlerBase, GroupwiseMixin):
         self.skip_create_quant_tensor = True
 
     def prepare_for_export(self, module):
-        super().prepare_for_export(module)
+        IntInferencetHandlerBase.prepare_for_export(self, module)
+        GroupwiseMixin.prepare_for_export(self, module)
         self.module_forward = None
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
