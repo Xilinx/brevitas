@@ -3,6 +3,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 import re
+from typing import Tuple
 
 from dependencies import this
 import torch
@@ -16,6 +17,8 @@ from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import StatsOp
 from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
@@ -299,8 +302,19 @@ def generate_quantizers(
             float_format = {}
         return quant_format, float_format
 
+    def scale_precision_format_from_string(scale_precision_format: str) -> Tuple[str, bool]:
+        is_signed = False
+        if scale_precision_format.startswith('signed_'):
+            scale_precision_format = scale_precision_format[len('signed_'):]
+            is_signed = True
+        return scale_precision_format, is_signed
+
     weight_quant_format, weight_float_format = quant_format_from_string(weight_quant_format)
     input_quant_format, input_float_format = quant_format_from_string(input_quant_format)
+
+    # Process scale precision format
+    weight_scale_precision, weight_scale_is_signed = scale_precision_format_from_string(weight_scale_precision)
+    input_scale_precision, input_scale_is_signed = scale_precision_format_from_string(input_scale_precision)
 
     weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
         weight_param_method][weight_quant_granularity][weight_quant_type]
@@ -329,6 +343,7 @@ def generate_quantizers(
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
         attn_quant_format, attn_float_format = quant_format_from_string(attn_quant_format) if attn_quant_format is not None else (input_quant_format, input_float_format)
+        attn_scale_precision, attn_scale_is_signed = scale_precision_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_is_signed)
         attn_scale_type = attn_scale_type if attn_scale_type is not None else input_scale_type
         attn_scale_precision = attn_scale_precision if attn_scale_precision is not None else input_scale_precision
         attn_param_method = attn_param_method if attn_param_method is not None else input_param_method
@@ -346,6 +361,17 @@ def generate_quantizers(
             'bit_width': attn_bit_width if attn_bit_width is not None else input_bit_width,
             **attn_float_format,
             **attn_kwargs,}
+
+        # Enable signed scale if specified in the scale precision format
+        if attn_scale_is_signed:
+            if attn_quant_type == 'asym':
+                raise NotImplementedError(
+                    "Asymmetric attention quantization has not been tested with signed scales.")
+
+            attn_scale_kwargs = {
+                'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+                'scaling_stats_op': StatsOp.SIGNED_MAX,}
+            attn_override_kwargs = {**attn_override_kwargs, **attn_scale_kwargs}
 
         input_quant = input_quant.let(**input_kwargs)
         linear_input_quant = linear_input_quant.let(**input_kwargs)
@@ -388,6 +414,17 @@ def generate_quantizers(
     if scaling_min_val is not None:
         weight_quant = weight_quant.let(**{'scaling_min_val': scaling_min_val})
 
+    # Enable signed scale if specified in the scale precision format
+    if weight_scale_is_signed:
+        if weight_quant_type == 'asym':
+            raise NotImplementedError(
+                "Asymmetric weight quantization has not been tested with signed scales.")
+
+        weight_quant = weight_quant.let(
+            **{
+                'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+                'scaling_stats_op': StatsOp.SIGNED_MAX,})
+
     if weight_kwargs is not None:
         weight_quant = weight_quant.let(**weight_kwargs)
 
@@ -421,6 +458,17 @@ def generate_quantizers(
                     'stats_reduce_dim': 1})
         elif input_quant_granularity == 'per_group':
             input_quant = input_quant.let(**{'group_size': input_group_size})
+
+        # Enable signed scale if specified in the scale precision format
+        if input_scale_is_signed:
+            if input_quant_type == 'asym':
+                raise NotImplementedError(
+                    "Asymmetric input quantization has not been tested with signed scales.")
+
+            input_quant = input_quant.let(
+                **{
+                    'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+                    'scaling_stats_op': StatsOp.SIGNED_MAX,})
 
         # QKV/Softmax Quant
         if attn_quant_granularity == 'per_row':
