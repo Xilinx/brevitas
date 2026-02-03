@@ -67,7 +67,7 @@ class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         inner_module_prefix = 'layer'
         extra_key = 'rot_mat'
-        output_dict = super(RotatedModule, self).state_dict(
+        output_dict = super(EqualizedModule, self).state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars)
         layer_keys = [k for k in output_dict.keys() if inner_module_prefix in k]
         for k in layer_keys:

@@ -4,6 +4,7 @@
 from abc import ABC
 from abc import abstractmethod
 from typing import Tuple
+import warnings
 
 import torch
 from torch import Tensor
@@ -12,6 +13,7 @@ import torch.nn as nn
 import brevitas.config as config
 from brevitas.core.function_wrapper.shape import dynamic_over_sub_channel_block_view
 from brevitas.core.function_wrapper.shape import DynamicOverSubChannelBlockView
+from brevitas.core.restrict_val import FloatToIntImplType
 from brevitas.function import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.function.ops import max_int
@@ -63,6 +65,9 @@ class FloatToIntMixin(torch.nn.Module):
     @float_to_int_impl_type.setter
     def float_to_int_impl_type(self, value):
         self._float_to_int_impl = value
+        if value == FloatToIntImplType.LEARNED_ROUND:
+            warnings.warn("Learned Round not supported for export, only for inference")
+            return
         # A bit ugly but we need to instantiate the class
         self.float_to_int_impl = solve_float_to_int_impl_from_enum(value)()
 
@@ -491,6 +496,7 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
         if self.cached_weight is not None:
             out = self.cached_weight
         else:
+            inp_shape = x.shape
             scale = self.scale
             zero_point = self.zero_point
             x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
