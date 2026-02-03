@@ -32,6 +32,7 @@ from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
 from brevitas.graph.equalize import Region
+from brevitas.graph.equalize import rotate_permute_mode
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
@@ -634,3 +635,49 @@ def test_fuse_parametrized_modules(kwargs):
     with torch.no_grad():
         output_fused = qmodel(sample_input)
     assert torch.allclose(output, output_fused, rtol=0.0, atol=0.0)
+
+
+@requires_pt_ge('2.3.1')
+@pytest_cases.parametrize('permute_fn', ['massdiff', 'zigzag', 'absmax', 'random'])
+@pytest_cases.parametrize('block_rotation_dim', [None, 16])
+@pytest_cases.parametrize('expansion_step', [1, 3])
+@pytest_cases.parametrize('disable_block_rotation_for_fused', [True, False])
+@pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
+def test_rotate_permute_mode(
+        rotation_model,
+        permute_fn,
+        block_rotation_dim,
+        expansion_step,
+        disable_block_rotation_for_fused,
+        device):
+
+    # Instantiate model
+    model = rotation_model()
+    device = torch.device(device)
+    model.to(device)
+
+    # Sample input
+    sample_inputs = torch.rand(size=(5, IN_FEATURES)).to(device)
+
+    # Get expected output
+    model.eval()
+    with torch.no_grad():
+        expected_output = model(sample_inputs)
+
+    with rotate_permute_mode(
+            model,
+            permute_fn=permute_fn,
+            block_rotation_dim=block_rotation_dim,
+            expansion_step=expansion_step,
+            layers_to_expand=[],
+            disable_block_rotation_for_fused=disable_block_rotation_for_fused) as rpm:
+        with torch.no_grad():
+            rpm.model(sample_inputs)
+
+    # Verify output invariance
+    model.eval()
+    with torch.no_grad():
+        output = model(sample_inputs)
+
+    assert torch.allclose(expected_output, output, atol=ATOL), \
+        "Output mismatch with combined features"
