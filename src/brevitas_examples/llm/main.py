@@ -174,7 +174,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 do_validation=False)
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
-
+    elif args.export_target == 'vllm':
+        cls = vLLMExportManager()
+        cls.export(model, tokenizer, args.export_target)
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
         from sharktank.types import Theta
@@ -658,13 +660,10 @@ def quantize_llm(args, extra_args=None):
         # by the zero shot evaluation libraries (e.g., LightEvel), so we remove the `weight_orig` tensors
         # here, if they exist, to save memory.
         remove_weight_orig(model)
-
         if args.eval and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                cls = vLLMExportManager()
-                cls.export(model, './')
                 quant_ppl = compute_perplexity(
                     model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")

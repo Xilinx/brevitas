@@ -397,6 +397,7 @@ def create_args_parser() -> ArgumentParser:
         default=None,
         choices=[
             None,
+            'vllm',
             'shark',
             'onnx_qcdq',
             'gguf:q8_0',

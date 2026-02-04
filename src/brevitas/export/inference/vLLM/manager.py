@@ -75,12 +75,14 @@ class QuantConfigBrevitas(QuantizationConfig):
             ):
                 return UnquantizedLinearMethod()
             else:
+
                 if prefix in self.config:
                     base_config = self.config[prefix]
                     input_config = base_config.get('input_quant', None)
                     bias_config = base_config.get('bias_quant', None)
                     output_config = base_config.get('output_quant', None)
                     weight_config = base_config.get('weight_quant', None)
+                    rotation_config = base_config.get('rotation_config', None)
                 else:
                     base = prefix.split('.')[:-1]
                     base = '.'.join(base)
@@ -92,6 +94,7 @@ class QuantConfigBrevitas(QuantizationConfig):
                     input_config = base_config.get('input_quant', None)
                     bias_config = base_config.get('bias_quant', None)
                     output_config = base_config.get('output_quant', None)
+                    rotation_config = base_config.get('rotation_config', None)
                     weight_config = [
                         self.config[layer].get('weight_quant', None) for layer in layers_to_merge]
                     # base_config = combine_configs(self.config, *layers_to_merge)
@@ -100,7 +103,8 @@ class QuantConfigBrevitas(QuantizationConfig):
                     input_config=input_config,
                     bias_config=bias_config,
                     output_config=output_config,
-                    weight_config=weight_config)
+                    weight_config=weight_config,
+                    rotation_config=rotation_config)
 
         elif isinstance(layer, LinearBase):
             return UnquantizedLinearMethod()
@@ -140,20 +144,30 @@ class vLLMExportManager():
 
     wrap_layers = (EqualizedModule, RotatedModule)
 
-    def export(self, model, filepath):
+    def export(self, model, tokenizer, filepath):
         json_filename = os.path.join(filepath, 'brevitas_config.json')
         config.IGNORE_EXPORT_KEYS = False
+        model.save_pretrained(filepath)
+        tokenizer.save_pretrained(filepath)
         json_to_save = dict()
         proxies_ckpts = os.path.join(filepath, 'brevitas_proxies')
         os.makedirs(proxies_ckpts, exist_ok=True)
         for name, module in model.named_modules():
+
             if isinstance(module, QuantLayerMixin) or isinstance(module, self.wrap_layers):
                 layer_dict = dict()
                 json_to_save[name] = layer_dict
-                for subname, submodule in module.named_children():
+                if isinstance(module, self.wrap_layers):
+                    layer_dict['rotation_config'] = dict()
+                    layer_dict['rotation_config'][
+                        'rot_mat_shape'] = module.had_mat.shape[0] if getattr(
+                            module, 'had_mat', None) is not None else None
+                    layer_dict['rotation_config']['k'] = getattr(module, 'k', None)
+
+                for subname, submodule in module.named_modules():
                     if isinstance(submodule, QuantProxyFromInjector) and submodule.is_quant_enabled:
                         proxy_dict = dict()
-                        json_to_save[name][subname] = proxy_dict
+                        proxy_name = subname.split('.')[-1]
                         export_handler = submodule.export_handler
                         # torch.save(export_handler.state_dict(), ckpt_path)
                         proxy_dict.update(export_handler.state_dict())
@@ -163,12 +177,8 @@ class vLLMExportManager():
                             export_handler, 'scaling_restriction', None)
                         proxy_dict['float_to_int_impl_type'] = export_handler.float_to_int_impl_type
                         proxy_dict['class_type'] = export_handler.__class__.__name__
-                if isinstance(module, self.wrap_layers):
-                    layer_dict['rotation_config'] = dict()
-                    layer_dict['rotation_config'][
-                        'rot_mat_shape'] = module.had_mat.shape[0] if getattr(
-                            module, 'had_mat', None) is not None else None
-                    layer_dict['rotation_config']['k'] = getattr(module, 'k', None)
+                        json_to_save[name][proxy_name] = proxy_dict
 
         with open(json_filename, 'w') as f:
             json.dump(json_to_save, f, cls=EncodeTensor)
+        config.IGNORE_EXPORT_KEYS = True
