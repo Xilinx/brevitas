@@ -46,10 +46,13 @@ class QuantLinear(LinearMethodBase):
     def configure_rotation(self, rotation_config):
         if rotation_config is None:
             return torch.nn.Identity()
-        rot_mat_shape = rotation_config['rotation_size']['rot_mat_shape']
-        k = rotation_config['rotation_size']['k']
-        had_mat, _ = get_hadK(rot_mat_shape)
-        return RotatedModule(self, had_mat, k)
+        rot_mat_shape = rotation_config['rot_mat_shape']
+        k = rotation_config['k']
+        if rot_mat_shape is None:
+            had_mat = None
+        else:
+            had_mat, _ = get_hadK(rot_mat_shape)
+        return RotatedModule(self, had_mat, k).rotation_forward
 
     def configure_proxy(self, quant_config):
         # No config, no quantizer
@@ -135,7 +138,7 @@ class QuantLinear(LinearMethodBase):
                 start_idx = 0
                 end_idx = out_per_partition
                 weight_quant = self.weight_quant
-            if weight_quant is not None:
+            if not isinstance(weight_quant, torch.nn.Identity):
                 loaded_weight = weight_quant(loaded_weight.cuda())[0].cpu()
 
             if base_loader is not None:
@@ -171,7 +174,7 @@ class QuantLinear(LinearMethodBase):
         x: torch.Tensor,
         bias: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        # x = self.rotation.rotation_forward(x)
+        x = self.rotation(x)
         x = self.input_quant(x)
         bias = self.bias_quant(bias) if bias is not None else None
         y = x.matmul(layer.weight.t())
