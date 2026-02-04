@@ -157,6 +157,8 @@ class vLLMExportManager():
                         export_handler = submodule.export_handler
                         # torch.save(export_handler.state_dict(), ckpt_path)
                         proxy_dict.update(export_handler.state_dict())
+                        proxy_dict['threshold_restriction'] = getattr(export_handler, 'threshold_restriction', None)
+                        proxy_dict['scaling_restriction'] = getattr(export_handler, 'scaling_restriction', None)
                         proxy_dict['float_to_int_impl_type'] = export_handler.float_to_int_impl_type
                         proxy_dict['class_type'] = export_handler.__class__.__name__
                 if isinstance(module, self.wrap_layers):

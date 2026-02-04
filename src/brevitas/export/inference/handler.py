@@ -3,6 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
+from inspect import isclass
 from typing import Tuple
 import warnings
 
@@ -32,9 +33,11 @@ from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.solver.act import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.common import \
-    solve_float_to_int_enum_from_impl  # FLOAT_TO_INT_IMPL_TO_ENUM
+    solve_float_to_int_enum_from_impl, \
+    solve_restrict_value_enum_from_impl  # FLOAT_TO_INT_IMPL_TO_ENUM
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.core.restrict_val import RestrictValueType
 
 
 class StaticScaleZeroPointMixin(torch.nn.Module):
@@ -51,6 +54,66 @@ class StaticScaleZeroPointMixin(torch.nn.Module):
             # Continguous is used to be extra-safe with torch.compile
             self.zero_point = self.zero_point.contiguous()
             self.scale = self.scale.contiguous()
+
+
+class DynamicScaleZeroPointMixin(torch.nn.Module):
+
+    def __init__(self):
+        self.register_buffer('threshold', torch.ones(()))
+        self._scaling_restriction = 'power_of_two'
+        self._threshold_restriction = 'power_of_two'
+
+    @property
+    def scaling_restriction(self):
+        return self._scaling_restriction
+    
+    @scaling_restriction.setter
+    def scaling_restriction(self, value):
+        if isclass(value):
+            self._scaling_restriction = solve_restrict_value_enum_from_impl(type(value))
+        elif isinstance(value, str):
+            self._scaling_restriction = value
+        else:
+            raise "Unrecognized scaling restriction"
+
+    @property
+    def threshold_restriction(self):
+        return self._threshold_restriction
+    
+    @threshold_restriction.setter
+    def threshold_restriction(self, value):
+        self._threshold_restriction = solve_restrict_value_enum_from_impl(type(value))
+
+    def prepare_for_export(self, module: nn.Module):
+        if module.is_quant_enabled:
+            
+            if module.tensor_quant is not None:
+                submodule = module.tensor_quant
+            elif hasattr(module, 'fused_activation_quant_proxy'):
+                submodule = module.fused_activation_quant_proxy.tensor_quant
+
+            if hasattr(submodule, 'int_quant'):
+                bit_width = submodule.msb_clamp_bit_width_impl()
+                self.threshold = submodule.int_scaling_impl(bit_width)
+            else:
+                self.threshold = submodule.float_scaling_impl(
+                    submodule.exponent_bit_width_impl(),
+                    compute_max_mantissa(submodule.mantissa_bit_width_impl()),
+                    submodule.exponent_bias_impl())
+
+            self.scaling_restriction = submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl
+            self.threshold_restriction = submodule.scaling_impl.restrict_clamp_threshold.restrict_value_impl
+
+    def compute_scale(self, x, group_dim):
+        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
+        threshold = self.threshold
+        breakpoint()
+        if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
+            scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
+        if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
+            threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
+        scale = scale/threshold
+        return scale
 
 
 class FloatToIntMixin(torch.nn.Module):
@@ -119,19 +182,11 @@ class GroupwiseMixin(torch.nn.Module):
         x = x.reshape(shape)
         return x
 
-    def compute_scale(self, x, group_dim):
-        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 6.
-        # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
-        return scale
+    # def compute_scale(self, x, group_dim):
+    #     scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 6.
+    #     # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
+    #     return scale
 
-    def standalone_forward(self, x):
-        inp_shape = x.shape
-        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
-        scale = self.compute_scale(x, self.group_dim)
-        zero_point = torch.zeros(()).type_as(x)
-        out = self.inner_forward(x, scale, zero_point)
-        out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
-        return out
 
 
 class InferenceHandler(torch.nn.Module, ABC):
@@ -238,20 +293,31 @@ class DynamicIntInferenceHandler(IntInferencetHandlerBase):
         return self.module_forward(x)
 
 
-class GroupwiseIntInferenceHandler(IntInferencetHandlerBase, GroupwiseMixin):
+class GroupwiseIntInferenceHandler(IntInferencetHandlerBase, GroupwiseMixin, DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
     def __init__(self):
         IntInferencetHandlerBase.__init__(self)
         GroupwiseMixin.__init__(self)
+        DynamicScaleZeroPointMixin.__init__(self)
         self.skip_create_quant_tensor = True
 
     def prepare_for_export(self, module):
         IntInferencetHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
+        DynamicScaleZeroPointMixin.prepare_for_export(self, module)
         self.module_forward = None
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
+
+    def standalone_forward(self, x):
+        inp_shape = x.shape
+        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
+        scale = self.compute_scale(x, self.group_dim)
+        zero_point = torch.zeros(()).type_as(x)
+        out = self.inner_forward(x, scale, zero_point)
+        out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
+        return out
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         if self.module_forward is None:
@@ -263,8 +329,7 @@ class GroupwiseIntInferenceHandler(IntInferencetHandlerBase, GroupwiseMixin):
             x, scale, zero_point, *other = self.module_forward(x)
 
             # If we skip quant tensor, we return the flattened version of the groupwise tensor
-            if self.skip_create_quant_tensor:
-                x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
+            x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
             output_args = tuple([x, scale, zero_point] + list(other))
             return output_args
 
@@ -411,22 +476,33 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
         return x, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin):
+class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin, DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
     def __init__(self):
         FloatInferenceHandlerBase.__init__(self)
         GroupwiseMixin.__init__(self)
+        DynamicScaleZeroPointMixin.__init__(self)
         self.module_forward = None
 
     def prepare_for_export(self, module: nn.Module):
         FloatInferenceHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
+        DynamicScaleZeroPointMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
         return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
+
+    def standalone_forward(self, x):
+        inp_shape = x.shape
+        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
+        scale = self.compute_scale(x, self.group_dim)
+        zero_point = torch.zeros(()).type_as(x)
+        out = self.inner_forward(x, scale, zero_point)
+        out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
+        return out
 
     def forward(self, x: Tensor) -> Tuple[Tensor]:
         if self.module_forward is None:
@@ -442,14 +518,12 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin):
             return output_args
 
 
-class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
-                                           StaticScaleZeroPointMixin,
+class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler,
                                            GroupwiseMixin):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
-        FloatInferenceHandlerBase.__init__(self)
-        StaticScaleZeroPointMixin.__init__(self, scale_shape, zero_point_shape)
+        FloatWeightInferencetHandler.__init__(self, scale_shape, zero_point_shape)
         GroupwiseMixin.__init__(self)
         self.skip_create_quant_tensor = True
         self.cached_weight = None
@@ -465,14 +539,8 @@ class GroupwiseFloatWeightInferenceHandler(FloatInferenceHandlerBase,
         return x
 
     def prepare_for_export(self, module):
-        FloatInferenceHandlerBase.prepare_for_export(self, module)
-        StaticScaleZeroPointMixin.prepare_for_export(self, module)
+        FloatWeightInferencetHandler.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
-        if module.is_quant_enabled:
-            if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
-                self.cached_weight = module._cached_weight.value
-            else:
-                self.cached_weight = None
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)

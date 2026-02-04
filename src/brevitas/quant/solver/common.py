@@ -118,6 +118,17 @@ def solve_restrict_value_impl_from_enum(impl_type):
     else:
         raise RuntimeError(f"{impl_type} not recognized.")
 
+def solve_restrict_value_enum_from_impl(impl):
+    if impl == FloatRestrictValue:
+        return RestrictValueType.FP 
+    elif impl == SignedFloatRestrictValue:
+        return RestrictValueType.SIGNED_FP 
+    elif impl == LogFloatRestrictValue:
+        return RestrictValueType.LOG_FP 
+    elif impl == PowerOfTwoRestrictValue:
+        return RestrictValueType.POWER_OF_TWO 
+    else:
+        raise RuntimeError(f"{impl} not recognized.")
 
 class SolveRestrictScalingImplFromEnum(ExtendedInjector):
 
