@@ -59,6 +59,8 @@ class QuantLinear(LinearMethodBase):
         # Extract element that are not part of the state dict
         quant_class_name = quant_config['class_type']
         float_to_int_impl_type = quant_config['float_to_int_impl_type']
+        scaling_restriction = quant_config['scaling_restriction']
+        threshold_restriction = quant_config['threshold_restriction']
         del quant_config['class_type']
         del quant_config['float_to_int_impl_type']
 
@@ -77,6 +79,11 @@ class QuantLinear(LinearMethodBase):
         quant_class = quant_class_type(scale_shape, zero_point_shape)
 
         # Set the remaining attributes
+        quant_class.float_to_int_impl_type = float_to_int_impl_type
+        if scaling_restriction is not None:
+            quant_class.scaling_restriction = scaling_restriction
+        if threshold_restriction is not None:
+            quant_class.threshold_restriction = threshold_restriction
         quant_class.float_to_int_impl_type = float_to_int_impl_type
         quant_class.load_state_dict(quant_config)
         return quant_class
