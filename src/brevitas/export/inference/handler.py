@@ -165,11 +165,11 @@ class GroupwiseMixin(torch.nn.Module):
 
     @property
     def group_dim(self):
-        return self.group_dim_t.int().item()
+        return self.group_dim_t.int()
 
     @property
     def group_size(self):
-        return self.group_size_t.int().item()
+        return self.group_size_t.int()
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
