@@ -15,6 +15,7 @@ import brevitas.config as config
 from brevitas.core.function_wrapper.shape import dynamic_over_sub_channel_block_view
 from brevitas.core.function_wrapper.shape import DynamicOverSubChannelBlockView
 from brevitas.core.restrict_val import FloatToIntImplType
+from brevitas.core.restrict_val import RestrictValueType
 from brevitas.function import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.function.ops import max_int
@@ -32,12 +33,11 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.solver.act import solve_float_to_int_impl_from_enum
+from brevitas.quant.solver.common import solve_float_to_int_enum_from_impl
 from brevitas.quant.solver.common import \
-    solve_float_to_int_enum_from_impl, \
     solve_restrict_value_enum_from_impl  # FLOAT_TO_INT_IMPL_TO_ENUM
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import float_internal_scale
-from brevitas.core.restrict_val import RestrictValueType
 
 
 class StaticScaleZeroPointMixin(torch.nn.Module):
@@ -66,7 +66,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
     @property
     def scaling_restriction(self):
         return self._scaling_restriction
-    
+
     @scaling_restriction.setter
     def scaling_restriction(self, value):
         if isclass(value):
@@ -79,14 +79,19 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
     @property
     def threshold_restriction(self):
         return self._threshold_restriction
-    
+
     @threshold_restriction.setter
     def threshold_restriction(self, value):
-        self._threshold_restriction = solve_restrict_value_enum_from_impl(type(value))
+        if isclass(value):
+            self._threshold_restriction = solve_restrict_value_enum_from_impl(type(value))
+        elif isinstance(value, str):
+            self._threshold_restriction = value
+        else:
+            raise "Unrecognized scaling restriction"
 
     def prepare_for_export(self, module: nn.Module):
         if module.is_quant_enabled:
-            
+
             if module.tensor_quant is not None:
                 submodule = module.tensor_quant
             elif hasattr(module, 'fused_activation_quant_proxy'):
@@ -107,12 +112,11 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
     def compute_scale(self, x, group_dim):
         scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
         threshold = self.threshold
-        breakpoint()
         if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
             scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
         if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
             threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
-        scale = scale/threshold
+        scale = scale / threshold
         return scale
 
 
@@ -186,7 +190,6 @@ class GroupwiseMixin(torch.nn.Module):
     #     scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 6.
     #     # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
     #     return scale
-
 
 
 class InferenceHandler(torch.nn.Module, ABC):
@@ -293,7 +296,9 @@ class DynamicIntInferenceHandler(IntInferencetHandlerBase):
         return self.module_forward(x)
 
 
-class GroupwiseIntInferenceHandler(IntInferencetHandlerBase, GroupwiseMixin, DynamicScaleZeroPointMixin):
+class GroupwiseIntInferenceHandler(IntInferencetHandlerBase,
+                                   GroupwiseMixin,
+                                   DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
     def __init__(self):
@@ -476,10 +481,12 @@ class FloatWeightInferencetHandler(FloatInferencetHandler):
         return x, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin, DynamicScaleZeroPointMixin):
+class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase,
+                                     GroupwiseMixin,
+                                     DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         FloatInferenceHandlerBase.__init__(self)
         GroupwiseMixin.__init__(self)
         DynamicScaleZeroPointMixin.__init__(self)
@@ -518,8 +525,7 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase, GroupwiseMixin, 
             return output_args
 
 
-class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler,
-                                           GroupwiseMixin):
+class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):

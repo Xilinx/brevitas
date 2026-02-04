@@ -63,6 +63,8 @@ class QuantLinear(LinearMethodBase):
         threshold_restriction = quant_config['threshold_restriction']
         del quant_config['class_type']
         del quant_config['float_to_int_impl_type']
+        del quant_config['scaling_restriction']
+        del quant_config['threshold_restriction']
 
         # Scale and zero-point are the only float elements in the state dict
         for k, v in quant_config.items():
@@ -73,8 +75,8 @@ class QuantLinear(LinearMethodBase):
                     quant_config[k] = torch.tensor(v, dtype=torch.int)
 
         # Shapes must be set otherwise the state dict loading will fail
-        scale_shape = quant_config['scale'].shape
-        zero_point_shape = quant_config['zero_point'].shape
+        scale_shape = quant_config.get('scale', torch.tensor(())).shape
+        zero_point_shape = quant_config.get('zero_point', torch.tensor(())).shape
         quant_class_type = class_mapping[quant_class_name]
         quant_class = quant_class_type(scale_shape, zero_point_shape)
 
