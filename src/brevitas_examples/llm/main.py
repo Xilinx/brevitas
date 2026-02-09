@@ -29,6 +29,8 @@ from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
+from brevitas.utils.stats_utils import collect_stats
+from brevitas.utils.stats_utils import DictStatsCollector
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
@@ -607,16 +609,17 @@ def quantize_llm(args, extra_args=None):
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
-            apply_gptq(
-                model,
-                calibration_loader,
-                act_order=args.gpxq_act_order,
-                use_quant_activations=args.gpxq_use_quant_activations,
-                create_weight_orig=not args.disable_create_weight_orig,
-                block_name=args.gpxq_block_name,
-                buffer_device=args.gpxq_buffer_device,
-                max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
-                max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
+            with collect_stats(DictStatsCollector()):
+                apply_gptq(
+                    model,
+                    calibration_loader,
+                    act_order=args.gpxq_act_order,
+                    use_quant_activations=args.gpxq_use_quant_activations,
+                    create_weight_orig=not args.disable_create_weight_orig,
+                    block_name=args.gpxq_block_name,
+                    buffer_device=args.gpxq_buffer_device,
+                    max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
+                    max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPTQ applied.")
 
         if args.gpfq and not args.load_checkpoint:
