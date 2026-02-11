@@ -66,7 +66,7 @@ class LLMRunCases:
                 "weight_quant_format": "float_e2m1",
                 "weight_param_method": "mse",
             },
-            {"custom_quantizers": "custom_quant.py"}
+            {"custom_quantizers": "./tests/brevitas_examples/custom_quant.py"}
         ],
         ids=[
             "defaults",
