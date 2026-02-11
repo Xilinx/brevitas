@@ -65,7 +65,8 @@ class LLMRunCases:
             },{
                 "weight_quant_format": "float_e2m1",
                 "weight_param_method": "mse",
-            }
+            },
+            {"custom_quantizers": "custom_quant.py"}
         ],
         ids=[
             "defaults",
@@ -86,7 +87,8 @@ class LLMRunCases:
             "quant_sdpa_functional_per_row",
             "functional_sdpa_quant=True,rotation=fused_no_fx",
             "per_group_w_padding,learned_round=linear_round",
-            "float_e2m1_and_mse"
+            "float_e2m1_and_mse",
+            "custom_quantizer"
         ],)
     def case_small_models_toggle_args(self, run_dict, default_run_args, request):
         if config.JIT_ENABLED and run_dict.get("weight_param_method") == "mse":
