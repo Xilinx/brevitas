@@ -4,6 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
+import importlib.util
 import os
 import pprint
 import sys
@@ -444,6 +445,12 @@ def quantize_llm(args, extra_args=None):
             quant_attn_mode='sdpa',
             scaling_min_val=args.scaling_min_val,
             weight_kwargs=weight_kwargs)
+        if args.custom_quantizers:
+            spec = importlib.util.spec_from_file_location(
+                "custom_quantizers", args.custom_quantizers)
+            custom_quantizers = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(custom_quantizers)
+            weight_quant, linear_input_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = custom_quantizers.quantization_list
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,
             weight_quant=weight_quant,
