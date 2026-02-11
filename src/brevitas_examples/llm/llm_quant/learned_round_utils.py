@@ -11,12 +11,16 @@ from typing import Tuple
 from accelerate.utils.operations import send_to_device
 import torch
 from torch import nn
-from torch.utils.data.dataloader import DataLoader
+from transformers import PreTrainedModel
 
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas_examples.common.learned_round.learned_round_args import Config
-from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundTrainer
+from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
+from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
+from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+from brevitas_examples.common.learned_round.learned_round_trainer import Cache
+from brevitas_examples.common.learned_round.learned_round_trainer import LearnedRoundTrainer
 
 _T_args = Tuple[torch.Tensor, ...]
 _T_kwargs = Dict[str, Any]
@@ -108,16 +112,6 @@ class CacheLLM(Cache[_T_inputs, _T_outputs]):
         return args, kwargs
 
 
-def llm_learned_round_prepare_fn(model: nn.Module) -> None:
-    llm_cache_state = model.config.use_cache
-    model.config.use_cache = False
-    return llm_cache_state
-
-
-def llm_learned_round_finish_fn(model: nn.Module, llm_cache_state: bool) -> None:
-    model.config.use_cache = llm_cache_state
-
-
 def llm_forward(model: nn.Module, inputs: Dict[str, Any]) -> None:
     device = next(model.parameters()).device
     if device != torch.device("meta"):
@@ -160,11 +154,7 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 # TODO (pml): Transition to `args` being a nested dictionary, which is translated
 # an validated to `Config`` (e.g. using the package dacite)
-def parse_args_to_dataclass(args: Namespace) -> Config:
-    from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
-    from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
-    from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
-    from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
 
     def _parse_lr_scheduler_args(args: Namespace) -> LRSchedulerArgs:
         return LRSchedulerArgs(
@@ -213,28 +203,39 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
         fast_update=args.learned_round_fast_update,
     )
 
-    return Config(
+    return TrainerConfig(
         learned_round_args=learned_round_args,
         training_args=training_args,
     )
 
 
+class llm_trainer_cm:
+
+    def __init__(self, model: PreTrainedModel) -> None:
+        self.model = model
+        self.model_cache_state = None
+
+    def __enter__(self) -> None:
+        self.model_cache_state = self.model.config.use_cache
+        self.model.config.use_cache = False
+
+    def __exit__(self, type, value, traceback) -> None:
+        self.model.config.use_cache = self.model_cache_state
+
+
 def apply_learned_round(
-        model: nn.Module, calibration_dataset: torch.utils.data.Dataset, args: Namespace) -> None:
+        model: nn.Module, calibration_loader: torch.utils.data.DataLoader, args: Namespace) -> None:
     cache = CacheLLM()
     llm_block_check_fn = functools.partial(get_blocks, block_name_attribute=args.gpxq_block_name)
 
     config = parse_args_to_dataclass(args)
-    learned_round_optimizer = LearnedRoundTrainer(config=config)
-    calibration_loader = DataLoader(
-        dataset=calibration_dataset, batch_size=1, collate_fn=collate_fn)
-    learned_round_optimizer.apply_learned_round(
-        model=model,
-        model_forward=llm_forward,
-        block_forward=llm_block_forward,
-        data_loader=calibration_loader,
-        cache=cache,
-        get_blocks_fn=llm_block_check_fn,
-        model_prepare_fn=llm_learned_round_prepare_fn,
-        model_finish_fn=llm_learned_round_finish_fn,
-        keep_gpu=False)
+    learned_round_trainer = LearnedRoundTrainer(config=config)
+    with llm_trainer_cm(model):
+        learned_round_trainer.train(
+            model=model,
+            model_forward=llm_forward,
+            block_forward=llm_block_forward,
+            data_loader=calibration_loader,
+            cache=cache,
+            get_blocks_fn=llm_block_check_fn,
+            keep_gpu=False)

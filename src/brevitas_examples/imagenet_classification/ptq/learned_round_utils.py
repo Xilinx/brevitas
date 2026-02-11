@@ -41,10 +41,14 @@ from torch.utils.data.dataloader import DataLoader
 from brevitas import config
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_args import Config
-from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
-from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
-from brevitas_examples.common.learned_round.learned_round_optimizer import LearnedRoundTrainer
+from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
+from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
+from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+from brevitas_examples.common.learned_round.learned_round_trainer import Cache
+from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
+from brevitas_examples.common.learned_round.learned_round_trainer import LearnedRoundTrainer
 
 config.IGNORE_MISSING_KEYS = True
 
@@ -116,12 +120,7 @@ def vision_block_forward(block: nn.Module, inputs: Any) -> torch.Tensor:
 
 # TODO (pml): Transition to `args` being a nested dictionary, which is translated
 # an validated to `Config`` (e.g. using the package dacite)
-def parse_args_to_dataclass(args: Namespace) -> Config:
-    from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
-    from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
-    from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
-    from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
-
+def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
     lr_scheduler_args = None
     if args.learned_round_lr_scheduler is not None:
         lr_scheduler_args = LRSchedulerArgs(
@@ -158,7 +157,7 @@ def parse_args_to_dataclass(args: Namespace) -> Config:
         fast_update=False,
     )
 
-    return Config(
+    return TrainerConfig(
         learned_round_args=learned_round_args,
         training_args=training_args,
     )
@@ -184,8 +183,8 @@ def apply_learned_round(
     get_blocks_fn = functools.partial(get_blocks, block_check_fn=block_check_fn)
 
     config = parse_args_to_dataclass(args)
-    learned_round_optimizer = LearnedRoundTrainer(config=config)
-    learned_round_optimizer.apply_learned_round(
+    learned_round_trainer = LearnedRoundTrainer(config=config)
+    learned_round_trainer.train(
         model=model,
         model_forward=vision_forward,
         block_forward=vision_block_forward,

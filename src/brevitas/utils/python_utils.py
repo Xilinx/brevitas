@@ -136,7 +136,7 @@ T = TypeVar("T")
 class Registry(Generic[T]):
 
     def __init__(self, registry_name: Optional[str] = None) -> None:
-        self._registry_name = registry_name
+        self._registry_name: str = registry_name
         self._registry: Dict[str, T] = {}
 
     @staticmethod
@@ -155,7 +155,7 @@ class Registry(Generic[T]):
             names = [names]
 
         def decorator(value: T) -> T:
-            # Allow registering the same value to multiple keys
+            # The value is registered under each name in `names`.
             for name in names:
                 if name in self._registry:
                     warnings.warn(
@@ -175,5 +175,4 @@ class Registry(Generic[T]):
         except KeyError:
             available = ", ".join(sorted(self._registry)) or "<empty>"
             raise ValueError(
-                f"'{name}' not found in {self.registry_name}. The available values are: {available}"
-            )
+                f"'{name}' not found in {self.registry_name}. The registered keys are: {available}")

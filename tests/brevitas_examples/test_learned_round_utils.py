@@ -26,11 +26,11 @@ from brevitas_examples.common.learned_round.learned_round_args import _parse_lr_
 from brevitas_examples.common.learned_round.learned_round_args import _parse_optimizer_class
 from brevitas_examples.common.learned_round.learned_round_method import \
     return_learned_round_quantizers
-from brevitas_examples.common.learned_round.learned_round_optimizer import \
-    _insert_learned_round_quantizers
-from brevitas_examples.common.learned_round.learned_round_optimizer import Cache
-from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
-from brevitas_examples.common.learned_round.learned_round_optimizer import save_inputs_output
+from brevitas_examples.common.learned_round.learned_round_trainer import Cache
+from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
+from brevitas_examples.common.learned_round.learned_round_trainer import \
+    insert_learned_round_quantizers
+from brevitas_examples.common.learned_round.learned_round_trainer import save_inputs_output
 
 
 class QuantBlock(nn.Module):
@@ -305,7 +305,7 @@ class TestLearnedRound:
         "learned_round_param", [LearnedRoundImplType.IDENTITY, LearnedRoundImplType.HARD_SIGMOID])
     def test_insert_learned_round_quantizers(self, quant_model, learned_round_param):
         block = quant_model.in_proj_mlp
-        _insert_learned_round_quantizers(block, learned_round_param)
+        insert_learned_round_quantizers(block, learned_round_param)
 
         for module in block.modules():
             if hasattr(module, "weight_quant"):
@@ -323,7 +323,7 @@ class TestLearnedRound:
         # Inject quantizers in quant model
         for block_str in block_strs:
             block = getattr(quant_model, block_str)
-            _insert_learned_round_quantizers(block, learned_round_param)
+            insert_learned_round_quantizers(block, learned_round_param)
         learned_round_modules = return_learned_round_quantizers(quant_model)
         assert len(learned_round_modules) == num_round_modules
 

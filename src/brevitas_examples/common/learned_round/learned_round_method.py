@@ -48,10 +48,9 @@ class BlockLoss(ABC):
 
 
 # Registries for implementations of learned round components
-BLOCK_LOSS_REGISTRY = Registry[Type[BlockLoss]]('BlockLoss registry')
-TARGET_PARAM_FN_REGISTRY = Registry[TargetParamFn]('Parameter retrieval function registry')
-LEARNED_ROUND_INIT_FN_REGISTRY = Registry[LearnedRoundInitFn](
-    'Learned round value initialization function registry')
+BLOCK_LOSS_REGISTRY = Registry[Type[BlockLoss]]('BlockLoss Registry')
+TARGET_PARAM_FN_REGISTRY = Registry[TargetParamFn]('TargetParamFn Registry')
+LEARNED_ROUND_INIT_FN_REGISTRY = Registry[LearnedRoundInitFn]('LearnedRoundInitFn Registry')
 
 
 def return_learned_round_quantizers(block: nn.Module) -> List[nn.Module]:

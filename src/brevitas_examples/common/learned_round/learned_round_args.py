@@ -228,7 +228,11 @@ class LearnedRoundArgs:
         metadata={"help": "Extra keyword arguments for the learned round parametrization."},
     )
     fast_update: bool = field(
-        default=True, metadata={"help": ("Whether to use fast update with learned round.")})
+        default=False,
+        metadata={
+            "help": (
+                "Whether to use fast update with learned round. `fast_update=True` requires implementing additional methods in the custom `Cache`."
+            )})
 
     _DICT_ATTRIBUTES = ["learned_round_kwargs"]
 
@@ -242,7 +246,7 @@ class LearnedRoundArgs:
 
 
 @dataclass
-class Config:
+class TrainerConfig:
     learned_round_args: LearnedRoundArgs = field(
         metadata={"help": "Learned round parametrization."})
     training_args: TrainingArgs = field(metadata={"help": "Hyperparameters for optimization."})

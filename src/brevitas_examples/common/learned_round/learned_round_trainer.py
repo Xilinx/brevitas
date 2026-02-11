@@ -193,6 +193,7 @@ from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import OrderedDict
+from typing import Protocol
 from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
@@ -217,8 +218,8 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-from brevitas_examples.common.learned_round.learned_round_args import Config
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
+from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
 from brevitas_examples.common.learned_round.learned_round_method import \
     LEARNED_ROUND_INIT_FN_REGISTRY
@@ -226,6 +227,7 @@ from brevitas_examples.common.learned_round.learned_round_method import TargetPa
 
 _T_inputs = TypeVar("_T_inputs")
 _T_outputs = TypeVar("_T_output")
+_T_model_inputs = TypeVar("_T_model_inputs")
 _T_cache = Tuple[_T_inputs, _T_outputs]
 
 
@@ -258,6 +260,18 @@ class Cache(Generic[_T_inputs, _T_outputs], Dataset[_T_cache]):
     def collate_fn_input_next(self, batch: Iterable[_T_cache]) -> _T_cache:
         raise NotImplementedError(
             f"{self.__class__.__name__} is not compatible with fast_update=True.")
+
+
+class ModelForwardFn(Protocol):
+
+    def __call__(self, model: nn.Module, inputs: _T_model_inputs) -> Any:
+        ...
+
+
+class BlockForwardFn(Protocol):
+
+    def __call__(self, block: nn.Module, inputs: _T_inputs) -> _T_outputs:
+        ...
 
 
 class DataSaverHook:
@@ -385,7 +399,7 @@ class block_optimization_cm:
         self.module.eval()
 
 
-def _insert_learned_round_quantizers(
+def insert_learned_round_quantizers(
         model: nn.Module, learned_round_param: LearnedRoundImplType,
         **learned_round_kwargs) -> None:
     for module in model.modules():
@@ -404,7 +418,7 @@ def _insert_learned_round_quantizers(
 
 class LearnedRoundTrainer:
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: TrainerConfig) -> None:
         self.config = config
 
     def _step(
@@ -632,23 +646,18 @@ class LearnedRoundTrainer:
                 disable_quant=not capture_quant_output,
             )
 
-    def apply_learned_round(
+    def train(
             self,
             model: nn.Module,
-            model_forward: Callable,
-            block_forward: Callable,
-            data_loader: DataLoader,
+            model_forward: ModelForwardFn,
+            block_forward: BlockForwardFn,
+            data_loader: DataLoader[_T_model_inputs],
             cache: Cache,
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
-            model_prepare_fn: Optional[Callable] = None,
-            model_finish_fn: Optional[Callable] = None,
             keep_gpu: bool = True) -> None:
 
-        # Perform any needed preprocessing before rounding optimisation, e.g. disabling caching in LLMs
-        model_dict = None if model_prepare_fn is None else model_prepare_fn(model)
-
         # Insert quantizers within the appropiate model blocks
-        _insert_learned_round_quantizers(
+        insert_learned_round_quantizers(
             model,
             self.config.learned_round_args.learned_round_param,
             **self.config.learned_round_args.learned_round_kwargs)
@@ -711,13 +720,10 @@ class LearnedRoundTrainer:
             )
 
             if block_idx + 1 < len(blocks) and self.config.learned_round_args.fast_update:
-                cache = self.skip_full_execution(block, blocks[block_idx + 1], block_forward, cache)
+                cache = self.populate_next_block_cache(
+                    block, blocks[block_idx + 1], block_forward, cache)
 
-        # The original configuration of the model is restored after finishing the optimization
-        if model_finish_fn is not None:
-            model_finish_fn(model, model_dict)
-
-    def skip_full_execution(
+    def populate_next_block_cache(
             self, block: nn.Module, next_block: nn.Module, block_forward: Callable, cache: Cache):
         # To optimize `next_block`, a cache needs to be initialized with the quantized inputs to this block,
         # as well as their corresponding floating point outputs.
