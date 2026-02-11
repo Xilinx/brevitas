@@ -412,7 +412,7 @@ def quantize_llm(args, extra_args=None):
                     'zero_point_affine_rescaling_init': args.weight_quant_rescaling_init}}
         if args.weight_narrow_range:
             weight_kwargs = {**weight_kwargs, **{'narrow_range': args.weight_narrow_range}}
-        linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
+        quantization_dict = generate_quantizers(
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
@@ -450,18 +450,20 @@ def quantize_llm(args, extra_args=None):
                 "custom_quantizers", args.custom_quantizers)
             custom_quantizers = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(custom_quantizers)
-            weight_quant, linear_input_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = custom_quantizers.quantization_list
+            keys_to_check = [
+                'weight_quant',
+                'linear_input_quant',
+                'input_quant',
+                'q_scaled_quant',
+                'k_transposed_quant',
+                'v_quant',
+                'attn_output_weights_quant']
+            quantization_dict = dict()
+            for k in keys_to_check:
+                quantization_dict[k] = custom_quantizers.quantization_dict.get(k, None)
+
         layer_map = generate_quant_maps(
-            linear_input_quant=linear_input_quant,
-            weight_quant=weight_quant,
-            input_quant=input_quant,
-            q_scaled_quant=q_scaled_quant,
-            k_transposed_quant=k_transposed_quant,
-            v_quant=v_quant,
-            attn_output_weights_quant=attn_output_weights_quant,
-            dtype=dtype,
-            device=device,
-            quantize_embedding=False)
+            **quantization_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
             # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
             # up the last module.
