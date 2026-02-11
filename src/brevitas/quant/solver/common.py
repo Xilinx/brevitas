@@ -47,6 +47,8 @@ __all__ = [
 def solve_float_to_int_impl_from_enum(impl_type):
     if impl_type == FloatToIntImplType.ROUND:
         return RoundSte
+    elif impl_type == FloatToIntImplType.ROUND_RDFS:
+        return RoundRDFS
     elif impl_type == FloatToIntImplType.FLOOR:
         return FloorSte
     elif impl_type == FloatToIntImplType.CEIL:

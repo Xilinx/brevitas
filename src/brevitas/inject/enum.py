@@ -41,6 +41,7 @@ class FloatToIntImplType(AutoName):
 
     """
     ROUND = auto()
+    ROUND_RDFS = auto()
     CEIL = auto()
     FLOOR = auto()
     ROUND_TO_ZERO = auto()

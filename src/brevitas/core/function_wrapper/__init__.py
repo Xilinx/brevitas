@@ -15,6 +15,7 @@ from .ops_ste import CeilSte
 from .ops_ste import DPURoundSte
 from .ops_ste import FloorSte
 from .ops_ste import InplaceTensorClampSte
+from .ops_ste import RoundRDFS
 from .ops_ste import RoundSte
 from .ops_ste import RoundToZeroSte
 from .ops_ste import ScalarClampMinSte

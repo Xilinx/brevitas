@@ -355,6 +355,41 @@ class RoundSteFn(Function):
         return y
 
 
+class RoundRDFSFn(torch.autograd.Function):
+    """
+    Autograd function that implements :func:`torch.round` with a RDFS estimator for the backward pass.
+    This is based on:
+    https://github.com/microsoft/StableQAT
+    https://arxiv.org/abs/2601.19320
+
+    """
+
+    def __init__(self) -> None:
+        super(RoundRDFSFn, self).__init__()
+
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        ctx.save_for_backward(x)
+        return torch.round(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        x, = ctx.saved_tensors
+        PI = 3.14159  # convince me we need more than this
+        AMPLITUDE = 0.21
+        coeff = torch.tensor([AMPLITUDE * 4.442882938158366])  #sqrt(2) * pi
+        temp = (x + x.round()).mul_(PI)
+        sum_term = torch.zeros_like(temp)
+        for idx in range(coeff.shape[0]):
+            term = torch.cos(temp * (2 * idx + 1))
+            sum_term += (term * coeff[idx])
+        sum_term.add_(1.0)
+        grad_input = sum_term.reciprocal_().mul_(2.0).sub_(1.0)
+        grad_input = grad_input * grad_output
+
+        return grad_input
+
+
 class AbsBinarySignGradFn(Function):
     """
     Autograd function that implements :func:`torch.abs` with a binary-sign backward, in order to
@@ -387,6 +422,10 @@ class AbsBinarySignGradFn(Function):
 #: Alias for :class:`RoundSteFn.apply(*args)
 #: <brevitas.ops.autograd_ste_ops.RoundSteFn>`
 round_ste_impl = RoundSteFn.apply
+
+#: Alias for :class:`RoundRDFSFn.apply(*args)
+#: <brevitas.ops.autograd_ste_ops.RoundRDFSFn>`
+round_rdfs_impl = RoundRDFSFn.apply
 
 #: Alias for :class:`BinarySignSteFn.apply(*args)
 #: <brevitas.ops.autograd_ste_ops.BinarySignSteFn>`
