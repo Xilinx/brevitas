@@ -1,5 +1,6 @@
 bitstring
 onnx==1.17.0
+onnx_ir<0.1.16
 onnxoptimizer
 onnxruntime>=1.15.0, <1.21
 onnxscript<0.5.4

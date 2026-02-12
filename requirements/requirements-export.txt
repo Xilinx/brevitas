@@ -1,4 +1,5 @@
 onnx==1.17.0
+onnx_ir<0.1.16
 onnxoptimizer
 onnxscript<0.5.4
 qonnx
