@@ -3,6 +3,12 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
+from typing import ClassVar
+from typing import Dict
+from typing import Optional
+from typing import Type
+from typing import TypeVar
+
 from torch import nn
 
 from brevitas.core.function_wrapper.ops_ste import FloorSte
@@ -39,8 +45,10 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChann
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.utils.python_utils import Registry
 
 from .quant_blocks import *
 
@@ -218,3 +226,31 @@ class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
 
 class Fp8e4m3WeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3WeightPerChannelFloat):
     pass
+
+
+# TODO: Subject to change
+class BaseQuantizer:
+    weight_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+    linear_input_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+    input_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+    q_scaled_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+    k_transposed_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+    v_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+    attn_output_weights_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
+
+    @classmethod
+    def override_quantizers_dict(
+            cls: "BaseQuantizer",
+            quantizers_dict: Dict[str, Optional[ExtendedInjector]]):  # type: ignore
+        for key in quantizers_dict:
+            if hasattr(cls, key) and (value := getattr(cls, key)) is not None:
+                quantizers_dict[key] = value
+        return quantizers_dict
+
+
+CUSTOM_QUANTIZERS_REGISTRY = Registry[Type[BaseQuantizer]](registry_name="CustomQuantizersRegistry")
+
+
+@CUSTOM_QUANTIZERS_REGISTRY.register("custom_quant")
+class CustomQuantizerExample(BaseQuantizer):
+    weight_quant: ClassVar[Optional[ExtendedInjector]] = Int8WeightPerTensorFloat  # type: ignore

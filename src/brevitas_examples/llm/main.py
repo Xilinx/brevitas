@@ -34,6 +34,7 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.generative.quantizers import CUSTOM_QUANTIZERS_REGISTRY
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
@@ -411,7 +412,7 @@ def quantize_llm(args, extra_args=None):
                     'zero_point_affine_rescaling_init': args.weight_quant_rescaling_init}}
         if args.weight_narrow_range:
             weight_kwargs = {**weight_kwargs, **{'narrow_range': args.weight_narrow_range}}
-        linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
+        quantizers_dict = generate_quantizers(
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
@@ -444,17 +445,11 @@ def quantize_llm(args, extra_args=None):
             quant_attn_mode='sdpa',
             scaling_min_val=args.scaling_min_val,
             weight_kwargs=weight_kwargs)
+        if args.custom_quantizer is not None:
+            custom_quantizer = CUSTOM_QUANTIZERS_REGISTRY.get(args.custom_quantizer)
+            quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
         layer_map = generate_quant_maps(
-            linear_input_quant=linear_input_quant,
-            weight_quant=weight_quant,
-            input_quant=input_quant,
-            q_scaled_quant=q_scaled_quant,
-            k_transposed_quant=k_transposed_quant,
-            v_quant=v_quant,
-            attn_output_weights_quant=attn_output_weights_quant,
-            dtype=dtype,
-            device=device,
-            quantize_embedding=False)
+            **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
             # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
             # up the last module.

@@ -468,7 +468,14 @@ def generate_quantizers(
             linear_input_quant = linear_input_quant.let(
                 **{
                     'group_dim': -1, 'group_size': input_group_size})
-    return linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant
+    return {
+        'linear_input_quant': linear_input_quant,
+        'weight_quant': weight_quant,
+        'input_quant': input_quant,
+        'q_scaled_quant': q_scaled_quant,
+        'k_transposed_quant': k_transposed_quant,
+        'v_quant': v_quant,
+        'attn_output_weights_quant': attn_output_weights_quant}
 
 
 def generate_quant_maps(

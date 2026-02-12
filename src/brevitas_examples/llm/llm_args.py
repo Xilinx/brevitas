@@ -21,6 +21,13 @@ def create_args_parser() -> ArgumentParser:
         default="facebook/opt-125m",
         help='HF model name. Default: facebook/opt-125m.')
     parser.add_argument(
+        '--custom-quantizer',
+        type=str,
+        default=None,
+        help=
+        'Override the quantization list with custom user defined quantizers. This must be a .py file with a list of seven quantizers. Default: None.'
+    )
+    parser.add_argument(
         '--dtype',
         type=str,
         default="auto",

@@ -4,6 +4,14 @@
 from contextlib import contextmanager
 from enum import Enum
 import functools
+from typing import Callable
+from typing import Dict
+from typing import Generic
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import TypeVar
+from typing import Union
 
 
 class AutoName(str, Enum):
@@ -64,3 +72,43 @@ def hooked_on_a_function(function, prefunction):
         return function(*args, **kwargs)
 
     return run
+
+
+T = TypeVar("T")
+
+
+class Registry(Generic[T]):
+
+    def __init__(self, registry_name: Optional[str] = None) -> None:
+        self._registry_name = registry_name
+        self._registry: Dict[str, T] = {}
+
+    @property
+    def registry_name(self) -> str:
+        return "registry" if self._registry_name is None else self._registry_name
+
+    def register(self, names: Union[str, List[str]]) -> Callable[[T], T]:
+        if isinstance(names, str):
+            names = [names]
+
+        def decorator(value: T) -> T:
+            # Allow registering the same value to multiple keys
+            for name in names:
+                if name in self._registry:
+                    raise ValueError(f"'{name}' is already registered in {self.registry_name}.")
+                self._registry[name] = value
+            return value
+
+        return decorator
+
+    def get_registered_keys(self) -> Iterable[str]:
+        return self._registry.keys()
+
+    def get(self, name: str) -> T:
+        try:
+            return self._registry[name]
+        except KeyError:
+            available = ", ".join(sorted(self._registry)) or "<empty>"
+            raise ValueError(
+                f"'{name}' not found in {self.registry_name}. The available values are: {available}"
+            )
