@@ -32,8 +32,8 @@ from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
 from brevitas.graph.equalize import Region
-from brevitas.graph.equalize import rotate_permute_mode
 from brevitas.graph.hadamard import get_hadK
+from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
