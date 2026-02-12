@@ -13,11 +13,11 @@ from tqdm import tqdm
 
 from brevitas.graph.equalize import _channel_maxabs
 from brevitas.graph.equalize import _scale_invariant_layers
-from brevitas.graph.equalize import find_node_for_module
 from brevitas.graph.equalize import find_srcs
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import Region
 from brevitas.graph.equalize import WalkRegionState
+from brevitas.graph.utils import find_node_for_module
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.logging import setup_logger
 
