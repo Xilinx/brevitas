@@ -23,7 +23,7 @@ from brevitas.utils.logging import setup_logger
 
 logging = setup_logger(__name__)
 
-__all__ = ['GraphPermutationEqualization', 'rotate_permute_mode', 'get_permutation_method']
+__all__ = ['GraphPermutationEqualization', 'rotate_permute_mode']
 
 # Initialize permutation-invariant layers from scale-invariant layers
 _permute_invariant_layers = list(_scale_invariant_layers)
