@@ -5,6 +5,7 @@ from inspect import signature
 from typing import Any
 from typing import Dict
 from typing import Iterable
+from typing import Optional
 from typing import Tuple
 
 import torch
@@ -93,7 +94,7 @@ def is_subseq(seq, subseq):
     return any(subseq == seq[i:len(subseq) + i] for i in range(len(seq) - len(subseq) + 1))
 
 
-def find_node_for_module(graph_model, target_module) -> Node:
+def find_node_for_module(graph_model, target_module) -> Optional[Node]:
     """
     Find the graph node corresponding to a module instance by matching its identity.
     """
