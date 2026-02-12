@@ -419,7 +419,7 @@ class rotate_permute_mode:
         self.permutation = GraphPermutationEqualization(block_rotation_dim=block_rotation_dim)
         self.model = model
         self.rewriters = None
-        self.permute_fn = _permute_fn_map[permute_fn]
+        self.permute_fn = get_permutation_method(permute_fn)
 
     def __enter__(self):
         model, rewriters = self.rotation.apply(self.model)
@@ -677,23 +677,61 @@ def _channel_maxabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
     return out
 
 
-def _zigzag_sort(indexes, block_size):
-    indexes = indexes.view(block_size, indexes.shape[-1] // block_size)
+# Dictionary to store registered permutation methods
+_PERMUTATION_METHODS = {}
+
+
+def register_permutation_method(name: str):
+    """Register a permutation method for block rotations.
+
+    Args:
+        name: The name of the permutation method (e.g., "zigzag", "massdiff")
+
+    Examples:
+        >>> @register_permutation_method("my_permute")
+        ... def my_permute_method(x, block_rotation_dim):
+        ...     return torch.arange(x.shape[-1])
+    """
+
+    def _wrapper(permute_fn):
+        if name in _PERMUTATION_METHODS:
+            logging.warning(
+                "The permutation method '%s' already exists and will be "
+                "overwritten by %s.",
+                name,
+                permute_fn.__name__,
+            )
+        _PERMUTATION_METHODS[name] = permute_fn
+        return permute_fn
+
+    return _wrapper
+
+
+def get_permutation_method(name: str):
+    """Get a registered permutation method by name."""
+    if name not in _PERMUTATION_METHODS:
+        available = list(_PERMUTATION_METHODS.keys())
+        raise ValueError(
+            f"Permutation method '{name}' not found. "
+            f"Available methods: {available}")
+    return _PERMUTATION_METHODS[name]
+
+
+@register_permutation_method("zigzag")
+def zigzag_permute(x, block_rotation_dim):
+    if x.shape[-1] == block_rotation_dim:
+        return torch.arange(block_rotation_dim).to(x.device)
+    scores = _channel_maxabs(x, dim=0)
+    _, indexes = torch.sort(scores, descending=True)
+    # Inline zigzag sort logic
+    indexes = indexes.view(block_rotation_dim, indexes.shape[-1] // block_rotation_dim)
     indexes[1::2] = torch.flip(indexes[1::2], dims=[1])
     indexes = indexes.t()
     indexes = indexes.flatten()
     return indexes
 
 
-def zigzag_permute(x, block_rotation_dim):
-    if x.shape[-1] == block_rotation_dim:
-        return torch.arange(block_rotation_dim).to(x.device)
-    scores = _channel_maxabs(x, dim=0)
-    _, indexes = torch.sort(scores, descending=True)
-    indexes = _zigzag_sort(indexes, block_rotation_dim)
-    return indexes
-
-
+@register_permutation_method("random")
 def random_permute(x, block_rotation_dim):
     if x.shape[-1] == block_rotation_dim:
         return torch.arange(block_rotation_dim).to(x.device)
@@ -701,6 +739,7 @@ def random_permute(x, block_rotation_dim):
     return indexes
 
 
+@register_permutation_method("absmax")
 def absmax_permute(x, block_rotation_dim):
     if x.shape[-1] == block_rotation_dim:
         return torch.arange(block_rotation_dim).to(x.device)
@@ -709,6 +748,7 @@ def absmax_permute(x, block_rotation_dim):
     return indexes
 
 
+@register_permutation_method("massdiff")
 def massdiff_permute(x, block_rotation_dim):
     if x.shape[-1] == block_rotation_dim:
         return torch.arange(block_rotation_dim).to(x.device)
@@ -732,13 +772,6 @@ def massdiff_permute(x, block_rotation_dim):
             block_norm[:, min_block] = float('inf')
     indexes = torch.tensor(block_idxs).flatten()
     return indexes
-
-
-_permute_fn_map = {
-    'zigzag': zigzag_permute,
-    'massdiff': massdiff_permute,
-    'absmax': absmax_permute,
-    'random': random_permute}
 
 
 def _get_input_axis(module: nn.Module) -> Optional[int]:
