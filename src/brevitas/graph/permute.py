@@ -165,10 +165,10 @@ class rotate_permute_mode:
 
         # NOTE: permutations are tied to block rotations here
         self.rotation = GraphRotationEqualization(block_rotation_dim=block_rotation_dim, **kwargs)
-        self.permutation = GraphPermutationEqualization(block_rotation_dim=block_rotation_dim)
+        self.permutation = GraphPermutationEqualization(
+            block_rotation_dim=block_rotation_dim, permute_fn=permute_fn)
         self.model = model
         self.rewriters = None
-        self.permute_fn = get_permutation_method(permute_fn)
 
     def __enter__(self):
         model, rewriters = self.rotation.apply(self.model)
@@ -193,7 +193,7 @@ class rotate_permute_mode:
         return self
 
     def __exit__(self, *args, **kwargs):
-        self.permutation.apply_permute(self.permute_fn)
+        self.permutation.apply_permute()
         self.permutation.remove_hooks()
 
 
@@ -207,7 +207,7 @@ class GraphPermutationEqualization:
     operations, and provides hooks for collecting forward pass statistics.
     """
 
-    def __init__(self, block_rotation_dim: int):
+    def __init__(self, block_rotation_dim: int, permute_fn: str = 'massdiff'):
         super().__init__()
         self.hooks = []
         self.hooked_modules = set()
@@ -223,6 +223,7 @@ class GraphPermutationEqualization:
         self.float_act_map = dict()
         self.float_act_dev = dict()
         self.block_rotation_dim = block_rotation_dim
+        self.permute_fn = get_permutation_method(permute_fn)
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
@@ -331,7 +332,7 @@ class GraphPermutationEqualization:
         for sink in region.sinks.values():
             sink.permute(new_indexes)
 
-    def apply_permute(self, permute_fn=None):
+    def apply_permute(self):
         for region in tqdm(self.regions, "Calculating permutations..."):
             # Collect all activation values for this region
             list_of_act_val = []
@@ -345,7 +346,7 @@ class GraphPermutationEqualization:
                 region,
                 list_of_act_val=list_of_act_val,
                 block_rotation_dim=self.block_rotation_dim,
-                permute_fn=permute_fn,
+                permute_fn=self.permute_fn,
                 device=self.float_act_dev[region.sinks_names[0]])
 
     def remove_hooks(self):
