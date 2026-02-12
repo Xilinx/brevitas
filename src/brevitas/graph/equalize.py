@@ -231,12 +231,6 @@ class Region:
     def is_valid_activation_equalization(self) -> bool:
         return self.act_axis is not None
 
-    def apply_permute(self, indexes):
-        for src in self.srcs.values():
-            src.permute(indexes)
-        for sink in self.sinks.values():
-            sink.permute(indexes)
-
     @classmethod
     def from_dicts(
             cls,
@@ -408,7 +402,7 @@ def apply_rewriters_accelerate(
 
 class rotate_permute_mode:
 
-    def __init__(self, model, permute_fn='massdiff', **kwargs):
+    def __init__(self, model, permute_fn='massdiff', block_rotation_dim=None, **kwargs):
         # rotate_permute_mode performs a specific transformation sequence:
         # 1. Identify regions → 2. Apply permutations → 3. Apply rotations
         # This sequencing requires delay_rewriters=True (defer rotation application)
@@ -420,7 +414,9 @@ class rotate_permute_mode:
         kwargs['delay_rewriters'] = True
         kwargs['return_rewriters'] = True
 
-        self.rotation = GraphRotationEqualization(apply_permute=True, **kwargs)
+        # NOTE: permutations are tied to block rotations here
+        self.rotation = GraphRotationEqualization(block_rotation_dim=block_rotation_dim, **kwargs)
+        self.permutation = GraphPermutationEqualization(block_rotation_dim=block_rotation_dim)
         self.model = model
         self.rewriters = None
         self.permute_fn = _permute_fn_map[permute_fn]
@@ -429,15 +425,30 @@ class rotate_permute_mode:
         model, rewriters = self.rotation.apply(self.model)
         self.model = model
         self.rewriters = rewriters
-        self.rotation.permute_class.setup_permute()
+
+        # Filter regions for permutation
+        permute_regions = list()
+        for region in self.rotation.regions:
+            # Permutations are only applied to regions that use block rotations
+            apply_block_rotation = self.permutation.block_rotation_dim is not None
+            if self.rotation.disable_block_rotation_for_fused and (len(region.srcs) > 0):
+                apply_block_rotation = False
+            if apply_block_rotation:
+                # Check if block rotation is compatible with the current shape
+                if (region.max_shape_sinks // self.permutation.block_rotation_dim > 1) and \
+                    (region.max_shape_sinks % self.permutation.block_rotation_dim == 0):
+                    permute_regions.append(region)
+
+        self.permutation.extract_permute_regions(model, permute_regions)
+        self.permutation.setup_permute()
         return self
 
     def __exit__(self, *args, **kwargs):
-        self.rotation.permute_class.apply_permute(self.permute_fn)
-        self.rotation.permute_class.remove_hooks()
+        self.permutation.apply_permute(self.permute_fn)
+        self.permutation.remove_hooks()
 
 
-class PermuteGraph:
+class GraphPermutationEqualization:
     """
     A class for managing and applying permutations to a computational graph.
 
@@ -555,6 +566,30 @@ class PermuteGraph:
                 expand_region=region.expand_region)
             self.regions.append(new_region)
 
+    @staticmethod
+    def permute_region(region, list_of_act_val, block_rotation_dim, permute_fn, device):
+        """
+        Apply permutation to a region by calculating permutation indexes and updating
+        the source and sink weights accordingly.
+        """
+        # If equalization criteria are not met, return without doing anything
+        if not region.is_valid_activation_equalization:
+            return
+
+        list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
+        if len(list_of_act_val_shapes) > 0:
+            shape_0 = list_of_act_val_shapes[0]
+            if any(shape_0 != shape for shape in list_of_act_val_shapes):
+                return
+
+        list_of_act_val = torch.cat(list_of_act_val, dim=0).to(device)
+        new_indexes = permute_fn(list_of_act_val, block_rotation_dim=block_rotation_dim)
+
+        for src in region.srcs.values():
+            src.permute(new_indexes)
+        for sink in region.sinks.values():
+            sink.permute(new_indexes)
+
     def apply_permute(self, permute_fn=None):
         for region in tqdm(self.regions, "Calculating permutations..."):
             # Collect all activation values for this region
@@ -565,7 +600,7 @@ class PermuteGraph:
                     continue
                 list_of_act_val.extend(act_vals)
             # Calculate permutation and apply to this region
-            _permute(
+            self.permute_region(
                 region,
                 list_of_act_val=list_of_act_val,
                 block_rotation_dim=self.block_rotation_dim,
@@ -704,30 +739,6 @@ _permute_fn_map = {
     'massdiff': massdiff_permute,
     'absmax': absmax_permute,
     'random': random_permute}
-
-
-@torch.no_grad()
-def _permute(region, list_of_act_val, block_rotation_dim, permute_fn, device):
-
-    # If equalization criteria are not met, we return to indicate that no equalization
-    # has been performed
-    def _no_permute():
-        return
-
-    # If act_val is enabled, use source or sink weights to determine the activation channel
-    # For example, if the source is BatchNorm, we need to use the information coming from the sinks
-    if not region.is_valid_activation_equalization:
-        return _no_permute()
-
-    list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
-    if len(list_of_act_val_shapes) > 0:
-        shape_0 = list_of_act_val_shapes[0]
-        if any(shape_0 != shape for shape in list_of_act_val_shapes):
-            return _no_permute()
-
-    list_of_act_val = torch.cat(list_of_act_val, dim=0).to(device)
-    new_indexes = permute_fn(list_of_act_val, block_rotation_dim=block_rotation_dim)
-    region.apply_permute(new_indexes)
 
 
 def _get_input_axis(module: nn.Module) -> Optional[int]:
@@ -2226,7 +2237,6 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             block_rotation_dim: Optional[int] = None,
             disable_block_rotation_for_fused: bool = False,
             layers_to_expand: Optional[List[str]] = None,
-            apply_permute: bool = False,
             expansion_step: int = None,
             delay_rewriters: bool = False,
             return_rewriters: bool = False,
@@ -2252,8 +2262,6 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
         self.delay_rewriters = delay_rewriters
         self.block_rotation_dim = block_rotation_dim
         self.disable_block_rotation_for_fused = disable_block_rotation_for_fused
-
-        self.permute_class = PermuteGraph(block_rotation_dim) if apply_permute else None
 
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
@@ -2345,7 +2353,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             end_index = head_dim if head_dim != -1 else output_weight.shape[0]
             output_index = EqualizationIndexes(0, end_index, 0)
 
-            # NOTE: PermuteGraph.extract_permute_regions looks for these src and
+            # NOTE: GraphPermutationEqualization.extract_permute_regions looks for these src and
             # sink names to delineate SDPA regions
             region = Region.from_dicts(
                 srcs={'value_sdpa': value_index},
@@ -2415,21 +2423,8 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                 added_regions += 1
         logging.debug(f"Adding {added_regions} sink-only regions")
 
-        # Assign regions to permute class if needed
-        if self.permute_class is not None:
-            permute_regions = list()
-            for region in regions:
-                # Permutations are only applied to regions that use block rotations,
-                # so we are copying the logic from _compute_rotations here
-                apply_block_rotation = self.block_rotation_dim is not None
-                if self.disable_block_rotation_for_fused and (len(region.srcs) > 0):
-                    apply_block_rotation = False
-                if apply_block_rotation:
-                    # Check if block rotation is compatible with the current shape
-                    if (region.max_shape_sinks // self.block_rotation_dim > 1) and \
-                        (region.max_shape_sinks % self.block_rotation_dim == 0):
-                        permute_regions.append(region)
-            self.permute_class.extract_permute_regions(graph_model, permute_regions)
+        # Store regions for potential use by GraphPermutationEqualization
+        self.regions = regions
 
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
