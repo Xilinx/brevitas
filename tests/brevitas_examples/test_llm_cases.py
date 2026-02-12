@@ -27,7 +27,7 @@ class LLMRunCases:
             "mistral",  #"mixtral",
             "opt",],
     )
-    def case_small_models_with_ppl(self, run_dict, default_run_args, request):
+    def case_small_models_run(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict)
 
     # yapf: disable
@@ -92,6 +92,26 @@ class LLMRunCases:
         if config.JIT_ENABLED and run_dict.get("weight_param_method") == "mse":
             pytest.skip(reason=f'MSE as weight_param_method requires JIT to be disabled')
         yield process_args_and_metrics(default_run_args, run_dict)
+
+    @pytest_cases.parametrize(
+        "run_dict",
+        [
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "custom_quantizer": "example_int8_weight_quant"},],
+        ids=[
+            "llama",]
+    )
+    def case_small_models_custom_quantizer(self, run_dict, default_run_args, request):
+        from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+        from brevitas.utils.python_utils import Registry
+        from brevitas_examples.common.generative.quantizers import BaseQuantizer
+        from brevitas_examples.common.generative.quantizers import CUSTOM_QUANTIZERS_REGISTRY
+        @Registry.register(CUSTOM_QUANTIZERS_REGISTRY, "example_int8_weight_quant")
+        class ExampleInt8WeightQuantizer(BaseQuantizer):
+            weight_quant = Int8WeightPerTensorFloat
+        yield process_args_and_metrics(default_run_args, run_dict)
+
 
 class LLMPerplexityCases:
 

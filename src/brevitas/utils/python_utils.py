@@ -12,6 +12,7 @@ from typing import List
 from typing import Optional
 from typing import TypeVar
 from typing import Union
+import warnings
 
 
 class AutoName(str, Enum):
@@ -83,9 +84,16 @@ class Registry(Generic[T]):
         self._registry_name = registry_name
         self._registry: Dict[str, T] = {}
 
+    @staticmethod
+    def register(
+        registry: "Registry[T]",
+        names: Union[str, List[str]],
+    ) -> Callable[[T], T]:
+        return registry.register(names)
+
     @property
     def registry_name(self) -> str:
-        return "registry" if self._registry_name is None else self._registry_name
+        return "Registry" if self._registry_name is None else self._registry_name
 
     def register(self, names: Union[str, List[str]]) -> Callable[[T], T]:
         if isinstance(names, str):
@@ -95,7 +103,9 @@ class Registry(Generic[T]):
             # Allow registering the same value to multiple keys
             for name in names:
                 if name in self._registry:
-                    raise ValueError(f"'{name}' is already registered in {self.registry_name}.")
+                    warnings.warn(
+                        f"'{name}' is already registered in {self.registry_name}. Overwriting the existing value."
+                    )
                 self._registry[name] = value
             return value
 

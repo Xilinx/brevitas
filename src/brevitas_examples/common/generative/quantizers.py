@@ -7,7 +7,7 @@ from typing import ClassVar
 from typing import Dict
 from typing import Optional
 from typing import Type
-from typing import TypeVar
+from typing import TypeAlias
 
 from torch import nn
 
@@ -51,6 +51,34 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.utils.python_utils import Registry
 
 from .quant_blocks import *
+
+# Prevents Pylance from raising "Variable not allowed in type expression" error in every type hint in BaseQuantizer
+QuantInjector: TypeAlias = ExtendedInjector  # type: ignore
+
+
+class BaseQuantizer:
+    weight_quant: ClassVar[Optional[QuantInjector]] = None
+    linear_input_quant: ClassVar[Optional[QuantInjector]] = None
+    input_quant: ClassVar[Optional[QuantInjector]] = None
+    q_scaled_quant: ClassVar[Optional[QuantInjector]] = None
+    k_transposed_quant: ClassVar[Optional[QuantInjector]] = None
+    v_quant: ClassVar[Optional[QuantInjector]] = None
+    attn_output_weights_quant: ClassVar[Optional[QuantInjector]] = None
+
+    @classmethod
+    def override_quantizers_dict(
+            cls: "BaseQuantizer",
+            quantizers_dict: Dict[str,
+                                  Optional[QuantInjector]]) -> Dict[str, Optional[QuantInjector]]:
+        # Overrides the quantizers in the input dictionary
+        for key in quantizers_dict:
+            if (value := getattr(cls, key)) is not None:
+                quantizers_dict[key] = value
+        return quantizers_dict
+
+
+# Registry for custom quantizers
+CUSTOM_QUANTIZERS_REGISTRY = Registry[Type[BaseQuantizer]](registry_name="CustomQuantizersRegistry")
 
 
 class DynamicActProxyMixin(ExtendedInjector):
@@ -226,31 +254,3 @@ class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
 
 class Fp8e4m3WeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3WeightPerChannelFloat):
     pass
-
-
-# TODO: Subject to change
-class BaseQuantizer:
-    weight_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-    linear_input_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-    input_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-    q_scaled_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-    k_transposed_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-    v_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-    attn_output_weights_quant: ClassVar[Optional[ExtendedInjector]] = None  # type: ignore
-
-    @classmethod
-    def override_quantizers_dict(
-            cls: "BaseQuantizer",
-            quantizers_dict: Dict[str, Optional[ExtendedInjector]]):  # type: ignore
-        for key in quantizers_dict:
-            if hasattr(cls, key) and (value := getattr(cls, key)) is not None:
-                quantizers_dict[key] = value
-        return quantizers_dict
-
-
-CUSTOM_QUANTIZERS_REGISTRY = Registry[Type[BaseQuantizer]](registry_name="CustomQuantizersRegistry")
-
-
-@CUSTOM_QUANTIZERS_REGISTRY.register("custom_quant")
-class CustomQuantizerExample(BaseQuantizer):
-    weight_quant: ClassVar[Optional[ExtendedInjector]] = Int8WeightPerTensorFloat  # type: ignore

@@ -530,7 +530,7 @@ def quantize_sd(args: Namespace, extra_args: Optional[List[str]] = None):
             input_kwargs=input_kwargs)
 
         layer_map = generate_quant_maps(
-            *quantizers, dtype=dtype, device=args.device, quantize_embedding=False)
+            **quantizers, dtype=dtype, device=args.device, quantize_embedding=False)
 
         linear_qkwargs = layer_map[torch.nn.Linear][1]
         linear_qkwargs[
