@@ -3,6 +3,7 @@
 
 from functools import partial
 import operator
+from typing import List
 from typing import Optional
 import warnings
 
@@ -163,7 +164,6 @@ class rotate_permute_mode:
         kwargs['delay_rewriters'] = True
         kwargs['return_rewriters'] = True
 
-        # NOTE: permutations are tied to block rotations here
         self.rotation = GraphRotationEqualization(block_rotation_dim=block_rotation_dim, **kwargs)
         self.permutation = GraphPermutationEqualization(
             block_rotation_dim=block_rotation_dim, permute_fn=permute_fn)
@@ -175,18 +175,10 @@ class rotate_permute_mode:
         self.model = model
         self.rewriters = rewriters
 
-        # Filter regions for permutation
-        permute_regions = list()
-        for region in self.rotation.get_regions():
-            # Permutations are only applied to regions that use block rotations
-            apply_block_rotation = self.permutation.block_rotation_dim is not None
-            if self.rotation.disable_block_rotation_for_fused and (len(region.srcs) > 0):
-                apply_block_rotation = False
-            if apply_block_rotation:
-                # Check if block rotation is compatible with the current shape
-                if (region.max_shape_sinks // self.permutation.block_rotation_dim > 1) and \
-                    (region.max_shape_sinks % self.permutation.block_rotation_dim == 0):
-                    permute_regions.append(region)
+        # NOTE: permutations are tied to block rotations here
+        permute_regions = self.rotation.get_regions()
+        permute_regions = self.permutation.filter_permute_regions(
+            permute_regions, self.rotation.disable_block_rotation_for_fused)
 
         self.permutation.extract_permute_regions(model, permute_regions)
         self.permutation.setup_permute()
@@ -271,6 +263,26 @@ class GraphPermutationEqualization:
                     hook_fn = partial(self.forward_stats_hook, name=name, batch_dim=batch_dim)
                     h = module.register_forward_hook(hook_fn)
                     self.hooks.append(h)
+
+    def filter_permute_regions(self,
+                               regions: list,
+                               disable_for_fused: bool = False) -> List[Region]:
+        """
+        Filter regions to identify which should have permutations applied.
+        """
+        permute_regions = list()
+        for region in regions:
+            # Permutations are only applied to regions that use block rotations
+            apply_block_rotation = self.block_rotation_dim is not None
+            # Optionally disable permutations for fused rotations
+            if disable_for_fused and (len(region.srcs) > 0):
+                apply_block_rotation = False
+            if apply_block_rotation:
+                # Check if block rotation is compatible with the current shape
+                if (region.max_shape_sinks // self.block_rotation_dim > 1) and \
+                    (region.max_shape_sinks % self.block_rotation_dim == 0):
+                    permute_regions.append(region)
+        return permute_regions
 
     def extract_permute_regions(self, graph_model, regions):
         state_impl_kwargs = {
