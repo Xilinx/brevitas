@@ -12,6 +12,7 @@ from torch.fx import GraphModule
 import torch.nn as nn
 from tqdm import tqdm
 
+from brevitas.graph.base import GraphTransform
 from brevitas.graph.equalize import _channel_maxabs
 from brevitas.graph.equalize import _scale_invariant_layers
 from brevitas.graph.equalize import find_srcs
@@ -178,19 +179,18 @@ class rotate_permute_mode:
 
         # NOTE: permutations are tied to block rotations here
         permute_regions = self.rotation.get_regions()
-        permute_regions = self.permutation.filter_permute_regions(
-            permute_regions, self.rotation.disable_block_rotation_for_fused)
-
-        self.permutation.extract_permute_regions(model, permute_regions)
-        self.permutation.setup_permute()
+        self.model = self.permutation.setup(
+            self.model,
+            permute_regions,
+            disable_for_fused=self.rotation.disable_block_rotation_for_fused)
         return self
 
     def __exit__(self, *args, **kwargs):
-        self.permutation.apply_permute()
-        self.permutation.remove_hooks()
+        self.model = self.permutation.apply(self.model)
+        self.permutation.cleanup()
 
 
-class GraphPermutationEqualization(RegionWalkMixin):
+class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
     """
     A class for managing and applying permutations to a computational graph.
 
@@ -223,6 +223,25 @@ class GraphPermutationEqualization(RegionWalkMixin):
         self.block_rotation_dim = block_rotation_dim
         self.permute_fn = get_permutation_method(permute_fn)
 
+    def setup(
+            self,
+            graph_model: GraphModule,
+            regions: List[Region],
+            disable_for_fused: bool = False) -> GraphModule:
+        """
+        Setup phase: filter regions, extract, and install hooks.
+        """
+        # Filter regions for permutation
+        filtered_regions = self._filter_regions(regions, disable_for_fused)
+
+        # Extract permute regions from filtered regions
+        self._extract_regions(graph_model, filtered_regions)
+
+        # Setup forward hooks
+        self._setup_hooks()
+
+        return graph_model
+
     def forward_stats_hook(self, module, *args, name, batch_dim=0, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
         # When using hf/accelerate, we need to check the signature of the original forward
@@ -249,7 +268,7 @@ class GraphPermutationEqualization(RegionWalkMixin):
             self.float_act_dev[name] = inp.device
         self.float_act_map[name].append(inp.detach().cpu())
 
-    def setup_permute(self):
+    def _setup_hooks(self):
         for region in self.regions:
             # We assume that the entire region has a unique batch_dim
             batch_dim = 0
@@ -270,9 +289,7 @@ class GraphPermutationEqualization(RegionWalkMixin):
                     h = module.register_forward_hook(hook_fn)
                     self.hooks.append(h)
 
-    def filter_permute_regions(self,
-                               regions: list,
-                               disable_for_fused: bool = False) -> List[Region]:
+    def _filter_regions(self, regions: list, disable_for_fused: bool = False) -> List[Region]:
         """
         Filter regions to identify which should have permutations applied.
         """
@@ -290,7 +307,7 @@ class GraphPermutationEqualization(RegionWalkMixin):
                     permute_regions.append(region)
         return permute_regions
 
-    def extract_permute_regions(self, graph_model, regions):
+    def _extract_regions(self, graph_model, regions):
         """
         Extract and process permutation regions from the graph model.
         """
@@ -346,7 +363,10 @@ class GraphPermutationEqualization(RegionWalkMixin):
         for sink in region.sinks.values():
             sink.permute(new_indexes)
 
-    def apply_permute(self):
+    def apply(self, graph_model: GraphModule) -> GraphModule:
+        """
+        Apply permutations to the graph model.
+        """
         for region in tqdm(self.regions, "Calculating permutations..."):
             # Collect all activation values for this region
             list_of_act_val = []
@@ -362,7 +382,8 @@ class GraphPermutationEqualization(RegionWalkMixin):
                 block_rotation_dim=self.block_rotation_dim,
                 permute_fn=self.permute_fn,
                 device=self.float_act_dev[region.sinks_names[0]])
+        return graph_model
 
-    def remove_hooks(self):
+    def cleanup(self):
         for h in self.hooks:
             h.remove()
