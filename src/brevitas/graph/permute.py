@@ -17,6 +17,7 @@ from brevitas.graph.equalize import _scale_invariant_layers
 from brevitas.graph.equalize import find_srcs
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import Region
+from brevitas.graph.equalize import RegionWalkMixin
 from brevitas.graph.equalize import WalkRegionState
 from brevitas.graph.utils import find_node_for_module
 from brevitas.nn.equalized_layer import RotatedModule
@@ -189,7 +190,7 @@ class rotate_permute_mode:
         self.permutation.remove_hooks()
 
 
-class GraphPermutationEqualization:
+class GraphPermutationEqualization(RegionWalkMixin):
     """
     A class for managing and applying permutations to a computational graph.
 
@@ -200,17 +201,22 @@ class GraphPermutationEqualization:
     """
 
     def __init__(self, block_rotation_dim: int, permute_fn: str = 'massdiff'):
-        super().__init__()
+        # Initialize RegionWalkMixin
+        mul_ops = [torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__]
+        residual_fns = [torch.add, operator.add, operator.iadd, operator.__add__, operator.__iadd__]
+        residual_fns.extend(mul_ops)
+
+        base_state_kwargs = {
+            'supported_srcs': (nn.Embedding, RotatedModule, nn.Linear),
+            'supported_sinks': (nn.Linear, RotatedModule),
+            'scale_invariant_layers': _permute_invariant_layers,
+            'scale_invariant_functions': _permute_invariant_functions,
+            'residual_fns': tuple(residual_fns),}
+        RegionWalkMixin.__init__(self, **base_state_kwargs)
+
+        # Initialize other attributes
         self.hooks = []
         self.hooked_modules = set()
-        self.supported_srcs = (nn.Embedding, RotatedModule, nn.Linear)
-        self.supported_sinks = (nn.Linear, RotatedModule)
-        mul_ops = [torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__]
-        self.residual_fns = [
-            torch.add, operator.add, operator.iadd, operator.__add__, operator.__iadd__]
-        self.residual_fns.extend(mul_ops)
-        self.permute_invariant_layers = _permute_invariant_layers
-        self.permute_invariant_functions = _permute_invariant_functions
         self.regions = list()
         self.float_act_map = dict()
         self.float_act_dev = dict()
@@ -285,13 +291,9 @@ class GraphPermutationEqualization:
         return permute_regions
 
     def extract_permute_regions(self, graph_model, regions):
-        state_impl_kwargs = {
-            'supported_srcs': self.supported_srcs,
-            'supported_sinks': self.supported_sinks,
-            'scale_invariant_layers': self.permute_invariant_layers,
-            'scale_invariant_functions': self.permute_invariant_functions,
-            'residual_fns': self.residual_fns}
-
+        """
+        Extract and process permutation regions from the graph model.
+        """
         for region in regions:
             # Directly add regions that already have sources identified
             if (len(region.srcs) > 0):
@@ -301,7 +303,7 @@ class GraphPermutationEqualization:
                 continue
 
             # Create a new state for the online region
-            state = WalkRegionState(**state_impl_kwargs)
+            state = WalkRegionState(**self.full_state_kwargs)
 
             # Add all sinks from the region to the state
             for sink_name, sink_wrapper in region.sinks.items():
