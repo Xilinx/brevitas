@@ -124,7 +124,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     return_rewriters = True
 
     # When both rotation and permutation are enabled, use the unified context manager
-    if args.apply_permute:
+    if args.permute_fn is not None:
         print("Applying permutations...")
         with rotate_permute_mode(
                 fx_model,
@@ -164,7 +164,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         fx_model, rewriters = eq.apply(fx_model)
 
-    # fused_rotation_no_fx() may be called either if args.rotation == 'fused_no_fx' or args.apply_permute,
+    # fused_rotation_no_fx() may be called either if args.rotation == 'fused_no_fx' or args.permute_fn is not None,
     # so if args.rotation == 'layerwise', we need to skip applying the rewriters here to do it later
     if args.rotation != 'layerwise':
         model = offload_model(model)
@@ -389,7 +389,7 @@ def quantize_llm(args, extra_args=None):
     # the 'fused_no_fx' path to get the permutation-equivariant regions in the graph.
     # If args.rotation == 'layerwise', then the rotations will not be applied in
     # fused_rotation_no_fx(). Rotations will be added in the layerwise block below.
-    if args.rotation == 'fused_no_fx' or args.apply_permute:
+    if args.rotation == 'fused_no_fx' or args.permute_fn is not None:
         fused_rotation_no_fx(model, calibration_loader, args)
 
     if args.rotation == 'layerwise':

@@ -391,14 +391,12 @@ def create_args_parser() -> ArgumentParser:
         type=float,
         help='If activation equalization is enabled, decide what alpha to use')
     parser.add_argument(
-        '--apply-permute',
-        action='store_true',
-        help='Apply permutation equalization. Works with block rotations when both are enabled.')
-    parser.add_argument(
         '--permute-fn',
         choices=['absmax', 'massdiff', 'zigzag', 'random'],
-        default='massdiff',
-        help='Permutation function to use.')
+        default=None,
+        help=
+        'Permutation function to use. If None, no permutation is applied. Works with block rotations when both are enabled.'
+    )
     parser.add_argument(
         '--export-target',
         default=None,
