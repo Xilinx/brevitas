@@ -123,23 +123,27 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     delay_rewriters = True
     return_rewriters = True
 
-    # When both rotation and permutation are enabled, use the unified context manager
+    eq = GraphRotationEqualization(
+        orphan_sink=args.rotation_orphan_sink,
+        full_rotation_method=args.rotation_mode,
+        return_rewriters=return_rewriters,
+        sdpa_regions=args.rotation_sdpa_regions,
+        use_parametrized_rotations=args.optimize_rotations,
+        delay_rewriters=delay_rewriters,
+        expansion_step=args.expansion_step,
+        layers_to_expand=layers_to_expand,
+        block_rotation_dim=args.block_rotation_dim,
+        disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+        extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
+
     if args.permute_fn is not None:
         print("Applying permutations...")
         with rotate_permute_mode(
                 fx_model,
+                rotation=eq,
                 permute_fn=args.permute_fn,
-                orphan_sink=args.rotation_orphan_sink,
-                full_rotation_method=args.rotation_mode,
-                return_rewriters=return_rewriters,
-                sdpa_regions=args.rotation_sdpa_regions,
-                use_parametrized_rotations=args.optimize_rotations,
-                delay_rewriters=delay_rewriters,
-                expansion_step=args.expansion_step,
-                layers_to_expand=layers_to_expand,
                 block_rotation_dim=args.block_rotation_dim,
-                disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
-                extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes}) as rpm:
+                disable_for_fused_rotations=args.disable_block_rotation_for_fused) as rpm:
 
             # Get fx_model from the context manager
             fx_model = rpm.model
@@ -150,18 +154,6 @@ def fused_rotation_no_fx(model, calibration_loader, args):
             rewriters = rpm.rewriters
     else:
         # Only rotation enabled
-        eq = GraphRotationEqualization(
-            orphan_sink=args.rotation_orphan_sink,
-            full_rotation_method=args.rotation_mode,
-            return_rewriters=return_rewriters,
-            sdpa_regions=args.rotation_sdpa_regions,
-            use_parametrized_rotations=args.optimize_rotations,
-            delay_rewriters=delay_rewriters,
-            expansion_step=args.expansion_step,
-            layers_to_expand=layers_to_expand,
-            block_rotation_dim=args.block_rotation_dim,
-            disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
-            extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         fx_model, rewriters = eq.apply(fx_model)
 
     # fused_rotation_no_fx() may be called either if args.rotation == 'fused_no_fx' or args.permute_fn is not None,

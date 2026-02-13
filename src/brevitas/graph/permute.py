@@ -147,49 +147,6 @@ def massdiff_permute(x, block_rotation_dim):
     return indexes
 
 
-class rotate_permute_mode:
-
-    def __init__(
-            self,
-            model: GraphModule,
-            permute_fn: str = 'massdiff',
-            block_rotation_dim: Optional[int] = None,
-            **kwargs):
-        # rotate_permute_mode performs a specific transformation sequence:
-        # 1. Identify regions → 2. Apply permutations → 3. Apply rotations
-        # This sequencing requires delay_rewriters=True (defer rotation application)
-        # and return_rewriters=True (to access rotations for later application)
-        if not kwargs.pop('delay_rewriters', True) or not kwargs.pop('return_rewriters', True):
-            warnings.warn(
-                "delay_rewriters and return_rewriters must be True for rotate_permute_mode, ",
-                "overwriting provided value(s).")
-        kwargs['delay_rewriters'] = True
-        kwargs['return_rewriters'] = True
-
-        self.rotation = GraphRotationEqualization(block_rotation_dim=block_rotation_dim, **kwargs)
-        self.permutation = GraphPermutationEqualization(
-            block_rotation_dim=block_rotation_dim, permute_fn=permute_fn)
-        self.model = model
-        self.rewriters = None
-
-    def __enter__(self):
-        model, rewriters = self.rotation.apply(self.model)
-        self.model = model
-        self.rewriters = rewriters
-
-        # NOTE: permutations are tied to block rotations here
-        permute_regions = self.rotation.get_regions()
-        self.model = self.permutation.setup(
-            self.model,
-            permute_regions,
-            disable_for_fused=self.rotation.disable_block_rotation_for_fused)
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        self.model = self.permutation.apply(self.model)
-        self.permutation.cleanup()
-
-
 class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
     """
     A class for managing and applying permutations to a computational graph.
@@ -223,23 +180,10 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         self.block_rotation_dim = block_rotation_dim
         self.permute_fn = get_permutation_method(permute_fn)
 
-    def setup(
-            self,
-            graph_model: GraphModule,
-            regions: List[Region],
-            disable_for_fused: bool = False) -> GraphModule:
-        """
-        Setup phase: filter regions, extract, and install hooks.
-        """
-        # Filter regions for permutation
-        filtered_regions = self._filter_regions(regions, disable_for_fused)
-
-        # Extract permute regions from filtered regions
-        self._extract_regions(graph_model, filtered_regions)
-
-        # Setup forward hooks
+    def setup(self, graph_model: GraphModule, regions: List[Region]) -> GraphModule:
+        """Setup phase: extract regions and setup hooks"""
+        self._extract_regions(graph_model, regions)
         self._setup_hooks()
-
         return graph_model
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, **kwargs):
@@ -288,24 +232,6 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
                     hook_fn = partial(self.forward_stats_hook, name=name, batch_dim=batch_dim)
                     h = module.register_forward_hook(hook_fn)
                     self.hooks.append(h)
-
-    def _filter_regions(self, regions: list, disable_for_fused: bool = False) -> List[Region]:
-        """
-        Filter regions to identify which should have permutations applied.
-        """
-        permute_regions = list()
-        for region in regions:
-            # Permutations are only applied to regions that use block rotations
-            apply_block_rotation = self.block_rotation_dim is not None
-            # Optionally disable permutations for fused rotations
-            if disable_for_fused and (len(region.srcs) > 0):
-                apply_block_rotation = False
-            if apply_block_rotation:
-                # Check if block rotation is compatible with the current shape
-                if (region.max_shape_sinks // self.block_rotation_dim > 1) and \
-                    (region.max_shape_sinks % self.block_rotation_dim == 0):
-                    permute_regions.append(region)
-        return permute_regions
 
     def _extract_regions(self, graph_model, regions):
         """
@@ -387,3 +313,68 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
     def cleanup(self):
         for h in self.hooks:
             h.remove()
+
+
+class rotate_permute_mode:
+    """
+    Context manager for applying rotation and permutation equalization.
+
+    Args:
+        model: The graph module to transform
+        rotation: Pre-initialized GraphRotationEqualization instance
+        permute_fn: Permutation method name
+        block_rotation_dim: Block size for rotations
+        disable_for_fused_rotations: Whether to disable permutations for fused rotations
+    """
+
+    def __init__(
+            self,
+            model: GraphModule,
+            rotation: GraphRotationEqualization,
+            permute_fn: str = 'massdiff',
+            block_rotation_dim: Optional[int] = None,
+            disable_for_fused_rotations: bool = False):
+        self.model = model
+        self.rotation = rotation
+        self.permute_fn = permute_fn
+        self.block_rotation_dim = block_rotation_dim
+        self.disable_for_fused_rotations = disable_for_fused_rotations
+
+        self.permutation = GraphPermutationEqualization(
+            block_rotation_dim=block_rotation_dim, permute_fn=permute_fn)
+        self.rewriters = None
+
+    def _filter_permute_regions(self, regions: List[Region]) -> List[Region]:
+        """
+        Given rotation regions, filter out regions where permutations should be applied
+        """
+        permute_regions = []
+        for region in regions:
+            # Permutations are only applied to regions that use block rotations
+            apply_block_rotation = self.block_rotation_dim is not None
+            # Optionally disable permutations for fused rotations
+            if self.disable_for_fused_rotations and (len(region.srcs) > 0):
+                apply_block_rotation = False
+            if apply_block_rotation:
+                # Check if block rotation is compatible with the current shape
+                if (region.max_shape_sinks // self.block_rotation_dim > 1) and \
+                   (region.max_shape_sinks % self.block_rotation_dim == 0):
+                    permute_regions.append(region)
+        return permute_regions
+
+    def __enter__(self):
+        # Apply rotations and get rewriters
+        model, rewriters = self.rotation.apply(self.model)
+        self.model = model
+        self.rewriters = rewriters
+
+        # Filter and setup permutation hooks based on rotation regions
+        regions = self.rotation.get_regions()
+        regions = self._filter_permute_regions(regions)
+        self.model = self.permutation.setup(self.model, regions)
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        # Apply permutations and cleanup
+        self.model = self.permutation.apply(self.model)
+        self.permutation.cleanup()
