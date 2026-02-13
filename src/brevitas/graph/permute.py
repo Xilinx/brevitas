@@ -177,7 +177,7 @@ class rotate_permute_mode:
 
         # Filter regions for permutation
         permute_regions = list()
-        for region in self.rotation.regions:
+        for region in self.rotation.get_regions():
             # Permutations are only applied to regions that use block rotations
             apply_block_rotation = self.permutation.block_rotation_dim is not None
             if self.rotation.disable_block_rotation_for_fused and (len(region.srcs) > 0):

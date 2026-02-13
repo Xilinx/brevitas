@@ -1984,6 +1984,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
         self.delay_rewriters = delay_rewriters
         self.block_rotation_dim = block_rotation_dim
         self.disable_block_rotation_for_fused = disable_block_rotation_for_fused
+        self.regions = []
 
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
@@ -1998,6 +1999,10 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
                 "Using parametrized results might break type-checking, which could lead to unexpected behaviour."
             )
         self.use_parametrized_rotations = use_parametrized_rotations
+
+    def get_regions(self) -> List[Region]:
+        """Return the list of regions identified during graph rotation equalization."""
+        return self.regions
 
     def rotate_matmuls(self, graph_module):
         matmul_nodes = list(graph_module.graph.nodes)
@@ -2094,7 +2099,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, List[Transform]], GraphModule]:
         rewriters = []
-        regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
+        self.regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
 
         expanded_regions = []
         self.find_module_by_name(graph_model, expanded_regions)
@@ -2117,11 +2122,11 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
 
         if self.sdpa_regions:
             sdpa_regions = self.rotate_sdpa(graph_model)
-            regions.extend(sdpa_regions)
+            self.regions.extend(sdpa_regions)
 
-        logging.debug(f"Applying GraphRotationEqualization on {len(regions)} regions")
+        logging.debug(f"Applying GraphRotationEqualization on {len(self.regions)} regions")
 
-        for r in regions:
+        for r in self.regions:
             id_list = [id(r.name_to_module[sink_name]) for sink_name in r.sinks_names]
             eq_layers.update(id_list)
 
@@ -2141,24 +2146,21 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             # Layerwise have only a single sink named 'sinks0'
             id_sink = id(o_r.get_module_from_name('sinks0'))
             if id_sink not in eq_layers:
-                regions.append(o_r)
+                self.regions.append(o_r)
                 added_regions += 1
         logging.debug(f"Adding {added_regions} sink-only regions")
 
-        # Store regions for potential use by GraphPermutationEqualization
-        self.regions = regions
-
         if overlap:
             assert not self.use_parametrized_rotations, "Overlap between expanded and optimized region not supported"
-            first_set, second_set = regions, expanded_regions
+            first_set, second_set = self.regions, expanded_regions
             first_exp_step, second_exp_step = 1, self.expansion_step
         else:
-            first_set, second_set = expanded_regions, regions
+            first_set, second_set = expanded_regions, self.regions
             first_exp_step, second_exp_step = self.expansion_step, 1
 
         if self.rotate_matmul:
             self.rotate_matmuls(graph_model)
-        if len(regions) > 0:
+        if len(self.regions) > 0:
             rewriters.extend(
                 _compute_rotations(
                     graph_model,
