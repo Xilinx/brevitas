@@ -142,7 +142,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
                 fx_model,
                 rotation=eq,
                 permute_fn=args.permute_fn,
-                block_rotation_dim=args.block_rotation_dim,
+                block_size=args.block_rotation_dim,
                 disable_for_fused_rotations=args.disable_block_rotation_for_fused) as rpm:
 
             # Get fx_model from the context manager

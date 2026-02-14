@@ -639,16 +639,12 @@ def test_fuse_parametrized_modules(kwargs):
 
 @requires_pt_ge('2.3.1')
 @pytest_cases.parametrize('permute_fn', ['massdiff', 'zigzag', 'absmax', 'random'])
-@pytest_cases.parametrize('block_rotation_dim', [None, 16])
+@pytest_cases.parametrize('block_size', [8, 24])
 @pytest_cases.parametrize('expansion_step', [0, 3])
 @pytest_cases.parametrize('disable_for_fused_rotations', [True, False])
 @pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
 def test_rotate_permute_mode(
-        rotation_model,
-        permute_fn,
-        block_rotation_dim,
-        expansion_step,
-        disable_for_fused_rotations,
+        rotation_model, permute_fn, block_size, expansion_step, disable_for_fused_rotations,
         device):
 
     # Instantiate model
@@ -673,13 +669,15 @@ def test_rotate_permute_mode(
     rotation = GraphRotationEqualization(
         expansion_step=expansion_step,
         layers_to_expand=[],
+        block_rotation_dim=block_size,
+        disable_block_rotation_for_fused=disable_for_fused_rotations,
         return_rewriters=True,
         delay_rewriters=True)
 
     with rotate_permute_mode(model,
                              rotation=rotation,
                              permute_fn=permute_fn,
-                             block_rotation_dim=block_rotation_dim,
+                             block_size=block_size,
                              disable_for_fused_rotations=disable_for_fused_rotations) as rpm:
         with torch.no_grad():
             rpm.model(sample_inputs)

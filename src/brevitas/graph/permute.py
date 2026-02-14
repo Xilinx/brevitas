@@ -4,8 +4,6 @@
 from functools import partial
 import operator
 from typing import List
-from typing import Optional
-import warnings
 
 import torch
 from torch.fx import GraphModule
@@ -55,7 +53,8 @@ _PERMUTATION_METHODS = {}
 
 
 def register_permutation_method(name: str):
-    """Register a permutation method for block rotations.
+    """
+    Register a permutation method.
 
     Args:
         name: The name of the permutation method (e.g., "zigzag", "massdiff")
@@ -91,13 +90,13 @@ def get_permutation_method(name: str):
 
 
 @register_permutation_method("zigzag")
-def zigzag_permute(x, block_rotation_dim):
-    if x.shape[-1] == block_rotation_dim:
-        return torch.arange(block_rotation_dim).to(x.device)
+def zigzag_permute(x, block_size):
+    if x.shape[-1] == block_size:
+        return torch.arange(block_size).to(x.device)
     scores = _channel_maxabs(x, dim=0)
     _, indexes = torch.sort(scores, descending=True)
     # Inline zigzag sort logic
-    indexes = indexes.view(block_rotation_dim, indexes.shape[-1] // block_rotation_dim)
+    indexes = indexes.view(block_size, indexes.shape[-1] // block_size)
     indexes[1::2] = torch.flip(indexes[1::2], dims=[1])
     indexes = indexes.t()
     indexes = indexes.flatten()
@@ -105,30 +104,30 @@ def zigzag_permute(x, block_rotation_dim):
 
 
 @register_permutation_method("random")
-def random_permute(x, block_rotation_dim):
-    if x.shape[-1] == block_rotation_dim:
-        return torch.arange(block_rotation_dim).to(x.device)
+def random_permute(x, block_size):
+    if x.shape[-1] == block_size:
+        return torch.arange(block_size).to(x.device)
     indexes = torch.randperm(x.shape[-1]).to(x.device)
     return indexes
 
 
 @register_permutation_method("absmax")
-def absmax_permute(x, block_rotation_dim):
-    if x.shape[-1] == block_rotation_dim:
-        return torch.arange(block_rotation_dim).to(x.device)
+def absmax_permute(x, block_size):
+    if x.shape[-1] == block_size:
+        return torch.arange(block_size).to(x.device)
     scores = _channel_maxabs(x, dim=0)
     _, indexes = torch.sort(scores, descending=True)
     return indexes
 
 
 @register_permutation_method("massdiff")
-def massdiff_permute(x, block_rotation_dim):
-    if x.shape[-1] == block_rotation_dim:
-        return torch.arange(block_rotation_dim).to(x.device)
+def massdiff_permute(x, block_size):
+    if x.shape[-1] == block_size:
+        return torch.arange(block_size).to(x.device)
     # initialize the blocks based on absmax scores
     scores = torch.abs(x).mean(dim=0)
     _, indexes = torch.sort(scores, descending=True)
-    num_blocks = x.shape[-1] // block_rotation_dim
+    num_blocks = x.shape[-1] // block_size
     # initialize the block norms and indexes
     block_norm = torch.stack([torch.abs(x[:, i]) for i in indexes[:num_blocks]], dim=1)
     block_idxs = [[i] for i in indexes[:num_blocks]]
@@ -141,7 +140,7 @@ def massdiff_permute(x, block_rotation_dim):
         block_norm[:, min_block] += torch.abs(x[:, i])
         block_idxs[min_block].append(i)
         # mark block as full
-        if (len(block_idxs[min_block]) == block_rotation_dim):
+        if (len(block_idxs[min_block]) == block_size):
             block_norm[:, min_block] = float('inf')
     indexes = torch.tensor(block_idxs).flatten()
     return indexes
@@ -149,15 +148,13 @@ def massdiff_permute(x, block_rotation_dim):
 
 class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
     """
-    A class for managing and applying permutations to a computational graph.
-
-    This class is designed to analyze and modify computational graphs by identifying
-    regions of interest, collecting statistics, and applying permutations to optimize
-    or modify the graph's behavior. It supports various neural network layers and
-    operations, and provides hooks for collecting forward pass statistics.
+    A class for managing and applying permutations to a computational graph
     """
 
-    def __init__(self, block_rotation_dim: int, permute_fn: str = 'massdiff'):
+    def __init__(self, block_size: int, permute_fn: str = 'massdiff'):
+        assert isinstance(block_size, int) and block_size > 1, "Error: expected an integer > 1."
+        assert permute_fn in _PERMUTATION_METHODS, f"Error: {permute_fn} is not registered."
+
         # Initialize RegionWalkMixin
         mul_ops = [torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__]
         residual_fns = [torch.add, operator.add, operator.iadd, operator.__add__, operator.__iadd__]
@@ -177,11 +174,11 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         self.regions = list()
         self.float_act_map = dict()
         self.float_act_dev = dict()
-        self.block_rotation_dim = block_rotation_dim
+        self.block_size = block_size
         self.permute_fn = get_permutation_method(permute_fn)
 
     def setup(self, graph_model: GraphModule, regions: List[Region]) -> GraphModule:
-        """Setup phase: extract regions and setup hooks"""
+        """Extract regions and setup hooks"""
         self._extract_regions(graph_model, regions)
         self._setup_hooks()
         return graph_model
@@ -233,6 +230,12 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
                     h = module.register_forward_hook(hook_fn)
                     self.hooks.append(h)
 
+    def _is_compatible_region(self, region: Region) -> bool:
+        if (region.max_shape_sinks // self.block_size > 1) and \
+            (region.max_shape_sinks % self.block_size == 0):
+            return True
+        return False
+
     def _extract_regions(self, graph_model, regions):
         """
         Extract and process permutation regions from the graph model.
@@ -243,6 +246,10 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
                 # Skip the SDPA regions; potential head alignment issues
                 if 'value_sdpa' not in region.srcs_names:
                     self.regions.append(region)
+                continue
+
+            # Check if block size is compatible with the current shape
+            if not self._is_compatible_region(region):
                 continue
 
             # Create a new state for the online region
@@ -266,7 +273,7 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
             self.regions.append(new_region)
 
     @staticmethod
-    def permute_region(region, list_of_act_val, block_rotation_dim, permute_fn, device):
+    def permute_region(region, list_of_act_val, block_size, permute_fn, device):
         """
         Apply permutation to a region by calculating permutation indexes and updating
         the source and sink weights accordingly.
@@ -282,7 +289,7 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
                 return
 
         list_of_act_val = torch.cat(list_of_act_val, dim=0).to(device)
-        new_indexes = permute_fn(list_of_act_val, block_rotation_dim=block_rotation_dim)
+        new_indexes = permute_fn(list_of_act_val, block_size=block_size)
 
         for src in region.srcs.values():
             src.permute(new_indexes)
@@ -305,7 +312,7 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
             self.permute_region(
                 region,
                 list_of_act_val=list_of_act_val,
-                block_rotation_dim=self.block_rotation_dim,
+                block_size=self.block_size,
                 permute_fn=self.permute_fn,
                 device=self.float_act_dev[region.sinks_names[0]])
         return graph_model
@@ -323,7 +330,7 @@ class rotate_permute_mode:
         model: The graph module to transform
         rotation: Pre-initialized GraphRotationEqualization instance
         permute_fn: Permutation method name
-        block_rotation_dim: Block size for rotations
+        block_size: Block size for permutations
         disable_for_fused_rotations: Whether to disable permutations for fused rotations
     """
 
@@ -331,35 +338,35 @@ class rotate_permute_mode:
             self,
             model: GraphModule,
             rotation: GraphRotationEqualization,
+            block_size: int,
             permute_fn: str = 'massdiff',
-            block_rotation_dim: Optional[int] = None,
             disable_for_fused_rotations: bool = False):
+
+        assert isinstance(rotation, GraphRotationEqualization), "Error: expected GraphPermutationEqualization instance"
+        assert rotation.delay_rewriters, "Error: expected rotation.delay_rewriters=True"
+        assert rotation.return_rewriters, "Error: expected rotation.return_rewriters=True"
+        assert isinstance(block_size, int) and block_size > 1, "Error: expected integer > 1"
+
         self.model = model
         self.rotation = rotation
         self.permute_fn = permute_fn
-        self.block_rotation_dim = block_rotation_dim
+        self.block_size = block_size
         self.disable_for_fused_rotations = disable_for_fused_rotations
 
         self.permutation = GraphPermutationEqualization(
-            block_rotation_dim=block_rotation_dim, permute_fn=permute_fn)
-        self.rewriters = None
+            block_size=block_size, permute_fn=permute_fn)
+        self.rewriters = []
 
-    def _filter_permute_regions(self, regions: List[Region]) -> List[Region]:
+    def _filter_regions(self, regions: List[Region]) -> List[Region]:
         """
-        Given rotation regions, filter out regions where permutations should be applied
+        Given rotation regions, filter out regions where permutations shouldn't be applied
         """
         permute_regions = []
         for region in regions:
-            # Permutations are only applied to regions that use block rotations
-            apply_block_rotation = self.block_rotation_dim is not None
-            # Optionally disable permutations for fused rotations
+            # Optionally disable permutations for fused rotations by skipping those regions
             if self.disable_for_fused_rotations and (len(region.srcs) > 0):
-                apply_block_rotation = False
-            if apply_block_rotation:
-                # Check if block rotation is compatible with the current shape
-                if (region.max_shape_sinks // self.block_rotation_dim > 1) and \
-                   (region.max_shape_sinks % self.block_rotation_dim == 0):
-                    permute_regions.append(region)
+                continue
+            permute_regions.append(region)
         return permute_regions
 
     def __enter__(self):
@@ -370,7 +377,7 @@ class rotate_permute_mode:
 
         # Filter and setup permutation hooks based on rotation regions
         regions = self.rotation.get_regions()
-        regions = self._filter_permute_regions(regions)
+        regions = self._filter_regions(regions)
         self.model = self.permutation.setup(self.model, regions)
         return self
 
