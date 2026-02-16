@@ -47,7 +47,6 @@ from brevitas.graph.utils import get_node
 from brevitas.nn import ScaledDotProductAttention
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import functional_rotate_input
-from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.proxy import BiasQuantProxyFromInjectorBase
@@ -1301,25 +1300,11 @@ class ActivationEqualization(GraphTransform, ABC):
         return mul_factor
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
-        # Check for MHA Cross attention, and if found, skip it
-        # When using hf/accelerate, we need to check the signature of the original forward
-        forward_to_check = module._old_forward if hasattr(
-            module, '_old_forward') else module.forward
-        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
-        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
-            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
-                self.float_act_map[name] = None
-                return
+        x, batch_dim = self._process_input(module, args, kwargs, batch_dim, use_inp)
 
-        input_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
-        if use_inp:
-            x = kwargs[input_kwarg]
-        elif not use_inp:
-            x = args[-1]
-
-        # Extra check for batch_dim
-        if hasattr(x, 'names') and 'N' in x.names:
-            batch_dim = x.names.index('N')
+        if x is None:
+            self.float_act_map[name] = None
+            return
 
         self.batch_dim_act_map[name] = batch_dim
 

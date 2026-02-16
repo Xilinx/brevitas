@@ -184,22 +184,12 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         return graph_model
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, **kwargs):
-        # Check for MHA Cross attention, and if found, skip it
-        # When using hf/accelerate, we need to check the signature of the original forward
-        forward_to_check = module._old_forward if hasattr(
-            module, '_old_forward') else module.forward
-        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
-        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
-            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
-                return
+        inp, batch_dim = self._process_input(module, args, kwargs, batch_dim, use_inp=True)
 
-        INPUT_NAMES = ('input', 'inp', 'query', 'hidden_states', 'x')
-        inp_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
-        inp = kwargs[inp_kwarg][0]
+        if inp is None:
+            return
 
-        # Extra check for batch_dim
         if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
 
@@ -343,7 +333,8 @@ class rotate_permute_mode:
             disable_for_fused_rotations: bool = False,
             extra_state_kwargs: Optional[Dict[str, Tuple[Type[nn.Module]]]] = None):
 
-        assert isinstance(rotation, GraphRotationEqualization), "Error: expected GraphRotationEqualization instance"
+        assert rotation is not None and isinstance(rotation, GraphRotationEqualization), \
+            "Error: expected GraphRotationEqualization instance"
         assert rotation.delay_rewriters, "Error: expected rotation.delay_rewriters=True"
         assert rotation.return_rewriters, "Error: expected rotation.return_rewriters=True"
         assert isinstance(block_size, int) and block_size > 1, "Error: expected integer > 1"

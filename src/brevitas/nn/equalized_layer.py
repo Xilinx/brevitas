@@ -7,6 +7,7 @@ from typing import Optional
 import torch
 
 from brevitas.common import ExportMixin
+from brevitas.graph.base import INPUT_NAMES
 from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
@@ -19,8 +20,6 @@ try:
     import fast_hadamard_transform
 except:
     fast_hadamard_transform = None
-
-INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
 
 class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
