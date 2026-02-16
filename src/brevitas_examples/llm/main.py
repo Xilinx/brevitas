@@ -122,6 +122,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
     delay_rewriters = True
     return_rewriters = True
 
+    extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
@@ -133,11 +134,10 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         layers_to_expand=layers_to_expand,
         block_rotation_dim=args.block_rotation_dim,
         disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
-        extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
+        extra_state_kwargs=extra_state_kwargs)
 
     if args.permute_fn is not None:
         print("Applying permutations...")
-        extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
         with rotate_permute_mode(fx_model,
                                  rotation=eq,
                                  permute_fn=args.permute_fn,
