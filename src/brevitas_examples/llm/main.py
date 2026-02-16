@@ -12,7 +12,6 @@ import warnings
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
@@ -138,12 +137,13 @@ def fused_rotation_no_fx(model, calibration_loader, args):
 
     if args.permute_fn is not None:
         print("Applying permutations...")
-        with rotate_permute_mode(
-                fx_model,
-                rotation=eq,
-                permute_fn=args.permute_fn,
-                block_size=args.block_rotation_dim,
-                disable_for_fused_rotations=args.disable_block_rotation_for_fused) as rpm:
+        extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
+        with rotate_permute_mode(fx_model,
+                                 rotation=eq,
+                                 permute_fn=args.permute_fn,
+                                 block_size=args.block_rotation_dim,
+                                 disable_for_fused_rotations=args.disable_block_rotation_for_fused,
+                                 extra_state_kwargs=extra_state_kwargs) as rpm:
 
             # Get fx_model from the context manager
             fx_model = rpm.model

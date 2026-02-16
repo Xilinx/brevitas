@@ -3,7 +3,11 @@
 
 from functools import partial
 import operator
+from typing import Dict
 from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 import torch
 from torch.fx import GraphModule
@@ -29,14 +33,6 @@ __all__ = ['GraphPermutationEqualization', 'rotate_permute_mode']
 # Initialize permutation-invariant layers from scale-invariant layers
 _permute_invariant_layers = list(_scale_invariant_layers)
 _permute_invariant_layers.extend([torch.nn.GELU, torch.nn.SELU])
-
-# Try to add HuggingFace activations
-try:
-    from transformers.activations import ACT2CLS
-    activations = [x if not isinstance(x, tuple) else x[0] for x in ACT2CLS.values()]
-    _permute_invariant_layers.extend(activations)
-except:
-    pass
 
 # Try to add RMSNorm
 try:
@@ -151,7 +147,11 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
     A class for managing and applying permutations to a computational graph
     """
 
-    def __init__(self, block_size: int, permute_fn: str = 'massdiff'):
+    def __init__(
+            self,
+            block_size: int,
+            permute_fn: str = 'massdiff',
+            extra_state_kwargs: Optional[Dict[str, Tuple[Type[nn.Module]]]] = None):
         assert isinstance(block_size, int) and block_size > 1, "Error: expected an integer > 1."
         assert permute_fn in _PERMUTATION_METHODS, f"Error: {permute_fn} is not registered."
 
@@ -166,7 +166,7 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
             'scale_invariant_layers': _permute_invariant_layers,
             'scale_invariant_functions': _permute_invariant_functions,
             'residual_fns': tuple(residual_fns),}
-        RegionWalkMixin.__init__(self, **base_state_kwargs)
+        RegionWalkMixin.__init__(self, **base_state_kwargs, extra_state_kwargs=extra_state_kwargs)
 
         # Initialize other attributes
         self.hooks = []
@@ -340,9 +340,10 @@ class rotate_permute_mode:
             rotation: GraphRotationEqualization,
             block_size: int,
             permute_fn: str = 'massdiff',
-            disable_for_fused_rotations: bool = False):
+            disable_for_fused_rotations: bool = False,
+            extra_state_kwargs: Optional[Dict[str, Tuple[Type[nn.Module]]]] = None):
 
-        assert isinstance(rotation, GraphRotationEqualization), "Error: expected GraphPermutationEqualization instance"
+        assert isinstance(rotation, GraphRotationEqualization), "Error: expected GraphRotationEqualization instance"
         assert rotation.delay_rewriters, "Error: expected rotation.delay_rewriters=True"
         assert rotation.return_rewriters, "Error: expected rotation.return_rewriters=True"
         assert isinstance(block_size, int) and block_size > 1, "Error: expected integer > 1"
@@ -354,7 +355,7 @@ class rotate_permute_mode:
         self.disable_for_fused_rotations = disable_for_fused_rotations
 
         self.permutation = GraphPermutationEqualization(
-            block_size=block_size, permute_fn=permute_fn)
+            block_size=block_size, permute_fn=permute_fn, extra_state_kwargs=extra_state_kwargs)
         self.rewriters = []
 
     def _filter_regions(self, regions: List[Region]) -> List[Region]:
