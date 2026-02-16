@@ -248,6 +248,10 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
                     self.regions.append(region)
                 continue
 
+            # Skip if equalization criteria are not met
+            if not region.is_valid_activation_equalization:
+                continue
+
             # Check if block size is compatible with the current shape
             if not self._is_compatible_region(region):
                 continue
@@ -278,10 +282,6 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         Apply permutation to a region by calculating permutation indexes and updating
         the source and sink weights accordingly.
         """
-        # If equalization criteria are not met, return without doing anything
-        if not region.is_valid_activation_equalization:
-            return
-
         list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
         if len(list_of_act_val_shapes) > 0:
             shape_0 = list_of_act_val_shapes[0]
