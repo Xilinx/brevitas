@@ -2080,8 +2080,6 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
             end_index = head_dim if head_dim != -1 else output_weight.shape[0]
             output_index = EqualizationIndexes(0, end_index, 0)
 
-            # NOTE: GraphPermutationEqualization.extract_permute_regions looks for these src and
-            # sink names to delineate SDPA regions
             region = Region.from_dicts(
                 srcs={'value_sdpa': value_index},
                 sinks={'output_sdpa': output_index},
