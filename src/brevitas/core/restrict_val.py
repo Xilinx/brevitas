@@ -16,6 +16,7 @@ from brevitas.core.function_wrapper import LogTwo
 from brevitas.core.function_wrapper import PowerOfTwo
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import ScalarSignedClampMinSte
+from brevitas.core.function_wrapper import ScalarSignedClampSte
 from brevitas.core.function_wrapper.misc import Abs
 from brevitas.core.function_wrapper.misc import InplaceAbs
 from brevitas.inject.enum import FloatToIntImplType  # retrocompatibility
@@ -30,12 +31,16 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_min_val: Optional[float] = None,
+            scaling_max_val: Optional[float] = None,
             restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
-            self.clamp_min_ste = ScalarSignedClampMinSte(scaling_min_val)
+            if scaling_max_val is not None and scaling_max_val != 0:
+                self.clamp_ste = ScalarSignedClampSte(scaling_min_val, scaling_max_val)
+            else:
+                self.clamp_ste = ScalarSignedClampMinSte(scaling_min_val)
         else:
-            self.clamp_min_ste = Identity()
+            self.clamp_ste = Identity()
         if restrict_value_impl is not None:
             self.restrict_value_impl = restrict_value_impl
         else:
@@ -44,7 +49,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         x = self.restrict_value_impl(x)
-        x = self.clamp_min_ste(x)
+        x = self.clamp_ste(x)
         return x
 
 
