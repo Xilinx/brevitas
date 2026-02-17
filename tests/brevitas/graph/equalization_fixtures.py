@@ -608,18 +608,12 @@ class BlockResidualModel(nn.Module):
 
 
 @pytest_cases.fixture
-def block_residual_model():
-    return functools.partial(BlockResidualModel, is_tied=False)
+@pytest_cases.parametrize('is_tied', [True, False])
+def block_residual_model(is_tied):
+    return functools.partial(BlockResidualModel, is_tied=is_tied)
 
 
-@pytest_cases.fixture
-def block_residual_model_tied():
-    return functools.partial(BlockResidualModel, is_tied=True)
-
-
-list_of_rotation_fixtures = [
-    "block_residual_model",
-    "block_residual_model_tied",]
+list_of_rotation_fixtures = ["block_residual_model"]
 
 rotation_model = fixture_union(
     'rotation_model', list_of_rotation_fixtures, ids=list_of_rotation_fixtures)
