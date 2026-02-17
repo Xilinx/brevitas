@@ -33,7 +33,6 @@ from brevitas.graph.equalize import MergeLnAffine
 from brevitas.graph.equalize import random_orthogonal_matrix
 from brevitas.graph.equalize import Region
 from brevitas.graph.hadamard import get_hadK
-from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
@@ -637,76 +636,4 @@ def test_fuse_parametrized_modules(kwargs):
     assert torch.allclose(output, output_fused, rtol=0.0, atol=0.0)
 
 
-def _has_tied_parameters(model: torch.nn.Module):
-    """Auxiliar method to untie all tied parameters in a model"""
-    # get all model parameters and their names
-    all_named_parameters = {
-        name: param for name, param in model.named_parameters(remove_duplicate=False)}
-
-    # get only unique named parameters
-    no_duplicate_named_parameters = {
-        name: param for name, param in model.named_parameters(remove_duplicate=True)}
-
-    # the difference of the two sets gives us the tied parameters
-    tied_param_names = set(all_named_parameters.keys()) - set(no_duplicate_named_parameters.keys())
-
-    return len(tied_param_names) > 0
-
-
-@requires_pt_ge('2.3.1')
-@pytest_cases.parametrize('permute_fn', ['massdiff', 'zigzag', 'absmax', 'random'])
-@pytest_cases.parametrize('block_size', [8, 24])
-@pytest_cases.parametrize('expansion_step', [0, 3])
-@pytest_cases.parametrize('disable_for_fused_rotations', [True, False])
-@pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
-def test_rotate_permute_mode(
-        rotation_model, permute_fn, block_size, expansion_step, disable_for_fused_rotations,
-        device):
-
-    # Instantiate model
-    model = rotation_model()
-
-    # TODO: enable tied parameters; currently not supported.
-    if _has_tied_parameters(model):
-        pytest.skip("Skipping tests with tied parameters.")
-
-    device = torch.device(device)
-    model.to(device)
-
-    # Sample input
-    sample_inputs = torch.rand(size=(5, IN_FEATURES)).to(device)
-
-    # Convert to FX graph using torch._dynamo.export
-    with torch.no_grad():
-        fx_model, _ = torch._dynamo.export(model)(sample_inputs)
-    model = fx_model
-
-    # Get expected output
-    model.eval()
-    with torch.no_grad():
-        expected_output = model(sample_inputs)
-
-    # Create rotation instance
-    rotation = GraphRotationEqualization(
-        expansion_step=expansion_step,
-        layers_to_expand=[],
-        block_rotation_dim=block_size,
-        disable_block_rotation_for_fused=disable_for_fused_rotations,
-        return_rewriters=True,
-        delay_rewriters=True)
-
-    with rotate_permute_mode(model,
-                             rotation=rotation,
-                             permute_fn=permute_fn,
-                             block_size=block_size,
-                             disable_for_fused_rotations=disable_for_fused_rotations) as rpm:
-        with torch.no_grad():
-            rpm.model(sample_inputs)
-
-    # Verify output invariance
-    model.eval()
-    with torch.no_grad():
-        output = model(sample_inputs)
-
-    assert torch.allclose(expected_output, output, atol=ATOL), \
-        "Output mismatch with combined features"
+# Permute tests have been moved to test_permute.py
