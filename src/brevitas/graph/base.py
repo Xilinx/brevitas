@@ -90,6 +90,11 @@ class GraphTransform(Transform):
         else:
             inp = args[-1]
 
+        # Handle case where inp is a tuple (common in forward hooks)
+        if isinstance(inp, tuple):
+            assert len(inp) == 1, "Expected single element tuple"
+            inp = inp[0]
+
         # Extra check for batch_dim using named tensors
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')

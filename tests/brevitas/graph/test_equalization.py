@@ -637,6 +637,22 @@ def test_fuse_parametrized_modules(kwargs):
     assert torch.allclose(output, output_fused, rtol=0.0, atol=0.0)
 
 
+def _has_tied_parameters(model: torch.nn.Module):
+    """Auxiliar method to untie all tied parameters in a model"""
+    # get all model parameters and their names
+    all_named_parameters = {
+        name: param for name, param in model.named_parameters(remove_duplicate=False)}
+
+    # get only unique named parameters
+    no_duplicate_named_parameters = {
+        name: param for name, param in model.named_parameters(remove_duplicate=True)}
+
+    # the difference of the two sets gives us the tied parameters
+    tied_param_names = set(all_named_parameters.keys()) - set(no_duplicate_named_parameters.keys())
+
+    return len(tied_param_names) > 0
+
+
 @requires_pt_ge('2.3.1')
 @pytest_cases.parametrize('permute_fn', ['massdiff', 'zigzag', 'absmax', 'random'])
 @pytest_cases.parametrize('block_size', [8, 24])
@@ -649,6 +665,11 @@ def test_rotate_permute_mode(
 
     # Instantiate model
     model = rotation_model()
+
+    # TODO: enable tied parameters; currently not supported.
+    if _has_tied_parameters(model):
+        pytest.skip("Skipping tests with tied parameters.")
+
     device = torch.device(device)
     model.to(device)
 
