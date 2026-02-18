@@ -150,12 +150,12 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         use_best_model=False,
         use_amp=True,
         amp_dtype="float16",
+        fast_update=False,
     )
 
     learned_round_args = LearnedRoundArgs(
         learned_round_param=args.learned_round,
         learned_round_kwargs=None,
-        fast_update=False,
     )
 
     training_methods = [
