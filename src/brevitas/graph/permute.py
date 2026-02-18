@@ -17,6 +17,7 @@ from tqdm import tqdm
 from brevitas.graph.base import GraphTransform
 from brevitas.graph.equalize import _channel_maxabs
 from brevitas.graph.equalize import _scale_invariant_layers
+from brevitas.graph.equalize import _UNSUPPORTED_OP
 from brevitas.graph.equalize import find_srcs
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import Region
@@ -32,7 +33,7 @@ __all__ = ['GraphPermutationEqualization', 'rotate_permute_mode']
 
 # Initialize permutation-invariant layers from scale-invariant layers
 _permute_invariant_layers = list(_scale_invariant_layers)
-_permute_invariant_layers.extend([torch.nn.GELU, torch.nn.SELU])
+_permute_invariant_layers.extend([torch.nn.GELU, torch.nn.SELU, torch.nn.SiLU])
 
 # Try to add RMSNorm
 try:
@@ -231,6 +232,10 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
         Extract and process permutation regions from the graph model.
         """
         for region in regions:
+            # Check if block size is compatible with the current shape
+            if not self._is_compatible_region(region):
+                continue
+
             # Directly add regions that already have sources identified
             if (len(region.srcs) > 0):
                 # Skip the SDPA regions; potential head alignment issues
@@ -240,10 +245,6 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
 
             # Skip if equalization criteria are not met
             if not region.is_valid_activation_equalization:
-                continue
-
-            # Check if block size is compatible with the current shape
-            if not self._is_compatible_region(region):
                 continue
 
             # Create a new state for the online region
@@ -257,6 +258,10 @@ class GraphPermutationEqualization(GraphTransform, RegionWalkMixin):
                 eq_indexes = sink_wrapper.equalization_indexes
                 state.add_sinks(node.target, module, eq_indexes)
                 find_srcs(graph_model, node, state)
+
+            # Skip region creation if unsupported operations were encountered
+            if _UNSUPPORTED_OP in state.sinks:
+                continue
 
             # Create a new region with updated sources but same sinks
             new_region = Region.from_dicts(

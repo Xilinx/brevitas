@@ -1,4 +1,4 @@
-# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -58,7 +58,7 @@ def _setup_test_model(rotation_model, device='cpu'):
 
 @requires_pt_ge('2.3.1')
 @pytest_cases.parametrize('permute_fn', ['massdiff', 'zigzag', 'absmax', 'random'])
-@pytest_cases.parametrize('block_size', [8, 24])
+@pytest_cases.parametrize('block_size', [8, IN_FEATURES])
 @pytest_cases.parametrize('expansion_step', [0, 3])
 @pytest_cases.parametrize('disable_for_fused_rotations', [True, False])
 @pytest_cases.parametrize('orphan_sink', [True, False])
@@ -98,13 +98,13 @@ def test_rotate_permute_mode(
         permute_float_act_map = rpm.permutation.float_act_map
         with torch.no_grad():
             rpm.model(sample_inputs)
+        # Verify activation maps were populated if regions exist
+        if len(permute_regions) > 0:
+            assert len(permute_float_act_map) > 0, \
+                "Activation maps should be populated after forward pass"
+        if (orphan_sink or not disable_for_fused_rotations) and block_size < IN_FEATURES:
+            assert len(permute_regions) > 0
 
-    # Verify activation maps were populated if regions exist
-    if len(permute_regions) > 0:
-        assert len(permute_float_act_map) > 0, \
-            "Activation maps should be populated after forward pass"
-    if orphan_sink or not disable_for_fused_rotations:
-        assert len(permute_regions) > 0
     # Verify output invariance
     with torch.no_grad():
         output = model(sample_inputs)
@@ -119,7 +119,8 @@ def test_permute_block_size_compatibility(rotation_model, block_size, device):
     """
     Test block size compatibility with different model dimensions and region filtering.
 
-    For IN_FEATURES=24, compatible block sizes are: 2, 3, 4, 6, 8, 12, 24
+    For IN_FEATURES=24, compatible block sizes are: 2, 3, 4, 6, 8, 12
+    Block size of 24 is not compatible.
     Block sizes like 5, 7, 16, 32 should be incompatible and regions should be filtered.
     Verify this behavior is correct.
     """
@@ -146,7 +147,7 @@ def test_permute_block_size_compatibility(rotation_model, block_size, device):
 
     model = permutation.setup(model, regions)
 
-    if block_size in [16, 23]:
+    if block_size in [16, 24, 32]:
         assert len(permutation.regions) == 0
 
     # Verify that SDPA regions are filtered (regions with 'value_sdpa' in source names)
