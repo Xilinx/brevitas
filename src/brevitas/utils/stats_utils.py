@@ -35,7 +35,7 @@ class BaseStatsCollector(ABC):
         pass
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({", ".join(self._stats_fn.keys())})"
+        return f'{self.__class__.__name__}({", ".join(self._stats_fn.keys())})'
 
     @property
     def is_active(self) -> bool:
