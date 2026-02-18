@@ -94,7 +94,7 @@ class ScalarClampMinSte(brevitas.jit.ScriptModule):
         return scalar_clamp_min_ste(x, self.min_val)
 
 
-class ScalarSignedClampSte(brevitas.jit.ScriptModule):
+class ScalarClampSte(brevitas.jit.ScriptModule):
     """
     ScriptModule wrapper for :func:`~brevitas.function.ops_ste.scalar_clamp_ste`.
     """
@@ -102,19 +102,16 @@ class ScalarSignedClampSte(brevitas.jit.ScriptModule):
     __constants__ = ['min_val', 'max_val']
 
     def __init__(self, min_val: float, max_val: float) -> None:
-        super(ScalarSignedClampSte, self).__init__()
+        super(ScalarClampSte, self).__init__()
         # Verify that the minimum value is set to a non-zero value, as when min_val == 0.0,
         # this module implements the identity but the gradient returned at x = 0.0, is zero,
         # instead of 1.
-        assert abs(min_val) > 0.0, "min_val has to be greater than zero."
-        assert abs(max_val) > 0.0, "max_val has to be greater than zero."
         self.min_val = abs(min_val)
         self.max_val = abs(max_val)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        return torch.where(x >= 0, 1., -1.).type_as(x) * scalar_clamp_ste(
-            abs_binary_sign_grad(x), self.min_val, self.max_val)
+        return scalar_clamp_ste(abs_binary_sign_grad(x), self.min_val, self.max_val)
 
 
 class ScalarSignedClampMinSte(brevitas.jit.ScriptModule):

@@ -18,8 +18,8 @@ from .ops_ste import InplaceTensorClampSte
 from .ops_ste import RoundSte
 from .ops_ste import RoundToZeroSte
 from .ops_ste import ScalarClampMinSte
+from .ops_ste import ScalarClampSte
 from .ops_ste import ScalarSignedClampMinSte
-from .ops_ste import ScalarSignedClampSte
 from .ops_ste import TensorClampSte
 from .shape import OverBatchOverOutputChannelView
 from .shape import OverBatchOverTensorView

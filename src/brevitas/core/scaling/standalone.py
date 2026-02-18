@@ -79,7 +79,8 @@ class ConstScaling(brevitas.jit.ScriptModule):
         if restrict_threshold_impl is None:
             restrict_threshold_impl = restrict_scaling_impl
 
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_clamp_scale_threshold = _RestrictClampValue(
@@ -180,7 +181,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         if scaling_init.shape == SCALAR_SHAPE and scaling_shape is not None:
             scaling_init = torch.full(scaling_shape, scaling_init, dtype=dtype, device=device)
         self.value = Parameter(scaling_init)
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()

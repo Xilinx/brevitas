@@ -76,7 +76,9 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             torch.tensor(bit_width_offset_init, dtype=dtype, device=device))
         self.bit_width_base = bit_width_base
         self.restrict_clamp_bit_width_impl = _RestrictClampValue(
-            bit_width_offset_min_val, bit_width_offset_max_val, restrict_bit_width_impl)
+            min_val=bit_width_offset_min_val,
+            restrict_value_impl=restrict_bit_width_impl,
+            max_val=bit_width_offset_max_val)
         self.override_pretrained = override_pretrained_bit_width
 
     @brevitas.jit.script_method
