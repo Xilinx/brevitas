@@ -186,3 +186,22 @@ def remove_weight_orig(model: nn.Module):
     for name, module in model.named_modules():
         if hasattr(module, 'weight_orig'):
             del module.weight_orig
+
+
+@torch.no_grad()
+def gpxq_compute_error_stats(prefix: str, name: str, layer: torch.nn.Module,
+                             H: torch.Tensor) -> Dict[str, float]:
+    # This computation only supports nn.Linear, currently
+    assert isinstance(layer, qnn.QuantLinear), "`compute_weight_error` only supports `QuantLinear` layers"
+    quant_weight = layer.quant_weight().value.to(dtype=H.dtype)
+    weight = layer.weight_orig.to(dtype=H.dtype, device=quant_weight.device)
+    H = H.to(device=quant_weight.device).squeeze(0)
+    # Compute relative error between quantized and original weights
+    err = quant_weight - weight
+    weight_rel_err = torch.norm(err) / torch.norm(weight)
+    # Compute relative error weighted by the Hessian, i.e. (w-q)^T H (w-q) / w^T H w
+    out_rel_err = torch.norm(err @ H @ err.T, p='fro') / torch.norm(weight @ H @ weight.T, p='fro')
+    return {
+        name: {
+            f"{prefix}_rel_weight_err": weight_rel_err.item(),
+            f"{prefix}_rel_out_err": out_rel_err.item(),}}

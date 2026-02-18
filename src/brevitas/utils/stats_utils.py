@@ -37,6 +37,10 @@ class BaseStatsCollector(ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}({", ".join(self._stats_fn.keys())})"
 
+    @property
+    def is_active(self) -> bool:
+        return True
+
 
 class NullCollector(BaseStatsCollector):
 
@@ -46,6 +50,12 @@ class NullCollector(BaseStatsCollector):
 
     def _log(self, fn: StatFn, **payload) -> None:
         pass
+
+    # NullCollector is always inactive, so stats are not collected
+    @override
+    @property
+    def is_active(self) -> bool:
+        return False
 
 
 def recursive_update(d: Dict, u: Dict) -> Dict:

@@ -486,6 +486,13 @@ def create_args_parser() -> ArgumentParser:
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
 
+    parser.add_argument(
+        '--ptq-stats',
+        default=['gptq'],
+        type=str,
+        nargs='*',
+        help='A list of stats to be collected in PTQ algorithms. Default: %(default)s')
+
     return parser
 
 

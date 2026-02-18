@@ -609,7 +609,9 @@ def quantize_llm(args, extra_args=None):
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
-            with collect_stats(DictStatsCollector()):
+            stats_collector_ctx = collect_stats(
+                DictStatsCollector()) if "gptq" in args.ptq_stats else nullcontext()
+            with stats_collector_ctx:
                 apply_gptq(
                     model,
                     calibration_loader,

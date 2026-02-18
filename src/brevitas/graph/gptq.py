@@ -11,6 +11,7 @@ import warnings
 from packaging import version
 import torch
 
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.stats_utils import StatsCollectorCtx
 
 try:
@@ -22,25 +23,11 @@ from brevitas import torch_version
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
+from brevitas.graph.utils import gpxq_compute_error_stats
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.utils.torch_utils import StopFwdException
 
-
-# TODO (pml): Simplify this function
-@torch.no_grad()
-def compute_weight_error(prefix: str, name: str, layer: torch.nn.Module, H: torch.Tensor):
-    quant_weight = layer.quant_weight().value.to(dtype=H.dtype)
-    weight = layer.weight_orig.to(dtype=H.dtype, device=quant_weight.device)
-    H = H.to(device=quant_weight.device).squeeze(0)
-    # Compute relative error between quantized and original weights
-    err = quant_weight - weight
-    weight_rel_err = torch.norm(err) / torch.norm(weight)
-    # Compute relative error weighted by the Hessian, i.e. (w-q)^T H (w-q) / w^T H w
-    out_rel_err = torch.norm(err.T @ H @ err, p='fro') / torch.norm(weight.T @ H @ weight, p='fro')
-    return {
-        name: {
-            f"{prefix}_rel_weight_err": weight_rel_err.item(),
-            f"{prefix}_rel_out_err": out_rel_err.item(),}}
+logger = setup_logger(__name__)
 
 
 class GPTQ(GPxQ):
@@ -132,9 +119,12 @@ class GPTQ(GPxQ):
         weight = self.layer.weight.data
         dev = weight.device
 
-        # Log pre-update statistics
         gptq_stats_collector = StatsCollectorCtx.get()
-        gptq_stats_collector.log("pre_update", name=self.name, layer=self.layer, H=self.H)
+        H_orig = None
+        if gptq_stats_collector.is_active:
+            H_orig = deepcopy(self.H)
+        # Log pre-update statistics
+        gptq_stats_collector.log("pre_update", name=self.name, layer=self.layer, H=H_orig)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
@@ -191,9 +181,7 @@ class GPTQ(GPxQ):
                 f'Increasing the number of samples might fix this issue')
             return
         finally:
-            # TODO (pml): Delay Hessian deletion for statistics capture
-            # del self.H
-            pass
+            del self.H
 
         for i1 in range(0, self.columns, self.blocksize):
             i2 = min(i1 + self.blocksize, self.columns)
@@ -223,7 +211,11 @@ class GPTQ(GPxQ):
                                                           i2:].to(dev))).to(dtype)
 
         # Log post-update statistics
-        gptq_stats_collector.log("post_update", name=self.name, layer=self.layer, H=self.H)
+        gptq_stats_collector.log("post_update", name=self.name, layer=self.layer, H=H_orig)
+        # If stats are being collected, print statistics to DEBUG
+        if gptq_stats_collector.is_active:
+            logger.debug(
+                f"GPTQ statistics for layer {self.name}: {gptq_stats_collector.stats[self.name]}")
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
@@ -293,9 +285,10 @@ class gptq_mode(gpxq_mode):
 
         # Register the statistics to collect during GPTQ
         gptq_stats_collector = StatsCollectorCtx.get()
-        gptq_stats_collector.on("pre_update", functools.partial(compute_weight_error, prefix="pre"))
         gptq_stats_collector.on(
-            "post_update", functools.partial(compute_weight_error, prefix="post"))
+            "pre_update", functools.partial(gpxq_compute_error_stats, prefix="pre"))
+        gptq_stats_collector.on(
+            "post_update", functools.partial(gpxq_compute_error_stats, prefix="post"))
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
