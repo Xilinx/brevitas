@@ -34,8 +34,8 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
             scaling_max_val: Optional[float] = None,
             restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
-        if scaling_min_val is not None and scaling_min_val != 0:
-            if scaling_max_val is not None and scaling_max_val != 0:
+        if scaling_min_val is not None:
+            if scaling_max_val is not None:
                 self.clamp_ste = ScalarSignedClampSte(scaling_min_val, scaling_max_val)
             else:
                 self.clamp_ste = ScalarSignedClampMinSte(scaling_min_val)
