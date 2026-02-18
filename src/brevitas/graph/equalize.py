@@ -1974,7 +1974,7 @@ class GraphRotationEqualization(RotationEqualization, RegionWalkMixin):
         if self.delay_rewriters:
             assert return_rewriters, "If `delay_rewriters=True`, rewriters are not applied immediately. Therefore, these must be returned, by setting `return_rewriters=True`, to be applied at a later stage."
         if use_parametrized_rotations:
-            # NOTE: When use_parametrized_rotations=False, parametrized rotations are applied. This changes the attribute __class__
+            # NOTE: When use_parametrized_rotations=True, parametrized rotations are applied. This changes the attribute __class__
             # of the parametrized module, e.g. to"<class 'torch.nn.utils.parametrize.ParametrizedLinear'>".
             # Therefore, algorithms that do type checking might need to use type_before_parametrizations(module),
             # instead of only type(module) (see layerwise_layer_handler). Algorithms that rely on in-place modifications
