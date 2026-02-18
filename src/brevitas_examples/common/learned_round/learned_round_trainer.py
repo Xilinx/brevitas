@@ -224,6 +224,7 @@ from brevitas_examples.common.learned_round.learned_round_method import BlockLos
 from brevitas_examples.common.learned_round.learned_round_method import \
     LEARNED_ROUND_INIT_FN_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
+from brevitas_examples.common.learned_round.learned_round_method import TRAINING_METHODS_REGISTRY
 
 _T_inputs = TypeVar("_T_inputs")
 _T_outputs = TypeVar("_T_output")
@@ -397,23 +398,6 @@ class block_optimization_cm:
         self.module.cpu()
         # And set it back to eval mode
         self.module.eval()
-
-
-def insert_learned_round_quantizers(
-        model: nn.Module, learned_round_param: LearnedRoundImplType,
-        **learned_round_kwargs) -> None:
-    for module in model.modules():
-        if isinstance(module, QuantWBIOL) and len([
-                m for m in module.modules() if isinstance(m, LearnedRoundSte)]) == 0:
-            learned_round_init_fn = LEARNED_ROUND_INIT_FN_REGISTRY.get(learned_round_param.value)
-            value = learned_round_init_fn(module, **learned_round_kwargs)
-            module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
-                float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-                learned_round_impl_type=learned_round_param,
-                learned_round_init=value,
-                **learned_round_kwargs,
-            )
-            module.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
 class LearnedRoundTrainer:
@@ -656,11 +640,11 @@ class LearnedRoundTrainer:
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
             keep_gpu: bool = True) -> None:
 
-        # Insert quantizers within the appropiate model blocks
-        insert_learned_round_quantizers(
-            model,
-            self.config.learned_round_args.learned_round_param,
-            **self.config.learned_round_args.learned_round_kwargs)
+        for training_method_config in self.config.training_methods:
+            training_method = TRAINING_METHODS_REGISTRY.get(
+                training_method_config.name)(config=training_method_config.config)
+            # Prepare the model for the specific training method (e.g., insert quantizers, modify the architecture, etc.)
+            training_method.prepare_model(model)
 
         # Retrieve blocks using the appropiate function to check blocks
         blocks = get_blocks_fn(model)

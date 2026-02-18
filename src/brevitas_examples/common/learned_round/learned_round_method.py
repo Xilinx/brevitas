@@ -3,21 +3,44 @@
 
 from abc import ABC
 from abc import abstractmethod
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Dict
 from typing import List
+from typing import Optional
 from typing import OrderedDict
 from typing import Protocol
 from typing import Tuple
 from typing import Type
+from typing import TypeVar
+from typing import Union
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
+from brevitas.utils.python_utils import parse_dataclass_dicts
 from brevitas.utils.python_utils import Registry
+
+T_config = TypeVar("T_config")
+
+
+class TrainingMethod(Protocol[T_config]):
+    """Optional extension that can modify model for a specific optimization method."""
+
+    def __init__(self, config: T_config) -> None:
+        ...
+
+    def prepare_model(
+        self,
+        model: torch.nn.Module,
+    ) -> None:
+        ...
 
 
 class TargetParamFn(Protocol):
@@ -46,6 +69,8 @@ class BlockLoss(ABC):
     def format_loss_components(self, *args) -> str:
         pass
 
+
+TRAINING_METHODS_REGISTRY = Registry[Type[TrainingMethod]]('TrainingMethod Registry')
 
 # Registries for implementations of learned round components
 BLOCK_LOSS_REGISTRY = Registry[Type[BlockLoss]]('BlockLoss Registry')
@@ -188,3 +213,58 @@ def get_scale_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str
         # Early stoppping
         return True
     return False
+
+
+@dataclass
+class LearnedRoundArgs:
+    learned_round_param: Union[str, LearnedRoundImplType] = field(
+        default="identity",
+        metadata={
+            "help": "Defines the functional form of the learned round parametrization.",
+            "choices": [param.value.lower() for param in LearnedRoundImplType]})
+    learned_round_kwargs: Optional[Union[Dict, str]] = field(
+        default=None,
+        metadata={"help": "Extra keyword arguments for the learned round parametrization."},
+    )
+    fast_update: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Whether to use fast update with learned round. `fast_update=True` requires implementing additional methods in the custom `Cache`."
+            )})
+
+    _DICT_ATTRIBUTES = ["learned_round_kwargs"]
+
+    def __post_init__(self) -> None:
+        # Parse in args that could be `dict` sent in from the CLI as a string
+        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
+
+        self.learned_round_param = LearnedRoundImplType(
+            self.learned_round_param.upper()) if isinstance(
+                self.learned_round_param, str) else self.learned_round_param
+
+
+@TRAINING_METHODS_REGISTRY.register(names="learned_round")
+class LearnedRoundTrainer(TrainingMethod[LearnedRoundArgs]):
+
+    def __init__(self, config: LearnedRoundArgs) -> None:
+        self.config = config
+
+    def _insert_learned_round_quantizers(self, model: nn.Module) -> None:
+        for module in model.modules():
+            if isinstance(module, QuantWBIOL) and len([
+                    m for m in module.modules() if isinstance(m, LearnedRoundSte)]) == 0:
+                learned_round_init_fn = LEARNED_ROUND_INIT_FN_REGISTRY.get(
+                    self.config.learned_round_param.value)
+                value = learned_round_init_fn(module, **self.config.learned_round_kwargs)
+                module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
+                    float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+                    learned_round_impl_type=self.config.learned_round_param,
+                    learned_round_init=value,
+                    **self.config.learned_round_kwargs,
+                )
+                module.weight_quant.init_tensor_quant(preserve_state_dict=True)
+
+    def prepare_model(self, model: nn.Module) -> None:
+        # Insert learned round quantizers within the appropiate model blocks
+        self._insert_learned_round_quantizers(model)

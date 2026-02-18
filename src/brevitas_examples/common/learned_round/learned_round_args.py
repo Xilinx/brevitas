@@ -4,9 +4,11 @@
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Dict
+from typing import Generic
 from typing import List
 from typing import Optional
 from typing import Type
+from typing import TypeVar
 from typing import Union
 import warnings
 
@@ -14,10 +16,10 @@ import torch
 from torch.optim.optimizer import Optimizer
 
 from brevitas import optim
-from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.utils.python_utils import parse_dataclass_dicts
 from brevitas_examples.common.learned_round.learned_round_method import BLOCK_LOSS_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_method import TARGET_PARAM_FN_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
 
@@ -216,33 +218,13 @@ class TrainingArgs:
             if isinstance(self.loss_cls, str) else self.loss_cls)
 
 
+T_config = TypeVar("T_config")
+
+
 @dataclass
-class LearnedRoundArgs:
-    learned_round_param: Union[str, LearnedRoundImplType] = field(
-        default="identity",
-        metadata={
-            "help": "Defines the functional form of the learned round parametrization.",
-            "choices": [param.value.lower() for param in LearnedRoundImplType]})
-    learned_round_kwargs: Optional[Union[Dict, str]] = field(
-        default=None,
-        metadata={"help": "Extra keyword arguments for the learned round parametrization."},
-    )
-    fast_update: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Whether to use fast update with learned round. `fast_update=True` requires implementing additional methods in the custom `Cache`."
-            )})
-
-    _DICT_ATTRIBUTES = ["learned_round_kwargs"]
-
-    def __post_init__(self) -> None:
-        # Parse in args that could be `dict` sent in from the CLI as a string
-        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
-
-        self.learned_round_param = LearnedRoundImplType(
-            self.learned_round_param.upper()) if isinstance(
-                self.learned_round_param, str) else self.learned_round_param
+class MethodSpec(Generic[T_config]):
+    name: str
+    config: T_config
 
 
 @dataclass
@@ -250,3 +232,9 @@ class TrainerConfig:
     learned_round_args: LearnedRoundArgs = field(
         metadata={"help": "Learned round parametrization."})
     training_args: TrainingArgs = field(metadata={"help": "Hyperparameters for optimization."})
+    training_methods: List[MethodSpec] = field(
+        default_factory=list,
+        metadata={
+            "help": (
+                "List of training methods to be applied during training. Each method's `name` needs to be registered in `TRAINING_METHODS_REGISTRY`."
+            )})

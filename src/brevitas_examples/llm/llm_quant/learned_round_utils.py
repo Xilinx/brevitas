@@ -16,6 +16,7 @@ from transformers import PreTrainedModel
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+from brevitas_examples.common.learned_round.learned_round_args import MethodSpec
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
 from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
@@ -203,9 +204,16 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         fast_update=args.learned_round_fast_update,
     )
 
+    training_methods = [
+        MethodSpec[LearnedRoundArgs](
+            name="learned_round",
+            config=learned_round_args,
+        )]
+
     return TrainerConfig(
         learned_round_args=learned_round_args,
         training_args=training_args,
+        training_methods=training_methods,
     )
 
 
