@@ -212,19 +212,14 @@ from tqdm import tqdm
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.inject.enum import FloatToIntImplType
-from brevitas.inject.enum import LearnedRoundImplType
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.utils.torch_utils import StopFwdException
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
-from brevitas_examples.common.learned_round.learned_round_method import \
-    LEARNED_ROUND_INIT_FN_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
-from brevitas_examples.common.learned_round.learned_round_method import TRAINING_METHODS_REGISTRY
+from brevitas_examples.common.learned_round.learned_round_method import TRAINING_HANDLERS_REGISTRY
 
 _T_inputs = TypeVar("_T_inputs")
 _T_outputs = TypeVar("_T_output")
@@ -640,11 +635,11 @@ class LearnedRoundTrainer:
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
             keep_gpu: bool = True) -> None:
 
-        for training_method_config in self.config.training_methods:
-            training_method = TRAINING_METHODS_REGISTRY.get(
-                training_method_config.name)(config=training_method_config.config)
+        for training_handler_config in self.config.training_handlers:
+            training_handler = TRAINING_HANDLERS_REGISTRY.get(
+                training_handler_config.name)(config=training_handler_config.config)
             # Prepare the model for the specific training method (e.g., insert quantizers, modify the architecture, etc.)
-            training_method.prepare_model(model)
+            training_handler.prepare_model(model)
 
         # Retrieve blocks using the appropiate function to check blocks
         blocks = get_blocks_fn(model)

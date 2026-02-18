@@ -30,7 +30,7 @@ from brevitas.utils.python_utils import Registry
 T_config = TypeVar("T_config")
 
 
-class TrainingMethod(Protocol[T_config]):
+class TrainingHandler(Protocol[T_config]):
     """Optional extension that can modify model for a specific optimization method."""
 
     def __init__(self, config: T_config) -> None:
@@ -70,7 +70,7 @@ class BlockLoss(ABC):
         pass
 
 
-TRAINING_METHODS_REGISTRY = Registry[Type[TrainingMethod]]('TrainingMethod Registry')
+TRAINING_HANDLERS_REGISTRY = Registry[Type[TrainingHandler]]('TrainingHandlers Registry')
 
 # Registries for implementations of learned round components
 BLOCK_LOSS_REGISTRY = Registry[Type[BlockLoss]]('BlockLoss Registry')
@@ -238,8 +238,8 @@ class LearnedRoundArgs:
                 self.learned_round_param, str) else self.learned_round_param
 
 
-@TRAINING_METHODS_REGISTRY.register(names="learned_round")
-class LearnedRoundTrainer(TrainingMethod[LearnedRoundArgs]):
+@TRAINING_HANDLERS_REGISTRY.register(names="learned_round")
+class LearnedRoundTrainer(TrainingHandler[LearnedRoundArgs]):
 
     def __init__(self, config: LearnedRoundArgs) -> None:
         self.config = config

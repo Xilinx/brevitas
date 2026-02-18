@@ -228,7 +228,7 @@ T_config = TypeVar("T_config")
 
 
 @dataclass
-class MethodSpec(Generic[T_config]):
+class HandlerSpec(Generic[T_config]):
     name: str
     config: T_config
 
@@ -236,9 +236,9 @@ class MethodSpec(Generic[T_config]):
 @dataclass
 class TrainerConfig:
     training_args: TrainingArgs = field(metadata={"help": "Hyperparameters for optimization."})
-    training_methods: List[MethodSpec] = field(
+    training_handlers: List[HandlerSpec] = field(
         default_factory=list,
         metadata={
             "help": (
-                "List of training methods to be applied during training. Each method's `name` needs to be registered in `TRAINING_METHODS_REGISTRY`."
+                "List of training handlers to be applied during training. Each handler's `name` needs to be registered in `TRAINING_METHODS_REGISTRY`."
             )})
