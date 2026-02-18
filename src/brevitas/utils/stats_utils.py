@@ -8,7 +8,6 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any
 from typing import Dict
-from typing import override
 from typing import Protocol
 
 
@@ -44,7 +43,6 @@ class BaseStatsCollector(ABC):
 
 class NullCollector(BaseStatsCollector):
 
-    @override
     def on(self, key: str, fn: StatFn) -> None:
         pass
 
@@ -52,7 +50,6 @@ class NullCollector(BaseStatsCollector):
         pass
 
     # NullCollector is always inactive, so stats are not collected
-    @override
     @property
     def is_active(self) -> bool:
         return False
