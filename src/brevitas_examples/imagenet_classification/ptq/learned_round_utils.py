@@ -41,11 +41,12 @@ from torch.utils.data.dataloader import DataLoader
 from brevitas import config
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
+from brevitas_examples.common.learned_round.learned_round_args import MethodSpec
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
 from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_trainer import Cache
 from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
 from brevitas_examples.common.learned_round.learned_round_trainer import LearnedRoundTrainer
@@ -157,9 +158,15 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         fast_update=False,
     )
 
+    training_methods = [
+        MethodSpec[LearnedRoundArgs](
+            name="learned_round",
+            config=learned_round_args,
+        )]
+
     return TrainerConfig(
-        learned_round_args=learned_round_args,
         training_args=training_args,
+        training_methods=training_methods,
     )
 
 

@@ -198,6 +198,12 @@ class TrainingArgs:
         default=torch.float16,
         metadata={
             "choices": ["float16", "bfloat16"], "help": "Dtype for mixed-precision training."})
+    fast_update: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Whether to use fast update with block optimization. `fast_update=True` requires implementing additional methods in the custom `Cache`."
+            )})
 
     _DICT_ATTRIBUTES = ["loss_kwargs"]
 
@@ -229,8 +235,6 @@ class MethodSpec(Generic[T_config]):
 
 @dataclass
 class TrainerConfig:
-    learned_round_args: LearnedRoundArgs = field(
-        metadata={"help": "Learned round parametrization."})
     training_args: TrainingArgs = field(metadata={"help": "Hyperparameters for optimization."})
     training_methods: List[MethodSpec] = field(
         default_factory=list,

@@ -14,12 +14,12 @@ from torch import nn
 from transformers import PreTrainedModel
 
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas_examples.common.learned_round.learned_round_args import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
 from brevitas_examples.common.learned_round.learned_round_args import MethodSpec
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
 from brevitas_examples.common.learned_round.learned_round_args import TrainingArgs
+from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_trainer import Cache
 from brevitas_examples.common.learned_round.learned_round_trainer import LearnedRoundTrainer
 
@@ -196,12 +196,12 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         use_best_model=True,
         use_amp=True,
         amp_dtype="float16",
+        fast_update=args.learned_round_fast_update,
     )
 
     learned_round_args = LearnedRoundArgs(
         learned_round_param=args.learned_round,
         learned_round_kwargs=None,
-        fast_update=args.learned_round_fast_update,
     )
 
     training_methods = [
@@ -211,7 +211,6 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         )]
 
     return TrainerConfig(
-        learned_round_args=learned_round_args,
         training_args=training_args,
         training_methods=training_methods,
     )

@@ -226,12 +226,6 @@ class LearnedRoundArgs:
         default=None,
         metadata={"help": "Extra keyword arguments for the learned round parametrization."},
     )
-    fast_update: bool = field(
-        default=False,
-        metadata={
-            "help": (
-                "Whether to use fast update with learned round. `fast_update=True` requires implementing additional methods in the custom `Cache`."
-            )})
 
     _DICT_ATTRIBUTES = ["learned_round_kwargs"]
 

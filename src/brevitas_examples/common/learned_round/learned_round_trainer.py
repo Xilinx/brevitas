@@ -654,7 +654,7 @@ class LearnedRoundTrainer:
 
         # Iterate over blocks and optimise the rounding parameters within each of them
         for block_idx, block in enumerate(blocks):
-            if block_idx == 0 or not self.config.learned_round_args.fast_update:
+            if block_idx == 0 or not self.config.training_args.fast_update:
                 # Cache needs to be cleared before populating it with the inputs and outputs
                 # to the block under optimization.
                 cache.reset_cache()
@@ -703,7 +703,7 @@ class LearnedRoundTrainer:
                 f"initial loss: {init_loss:.6f}, best loss: {best_loss:.6f}, at iteration {last_best_iter}."
             )
 
-            if block_idx + 1 < len(blocks) and self.config.learned_round_args.fast_update:
+            if block_idx + 1 < len(blocks) and self.config.training_args.fast_update:
                 cache = self.populate_next_block_cache(
                     block, blocks[block_idx + 1], block_forward, cache)
 
