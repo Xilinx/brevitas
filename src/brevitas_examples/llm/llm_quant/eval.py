@@ -53,7 +53,8 @@ def compute_perplexity(
         data: List[Dict],
         context_length: int,
         tokenizer: Any,
-        seed: int = 0):
+        seed: int = 0,
+        dtype: torch.dtype = torch.float32):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
@@ -96,6 +97,7 @@ def compute_perplexity(
             # Fuse batch and sequence length dimensions.
             reference_labels = reference_labels.view(reference_labels.shape[-1])
             shift_logits = shift_logits.view(-1, shift_logits.shape[-1])
+            shift_logits = shift_logits.to(dtype)
 
             loss = cross_entropy_loss(shift_logits, reference_labels)
 
@@ -103,4 +105,4 @@ def compute_perplexity(
 
     ppl = torch.exp(torch.stack(nlls).mean())
 
-    return ppl
+    return ppl.item()
