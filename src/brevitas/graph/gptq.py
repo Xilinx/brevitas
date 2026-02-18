@@ -212,6 +212,7 @@ class GPTQ(GPxQ):
 
         # Log post-update statistics
         gptq_stats_collector.log("post_update", name=self.name, layer=self.layer, H=H_orig)
+        del H_orig
         # If stats are being collected, print statistics to DEBUG
         if gptq_stats_collector.is_active:
             logger.debug(
