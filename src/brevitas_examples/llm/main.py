@@ -227,13 +227,21 @@ def parse_custom_quantizer(quant_name: str) -> str:
         quant_path = path
         quant_name = name
 
-    # Load module with the custom quantizer if plugin_path is not None
     if quant_path is not None:
+        # Retrieve previously registered quantizers
+        pre_registered_quantizers = set(QUANTIZERS_REGISTRY.get_registered_keys())
+        # Load the module with the custom quantizers
         spec = importlib.util.spec_from_file_location("custom_quant", quant_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Could not load spec for quantizer path: {quant_path}")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        # Retrieve newly registered quantizers
+        post_registered_quantizers = set(QUANTIZERS_REGISTRY.get_registered_keys())
+
+        logging.debug(
+            f"The following quantizers were loaded from {quant_path}: {', '.join(post_registered_quantizers - pre_registered_quantizers)}"
+        )
 
     return quant_name
 
