@@ -4,7 +4,9 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
+import importlib
 import os
+from pathlib import Path
 import pprint
 import sys
 import warnings
@@ -34,7 +36,8 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.generative.quantizers import CUSTOM_QUANTIZERS_REGISTRY
+from brevitas_examples.common.generative.quantizers import QuantInjector
+from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
 from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
@@ -209,6 +212,27 @@ def find_equalized_layer(layer):
     if hasattr(layer, 'layer'):
         return find_equalized_layer(layer.layer)
     return layer
+
+
+def parse_custom_quantizer(quant_name: str) -> str:
+    # Detect "/path/to/plugin.py:quant_name"
+    quant_path = None
+    if ":" in quant_name:
+        path, name = quant_name.rsplit(":", 1)
+        # Only treat it as a file plugin if paths points to an existing .py file
+        if path.endswith(".py") and Path(path).expanduser().exists():
+            quant_path = path
+            quant_name = name
+
+    # Load module with the custom quantizer if plugin_path is not None
+    if quant_path is not None:
+        spec = importlib.util.spec_from_file_location("custom_quant", quant_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load spec for quantizer path: {quant_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+    return quant_name
 
 
 def quantize_llm(args, extra_args=None):
@@ -446,7 +470,8 @@ def quantize_llm(args, extra_args=None):
             scaling_min_val=args.scaling_min_val,
             weight_kwargs=weight_kwargs)
         if args.custom_quantizer is not None:
-            custom_quantizer = CUSTOM_QUANTIZERS_REGISTRY.get(args.custom_quantizer)
+            quantizer_name = parse_custom_quantizer(args.custom_quantizer)
+            custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
         layer_map = generate_quant_maps(
             **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)

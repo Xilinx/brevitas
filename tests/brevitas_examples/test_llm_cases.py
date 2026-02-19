@@ -106,8 +106,8 @@ class LLMRunCases:
         from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
         from brevitas.utils.python_utils import Registry
         from brevitas_examples.common.generative.quantizers import BaseQuantizer
-        from brevitas_examples.common.generative.quantizers import CUSTOM_QUANTIZERS_REGISTRY
-        @Registry.register(CUSTOM_QUANTIZERS_REGISTRY, "example_int8_weight_quant")
+        from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
+        @Registry.register(QUANTIZERS_REGISTRY, "example_int8_weight_quant")
         class ExampleInt8WeightQuantizer(BaseQuantizer):
             weight_quant = Int8WeightPerTensorFloat
         yield process_args_and_metrics(default_run_args, run_dict)

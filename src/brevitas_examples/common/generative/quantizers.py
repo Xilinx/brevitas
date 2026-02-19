@@ -78,7 +78,7 @@ class BaseQuantizer:
 
 
 # Registry for custom quantizers
-CUSTOM_QUANTIZERS_REGISTRY = Registry[Type[BaseQuantizer]](registry_name="CustomQuantizersRegistry")
+QUANTIZERS_REGISTRY = Registry[Type[BaseQuantizer]](registry_name="QuantizersRegistry")
 
 
 class DynamicActProxyMixin(ExtendedInjector):
