@@ -26,7 +26,7 @@ class BaseStatsCollector(ABC):
         self._stats_fn[key] = fn
 
     def log(self, event: str, **payload) -> None:
-        if (fn := self._stats_fn.get(event, None)) is not None:
+        if (fn := self._stats_fn.get(event)):
             self._log(fn, **payload)
 
     @abstractmethod
