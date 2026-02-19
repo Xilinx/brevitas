@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-import functools
 import math
 from typing import List
 from typing import Optional
@@ -12,7 +11,6 @@ from packaging import version
 import torch
 
 from brevitas.utils.logging import setup_logger
-from brevitas.utils.stats_utils import StatsCollectorCtx
 
 try:
     from torch.linalg import LinAlgError
@@ -22,8 +20,8 @@ except:
 from brevitas import torch_version
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
+from brevitas.graph.gpxq import gpxq_stats_wrap
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
-from brevitas.graph.utils import gpxq_compute_error_stats
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.utils.torch_utils import StopFwdException
 
@@ -110,21 +108,13 @@ class GPTQ(GPxQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
-    def single_layer_update(self, percdamp=.01, c=1e4):
+    @gpxq_stats_wrap
+    def _single_layer_update(self, percdamp=.01, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."
-        if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
         weight = self.layer.weight.data
         dev = weight.device
-
-        gptq_stats_collector = StatsCollectorCtx.get()
-        H_orig = None
-        if gptq_stats_collector.is_active:
-            H_orig = deepcopy(self.H)
-        # Log pre-update statistics
-        gptq_stats_collector.log("pre_update", name=self.name, layer=self.layer, H=H_orig)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
@@ -210,17 +200,6 @@ class GPTQ(GPxQ):
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
 
-        # Log post-update statistics
-        gptq_stats_collector.log("post_update", name=self.name, layer=self.layer, H=H_orig)
-        del H_orig
-        # If stats are being collected, print statistics to DEBUG
-        if gptq_stats_collector.is_active:
-            logger.debug(
-                f"GPTQ statistics for layer {self.name}: {gptq_stats_collector.stats[self.name]}")
-
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)
-
 
 class gptq_mode(gpxq_mode):
     """
@@ -283,13 +262,6 @@ class gptq_mode(gpxq_mode):
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
-
-        # Register the statistics to collect during GPTQ
-        gptq_stats_collector = StatsCollectorCtx.get()
-        gptq_stats_collector.on(
-            "pre_update", functools.partial(gpxq_compute_error_stats, prefix="pre"))
-        gptq_stats_collector.on(
-            "post_update", functools.partial(gpxq_compute_error_stats, prefix="post"))
 
     def catch_stopfwd(self, *args, **kwargs):
         try:

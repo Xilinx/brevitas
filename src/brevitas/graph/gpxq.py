@@ -6,6 +6,7 @@ from abc import abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
+import functools
 from functools import partial
 from operator import attrgetter
 from typing import List
@@ -20,11 +21,17 @@ import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.utils import gpxq_compute_error_stats
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.logging import setup_logger
+from brevitas.utils.stats_utils import DictStatsCollector
+from brevitas.utils.stats_utils import StatsCollectorCtx
+
+logger = setup_logger(__name__)
 
 SUPPORTED_CONV_OP = (
     nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
@@ -110,6 +117,13 @@ class gpxq_mode(quantization_status_manager):
         else:
             self.model.forward = self.catch_stopfwd
 
+        # Register the statistics to collect during GPTQ
+        gptq_stats_collector = StatsCollectorCtx.get()
+        gptq_stats_collector.on(
+            "pre_update", functools.partial(gpxq_compute_error_stats, prefix="pre"))
+        gptq_stats_collector.on(
+            "post_update", functools.partial(gpxq_compute_error_stats, prefix="post"))
+
     def _is_module_supported(self, module):
         if is_quant_module(module):
             is_quant_enabled = module.weight_quant.is_quant_enabled
@@ -181,6 +195,29 @@ class gpxq_mode(quantization_status_manager):
     @abstractmethod
     def catch_stopfwd(self, *args, **kwargs):
         pass
+
+
+def gpxq_stats_wrap(layer_update_fn):
+
+    @functools.wraps(layer_update_fn)
+    def wrapper(self: GPxQ, *args, **kwargs):
+        gpxq_stats_collector: DictStatsCollector = StatsCollectorCtx.get()
+        if gpxq_stats_collector.is_active:
+            H = deepcopy(self.H)
+            G = deepcopy(self.G) if hasattr(self, 'G') else None
+            # Log pre-update statistics
+            gpxq_stats_collector.log("pre_update", name=self.name, layer=self.layer, H=H, G=G)
+            # Run the layer update function
+            layer_update_fn(self, *args, **kwargs)
+            # Log post-update statistics
+            gpxq_stats_collector.log("post_update", name=self.name, layer=self.layer, H=H, G=G)
+            # If stats are being collected, print statistics to DEBUG
+            logger.debug(
+                f"GPTQ statistics for layer {self.name}: {gpxq_stats_collector.stats[self.name]}")
+            del H
+            del G
+
+    return wrapper
 
 
 class GPxQ(ABC):
@@ -297,8 +334,17 @@ class GPxQ(ABC):
     def update_batch(self):
         pass
 
-    @abstractmethod
     def single_layer_update(self):
+        if hasattr(self.layer, 'allocate_params'):
+            self.layer.allocate_params(self.layer)
+
+        self._single_layer_update()
+
+        if hasattr(self.layer, 'offload_params'):
+            self.layer.offload_params(self.layer)
+
+    @abstractmethod
+    def _single_layer_update(self):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
