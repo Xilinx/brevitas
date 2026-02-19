@@ -123,6 +123,11 @@ class gpxq_mode(quantization_status_manager):
             "pre_update", functools.partial(gpxq_compute_error_stats, prefix="pre"))
         gptq_stats_collector.on(
             "post_update", functools.partial(gpxq_compute_error_stats, prefix="post"))
+        # Verify that the original weights are kept when statistics are being collected
+        if gptq_stats_collector.is_active and not create_weight_orig:
+            raise ValueError(
+                "Statistics collection during GPxQ requires keeping original weights. Set `create_weight_orig` to True."
+            )
 
     def _is_module_supported(self, module):
         if is_quant_module(module):
