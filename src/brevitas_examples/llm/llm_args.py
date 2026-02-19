@@ -488,7 +488,7 @@ def create_args_parser() -> ArgumentParser:
 
     parser.add_argument(
         '--ptq-stats',
-        default=['gptq'],
+        default=[],
         type=str,
         nargs='*',
         help='A list of stats to be collected in PTQ algorithms. Default: %(default)s')
