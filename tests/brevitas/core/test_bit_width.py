@@ -41,11 +41,14 @@ class TestBitWidthParameterDefaults:
 
     def test_default_restrict_bit_width_impl(self, bit_width_parameter_defaults):
         bit_width_module = bit_width_parameter_defaults
-        assert isinstance(bit_width_module.restrict_bit_width_impl, IntRestrictValue)
+        assert isinstance(
+            bit_width_module.restrict_clamp_bit_width_impl.restrict_value_impl, IntRestrictValue)
 
     def test_default_float_to_int_impl(self, bit_width_parameter_defaults):
         bit_width_module = bit_width_parameter_defaults
-        assert isinstance(bit_width_module.restrict_bit_width_impl.float_to_int_impl, RoundSte)
+        assert isinstance(
+            bit_width_module.restrict_clamp_bit_width_impl.restrict_value_impl.float_to_int_impl,
+            RoundSte)
 
     def test_bit_width_base(self, bit_width_parameter_defaults):
         bit_width_module = bit_width_parameter_defaults
