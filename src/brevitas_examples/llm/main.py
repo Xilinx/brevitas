@@ -219,10 +219,13 @@ def parse_custom_quantizer(quant_name: str) -> str:
     quant_path = None
     if ":" in quant_name:
         path, name = quant_name.rsplit(":", 1)
-        # Only treat it as a file plugin if paths points to an existing .py file
-        if path.endswith(".py") and Path(path).expanduser().exists():
-            quant_path = path
-            quant_name = name
+        # Treat as a file plugin if paths points to an existing .py file
+        if not Path(path).expanduser().exists():
+            raise FileNotFoundError(f"Quantizer file path {path} does not exist.")
+        if not path.endswith(".py"):
+            raise ValueError(f"{path} is not a .py file.")
+        quant_path = path
+        quant_name = name
 
     # Load module with the custom quantizer if plugin_path is not None
     if quant_path is not None:

@@ -98,9 +98,12 @@ class LLMRunCases:
         [
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "custom_quantizer": "example_int8_weight_quant"},],
+                "custom_quantizer": "example_int8_weight_quant",},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "custom_quantizer": "tests/brevitas_examples/llm_example_quantizer.py:"},],
         ids=[
-            "llama",]
+            "llama-quant", "llama-quant-file",]
     )
     def case_small_models_custom_quantizer(self, run_dict, default_run_args, request):
         from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
