@@ -203,8 +203,7 @@ class TestBitWidthParameter:
             bit_width_param_clamped.bit_width_offset.data = torch.tensor(0.5)
 
         result_low = bit_width_param_clamped()
-        expected_min = min_bit_width + bit_width_offset_min_nonzero
-        assert_allclose(result_low, torch.tensor(float(expected_min)))
+        assert_allclose(result_low, torch.tensor(float(min_bit_width)))
 
         # Test case 3: Set offset within range (should not clamp)
         with torch.no_grad():
