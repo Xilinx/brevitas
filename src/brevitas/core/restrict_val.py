@@ -34,6 +34,9 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
             max_val: Optional[float] = None,
             restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
+        # If only min_val is defined, then we enforce values to fall outside the range (-min_val, min_val)
+        # If both min_val and max_val are defined, then this behaves as a normal clamp
+        # If neither is defined, no clamping is performed
         if min_val is not None:
             if max_val is not None:
                 # When min_val and max_val are defined, we don't need to have a signed version of
@@ -43,6 +46,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
                 self.clamp_ste = ScalarSignedClampMinSte(min_val)
         else:
             self.clamp_ste = Identity()
+
         if restrict_value_impl is not None:
             self.restrict_value_impl = restrict_value_impl
         else:
