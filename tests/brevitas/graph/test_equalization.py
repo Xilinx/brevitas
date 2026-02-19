@@ -634,6 +634,3 @@ def test_fuse_parametrized_modules(kwargs):
     with torch.no_grad():
         output_fused = qmodel(sample_input)
     assert torch.allclose(output, output_fused, rtol=0.0, atol=0.0)
-
-
-# Permute tests have been moved to test_permute.py
