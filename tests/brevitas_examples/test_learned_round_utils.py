@@ -25,12 +25,11 @@ from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas_examples.common.learned_round.learned_round_args import _parse_lr_scheduler_class
 from brevitas_examples.common.learned_round.learned_round_args import _parse_optimizer_class
 from brevitas_examples.common.learned_round.learned_round_method import \
+    insert_learned_round_quantizers
+from brevitas_examples.common.learned_round.learned_round_method import \
     return_learned_round_quantizers
 from brevitas_examples.common.learned_round.learned_round_trainer import Cache
 from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
-from brevitas_examples.common.learned_round.learned_round_trainer import \
-    insert_learned_round_quantizers
-from brevitas_examples.common.learned_round.learned_round_trainer import save_inputs_output
 
 
 class QuantBlock(nn.Module):

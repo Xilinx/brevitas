@@ -78,6 +78,22 @@ TARGET_PARAM_FN_REGISTRY = Registry[TargetParamFn]('TargetParamFn Registry')
 LEARNED_ROUND_INIT_FN_REGISTRY = Registry[LearnedRoundInitFn]('LearnedRoundInitFn Registry')
 
 
+def insert_learned_round_quantizers(
+        model: nn.Module, learned_round_param: LearnedRoundImplType, **kwargs) -> None:
+    for module in model.modules():
+        if isinstance(module, QuantWBIOL) and len([
+                m for m in module.modules() if isinstance(m, LearnedRoundSte)]) == 0:
+            learned_round_init_fn = LEARNED_ROUND_INIT_FN_REGISTRY.get(learned_round_param.value)
+            value = learned_round_init_fn(module, **kwargs)
+            module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
+                float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+                learned_round_impl_type=learned_round_param,
+                learned_round_init=value,
+                **kwargs,
+            )
+            module.weight_quant.init_tensor_quant(preserve_state_dict=True)
+
+
 def return_learned_round_quantizers(block: nn.Module) -> List[nn.Module]:
     return [module for module in block.modules() if isinstance(module, LearnedRoundSte)]
 
@@ -244,21 +260,10 @@ class LearnedRoundTrainer(TrainingHandler[LearnedRoundArgs]):
     def __init__(self, config: LearnedRoundArgs) -> None:
         self.config = config
 
-    def _insert_learned_round_quantizers(self, model: nn.Module) -> None:
-        for module in model.modules():
-            if isinstance(module, QuantWBIOL) and len([
-                    m for m in module.modules() if isinstance(m, LearnedRoundSte)]) == 0:
-                learned_round_init_fn = LEARNED_ROUND_INIT_FN_REGISTRY.get(
-                    self.config.learned_round_param.value)
-                value = learned_round_init_fn(module, **self.config.learned_round_kwargs)
-                module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
-                    float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-                    learned_round_impl_type=self.config.learned_round_param,
-                    learned_round_init=value,
-                    **self.config.learned_round_kwargs,
-                )
-                module.weight_quant.init_tensor_quant(preserve_state_dict=True)
-
     def prepare_model(self, model: nn.Module) -> None:
         # Insert learned round quantizers within the appropiate model blocks
-        self._insert_learned_round_quantizers(model)
+        insert_learned_round_quantizers(
+            model=model,
+            learned_round_param=self.config.learned_round_param,
+            **self.config.learned_round_kwargs,
+        )
