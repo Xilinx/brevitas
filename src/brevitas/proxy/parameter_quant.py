@@ -191,10 +191,6 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
     def tracked_parameter_list(self):
         return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
-    @property
-    def is_proxy_compiled(self):
-        return False
-
     def get_cached(self, attr):
         if self._cached_bias is None:
             if not is_dynamo_compiling():
