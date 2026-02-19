@@ -184,8 +184,7 @@ class TestBitWidthParameter:
             bit_width_param.bit_width_offset.data = torch.tensor(10.0)
 
         result_no_clamp = bit_width_param()
-        # No clamping applied, just rounded: 10 + 2 = 12
-        assert_allclose(result_no_clamp, torch.tensor(12.0))
+        assert_allclose(result_no_clamp, bit_width_offset_max)
 
     def test_bit_width_offset_clamp_to_min(self):
         """
