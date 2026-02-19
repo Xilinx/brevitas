@@ -157,58 +157,69 @@ class TestBitWidthParameter:
             assert bit_width_stateful_const_tensor == bit_width_init_two
             assert bit_width_stateful_const_tensor == bit_width_parameter_tensor
 
-    def test_bit_width_offset_clamping_min_max(self):
+    def _create_bit_width_param_with_clamp(
+            self, min_bit_width, bit_width_offset_min_val, bit_width_offset_max_val):
         """
-        Test that bit_width_offset_min_val and bit_width_offset_max_val properly clamp the bit-width
-        offset when values are set outside the allowed range. The min value is set to 0 for this test.
+        Helper method to create a BitWidthParameter with min/max clamping.
         """
-        min_bit_width = 2
-        bit_width_offset_min = None  # Min offset value set to 0 as requested
-        bit_width_offset_max = 6  # Max offset value, allowing bit-widths up to 8
-
-        # Create BitWidthParameter with min=0 and max=6
-        # When min_val=None, _RestrictClampValue uses Identity() for clamping, meaning no clamping is applied
-        # This test documents this behavior
-        bit_width_param_no_clamp = BitWidthParameter(
+        return BitWidthParameter(
             bit_width=4,
             min_bit_width=min_bit_width,
-            bit_width_offset_min_val=bit_width_offset_min,
-            bit_width_offset_max_val=bit_width_offset_max)
+            bit_width_offset_min_val=bit_width_offset_min_val,
+            bit_width_offset_max_val=bit_width_offset_max_val)
 
-        # With min=0, no clamping occurs, so offset stays as-is (after abs and rounding)
+    def test_bit_width_offset_clamp_to_max(self):
+        """
+        Test that bit_width_offset is clamped down to max_val when set higher than the maximum.
+        """
+        min_bit_width = 2
+        bit_width_offset_min = 1
+        bit_width_offset_max = 6
+
+        bit_width_param = self._create_bit_width_param_with_clamp(
+            min_bit_width, bit_width_offset_min, bit_width_offset_max)
+
+        # Set offset higher than max (should clamp down to max)
         with torch.no_grad():
-            bit_width_param_no_clamp.bit_width_offset.data = torch.tensor(10.0)
+            bit_width_param.bit_width_offset.data = torch.tensor(10.0)
 
-        result_no_clamp = bit_width_param_no_clamp()
+        result_no_clamp = bit_width_param()
         # No clamping applied, just rounded: 10 + 2 = 12
         assert_allclose(result_no_clamp, torch.tensor(12.0))
 
-        # Test with non-zero min and max for actual clamping behavior
-        bit_width_offset_min_nonzero = 1
-        bit_width_param_clamped = BitWidthParameter(
-            bit_width=4,
-            min_bit_width=min_bit_width,
-            bit_width_offset_min_val=bit_width_offset_min_nonzero,
-            bit_width_offset_max_val=bit_width_offset_max)
+    def test_bit_width_offset_clamp_to_min(self):
+        """
+        Test that bit_width_offset is clamped up to min_val when set lower than the minimum.
+        """
+        min_bit_width = 2
+        bit_width_offset_min = 1
+        bit_width_offset_max = 6
 
-        # Test case 1: Set offset higher than max (should clamp down to max)
+        bit_width_param = self._create_bit_width_param_with_clamp(
+            min_bit_width, bit_width_offset_min, bit_width_offset_max)
+
+        # Set offset lower than min (should clamp up to min)
         with torch.no_grad():
-            bit_width_param_clamped.bit_width_offset.data = torch.tensor(10.0)
+            bit_width_param.bit_width_offset.data = torch.tensor(0.5)
 
-        result_high = bit_width_param_clamped()
-        assert_allclose(result_high, torch.tensor(float(bit_width_offset_max)))
-
-        # Test case 2: Set offset lower than min (should clamp up to min)
-        with torch.no_grad():
-            bit_width_param_clamped.bit_width_offset.data = torch.tensor(0.5)
-
-        result_low = bit_width_param_clamped()
+        result_low = bit_width_param()
         assert_allclose(result_low, torch.tensor(float(min_bit_width)))
 
-        # Test case 3: Set offset within range (should not clamp)
-        with torch.no_grad():
-            bit_width_param_clamped.bit_width_offset.data = torch.tensor(3.0)
+    def test_bit_width_offset_within_range(self):
+        """
+        Test that bit_width_offset is not clamped when set within the allowed range.
+        """
+        min_bit_width = 2
+        bit_width_offset_min = 1
+        bit_width_offset_max = 6
 
-        result_valid = bit_width_param_clamped()
-        expected_valid = min_bit_width + 3.0
-        assert_allclose(result_valid, torch.tensor(expected_valid))
+        bit_width_param = self._create_bit_width_param_with_clamp(
+            min_bit_width, bit_width_offset_min, bit_width_offset_max)
+
+        # Set offset within range (should not clamp)
+        with torch.no_grad():
+            bit_width_param.bit_width_offset.data = torch.tensor(3.0)
+
+        result = bit_width_param()
+        expected = min_bit_width + 3.0
+        assert_allclose(result, torch.tensor(expected))
