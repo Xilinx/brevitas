@@ -109,11 +109,7 @@ class QuantLinear(LinearMethodBase):
         self.input_size_per_partition = input_size_per_partition
         self.output_partition_sizes = output_partition_sizes
         out_per_partition = sum(output_partition_sizes)
-        w = torch.empty(
-            (out_per_partition, input_size_per_partition),
-            device="cuda",
-            dtype=params_dtype,
-        )
+
         weight = ModelWeightParameter(
             data=torch.empty(
                 sum(output_partition_sizes),
