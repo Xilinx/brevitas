@@ -103,8 +103,8 @@ class ScalarClampSte(brevitas.jit.ScriptModule):
 
     def __init__(self, min_val: float, max_val: float) -> None:
         super(ScalarClampSte, self).__init__()
-        self.min_val = min_val
-        self.max_val = max_val
+        self.min_val = float(min_val)
+        self.max_val = float(max_val)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
