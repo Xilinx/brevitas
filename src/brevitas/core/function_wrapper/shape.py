@@ -190,16 +190,14 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
 
 def dynamic_over_sub_channel_block_view(x, group_size, group_dim):
-    tensor_shape = x.shape
-    tensor_shape_list = list(tensor_shape)
+    # Pad the tensor to ensure the dimension is divisible by group_size
     x = padding_to_multiple(x, group_dim, group_size)
 
-    tensor_shape = x.shape
-    tensor_shape_list = list(tensor_shape)
-    tensor_shape_list[group_dim] = (tensor_shape_list[group_dim] + group_size - 1) // group_size
-    block_dim = group_dim + 1 if group_dim != -1 else len(tensor_shape_list)
-    tensor_shape_list.insert(block_dim, group_size)
-    x = x.view(tensor_shape_list)
+    # Calculate the number of groups
+    num_groups = x.shape[group_dim] // group_size
+
+    # Use unflatten to split the group_dim into (num_groups, group_size)
+    x = torch.unflatten(x, group_dim, (num_groups, group_size))
     return x
 
 
