@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from functools import partial
 import json
+from json import JSONEncoder
 import os
 from typing import Any
 from typing import List
@@ -12,6 +13,7 @@ from typing import Optional
 import torch
 from torch.nn import Module
 import torch.nn as nn
+from torch.utils.data import Dataset
 from vllm.model_executor.layers.linear import LinearBase
 from vllm.model_executor.layers.linear import MergedColumnParallelLinear
 from vllm.model_executor.layers.linear import QKVParallelLinear
@@ -20,25 +22,43 @@ from vllm.model_executor.layers.linear import UnquantizedLinearMethod
 from vllm.model_executor.layers.quantization import QuantizationMethods
 from vllm.model_executor.layers.quantization import register_quantization_config
 from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
+from vllm.model_executor.layers.quantization.utils.quant_utils import is_layer_skipped
 
 import brevitas.config as config
 from brevitas.export.inference.vLLM.handler import QuantLinear
+from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import _set_recurrent_layer_export_handler
+from brevitas.export.manager import _set_recurrent_layer_export_mode
+from brevitas.export.manager import BaseManager
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
+from ..handler import DynamicFloatInferenceHandler
+from ..handler import DynamicIntInferenceHandler
+from ..handler import FloatInferencetHandler
+from ..handler import FloatWeightInferencetHandler
+from ..handler import GroupwiseFloatInferenceHandler
+from ..handler import GroupwiseFloatWeightInferenceHandler
+from ..handler import GroupwiseIntInferenceHandler
+from ..handler import GroupwiseIntWeightInferenceHandler
+from ..handler import IntInferencetHandler
+from ..handler import IntWeightInferencetHandler
 from ..manager import _override_act_caching_mode
 from ..manager import _override_bias_caching_mode
 from ..manager import _override_create_quant_tensor
 from ..manager import _override_weight_caching_mode
+from .handler import vLLMGroupwiseFloatInferenceHandler
+from .handler import vLLMGroupwiseIntInferenceHandler
 
 
 @register_quantization_config("quant_brevitas")
 @dataclass
 class QuantConfigBrevitas(QuantizationConfig):
 
-    def __init__(self, ignored_layers: list[str] | None = None, config: str | None = None):
+    def __init__(self, ignored_layers: list[str] | None = None, config: Dict | None = None):
         super().__init__()
         self.ignored_layers = ignored_layers
         self.config = config
@@ -64,11 +84,10 @@ class QuantConfigBrevitas(QuantizationConfig):
     def get_config_filenames() -> list[str]:
         return ["brevitas_config.json"]
 
-    def get_quant_method(self, layer: torch.nn.Module,
-                         prefix: str) -> Optional["QuantizeMethodBase"]:
+    def get_quant_method(self, layer: torch.nn.Module, prefix: str) -> "QuantizeMethodBase" | None:
         if isinstance(layer, RowParallelLinear) or isinstance(
                 layer, MergedColumnParallelLinear) or isinstance(layer, QKVParallelLinear):
-            if self.ignored_layers and is_layer_skipped(
+            if is_layer_skipped(
                     prefix=prefix,
                     ignored_layers=self.ignored_layers,
                     fused_mapping=self.packed_modules_mapping,
@@ -125,11 +144,6 @@ def combine_configs(config, *names):
     return base_config
 
 
-from json import JSONEncoder
-
-from torch.utils.data import Dataset
-
-
 class EncodeTensor(JSONEncoder, Dataset):
 
     def default(self, obj):
@@ -140,7 +154,29 @@ class EncodeTensor(JSONEncoder, Dataset):
         return super(EncodeTensor, self).default(obj)
 
 
-class vLLMExportManager():
+class vLLMExportManager(BaseManager):
+
+    handlers = [
+        IntInferencetHandler,
+        DynamicIntInferenceHandler,
+        DynamicFloatInferenceHandler,
+        FloatInferencetHandler,
+        IntWeightInferencetHandler,
+        FloatWeightInferencetHandler,
+        vLLMGroupwiseIntInferenceHandler,
+        GroupwiseIntWeightInferenceHandler,
+        vLLMGroupwiseFloatInferenceHandler,
+        GroupwiseFloatWeightInferenceHandler]
+
+    @classmethod
+    def set_export_mode(cls, model: Module, enabled: bool):
+        _set_proxy_export_mode(model, enabled)
+        _set_recurrent_layer_export_mode(model, enabled)
+
+    @classmethod
+    def set_export_handler(cls, module: Module):
+        _set_proxy_export_handler(cls, module)
+        _set_recurrent_layer_export_handler(cls, module)
 
     wrap_layers = (EqualizedModule, RotatedModule)
 

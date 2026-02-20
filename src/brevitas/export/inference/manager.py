@@ -53,12 +53,18 @@ def _override_create_quant_tensor(m: nn.Module, state: bool):
 
 class quant_inference_mode:
 
-    def __init__(self, model, cache_quant_weight=False, compile=False, enabled=True):
+    def __init__(
+            self,
+            model,
+            cache_quant_weight=False,
+            compile=False,
+            enabled=True,
+            export_manager=None):
         self.model = model
         self.enabled = enabled
         self.compile = compile
         self.cache_quant_weight = cache_quant_weight
-        self.export_manager = InferenceManager
+        self.export_manager = export_manager if export_manager is not None else InferenceManager
         self.hook_list = []
         self.return_quant_tensor_state = dict()
 

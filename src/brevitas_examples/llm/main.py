@@ -197,8 +197,9 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
     elif args.export_target == 'vllm':
-        cls = vLLMExportManager()
-        cls.export(model, tokenizer, args.export_target)
+        with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
+            model(**ref_input)
+            export_mode.export(model, tokenizer, args.export_target)
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
         from sharktank.types import Theta
