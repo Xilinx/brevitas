@@ -86,8 +86,9 @@ class RotatedModule(torch.nn.Module):
             expand_input: bool = False,
             hidden_dim: Optional[int] = None) -> None:
         super().__init__()
+        device = next(iter(layer.parameters())).device
         if had_mat is not None:
-            self.had_mat = had_mat.cpu()
+            self.had_mat = torch.nn.Parameter(had_mat.to(device))
         else:
             self.had_mat = None
         self.layer = layer
