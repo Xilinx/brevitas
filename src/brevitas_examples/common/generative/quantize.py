@@ -251,6 +251,15 @@ INPUT_QUANT_MAP = {
                         'sym': Fp8e4m3FNUZActPerTensorFloat}}}}}}
 
 
+def maybe_inject_signed_scale_kwargs(injector, is_signed: bool):
+    if not is_signed:
+        return injector
+    return injector.let(
+        **{
+            'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+            'scaling_stats_op': StatsOp.SIGNED_MAX,})
+
+
 def generate_quantizers(
         weight_bit_width,
         weight_param_method,
@@ -362,17 +371,6 @@ def generate_quantizers(
             **attn_float_format,
             **attn_kwargs,}
 
-        # Enable signed scale if specified in the scale precision format
-        if attn_scale_is_signed:
-            if attn_quant_type == 'asym':
-                raise NotImplementedError(
-                    "Asymmetric attention quantization has not been tested with signed scales.")
-
-            attn_scale_kwargs = {
-                'restrict_scaling_type': RestrictValueType.SIGNED_FP,
-                'scaling_stats_op': StatsOp.SIGNED_MAX,}
-            attn_override_kwargs = {**attn_override_kwargs, **attn_scale_kwargs}
-
         input_quant = input_quant.let(**input_kwargs)
         linear_input_quant = linear_input_quant.let(**input_kwargs)
         k_transposed_quant = k_transposed_quant.let(
@@ -381,6 +379,9 @@ def generate_quantizers(
         k_transposed_quant = k_transposed_quant.let(
             **attn_override_kwargs
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
+        # Enable signed scale if specified in the scale precision format
+        k_transposed_quant = maybe_inject_signed_scale_kwargs(
+            k_transposed_quant, attn_quant_type, attn_scale_is_signed)
         if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
         elif attn_quant_config == "kv":
@@ -414,17 +415,6 @@ def generate_quantizers(
     if scaling_min_val is not None:
         weight_quant = weight_quant.let(**{'scaling_min_val': scaling_min_val})
 
-    # Enable signed scale if specified in the scale precision format
-    if weight_scale_is_signed:
-        if weight_quant_type == 'asym':
-            raise NotImplementedError(
-                "Asymmetric weight quantization has not been tested with signed scales.")
-
-        weight_quant = weight_quant.let(
-            **{
-                'restrict_scaling_type': RestrictValueType.SIGNED_FP,
-                'scaling_stats_op': StatsOp.SIGNED_MAX,})
-
     if weight_kwargs is not None:
         weight_quant = weight_quant.let(**weight_kwargs)
 
@@ -438,6 +428,9 @@ def generate_quantizers(
     # This is done already by default in the per_group quantizer
     if weight_quant_type == 'asym' and weight_scaling_impl_type == 'parameter_from_stats':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+
+    # Enable signed scale if specified in the scale precision format
+    weight_quant = maybe_inject_signed_scale_kwargs(weight_quant, weight_scale_is_signed)
 
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)
@@ -460,15 +453,7 @@ def generate_quantizers(
             input_quant = input_quant.let(**{'group_size': input_group_size})
 
         # Enable signed scale if specified in the scale precision format
-        if input_scale_is_signed:
-            if input_quant_type == 'asym':
-                raise NotImplementedError(
-                    "Asymmetric input quantization has not been tested with signed scales.")
-
-            input_quant = input_quant.let(
-                **{
-                    'restrict_scaling_type': RestrictValueType.SIGNED_FP,
-                    'scaling_stats_op': StatsOp.SIGNED_MAX,})
+        input_quant = maybe_inject_signed_scale_kwargs(input_quant, input_scale_is_signed)
 
         # QKV/Softmax Quant
         if attn_quant_granularity == 'per_row':
