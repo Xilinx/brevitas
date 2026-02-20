@@ -379,7 +379,7 @@ def generate_quantizers(
         k_transposed_quant = k_transposed_quant.let(
             **attn_override_kwargs
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
-        # Enable signed scale if specified in the scale precision format
+        # Enable signed scale if specified in the attention scale precision format
         k_transposed_quant = maybe_inject_signed_scale_kwargs(
             k_transposed_quant, attn_quant_type, attn_scale_is_signed)
         if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
@@ -429,7 +429,7 @@ def generate_quantizers(
     if weight_quant_type == 'asym' and weight_scaling_impl_type == 'parameter_from_stats':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
-    # Enable signed scale if specified in the scale precision format
+    # Enable signed scale if specified in the weight scale precision format
     weight_quant = maybe_inject_signed_scale_kwargs(weight_quant, weight_scale_is_signed)
 
     if quant_attn_mode == 'sdpa':
@@ -452,7 +452,7 @@ def generate_quantizers(
         elif input_quant_granularity == 'per_group':
             input_quant = input_quant.let(**{'group_size': input_group_size})
 
-        # Enable signed scale if specified in the scale precision format
+        # Enable signed scale if specified in the input scale precision format
         input_quant = maybe_inject_signed_scale_kwargs(input_quant, input_scale_is_signed)
 
         # QKV/Softmax Quant
