@@ -1,154 +1,39 @@
-from typing import List
-from typing import Optional
-
 import torch
-from vllm.config import ModelConfig
-from vllm.model_executor.layers.linear import LinearMethodBase
 
-from brevitas.graph.hadamard import get_hadK
-from brevitas.nn.equalized_layer import RotatedModule
+from brevitas.core.restrict_val import RestrictValueType
+from brevitas.core.utils import dynamic_over_sub_channel_block_view
+from brevitas.core.utils import groupwise_dequant_expand
 
-from ..handler import FloatInferencetHandler
-from ..handler import FloatWeightInferencetHandler
 from ..handler import GroupwiseFloatInferenceHandler
-from ..handler import GroupwiseFloatWeightInferenceHandler
-from ..handler import IntInferencetHandler
-from ..handler import IntWeightInferencetHandler
-
-class_mapping = {
-    'GroupwiseFloatInferenceHandler': GroupwiseFloatInferenceHandler,
-    'GroupwiseFloatWeightInferenceHandler': GroupwiseFloatWeightInferenceHandler,
-    'FloatInferencetHandler': FloatInferencetHandler,
-    'FloatWeightInferencetHandler': FloatWeightInferencetHandler,
-    'IntWeightInferencetHandler': IntWeightInferencetHandler,
-    'IntInferencetHandler': IntInferencetHandler,}
+from ..handler import GroupwiseIntInferenceHandler
 
 
-class QuantLinear(LinearMethodBase):
+class StandaloneGroupwiseQuantMixin:
 
-    def __init__(
-            self,
-            input_config=None,
-            weight_config=None,
-            bias_config=None,
-            output_config=None,
-            rotation_config=None):
-        self.input_quant = self.configure_proxy(input_config)
-        if isinstance(weight_config, list):
-            self.weight_quant = dict()
-            for i, config in enumerate(weight_config):
-                self.weight_quant[i] = self.configure_proxy(config)
-        else:
-            self.weight_quant = self.configure_proxy(weight_config)
-        self.bias_quant = self.configure_proxy(bias_config)
-        self.output_quant = self.configure_proxy(output_config)
-        self.rotation = self.configure_rotation(rotation_config)
+    def compute_scale(self, x, group_dim):
+        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
+        threshold = self.threshold
+        if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
+            scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
+        if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
+            threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
+        scale = scale / threshold
+        return scale
 
-    def configure_rotation(self, rotation_config):
-        if rotation_config is None:
-            return torch.nn.Identity()
-        rot_mat_shape = rotation_config['rot_mat_shape']
-        k = rotation_config['k']
-        if rot_mat_shape is None:
-            had_mat = None
-        else:
-            had_mat, _ = get_hadK(rot_mat_shape)
-        return RotatedModule(self, had_mat, k).rotation_forward
+    def forward(self, x):
+        inp_shape = x.shape
+        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
+        scale = self.compute_scale(x, self.group_dim)
+        zero_point = torch.zeros(()).type_as(x)
+        out = self.inner_forward(x, scale, zero_point)
+        out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
+        return out
 
-    def configure_proxy(self, quant_config):
-        # No config, no quantizer
-        if quant_config is None:
-            return torch.nn.Identity()
 
-        # Extract element that are not part of the state dict
-        quant_class_name = quant_config['class_type']
-        float_to_int_impl_type = quant_config['float_to_int_impl_type']
-        scaling_restriction = quant_config['scaling_restriction']
-        threshold_restriction = quant_config['threshold_restriction']
-        del quant_config['class_type']
-        del quant_config['float_to_int_impl_type']
-        del quant_config['scaling_restriction']
-        del quant_config['threshold_restriction']
+class vLLMGroupwiseIntInferenceHandler(GroupwiseIntInferenceHandler, StandaloneGroupwiseQuantMixin):
+    pass
 
-        # Scale and zero-point are the only float elements in the state dict
-        for k, v in quant_config.items():
-            if not isinstance(v, torch.Tensor):
-                if k == 'scale' or k == 'zero_point':
-                    quant_config[k] = torch.tensor(v)
-                else:
-                    quant_config[k] = torch.tensor(v, dtype=torch.int)
 
-        # Shapes must be set otherwise the state dict loading will fail
-        scale_shape = quant_config.get('scale', torch.tensor(())).shape
-        zero_point_shape = quant_config.get('zero_point', torch.tensor(())).shape
-        quant_class_type = class_mapping[quant_class_name]
-        quant_class = quant_class_type(scale_shape, zero_point_shape)
-
-        # Set the remaining attributes
-        quant_class.float_to_int_impl_type = float_to_int_impl_type
-        if scaling_restriction is not None:
-            quant_class.scaling_restriction = scaling_restriction
-        if threshold_restriction is not None:
-            quant_class.threshold_restriction = threshold_restriction
-        quant_class.float_to_int_impl_type = float_to_int_impl_type
-        quant_class.load_state_dict(quant_config)
-        return quant_class
-
-    def create_weights(
-        self,
-        layer: torch.nn.Module,
-        input_size_per_partition: int,
-        output_partition_sizes: List[int],
-        input_size: int,
-        output_size: int,
-        params_dtype: torch.dtype,
-        **extra_weight_attrs,
-    ):
-        from vllm.model_executor.parameter import ModelWeightParameter
-        weight_loader = extra_weight_attrs.get("weight_loader")
-        self.input_size_per_partition = input_size_per_partition
-        self.output_partition_sizes = output_partition_sizes
-        out_per_partition = sum(output_partition_sizes)
-        w = torch.empty(
-            (out_per_partition, input_size_per_partition),
-            device="cuda",
-            dtype=params_dtype,
-        )
-        weight = ModelWeightParameter(
-            data=torch.empty(
-                sum(output_partition_sizes),
-                input_size_per_partition,
-            ),
-            input_dim=1,
-            output_dim=0,
-            weight_loader=weight_loader,
-        )
-        layer.register_parameter("weight", weight)
-
-    def process_weights_after_loading(self, module: torch.nn.Module) -> None:
-        weight = module.weight.data
-        for i in range(len(self.output_partition_sizes)):
-            logical_widths = list(self.output_partition_sizes)
-            start_idx = sum(logical_widths[:i])
-            end_idx = start_idx + logical_widths[i]
-            if isinstance(self.weight_quant, dict):
-                weight_quant = self.weight_quant[i]
-            else:
-                weight_quant = self.weight_quant
-
-            weight[start_idx:end_idx] = weight_quant(weight[start_idx:end_idx])[0]
-
-    def apply(
-        self,
-        layer: torch.nn.Module,
-        x: torch.Tensor,
-        bias: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        x = self.rotation(x)
-        x = self.input_quant(x)
-        bias = self.bias_quant(bias) if bias is not None else None
-        y = x.matmul(layer.weight.t())
-        if bias is not None:
-            y = y + bias
-        y = self.output_quant(y)
-        return y
+class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
+                                         StandaloneGroupwiseQuantMixin):
+    pass

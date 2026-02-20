@@ -109,15 +109,15 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
             self.scaling_restriction = submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl
             self.threshold_restriction = submodule.scaling_impl.restrict_clamp_threshold.restrict_value_impl
 
-    def compute_scale(self, x, group_dim):
-        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
-        threshold = self.threshold
-        if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
-            scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
-        if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
-            threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
-        scale = scale / threshold
-        return scale
+    # def compute_scale(self, x, group_dim):
+    #     scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
+    #     threshold = self.threshold
+    #     if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
+    #         scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
+    #     if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
+    #         threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
+    #     scale = scale / threshold
+    #     return scale
 
 
 class FloatToIntMixin(torch.nn.Module):
@@ -185,11 +185,6 @@ class GroupwiseMixin(torch.nn.Module):
         shape.insert(extra_dim, group_size)
         x = x.reshape(shape)
         return x
-
-    # def compute_scale(self, x, group_dim):
-    #     scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4) / 6.
-    #     # scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
-    #     return scale
 
 
 class InferenceHandler(torch.nn.Module, ABC):
@@ -311,32 +306,17 @@ class GroupwiseIntInferenceHandler(IntInferencetHandlerBase,
         IntInferencetHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
         DynamicScaleZeroPointMixin.prepare_for_export(self, module)
-        self.module_forward = None
-        if module.is_quant_enabled:
-            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
-
-    def standalone_forward(self, x):
-        inp_shape = x.shape
-        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
-        scale = self.compute_scale(x, self.group_dim)
-        zero_point = torch.zeros(()).type_as(x)
-        out = self.inner_forward(x, scale, zero_point)
-        out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
-        return out
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
-        if self.module_forward is None:
-            return self.standalone_forward(x)
-        else:
-            # In inference mode, we never return quant tensors
-            assert self.skip_create_quant_tensor
-            inp_shape = x.shape
-            x, scale, zero_point, *other = self.module_forward(x)
+        # In inference mode, we never return quant tensors
+        assert self.skip_create_quant_tensor
+        inp_shape = x.shape
+        x, scale, zero_point, *other = self.module_forward(x)
 
-            # If we skip quant tensor, we return the flattened version of the groupwise tensor
-            x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
-            output_args = tuple([x, scale, zero_point] + list(other))
-            return output_args
+        # If we skip quant tensor, we return the flattened version of the groupwise tensor
+        x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
+        output_args = tuple([x, scale, zero_point] + list(other))
+        return output_args
 
 
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMixin):
@@ -490,39 +470,24 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase,
         FloatInferenceHandlerBase.__init__(self)
         GroupwiseMixin.__init__(self)
         DynamicScaleZeroPointMixin.__init__(self)
-        self.module_forward = None
 
     def prepare_for_export(self, module: nn.Module):
         FloatInferenceHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
         DynamicScaleZeroPointMixin.prepare_for_export(self, module)
-        if module.is_quant_enabled:
-            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
         return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
-    def standalone_forward(self, x):
-        inp_shape = x.shape
-        x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
-        scale = self.compute_scale(x, self.group_dim)
-        zero_point = torch.zeros(()).type_as(x)
-        out = self.inner_forward(x, scale, zero_point)
-        out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
-        return out
-
     def forward(self, x: Tensor) -> Tuple[Tensor]:
-        if self.module_forward is None:
-            return self.standalone_forward(x)
-        else:
-            # In inference mode, we never return quant tensors
-            assert self.skip_create_quant_tensor
-            inp_shape = x.shape
-            x, scale, zero_point, *other = self.module_forward(x)
-            # If we skip quant tensor, we return the flattened version of the groupwise tensor
-            x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
-            output_args = tuple([x, scale, zero_point] + list(other))
-            return output_args
+        # In inference mode, we never return quant tensors
+        assert self.skip_create_quant_tensor
+        inp_shape = x.shape
+        x, scale, zero_point, *other = self.module_forward(x)
+        # If we skip quant tensor, we return the flattened version of the groupwise tensor
+        x = groupwise_dequant_expand(x, scale, zero_point, self.group_dim, inp_shape)[0]
+        output_args = tuple([x, scale, zero_point] + list(other))
+        return output_args
 
 
 class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler, GroupwiseMixin):
