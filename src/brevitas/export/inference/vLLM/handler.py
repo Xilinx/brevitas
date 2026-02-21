@@ -1,7 +1,7 @@
 import torch
 
-from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.function_wrapper.shape import dynamic_over_sub_channel_block_view
+from brevitas.core.restrict_val import RestrictValueType
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 
 from ..handler import DynamicScaleZeroPointMixin
