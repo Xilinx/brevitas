@@ -25,7 +25,7 @@ from vllm.model_executor.layers.quantization.base_config import QuantizationConf
 from vllm.model_executor.layers.quantization.utils.quant_utils import is_layer_skipped
 
 import brevitas.config as config
-from brevitas.export.inference.vLLM.handler import QuantLinear
+from brevitas.export.inference.vLLM.layer import QuantLinear
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
