@@ -306,6 +306,9 @@ class GroupwiseIntInferenceHandler(IntInferencetHandlerBase,
         IntInferencetHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
         DynamicScaleZeroPointMixin.prepare_for_export(self, module)
+        self.module_forward = None
+        if module.is_quant_enabled:
+            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
@@ -475,6 +478,9 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase,
         FloatInferenceHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
         DynamicScaleZeroPointMixin.prepare_for_export(self, module)
+        self.module_forward = None
+        if module.is_quant_enabled:
+            self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
         return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
