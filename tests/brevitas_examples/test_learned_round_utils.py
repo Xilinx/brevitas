@@ -2,12 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import Any
-from typing import Union
 
 from accelerate.utils.operations import send_to_device
-from hypothesis import given
 import pytest
-import pytest_cases
 from pytest_cases import fixture
 import torch
 import torch.nn as nn
@@ -15,7 +12,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import LearnedRoundImplType
 import brevitas.nn as qnn
@@ -30,6 +26,7 @@ from brevitas_examples.common.learned_round.learned_round_method import \
     return_learned_round_quantizers
 from brevitas_examples.common.learned_round.learned_round_trainer import Cache
 from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
+from brevitas_examples.common.learned_round.learned_round_trainer import save_inputs_output
 
 
 class QuantBlock(nn.Module):
@@ -327,14 +324,14 @@ class TestLearnedRound:
         assert len(learned_round_modules) == num_round_modules
 
     @pytest.mark.parametrize(
-        "optimizer_str, optimizer", [("signsgd", SignSGD), ("Adam", torch.optim.Adam),
+        "optimizer_str, optimizer", [("SignSGD", SignSGD), ("Adam", torch.optim.Adam),
                                      ("SGD", torch.optim.SGD)])
     def test_parse_optimizer_class(self, optimizer_str, optimizer):
         assert optimizer == _parse_optimizer_class(optimizer_str)
 
     @pytest.mark.parametrize(
         "lr_scheduler_str, lr_scheduler",
-        [("linear", torch.optim.lr_scheduler.LinearLR),
-         ("Cosineannealing", torch.optim.lr_scheduler.CosineAnnealingLR)])
+        [("LinearLR", torch.optim.lr_scheduler.LinearLR),
+         ("CosineAnnealingLR", torch.optim.lr_scheduler.CosineAnnealingLR)])
     def test_parse_lr_scheduler_class(self, lr_scheduler_str, lr_scheduler):
         assert lr_scheduler == _parse_lr_scheduler_class(lr_scheduler_str)
