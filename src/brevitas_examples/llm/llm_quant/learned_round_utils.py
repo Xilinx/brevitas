@@ -159,7 +159,7 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
 
     def _parse_lr_scheduler_args(args: Namespace) -> LRSchedulerArgs:
         return LRSchedulerArgs(
-            lr_scheduler_cls="linear",
+            lr_scheduler_cls="LinearLR",
             lr_scheduler_kwargs={
                 "start_factor": 1.0,
                 "end_factor": 0.0,
@@ -169,7 +169,7 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
     # Optimizer for learned round parameters
     learned_round_optim_args = OptimizerArgs(
         target_params="learned_round",
-        optimizer_cls="signsgd",
+        optimizer_cls="SignSGD",
         lr=args.learned_round_lr,
         optimizer_kwargs={},
         lr_scheduler_args=_parse_lr_scheduler_args(args),
@@ -178,7 +178,7 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
     # Optimizer for scales
     scales_optim_args = OptimizerArgs(
         target_params="scales",
-        optimizer_cls="sgd",
+        optimizer_cls="SGD",
         lr=args.learned_round_scale_lr,
         optimizer_kwargs={
             "momentum": args.learned_round_scale_momentum,},

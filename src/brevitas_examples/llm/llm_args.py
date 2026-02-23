@@ -59,10 +59,11 @@ def create_args_parser() -> ArgumentParser:
         help='Specify which split to use for the evaluation dataset (default: %(default)s)')
     parser.add_argument(
         '--gpxq-block-name',
+        '--block-name',
         type=str,
         default=None,
         help=
-        'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
+        'Attribute for model blocks. Used for faster GPxQ optimization (if FX is not needed) and learned round (default: %(default)s)'
     )
     parser.add_argument(
         '--gpxq-buffer-device',

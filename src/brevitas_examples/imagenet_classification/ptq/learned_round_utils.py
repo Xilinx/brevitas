@@ -134,7 +134,7 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
 
     optim_args = OptimizerArgs(
         target_params="learned_round",
-        optimizer_cls="adam",
+        optimizer_cls="Adam",
         lr=args.learned_round_lr,
         optimizer_kwargs={},
         lr_scheduler_args=lr_scheduler_args,

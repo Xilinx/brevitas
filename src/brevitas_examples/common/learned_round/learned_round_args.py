@@ -10,7 +10,6 @@ from typing import Optional
 from typing import Type
 from typing import TypeVar
 from typing import Union
-import warnings
 
 import torch
 from torch.optim.optimizer import Optimizer
@@ -28,75 +27,30 @@ LR_SCHEDULER_NAMESPACES = [torch.optim.lr_scheduler]
 
 
 def _parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
-    optimizer_namespace_keys = []
+    optimizer_class = None
     for namespace in OPTIMIZER_NAMESPACES:
-        optimizer_namespace_keys += [
-            (namespace, optimizer_key)
-            for optimizer_key in namespace.__dict__.keys()
-            # Make sure that only valid optimizer implementations are
-            # retrieved, when matching the string passed by the user
-            if (
-                # Verify that the key stars with the one passed by the user
-                optimizer_key.lower() == optimizer_str.lower() and
-                # Verify that key corresponds to a class
-                isinstance(namespace.__dict__[optimizer_key], type) and
-                # Make sure the abstract class is not used
-                optimizer_key != "Optimizer" and
-                # An optimizer implements zero_grad and step. Check that this
-                # is the case for the class retrieved from torch.optim
-                hasattr(namespace.__dict__[optimizer_key], 'step') and
-                callable(namespace.__dict__[optimizer_key].step) and
-                hasattr(namespace.__dict__[optimizer_key], 'zero_grad') and
-                callable(namespace.__dict__[optimizer_key].zero_grad))]
+        if (optimizer_class := getattr(namespace, optimizer_str, None)) is not None:
+            # Stop on first match
+            break
 
-    if len(optimizer_namespace_keys) == 0:
+    if optimizer_class is None:
         raise ValueError(
             f"{optimizer_str} is not a valid optimizer in namespaces {[_namespace.__name__ for _namespace in OPTIMIZER_NAMESPACES]}."
         )
-
-    namespace, optimizer_name = optimizer_namespace_keys[0]
-    if len(optimizer_namespace_keys) > 1:
-        warnings.warn(
-            f"There are multiple potential matches for optimizer {optimizer_str} ({[_optimizer_name for _, _optimizer_name in optimizer_namespace_keys]}). "
-            f"Defaulting to {optimizer_name} from {namespace.__name__}.")
-
-    optimizer_class = getattr(namespace, optimizer_name)
     return optimizer_class
 
 
 def _parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
-    lr_scheduler_namespace_keys = []
+    lr_scheduler_class = None
     for namespace in LR_SCHEDULER_NAMESPACES:
-        lr_scheduler_namespace_keys += [
-            (namespace, lr_scheduler_key)
-            for lr_scheduler_key in torch.optim.lr_scheduler.__dict__.keys()
-            # Check for making sure that only valid LRScheduler implementations are
-            # retrived, when matching with the string passed by the user
-            if
-            ((
-                lr_scheduler_key.lower() == lr_scheduler_str.lower() or
-                lr_scheduler_key.lower() == lr_scheduler_str.lower() + "lr") and
-             # Verify that key corresponds to a class
-             isinstance(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], type) and
-             # Make sure the abstract class is not retrieved
-             lr_scheduler_key != "LRScheduler" and
-             # A learning rate scheduler implements zero_grad and step. Check that this
-             # is the case for the class retrieved from torch.optim.lr_scheduler
-             hasattr(torch.optim.lr_scheduler.__dict__[lr_scheduler_key], 'step') and
-             callable(torch.optim.lr_scheduler.__dict__[lr_scheduler_key].step))]
+        if (lr_scheduler_class := getattr(namespace, lr_scheduler_str, None)) is not None:
+            # Stop on first match
+            break
 
-    if len(lr_scheduler_namespace_keys) == 0:
+    if lr_scheduler_class is None:
         raise ValueError(
-            f"{lr_scheduler_str} is not a valid lr scheduler in namespaces {[_namespace.__name__ for _namespace in LR_SCHEDULER_NAMESPACES]}."
+            f"{lr_scheduler_str} is not a valid learning rate scheduler in namespaces {[_namespace.__name__ for _namespace in LR_SCHEDULER_NAMESPACES]}."
         )
-
-    namespace, lr_scheduler_name = lr_scheduler_namespace_keys[0]
-    if len(lr_scheduler_namespace_keys) > 1:
-        warnings.warn(
-            f"There are multiple potential matches for lr scheduler {lr_scheduler_str} ({[_lr_scheduler_name for _, _lr_scheduler_name in lr_scheduler_namespace_keys]}). "
-            f"Defaulting to {lr_scheduler_name} from {namespace.__name__}.")
-
-    lr_scheduler_class = getattr(namespace, lr_scheduler_name)
     return lr_scheduler_class
 
 
