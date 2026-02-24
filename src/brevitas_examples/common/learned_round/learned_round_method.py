@@ -62,11 +62,7 @@ class BlockLoss(ABC):
         pass
 
     @abstractmethod
-    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
-        pass
-
-    @abstractmethod
-    def format_loss_components(self, *args) -> str:
+    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
         pass
 
 
@@ -138,8 +134,8 @@ class LinearTempDecay:
             return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
 
-@BLOCK_LOSS_REGISTRY.register(names="regularised_mse")
-class RegularisedMSELoss(BlockLoss):
+@BLOCK_LOSS_REGISTRY.register(names="round_reg")
+class RoundRegularisationLoss(BlockLoss):
 
     def __init__(
             self,
@@ -151,7 +147,7 @@ class RegularisedMSELoss(BlockLoss):
             decay_start: float = 0.0,
             **kwargs) -> None:
         # This loss operates in a layer-wise manner, so integrity needs to be checked
-        assert isinstance(module, QuantWBIOL), "Regularised MSE loss can only accept a single QuantWBIOL layer."
+        assert isinstance(module, QuantWBIOL), "Regularised round loss can only accept a single QuantWBIOL layer."
         self.weight = weight
         self.module = module
         self.loss_start = max_count * warmup
@@ -163,46 +159,40 @@ class RegularisedMSELoss(BlockLoss):
         self.iter = 0
         # Retrieve learned round module for block
         learned_round_modules = return_learned_round_quantizers(module)
-        assert len(learned_round_modules) == 1, "Regularised MSE loss can only accept a single learned round module."
+        assert len(learned_round_modules) == 1, "Regularised round loss can only accept a single learned round module."
         self.learned_round_module = learned_round_modules[0]
 
-    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
+    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
         self.iter += 1
-
-        rec_loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
 
         if self.iter < self.loss_start:
             b = self.temp_decay(self.iter)
-            round_loss = 0.
+            round_loss = torch.tensor(0., device=pred.device, dtype=torch.float32)
         else:  # 1 - |(h-0.5)*2|**b
             b = self.temp_decay(self.iter)
             round_vals = self.learned_round_module.learned_round_impl(
                 self.learned_round_module.value)
             round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
 
-        total_loss = rec_loss + round_loss
-        return total_loss, (total_loss, rec_loss, round_loss, b)
-
-    def format_loss_components(self, loss: float, rec_loss: float, round_loss: float, b) -> str:
-        return "Loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
-            loss,
-            rec_loss.detach().cpu().item(),
-            round_loss if isinstance(round_loss, float) else round_loss.detach().cpu().item(),
-            b)
+        return round_loss
 
 
 @BLOCK_LOSS_REGISTRY.register(names="mse")
 class MSELoss(BlockLoss):
 
-    def __init__(self, block: nn.Module, **kwargs) -> None:
-        pass
+    def __init__(
+            self,
+            block: nn.Module,
+            reduction: Optional[str] = None,
+            dim: Optional[int] = None,
+            **kwargs) -> None:
+        self.reduction = reduction
+        self.dim = dim
 
-    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> Tuple[torch.Tensor, Tuple]:
-        loss = F.mse_loss(pred, tgt)
-        return loss, (loss.detach().cpu().item(),)
-
-    def format_loss_components(self, loss: float) -> str:
-        return "Loss = {:.4f}".format(loss)
+    def __call__(self, pred: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
+        if self.reduction is None:
+            return F.mse_loss(pred, tgt)
+        return F.mse_loss(pred, tgt, reduction=self.reduction).sum(self.dim).mean()
 
 
 # Both `get_round_parameters` and `get_scale_parameters` are meant to be passed as the argument `get_target`

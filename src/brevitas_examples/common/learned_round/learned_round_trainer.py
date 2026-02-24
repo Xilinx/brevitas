@@ -420,7 +420,7 @@ class LearnedRoundTrainer:
         self,
         model: nn.Module,
         forward: Callable,
-        block_loss: BlockLoss,
+        block_losses: List[BlockLoss],
         inputs: _T_cache,
         scaler: Optional['GradScaler'] = None,
     ) -> Tuple[torch.Tensor, Any]:
@@ -428,7 +428,7 @@ class LearnedRoundTrainer:
         loss, loss_components = self._compute_loss(
             model,
             forward,
-            block_loss,
+            block_losses,
             inputs,
         )
         # Run backward, optionally scaling the loss
@@ -442,19 +442,17 @@ class LearnedRoundTrainer:
 
     def _amp_context_manager(self):
         if self.config.training_args.use_amp:
-            ctx_manager = autocast(
+            return autocast(
                 device_type="cuda" if torch.cuda.is_available() else "cpu",
                 dtype=self.config.training_args.amp_dtype)
-        else:
-            ctx_manager = nullcontext()
 
-        return ctx_manager
+        return nullcontext()
 
     def _compute_loss(
         self,
         model: nn.Module,
         forward: Callable,
-        block_loss: BlockLoss,
+        block_losses: List[BlockLoss],
         inputs: _T_cache,
     ) -> Tuple[torch.Tensor, Any]:
         # Unpack inputs to model and expected outputs
@@ -463,8 +461,13 @@ class LearnedRoundTrainer:
             # Run block forward to obtain quant outputs
             output = forward(model, inps)
             exp_output = send_to_device(exp_output, output.device)
-            loss, loss_components = block_loss(output, exp_output)
-
+            # Compute and aggregate losses
+            loss = None
+            loss_components = tuple()
+            for block_loss in block_losses:
+                curr_loss = block_loss(output, exp_output)
+                loss = curr_loss if loss is None else loss + curr_loss
+                loss_components += (curr_loss.detach().clone().cpu().item(),)
         return loss, loss_components
 
     def _get_target_parameters(
@@ -526,7 +529,7 @@ class LearnedRoundTrainer:
         model: nn.Module,
         forward: Callable,
         data_loader: DataLoader[_T_cache],
-        block_loss: BlockLoss,
+        block_losses: List[BlockLoss],
     ) -> Tuple[float, int, int]:
 
         # Initialize optimizers and lr schedulers
@@ -559,7 +562,7 @@ class LearnedRoundTrainer:
             inputs = next(data_loader)
 
             # Compute loss and gradients
-            loss, loss_components = self._training_step(model, forward, block_loss, inputs, scaler)
+            loss, loss_components = self._training_step(model, forward, block_losses, inputs, scaler)
 
             # Save best parameters before taking gradient step
             curr_loss = loss
@@ -575,7 +578,9 @@ class LearnedRoundTrainer:
             self._step(optim_lr_schedulers, scaler)
 
             # Update progress bar
-            pbar.set_description("{}".format(block_loss.format_loss_components(*loss_components)))
+            pbar.set_description(
+                f"Loss: {loss:.3e} ({', '.join(f'{block_loss.__class__.__name__}: {loss_component:.3e}' for loss_component, block_loss in zip(loss_components, block_losses))})"
+            )
 
         # Make sure no updates are received in the progress bar
         pbar.close()
@@ -625,6 +630,21 @@ class LearnedRoundTrainer:
                 disable_quant=not capture_quant_output,
             )
 
+    def _instantiate_losses(self, block: nn.Module) -> List[BlockLoss]:
+        return [
+            loss_args.cls(block, **loss_args.kwargs)
+            for loss_args in self.config.training_args.losses_args]
+
+    def _instantiate_block_dataloader(self, cache: Cache) -> DataLoader[_T_cache]:
+        return DataLoader(
+            cache,
+            batch_size=self.config.training_args.batch_size,
+            sampler=torch.utils.data.RandomSampler(
+                data_source=cache,
+                replacement=True,
+                num_samples=self.config.training_args.batch_size * self.config.training_args.iters),
+            collate_fn=cache.collate_fn)
+
     def train(
             self,
             model: nn.Module,
@@ -669,20 +689,11 @@ class LearnedRoundTrainer:
                 # Remove hooks needed to offload the model blocks to cpu
                 remove_hooks(model)
 
-            # Loss function for computing the rounding loss within each block
-            block_loss = self.config.training_args.loss_cls(
-                block, **self.config.training_args.loss_kwargs)
+            # Loss functions for training the current block
+            block_losses = self._instantiate_losses(block)
 
             # Per-block training data loader
-            block_data_loader = DataLoader(
-                cache,
-                batch_size=self.config.training_args.batch_size,
-                sampler=torch.utils.data.RandomSampler(
-                    data_source=cache,
-                    replacement=True,
-                    num_samples=self.config.training_args.batch_size *
-                    self.config.training_args.iters),
-                collate_fn=cache.collate_fn)
+            block_data_loader = self._instantiate_block_dataloader(cache)
             # Optimize block
             with block_optimization_cm(module=block,
                                        target_params=self._get_all_target_parameters(block)):
@@ -690,7 +701,7 @@ class LearnedRoundTrainer:
                     model=block,
                     forward=block_forward,
                     data_loader=block_data_loader,
-                    block_loss=block_loss,
+                    block_losses=block_losses,
                 )
 
             print(

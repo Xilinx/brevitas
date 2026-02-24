@@ -15,6 +15,7 @@ from transformers import PreTrainedModel
 
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.learned_round.learned_round_args import HandlerSpec
+from brevitas_examples.common.learned_round.learned_round_args import LossArgs
 from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
@@ -190,8 +191,8 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         ([scales_optim_args] if args.learned_round_scale else []),
         batch_size=8,
         iters=args.learned_round_iters,
-        loss_cls="mse",
-        loss_kwargs=None,
+        losses_args=[
+            LossArgs(cls="mse",),],
         loss_scaling_factor=1000.0,
         use_best_model=True,
         use_amp=True,

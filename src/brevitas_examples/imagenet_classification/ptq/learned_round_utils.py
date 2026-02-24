@@ -42,6 +42,7 @@ from brevitas import config
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.learned_round.learned_round_args import HandlerSpec
+from brevitas_examples.common.learned_round.learned_round_args import LossArgs
 from brevitas_examples.common.learned_round.learned_round_args import LRSchedulerArgs
 from brevitas_examples.common.learned_round.learned_round_args import OptimizerArgs
 from brevitas_examples.common.learned_round.learned_round_args import TrainerConfig
@@ -140,12 +141,28 @@ def parse_args_to_dataclass(args: Namespace) -> TrainerConfig:
         lr_scheduler_args=lr_scheduler_args,
     )
 
+    if args.learned_round_loss == "regularised_mse":
+        losses_args = [
+            LossArgs(
+                cls="round_reg",
+                kwargs=None,
+            ),
+            LossArgs(
+                cls="mse",
+                kwargs={
+                    "reduction": "none",
+                    "dim": 1,},
+            )]
+    elif args.learned_round_loss == "mse":
+        losses_args = [LossArgs(cls="mse",)]
+    else:
+        raise ValueError(f"{args.learned_round_loss} is not a valid learned round loss.")
+
     training_args = TrainingArgs(
         optimizers_args=[optim_args],
         batch_size=args.learned_round_batch_size,
         iters=args.learned_round_iters,
-        loss_cls=args.learned_round_loss,
-        loss_kwargs=None,
+        losses_args=losses_args,
         loss_scaling_factor=1.0,
         use_best_model=False,
         use_amp=True,

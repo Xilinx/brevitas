@@ -121,20 +121,34 @@ class OptimizerArgs:
 
 
 @dataclass
+class LossArgs:
+    cls: Union[str, Type[BlockLoss]] = field(
+        default="mse",
+        metadata={
+            "help": "Class of the loss to be used for blockwise optimization.",
+            "choices": BLOCK_LOSS_REGISTRY.get_registered_keys()})
+    kwargs: Optional[Union[Dict, str]] = field(
+        default=None,
+        metadata={"help": "Extra keyword arguments for the loss."},
+    )
+
+    _DICT_ATTRIBUTES = ["kwargs"]
+
+    def __post_init__(self) -> None:
+        # Parse in args that could be `dict` sent in from the CLI as a string
+        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
+        # Retrieve loss
+        self.cls = (BLOCK_LOSS_REGISTRY.get(self.cls) if isinstance(self.cls, str) else self.cls)
+
+
+@dataclass
 class TrainingArgs:
     optimizers_args: List[OptimizerArgs] = field(
         metadata={"help": ("Hyperparameters of the optimizers to use during training.")})
     batch_size: int = field(default=8, metadata={"help": "Batch size per GPU for training."})
     iters: int = field(default=200, metadata={"help": "Number of training iterations."})
-    loss_cls: Union[str, Type[BlockLoss]] = field(
-        default="mse",
-        metadata={
-            "help": "Class of the loss to be used for rounding optimization.",
-            "choices": BLOCK_LOSS_REGISTRY.get_registered_keys()})
-    loss_kwargs: Optional[Union[Dict, str]] = field(
-        default=None,
-        metadata={"help": "Extra keyword arguments for the learned round loss."},
-    )
+    losses_args: List[LossArgs] = field(
+        default_factory=list, metadata={"help": "Losses to use during blockwise training."})
     loss_scaling_factor: float = field(
         default=1.,
         metadata={"help": "Scaling factor for the loss."},
@@ -159,12 +173,13 @@ class TrainingArgs:
                 "Whether to use fast update with block optimization. `fast_update=True` requires implementing additional methods in the custom `Cache`."
             )})
 
-    _DICT_ATTRIBUTES = ["loss_kwargs"]
-
     def __post_init__(self) -> None:
-        # Parse in args that could be `dict` sent in from the CLI as a string
-        parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
-
+        # Verify that at least one loss function was provided
+        if len(self.losses_args) == 0:
+            raise ValueError("At least one loss function needs to be provided for training.")
+        # Verify that at least one optimizer was provided
+        if len(self.optimizers_args) == 0:
+            raise ValueError("At least one optimizer needs to be provided for training.")
         for optimizer_args in self.optimizers_args:
             # Check if the optimizer has an attached learning rate scheduler
             if optimizer_args.lr_scheduler_args is not None:
@@ -172,10 +187,6 @@ class TrainingArgs:
         # Parse amp_dtype
         self.amp_dtype = getattr(torch, self.amp_dtype) if isinstance(
             self.amp_dtype, str) else self.amp_dtype
-        # Retrieve loss
-        self.loss_cls = (
-            BLOCK_LOSS_REGISTRY.get(self.loss_cls)
-            if isinstance(self.loss_cls, str) else self.loss_cls)
 
 
 T_config = TypeVar("T_config")
