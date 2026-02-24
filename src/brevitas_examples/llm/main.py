@@ -48,6 +48,7 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
+from brevitas_examples.llm.llm_quant.data import get_clm_collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
@@ -298,6 +299,11 @@ def quantize_llm(args, extra_args=None):
             f"The provided configuration requires fx and has a batch size of {args.calibration_batch_size}.\nErrors may occur when using fx and batch_size > 1.\nIf you experience any issues try chaning the configuration to avoid using fx or to set the batch_size to 1."
         )
 
+    clm_collate_fn = get_clm_collate_fn(
+        model_name_or_path=args.model,
+        sequence_length=args.seqlen,
+        require_fx=require_fx and args.export_target is not None,
+    )
     # Load the data for calibration and evaluation.
     calibration_dataset = get_dataset_for_model(
         args.model,
@@ -311,10 +317,6 @@ def quantize_llm(args, extra_args=None):
         require_fx=require_fx and args.export_target is not None,
         device=None)
 
-    # Batched data loader to accelerate GPXQ algorithms
-    calibration_loader = DataLoader(
-        dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
-
     validation_dataset = get_dataset_for_model(
         args.model,
         bos_preprocessing=args.bos_preprocessing,
@@ -326,6 +328,18 @@ def quantize_llm(args, extra_args=None):
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
         device=None)
+
+    # Batched data loader to accelerate GPXQ algorithms
+    calibration_loader = DataLoader(
+        dataset=calibration_dataset,
+        batch_size=args.calibration_batch_size,
+        collate_fn=clm_collate_fn)
+
+    # Batched data loader for evaluation
+    validation_loader = DataLoader(
+        dataset=validation_dataset,
+        batch_size=args.validation_batch_size,
+        collate_fn=clm_collate_fn)
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
@@ -350,7 +364,7 @@ def quantize_llm(args, extra_args=None):
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(
-            model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
@@ -726,7 +740,7 @@ def quantize_llm(args, extra_args=None):
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
                 quant_ppl = compute_perplexity(
-                    model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
+                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':

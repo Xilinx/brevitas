@@ -24,9 +24,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import dataclasses
 from functools import partial
 import random
 from typing import Any
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -38,8 +40,10 @@ from datasets import load_dataset
 from datasets import Sequence
 from datasets import Value
 import numpy as np
+from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
 from tqdm import tqdm
+from transformers import AutoConfig
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 
@@ -107,6 +111,76 @@ def _clm_dataset_to_list(row: np.ndarray,) -> Dict[str, torch.Tensor]:
     return {"input_ids": input_ids, "attention_mask": attention_mask}
 
 
+# Adapted from: https://github.com/huggingface/transformers/blob/47e1676255e5dd86b9541f734cd4f4bdcbb50f4a/src/transformers/data/data_collator.py#L607
+@dataclasses.dataclass
+class DataCollatorForCLM:
+    """
+    Data collator used for causal language modeling.
+    """
+
+    sequence_length: int
+    num_kv_heads: Optional[int] = None
+    head_dim: Optional[int] = None
+    num_layers: Optional[int] = None
+    require_fx: bool = False
+
+    def __call__(self, examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, torch.Tensor]:
+        # Make sure we load only what's necessary, ie we only load a `input_ids` column.
+        assert all(list(example.keys()) == ["input_ids"] for example in examples)
+
+        input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
+        batch_size, _ = input_ids.shape
+
+        result: Dict[str, np.ndarray] = {}
+        # Process inputs: last token is the label
+        result["input_ids"] = input_ids
+        result["attention_mask"] = np.ones((batch_size, self.sequence_length), dtype=np.bool_)
+
+        # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
+        if self.require_fx:
+            result["past_key_values"] = tuple((
+                np.zeros((batch_size, self.num_kv_heads, 0, self.head_dim), dtype=input_ids.dtype),
+                np.zeros((batch_size, self.num_kv_heads, 0, self.head_dim), dtype=input_ids.dtype),
+            ) for _ in range(self.num_kv_heads))
+
+        # Cast np.array to torch.Tensor
+        result = {k: torch.from_numpy(v) for k, v in result.items()}
+        return result
+
+
+def get_clm_collate_fn(
+    model_name_or_path: str,
+    sequence_length: int,
+    require_fx: bool = False,
+) -> Callable[[List[Dict[str, List[np.ndarray]]]], Dict[str, torch.Tensor]]:
+    num_kv_heads = None
+    head_dim = None
+    num_layers = None
+    # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
+    if require_fx:
+        config = AutoConfig.from_pretrained(model_name_or_path)
+
+        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(
+            config.model_type)
+        normalized_config = normalized_config_class(config)
+
+        num_heads = normalized_config.num_attention_heads
+        if hasattr(normalized_config, "num_key_value_heads"):
+            num_kv_heads = normalized_config.num_key_value_heads
+        else:
+            num_kv_heads = num_heads
+        head_dim = normalized_config.hidden_size // num_heads
+        num_layers = normalized_config.num_layers
+
+    return DataCollatorForCLM(
+        sequence_length=sequence_length,
+        num_kv_heads=num_kv_heads,
+        head_dim=head_dim,
+        num_layers=num_layers,
+        require_fx=require_fx,
+    )
+
+
 def get_clm_dataset(
     raw_dataset: Dataset,
     tokenizer: PreTrainedTokenizerBase,
@@ -164,7 +238,7 @@ def get_clm_dataset(
     # Retrive random slice of dataset
     dataset = dataset.select(random_indices)
     # Now return the slice in a format that can be converted to a DatasetToDevice
-    return list(map(_clm_dataset_to_list, dataset))
+    return dataset
 
 
 def get_wikitext2(
@@ -179,29 +253,27 @@ def get_wikitext2(
     # Add BOS token to each sequence if add_bos_token is True and the tokenizer supports this token
     if add_bos_token and tokenizer.bos_token_id is not None:
         seqlen = seqlen - 1
-        sequence_process_fn = lambda inp: torch.cat([
-            torch.tensor([[tokenizer.bos_token_id]], dtype=inp.dtype, device=inp.device), inp],
-                                                    dim=1)
+        sequence_process_fn = lambda inp: [tokenizer.bos_token_id] + inp
     else:
         # Identity, the BOS token is not added
         sequence_process_fn = lambda inp: inp
 
-    data = tokenizer("\n\n".join(raw_dataset['text']), return_tensors='pt')
-    dataloader = []
+    input_ids = tokenizer(
+        "\n\n".join(raw_dataset['text']), return_attention_mask=False)["input_ids"]
+    tokenized_data = []
     if split == 'train':
         for _ in tqdm(range(nsamples)):
-            i = random.randint(0, data.input_ids.shape[1] - seqlen - 1)
+            i = random.randint(0, len(input_ids) - seqlen - 1)
             j = i + seqlen
-            inp = sequence_process_fn(data.input_ids[:, i:j])
-            attention_mask = torch.ones_like(inp)
-            dataloader.append({'input_ids': inp, 'attention_mask': attention_mask})
+            inp = sequence_process_fn(input_ids[i:j])
+            tokenized_data.append({'input_ids': inp})
     elif split in ['test', 'validation']:
-        nsamples = data['input_ids'].numel() // seqlen
+        nsamples = len(input_ids) // seqlen
         for i in tqdm(range(nsamples)):
-            batch = sequence_process_fn(data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)])
-            attention_mask = torch.ones_like(batch)
-            dataloader.append({'input_ids': batch, 'attention_mask': attention_mask})
-    return dataloader
+            batch = sequence_process_fn(input_ids[(i * seqlen):((i + 1) * seqlen)])
+            tokenized_data.append({'input_ids': batch})
+
+    return Dataset.from_list(tokenized_data)
 
 
 def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:

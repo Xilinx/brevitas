@@ -114,7 +114,7 @@ def get_dataset_for_model(
             warnings.warn(
                 "Wikitext2 does not support document-level BOS. Default to sequence-level.")
         # Wikitext2 preprocessing matches the preprocessing in https://github.com/IST-DASLab/gptq/blob/main/datautils.py
-        data = get_wikitext2(
+        dataset = get_wikitext2(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
             seqlen=seqlen,
@@ -123,7 +123,7 @@ def get_dataset_for_model(
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
             seed=seed)
     else:
-        data = get_clm_dataset(
+        dataset = get_clm_dataset(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
             nsamples=nsamples,
@@ -132,42 +132,7 @@ def get_dataset_for_model(
             add_eos_token=add_eos_token,
             fuse_documents=fuse_documents)
 
-    # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
-    if require_fx:
-        config = AutoConfig.from_pretrained(model_name_or_path)
-
-        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(
-            config.model_type)
-        normalized_config = normalized_config_class(config)
-
-        num_heads = normalized_config.num_attention_heads
-        if hasattr(normalized_config, "num_key_value_heads"):
-            num_kv_heads = normalized_config.num_key_value_heads
-        else:
-            num_kv_heads = num_heads
-        head_dim = normalized_config.hidden_size // num_heads
-        num_layers = normalized_config.num_layers
-
-        for sample in data:
-            sample["past_key_values"] = tuple((
-                torch.zeros(
-                    1,
-                    num_kv_heads,
-                    0,
-                    head_dim,
-                    device=sample["input_ids"].device,
-                    dtype=sample["input_ids"].dtype),
-                torch.zeros(
-                    1,
-                    num_kv_heads,
-                    0,
-                    head_dim,
-                    device=sample["input_ids"].device,
-                    dtype=sample["input_ids"].dtype),
-            ) for _ in range(num_layers))
-
-    data = DatasetToDevice(data, device=device)
-    return data
+    return dataset
 
 
 def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:

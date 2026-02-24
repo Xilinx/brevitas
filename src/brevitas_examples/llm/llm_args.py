@@ -497,6 +497,11 @@ def create_args_parser() -> ArgumentParser:
         type=int,
         default=1,
         help='Batch size for calibration data loader. (default: %(default)s).')
+    parser.add_argument(
+        '--validation-batch-size',
+        type=int,
+        default=1,
+        help='Batch size for validation data loader. (default: %(default)s).')
 
     return parser
 
