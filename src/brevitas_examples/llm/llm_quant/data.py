@@ -194,7 +194,7 @@ def get_wikitext2(
             j = i + seqlen
             inp = sequence_process_fn(data.input_ids[:, i:j])
             attention_mask = torch.ones_like(inp)
-            dataloader.append({'input_ids': inp, 'attention_mask': attention_mask})
+            dataloader.append({'input_ids': inp, 'attention_mask': attention_mask, 'labels': inp})
     elif split in ['test', 'validation']:
         nsamples = data['input_ids'].numel() // seqlen
         for i in tqdm(range(nsamples)):
