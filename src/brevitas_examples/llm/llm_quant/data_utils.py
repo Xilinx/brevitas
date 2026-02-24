@@ -53,17 +53,17 @@ class DatasetToDevice(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         row = self.data[idx]
-        input_ids = torch.tensor(row["input_ids"], dtype=torch.int64).unsqueeze(0)
+        input_ids = torch.tensor(row["input_ids"], dtype=torch.int64)
         attention_mask = torch.ones_like(input_ids)
         # Wikitext dataset has already the correct shape, otherwise we adjust it
         if len(input_ids.shape) == 1:
-            input_ids = input_ids.unsqueeze[0]
+            input_ids = input_ids.unsqueeze(0)
         # Labels is needed for HF's Trainer, otherwise it is just ignored
         data = {"input_ids": input_ids, "attention_mask": attention_mask, "labels": input_ids}
         if self.device is not None:
             return {name: recursive_to_device(val, self.device) for name, val in data.items()}
         else:
-            return self.data[idx]
+            return data
 
     def __len__(self):
         return len(self.data)
