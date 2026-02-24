@@ -140,17 +140,6 @@ def data_collator(kwargs_list: List[InputDataClass], return_tensors: str = "pt")
     return collate_fn(kwargs_list)
 
 
-def _prepare_train_dataset(train_dataset: DatasetToDevice) -> Dataset:
-    return DatasetToDevice(
-        data=[
-            {
-                # setting "labels" to train_datapoint["input_ids"] is correct since "labels"
-                # are just input_ids shifted by 1 and this shift is handled later on.
-                "input_ids": train_datapoint["input_ids"],
-                "labels": train_datapoint["input_ids"]} for train_datapoint in train_dataset.data],
-        device=None)
-
-
 def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     # For a PretrainedModel, the Trainer in accelerate calls save_pretrained after
     # finishing the optimization. However, this method no longer works after
@@ -175,8 +164,7 @@ def apply_rotation_optimization(
     training_args: TrainingArguments,
 ) -> None:
 
-    # Prepare dataset and model for training
-    train_dataset = _prepare_train_dataset(train_dataset)
+    # Prepare model for training
     model = _prepare_model(model)
     # Enable skipping optimization
     if training_args.max_steps <= 0:

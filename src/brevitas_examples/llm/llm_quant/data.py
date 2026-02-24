@@ -164,7 +164,7 @@ def get_clm_dataset(
     # Retrive random slice of dataset
     dataset = dataset.select(random_indices)
     # Now return the slice in a format that can be converted to a DatasetToDevice
-    return list(map(_clm_dataset_to_list, dataset))
+    return dataset
 
 
 def get_wikitext2(
