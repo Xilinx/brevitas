@@ -707,7 +707,7 @@ class LLMRotationOptimizationCases:
             "optimize_rotations": True,
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
-            "block_rotation_dim": 32,
+            "rotation_block_size": 32,
             "nsamples_rot_calibration": 2,
             "dtype": "float32",
             "extra_args": [

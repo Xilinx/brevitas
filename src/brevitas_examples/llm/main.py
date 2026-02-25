@@ -136,7 +136,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand,
-        block_rotation_dim=args.block_rotation_dim,
+        rotation_block_size=args.rotation_block_size,
         disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
         extra_state_kwargs=extra_state_kwargs)
 
@@ -145,7 +145,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         with rotate_permute_mode(fx_model,
                                  rotation=eq,
                                  permute_fn=args.permute_fn,
-                                 block_size=args.block_rotation_dim,
+                                 block_size=args.rotation_block_size,
                                  disable_for_fused_rotations=args.disable_block_rotation_for_fused,
                                  extra_state_kwargs=extra_state_kwargs) as rpm:
 
@@ -407,7 +407,7 @@ def quantize_llm(args, extra_args=None):
             use_parametrized_rotations=args.optimize_rotations,
             expansion_step=args.expansion_step,
             layers_to_expand=layers_to_expand,
-            block_rotation_dim=args.block_rotation_dim,
+            rotation_block_size=args.rotation_block_size,
             disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
             extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         model = eq.apply(model)
@@ -425,7 +425,7 @@ def quantize_llm(args, extra_args=None):
         eq = LayerwiseActivationRotation(
             layers_to_expand=layers_to_expand,
             expansion_step=args.expansion_step,
-            block_rotation_dim=args.block_rotation_dim)
+            rotation_block_size=args.rotation_block_size)
         model = eq.apply(model)
         remove_hooks(model)
 

@@ -82,7 +82,7 @@ def test_rotate_permute_mode(
     rotation = GraphRotationEqualization(
         expansion_step=expansion_step,
         layers_to_expand=[],
-        block_rotation_dim=block_size,
+        rotation_block_size=block_size,
         orphan_sink=orphan_sink,
         disable_block_rotation_for_fused=disable_for_fused_rotations,
         return_rewriters=True,
@@ -134,7 +134,7 @@ def test_permute_block_size_compatibility(rotation_model, block_size, device):
     rotation = GraphRotationEqualization(
         expansion_step=0,
         layers_to_expand=[],
-        block_rotation_dim=block_size,
+        rotation_block_size=block_size,
         disable_block_rotation_for_fused=False,
         return_rewriters=True,
         delay_rewriters=True)

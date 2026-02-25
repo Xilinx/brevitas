@@ -58,7 +58,7 @@ def register_permutation_method(name: str):
 
     Examples:
         >>> @register_permutation_method("my_permute")
-        ... def my_permute_method(x, block_rotation_dim):
+        ... def my_permute_method(x, block_size):
         ...     return torch.arange(x.shape[-1])
     """
 

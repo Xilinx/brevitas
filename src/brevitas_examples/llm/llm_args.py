@@ -366,7 +366,7 @@ def create_args_parser() -> ArgumentParser:
         'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
     )
     parser.add_argument(
-        '--block-rotation-dim',
+        '--rotation-block-size',
         type=int,
         default=None,
         help='Perform blockwise rotations when possible. Default: %(default)s')
