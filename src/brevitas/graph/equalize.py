@@ -1632,7 +1632,7 @@ def _compute_rotations(
         region for region in regions if len(region.srcs) > 0]
 
     # Pre-initialize to None to avoid issue down the line
-    expanded_rot_mat, expanded_K, rot_mat, K = None, None, None, None
+    rot_mat, K = None, None
     for region in regions:
         insert_rotation_module = len(region.srcs) == 0
 
