@@ -8,7 +8,7 @@ certain layers post-training to bridge the gap between full-precision and quanti
 models. When quantizing Llama3 1B to 4-bit weights and activations, this technique 
 reduces the gap to full-precision perplexity by an average of 9% compared to QuaRot 
 and SpinQuant with only 5% more parameters—still achieving a 3.8× volume reduction 
-relative to BF16. Let's explore how to leverage model expansion for better quantization!
+relative to BF16.
 
 .. raw:: html
 
@@ -154,7 +154,7 @@ for groups of 32 elements. This format offers higher precision through finer-gra
 factors.
 
 +--------+-----------+------------+-----------+------------+-----------+------------+
-|        |         Llama 3.2 1B            |         Llama 3.2 3B            |       Llama 3.1 8B              |
+|        |    Llama 3.2 1B        |         Llama 3.2 3B   |    Llama 3.1 8B        |
 +--------+-----------+------------+-----------+------------+-----------+------------+
 |        | Wiki2 (↓) | 0-shot (↑) | Wiki2 (↓) | 0-shot (↑) | Wiki2 (↓) | 0-shot (↑) |
 +--------+-----------+------------+-----------+------------+-----------+------------+
@@ -168,7 +168,7 @@ factors.
 With SpinQuant optimization:
 
 +--------+-----------+------------+
-|        | Llama 3.2 1B          |
+|        | Llama 3.2 1B           |
 +--------+-----------+------------+
 |        | Wiki2 (↓) | 0-shot (↑) |
 +--------+-----------+------------+
@@ -176,7 +176,7 @@ With SpinQuant optimization:
 +--------+-----------+------------+
 | Base   | 11.59     | 49.33      |
 +--------+-----------+------------+
-| +14%   |**11.34**  |**50.3**   |
+| +14%   |**11.34**  |**50.3**    |
 +--------+-----------+------------+
 
 Expansion provides consistent benefits across both INT4 and MXFP4 formats, demonstrating 
