@@ -2,7 +2,7 @@
 
 📄 [Paper](https://arxiv.org/pdf/2601.22347)
 💻 [Code](https://github.com/Xilinx/brevitas/pull/1448)
-
+💡 [Docs](https://xilinx.github.io/brevitas/dev/papers/mixquant.html)
 
 ```
 @article{sanjeet2026mixquant,
@@ -19,4 +19,18 @@
 > [!IMPORTANT]
 > These yaml files were tested with transformers==4.57.3 and lighteval==0.13.0
 
-Please use https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant to reproduce the experiments used for the paper.
+The provided configurations specify Llama-3.2-1B-Instruct, but you can specify different Huggingface
+models in the CLI args. For example:
+
+```bash
+   brevitas_ptq_llm --config llama3-mixquant-int4.yml --model meta-llama/Llama-3.2-3B-Instruct
+```
+
+You can use `benchmark.py` to run more experiments as follows:
+
+```bash
+python benchmark.py --config llama3-mixquant-int4.yml --results results/ --gpus 0,1
+```
+where `--gpus` refers to how many gpus to use. If multiple GPUs are specified, each one will be used to run an individual experiment.
+
+Please use https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant to reproduce experiments used in the paper.

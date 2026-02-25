@@ -1,4 +1,3 @@
-block_rotation_dim: 32
 disable_block_rotation_for_fused: true
 permute_fn: massdiff
 dataset_eval_split: test
@@ -24,6 +23,7 @@ qronos: true
 qronos_alpha: 1e-3
 replace_rmsnorm: true
 rotation: fused_no_fx
+rotation_block_size: 32
 rotation_sdpa_regions: true
 rotation_mode: had
 rotation_orphan_sink: true
