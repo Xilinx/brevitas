@@ -342,6 +342,16 @@ def create_args_parser() -> ArgumentParser:
         help="Whether to optimize the rotations (default: %(default)s).",
     )
     parser.add_argument(
+        '--custom-trainer',
+        type=str,
+        default=None,
+        help='Path to a custom training plugin for rotation optimization, in the format '
+        '"path/to/plugin.py:config_name". The plugin .py file should register a '
+        'trainer class, training args class, callbacks, and/or optimizer configs '
+        'into the TRAINER_REGISTRY, TRAINING_ARGS_REGISTRY, and '
+        'OPTIMIZER_CONFIG_REGISTRY. Default: None.',
+    )
+    parser.add_argument(
         '--rotation-mode',
         default='had',
         choices=['had', 'ort'],

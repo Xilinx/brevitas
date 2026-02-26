@@ -72,7 +72,10 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_com
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
+from brevitas_examples.llm.llm_quant.rotation_optimization import OPTIMIZER_CONFIG_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
+from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
+from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINING_ARGS_REGISTRY
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
@@ -282,6 +285,40 @@ def parse_custom_quantizer(quant_name: str) -> str:
     return quant_name
 
 
+def parse_custom_trainer(plugin_spec: str) -> str:
+    """Load a custom rotation-training plugin and return the config name.
+
+    The *plugin_spec* format is ``path/to/plugin.py:config_name``.
+    The plugin file is expected to register entries into one or more of
+    ``TRAINER_REGISTRY``, ``TRAINING_ARGS_REGISTRY``, and
+    ``OPTIMIZER_CONFIG_REGISTRY`` as a side-effect of being imported.
+
+    Returns the *config_name* portion so the caller can look up the
+    registered values by name.
+    """
+    if ":" not in plugin_spec:
+        raise ValueError(
+            f"Invalid custom-rotation-trainer spec '{plugin_spec}'. "
+            "Expected format: 'path/to/plugin.py:config_name'")
+
+    path, config_name = plugin_spec.rsplit(":", 1)
+
+    if not Path(path).expanduser().exists():
+        raise FileNotFoundError(f"Training plugin file path {path} does not exist.")
+    if not path.endswith(".py"):
+        raise ValueError(f"{path} is not a .py file.")
+
+    spec = importlib.util.spec_from_file_location("custom_trainer", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load spec for training plugin path: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    logging.debug(f"Training plugin loaded from {path} with config name '{config_name}'")
+
+    return config_name
+
+
 def quantize_llm(args, extra_args=None):
     validate(args, extra_args)
     set_seed(args.seed)
@@ -338,8 +375,32 @@ def quantize_llm(args, extra_args=None):
     validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
     if args.optimize_rotations:
+        # Load custom training plugin if specified
+        custom_trainer_config_name = None
+        custom_trainer_cls = None
+        custom_callbacks = None
+        custom_optimizer_configs = None
+        custom_training_args_cls = None
+
+        if args.custom_trainer is not None:
+            custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
+            # Look up registered overrides by config name.  Each registry
+            # lookup is optional -- the user only needs to register what
+            # they want to customise.
+            if custom_trainer_config_name in TRAINER_REGISTRY.get_registered_keys():
+                custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
+            if custom_trainer_config_name in TRAINING_ARGS_REGISTRY.get_registered_keys():
+                custom_training_args_cls = TRAINING_ARGS_REGISTRY.get(custom_trainer_config_name)
+            if custom_trainer_config_name in OPTIMIZER_CONFIG_REGISTRY.get_registered_keys():
+                custom_optimizer_configs = OPTIMIZER_CONFIG_REGISTRY.get(custom_trainer_config_name)
+                # The registered value can be a callable that returns the
+                # list of configs (deferred construction), or a list directly.
+                if callable(custom_optimizer_configs):
+                    custom_optimizer_configs = custom_optimizer_configs()
+
         # Extra arguments should be used as training arguments for rotation optimization
-        rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
+        rot_optimization_args = parse_rotation_optimization_args(
+            extra_args=extra_args, training_args_cls=custom_training_args_cls)
         # Load the data for rotation optimization
         rot_calibration_dataset = get_dataset_for_model(
             bos_preprocessing=args.bos_preprocessing,
@@ -628,7 +689,10 @@ def quantize_llm(args, extra_args=None):
                 tokenizer=tokenizer,
                 train_dataset=rot_calibration_dataset,
                 training_args=rot_optimization_args,
-                collate_fn=collate_fn)
+                collate_fn=collate_fn,
+                trainer_cls=custom_trainer_cls,
+                callbacks=custom_callbacks,
+                optimizer_configs=custom_optimizer_configs)
             # Remove hooks from optimization
             remove_hooks(model)
             # Offload model before fusing the rotations

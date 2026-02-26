@@ -428,6 +428,46 @@ def test_small_models_rotation_optimization_layer_count(caplog, args_layer_count
 
 
 @pytest.mark.llm
+def test_small_models_custom_trainer_file_plugin(caplog, parser, main, default_run_args):
+    if platform.system() != "Linux":
+        pytest.skip("Skipping dynamo + windows/macos")
+    caplog.set_level(logging.INFO)
+
+    args = default_run_args
+    args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    args.act_calibration = False
+    args.weight_bit_width = 4
+    args.input_bit_width = None
+    args.replace_rmsnorm = True
+    args.rotation = "fused_no_fx"
+    args.optimize_rotations = True
+    args.rotation_orphan_sink = False
+    args.rotation_mode = "had"
+    args.nsamples_rot_calibration = 2
+    args.dtype = "float32"
+    args.custom_trainer = "tests/brevitas_examples/llm_example_quantizer.py:minimal_trainer"
+
+    extra_args = [
+        "--learning_rate",
+        "1.5",
+        "--max_steps",
+        "2",
+        "--per_device_train_batch_size",
+        "1",
+        "--gradient_accumulation_steps",
+        "1",
+    ]
+
+    results, _ = main(args, extra_args)
+
+    assert_metrics(
+        results,
+        {"float_ppl": 32428.475, "quant_ppl": 32265.172},
+        atol=2.,
+        rtol=1e-05)
+
+
+@pytest.mark.llm
 @pytest_cases.parametrize(
     "kwargs",
     [

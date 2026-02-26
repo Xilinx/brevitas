@@ -4,9 +4,13 @@
 from dataclasses import dataclass
 from dataclasses import field
 import os
+from typing import Any
 from typing import Callable
+from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Type
+from typing import Union
 
 from accelerate.utils import DistributedType
 from datasets import Dataset
@@ -24,7 +28,75 @@ except:
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
+from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
+
+# Registries for out-of-source customization of the training process.
+# Users can register custom trainers, training argument classes, and
+# optimizer/scheduler/param configurations via a plugin .py file.
+TRAINER_REGISTRY = Registry[type](registry_name="TrainerRegistry")
+TRAINING_ARGS_REGISTRY = Registry[type](registry_name="TrainingArgsRegistry")
+OPTIMIZER_CONFIG_REGISTRY = Registry[type](registry_name="OptimizerConfigRegistry")
+
+
+class MultiOptimizer:
+    """Wrapper to handle multiple optimizers as a single optimizer for Trainer.
+
+    Allows attaching different optimizer/scheduler pairs to different parameter
+    groups (e.g. CaileySGD for rotation matrices and AdamW for other params).
+    """
+
+    def __init__(self, optimizers: List[torch.optim.Optimizer]) -> None:
+        self.optimizers = optimizers
+
+    def zero_grad(self, set_to_none: bool = False) -> None:
+        for optimizer in self.optimizers:
+            optimizer.zero_grad(set_to_none=set_to_none)
+
+    def step(self, closure=None):
+        loss = None
+        for optimizer in self.optimizers:
+            loss = optimizer.step(closure=closure)
+        return loss
+
+    @property
+    def state(self) -> Dict[str, Any]:
+        return {k: v for optimizer in self.optimizers for k, v in optimizer.state.items()}
+
+    @property
+    def param_groups(self) -> List[Dict[str, Any]]:
+        return [
+            param_group for optimizer in self.optimizers for param_group in optimizer.param_groups]
+
+
+class MultiScheduler:
+    """Wrapper to handle multiple schedulers as a single scheduler for Trainer.
+
+    Schedulers in the list may be ``None`` to indicate no scheduling for the
+    corresponding optimizer.
+    """
+
+    def __init__(self, schedulers: List[Optional[Any]]) -> None:
+        self.schedulers = schedulers if schedulers else []
+
+    def step(self, *args, **kwargs) -> None:
+        for scheduler in self.schedulers:
+            if scheduler is not None:
+                scheduler.step(*args, **kwargs)
+
+    def get_last_lr(self) -> List[float]:
+        if not self.schedulers or self.schedulers[0] is None:
+            return []
+        return self.schedulers[0].get_last_lr()
+
+    @property
+    def state_dict(self) -> List[Optional[Dict[str, Any]]]:
+        return [scheduler.state_dict() if scheduler else None for scheduler in self.schedulers]
+
+    def load_state_dict(self, state_dicts: List[Optional[Dict[str, Any]]]) -> None:
+        for scheduler, state_dict in zip(self.schedulers, state_dicts):
+            if scheduler and state_dict:
+                scheduler.load_state_dict(state_dict)
 
 
 @dataclass
@@ -116,8 +188,13 @@ class GeneralizedTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
-def parse_rotation_optimization_args(extra_args: Optional[List[str]] = None) -> TrainingArguments:
-    parser = transformers.HfArgumentParser(TrainingArguments)
+def parse_rotation_optimization_args(
+    extra_args: Optional[List[str]] = None,
+    training_args_cls: Optional[Type[transformers.TrainingArguments]] = None,
+) -> transformers.TrainingArguments:
+    if training_args_cls is None:
+        training_args_cls = TrainingArguments
+    parser = transformers.HfArgumentParser(training_args_cls)
     training_args = parser.parse_args_into_dataclasses(args=extra_args)
     # If a single-process is running, only one GPU should be available
     # for Trainer, to prevent using DataParallel, which was causing an
@@ -147,25 +224,19 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
-def apply_rotation_optimization(
-        model: torch.nn.Module,
-        tokenizer: PreTrainedTokenizerBase,
-        train_dataset: Dataset,
-        training_args: TrainingArguments,
-        collate_fn: Callable) -> None:
+def _prepare_train_dataset(train_dataset: Dataset) -> Dataset:
+    return train_dataset
 
-    # Prepare model for training
-    model = _prepare_model(model)
-    # Enable skipping optimization
-    if training_args.max_steps <= 0:
-        return
-    # Remove hooks and empty cache before starting optimization
-    remove_hooks(model)
-    torch.cuda.empty_cache()
-    # Set to False the model parameters
-    for param in model.parameters():
-        param.requires_grad = False
-    # Collect trainable matrices
+
+def _build_default_optimizers(
+    model: torch.nn.Module,
+    training_args: TrainingArguments,
+) -> tuple:
+    """Build the default (CaileySGD, None) optimizer/scheduler pair.
+
+    Returns a tuple ``(optimizer_or_multi, scheduler_or_none)`` ready to
+    be passed to the Trainer ``optimizers`` argument.
+    """
     trainable_rotations = extract_trainable_rotation_matrices(model)
     for rot_mat in trainable_rotations:
         rot_mat.requires_grad = True
@@ -174,14 +245,139 @@ def apply_rotation_optimization(
         lr=training_args.learning_rate,
         stiefel=True,
         dtype=training_args.optimizer_dtype)
-    trainer = GeneralizedTrainer(
+    return optimizer, None
+
+
+def _build_optimizers_from_configs(
+    model: torch.nn.Module,
+    training_args: transformers.TrainingArguments,
+    optimizer_configs: List[Dict[str, Any]],
+) -> tuple:
+    """Build a ``(MultiOptimizer, MultiScheduler | None)`` pair from a
+    list of optimizer configuration dicts.
+
+    Each dict in *optimizer_configs* may contain:
+
+    * ``params`` – a list of parameters **or** a callable that receives
+      ``(model, training_args)`` and returns a list of parameters.
+    * ``optimizer_class`` – the optimizer class (default: ``CaileySGD``).
+    * ``optimizer_kwargs`` – keyword arguments forwarded to the optimizer
+      constructor.
+    * ``scheduler_class`` – an optional LR scheduler class.
+    * ``scheduler_kwargs`` – keyword arguments forwarded to the scheduler
+      constructor.
+    """
+    optimizers: List[torch.optim.Optimizer] = []
+    schedulers: List[Optional[Any]] = []
+
+    for config in optimizer_configs:
+        params = config["params"]
+        if callable(params):
+            params = params(model, training_args)
+        for param in params:
+            param.requires_grad = True
+
+        optimizer_class = config.get("optimizer_class", CaileySGD)
+        optimizer_kwargs = config.get("optimizer_kwargs", {})
+        optimizer = optimizer_class(params, **optimizer_kwargs)
+        optimizers.append(optimizer)
+
+        scheduler_class = config.get("scheduler_class", None)
+        if scheduler_class is not None:
+            scheduler_kwargs = config.get("scheduler_kwargs", {})
+            scheduler = scheduler_class(optimizer, **scheduler_kwargs)
+            schedulers.append(scheduler)
+        else:
+            schedulers.append(None)
+
+    multi_optimizer = MultiOptimizer(optimizers)
+    multi_scheduler = MultiScheduler(schedulers) if any(s is not None for s in schedulers) else None
+    return multi_optimizer, multi_scheduler
+
+
+def apply_rotation_optimization(
+    model: torch.nn.Module,
+    tokenizer: PreTrainedTokenizerBase,
+    train_dataset: Dataset,
+    training_args: transformers.TrainingArguments,
+    collate_fn: Callable,
+    trainer_cls: Optional[Type[Trainer]] = None,
+    callbacks: Optional[List[Any]] = None,
+    optimizer_configs: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Optimize rotation matrices inserted into the model.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The model whose rotation matrices will be optimized.
+    tokenizer : PreTrainedTokenizerBase
+        The tokenizer associated with the model.
+    train_dataset : Dataset
+        The training dataset.
+    training_args : transformers.TrainingArguments
+        HuggingFace-compatible training arguments.  May be the built-in
+        ``TrainingArguments`` or a custom subclass registered via the
+        ``TRAINING_ARGS_REGISTRY``.
+    trainer_cls : Type[Trainer], optional
+        A custom Trainer class.  When ``None`` (the default),
+        ``GeneralizedTrainer`` is used.
+    callbacks : list, optional
+        A list of HuggingFace ``TrainerCallback`` instances to attach to
+        the trainer.
+    optimizer_configs : list of dict, optional
+        A list of optimizer configuration dicts.  Each dict may contain:
+
+        * ``params`` – a list of ``torch.nn.Parameter`` **or** a
+          callable ``(model, training_args) -> List[Parameter]``.
+        * ``optimizer_class`` – optimizer class (default ``CaileySGD``).
+        * ``optimizer_kwargs`` – keyword arguments for the optimizer.
+        * ``scheduler_class`` – optional LR scheduler class.
+        * ``scheduler_kwargs`` – keyword arguments for the scheduler.
+
+        When multiple configs are provided, a ``MultiOptimizer`` /
+        ``MultiScheduler`` is built automatically.  When ``None``
+        (the default), the original single-optimizer behaviour is used
+        (``CaileySGD`` on the rotation matrices only).
+    """
+
+    # Prepare dataset and model for training
+    train_dataset = _prepare_train_dataset(train_dataset)
+    model = _prepare_model(model)
+    # Enable skipping optimization
+    if training_args.max_steps <= 0:
+        return
+    # Remove hooks and empty cache before starting optimization
+    remove_hooks(model)
+    torch.cuda.empty_cache()
+    # Freeze all model parameters; individual param groups will be
+    # unfrozen by the optimizer-building helpers.
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Build optimizer / scheduler pair
+    if optimizer_configs is not None:
+        optimizer, scheduler = _build_optimizers_from_configs(
+            model, training_args, optimizer_configs)
+    else:
+        optimizer, scheduler = _build_default_optimizers(model, training_args)
+
+    # Select trainer class
+    if trainer_cls is None:
+        trainer_cls = GeneralizedTrainer
+
+    trainer_kwargs: Dict[str, Any] = dict(
         model=model,
         tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
         data_collator=collate_fn,
-        optimizers=(optimizer, None))
+        optimizers=(optimizer, scheduler))
+    if callbacks is not None:
+        trainer_kwargs["callbacks"] = callbacks
+
+    trainer = trainer_cls(**trainer_kwargs)
     trainer.train()
     # After finishing training, set eval mode again
     model.eval()
