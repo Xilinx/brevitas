@@ -5,12 +5,10 @@ from dataclasses import dataclass
 from dataclasses import field
 import os
 from typing import Any
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Type
-from typing import Union
 
 from accelerate.utils import DistributedType
 from datasets import Dataset
@@ -113,6 +111,18 @@ class TrainingArguments(transformers.TrainingArguments):
         metadata={
             "help":
                 "Data type for CaileySGD optimizer computations. None means use parameter dtype."})
+
+    ### Multi-optimizer/scheduler kwargs
+    # Order-matched list of dicts.  Entry *i* supplies ``optimizer_kwargs``
+    # and optionally ``scheduler_kwargs`` for the *i*-th optimizer config
+    # registered via ``OPTIMIZER_CONFIG_REGISTRY``.
+    optimizer_scheduler_args: Optional[List[Dict[str, Any]]] = field(
+        default=None,
+        metadata={
+            "help":
+                "List of dicts, each containing 'optimizer_kwargs' and optionally "
+                "'scheduler_kwargs', order-matched to the optimizer configs "
+                "registered via OPTIMIZER_CONFIG_REGISTRY."})
 
     ### Distillation Loss args
     use_distillation_loss: bool = field(
@@ -256,35 +266,50 @@ def _build_optimizers_from_configs(
     """Build a ``(MultiOptimizer, MultiScheduler | None)`` pair from a
     list of optimizer configuration dicts.
 
-    Each dict in *optimizer_configs* may contain:
+    Each dict in *optimizer_configs* must contain:
 
     * ``params`` – a list of parameters **or** a callable that receives
       ``(model, training_args)`` and returns a list of parameters.
     * ``optimizer_class`` – the optimizer class (default: ``CaileySGD``).
-    * ``optimizer_kwargs`` – keyword arguments forwarded to the optimizer
-      constructor.
-    * ``scheduler_class`` – an optional LR scheduler class.
-    * ``scheduler_kwargs`` – keyword arguments forwarded to the scheduler
-      constructor.
+    * ``scheduler_class`` – an optional LR scheduler class (default:
+      ``None``).
+
+    The *optimizer_kwargs* and *scheduler_kwargs* for each entry are
+    read from ``training_args.optimizer_scheduler_args[i]``, which is
+    an order-matched list of dicts.  Each dict may contain:
+
+    * ``optimizer_kwargs`` – keyword arguments forwarded to the optimizer.
+    * ``scheduler_kwargs`` – keyword arguments forwarded to the scheduler.
+
+    If ``training_args.optimizer_scheduler_args`` is ``None`` or shorter
+    than *optimizer_configs*, this fails.
     """
     optimizers: List[torch.optim.Optimizer] = []
     schedulers: List[Optional[Any]] = []
 
-    for config in optimizer_configs:
+    os_args: Optional[List[Dict[str,
+                                Any]]] = getattr(training_args, "optimizer_scheduler_args", None)
+    if os_args is None or len(os_args) < len(optimizer_configs):
+        raise RuntimeError("Scheduler/Optimizer arguments do not match the configs")
+
+    for i, config in enumerate(optimizer_configs):
         params = config["params"]
         if callable(params):
             params = params(model, training_args)
         for param in params:
             param.requires_grad = True
 
+        # Look up kwargs from the order-matched training args list
+        entry = os_args[i]
+
         optimizer_class = config.get("optimizer_class", CaileySGD)
-        optimizer_kwargs = config.get("optimizer_kwargs", {})
+        optimizer_kwargs = entry.get("optimizer_kwargs", {})
         optimizer = optimizer_class(params, **optimizer_kwargs)
         optimizers.append(optimizer)
 
         scheduler_class = config.get("scheduler_class", None)
         if scheduler_class is not None:
-            scheduler_kwargs = config.get("scheduler_kwargs", {})
+            scheduler_kwargs = entry.get("scheduler_kwargs", {})
             scheduler = scheduler_class(optimizer, **scheduler_kwargs)
             schedulers.append(scheduler)
         else:
@@ -318,7 +343,10 @@ def apply_rotation_optimization(
     training_args : transformers.TrainingArguments
         HuggingFace-compatible training arguments.  May be the built-in
         ``TrainingArguments`` or a custom subclass registered via the
-        ``TRAINING_ARGS_REGISTRY``.
+        ``TRAINING_ARGS_REGISTRY``.  When *optimizer_configs* is
+        provided, the ``optimizer_scheduler_args`` field on the
+        training args supplies the order-matched ``optimizer_kwargs``
+        and ``scheduler_kwargs`` for each entry.
     trainer_cls : Type[Trainer], optional
         A custom Trainer class.  When ``None`` (the default),
         ``GeneralizedTrainer`` is used.
@@ -331,9 +359,11 @@ def apply_rotation_optimization(
         * ``params`` – a list of ``torch.nn.Parameter`` **or** a
           callable ``(model, training_args) -> List[Parameter]``.
         * ``optimizer_class`` – optimizer class (default ``CaileySGD``).
-        * ``optimizer_kwargs`` – keyword arguments for the optimizer.
         * ``scheduler_class`` – optional LR scheduler class.
-        * ``scheduler_kwargs`` – keyword arguments for the scheduler.
+
+        The ``optimizer_kwargs`` and ``scheduler_kwargs`` for each
+        config are read from
+        ``training_args.optimizer_scheduler_args[i]``.
 
         When multiple configs are provided, a ``MultiOptimizer`` /
         ``MultiScheduler`` is built automatically.  When ``None``

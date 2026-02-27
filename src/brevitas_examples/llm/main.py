@@ -4,9 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
-import importlib
 import os
-from pathlib import Path
 import pprint
 import sys
 import warnings
@@ -67,6 +65,8 @@ from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_ro
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
+from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_quantizer
+from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
@@ -251,72 +251,6 @@ def find_equalized_layer(layer):
     if hasattr(layer, 'layer'):
         return find_equalized_layer(layer.layer)
     return layer
-
-
-def parse_custom_quantizer(quant_name: str) -> str:
-    # Detect "/path/to/plugin.py:quant_name"
-    quant_path = None
-    if ":" in quant_name:
-        path, name = quant_name.rsplit(":", 1)
-        # Treat as a file plugin if paths points to an existing .py file
-        if not Path(path).expanduser().exists():
-            raise FileNotFoundError(f"Quantizer file path {path} does not exist.")
-        if not path.endswith(".py"):
-            raise ValueError(f"{path} is not a .py file.")
-        quant_path = path
-        quant_name = name
-
-    if quant_path is not None:
-        # Retrieve previously registered quantizers
-        pre_registered_quantizers = set(QUANTIZERS_REGISTRY.get_registered_keys())
-        # Load the module with the custom quantizers
-        spec = importlib.util.spec_from_file_location("custom_quant", quant_path)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Could not load spec for quantizer path: {quant_path}")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        # Retrieve newly registered quantizers
-        post_registered_quantizers = set(QUANTIZERS_REGISTRY.get_registered_keys())
-
-        logging.debug(
-            f"The following quantizers were loaded from {quant_path}: {', '.join(post_registered_quantizers - pre_registered_quantizers)}"
-        )
-
-    return quant_name
-
-
-def parse_custom_trainer(plugin_spec: str) -> str:
-    """Load a custom rotation-training plugin and return the config name.
-
-    The *plugin_spec* format is ``path/to/plugin.py:config_name``.
-    The plugin file is expected to register entries into one or more of
-    ``TRAINER_REGISTRY``, ``TRAINING_ARGS_REGISTRY``, and
-    ``OPTIMIZER_CONFIG_REGISTRY`` as a side-effect of being imported.
-
-    Returns the *config_name* portion so the caller can look up the
-    registered values by name.
-    """
-    if ":" not in plugin_spec:
-        raise ValueError(
-            f"Invalid custom-rotation-trainer spec '{plugin_spec}'. "
-            "Expected format: 'path/to/plugin.py:config_name'")
-
-    path, config_name = plugin_spec.rsplit(":", 1)
-
-    if not Path(path).expanduser().exists():
-        raise FileNotFoundError(f"Training plugin file path {path} does not exist.")
-    if not path.endswith(".py"):
-        raise ValueError(f"{path} is not a .py file.")
-
-    spec = importlib.util.spec_from_file_location("custom_trainer", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load spec for training plugin path: {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    logging.debug(f"Training plugin loaded from {path} with config name '{config_name}'")
-
-    return config_name
 
 
 def quantize_llm(args, extra_args=None):
