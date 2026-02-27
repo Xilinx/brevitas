@@ -101,12 +101,6 @@ def tokenize_and_group_texts(
     )
 
 
-def _clm_dataset_to_list(row: np.ndarray,) -> Dict[str, torch.Tensor]:
-    input_ids = torch.tensor(row["input_ids"], dtype=torch.int64).unsqueeze(0)
-    attention_mask = torch.ones_like(input_ids)
-    return {"input_ids": input_ids, "attention_mask": attention_mask}
-
-
 def get_clm_dataset(
     raw_dataset: Dataset,
     tokenizer: PreTrainedTokenizerBase,
