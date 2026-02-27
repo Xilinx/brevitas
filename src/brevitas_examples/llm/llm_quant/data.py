@@ -194,7 +194,8 @@ def get_wikitext2(
         for i in tqdm(range(nsamples)):
             batch = sequence_process_fn(data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)])
             attention_mask = torch.ones_like(batch)
-            dataloader.append({'input_ids': batch, 'attention_mask': attention_mask, 'labels': batch})
+            dataloader.append({
+                'input_ids': batch, 'attention_mask': attention_mask, 'labels': batch})
     return dataloader
 
 
