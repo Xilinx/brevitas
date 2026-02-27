@@ -109,16 +109,6 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
             self.scaling_restriction = submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl
             self.threshold_restriction = submodule.scaling_impl.restrict_clamp_threshold.restrict_value_impl
 
-    # def compute_scale(self, x, group_dim):
-    #     scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
-    #     threshold = self.threshold
-    #     if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
-    #         scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
-    #     if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
-    #         threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
-    #     scale = scale / threshold
-    #     return scale
-
 
 class FloatToIntMixin(torch.nn.Module):
 
@@ -212,7 +202,7 @@ class InferenceHandler(torch.nn.Module, ABC):
         return output_dict
 
 
-class IntInferencetHandlerBase(InferenceHandler, FloatToIntMixin):
+class IntInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
     def __init__(self):
         InferenceHandler.__init__(self)
@@ -240,19 +230,19 @@ class IntInferencetHandlerBase(InferenceHandler, FloatToIntMixin):
         return self.dequantize(self.quantize(x, self.scale, self.zero_point), self.scale, self.zero_point), self.scale, self.zero_point, self.bit_width
 
 
-class IntInferencetHandler(IntInferencetHandlerBase, StaticScaleZeroPointMixin):
+class IntInferenceHandler(IntInferenceHandlerBase, StaticScaleZeroPointMixin):
     handled_layer = (ActQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
-        IntInferencetHandlerBase.__init__(self)
+        IntInferenceHandlerBase.__init__(self)
         StaticScaleZeroPointMixin.__init__(self, scale_shape, zero_point_shape)
 
     def prepare_for_export(self, module: nn.Module):
-        IntInferencetHandlerBase.prepare_for_export(self, module)
+        IntInferenceHandlerBase.prepare_for_export(self, module)
         StaticScaleZeroPointMixin.prepare_for_export(self, module)
 
 
-class IntWeightInferencetHandler(IntInferencetHandler):
+class IntWeightInferencetHandler(IntInferenceHandler):
     handled_layer = WeightQuantProxyFromInjector
 
     def __init__(self, scale_shape=(1,), zero_point_shape=(1,)):
@@ -279,7 +269,7 @@ class IntWeightInferencetHandler(IntInferencetHandler):
         return x, self.scale, self.zero_point, self.bit_width
 
 
-class DynamicIntInferenceHandler(IntInferencetHandlerBase):
+class DynamicIntInferenceHandler(IntInferenceHandlerBase):
     handled_layer = DynamicActQuantProxyFromInjector
 
     def prepare_for_export(self, module: nn.Module):
@@ -291,19 +281,19 @@ class DynamicIntInferenceHandler(IntInferencetHandlerBase):
         return self.module_forward(x)
 
 
-class GroupwiseIntInferenceHandler(IntInferencetHandlerBase,
+class GroupwiseIntInferenceHandler(IntInferenceHandlerBase,
                                    GroupwiseMixin,
                                    DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
     def __init__(self):
-        IntInferencetHandlerBase.__init__(self)
+        IntInferenceHandlerBase.__init__(self)
         GroupwiseMixin.__init__(self)
         DynamicScaleZeroPointMixin.__init__(self)
         self.skip_create_quant_tensor = True
 
     def prepare_for_export(self, module):
-        IntInferencetHandlerBase.prepare_for_export(self, module)
+        IntInferenceHandlerBase.prepare_for_export(self, module)
         GroupwiseMixin.prepare_for_export(self, module)
         DynamicScaleZeroPointMixin.prepare_for_export(self, module)
         self.module_forward = None

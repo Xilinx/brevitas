@@ -64,13 +64,12 @@ def solve_float_to_int_impl_from_enum(impl_type):
 
 
 def solve_float_to_int_enum_from_impl(impl_type):
-    programmatic_dict = dict()
-    for enum_value in FloatToIntImplType:
-        programmatic_dict[solve_float_to_int_impl_from_enum(enum_value)] = enum_value
-    if impl_type in programmatic_dict:
-        return programmatic_dict[impl_type]
-    else:
+    impl_to_enum_dict = {
+        solve_float_to_int_impl_from_enum(enum_value): enum_value
+        for enum_value in FloatToIntImplType}
+    if impl_type not in impl_to_enum_dict:
         raise Exception(f"{impl_type} not recognized.")
+    return impl_to_enum_dict[impl_type]
 
 
 def solve_bit_width_impl_from_enum(impl_type):
@@ -102,13 +101,12 @@ def solve_restrict_value_impl_from_enum(impl_type):
 
 
 def solve_restrict_value_enum_from_impl(impl):
-    programmatic_dict = dict()
-    for enum_value in RestrictValueType:
-        programmatic_dict[solve_restrict_value_impl_from_enum(enum_value)] = enum_value
-    if impl in programmatic_dict:
-        return programmatic_dict[impl]
-    else:
+    impl_to_enum_dict = {
+        solve_restrict_value_impl_from_enum(enum_value): enum_value
+        for enum_value in RestrictValueType}
+    if impl not in impl_to_enum_dict:
         raise RuntimeError(f"{impl} not recognized.")
+    return impl_to_enum_dict[impl]
 
 
 class SolveRestrictScalingImplFromEnum(ExtendedInjector):

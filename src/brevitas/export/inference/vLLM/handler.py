@@ -8,16 +8,18 @@ from ..handler import DynamicScaleZeroPointMixin
 from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseIntInferenceHandler
 
+EPS = 1e-6
+
 
 class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 
     def compute_scale(self, x, group_dim):
-        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], 1e-4)
+        scale = torch.clamp(torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0], EPS)
         threshold = self.threshold
         if self.scaling_restriction == RestrictValueType.POWER_OF_TWO:
-            scale = torch.clamp(torch.pow(2, torch.floor(torch.log2(scale))), 1e-7)
+            scale = torch.pow(2, torch.floor(torch.log2(scale)))
         if self.threshold_restriction == RestrictValueType.POWER_OF_TWO:
-            threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), 1e-7)
+            threshold = torch.clamp(torch.pow(2, torch.floor(torch.log2(threshold))), EPS)
         scale = scale / threshold
         return scale
 

@@ -177,7 +177,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif args.export_target == 'vllm':
         with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
-            export_mode.export(model, tokenizer, args.export_target)
+            export_mode.export_manager.export(model, tokenizer, args.export_prefix)
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
         from sharktank.types import Theta
