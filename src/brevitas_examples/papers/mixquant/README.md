@@ -29,7 +29,7 @@ models in the CLI args. For example:
 You can use `benchmark.py` to run more experiments as follows:
 
 ```bash
-python benchmark.py --config llama3-mixquant-int4.yml --results results/ --gpus 0,1
+python benchmark.py --config llama3-benchmark.yml --results results/ --gpus 0,1
 ```
 where `--gpus` refers to how many gpus to use. If multiple GPUs are specified, each one will be used to run an individual experiment.
 
