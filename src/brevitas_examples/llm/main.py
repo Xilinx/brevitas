@@ -174,15 +174,7 @@ def set_seed(seed):
 
 
 def model_export(model, tokenizer, ref_input, args, config=None):
-    if args.export_target == 'sharded_torchmlir_group_weight':
-        from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
-            sharded_weight_group_export
-        sharded_weight_group_export(model, no_custom_packed_export=True)
-    elif args.export_target == 'sharded_packed_torchmlir_group_weight':
-        from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
-            sharded_weight_group_export
-        sharded_weight_group_export(model, no_custom_packed_export=False)
-    elif args.export_target == 'onnx_qcdq':
+    if args.export_target == 'onnx_qcdq':
         # Local import to allow for optional install
         from optimum.exporters.onnx import onnx_export_from_model
 
