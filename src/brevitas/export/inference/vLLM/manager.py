@@ -45,7 +45,7 @@ from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseFloatWeightInferenceHandler
 from ..handler import GroupwiseIntInferenceHandler
 from ..handler import GroupwiseIntWeightInferenceHandler
-from ..handler import IntInferencetHandler
+from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
 from ..manager import _override_act_caching_mode
 from ..manager import _override_bias_caching_mode
@@ -65,7 +65,7 @@ class QuantConfigBrevitas(QuantizationConfig):
         self.config = config
 
     @classmethod
-    def from_config(cls, config: dict[str, Any]) -> "QuantConfigTcast":
+    def from_config(cls, config: dict[str, Any]) -> "QuantConfigBrevitas":
         return cls(config=config)
 
     @classmethod
@@ -85,24 +85,23 @@ class QuantConfigBrevitas(QuantizationConfig):
     def get_config_filenames() -> list[str]:
         return ["brevitas_config.json"]
 
-    def get_quant_method(self, layer: torch.nn.Module, prefix: str) -> "QuantizeMethodBase" | None:
+    def get_quant_method(self, layer: torch.nn.Module,
+                         prefix: str) -> Optional["QuantizeMethodBase"]:
         if isinstance(layer, RowParallelLinear) or isinstance(
                 layer, MergedColumnParallelLinear) or isinstance(layer, QKVParallelLinear):
-            if is_layer_skipped(
+            if self.ignored_layers is not None and is_layer_skipped(
                     prefix=prefix,
                     ignored_layers=self.ignored_layers,
                     fused_mapping=self.packed_modules_mapping,
             ):
                 return UnquantizedLinearMethod()
             else:
-
                 if prefix in self.config:
                     base_config = self.config[prefix]
-                    input_config = base_config.get('input_quant', None)
-                    bias_config = base_config.get('bias_quant', None)
-                    output_config = base_config.get('output_quant', None)
-                    weight_config = base_config.get('weight_quant', None)
-                    rotation_config = base_config.get('rotation_config', None)
+                    quant_configs = {
+                        f"{param}_config": base_config.get(f"{param}_quant", None)
+                        for param in ["weight", "bias", "output", "input", "rotation"]}
+
                 else:
                     base = prefix.split('.')[:-1]
                     base = '.'.join(base)
@@ -111,20 +110,14 @@ class QuantConfigBrevitas(QuantizationConfig):
                     layers_to_merge = [base + '.' + x for x in layers_to_merge]
 
                     base_config = self.config[layers_to_merge[0]]
-                    input_config = base_config.get('input_quant', None)
-                    bias_config = base_config.get('bias_quant', None)
-                    output_config = base_config.get('output_quant', None)
-                    rotation_config = base_config.get('rotation_config', None)
+                    quant_configs = {
+                        f"{param}_config": base_config.get(f"{param}_quant", None)
+                        for param in ["bias", "output", "input", "rotation"]}
                     weight_config = [
                         self.config[layer].get('weight_quant', None) for layer in layers_to_merge]
-                    # base_config = combine_configs(self.config, *layers_to_merge)
+                    quant_configs["weight_config"] = weight_config
 
-                return QuantLinear(
-                    input_config=input_config,
-                    bias_config=bias_config,
-                    output_config=output_config,
-                    weight_config=weight_config,
-                    rotation_config=rotation_config)
+                return QuantLinear(quant_configs=quant_configs)
 
         elif isinstance(layer, LinearBase):
             return UnquantizedLinearMethod()
@@ -158,7 +151,7 @@ class EncodeTensor(JSONEncoder, Dataset):
 class vLLMExportManager(BaseManager):
 
     handlers = [
-        IntInferencetHandler,
+        IntInferenceHandler,
         DynamicIntInferenceHandler,
         DynamicFloatInferenceHandler,
         FloatInferencetHandler,
@@ -181,11 +174,13 @@ class vLLMExportManager(BaseManager):
 
     wrap_layers = (EqualizedModule, RotatedModule)
 
-    def handle_wrap_layer(self, module: Module):
+    @staticmethod
+    def handle_wrap_layer(module: Module):
+        class_type = type(module)
 
         def unwrap(self, destination=None, prefix='', keep_vars=False):
             inner_module_prefix = 'layer'
-            output_dict = super(RotatedModule, self).state_dict(
+            output_dict = super(class_type, self).state_dict(
                 destination=destination, prefix=prefix, keep_vars=keep_vars)
             layer_keys = [k for k in output_dict.keys() if inner_module_prefix in k]
             wrapper_keys = [k for k in output_dict.keys() if inner_module_prefix not in k]
@@ -202,18 +197,20 @@ class vLLMExportManager(BaseManager):
         module.orig_state_dict = module.state_dict
         module.state_dict = unwrap
 
-    def export(self, model, tokenizer, filepath):
-        json_filename = os.path.join(filepath, 'brevitas_config.json')
+    @staticmethod
+    def export(model, tokenizer, filepath):
         layers_to_restore = list()
         json_to_save = dict()
+        os.makedirs(filepath, exist_ok=True)
         for name, module in model.named_modules():
 
-            if isinstance(module, QuantLayerMixin) or isinstance(module, self.wrap_layers):
-                self.handle_wrap_layer(module)
-                layers_to_restore.append(module)
+            if isinstance(module, QuantLayerMixin) or isinstance(module,
+                                                                 vLLMExportManager.wrap_layers):
                 layer_dict = dict()
                 json_to_save[name] = layer_dict
-                if isinstance(module, self.wrap_layers):
+                if isinstance(module, vLLMExportManager.wrap_layers):
+                    layers_to_restore.append(module)
+                    vLLMExportManager.handle_wrap_layer(module)
                     layer_dict['rotation_config'] = dict()
                     layer_dict['rotation_config'][
                         'rot_mat_shape'] = module.had_mat.shape[0] if getattr(
@@ -234,7 +231,8 @@ class vLLMExportManager(BaseManager):
                         proxy_dict['class_type'] = export_handler.__class__.__name__
                         json_to_save[name][proxy_name] = proxy_dict
 
-        with open(json_filename, 'w') as f:
+        json_filename = os.path.join(filepath, 'brevitas_config.json')
+        with open(json_filename, 'w+') as f:
             json.dump(json_to_save, f, cls=EncodeTensor)
 
         config.IGNORE_EXPORT_KEYS = True

@@ -1,9 +1,12 @@
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
 import torch
 from vllm.config import ModelConfig
 from vllm.model_executor.layers.linear import LinearMethodBase
+from vllm.model_executor.parameter import ModelWeightParameter
 
 from brevitas.graph.hadamard import get_hadK
 from brevitas.nn.equalized_layer import RotatedModule
@@ -12,7 +15,7 @@ from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
 from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseFloatWeightInferenceHandler
-from ..handler import IntInferencetHandler
+from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
 
 class_mapping = {
@@ -21,39 +24,34 @@ class_mapping = {
     'FloatInferencetHandler': FloatInferencetHandler,
     'FloatWeightInferencetHandler': FloatWeightInferencetHandler,
     'IntWeightInferencetHandler': IntWeightInferencetHandler,
-    'IntInferencetHandler': IntInferencetHandler,}
+    'IntInferenceHandler': IntInferenceHandler}
 
 
 class QuantLinear(LinearMethodBase):
 
-    def __init__(
-            self,
-            input_config=None,
-            weight_config=None,
-            bias_config=None,
-            output_config=None,
-            rotation_config=None):
-        self.input_quant = self.configure_proxy(input_config)
+    def __init__(self, quant_configs: Optional[Dict[str, Any]] = None):
+
+        self.input_quant = self.configure_proxy(quant_configs["input_config"])
+        weight_config = quant_configs["weight_config"]
         if isinstance(weight_config, list):
-            self.weight_quant = dict()
-            for i, config in enumerate(weight_config):
-                self.weight_quant[i] = self.configure_proxy(config)
+            self.weight_quant = {
+                i: self.configure_proxy(config) for i, config in enumerate(weight_config)}
         else:
             self.weight_quant = self.configure_proxy(weight_config)
-        self.bias_quant = self.configure_proxy(bias_config)
-        self.output_quant = self.configure_proxy(output_config)
-        self.rotation = self.configure_rotation(rotation_config)
+        self.bias_quant = self.configure_proxy(quant_configs["bias_config"])
+        self.output_quant = self.configure_proxy(quant_configs["output_config"])
+        self.rotation = self.configure_rotation(quant_configs["rotation_config"])
 
     def configure_rotation(self, rotation_config):
         if rotation_config is None:
-            return torch.nn.Identity()
+            return None
         rot_mat_shape = rotation_config['rot_mat_shape']
         k = rotation_config['k']
         if rot_mat_shape is None:
             had_mat = None
         else:
             had_mat, _ = get_hadK(rot_mat_shape)
-        return RotatedModule(self, had_mat, k).rotation_forward
+        return RotatedModule(self, had_mat, k)
 
     def configure_proxy(self, quant_config):
         # No config, no quantizer
@@ -104,7 +102,6 @@ class QuantLinear(LinearMethodBase):
         params_dtype: torch.dtype,
         **extra_weight_attrs,
     ):
-        from vllm.model_executor.parameter import ModelWeightParameter
         weight_loader = extra_weight_attrs.get("weight_loader")
         self.input_size_per_partition = input_size_per_partition
         self.output_partition_sizes = output_partition_sizes
@@ -140,8 +137,9 @@ class QuantLinear(LinearMethodBase):
         x: torch.Tensor,
         bias: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        x = self.rotation(x)
-        x = self.input_quant(x)
+        if self.rotation is not None:
+            x = self.rotation.rotation_forward(x)
+        x = self.input_quant(x)[0]
         bias = self.bias_quant(bias) if bias is not None else None
         y = x.matmul(layer.weight.t())
         if bias is not None:

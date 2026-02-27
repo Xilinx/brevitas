@@ -15,7 +15,7 @@ from brevitas.export.inference.handler import GroupwiseFloatInferenceHandler
 from brevitas.export.inference.handler import GroupwiseFloatWeightInferenceHandler
 from brevitas.export.inference.handler import GroupwiseIntInferenceHandler
 from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
-from brevitas.export.inference.handler import IntInferencetHandler
+from brevitas.export.inference.handler import IntInferenceHandler
 from brevitas.export.inference.handler import IntWeightInferencetHandler
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
@@ -83,6 +83,7 @@ class quant_inference_mode:
                     m, enabled=True, metadata_only=not self.cache_quant_weight))
 
             torch._dynamo.reset()
+        return self
 
     def __exit__(self, type, value, traceback):
         if self.enabled:
@@ -127,7 +128,7 @@ class quant_inference_mode:
 # Inheritance from BaseManager is not techincally needed
 class InferenceManager(BaseManager):
     handlers = [
-        IntInferencetHandler,
+        IntInferenceHandler,
         DynamicIntInferenceHandler,
         DynamicFloatInferenceHandler,
         FloatInferencetHandler,

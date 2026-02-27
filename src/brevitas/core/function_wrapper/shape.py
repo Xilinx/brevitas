@@ -189,7 +189,7 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
         return dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
 
 
-def dynamic_over_sub_channel_block_view(x, group_size, group_dim):
+def dynamic_over_sub_channel_block_view(x: torch.Tensor, group_size: int, group_dim: int):
     # Pad the tensor to ensure the dimension is divisible by group_size
     x = padding_to_multiple(x, group_dim, group_size)
 
