@@ -106,7 +106,7 @@ class MXFloat8e4m3Act(MXActMixin, GroupwiseActFloatProxyMixin, FpOCPAct, ScaledF
     mantissa_bit_width = 3
 
 
-class MXFloat8e4m3WeightMSE(MXFloat8e4m3Weight, MSESymmetricScale):
+class MXFloat8e4m3WeightMSE(MSESymmetricScale, MXFloat8e4m3Weight):
     """
     MX Float signed weight quantizer with per-channel MSE-based scaling.
     """
