@@ -54,9 +54,8 @@ class rmsnorm_patch:
 
     def __exit__(self, *args, **kwargs):
         dtype = next(self.model.parameters()).dtype
-
-        for old_module, new_module in self.mapping.items():
-            rewriter = ModuleInstanceToModuleInstance(old_module, new_module)
+        for original_rms, torch_rms in self.mapping.items():
+            rewriter = ModuleInstanceToModuleInstance(torch_rms, original_rms)
             self.model = rewriter.apply(self.model)
 
         self.model = self.model.to(dtype)
