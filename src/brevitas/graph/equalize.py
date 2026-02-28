@@ -1804,6 +1804,10 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
                     # Restore the state of the quantization modules, as these might have been reset
                     # when registering the parametrized parameter
                     if state_dict is not None:
+                        if is_proxy_compiled:
+                            # Compile adds extra ".orig_mod" which we need to remove
+                            state_dict = {
+                                k.replace(".orig_mod", ""): v for (k, v) in state_dict.items()}
                         submodule.load_state_dict(state_dict)
                     if is_proxy_compiled:
                         submodule.compile_quant()
