@@ -77,7 +77,8 @@ class BenchmarkSearchMixin(ABC):
                     args_dict[action.dest] = cls._default_action_handler(action, use_choices=False)
         else:
             args_dict = {
-                action.dest: cls._default_action_handler(action, use_choices=True) for action in cls.argument_parser._actions}
+                action.dest: cls._default_action_handler(action, use_choices=True)
+                for action in cls.argument_parser._actions}
             # Remove unnecessary keys
             del args_dict["help"]
             del args_dict["config"]
@@ -312,7 +313,10 @@ class RandomSearchMixin(BenchmarkSearchMixin):
         if use_choices:
             return {"rand_type": "const", "rand_values": action.default}
         else:
-            return {"rand_type": "const", "rand_values": action.default} if action.choices is None else {"rand_type": "choices", "rand_values": action.choices}
+            return {
+                "rand_type": "const", "rand_values": action.default
+            } if action.choices is None else {
+                "rand_type": "choices", "rand_values": action.choices}
 
     @staticmethod
     def parse_config_args(args: List[str]) -> Namespace:
