@@ -48,9 +48,13 @@ rotation_block_size:
 - 128
 - 256
 - 512
+- 1024
+- 2048
 seed:
 - 42
 model:
+- meta-llama/Llama-3.1-8B-Instruct
+- meta-llama/Llama-3.2-3B-Instruct
 - meta-llama/Llama-3.2-1B-Instruct
 weight_bit_width:
 - 4
