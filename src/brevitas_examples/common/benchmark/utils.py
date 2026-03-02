@@ -93,36 +93,7 @@ class BenchmarkSearchMixin(ABC):
         pass
 
     @staticmethod
-    @abstractmethod
-    def parse_config_args(args: List[str]) -> Namespace:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def gen_search_space(cls, args_dict: Dict[str, Any],
-                         script_args: Namespace) -> List[Dict[str, Any]]:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
-        pass
-
-
-class GridSearchMixin(BenchmarkSearchMixin):
-
-    @classmethod
-    def _default_action_handler(cls, action: Action, use_choices: bool) -> List[Any]:
-        # Standardizes an argument for the given search class when it is not provided for 2 cases:
-        # 1. use the default value (i.e., `use_choices=False`), e.g., when a config file has already been provided
-        # 2. use the choices field, if it exists (i.e., `use_choices=True`), e.g., when a config file is not provided
-        if use_choices:
-            return [action.default]
-        else:
-            return [action.default] if action.choices is None else action.choices
-
-    @staticmethod
-    def parse_config_args(args: List[str]) -> Namespace:
+    def parse_config_args(args: List[str], parse_args: bool = True) -> Namespace:
         parser = ArgumentParser()
         parser.add_argument(
             '--config',
@@ -162,6 +133,38 @@ class GridSearchMixin(BenchmarkSearchMixin):
             default=False,
             help="Whether to skip running experiments (default: %(default)s).",
         )
+        if parse_args:
+            return parser.parse_args(args)
+        else:
+            return parser
+
+    @classmethod
+    @abstractmethod
+    def gen_search_space(cls, args_dict: Dict[str, Any],
+                         script_args: Namespace) -> List[Dict[str, Any]]:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+        pass
+
+
+class GridSearchMixin(BenchmarkSearchMixin):
+
+    @classmethod
+    def _default_action_handler(cls, action: Action, use_choices: bool) -> List[Any]:
+        # Standardizes an argument for the given search class when it is not provided for 2 cases:
+        # 1. use the default value (i.e., `use_choices=False`), e.g., when a config file has already been provided
+        # 2. use the choices field, if it exists (i.e., `use_choices=True`), e.g., when a config file is not provided
+        if use_choices:
+            return [action.default]
+        else:
+            return [action.default] if action.choices is None else action.choices
+
+    @staticmethod
+    def parse_config_args(args: List[str], parse_args: bool = True) -> Namespace:
+        parser = super(GridSearchMixin, GridSearchMixin).parse_config_args(args, parse_args=False)
         parser.add_argument(
             '--start-index',
             type=int,
@@ -183,7 +186,10 @@ class GridSearchMixin(BenchmarkSearchMixin):
             help=
             'The seed to use to shuffle the jobs. If None, no shuffling will be applied. Default: %(default)s.'
         )
-        return parser.parse_args(args)
+        if parse_args:
+            return parser.parse_args(args)
+        else:
+            return parser
 
     @classmethod
     def gen_search_space(
@@ -319,46 +325,8 @@ class RandomSearchMixin(BenchmarkSearchMixin):
                 "rand_type": "choices", "rand_values": action.choices}
 
     @staticmethod
-    def parse_config_args(args: List[str]) -> Namespace:
-        parser = ArgumentParser()
-        parser.add_argument(
-            '--config',
-            type=str,
-            default=None,
-            help=
-            'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml). Default: %(default)s.'
-        )
-        parser.add_argument(
-            '--results-folder',
-            type=str,
-            default="./",
-            help='Folder to store the experiment results. Default: %(default)s.')
-        parser.add_argument(
-            '--gpus',
-            type=str,
-            default="0",
-            help=
-            'Specify the identifiers of the GPUs to use in a comma-separated list. Default: %(default)s.'
-        )
-        parser.add_argument(
-            '--num-gpus-per-process',
-            type=int,
-            default=1,
-            help=
-            'Number of GPUs to each for running each argument combination. Default: %(default)s.')
-        parser.add_argument(
-            '--max-num-retries',
-            type=int,
-            default=1,
-            help=
-            'Number of retries for each argument combination in case a crash happens. Default: %(default)s.'
-        )
-        parser.add_argument(
-            "--dry-run",
-            action="store_true",
-            default=False,
-            help="Whether to skip running experiments (default: %(default)s).",
-        )
+    def parse_config_args(args: List[str], parse_args: bool = True) -> Namespace:
+        parser = super(GridSearchMixin, GridSearchMixin).parse_config_args(args, parse_args=False)
         parser.add_argument(
             '--num-experiments',
             type=int,
@@ -376,7 +344,10 @@ class RandomSearchMixin(BenchmarkSearchMixin):
             type=int,
             default=0,
             help='The seed to use for the search (default: %(default)s).')
-        return parser.parse_args(args)
+        if parse_args:
+            return parser.parse_args(args)
+        else:
+            return parser
 
     @classmethod
     def gen_search_space(
