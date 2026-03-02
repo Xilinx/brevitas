@@ -200,7 +200,7 @@ class GridSearchMixin(BenchmarkSearchMixin):
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in cls.argument_parser._actions)
         # Retrieve argument combinations that are valid for the entrypoint
-        q = []
+        exp_queue = []
         for v in itertools.product(*args_values):
             args_dict = dict(zip(args_keys, v))
             try:
@@ -216,17 +216,17 @@ class GridSearchMixin(BenchmarkSearchMixin):
                 args = SimpleNamespace(**args)
                 # Only keep valid configurations
                 cls.validate(args, extra_args)
-                q.append((args, extra_args, args_dict))
+                exp_queue.append((args, extra_args, args_dict))
             except AssertionError:
                 # Invalid configuration
                 pass
         if script_args.shuffle_seed is not None:
             random.seed(script_args.shuffle_seed)
-            random.shuffle(q)
+            random.shuffle(exp_queue)
         start_index = script_args.start_index
-        end_index = script_args.end_index if script_args.end_index > 0 else len(q)
-        q = q[start_index:end_index]
-        return q
+        end_index = script_args.end_index if script_args.end_index > 0 else len(exp_queue)
+        exp_queue = exp_queue[start_index:end_index]
+        return exp_queue
 
     @classmethod
     def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
@@ -357,9 +357,9 @@ class RandomSearchMixin(BenchmarkSearchMixin):
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in cls.argument_parser._actions)
         # Retrieve argument combinations that are valid for the entrypoint
-        q = []
+        exp_queue = []
         for i in range(script_args.max_experimental_configs):
-            if len(q) >= script_args.num_experiments:
+            if len(exp_queue) >= script_args.num_experiments:
                 break
             args_dict = {k: v.value() for k, v in generator_dict.items()}
             try:
@@ -375,11 +375,11 @@ class RandomSearchMixin(BenchmarkSearchMixin):
                 args = SimpleNamespace(**args)
                 # Only keep valid configurations
                 cls.validate(args, extra_args)
-                q.append((args, extra_args, args_dict))
+                exp_queue.append((args, extra_args, args_dict))
             except AssertionError:
                 # Invalid configuration
                 pass
-        return q
+        return exp_queue
 
     @classmethod
     def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
@@ -640,15 +640,15 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     # entrypoint_parser
     args_dict = entrypoint_utils.standardize_args(script_args)
     # Generate a list of experiments
-    q = entrypoint_utils.gen_search_space(args_dict, script_args)
+    exp_queue = entrypoint_utils.gen_search_space(args_dict, script_args)
     # Show a summary of the configuration to be run in the benchmark execution
-    entrypoint_utils.print_benchmark_summary(q, script_args)
+    entrypoint_utils.print_benchmark_summary(exp_queue, script_args)
     # In the case of a dry-run, just stop after the output of the benchmark summary
     if script_args.dry_run:
         exit()
     # Prepare the shared queue for the processes
     args_queue = Queue()
-    for args_tuple in q:
+    for args_tuple in exp_queue:
         args_queue.put(args_tuple)
     # Map the comma-separated string of GPU ids to a list
     cuda_available_devices = list(map(int, script_args.gpus.split(",")))
