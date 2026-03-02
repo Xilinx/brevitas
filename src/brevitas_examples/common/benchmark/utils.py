@@ -3,6 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
+from argparse import Action
 from argparse import ArgumentParser
 from argparse import Namespace
 from collections import defaultdict
@@ -65,8 +66,29 @@ class BenchmarkUtils(ABC):
 class BenchmarkSearchMixin(ABC):
 
     @classmethod
-    @abstractmethod
     def standardize_args(cls, script_args: Namespace) -> Dict[str, Any]:
+        # Construct a full set of arguments where each argument is contained into a list
+        if script_args.config is not None:
+            with open(script_args.config, 'r') as f:
+                args_dict = yaml.safe_load(f)
+            # Add defaults if only a subset of keys are specified
+            for action in cls.argument_parser._actions:
+                if action.dest not in args_dict:
+                    args_dict[action.dest] = cls._default_action_handler(action, use_choices=False)
+        else:
+            args_dict = {
+                action.dest: cls._default_action_handler(action, use_choices=True) for action in cls.argument_parser._actions}
+            # Remove unnecessary keys
+            del args_dict["help"]
+            del args_dict["config"]
+            # Save YAML in the results folder
+            with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
+                yaml.dump(args_dict, f)
+        return args_dict
+
+    @classmethod
+    @abstractmethod
+    def _default_action_handler(cls, action: Action, config_provided: bool) -> Any:
         pass
 
     @staticmethod
@@ -89,26 +111,14 @@ class BenchmarkSearchMixin(ABC):
 class GridSearchMixin(BenchmarkSearchMixin):
 
     @classmethod
-    def standardize_args(cls, script_args: Namespace) -> Dict[str, List]:
-        # Construct a full set of arguments where each argument is contained into a list
-        if script_args.config is not None:
-            with open(script_args.config, 'r') as f:
-                args_dict = yaml.safe_load(f)
-            # Add defaults if only a subset of keys are specified
-            for action in cls.argument_parser._actions:
-                if action.dest not in args_dict:
-                    args_dict[action.dest] = [action.default]
+    def _default_action_handler(cls, action: Action, use_choices: bool) -> List[Any]:
+        # Standardizes an argument for the given search class when it is not provided for 2 cases:
+        # 1. use the default value (i.e., `use_choices=False`), e.g., when a config file has already been provided
+        # 2. use the choices field, if it exists (i.e., `use_choices=True`), e.g., when a config file is not provided
+        if use_choices:
+            return [action.default]
         else:
-            args_dict = {
-                action.dest: [action.default] if action.choices is None else action.choices
-                for action in cls.argument_parser._actions}
-            # Remove unnecessary keys
-            del args_dict["help"]
-            del args_dict["config"]
-            # Save YAML in the results folder
-            with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
-                yaml.dump(args_dict, f)
-        return args_dict
+            return [action.default] if action.choices is None else action.choices
 
     @staticmethod
     def parse_config_args(args: List[str]) -> Namespace:
@@ -295,29 +305,14 @@ class RandomArgNode:
 class RandomSearchMixin(BenchmarkSearchMixin):
 
     @classmethod
-    def standardize_args(cls, script_args: Namespace) -> Dict[str, List]:
-        # Construct a full set of arguments where each argument is contained into a list
-        if script_args.config is not None:
-            with open(script_args.config, 'r') as f:
-                args_dict = yaml.safe_load(f)
-            # Add defaults if only a subset of keys are specified
-            for action in cls.argument_parser._actions:
-                if action.dest not in args_dict:
-                    args_dict[action.dest] = {"rand_type": "const", "rand_values": action.default}
+    def _default_action_handler(cls, action: Action, use_choices: bool) -> Dict[str, Any]:
+        # Standardizes an argument for the given search class when it is not provided for 2 cases:
+        # 1. use the default value (i.e., `use_choices=False`), e.g., when a config file has already been provided
+        # 2. use the choices field, if it exists (i.e., `use_choices=True`), e.g., when a config file is not provided
+        if use_choices:
+            return {"rand_type": "const", "rand_values": action.default}
         else:
-            args_dict = {
-                action.dest: {
-                    "rand_type": "const", "rand_values": action.default}
-                if action.choices is None else {
-                    "rand_type": "choices", "rand_values": action.choices}
-                for action in cls.argument_parser._actions}
-            # Remove unnecessary keys
-            del args_dict["help"]
-            del args_dict["config"]
-            # Save YAML in the results folder
-            with open(f"{script_args.results_folder}/benchmark_config.yaml", 'w') as f:
-                yaml.dump(args_dict, f)
-        return args_dict
+            return {"rand_type": "const", "rand_values": action.default} if action.choices is None else {"rand_type": "choices", "rand_values": action.choices}
 
     @staticmethod
     def parse_config_args(args: List[str]) -> Namespace:
