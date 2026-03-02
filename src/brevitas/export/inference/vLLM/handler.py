@@ -1,9 +1,14 @@
 import torch
 
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.function_wrapper.shape import dynamic_over_sub_channel_block_view
+from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
+from brevitas.core.function_wrapper.shape import PermuteDims
 from brevitas.core.restrict_val import RestrictValueType
+from brevitas.function.shape import over_output_features
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 
+from ..handler import DynamicIntInferenceHandler
 from ..handler import DynamicScaleZeroPointMixin
 from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseIntInferenceHandler
@@ -46,4 +51,34 @@ class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
         zero_point = torch.zeros(()).type_as(x)
         out = self.inner_forward(x, scale, zero_point)
         out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
+        return out
+
+
+class vLLMDynamicPerRowIntInferenceHandler(DynamicScaleZeroPointMixin, DynamicIntInferenceHandler):
+
+    def __init__(self):
+        super().__init__()
+        self.register_buffer("permute_dims", torch.ones(()))
+
+    def prepare_for_export(self, module):
+        super().prepare_for_export(module)
+        for name, submodule in module.named_submodules():
+            if 'scaling_stats_input_view_shape_impl' in name:
+                assert type(submodule) == OverOutputFeaturesView, "Only per-row dynamic quantization is supported"
+                if hasattr(submodule, 'permute_dims'):
+                    self.permute_dims = submodule.permute_dims
+                    self.permute_impl = PermuteDims(submodule.permute_dims)
+                else:
+                    self.permute_impl = Identity()
+
+    def dynamic_broadcast(self, x, shape):
+        return x.view(*shape[:-1], 1)
+
+    def forward(self, x):
+        x = self.permute_impl(x)
+        x_shape = over_output_features(x)
+        scale = self.compute_scale(x.reshape(x_shape), self.group_dim)
+        scale = self.dynamic_broadcast(scale, x.shape)
+        zero_point = torch.zeros(()).type_as(x)
+        out = self.forward(x, scale, zero_point)
         return out
