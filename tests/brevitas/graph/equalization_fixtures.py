@@ -25,6 +25,7 @@ ATOL_DICT = {
     torch.float16: 5e-2,
     torch.bfloat16: 3e-1,}
 ATOL = 1e-3
+IN_FEATURES = 24
 
 MODELS = {
     'vit_b_32': [0.396, 0.657],
