@@ -51,6 +51,7 @@ from ..manager import _override_act_caching_mode
 from ..manager import _override_bias_caching_mode
 from ..manager import _override_create_quant_tensor
 from ..manager import _override_weight_caching_mode
+from .handler import vLLMDynamicPerRowFloatInferenceHandler
 from .handler import vLLMGroupwiseFloatInferenceHandler
 from .handler import vLLMGroupwiseIntInferenceHandler
 
@@ -152,8 +153,7 @@ class vLLMExportManager(BaseManager):
 
     handlers = [
         IntInferenceHandler,
-        DynamicIntInferenceHandler,
-        DynamicFloatInferenceHandler,
+        vLLMDynamicPerRowFloatInferenceHandler,
         FloatInferencetHandler,
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,
