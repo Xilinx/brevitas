@@ -220,7 +220,7 @@ def _trunc_quant_fake(
 
 
 @onnxscript.script(qonnx_op, default_opset=qonnx_op)
-def TruncQuant(
+def Trunc(
         x: FLOAT,
         scale: FLOAT,
         zero_point: FLOAT,
@@ -245,7 +245,7 @@ def trunc_quant_wrapper(
         rounding_mode: str,
         signed: int,
         narrow: int) -> FLOAT:
-    return TruncQuant(
+    return Trunc(
         x,
         scale,
         zero_point,
