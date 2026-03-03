@@ -401,7 +401,7 @@ def quant_conv_with_input_quant_model(input_quant, weight_quant):
         def __init__(self) -> None:
             super().__init__()
             self.conv_0 = qnn.QuantConv2d(
-                3, 16, kernel_size=3)  # gpxq tests assume no quant on first layer
+                3, 16, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
             self.conv_1 = qnn.QuantConv2d(
                 16, 32, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
 
@@ -421,7 +421,8 @@ def quant_convdepthconv_model(input_quant, weight_quant):
 
         def __init__(self) -> None:
             super().__init__()
-            self.conv = qnn.QuantConv2d(3, 16, kernel_size=3)
+            self.conv = qnn.QuantConv2d(
+                3, 16, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
             self.conv_0 = qnn.QuantConv2d(
                 16,
                 16,

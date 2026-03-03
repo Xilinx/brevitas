@@ -1,8 +1,7 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from functools import partial
-
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
@@ -16,9 +15,17 @@ from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 import brevitas.nn as qnn
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
-from brevitas_examples.imagenet_classification.ptq.ptq_common import _a2q_layer_filter_fnc
 
 from .equalization_fixtures import *
+
+
+def _a2q_layer_filter_fnc(layer: nn.Module) -> bool:
+    if isinstance(layer, nn.Conv2d):
+        # Skip when columns == 1 (kernel_size=1 and depthwise)
+        kernel_size = np.prod(layer.kernel_size)
+        if kernel_size == 1 and layer.groups == layer.in_channels:
+            return False
+    return True
 
 
 @torch.no_grad()
