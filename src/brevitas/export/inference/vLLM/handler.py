@@ -9,6 +9,7 @@ from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import PermuteDims
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.function.shape import over_output_features
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 
 from ..handler import DynamicFloatInferenceHandler
@@ -17,6 +18,13 @@ from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseIntInferenceHandler
 
 EPS = 1e-16
+
+
+def maybe_permute(x, permute_dims):
+    if permute_dims is None:
+        return x
+    else:
+        return x.permute(*permute_dims).contiguous()
 
 
 class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
@@ -63,37 +71,26 @@ class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class vLLMDynamicPerRowIntInferenceHandler(DynamicFloatInferenceHandler,
-                                           StandaloneGroupwiseQuantMixin):
+class vLLMDynamicPerRowFloatInferenceHandler(DynamicFloatInferenceHandler,
+                                             StandaloneGroupwiseQuantMixin):
+    handled_layer = DynamicActFloatQuantProxyFromInjector
 
     def __init__(self):
         DynamicFloatInferenceHandler.__init__(self)
-        DynamicScaleZeroPointMixin.__init__(self)
-        self.register_buffer("_permute_dims", torch.zeros(()))
+        StandaloneGroupwiseQuantMixin.__init__(self)
+        self.register_buffer("permute_dims", None)
         self.stats_reduce_dim = 1
-
-    @property
-    def permute_dims(self):
-        return self._permute_dims
-
-    @permute_dims.setter
-    def permute_dims(self, value):
-        self._permute_dims = value
-        if value == torch.zeros(()):
-            self.permute_impl = Identity()
-        else:
-            self.permute_impl = PermuteDims(value)
 
     def prepare_for_export(self, module):
         DynamicFloatInferenceHandler.prepare_for_export(self, module)
-        DynamicScaleZeroPointMixin.prepare_for_export(self, module)
+        StandaloneGroupwiseQuantMixin.prepare_for_export(self, module)
         for name, submodule in module.named_modules():
             if name.endswith('scaling_stats_input_view_shape_impl'):
                 assert type(submodule) == OverOutputFeaturesView, "Only per-row dynamic quantization is supported"
                 if hasattr(submodule, 'permute_dims'):
                     self.permute_dims = submodule.permute_dims
                 else:
-                    self.permute_dims = torch.zeros(())
+                    self.permute_dims = None
 
     def dynamic_broadcast(self, x, shape):
         return x.view(*shape[:-1], 1)
@@ -103,7 +100,7 @@ class vLLMDynamicPerRowIntInferenceHandler(DynamicFloatInferenceHandler,
         return out
 
     def forward(self, x):
-        x = self.permute_impl(x)
+        x = maybe_permute(x, self.permute_dims)
         x_shape = over_output_features(x)
         scale = self.compute_scale(x.reshape(x_shape), self.stats_reduce_dim)
         scale = self.dynamic_broadcast(scale, x.shape)

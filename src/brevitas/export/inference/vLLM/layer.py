@@ -13,18 +13,20 @@ from brevitas.nn.equalized_layer import RotatedModule
 
 from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
-from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseFloatWeightInferenceHandler
 from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
+from .handler import vLLMDynamicPerRowFloatInferenceHandler
+from .handler import vLLMGroupwiseFloatInferenceHandler
 
 class_mapping = {
-    'GroupwiseFloatInferenceHandler': GroupwiseFloatInferenceHandler,
+    'vLLMGroupwiseFloatInferenceHandler': vLLMGroupwiseFloatInferenceHandler,
     'GroupwiseFloatWeightInferenceHandler': GroupwiseFloatWeightInferenceHandler,
     'FloatInferencetHandler': FloatInferencetHandler,
     'FloatWeightInferencetHandler': FloatWeightInferencetHandler,
     'IntWeightInferencetHandler': IntWeightInferencetHandler,
-    'IntInferenceHandler': IntInferenceHandler}
+    'IntInferenceHandler': IntInferenceHandler,
+    'vLLMDynamicPerRowFloatInferenceHandler': vLLMDynamicPerRowFloatInferenceHandler}
 
 
 class QuantLinear(LinearMethodBase):
@@ -77,10 +79,15 @@ class QuantLinear(LinearMethodBase):
                     quant_config[k] = torch.tensor(v, dtype=torch.int)
 
         # Shapes must be set otherwise the state dict loading will fail
-        scale_shape = quant_config.get('scale', torch.tensor(())).shape
-        zero_point_shape = quant_config.get('zero_point', torch.tensor(())).shape
+        scale = quant_config.get('scale', None)
+        zero_point = quant_config.get('zero_point', None)
         quant_class_type = class_mapping[quant_class_name]
-        quant_class = quant_class_type(scale_shape, zero_point_shape)
+        if scale is None and zero_point is None:
+            quant_class = quant_class_type()
+        else:
+            scale_shape = scale.shape
+            zero_point_shape = zero_point.shape
+            quant_class = quant_class_type(scale_shape, zero_point_shape)
 
         # Set the remaining attributes
         quant_class.float_to_int_impl_type = float_to_int_impl_type
