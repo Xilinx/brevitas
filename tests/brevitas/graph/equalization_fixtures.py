@@ -422,9 +422,14 @@ def quant_convdepthconv_model(input_quant, weight_quant):
         def __init__(self) -> None:
             super().__init__()
             self.conv = qnn.QuantConv2d(3, 16, kernel_size=3)
-            self.conv_0 = qnn.QuantConv2d(16, 16, kernel_size=1, groups=16,
-                                          input_quant=input_quant, weight_quant=weight_quant)
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+            self.conv_0 = qnn.QuantConv2d(
+                16,
+                16,
+                kernel_size=1,
+                groups=16,
+                input_quant=input_quant,
+                weight_quant=weight_quant)
+            self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
 
         def forward(self, x):
             x = self.conv(x)

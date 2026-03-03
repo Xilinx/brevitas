@@ -3,9 +3,9 @@
 
 from copy import deepcopy
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
-from typing import Callable
 import warnings
 
 from packaging import version
@@ -19,6 +19,7 @@ except:
     LinAlgError = RuntimeError
 
 from brevitas import torch_version
+from brevitas.graph.gpxq import a2q_mode_mixin
 from brevitas.graph.gpxq import AXE
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
@@ -219,27 +220,9 @@ class A2GPTQ(AXE, GPTQ):
             num_blocks,
             max_accumulator_bit_width,
             max_accumulator_tile_size) -> None:
-        super().__init__(
-            layer, name, act_order, len_parallel_layers, create_weight_orig, num_blocks)
-        assert max_accumulator_bit_width is not None, \
-            "Error: max_accumulator_bit_width is not specified."
-        if not isinstance(max_accumulator_bit_width, Tensor):
-            max_accumulator_bit_width = torch.tensor(max_accumulator_bit_width)
-        self.max_accumulator_bit_width = max_accumulator_bit_width
-        self.max_accumulator_tile_size = max_accumulator_tile_size
-        if self.max_accumulator_tile_size is None:
-            self.max_accumulator_tile_size = self.columns
-        assert self.max_accumulator_tile_size > 1, \
-            "Error: accumulator tile size needs to be bigger than 1."
-        assert self.max_accumulator_bit_width > 2, \
-            "Error: accumulator bit width needs to be bigger than 2."
-        if self.layer.weight_quant.is_groupwise:
-            if (self.max_accumulator_tile_size != self.columns) \
-                and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
-                raise ValueError(
-                    "Error: only supporting accumulator-aware groupwise weight quantization"
-                    "when the group size is equal to the accumulator tile size or a monolithic" 
-                    "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
+        GPTQ.__init__(
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig, num_blocks)
+        AXE.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
 
     def single_layer_update(self, percdamp=0.01, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -269,7 +252,7 @@ class A2GPTQ(AXE, GPTQ):
 
         scales = scales.view(self.groups, -1, weight.shape[-1])
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
- 
+
         # TODO: currently assuming round-to-nearest; need to handle other
         # rounding functions
         rounding_mode = self.layer.weight_quant.rounding_mode
@@ -336,8 +319,12 @@ class A2GPTQ(AXE, GPTQ):
 
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
-        pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]), device=dev, dtype=lim_dtype)  # positive limits
-        neg_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]), device=dev, dtype=lim_dtype)  # negative limits
+        pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
+                                 device=dev,
+                                 dtype=lim_dtype)  # positive limits
+        neg_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
+                                 device=dev,
+                                 dtype=lim_dtype)  # negative limits
         max_limits = ((2 ** (self.max_accumulator_bit_width.to(lim_dtype) - 1)) - 1)
 
         for i1 in range(0, self.columns, self.blocksize):
@@ -405,7 +392,7 @@ class A2GPTQ(AXE, GPTQ):
         del scales  # memory management
 
 
-class gptq_mode(gpxq_mode):
+class gptq_mode(a2q_mode_mixin, gpxq_mode):
     """
     Apply GPTQ algorithm https://arxiv.org/abs/2210.17323
     Or accumulator-aware GPTQ (A2GPTQ) algorithm https://arxiv.org/pdf/2409.17092
@@ -495,16 +482,8 @@ class gptq_mode(gpxq_mode):
                     gpxq_class.disable_pre_forward_hook = False
                 return out
 
-    def requires_accumulator_awareness(self, layer):
-        # if the accumulator bit width is specified and the layer determined by the filter
-        # then quantize with A2GPTQ
-        if (self.max_accumulator_bit_width is not None) and self.a2q_layer_filter_fnc(layer):
-            return True
-        return False
-
-    def initialize_module_optimizer(
-            self, layer, name, len_parallel_layers, create_weight_orig):
-        if self.requires_accumulator_awareness(layer):
+    def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
+        if self.is_valid_a2q_layer(layer):
             return A2GPTQ(
                 layer=layer,
                 name=name,

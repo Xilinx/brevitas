@@ -3,9 +3,9 @@
 
 from copy import deepcopy
 import math
+from typing import Callable
 from typing import List
 from typing import Optional
-from typing import Callable
 import warnings
 
 import torch
@@ -13,6 +13,7 @@ from torch import Tensor
 import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
+from brevitas.graph.gpxq import a2q_mode_mixin
 from brevitas.graph.gpxq import AXE
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
@@ -214,26 +215,8 @@ class A2GPFQ(AXE, GPFQ):
             create_weight_orig,
             max_accumulator_bit_width,
             max_accumulator_tile_size) -> None:
-        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
-        assert max_accumulator_bit_width is not None, \
-            "Error: max_accumulator_bit_width must be specified."
-        if not isinstance(max_accumulator_bit_width, Tensor):
-            max_accumulator_bit_width = torch.tensor(max_accumulator_bit_width)
-        self.max_accumulator_bit_width = max_accumulator_bit_width
-        self.max_accumulator_tile_size = max_accumulator_tile_size
-        if self.max_accumulator_tile_size is None:
-            self.max_accumulator_tile_size = self.columns
-        assert self.max_accumulator_tile_size > 1, \
-            "Error: accumulator tile size needs to be bigger than 1."
-        assert self.max_accumulator_bit_width > 2, \
-            "Error: accumulator bit width needs to be bigger than 2."
-        if self.layer.weight_quant.is_groupwise:
-            if (self.max_accumulator_tile_size != self.columns) \
-                and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
-                raise ValueError(
-                    "Error: only supporting accumulator-aware groupwise weight quantization"
-                    "when the group size is equal to the accumulator tile size or a monolithic" 
-                    "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
+        GPFQ.__init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig)
+        AXE.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
 
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
@@ -336,8 +319,12 @@ class A2GPFQ(AXE, GPFQ):
 
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
-        pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]), device=dev, dtype=lim_dtype)  # positive limits
-        neg_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]), device=dev, dtype=lim_dtype)  # negative limits
+        pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
+                                 device=dev,
+                                 dtype=lim_dtype)  # positive limits
+        neg_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
+                                 device=dev,
+                                 dtype=lim_dtype)  # negative limits
         max_limits = ((2 ** (self.max_accumulator_bit_width.to(lim_dtype) - 1)) - 1)
 
         for t in range(weight.shape[-1]):
@@ -375,7 +362,7 @@ class A2GPFQ(AXE, GPFQ):
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
                 block_index = get_block_index(i)  # block index
-                q = q_groups[group_index] / scales[group_index, block_index]  # [OC/groups]
+                q = q_groups[group_index] / scales[group_index, :, i]  # [OC/groups]
                 # increment cumulative l1-norm
                 pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
                 neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
@@ -388,10 +375,8 @@ class A2GPFQ(AXE, GPFQ):
                     -((self.input_min * pos_limits) +
                       (self.input_max * neg_limits)) <= max_limits).all()
 
-        del scales
 
-
-class gpfq_mode(gpxq_mode):
+class gpfq_mode(a2q_mode_mixin, gpxq_mode):
     """
     Apply GPFQ algorithm, or other algorithms that solve the mismatched objective function,
     like Qronos or A2GPFQ.
@@ -496,16 +481,8 @@ class gpfq_mode(gpxq_mode):
                 gpxq_class.disable_pre_forward_hook = False
             return out
 
-    def requires_accumulator_awareness(self, layer):
-        # if the accumulator bit width is specified and the layer determined by the filter
-        # then quantize with A2GPFQ
-        if (self.max_accumulator_bit_width is not None) and self.a2q_layer_filter_fnc(layer):
-            return True
-        return False
-
-    def initialize_module_optimizer(
-            self, layer, name, len_parallel_layers, create_weight_orig):
-        if self.requires_accumulator_awareness(layer):
+    def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
+        if self.is_valid_a2q_layer(layer):
             return A2GPFQ(
                 layer=layer,
                 name=name,

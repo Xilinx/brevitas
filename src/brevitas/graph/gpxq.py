@@ -31,7 +31,8 @@ from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.quant_utils import _CachedIO, _CachedIOGroupwiseInt
+from brevitas.utils.quant_utils import _CachedIO
+from brevitas.utils.quant_utils import _CachedIOGroupwiseInt
 
 SUPPORTED_CONV_OP = (
     nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
@@ -307,7 +308,7 @@ class GPxQ(ABC):
 
     def reshape_gpxq_weights(self, weight):
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, SUPPORTED_TCONV_OP):
+            if is_conv_transposed(self.layer):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         return weight
@@ -438,6 +439,26 @@ def pad_tensor_with_zeros(tensor: Tensor, tile_size: int) -> Tensor:
     return pad_tensor
 
 
+class a2q_mode_mixin:
+    """
+    Mixin for accumulator-aware quantization for gpxq_mode
+    """
+
+    max_accumulator_bit_width: Optional[int] = None
+    max_accumulator_tile_size: Optional[int] = None
+    a2q_layer_filter_fnc = lambda x: True
+
+    def is_valid_a2q_layer(self, layer) -> bool:
+        """Check if a layer is valid for accumulator-aware quantization (A2Q)"""
+        # We don't apply A2Q if the bit width is not specified (default is None)
+        if self.max_accumulator_bit_width is None:
+            return False
+        # We expose a filter function to enable/disable A2Q based on layer characteristics
+        if not self.a2q_layer_filter_fnc(layer):
+            return False
+        return True
+
+
 class AXE:
     """
     Accumulator-aware extensions for greedy path sequential quantization algorithms
@@ -447,8 +468,34 @@ class AXE:
     """
 
     quant_metadata: Union[_CachedIO, _CachedIOGroupwiseInt] = None
-    max_accumulator_bit_width: Tensor = None
-    max_accumulator_tile_size: int = None
+
+    def __init__(
+            self, max_accumulator_bit_width: int, max_accumulator_tile_size: Optional[int] = None):
+
+        if max_accumulator_bit_width is None:
+            raise ValueError("max_accumulator_bit_width is not specified.")
+        if not isinstance(max_accumulator_bit_width, Tensor):
+            max_accumulator_bit_width = torch.tensor(max_accumulator_bit_width)
+        self.max_accumulator_bit_width = max_accumulator_bit_width
+        if self.max_accumulator_bit_width <= 2:
+            raise ValueError(
+                f"accumulator bit width needs to be bigger than 2, received {self.max_accumulator_bit_width}"
+            )
+
+        self.max_accumulator_tile_size = max_accumulator_tile_size
+        if self.max_accumulator_tile_size is None:
+            self.max_accumulator_tile_size = self.columns
+        if self.max_accumulator_tile_size <= 1:
+            raise ValueError(
+                f"accumulator tile size needs to be bigger than 1, received {self.max_accumulator_tile_size}"
+            )
+        if self.layer.weight_quant.is_groupwise:
+            if (self.max_accumulator_tile_size != self.columns) \
+                and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
+                raise ValueError(
+                    "Error: only supporting accumulator-aware groupwise weight quantization"
+                    "when the group size is equal to the accumulator tile size or a monolithic"
+                    "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
 
     @property
     def input_min(self):
@@ -509,4 +556,3 @@ class AXE:
         # take the most restrictive lower limit (i.e., the largest one),
         # note that we are assuming round-to-nearest here
         return torch.where(p2 > n2, p2, n2) + 0.5
-
