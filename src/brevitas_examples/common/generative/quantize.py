@@ -394,6 +394,7 @@ def generate_quantizers(
         # Enable signed scale if specified in the attention scale precision format
         k_transposed_quant = maybe_inject_signed_scale_kwargs(
             k_transposed_quant, attn_scale_precision, attn_scale_quant_kwargs)
+
         if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
         elif attn_quant_config == "kv":
