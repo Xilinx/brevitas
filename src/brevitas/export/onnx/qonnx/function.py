@@ -155,7 +155,7 @@ class BrevitasTruncFn(Function):
             output_scale,
             output_bit_width,
             rounding_mode):
-        trunc_quant(
+        return trunc_quant(
             x,
             scale,
             zero_point,
@@ -165,7 +165,6 @@ class BrevitasTruncFn(Function):
             rounding_mode,
             int(signed),
             int(narrow_range))
-        return x
 
 
 class BrevitasQuantLSTMCellFn(Function):
