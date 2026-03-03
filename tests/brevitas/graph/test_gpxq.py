@@ -20,42 +20,59 @@ from brevitas_examples.imagenet_classification.ptq.ptq_common import _a2q_layer_
 
 from .equalization_fixtures import *
 
+
 @torch.no_grad()
 def _dual_optimization_callback(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
         use_quant_activations: bool,
-        algorithm_impl: nn.Module):
+        algorithm_impl: nn.Module,
+        max_accumulator_bit_width: int = None,
+        max_accumulator_tile_size: int = None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    with torch.no_grad():
-        with gpfq_mode(model,
-                       use_quant_activations=use_quant_activations,
-                       act_order=act_order,
-                       algorithm_impl=algorithm_impl) as algo:
-            algo_model = algo.model
-            for _ in range(algo.num_layers):
-                for _, (images, _) in enumerate(calib_loader):
-                    images = images.to(device)
-                    images = images.to(dtype)
-                    algo_model(images)
-                algo.update()
+    with gpfq_mode(model,
+                   use_quant_activations=use_quant_activations,
+                   act_order=act_order,
+                   algorithm_impl=algorithm_impl,
+                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                   max_accumulator_bit_width=max_accumulator_bit_width,
+                   max_accumulator_tile_size=max_accumulator_tile_size) as algo:
+        algo_model = algo.model
+        for _ in range(algo.num_layers):
+            for _, (images, _) in enumerate(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                algo_model(images)
+            algo.update()
 
 
 def apply_gpfq(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        max_accumulator_bit_width: int = None,
+        max_accumulator_tile_size: int = None):
     _dual_optimization_callback(
         calib_loader=calib_loader,
         model=model,
         act_order=act_order,
         use_quant_activations=use_quant_activations,
-        algorithm_impl=GPFQ)
+        algorithm_impl=GPFQ,
+        max_accumulator_bit_width=max_accumulator_bit_width,
+        max_accumulator_tile_size=max_accumulator_tile_size)
 
 
 def apply_qronos(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        max_accumulator_bit_width: int = None,
+        max_accumulator_tile_size: int = None):
     _dual_optimization_callback(
         calib_loader=calib_loader,
         model=model,
@@ -64,30 +81,30 @@ def apply_qronos(
         algorithm_impl=Qronos)
 
 
+@torch.no_grad()
 def apply_gptq(
         calib_loader: DataLoader,
         model: nn.Module,
         act_order: bool,
         use_quant_activations: bool,
-        max_accumulator_bit_width: int,
-        max_accumulator_tile_size: int):
+        max_accumulator_bit_width: int = None,
+        max_accumulator_tile_size: int = None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    with torch.no_grad():
-        with gptq_mode(model,
-                       act_order=act_order,
-                       a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
-                       use_quant_activations=use_quant_activations,
-                       max_accumulator_bit_width=max_accumulator_bit_width,
-                       max_accumulator_tile_size=max_accumulator_tile_size) as gptq:
-            gptq_model = gptq.model
-            for _ in range(gptq.num_layers):
-                for _, (images, _) in enumerate(calib_loader):
-                    images = images.to(device)
-                    images = images.to(dtype)
-                    gptq_model(images)
-                gptq.update()
+    with gptq_mode(model,
+                   act_order=act_order,
+                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                   use_quant_activations=use_quant_activations,
+                   max_accumulator_bit_width=max_accumulator_bit_width,
+                   max_accumulator_tile_size=max_accumulator_tile_size) as gptq:
+        gptq_model = gptq.model
+        for _ in range(gptq.num_layers):
+            for _, (images, _) in enumerate(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                gptq_model(images)
+            gptq.update()
 
 
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": apply_qronos}
@@ -209,7 +226,14 @@ class TestQronosUpdateBatch:
     "apply_gpxq_tuple", apply_gpxq_func_map.items(), ids=apply_gpxq_func_map.keys())
 @pytest.mark.parametrize("max_accumulator_bit_width", [None, 12, 32])
 @pytest.mark.parametrize("max_accumulator_tile_size", [None, 32])
-def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq_tuple, max_accumulator_bit_width, max_accumulator_tile_size, request):
+def test_toymodels(
+        toy_quant_model,
+        act_order,
+        use_quant_activations,
+        apply_gpxq_tuple,
+        max_accumulator_bit_width,
+        max_accumulator_tile_size,
+        request):
 
     test_id = request.node.callspec.id
     input_quant = test_id.split('-')[1]
@@ -217,12 +241,16 @@ def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq
     torch.manual_seed(SEED)
 
     if (max_accumulator_bit_width is None) and (max_accumulator_tile_size is not None):
-        pytest.skip("max_accumulator_tile_size doesn't matter if max_accumulator_bit_width is None.")
+        pytest.skip(
+            "max_accumulator_tile_size doesn't matter if max_accumulator_bit_width is None.")
 
     if (max_accumulator_bit_width is not None) and input_quant.startswith("MXFloat"):
         pytest.skip("AXE does not currently support minifloat formats.")
 
     name, apply_gpxq = apply_gpxq_tuple
+
+    if (max_accumulator_bit_width is not None) and (name == "qronos"):
+        pytest.skip("Qronos does not support accumulator-aware quantization.")
 
     model_class = toy_quant_model
     model = model_class()
@@ -235,11 +263,28 @@ def test_toymodels(toy_quant_model, act_order, use_quant_activations, apply_gpxq
     dataset = TensorDataset(inp, inp)
     calib_loader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
 
-    apply_gpxq(
-        calib_loader=calib_loader,
-        model=model,
-        act_order=act_order,
-        use_quant_activations=use_quant_activations)
+    if (max_accumulator_bit_width is not None) and (input_quant == 'None' or
+                                                    not use_quant_activations):
+        # AXE (or A2GPxQ) requires that the quant activations are used. A2GPxQ.single_layer_update
+        # will raise a ValueError if AXE.quant_metadata is None (also see GPxQ.process_input). This
+        # will happen when `use_quant_activations=False` or when the input to a model is not quantized
+        # and `a2q_layer_filter_fnc` does not properly handle it.
+        with pytest.raises(ValueError):
+            apply_gpxq(
+                calib_loader=calib_loader,
+                model=model,
+                act_order=act_order,
+                use_quant_activations=use_quant_activations,
+                max_accumulator_bit_width=max_accumulator_bit_width,
+                max_accumulator_tile_size=max_accumulator_tile_size)
+    else:
+        apply_gpxq(
+            calib_loader=calib_loader,
+            model=model,
+            act_order=act_order,
+            use_quant_activations=use_quant_activations,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
 
 
 @torch.no_grad()
