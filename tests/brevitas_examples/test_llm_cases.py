@@ -164,6 +164,12 @@ class LLMPerplexityCases:
                 "rotation": "fx",
                 "float_ppl": 50467.9575,
                 "quant_ppl": 50464.0117},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "weight_bit_width": 2,
+                "weight_scale_precision": "signed_float_scale",
+                "float_ppl": 32428.475,
+                "quant_ppl": 32523.836},
         ],
         ids=[
         "llama",
@@ -171,6 +177,7 @@ class LLMPerplexityCases:
         "mistral",
         "opt-quant-sdpa",
         "rotation_fx_and_gptq"
+        "llama_signed_scale",
         ],)
     def case_small_models_with_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)

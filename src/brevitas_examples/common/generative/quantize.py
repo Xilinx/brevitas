@@ -357,7 +357,7 @@ def generate_quantizers(
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
         attn_quant_format, attn_float_format = quant_format_from_string(attn_quant_format) if attn_quant_format is not None else (input_quant_format, input_float_format)
-        attn_scale_precision, attn_scale_quant_kwargs = scale_quant_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_is_signed)
+        attn_scale_precision, attn_scale_quant_kwargs = scale_quant_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_quant_kwargs)
         attn_scale_type = attn_scale_type if attn_scale_type is not None else input_scale_type
         attn_scale_precision = attn_scale_precision if attn_scale_precision is not None else input_scale_precision
         attn_param_method = attn_param_method if attn_param_method is not None else input_param_method
@@ -386,7 +386,7 @@ def generate_quantizers(
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
         # Enable signed scale if specified in the attention scale precision format
         k_transposed_quant = maybe_inject_signed_scale_kwargs(
-            k_transposed_quant, attn_scale_quant_kwargs)
+            k_transposed_quant, attn_scale_precision, attn_scale_quant_kwargs)
         if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
         elif attn_quant_config == "kv":
@@ -435,7 +435,8 @@ def generate_quantizers(
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
     # Enable signed scale if specified in the weight scale precision format
-    weight_quant = maybe_inject_signed_scale_kwargs(weight_quant, weight_scale_quant_kwargs)
+    weight_quant = maybe_inject_signed_scale_kwargs(
+        weight_quant, weight_scale_precision, weight_scale_quant_kwargs)
 
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)
@@ -458,7 +459,8 @@ def generate_quantizers(
             input_quant = input_quant.let(**{'group_size': input_group_size})
 
         # Enable signed scale if specified in the input scale precision format
-        input_quant = maybe_inject_signed_scale_kwargs(input_quant, input_scale_quant_kwargs)
+        input_quant = maybe_inject_signed_scale_kwargs(
+            input_quant, input_scale_precision, input_scale_quant_kwargs)
 
         # QKV/Softmax Quant
         if attn_quant_granularity == 'per_row':
