@@ -11,6 +11,7 @@ from brevitas.graph.permute import rotate_permute_mode
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import *
+from .rotation_fixtures import rotation_model
 
 
 def _has_tied_parameters(model: torch.nn.Module):
