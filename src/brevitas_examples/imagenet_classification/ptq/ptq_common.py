@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from functools import partial
 import math
 
 import torch
@@ -14,6 +15,7 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.qronos import Qronos
@@ -611,7 +613,15 @@ def apply_gptq(
 
 
 @torch.no_grad()
-def _dual_optimization_callback(model, calib_loader, device, dtype, act_order, algorithm_impl):
+def _dual_optimization_callback(
+        model,
+        calib_loader,
+        device,
+        dtype,
+        act_order,
+        algorithm_impl,
+        max_accumulator_bit_width=None,
+        max_accumulator_tile_size=None):
     """
     This wraps gpfq_mode, which can be used for any layerwise PTQ algorithm that
     optimizes the mismatched objective function || XW - \tilde{X}Q ||, where
@@ -620,7 +630,12 @@ def _dual_optimization_callback(model, calib_loader, device, dtype, act_order, a
 
     See https://arxiv.org/abs/2505.11695 for more!
     """
-    with gpfq_mode(model, act_order=act_order, algorithm_impl=algorithm_impl) as algo:
+    with gpfq_mode(model,
+                   act_order=act_order,
+                   algorithm_impl=algorithm_impl,
+                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+                   max_accumulator_bit_width=max_accumulator_bit_width,
+                   max_accumulator_tile_size=max_accumulator_tile_size) as algo:
         algo_model = algo.model
         for i in tqdm(range(algo.num_layers)):
             for i, (images, target) in enumerate(calib_loader):
@@ -635,18 +650,10 @@ def apply_gpfq(
         model,
         act_order,
         max_accumulator_bit_width=None,
-        max_accumulator_tile_size=128,
-        algorithm_impl=GPFQ):
+        max_accumulator_tile_size=None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    if max_accumulator_bit_width is not None:
-        # Use accumulator-aware extension (AXE) framework
-        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        algorithm_impl = partial(
-            A2GPFQ,
-            max_accumulator_bit_width=max_accumulator_bit_width,
-            max_accumulator_tile_size=max_accumulator_tile_size)
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -655,7 +662,9 @@ def apply_gpfq(
         device=device,
         dtype=dtype,
         act_order=act_order,
-        algorithm_impl=algorithm_impl)
+        algorithm_impl=GPFQ,
+        max_accumulator_bit_width=max_accumulator_bit_width,
+        max_accumulator_tile_size=max_accumulator_tile_size)
 
 
 def apply_qronos(model, calib_loader, act_order=True, alpha=1e-6):
