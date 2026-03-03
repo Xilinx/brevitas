@@ -80,7 +80,6 @@ ACT_QUANTIZERS = {
     'int8': Int8ActPerTensorFloat,
     'uint8': ShiftedUint8ActPerTensorFloat,
     'fp8': Fp8e4m3ActPerTensorFloat,
-    'per_tensor_dynamic_int8': Int8DynamicActPerTensorFloat,
     'per_row_dynamic_fp8': FP8e4m3OCPDynamicActPerRowFloat,
     'mxint8': MXInt8Act,
     'mxfloat8': MXFloat8e4m3Act,}
