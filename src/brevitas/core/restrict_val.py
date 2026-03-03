@@ -210,6 +210,34 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
         return x
 
 
+class SignedPowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
+
+    def __init__(self, restrict_value_float_to_int_impl: Module = RoundSte()):
+        super(SignedPowerOfTwoRestrictValue, self).__init__()
+        self.float_to_int_impl = restrict_value_float_to_int_impl
+        self.power_of_two: Module = PowerOfTwo()
+
+    def restrict_init_float(self, x: float) -> float:
+        return x
+
+    def restrict_init_tensor(self, x: Tensor) -> Tensor:
+        return x
+
+    def restrict_init_module(self):
+        return Identity()
+
+    def restrict_init_inplace_module(self):
+        return Identity()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tensor:
+        x_sign = torch.sign(x)
+        x = torch.log2(torch.abs(x))
+        x = self.float_to_int_impl(x)
+        x = x_sign * self.power_of_two(x)
+        return x
+
+
 class QuantRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(

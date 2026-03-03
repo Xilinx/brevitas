@@ -87,6 +87,8 @@ def solve_restrict_value_impl_from_enum(impl_type):
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:
         return PowerOfTwoRestrictValue
+    elif impl_type == RestrictValueType.SIGNED_POWER_OF_TWO:
+        return SignedPowerOfTwoRestrictValue
     else:
         raise RuntimeError(f"{impl_type} not recognized.")
 

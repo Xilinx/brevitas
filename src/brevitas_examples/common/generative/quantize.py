@@ -259,7 +259,9 @@ def maybe_inject_signed_scale_kwargs(
         return injector
     return injector.let(
         **{
-            'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+            'restrict_scaling_type': (
+                RestrictValueType.SIGNED_FP if 'po2' not in
+                scale_quant_format else RestrictValueType.SIGNED_POWER_OF_TWO),
             'scaling_stats_op': StatsOp.SIGNED_MAX,})
 
 
