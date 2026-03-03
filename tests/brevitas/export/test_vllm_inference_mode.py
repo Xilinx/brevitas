@@ -7,6 +7,8 @@ import pytest_cases
 import torch
 
 from brevitas import config
+from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
+from brevitas.core.stats import StatsOp
 from brevitas.export.inference import quant_inference_mode
 from brevitas.export.inference.handler import DynamicFloatInferenceHandler
 from brevitas.export.inference.handler import DynamicIntInferenceHandler
@@ -17,28 +19,37 @@ from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
 from brevitas.export.inference.handler import IntInferenceHandler
 from brevitas.export.inference.handler import IntWeightInferencetHandler
 from brevitas.export.inference.manager import InferenceManager
+from brevitas.export.inference.vLLM.handler import vLLMDynamicPerRowIntInferenceHandler
 from brevitas.export.inference.vLLM.handler import vLLMGroupwiseFloatInferenceHandler
 from brevitas.export.inference.vLLM.handler import vLLMGroupwiseIntInferenceHandler
 import brevitas.nn as qnn
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import ShiftedUint8ActPerTensorFloat
 from brevitas.quant import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
 from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import requires_pt_ge
 
 
-class Fp8PerRow(FP8e4m3OCPDynamicActPerRowFloat):
+class FP8e4m3OCPDynamicActPerRowFloat(Fp8e4m3OCPActPerTensorFloat):
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverOutputFeaturesView
+    scaling_stats_op = StatsOp.MAX
+    scaling_per_output_channel = True
+    proxy_class = DynamicActFloatQuantProxyFromInjector
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(*shape[:-1], 1)
-    permute_dims = None
+    scaling_stats_permute_dims = None
     stats_reduce_dim = 1
 
 
@@ -48,8 +59,7 @@ class vLLMTestManager(InferenceManager):
 
     handlers = [
         IntInferenceHandler,
-        DynamicIntInferenceHandler,
-        DynamicFloatInferenceHandler,
+        vLLMDynamicPerRowIntInferenceHandler,
         FloatInferencetHandler,
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,
@@ -71,7 +81,7 @@ ACT_QUANTIZERS = {
     'uint8': ShiftedUint8ActPerTensorFloat,
     'fp8': Fp8e4m3ActPerTensorFloat,
     'per_tensor_dynamic_int8': Int8DynamicActPerTensorFloat,
-    'per_row_dynamic_fp8': Fp8PerRow,
+    'per_row_dynamic_fp8': FP8e4m3OCPDynamicActPerRowFloat,
     'mxint8': MXInt8Act,
     'mxfloat8': MXFloat8e4m3Act,}
 
@@ -106,12 +116,6 @@ def test_vllm_compile_act(inp, act_quantizer):
         extra_kwargs = {}
     if config.JIT_ENABLED and 'dynamic' in name:
         pytest.skip("JIT and dynamic quantization not supported")
-
-    if name == 'mxint8':
-        pytest.xfail(
-            "vLLMGroupwiseIntInferenceHandler.forward() calls self.inner_forward() "
-            "but no class in its MRO defines inner_forward — this is a bug")
-
     identity = qnn.QuantIdentity(quant, **extra_kwargs)
     out = identity(inp)
     identity.eval()
@@ -120,4 +124,5 @@ def test_vllm_compile_act(inp, act_quantizer):
     with quant_inference_mode(identity, compile=False, export_manager=vLLMTestManager):
         _ = identity(inp)
         inference_out = identity(inp)
+
     assert torch.allclose(quant_out, inference_out)

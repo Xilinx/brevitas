@@ -45,7 +45,6 @@ class RuntimeDynamicStatsScaling(nn.Module):
         x = self.stats_impl(x)
         x = self.restrict_clamp_scaling(self.restrict_scaling_pre(x))
         x = x / threshold
-
         x = self.dynamic_scaling_broadcastable_fn(x, shape)
         return x
 

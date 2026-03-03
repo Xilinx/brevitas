@@ -70,7 +70,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
     @scaling_restriction.setter
     def scaling_restriction(self, value):
         if isclass(value):
-            self._scaling_restriction = solve_restrict_value_enum_from_impl(type(value))
+            self._scaling_restriction = solve_restrict_value_enum_from_impl(value)
         elif isinstance(value, str):
             self._scaling_restriction = value
         else:
@@ -83,7 +83,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
     @threshold_restriction.setter
     def threshold_restriction(self, value):
         if isclass(value):
-            self._threshold_restriction = solve_restrict_value_enum_from_impl(type(value))
+            self._threshold_restriction = solve_restrict_value_enum_from_impl(value)
         elif isinstance(value, str):
             self._threshold_restriction = value
         else:
@@ -105,9 +105,10 @@ class DynamicScaleZeroPointMixin(torch.nn.Module):
                     submodule.exponent_bit_width_impl(),
                     compute_max_mantissa(submodule.mantissa_bit_width_impl()),
                     submodule.exponent_bias_impl())
-
-            self.scaling_restriction = submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl
-            self.threshold_restriction = submodule.scaling_impl.restrict_clamp_threshold.restrict_value_impl
+            self.scaling_restriction = type(
+                submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl)
+            self.threshold_restriction = type(
+                submodule.scaling_impl.restrict_clamp_threshold.restrict_value_impl)
 
 
 class FloatToIntMixin(torch.nn.Module):
@@ -299,6 +300,9 @@ class GroupwiseIntInferenceHandler(IntInferenceHandlerBase,
         self.module_forward = None
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
+
+    def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tensor:
+        return self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
 
     def forward(self, x: Tensor, unused_scale: Tensor = None) -> Tuple[Tensor]:
         # In inference mode, we never return quant tensors
@@ -543,10 +547,11 @@ class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler, Groupwi
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class DynamicFloatInferenceHandler(FloatInferencetHandler):
+class DynamicFloatInferenceHandler(FloatInferenceHandlerBase):
     handled_layer = DynamicActFloatQuantProxyFromInjector
 
     def prepare_for_export(self, module: nn.Module):
+        FloatInferenceHandlerBase.prepare_for_export(self, module)
         if module.is_quant_enabled:
             self.module_forward = module.fused_activation_quant_proxy.tensor_quant
 
