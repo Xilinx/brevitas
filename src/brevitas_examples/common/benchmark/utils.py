@@ -65,6 +65,11 @@ class BenchmarkUtils(ABC):
 
 class BenchmarkSearchMixin(ABC):
 
+    @property
+    @abstractmethod
+    def argument_parser() -> ArgumentParser:
+        pass
+
     @classmethod
     def standardize_args(cls, script_args: Namespace) -> Dict[str, Any]:
         # Construct a full set of arguments where each argument is contained into a list
