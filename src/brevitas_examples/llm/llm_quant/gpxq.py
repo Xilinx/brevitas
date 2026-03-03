@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
+from functools import partial
 
 from accelerate.utils.operations import send_to_device
 import torch
@@ -10,7 +11,6 @@ from tqdm import tqdm
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
-from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
@@ -118,31 +118,25 @@ def apply_gptq(
         max_accumulator_tile_size=None,
         buffer_device='cpu',
         buffer_dtype=torch.float32):
-    if max_accumulator_bit_width is not None:
-        # Use accumulator-aware extension (AXE) framework
-        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        gptq_class = partial(
-            A2GPTQ,
-            max_accumulator_bit_width=max_accumulator_bit_width,
-            max_accumulator_tile_size=max_accumulator_tile_size)
-    else:
-        gptq_class = GPTQ
     if block_name is not None:
         context_manager_kwargs = {
             'act_order': act_order,
-            'gptq_class': gptq_class,
+            'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': create_weight_orig,
             'use_quant_activations': use_quant_activations,
-            'gptq_class': gptq_class,
+            'max_accumulator_bit_width': max_accumulator_bit_width,
+            'max_accumulator_tile_size': max_accumulator_tile_size,
             'device': buffer_device,
             'dtype': buffer_dtype}
         block_optimization(model, dataloader, block_name, gptq_mode, context_manager_kwargs)
     else:
         with gptq_mode(model,
+                       use_quant_activations=use_quant_activations,
+                       group_of_parallel_layers=group_of_parallel_layers,
                        act_order=act_order,
-                       gptq_class=gptq_class,
                        create_weight_orig=create_weight_orig,
-                       gptq_class=gptq_class,
+                       max_accumulator_bit_width=max_accumulator_bit_width,
+                       max_accumulator_tile_size=max_accumulator_tile_size,
                        device=buffer_device,
                        dtype=buffer_dtype) as gptq:
             gptq_model = gptq.model
@@ -159,6 +153,8 @@ def _dual_optimization_callback(
         block_name=None,
         group_of_parallel_layers=None,
         algorithm_impl=GPFQ,
+        max_accumulator_bit_width=None,
+        max_accumulator_tile_size=None,
         device='cpu',
         dtype=torch.float32):
     """
@@ -175,6 +171,8 @@ def _dual_optimization_callback(
             'group_of_parallel_layers': group_of_parallel_layers,
             'create_weight_orig': True,
             'algorithm_impl': algorithm_impl,
+            'max_accumulator_bit_width': max_accumulator_bit_width,
+            'max_accumulator_tile_size': max_accumulator_tile_size,
             'device': device,
             'dtype': dtype}
         block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
@@ -184,6 +182,8 @@ def _dual_optimization_callback(
                        group_of_parallel_layers=group_of_parallel_layers,
                        create_weight_orig=True,
                        algorithm_impl=algorithm_impl,
+                       max_accumulator_bit_width=max_accumulator_bit_width,
+                       max_accumulator_tile_size=max_accumulator_tile_size,
                        device=device,
                        dtype=dtype) as algo:
             algo_model = algo.model
@@ -198,21 +198,12 @@ def apply_gpfq(
         model,
         dataloader,
         act_order=True,
-        block_name=None,
         group_of_parallel_layers=None,
+        block_name=None,
         max_accumulator_bit_width=None,
         max_accumulator_tile_size=None,
         buffer_device='cpu',
         buffer_dtype=torch.float32):
-    if max_accumulator_bit_width is not None:
-        # Use accumulator-aware extension (AXE) framework
-        print(f"Using AXE to target {max_accumulator_bit_width}-bit accumulation...")
-        algorithm_impl = partial(
-            A2GPFQ,
-            max_accumulator_bit_width=max_accumulator_bit_width,
-            max_accumulator_tile_size=max_accumulator_tile_size)
-    else:
-        algorithm_impl = GPFQ
     # We use the dual optimization callback, which uses two forward passes to correct
     # quantization error in both the weights and activations from previous layers
     _dual_optimization_callback(
@@ -221,7 +212,9 @@ def apply_gpfq(
         act_order=act_order,
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
-        algorithm_impl=algorithm_impl,
+        algorithm_impl=GPFQ,
+        max_accumulator_bit_width=max_accumulator_bit_width,
+        max_accumulator_tile_size=max_accumulator_tile_size,
         device=buffer_device,
         dtype=buffer_dtype)
 
