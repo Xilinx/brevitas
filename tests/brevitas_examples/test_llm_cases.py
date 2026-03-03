@@ -176,7 +176,7 @@ class LLMPerplexityCases:
         "llama_float_dynamic_input",
         "mistral",
         "opt-quant-sdpa",
-        "rotation_fx_and_gptq"
+        "rotation_fx_and_gptq",
         "llama_signed_scale",
         ],)
     def case_small_models_with_ppl(self, run_dict, default_run_args, request):
