@@ -377,7 +377,14 @@ def generate_quantizers(
             **attn_kwargs,}
 
         input_quant = input_quant.let(**input_kwargs)
+        # Enable signed scale if specified in the input scale precision format
+        input_quant = maybe_inject_signed_scale_kwargs(
+            input_quant, input_scale_precision, input_scale_quant_kwargs)
+
         linear_input_quant = linear_input_quant.let(**input_kwargs)
+        linear_input_quant = maybe_inject_signed_scale_kwargs(
+            linear_input_quant, input_scale_precision, input_scale_quant_kwargs)
+
         k_transposed_quant = k_transposed_quant.let(
             **input_kwargs
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
@@ -457,10 +464,6 @@ def generate_quantizers(
                     'stats_reduce_dim': 1})
         elif input_quant_granularity == 'per_group':
             input_quant = input_quant.let(**{'group_size': input_group_size})
-
-        # Enable signed scale if specified in the input scale precision format
-        input_quant = maybe_inject_signed_scale_kwargs(
-            input_quant, input_scale_precision, input_scale_quant_kwargs)
 
         # QKV/Softmax Quant
         if attn_quant_granularity == 'per_row':
