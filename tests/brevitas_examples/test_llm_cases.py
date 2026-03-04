@@ -406,6 +406,26 @@ class LLMQuantLayerTypeCases:
             "quant_sdpa": "fx",
             "exp_layer_types": {
                 "attn_output": "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "weight_quant_format": "float_ocp_e4m3",
+            "weight_scale_precision": "po2_scale",
+            "weight_param_method": "stats",
+            "weight_quant_granularity": "per_group",
+            "weight_group_size": 16,
+            "weight_quant_type": "sym",
+            "weight_param_method": "mse",
+            "input_quant_format": "float_ocp_e5m2",
+            "input_scale_type": "dynamic",
+            "input_scale_precision": "po2_scale",
+            "input_param_method": "stats",
+            "input_quant_granularity": "per_group",
+            "input_group_size": 16,
+            "input_quant_type": "sym",
+            "act_calibration": False,
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.stats.stats_impl":
+                    "<class 'brevitas.core.stats.stats_op.MSE'>",},},
         ],
         ids=[
             "mistral-int8",
@@ -417,7 +437,8 @@ class LLMQuantLayerTypeCases:
             "llama-int8-rotation=layerwise",
             "mistral-int8-quant-last-layer",
             "llama-int8-svd_quant",
-            "opt-quant-sdpa",],)
+            "opt-quant-sdpa",
+            "llama-mxfp8-mse"],)
     def case_small_models_quant_layer(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=["exp_layer_types"])
 
