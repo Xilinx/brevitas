@@ -40,7 +40,6 @@ _SRC_BENCHMARK_DIR = os.path.join(
 _REAL_GRID_YAML = os.path.join(_SRC_BENCHMARK_DIR, "benchmark_template.yaml")
 _REAL_RAND_YAML = os.path.join(_SRC_BENCHMARK_DIR, "benchmark_rand_template.yaml")
 
-
 # ---------------------------------------------------------------------------
 # Mock entrypoint: validates basic args, returns dummy results
 # ---------------------------------------------------------------------------
@@ -107,7 +106,6 @@ class TestLLMBenchmarkUtilsBase:
             LLMBenchmarkUtilsBase.validate(default_args)
 
 
-
 # =================== LLMBenchmarkUtils (Grid Search) ======================
 
 
@@ -124,8 +122,7 @@ class TestLLMBenchmarkUtils:
         assert isinstance(args_dict.get("weight_quant_granularity"), list)
 
     @pytest.mark.skipif(
-        not os.path.exists(_REAL_GRID_YAML),
-        reason="Real benchmark_template.yaml not found")
+        not os.path.exists(_REAL_GRID_YAML), reason="Real benchmark_template.yaml not found")
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_GRID_YAML, results_folder="./")
         args_dict = LLMBenchmarkUtils.standardize_args(script_args)
@@ -150,22 +147,22 @@ class TestLLMBenchmarkUtils:
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
-        with patch.object(
-                LLMBenchmarkUtilsBase, "entrypoint_main", _mock_entrypoint_main):
-            with patch(
-                    "brevitas_examples.common.benchmark.utils.multiprocessing.Process",
-                    MockProcess):
-                with patch(
-                        "brevitas_examples.common.benchmark.utils."
-                        "multiprocessing.set_start_method",
-                        lambda *a, **kw: None):
+        with patch.object(LLMBenchmarkUtilsBase, "entrypoint_main", _mock_entrypoint_main):
+            with patch("brevitas_examples.common.benchmark.utils.multiprocessing.Process",
+                       MockProcess):
+                with patch("brevitas_examples.common.benchmark.utils."
+                           "multiprocessing.set_start_method",
+                           lambda *a,
+                           **kw: None):
                     benchmark(
                         LLMBenchmarkUtils,
                         [
-                            "--config", _GRID_YAML,
-                            "--results-folder", results_folder,
-                            "--gpus", "0",
-                        ],
+                            "--config",
+                            _GRID_YAML,
+                            "--results-folder",
+                            results_folder,
+                            "--gpus",
+                            "0",],
                     )
 
         csv_path = os.path.join(results_folder, "results.csv")
@@ -200,8 +197,7 @@ class TestLLMRandomSearchBenchmarkUtils:
         assert args_dict["weight_quant_granularity"]["rand_type"] == "const"
 
     @pytest.mark.skipif(
-        not os.path.exists(_REAL_RAND_YAML),
-        reason="Real benchmark_rand_template.yaml not found")
+        not os.path.exists(_REAL_RAND_YAML), reason="Real benchmark_rand_template.yaml not found")
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_RAND_YAML, results_folder="./")
         args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
@@ -232,23 +228,24 @@ class TestLLMRandomSearchBenchmarkUtils:
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
-        with patch.object(
-                LLMBenchmarkUtilsBase, "entrypoint_main", _mock_entrypoint_main):
-            with patch(
-                    "brevitas_examples.common.benchmark.utils.multiprocessing.Process",
-                    MockProcess):
-                with patch(
-                        "brevitas_examples.common.benchmark.utils."
-                        "multiprocessing.set_start_method",
-                        lambda *a, **kw: None):
+        with patch.object(LLMBenchmarkUtilsBase, "entrypoint_main", _mock_entrypoint_main):
+            with patch("brevitas_examples.common.benchmark.utils.multiprocessing.Process",
+                       MockProcess):
+                with patch("brevitas_examples.common.benchmark.utils."
+                           "multiprocessing.set_start_method",
+                           lambda *a,
+                           **kw: None):
                     benchmark(
                         LLMRandomSearchBenchmarkUtils,
                         [
-                            "--config", _RAND_YAML,
-                            "--results-folder", results_folder,
-                            "--gpus", "0",
-                            "--num-experiments", "2",
-                        ],
+                            "--config",
+                            _RAND_YAML,
+                            "--results-folder",
+                            results_folder,
+                            "--gpus",
+                            "0",
+                            "--num-experiments",
+                            "2",],
                     )
 
         csv_path = os.path.join(results_folder, "results.csv")

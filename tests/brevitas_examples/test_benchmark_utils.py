@@ -144,8 +144,7 @@ class TestGridSearchMixin:
     def test_standardize_args_from_yaml(self, tmp_path):
         config = {
             "model": ["model_a", "model_b"],
-            "bit_width": [4, 8],
-        }
+            "bit_width": [4, 8],}
         yaml_path = str(tmp_path / "config.yaml")
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
@@ -167,10 +166,8 @@ class TestGridSearchMixin:
         args_dict = {
             "model": ["model_a", "model_b"],
             "bit_width": [4, 8],
-            "method": ["qat"],
-        }
-        script_args = Namespace(
-            start_index=0, end_index=-1, shuffle_seed=None)
+            "method": ["qat"],}
+        script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
         exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
         # 2 models * 2 bit_widths * 1 method = 4 combos, minus invalid (qat+4-bit) = 4
         assert len(exp_queue) == 4
@@ -185,10 +182,8 @@ class TestGridSearchMixin:
         args_dict = {
             "model": ["model_a"],
             "bit_width": [4, 8],
-            "method": ["ptq", "qat"],
-        }
-        script_args = Namespace(
-            start_index=0, end_index=-1, shuffle_seed=None)
+            "method": ["ptq", "qat"],}
+        script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
         exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
         # 1 * 2 * 2 = 4 total, but ptq+4-bit is invalid => 3 valid
         assert len(exp_queue) == 3
@@ -200,10 +195,8 @@ class TestGridSearchMixin:
         args_dict = {
             "model": ["model_a", "model_b"],
             "bit_width": [4, 8],
-            "method": ["qat"],
-        }
-        script_args = Namespace(
-            start_index=1, end_index=3, shuffle_seed=None)
+            "method": ["qat"],}
+        script_args = Namespace(start_index=1, end_index=3, shuffle_seed=None)
         exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
         # Slice [1:3] of 4 valid combos = 2
         assert len(exp_queue) == 2
@@ -212,10 +205,8 @@ class TestGridSearchMixin:
         args_dict = {
             "model": ["model_a", "model_b"],
             "bit_width": [4, 8],
-            "method": ["qat"],
-        }
-        script_args = Namespace(
-            start_index=0, end_index=-1, shuffle_seed=123)
+            "method": ["qat"],}
+        script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=123)
         exp_a = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
         exp_b = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
         # Same seed should produce same order
@@ -228,10 +219,8 @@ class TestGridSearchMixin:
             "model": ["model_a"],
             "bit_width": [8],
             "method": ["ptq"],
-            "unknown_param": ["value1"],
-        }
-        script_args = Namespace(
-            start_index=0, end_index=-1, shuffle_seed=None)
+            "unknown_param": ["value1"],}
+        script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
         # Validation rejects extra_args for the mock, so we patch validate to allow it
         with patch.object(MockGridBenchmarkUtils, 'validate', lambda *a, **kw: None):
             exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
@@ -241,7 +230,6 @@ class TestGridSearchMixin:
         assert "value1" in extra_args
 
 
-
 # ============================ RandomSearchMixin ===========================
 
 
@@ -249,9 +237,10 @@ class TestRandomSearchMixin:
 
     def test_standardize_args_from_yaml(self, tmp_path):
         config = {
-            "model": {"rand_type": "choices", "rand_values": ["model_a", "model_b"]},
-            "bit_width": {"rand_type": "const", "rand_values": 8},
-        }
+            "model": {
+                "rand_type": "choices", "rand_values": ["model_a", "model_b"]},
+            "bit_width": {
+                "rand_type": "const", "rand_values": 8},}
         yaml_path = str(tmp_path / "config.yaml")
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
@@ -267,10 +256,12 @@ class TestRandomSearchMixin:
 
     def test_gen_search_space_num_experiments(self):
         args_dict = {
-            "model": {"rand_type": "const", "rand_values": "model_a"},
-            "bit_width": {"rand_type": "choices", "rand_values": [4, 8]},
-            "method": {"rand_type": "const", "rand_values": "ptq"},
-        }
+            "model": {
+                "rand_type": "const", "rand_values": "model_a"},
+            "bit_width": {
+                "rand_type": "choices", "rand_values": [4, 8]},
+            "method": {
+                "rand_type": "const", "rand_values": "ptq"},}
         script_args = Namespace(
             num_experiments=5,
             max_experimental_configs=1000,
@@ -284,10 +275,12 @@ class TestRandomSearchMixin:
     def test_gen_search_space_validation_filtering(self):
         """With only invalid combos possible, should produce fewer than requested."""
         args_dict = {
-            "model": {"rand_type": "const", "rand_values": "model_a"},
-            "bit_width": {"rand_type": "const", "rand_values": 4},
-            "method": {"rand_type": "const", "rand_values": "ptq"},
-        }
+            "model": {
+                "rand_type": "const", "rand_values": "model_a"},
+            "bit_width": {
+                "rand_type": "const", "rand_values": 4},
+            "method": {
+                "rand_type": "const", "rand_values": "ptq"},}
         script_args = Namespace(
             num_experiments=5,
             max_experimental_configs=20,
@@ -301,10 +294,12 @@ class TestRandomSearchMixin:
 
     def test_gen_search_space_deterministic_with_seed(self):
         args_dict = {
-            "model": {"rand_type": "choices", "rand_values": ["model_a", "model_b"]},
-            "bit_width": {"rand_type": "choices", "rand_values": [4, 8]},
-            "method": {"rand_type": "const", "rand_values": "ptq"},
-        }
+            "model": {
+                "rand_type": "choices", "rand_values": ["model_a", "model_b"]},
+            "bit_width": {
+                "rand_type": "choices", "rand_values": [4, 8]},
+            "method": {
+                "rand_type": "const", "rand_values": "ptq"},}
         script_args = Namespace(
             num_experiments=3,
             max_experimental_configs=1000,
@@ -354,8 +349,7 @@ class TestRunArgsBucketProcess:
 
         # Find the job folder (MD5 hash name)
         job_dirs = [
-            d for d in os.listdir(results_folder)
-            if os.path.isdir(os.path.join(results_folder, d))]
+            d for d in os.listdir(results_folder) if os.path.isdir(os.path.join(results_folder, d))]
         assert len(job_dirs) == 1
         job_folder = os.path.join(results_folder, job_dirs[0])
         # Check config.yaml
@@ -392,8 +386,7 @@ class TestRunArgsBucketProcess:
         )
 
         job_dirs = [
-            d for d in os.listdir(results_folder)
-            if os.path.isdir(os.path.join(results_folder, d))]
+            d for d in os.listdir(results_folder) if os.path.isdir(os.path.join(results_folder, d))]
         assert len(job_dirs) == 1
         job_folder = os.path.join(results_folder, job_dirs[0])
         with open(os.path.join(job_folder, "run_results.yaml")) as f:
@@ -455,8 +448,7 @@ class TestBenchmarkOrchestrator:
         config = {
             "model": ["model_a", "model_b"],
             "bit_width": [8],
-            "method": ["ptq"],
-        }
+            "method": ["ptq"],}
         yaml_path = str(tmp_path / "grid_config.yaml")
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
@@ -466,20 +458,20 @@ class TestBenchmarkOrchestrator:
         yaml_path = self._write_grid_yaml(tmp_path)
         results_folder = str(tmp_path / "results")
 
-        with patch(
-                "brevitas_examples.common.benchmark.utils.multiprocessing.Process",
-                MockProcess):
-            with patch(
-                    "brevitas_examples.common.benchmark.utils."
-                    "multiprocessing.set_start_method",
-                    lambda *a, **kw: None):
+        with patch("brevitas_examples.common.benchmark.utils.multiprocessing.Process", MockProcess):
+            with patch("brevitas_examples.common.benchmark.utils."
+                       "multiprocessing.set_start_method",
+                       lambda *a,
+                       **kw: None):
                 benchmark(
                     MockGridBenchmarkUtils,
                     [
-                        "--config", yaml_path,
-                        "--results-folder", results_folder,
-                        "--gpus", "0",
-                    ],
+                        "--config",
+                        yaml_path,
+                        "--results-folder",
+                        results_folder,
+                        "--gpus",
+                        "0",],
                 )
 
         # Check that results.csv was created
@@ -496,16 +488,17 @@ class TestBenchmarkOrchestrator:
         results_folder = str(tmp_path / "results")
 
         with pytest.raises(SystemExit):
-            with patch(
-                    "brevitas_examples.common.benchmark.utils.multiprocessing.set_start_method",
-                    lambda *a, **kw: None):
+            with patch("brevitas_examples.common.benchmark.utils.multiprocessing.set_start_method",
+                       lambda *a,
+                       **kw: None):
                 benchmark(
                     MockGridBenchmarkUtils,
                     [
-                        "--config", yaml_path,
-                        "--results-folder", results_folder,
-                        "--dry-run",
-                    ],
+                        "--config",
+                        yaml_path,
+                        "--results-folder",
+                        results_folder,
+                        "--dry-run",],
                 )
 
         # results folder should not have been populated with CSV
@@ -514,30 +507,33 @@ class TestBenchmarkOrchestrator:
 
     def test_benchmark_random_search_e2e(self, tmp_path):
         config = {
-            "model": {"rand_type": "choices", "rand_values": ["model_a", "model_b"]},
-            "bit_width": {"rand_type": "choices", "rand_values": [4, 8]},
-            "method": {"rand_type": "const", "rand_values": "qat"},
-        }
+            "model": {
+                "rand_type": "choices", "rand_values": ["model_a", "model_b"]},
+            "bit_width": {
+                "rand_type": "choices", "rand_values": [4, 8]},
+            "method": {
+                "rand_type": "const", "rand_values": "qat"},}
         yaml_path = str(tmp_path / "rand_config.yaml")
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
         results_folder = str(tmp_path / "results")
 
-        with patch(
-                "brevitas_examples.common.benchmark.utils.multiprocessing.Process",
-                MockProcess):
-            with patch(
-                    "brevitas_examples.common.benchmark.utils."
-                    "multiprocessing.set_start_method",
-                    lambda *a, **kw: None):
+        with patch("brevitas_examples.common.benchmark.utils.multiprocessing.Process", MockProcess):
+            with patch("brevitas_examples.common.benchmark.utils."
+                       "multiprocessing.set_start_method",
+                       lambda *a,
+                       **kw: None):
                 benchmark(
                     MockRandomBenchmarkUtils,
                     [
-                        "--config", yaml_path,
-                        "--results-folder", results_folder,
-                        "--gpus", "0",
-                        "--num-experiments", "3",
-                    ],
+                        "--config",
+                        yaml_path,
+                        "--results-folder",
+                        results_folder,
+                        "--gpus",
+                        "0",
+                        "--num-experiments",
+                        "3",],
                 )
 
         csv_path = os.path.join(results_folder, "results.csv")
