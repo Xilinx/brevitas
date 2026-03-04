@@ -14,7 +14,7 @@ relative to BF16.
 
     <div align="center">
 	   <a href="https://arxiv.org/abs/2503.17513">📄 Paper</a>&nbsp
-		<a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph">💻 Code</a>
+		<a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/expansion">💻 Examples</a>
     </div>
 
 
