@@ -61,6 +61,7 @@ def _mock_entrypoint_main(
 
 class TestLLMBenchmarkUtilsBase:
 
+    @pytest.mark.llm
     def test_parse_log_float_and_quant_ppl(self):
         log = (
             "Loading model...\n"
@@ -71,12 +72,14 @@ class TestLLMBenchmarkUtilsBase:
         assert result["float_ppl"] == pytest.approx(25.123)
         assert result["quant_ppl"] == pytest.approx(30.456)
 
+    @pytest.mark.llm
     def test_parse_log_missing_ppl(self):
         log = "Loading model...\nDone.\n"
         result = LLMBenchmarkUtilsBase.parse_log(log)
         assert result["float_ppl"] is None
         assert result["quant_ppl"] is None
 
+    @pytest.mark.llm
     def test_parse_log_with_few_shot_dict(self):
         log = (
             "Float perplexity (wikitext2): 25.0\n"
@@ -88,6 +91,7 @@ class TestLLMBenchmarkUtilsBase:
         assert result["task_a"] == pytest.approx(0.85)
         assert result["task_b"] == pytest.approx(0.72)
 
+    @pytest.mark.llm
     def test_validate_valid_default_args(self):
         """Default args from the parser should be valid."""
         parser = LLMBenchmarkUtilsBase.argument_parser
@@ -95,6 +99,7 @@ class TestLLMBenchmarkUtilsBase:
         # Should not raise
         LLMBenchmarkUtilsBase.validate(default_args)
 
+    @pytest.mark.llm
     def test_validate_invalid_gptq_and_gpfq(self):
         """Enabling GPTQ and GPFQ together should fail validation."""
         parser = LLMBenchmarkUtilsBase.argument_parser
@@ -111,6 +116,7 @@ class TestLLMBenchmarkUtilsBase:
 
 class TestLLMBenchmarkUtils:
 
+    @pytest.mark.llm
     def test_standardize_args_from_test_yaml(self):
         script_args = Namespace(config=_GRID_YAML, results_folder="./")
         args_dict = LLMBenchmarkUtils.standardize_args(script_args)
@@ -123,6 +129,7 @@ class TestLLMBenchmarkUtils:
 
     @pytest.mark.skipif(
         not os.path.exists(_REAL_GRID_YAML), reason="Real benchmark_template.yaml not found")
+    @pytest.mark.llm
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_GRID_YAML, results_folder="./")
         args_dict = LLMBenchmarkUtils.standardize_args(script_args)
@@ -130,6 +137,7 @@ class TestLLMBenchmarkUtils:
         for key, value in args_dict.items():
             assert isinstance(value, list), f"Key '{key}' should be a list, got {type(value)}"
 
+    @pytest.mark.llm
     def test_gen_search_space_small_config(self):
         script_args = Namespace(config=_GRID_YAML, results_folder="./")
         args_dict = LLMBenchmarkUtils.standardize_args(script_args)
@@ -144,6 +152,7 @@ class TestLLMBenchmarkUtils:
             assert args.model == "facebook/opt-125m"
             assert args.weight_bit_width in [4, 8]
 
+    @pytest.mark.llm
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
@@ -184,6 +193,7 @@ class TestLLMBenchmarkUtils:
 
 class TestLLMRandomSearchBenchmarkUtils:
 
+    @pytest.mark.llm
     def test_standardize_args_from_test_yaml(self):
         script_args = Namespace(config=_RAND_YAML, results_folder="./")
         args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
@@ -198,6 +208,7 @@ class TestLLMRandomSearchBenchmarkUtils:
 
     @pytest.mark.skipif(
         not os.path.exists(_REAL_RAND_YAML), reason="Real benchmark_rand_template.yaml not found")
+    @pytest.mark.llm
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_RAND_YAML, results_folder="./")
         args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
@@ -207,6 +218,7 @@ class TestLLMRandomSearchBenchmarkUtils:
             assert "rand_type" in value, f"Key '{key}' missing 'rand_type'"
             assert "rand_values" in value, f"Key '{key}' missing 'rand_values'"
 
+    @pytest.mark.llm
     def test_gen_search_space_small_config(self):
         script_args = Namespace(config=_RAND_YAML, results_folder="./")
         args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
@@ -225,6 +237,7 @@ class TestLLMRandomSearchBenchmarkUtils:
             assert hasattr(args, "model")
             assert args.model == "facebook/opt-125m"
 
+    @pytest.mark.llm
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
