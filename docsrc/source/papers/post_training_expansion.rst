@@ -7,7 +7,7 @@ volume. Rather than only reducing bit widths, this approach strategically expand
 certain layers post-training to bridge the gap between full-precision and quantized 
 models. When quantizing Llama3 1B to 4-bit weights and activations, this technique 
 reduces the gap to full-precision perplexity by an average of 9% compared to QuaRot 
-and SpinQuant with only 5% more parameters—still achieving a 3.8× volume reduction 
+and SpinQuant with only 5% more parameters—still achieving a 3.8x volume reduction 
 relative to BF16.
 
 .. raw:: html
