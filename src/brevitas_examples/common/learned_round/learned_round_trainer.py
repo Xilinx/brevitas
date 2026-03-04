@@ -647,7 +647,9 @@ class LearnedRoundTrainer:
         # The floating point outputs of the current block are used as inputs to the next block. Passing these
         # through `next_block` enables to populate its expected floating point outputs.
         output_next_data_loader = DataLoader(
-            cache, batch_size=1, collate_fn=cache_fp_outputs.collate_fn_output_next)
+            cache,
+            batch_size=self.config.training_args.batch_size,
+            collate_fn=cache_fp_outputs.collate_fn_output_next)
 
         # We compute the floating point output of the upcoming block
         if torch.cuda.is_available():
@@ -670,7 +672,9 @@ class LearnedRoundTrainer:
 
         # Prepare quant inputs to current block
         input_next_data_loader = DataLoader(
-            cache, batch_size=1, collate_fn=cache_quant_inputs.collate_fn_input_next)
+            cache,
+            batch_size=self.config.training_args.batch_size,
+            collate_fn=cache_quant_inputs.collate_fn_input_next)
 
         # Finally (!), we compute the quantized input of the next block
         block.eval()
