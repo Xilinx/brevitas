@@ -5,11 +5,8 @@ from contextlib import contextmanager
 from dataclasses import is_dataclass
 from enum import Enum
 import functools
-<<<<<<< HEAD
-=======
 import json
 from typing import Any
->>>>>>> 9b0247d5 (Address review comments)
 from typing import Callable
 from typing import Dict
 from typing import Generic
@@ -18,10 +15,7 @@ from typing import List
 from typing import Optional
 from typing import TypeVar
 from typing import Union
-<<<<<<< HEAD
 import warnings
-=======
->>>>>>> 9b0247d5 (Address review comments)
 
 
 class AutoName(str, Enum):
