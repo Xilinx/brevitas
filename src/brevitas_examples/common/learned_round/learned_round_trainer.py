@@ -182,21 +182,14 @@ Adapted from https://github.com/intel/auto-round, released under the following L
    END OF TERMS AND CONDITIONS
 """
 
-from abc import abstractmethod
 from contextlib import nullcontext
 import copy
 from typing import Any
 from typing import Callable
-from typing import Dict
-from typing import Generic
-from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import OrderedDict
-from typing import Protocol
-from typing import Sequence
 from typing import Tuple
-from typing import TypeVar
 import warnings
 
 from accelerate.utils.operations import send_to_device
@@ -205,7 +198,6 @@ from torch import autocast
 from torch import nn
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
-from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -220,82 +212,12 @@ from brevitas_examples.common.learned_round.learned_round_args import TrainerCon
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
 from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
 from brevitas_examples.common.learned_round.learned_round_method import TRAINING_HANDLERS_REGISTRY
-
-_T_inputs = TypeVar("_T_inputs")
-_T_outputs = TypeVar("_T_output")
-_T_model_inputs = TypeVar("_T_model_inputs")
-_T_cache = Tuple[_T_inputs, _T_outputs]
-
-
-# Cache, as a subclass of torch.utils.data.Dataset, needs to implement __getitem__ and __len__
-class Cache(Generic[_T_inputs, _T_outputs], Dataset[_T_cache]):
-
-    inputs: Sequence[_T_inputs]
-    outputs: Sequence[_T_outputs]
-
-    @abstractmethod
-    def store_inputs(self, args: Tuple[torch.Tensor, ...], kwargs: Dict[str, Any]) -> None:
-        pass
-
-    @abstractmethod
-    def store_output(self, output: Any) -> None:
-        pass
-
-    @abstractmethod
-    def reset_cache(self) -> None:
-        pass
-
-    @abstractmethod
-    def collate_fn(self, batch: Iterable[_T_cache]) -> _T_cache:
-        pass
-
-    def collate_fn_output_next(self, batch: Iterable[_T_cache]) -> _T_cache:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} is not compatible with fast_update=True.")
-
-    def collate_fn_input_next(self, batch: Iterable[_T_cache]) -> _T_cache:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} is not compatible with fast_update=True.")
-
-
-class ModelForwardFn(Protocol):
-
-    def __call__(self, model: nn.Module, inputs: _T_model_inputs) -> Any:
-        ...
-
-
-class BlockForwardFn(Protocol):
-
-    def __call__(self, block: nn.Module, inputs: _T_inputs) -> _T_outputs:
-        ...
-
-
-class DataSaverHook:
-
-    def __init__(
-        self,
-        cache: Cache,
-        store_inputs: bool = True,
-        store_output: bool = True,
-        keep_gpu: bool = True,
-    ) -> None:
-        self.cache = cache
-        self.store_inputs = store_inputs
-        self.store_output = store_output
-        self.keep_gpu = keep_gpu
-
-    def __call__(self, module: nn.Module, args, kwargs, output) -> None:
-        if self.store_inputs:
-            if not self.keep_gpu:
-                args = send_to_device(args, 'cpu')
-                kwargs = send_to_device(kwargs, 'cpu')
-            self.cache.store_inputs(args, kwargs)
-        if self.store_output:
-            if not self.keep_gpu:
-                output = send_to_device(output, 'cpu')
-            self.cache.store_output(output)
-
-        raise StopFwdException
+from brevitas_examples.common.learned_round.learned_round_utils import BlockForwardFn
+from brevitas_examples.common.learned_round.learned_round_utils import Cache
+from brevitas_examples.common.learned_round.learned_round_utils import DataSaverHook
+from brevitas_examples.common.learned_round.learned_round_utils import ModelForwardFn
+from brevitas_examples.common.learned_round.learned_round_utils import T_cache
+from brevitas_examples.common.learned_round.learned_round_utils import T_model_inputs
 
 
 def get_blocks(model: nn.Module, block_check_fn: Callable[[nn.Module, str],
@@ -403,7 +325,7 @@ class LearnedRoundTrainer:
     def _step(
             self,
             optim_lr_schedulers: List[Tuple[Optimizer, Optional[LRScheduler]]],
-            scaler: Optional['GradScaler'] = None) -> None:
+            scaler: Optional['GradScaler'] = None) -> None:  # type: ignore
         for optim, lr_scheduler in optim_lr_schedulers:
             if scaler is not None:
                 scaler.step(optim)
@@ -417,12 +339,12 @@ class LearnedRoundTrainer:
             scaler.update()
 
     def _training_step(
-        self,
-        model: nn.Module,
-        forward: Callable,
-        block_losses: List[BlockLoss],
-        inputs: _T_cache,
-        scaler: Optional['GradScaler'] = None,
+            self,
+            model: nn.Module,
+            forward: Callable,
+            block_losses: List[BlockLoss],
+            inputs: T_cache,
+            scaler: Optional['GradScaler'] = None,  # type: ignore
     ) -> Tuple[torch.Tensor, Any]:
         # Compute loss
         loss, loss_components = self._compute_loss(
@@ -453,7 +375,7 @@ class LearnedRoundTrainer:
         model: nn.Module,
         forward: Callable,
         block_losses: List[BlockLoss],
-        inputs: _T_cache,
+        inputs: T_cache,
     ) -> Tuple[torch.Tensor, Any]:
         # Unpack inputs to model and expected outputs
         inps, exp_output = inputs
@@ -528,7 +450,7 @@ class LearnedRoundTrainer:
         self,
         model: nn.Module,
         forward: Callable,
-        data_loader: DataLoader[_T_cache],
+        data_loader: DataLoader[T_cache],
         block_losses: List[BlockLoss],
     ) -> Tuple[float, int, int]:
 
@@ -635,7 +557,7 @@ class LearnedRoundTrainer:
             loss_args.cls(block, **loss_args.kwargs)
             for loss_args in self.config.training_args.losses_args]
 
-    def _instantiate_block_dataloader(self, cache: Cache) -> DataLoader[_T_cache]:
+    def _instantiate_block_dataloader(self, cache: Cache) -> DataLoader[T_cache]:
         return DataLoader(
             cache,
             batch_size=self.config.training_args.batch_size,
@@ -650,7 +572,7 @@ class LearnedRoundTrainer:
             model: nn.Module,
             model_forward: ModelForwardFn,
             block_forward: BlockForwardFn,
-            data_loader: DataLoader[_T_model_inputs],
+            data_loader: DataLoader[T_model_inputs],
             cache: Cache,
             get_blocks_fn: Callable[[nn.Module], List[nn.Module]],
             keep_gpu: bool = True) -> None:

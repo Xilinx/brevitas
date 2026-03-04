@@ -24,18 +24,18 @@ from brevitas_examples.common.learned_round.learned_round_method import LearnedR
 from brevitas_examples.common.learned_round.learned_round_trainer import Cache
 from brevitas_examples.common.learned_round.learned_round_trainer import LearnedRoundTrainer
 
-_T_args = Tuple[torch.Tensor, ...]
-_T_kwargs = Dict[str, Any]
-_T_inputs = Tuple[_T_args, _T_kwargs]
-_T_outputs = torch.Tensor
+T_args = Tuple[torch.Tensor, ...]
+T_kwargs = Dict[str, Any]
+T_inputs = Tuple[T_args, T_kwargs]
+T_outputs = torch.Tensor
 
 
-class CacheLLM(Cache[_T_inputs, _T_outputs]):
+class CacheLLM(Cache[T_inputs, T_outputs]):
 
     def __init__(self) -> None:
-        self._args: List[_T_args] = []
-        self._kwargs: List[_T_kwargs] = []
-        self.outputs: List[_T_outputs] = []
+        self._args: List[T_args] = []
+        self._kwargs: List[T_kwargs] = []
+        self.outputs: List[T_outputs] = []
 
     def store_inputs(self, args, kwargs):
         args = list(zip(*map(lambda x: list(torch.split(x, 1, dim=0)), args)))
@@ -121,7 +121,7 @@ def llm_forward(model: nn.Module, inputs: Dict[str, Any]) -> None:
     model(**inputs)
 
 
-def llm_block_forward(block: nn.Module, inputs: _T_inputs) -> torch.Tensor:
+def llm_block_forward(block: nn.Module, inputs: T_inputs) -> torch.Tensor:
     device = next(block.parameters()).device
     args, kwargs = inputs
     args = send_to_device(args, device)
