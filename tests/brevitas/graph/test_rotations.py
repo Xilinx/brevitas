@@ -395,13 +395,18 @@ def test_fuse_parametrized_modules(kwargs):
 
 
 @requires_pt_ge('2.3.1')
-def test_fuse_parametrized_modules_after_compile_and_train():
+@pytest_cases.parametrize('device', ['cpu', 'cuda'] if torch.cuda.is_available() else ['cpu'])
+def test_fuse_parametrized_modules_after_compile_and_train(device):
     """Test that fuse_parametrizations works correctly after compile_quant + a training step.
 
     This specifically tests the fix where compile_quant adds '.orig_mod' keys to the
     state_dict, which need to be stripped before calling load_state_dict during
     fuse_parametrizations.
     """
+    if device == 'cpu':
+        pytest.skip('Compile tests are disabled on CPU')
+    torch.set_default_device(device)
+
     model = nn.Sequential(nn.Linear(2, 3))
     sample_input = torch.tensor([[0.8, -0.6]])
     target = torch.tensor([[1.0, 0.0, -1.0]])
@@ -479,3 +484,4 @@ def test_fuse_parametrized_modules_after_compile_and_train():
     with torch.no_grad():
         output_after_fuse = qmodel(sample_input)
     assert torch.allclose(output_before_fuse, output_after_fuse, rtol=0.0, atol=0.0)
+    torch.set_default_device('cpu')
