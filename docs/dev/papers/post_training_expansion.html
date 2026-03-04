@@ -1,0 +1,887 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Post-Training Quantization with Model Expansion &#8212; Brevitas Documentation - dev</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'papers/post_training_expansion';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'dev';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - dev - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - dev - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">Post-Trainin...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="post-training-quantization-with-model-expansion">
+<h1>Post-Training Quantization with Model Expansion<a class="headerlink" href="#post-training-quantization-with-model-expansion" title="Permalink to this heading">#</a></h1>
+<p>Post-training model expansion is a new strategy to improve quantization quality by
+modestly increasing model size while still significantly reducing overall parameter
+volume. Rather than only reducing bit widths, this approach strategically expands
+certain layers post-training to bridge the gap between full-precision and quantized
+models. When quantizing Llama3 1B to 4-bit weights and activations, this technique
+reduces the gap to full-precision perplexity by an average of 9% compared to QuaRot
+and SpinQuant with only 5% more parameters—still achieving a 3.8x volume reduction
+relative to BF16.</p>
+<div align="center">
+       <a href="https://arxiv.org/abs/2503.17513">📄 Paper</a>&nbsp
+            <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/expansion">💻 Examples</a>
+</div><nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#about-the-algorithm" id="id1">About the Algorithm</a></p>
+<ul>
+<li><p><a class="reference internal" href="#the-expansion-mechanism" id="id2">The Expansion Mechanism</a></p></li>
+<li><p><a class="reference internal" href="#why-does-it-work" id="id3">Why Does It Work?</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#getting-started" id="id4">Getting Started</a></p></li>
+<li><p><a class="reference internal" href="#how-to-use-expanding-models-post-training" id="id5">How to Use: Expanding Models Post-Training</a></p>
+<ul>
+<li><p><a class="reference internal" href="#expanding-attention-and-down-projection-r2-r4" id="id6">Expanding Attention and Down Projection (R2 + R4)</a></p>
+<ul>
+<li><p><a class="reference internal" href="#int4-weight-activation-quantization" id="id7">INT4 Weight-Activation Quantization</a></p></li>
+<li><p><a class="reference internal" href="#mxfp4-weight-activation-quantization" id="id8">MXFP4 Weight-Activation Quantization</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#understanding-the-quality-volume-tradeoff" id="id9">Understanding the Quality-Volume Tradeoff</a></p></li>
+<li><p><a class="reference internal" href="#example-commands" id="id10">Example Commands</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#citation" id="id11">Citation</a></p></li>
+<li><p><a class="reference internal" href="#references" id="id12">References</a></p></li>
+</ul>
+</nav>
+<section id="about-the-algorithm">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">About the Algorithm</a><a class="headerlink" href="#about-the-algorithm" title="Permalink to this heading">#</a></h2>
+<p>Traditional quantization focuses on reducing parameter volume primarily through bit width
+reduction. However, in real-world deployments where maintaining model quality is critical,
+a modest 5-10% increase in model size is often an acceptable trade-off. For example, when
+deploying on hardware accelerators restricted to power-of-two bit widths (e.g., GPUs),
+failing to meet accuracy requirements at 4-bit necessitates reverting to 8-bit—a significant
+jump in parameter volume.</p>
+<p>Post-training model expansion offers a complementary dimension in the quantization design
+space. The key insight is to expand Hadamard matrices used during online incoherence
+processing. Recent quantization methods like QuaRot [1] and SpinQuant [2] already insert
+Hadamard rotations into the compute graph to reduce outliers. This work extends that idea
+by using expanded Hadamard matrices that increase certain layer dimensions post-training.</p>
+<section id="the-expansion-mechanism">
+<h3><a class="toc-backref" href="#id2" role="doc-backlink">The Expansion Mechanism</a><a class="headerlink" href="#the-expansion-mechanism" title="Permalink to this heading">#</a></h3>
+<p>Incoherence processing exploits rotation invariance in linear layers. Given orthogonal
+rotation matrix <span class="math notranslate nohighlight">\(R\)</span>, we have:</p>
+<div class="math notranslate nohighlight">
+\[XW = (XR)(R^TW) = XRR^{-1}W = XW\]</div>
+<p>where <span class="math notranslate nohighlight">\(X\)</span> are inputs and <span class="math notranslate nohighlight">\(W\)</span> are weights. The rotation <span class="math notranslate nohighlight">\(R\)</span> effectively
+rotates the latent space to amortize outliers before quantizing <span class="math notranslate nohighlight">\(XR\)</span> and <span class="math notranslate nohighlight">\(R^TW\)</span>.</p>
+<p>For expansion, instead of using an <span class="math notranslate nohighlight">\(N \times N\)</span> Hadamard matrix <span class="math notranslate nohighlight">\(H\)</span>, we generate
+an <span class="math notranslate nohighlight">\(M \times M\)</span> matrix where <span class="math notranslate nohighlight">\(M &gt; N\)</span>, then select only the first <span class="math notranslate nohighlight">\(N\)</span> rows
+to yield <span class="math notranslate nohighlight">\(\hat{H} \in \mathbb{R}^{N \times M}\)</span>. This expanded matrix increases the
+number of input channels from <span class="math notranslate nohighlight">\(N\)</span> to <span class="math notranslate nohighlight">\(M\)</span>. The left inverse is still computed
+through transposition since <span class="math notranslate nohighlight">\(\hat{H}\hat{H}^T = I\)</span>, preserving computational efficiency.</p>
+</section>
+<section id="why-does-it-work">
+<h3><a class="toc-backref" href="#id3" role="doc-backlink">Why Does It Work?</a><a class="headerlink" href="#why-does-it-work" title="Permalink to this heading">#</a></h3>
+<p>Expansion provides two theoretical benefits:</p>
+<p><strong>1. Increased Nullspace:</strong> By the rank-nullity theorem, expanding from <span class="math notranslate nohighlight">\(N\)</span> to <span class="math notranslate nohighlight">\(M\)</span>
+dimensions strictly increases the nullspace by <span class="math notranslate nohighlight">\(M - N\)</span>. This provides more opportunity
+to hide quantization error during calibration, since we seek quantized weights <span class="math notranslate nohighlight">\(Q(w)\)</span>
+where <span class="math notranslate nohighlight">\(w - Q(w)\)</span> lies in the nullspace of the input activations.</p>
+<p><strong>2. Reduced Error Bounds:</strong> For GPTQ-based quantization, expansion reduces the supremum of
+reconstruction error by a factor of <span class="math notranslate nohighlight">\(\sqrt{N/M}\)</span>. While this doesn’t guarantee universal
+improvement, it establishes a theoretical rate of decay for worst-case error under ideal conditions.</p>
+<p>🔍 Check out the <a class="reference external" href="https://arxiv.org/abs/2503.17513">paper</a> for complete mathematical
+derivations and formal proofs!</p>
+</section>
+</section>
+<section id="getting-started">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Getting Started</a><a class="headerlink" href="#getting-started" title="Permalink to this heading">#</a></h2>
+<p>Install Brevitas and the required dependencies:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>brevitas<span class="o">[</span>llm,<span class="w"> </span>export<span class="o">]</span><span class="w"> </span>lighteval
+</pre></div>
+</div>
+</section>
+<section id="how-to-use-expanding-models-post-training">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">How to Use: Expanding Models Post-Training</a><a class="headerlink" href="#how-to-use-expanding-models-post-training" title="Permalink to this heading">#</a></h2>
+<p>With Brevitas, you can apply post-training model expansion to quantize HuggingFace models
+via <a class="reference external" href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/llm">our LLM entry point</a>!</p>
+<p>The technique works by expanding specific Hadamard rotation matrices in the compute graph.
+Two main expansion strategies are available:</p>
+<ol class="arabic simple">
+<li><p><strong>Expanding R4</strong> (down projection only): Lower overhead, focused improvement</p></li>
+<li><p><strong>Expanding R2 and R4</strong> (attention output + down projection): Broader improvement</p></li>
+</ol>
+<p>These expansions can be combined with either QuaRot-style Hadamard rotations or
+SpinQuant-style Cayley-optimized rotations. Let’s explore the results!</p>
+<section id="expanding-attention-and-down-projection-r2-r4">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Expanding Attention and Down Projection (R2 + R4)</a><a class="headerlink" href="#expanding-attention-and-down-projection-r2-r4" title="Permalink to this heading">#</a></h3>
+<p>Expanding both the output projection in attention (R2) and the down projection (R4)
+provides the best overall improvements. This strategy increases model size by approximately
+14-17% while delivering substantial perplexity gains.</p>
+<section id="int4-weight-activation-quantization">
+<h4><a class="toc-backref" href="#id7" role="doc-backlink">INT4 Weight-Activation Quantization</a><a class="headerlink" href="#int4-weight-activation-quantization" title="Permalink to this heading">#</a></h4>
+<p>The following table shows results for 4-bit weight and activation quantization with expanded
+models. We use per-channel symmetric weight quantization and per-token asymmetric activation
+quantization.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p>Llama 3.2 1B</p></td>
+<td colspan="2"><p>Llama 3.2 3B</p></td>
+<td colspan="2"><p>Llama 3.1 8B</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Float</p></td>
+<td><p>8.94</p></td>
+<td><p>54.08</p></td>
+<td><p>7.16</p></td>
+<td><p>62.19</p></td>
+<td><p>5.91</p></td>
+<td><p>67.95</p></td>
+</tr>
+<tr class="row-even"><td><p>Base</p></td>
+<td><p>12.94</p></td>
+<td><p>46.67</p></td>
+<td><p>9.06</p></td>
+<td><p>57.15</p></td>
+<td><p>7.34</p></td>
+<td><p>62.41</p></td>
+</tr>
+<tr class="row-odd"><td><p>+14%/+16%/+17%</p></td>
+<td><p><strong>12.19</strong></p></td>
+<td><p><strong>47.40</strong></p></td>
+<td><p><strong>8.75</strong></p></td>
+<td><p><strong>57.10</strong></p></td>
+<td><p><strong>7.06</strong></p></td>
+<td><p><strong>63.30</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The expanded models consistently improve both perplexity and zero-shot accuracy across
+all model sizes.</p>
+<p>When combined with SpinQuant’s Cayley-optimized rotations, even greater improvements
+are possible:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p>Llama 3.2 1B</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Float</p></td>
+<td><p>8.94</p></td>
+<td><p>54.08</p></td>
+</tr>
+<tr class="row-even"><td><p>Base</p></td>
+<td><p>12.11</p></td>
+<td><p>48.46</p></td>
+</tr>
+<tr class="row-odd"><td><p>+14%</p></td>
+<td><p><strong>11.40</strong></p></td>
+<td><p><strong>48.83</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="mxfp4-weight-activation-quantization">
+<h4><a class="toc-backref" href="#id8" role="doc-backlink">MXFP4 Weight-Activation Quantization</a><a class="headerlink" href="#mxfp4-weight-activation-quantization" title="Permalink to this heading">#</a></h4>
+<p>The expansion technique also works with the OCP MXFP4 datatype, which uses E8M0 microscaling
+for groups of 32 elements. This format offers higher precision through finer-grained scaling
+factors.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p>Llama 3.2 1B</p></td>
+<td colspan="2"><p>Llama 3.2 3B</p></td>
+<td colspan="2"><p>Llama 3.1 8B</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Float</p></td>
+<td><p>8.94</p></td>
+<td><p>54.08</p></td>
+<td><p>7.16</p></td>
+<td><p>62.19</p></td>
+<td><p>5.91</p></td>
+<td><p>67.95</p></td>
+</tr>
+<tr class="row-even"><td><p>Base</p></td>
+<td><p>11.81</p></td>
+<td><p>48.03</p></td>
+<td><p>8.94</p></td>
+<td><p>54.46</p></td>
+<td><p>7.10</p></td>
+<td><p>63.54</p></td>
+</tr>
+<tr class="row-odd"><td><p>+14%/+16%/+17%</p></td>
+<td><p><strong>11.44</strong></p></td>
+<td><p><strong>48.73</strong></p></td>
+<td><p><strong>8.63</strong></p></td>
+<td><p><strong>58.50</strong></p></td>
+<td><p><strong>6.94</strong></p></td>
+<td><p><strong>64.30</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>With SpinQuant optimization:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p>Llama 3.2 1B</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>Wiki2 (↓)</p></td>
+<td><p>0-shot (↑)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Float</p></td>
+<td><p>8.94</p></td>
+<td><p>54.08</p></td>
+</tr>
+<tr class="row-even"><td><p>Base</p></td>
+<td><p>11.59</p></td>
+<td><p>49.33</p></td>
+</tr>
+<tr class="row-odd"><td><p>+14%</p></td>
+<td><p><strong>11.34</strong></p></td>
+<td><p><strong>50.31</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Expansion provides consistent benefits across both INT4 and MXFP4 formats, demonstrating
+the general applicability of this technique.</p>
+</section>
+</section>
+<section id="understanding-the-quality-volume-tradeoff">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Understanding the Quality-Volume Tradeoff</a><a class="headerlink" href="#understanding-the-quality-volume-tradeoff" title="Permalink to this heading">#</a></h3>
+<p>Post-training model expansion introduces a new dimension to the quantization design space.
+Instead of only adjusting bit widths, we can now trade modest size increases for better
+quality while maintaining significant volume reductions.</p>
+<p>For a fixed memory constraint (measured as model volume = size × bit width), expanding
+quantized models can provide better quality than smaller models at higher precision.
+Notably, the paper shows that quantized Llama 3.2 3B and 8B models with expansion can
+outperform smaller models in BF16 on zero-shot tasks while using less total volume.</p>
+<p>This suggests that when deploying under memory constraints, the optimal solution may
+involve a larger quantized model rather than a smaller full-precision model.</p>
+</section>
+<section id="example-commands">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Example Commands</a><a class="headerlink" href="#example-commands" title="Permalink to this heading">#</a></h3>
+<p>To quantize Llama3 models with expansion using Brevitas, you can use the LLM quantization
+entry point with expansion-enabled configurations. You can modify existing configuration
+files to enable Hadamard expansion by setting the appropriate expansion parameters for
+the target rotation matrices (R2, R4, etc.).</p>
+<p>For examples, it is possible to reproduce the results in our paper following the benchmark
+yamls in <cite>brevitas_examples/papers/expansion</cite>.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>benchmark.py<span class="w"> </span>--config<span class="w"> </span>quarot_star.yaml
+</pre></div>
+</div>
+</section>
+</section>
+<section id="citation">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Citation</a><a class="headerlink" href="#citation" title="Permalink to this heading">#</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@article</span><span class="p">{</span><span class="n">franco2025posttraining</span><span class="p">,</span>
+      <span class="n">title</span><span class="o">=</span><span class="p">{</span><span class="n">Improving</span> <span class="n">Quantization</span> <span class="k">with</span> <span class="n">Post</span><span class="o">-</span><span class="n">Training</span> <span class="n">Model</span> <span class="n">Expansion</span><span class="p">},</span>
+      <span class="n">author</span><span class="o">=</span><span class="p">{</span><span class="n">Giuseppe</span> <span class="n">Franco</span> <span class="ow">and</span> <span class="n">Pablo</span> <span class="n">Monteagudo</span><span class="o">-</span><span class="n">Lago</span> <span class="ow">and</span> <span class="n">Ian</span> <span class="n">Colbert</span> <span class="ow">and</span> <span class="n">Nicholas</span> <span class="n">Fraser</span> <span class="ow">and</span> <span class="n">Michaela</span> <span class="n">Blott</span><span class="p">},</span>
+      <span class="n">year</span><span class="o">=</span><span class="p">{</span><span class="mi">2025</span><span class="p">},</span>
+      <span class="n">eprint</span><span class="o">=</span><span class="p">{</span><span class="mf">2503.17513</span><span class="p">},</span>
+      <span class="n">archivePrefix</span><span class="o">=</span><span class="p">{</span><span class="n">arXiv</span><span class="p">},</span>
+      <span class="n">primaryClass</span><span class="o">=</span><span class="p">{</span><span class="n">cs</span><span class="o">.</span><span class="n">LG</span><span class="p">},</span>
+      <span class="n">url</span><span class="o">=</span><span class="p">{</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">arxiv</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="nb">abs</span><span class="o">/</span><span class="mf">2503.17513</span><span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that this tutorial provides an overview of the technique and representative results.
+To reproduce all experiments from the paper exactly, please refer to the configurations
+and instructions in the paper’s supplementary materials.</p>
+</section>
+<section id="references">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Permalink to this heading">#</a></h2>
+<p>[1] Ashkboos, Saleh, et al. “QuaRot: Outlier-free 4-bit inference in rotated LLMs.” arXiv preprint arXiv:2404.00456 (2024).</p>
+<p>[2] Liu, Zechun, et al. “SpinQuant: LLM quantization with learned rotations.” arXiv preprint arXiv:2405.16406 (2024).</p>
+<p>[3] Frantar, Elias, et al. “GPTQ: Accurate post-training quantization for generative pre-trained transformers.” arXiv preprint arXiv:2210.17323 (2022).</p>
+<p>[4] Zhao, Ritchie, et al. “Improving neural network quantization without retraining using outlier channel splitting.” International conference on machine learning. PMLR, 2019.</p>
+<p>[5] Yu, Mengxia, et al. “The super weight in large language models.” arXiv preprint arXiv:2411.07191 (2024).</p>
+<p>[6] Darvish Rouhani, Bita, et al. “Microscaling data formats for deep learning.” arXiv preprint arXiv:2310.10537 (2023).</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#about-the-algorithm">About the Algorithm</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#the-expansion-mechanism">The Expansion Mechanism</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#why-does-it-work">Why Does It Work?</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#getting-started">Getting Started</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-use-expanding-models-post-training">How to Use: Expanding Models Post-Training</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#expanding-attention-and-down-projection-r2-r4">Expanding Attention and Down Projection (R2 + R4)</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#int4-weight-activation-quantization">INT4 Weight-Activation Quantization</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#mxfp4-weight-activation-quantization">MXFP4 Weight-Activation Quantization</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#understanding-the-quality-volume-tradeoff">Understanding the Quality-Volume Tradeoff</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-commands">Example Commands</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#citation">Citation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/papers/post_training_expansion.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

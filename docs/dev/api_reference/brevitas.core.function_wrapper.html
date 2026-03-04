@@ -656,6 +656,38 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.InplaceAbs">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.misc.</span></span><span class="sig-name descname"><span class="pre">InplaceAbs</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#InplaceAbs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.InplaceAbs" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<p>Module wrapper for <code class="xref py py-func docutils literal notranslate"><span class="pre">abs_()</span></code>.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">inplace_abs</span> <span class="o">=</span> <span class="n">InplaceAbs</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">inplace_abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span>
+<span class="go">tensor(1.)</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<p>Inplace operations in TorchScript can be problematic, compilation is disabled.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.InplaceAbs.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#InplaceAbs.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.InplaceAbs.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.
+:rtype: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.misc.InplaceLogTwo">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.misc.</span></span><span class="sig-name descname"><span class="pre">InplaceLogTwo</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/misc.html#InplaceLogTwo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.misc.InplaceLogTwo" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
@@ -883,6 +915,27 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward">
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#ScalarClampMinSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Define the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.ScalarClampSte">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ScalarClampSte</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#ScalarClampSte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampSte" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pytorch.org/docs/2.7/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<p>ScriptModule wrapper for <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.ops_ste.ScalarClampSte.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/ops_ste.html#ScalarClampSte.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampSte.forward" title="Permalink to this definition">#</a></dt>
 <dd><p>Define the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
@@ -1279,6 +1332,10 @@ All adhere to the same interface.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.misc.Identity.forward"><code class="docutils literal notranslate"><span class="pre">Identity.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.misc.InplaceAbs"><code class="docutils literal notranslate"><span class="pre">InplaceAbs</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.misc.InplaceAbs.forward"><code class="docutils literal notranslate"><span class="pre">InplaceAbs.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.misc.InplaceLogTwo"><code class="docutils literal notranslate"><span class="pre">InplaceLogTwo</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.misc.InplaceLogTwo.forward"><code class="docutils literal notranslate"><span class="pre">InplaceLogTwo.forward()</span></code></a></li>
 </ul>
@@ -1320,6 +1377,10 @@ All adhere to the same interface.</p>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte"><code class="docutils literal notranslate"><span class="pre">ScalarClampMinSte</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward"><code class="docutils literal notranslate"><span class="pre">ScalarClampMinSte.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampSte"><code class="docutils literal notranslate"><span class="pre">ScalarClampSte</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.ops_ste.ScalarClampSte.forward"><code class="docutils literal notranslate"><span class="pre">ScalarClampSte.forward()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte"><code class="docutils literal notranslate"><span class="pre">ScalarSignedClampMinSte</span></code></a><ul class="nav section-nav flex-column">
