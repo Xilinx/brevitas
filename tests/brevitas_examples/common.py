@@ -17,6 +17,24 @@ from torch.nn import Module
 from brevitas_examples.common.parse_utils import parse_args as parse_args_utils
 
 
+class MockProcess:
+    """Mock multiprocessing.Process that runs the target synchronously.
+
+    Used in benchmark tests to avoid spawning real subprocesses, making
+    everything run in a single thread for easy debugging.
+    """
+
+    def __init__(self, target=None, args=(), kwargs=None):
+        self.target = target
+        self.args = args
+
+    def start(self):
+        self.target(*self.args)
+
+    def join(self):
+        pass
+
+
 class UpdatableNamespace(Namespace):
 
     def update(self, **kwargs) -> None:

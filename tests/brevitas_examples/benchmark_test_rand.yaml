@@ -1,0 +1,5 @@
+weight_bit_width:
+  rand_type: choices
+  rand_values:
+  - 4
+  - 8
