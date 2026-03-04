@@ -103,7 +103,7 @@ class TestRegistry:
             r.get("missing")
 
         msg = str(excinfo.value)
-        assert msg == "'missing' not found in TestRegistry. The available values are: <empty>"
+        assert msg == "'missing' not found in TestRegistry. The registered keys are: <empty>"
 
     def test_get_missing_raises_valueerror(self):
         r = Registry("TestRegistry")
@@ -114,4 +114,4 @@ class TestRegistry:
             r.get("missing")
 
         msg = str(excinfo.value)
-        assert msg == "'missing' not found in TestRegistry. The available values are: k1, k2"
+        assert msg == "'missing' not found in TestRegistry. The registered keys are: k1, k2"
