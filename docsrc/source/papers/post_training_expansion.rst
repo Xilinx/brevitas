@@ -13,7 +13,7 @@ relative to BF16.
 .. raw:: html
 
     <div align="center">
-	   <a href="https://arxiv.org/pdf/2503.17513">📄 Paper</a>&nbsp
+	   <a href="https://arxiv.org/abs/2503.17513">📄 Paper</a>&nbsp
 		<a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph">💻 Code</a>
     </div>
 
@@ -72,7 +72,7 @@ where :math:`w - Q(w)` lies in the nullspace of the input activations.
 reconstruction error by a factor of :math:`\sqrt{N/M}`. While this doesn't guarantee universal 
 improvement, it establishes a theoretical rate of decay for worst-case error under ideal conditions.
 
-🔍 Check out the `paper <https://arxiv.org/pdf/2503.17513>`_ for complete mathematical 
+🔍 Check out the `paper <https://arxiv.org/abs/2503.17513>`_ for complete mathematical 
 derivations and formal proofs!
 
 
