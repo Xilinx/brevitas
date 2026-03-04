@@ -309,9 +309,10 @@ class A2GPTQ(AXE, GPTQ):
         get_block_index = lambda bx: bx // self.max_accumulator_tile_size
         if self.layer.weight_quant.is_groupwise:
             if isinstance(self.layer, SUPPORTED_CONV_OP):
-                group_dim = self.layer.weight_quant.group_dim
-                assert group_dim == 1, \
-                    f"Error: only group_dim=1 is supported, not {group_dim}"
+                # only supporting groupwise quantization long the input dimension
+                group_dim = 0 if is_conv_transposed(self.layer) else 1
+                assert self.layer.weight_quant.group_dim == group_dim, \
+                    f"Error: only group_dim={group_dim} is supported, not {group_dim}"
                 group_size = self.layer.weight_quant.group_size
                 n_tiles = math.prod(self.layer.kernel_size) * \
                     math.ceil(self.layer.in_channels / group_size)
@@ -373,23 +374,20 @@ class A2GPTQ(AXE, GPTQ):
                     # increment cumulative l1-norm
                     pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
                     neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
-                    assert (pos_limits >= 0).all()
-                    assert (neg_limits <= 0).all()
-                    assert (((self.input_max * pos_limits) +
-                             (self.input_min * neg_limits)) <= max_limits).all()
-                    assert (
-                        -((self.input_min * pos_limits) +
-                          (self.input_max * neg_limits)) <= max_limits).all()
+                    assert (pos_limits >= 0).all(), f"pos_limits: {pos_limits}"
+                    assert (neg_limits <= 0).all(), f"neg_limits: {neg_limits}"
+                    pos_max_limit = ((self.input_max * pos_limits) + (self.input_min * neg_limits))
+                    assert (pos_max_limit <= max_limits).all(), \
+                        f"pos_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
+                    neg_max_limit = -((self.input_min * pos_limits) + (self.input_max * neg_limits))
+                    assert (neg_max_limit <= max_limits).all(), \
+                        f"neg_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
 
             for group_index in range(self.groups):
                 perm = permutation_list[group_index]
                 weight[group_index, :, perm[i2:]] -= (
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
-        if hasattr(self.layer, "offload_params"):
-            self.layer.offload_params(self.layer)
-
-        del scales  # memory management
 
 
 class gptq_mode(a2q_mode_mixin, gpxq_mode):
