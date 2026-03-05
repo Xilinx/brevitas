@@ -12,7 +12,7 @@ import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import a2q_mode_mixin
-from brevitas.graph.gpxq import AXE
+from brevitas.graph.gpxq import AXEMixin
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -199,7 +199,7 @@ class GPFQ(GPxQ):
             self.layer.offload_params(self.layer)
 
 
-class A2GPFQ(AXE, GPFQ):
+class A2GPFQ(AXEMixin, GPFQ):
     """
     Optimized version of accumulator-aware GPFQ as proposed in https://arxiv.org/pdf/2409.17092
     """
@@ -214,7 +214,7 @@ class A2GPFQ(AXE, GPFQ):
             max_accumulator_bit_width,
             max_accumulator_tile_size) -> None:
         GPFQ.__init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig)
-        AXE.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
+        AXEMixin.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
 
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \

@@ -459,7 +459,7 @@ class a2q_mode_mixin:
         return True
 
 
-class AXE:
+class AXEMixin:
     """
     Accumulator-aware extensions for greedy path sequential quantization algorithms
     such as the GPxQ family of algorithms.

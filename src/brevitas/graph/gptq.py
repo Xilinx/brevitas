@@ -19,12 +19,11 @@ except:
 
 from brevitas import torch_version
 from brevitas.graph.gpxq import a2q_mode_mixin
-from brevitas.graph.gpxq import AXE
+from brevitas.graph.gpxq import AXEMixin
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
-import brevitas.nn as qnn
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -204,7 +203,7 @@ class GPTQ(GPxQ):
             self.layer.offload_params(self.layer)
 
 
-class A2GPTQ(AXE, GPTQ):
+class A2GPTQ(AXEMixin, GPTQ):
     """
     Accumulator-aware GPTQ as proposed in https://arxiv.org/pdf/2409.17092
     """
@@ -221,7 +220,7 @@ class A2GPTQ(AXE, GPTQ):
             max_accumulator_tile_size) -> None:
         GPTQ.__init__(
             self, layer, name, act_order, len_parallel_layers, create_weight_orig, num_blocks)
-        AXE.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
+        AXEMixin.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
 
     def single_layer_update(self, percdamp=0.01, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
