@@ -24,9 +24,9 @@ Let's dive into MixQuant and how to use it with Brevitas!
 About the Algorithm
 -------------------
 
-In few-bit PTQ, activation outliers inflate the dynamic range, decreasing the resolution of the quantizer and its 
-resulting rounding error. Rotation-based PTQ methods reduce dynamic range by diffusing large values across vector 
-coordinates before quantization.
+In few-bit PTQ, activation outliers inflate the dynamic range, often decreasing the resolution of the quantizer and 
+increasing its resulting rounding error. Rotation-based PTQ methods reduce dynamic range by diffusing large values across 
+vector coordinates before quantization.
 
 Recent methods [1,2] use block rotations, which apply independent rotations to fixed-size partitions of an activation 
 vector. For hidden dimension :math:`d = nb` with :math:`n` blocks of size :math:`b`, block rotations reduce the compute 
@@ -49,8 +49,8 @@ Why block rotations degrade at small block sizes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For activation vector :math:`X \in \mathbb{R}^d` and block rotation :math:`\tilde{R} = diag(R, \ldots, R)` with 
-Hadamard matrix :math:`R \in \mathbb{R}^{b \times b}`, Proposition 3.3 in the paper shows that the post-rotation 
-maximum magnitude under a block Hadamard rotation satisfies
+Hadamard matrix :math:`R \in \mathbb{R}^{b \times b}`, Proposition 3.3 in the paper shows that the maximum post-rotation 
+magnitude under a block Hadamard rotation satisfies
 
 .. math::
 
@@ -78,7 +78,7 @@ MixQuant addresses this limitation by inserting a permutation :math:`P` to expli
 
 Using activation statistics, the permutation is calibrated so that large-magnitude coordinates are distributed across 
 blocks rather than concentrated in a small subset of them. After permutation, the per-block :math:`\ell_1` norms are 
-more balanced, which tightens the bound above and improves outlier suppression for a fixed block size.
+more balanced, which tightens the above bound and improves outlier suppression for a fixed block size.
 
 In Brevitas, the default permutation strategy is MassDiff, the greedy calibration algorithm
 described in Algorithm 1 of the paper. Given a calibration dataset, MassDiff:
@@ -93,6 +93,14 @@ Intuitively, this greedily balances the per-block mass over a calibration set, d
 
 Permutation-equivariant regions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: https://github.com/user-attachments/assets/fba5f64b-71b6-4f85-b443-2f1e134485bb
+   :alt: Example quantization graph architecture for a standard transformer block.
+   :align: center
+   :width: 100%
+
+   An illustration of a quantization graph architecture for a standard transformer block, merging rotations and permutations 
+   wherever possible and quantizing the weights and activations for all linear layers
 
 Given a pre-trained model, a permutation does not change model behavior if it is inserted inside a 
 permutation-equivariant region (Definition 4.1 in the paper), i.e., a subgraph whose operations commute with 
@@ -116,7 +124,10 @@ weights :math:`W_1, W_2`:
 
 .. admonition:: Key idea 💡
 
-   Brevitas identifies permutation-equivariant regions and merges the calibrated permutation into adjacent linear weights before deployment. As a result, no explicit permutation operator remains in the inference graph. Only rotations that are intentionally kept online incur runtime cost.
+   Brevitas identifies permutation-equivariant regions and merges the calibrated permutation into adjacent linear weights 
+   before deployment. As a result, no explicit permutation operator remains in the inference graph. Only rotations that are 
+   intentionally kept online incur runtime cost.
+
 
 Implementation Overview
 --------------------
@@ -214,21 +225,12 @@ Below are the versions used for these results; different versions may yield diff
 - ``torch==2.6.0+rocm6.1``
 - ``transformers==4.57.3``
 - ``lighteval==0.13.0``
-- ``fast_hadamard_transform==1.0.4`` (custom fork, see below)
 
 You can install PyTorch for ROCm 6.1 via:
 
 .. code:: shell
 
    pip install torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.1
-
-You can install and build a fork of the ``fast_hadamard_transform`` library with ROCm support via:
-
-.. code:: shell
-
-   git clone https://github.com/jeffdaily/fast-hadamard-transform -b rocm
-   cd fast-hadamard-transform
-   pip install -e . --no-build-isolation
 
 
 Quickstart
@@ -316,6 +318,6 @@ References
 
 [1] Egiazarian, V., et al. *Bridging the gap between promise and performance for microscaling FP4 quantization.* ICLR (2026).
 
-[2] Shao, Y., et al. *Block rotation is all you need for mxfp4 quantization.* arXiv preprint (2025).
+[2] Shao, Y., et al. *Block rotation is all you need for MXFP4 quantization.* arXiv preprint (2025).
 
 [3] Zhang, S., et al. *Qronos: Correcting the past by shaping the future... in post-training quantization.* ICLR (2026).
