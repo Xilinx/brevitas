@@ -24,7 +24,7 @@ Let's dive into MixQuant and how to use it with Brevitas!
 About the Algorithm
 -------------------
 
-In few-bit PTQ, activation outliers inflate the dynamic range, increasing the resolution of the quantizer and its 
+In few-bit PTQ, activation outliers inflate the dynamic range, decreasing the resolution of the quantizer and its 
 resulting rounding error. Rotation-based PTQ methods reduce dynamic range by diffusing large values across vector 
 coordinates before quantization.
 
@@ -35,7 +35,7 @@ inference overhead.
 
 However, the outlier suppression behavior of Hadamard rotations changes under block structure, as seen below.
 
-.. figure:: figures/block_size_activation_plots.svg
+.. figure:: https://github.com/user-attachments/assets/9f01f26d-9f96-4fc2-a6e8-b52c7e7f4fca
    :alt: Input activation distributions vs block rotation size.
    :align: center
    :width: 100%
@@ -88,8 +88,8 @@ described in Algorithm 1 of the paper. Given a calibration dataset, MassDiff:
 3. Assigns each channel to the block whose accumulated :math:`\ell_1` mass would increase the least
 4. Continues until all blocks reach size :math:`b`
 
-This directly targets the objective implied by the block rotation bound: balance per-block mass to reduce the 
-worst-case block that governs outlier suppression.
+Intuitively, this greedily balances the per-block mass over a calibration set, directly minimizing 
+:math:`\delta_{\{j\}}` to improve outlier suppression.
 
 Permutation-equivariant regions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,8 +98,8 @@ Given a pre-trained model, a permutation does not change model behavior if it is
 permutation-equivariant region (Definition 4.1 in the paper), i.e., a subgraph whose operations commute with 
 permutations along the feature dimension.
 
-Within transformer architectures, many subgraphs are permutation-equivariant along the feature dimension, including 
-compositions of:
+Within transformer architectures, many subgraphs are permutation-equivariant along the feature dimension, 
+including compositions of:
 
 - linear → elementwise activation (e.g. SiLU/Swish) → elementwise multiply  
 - residual additions  
@@ -118,14 +118,14 @@ weights :math:`W_1, W_2`:
 
    Brevitas identifies permutation-equivariant regions and merges the calibrated permutation into adjacent linear weights before deployment. As a result, no explicit permutation operator remains in the inference graph. Only rotations that are intentionally kept online incur runtime cost.
 
-Brevitas Integration
+Implementation Overview
 --------------------
 
 MixQuant is available through the LLM entry point ``brevitas_ptq_llm``.
 
-At a high level, Brevitas implements MixQuant by:
+At a high level, the Brevitas implementation of MixQuant:
 
-1. Finding regions for rotations
+1. Finds regions for rotations
 2. Collects activation statistics to calibrate the permutation
 3. Calibrates and merges permutations into surrounding weights
 4. Inserts and merges rotations, leaving only the online rotations in the compute graph
@@ -273,14 +273,11 @@ You can override other hyperparamters via CLI. For example:
    brevitas_ptq_llm --config=llama3-mixquant-int4.yml --permute-fn=zigzag
 
 
-More Experiments!
-~~~~~~~~~~~~~~~~~~~~~~~~
-
 To run multiple experiments in parallel across GPUs (e.g., sweeping block sizes), use the benchmark script:
 
 .. code:: shell
 
-   python benchmark.py --config llama3-benchmark.yml --results results/ --gpus 0,1
+   python benchmark.py --config benchmark-rotation_block_size.yml --results results/ --gpus 0,1
 
 where ``--gpus`` refers to how many gpus to use. If multiple GPUs are specified, each one will be used to run an 
 individual experiment. Below, we summarize results when quantizing Llama-3.2-1B-Instruct weights and activations to 
