@@ -10,7 +10,6 @@ import warnings
 
 from packaging import version
 import torch
-from torch import Tensor
 from torch.nn import Module
 
 try:
@@ -233,6 +232,8 @@ class A2GPTQ(AXE, GPTQ):
                 "Make sure that either the input to the model is an IntQuantTensor or the layer has an input quant enabled. "
                 "Also, check if `use_quant_activations=True` in `gptq_mode` when `max_accumulator_bit_width` is specified. "
             )
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
         if hasattr(self.layer, "allocate_params"):
             self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
@@ -288,7 +289,7 @@ class A2GPTQ(AXE, GPTQ):
         try:
             for i in range(self.groups):
                 damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
-                diag = torch.arange(self.columns, device='cpu')
+                diag = torch.arange(self.columns, device=self.device)
                 self.H[i, diag, diag] += damp
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
@@ -303,20 +304,19 @@ class A2GPTQ(AXE, GPTQ):
                 f'Increasing the number of samples might fix this issue')
             return
         finally:
-            del self.H, self.B
+            del self.H
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
         get_block_index = lambda bx: bx // self.max_accumulator_tile_size
-        if self.layer.weight_quant.is_groupwise:
-            if isinstance(self.layer, SUPPORTED_CONV_OP):
-                # only supporting groupwise quantization long the input dimension
-                group_dim = 0 if is_conv_transposed(self.layer) else 1
-                assert self.layer.weight_quant.group_dim == group_dim, \
-                    f"Error: only group_dim={group_dim} is supported, not {group_dim}"
-                group_size = self.layer.weight_quant.group_size
-                n_tiles = math.prod(self.layer.kernel_size) * \
-                    math.ceil(self.layer.in_channels / group_size)
-                get_block_index = lambda bx: bx % n_tiles
+        if self.layer.weight_quant.is_groupwise and isinstance(self.layer, SUPPORTED_CONV_OP):
+            # only supporting groupwise quantization long the input dimension
+            group_dim = 0 if is_conv_transposed(self.layer) else 1
+            assert self.layer.weight_quant.group_dim == group_dim, \
+                f"Error: only group_dim={group_dim} is supported, not {group_dim}"
+            group_size = self.layer.weight_quant.group_size
+            n_tiles = math.prod(self.layer.kernel_size) * \
+                math.ceil(self.layer.in_channels / group_size)
+            get_block_index = lambda bx: bx % n_tiles
 
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
@@ -333,7 +333,7 @@ class A2GPTQ(AXE, GPTQ):
             count = i2 - i1
             error_block = torch.zeros_like(
                 weight[:, :, permutation_list[-1][i1:i2]],
-                dtype=torch.float32)  # [groups, OC/groups, i2-i1]
+                dtype=self.dtype)  # [groups, OC/groups, i2-i1]
             h_inv_block = h_inv[:, i1:i2, i1:i2]
             for i in range(count):
                 # need to apply soft thresholding and clamping before quantization
@@ -343,8 +343,8 @@ class A2GPTQ(AXE, GPTQ):
                     # calculate the q_max and q_min for the right group and right block
                     n = neg_limits[group_index, block_index]
                     p = pos_limits[group_index, block_index]
-                    s = scales[group_index, :, perm[i1:i2][i]].to(torch.float32)
-                    q_arg = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
+                    s = scales[group_index, :, perm[i1:i2][i]].to(self.dtype)
+                    q_arg = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
                     u = self.upper_lim(n, p)
                     l = self.lower_lim(n, p)
                     assert (u - l + 1 >= 0).all()
@@ -356,8 +356,8 @@ class A2GPTQ(AXE, GPTQ):
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [Groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
-                    q = q_groups[group_index].to(torch.float32)  # [OC/groups]
-                    w = weight[group_index, :, perm[i1:i2][i]].to(torch.float32)  # [OC/groups]
+                    q = q_groups[group_index].to(self.dtype)  # [OC/groups]
+                    w = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
                     d = h_inv_block[group_index, i, i]  # [1]
                     error = (w - q) / d  # [OC/groups]
                     error_block[group_index, :, i] = error
@@ -369,7 +369,7 @@ class A2GPTQ(AXE, GPTQ):
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
                     block_index = get_block_index(perm[i1:i2][i])
-                    s = scales[group_index, :, perm[i1:i2][i]].to(torch.float32)
+                    s = scales[group_index, :, perm[i1:i2][i]].to(self.dtype)
                     q = q_groups[group_index] / s  # [OC/groups]
                     # increment cumulative l1-norm
                     pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
@@ -388,6 +388,8 @@ class A2GPTQ(AXE, GPTQ):
                 weight[group_index, :, perm[i2:]] -= (
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
+        if hasattr(self.layer, 'offload_params'):
+            self.layer.offload_params(self.layer)
 
 
 class gptq_mode(a2q_mode_mixin, gpxq_mode):

@@ -470,7 +470,9 @@ class AXE:
     quant_metadata: Union[_CachedIO, _CachedIOGroupwiseInt] = None
 
     def __init__(
-            self, max_accumulator_bit_width: int, max_accumulator_tile_size: Optional[int] = None):
+            self,
+            max_accumulator_bit_width: Union[int, Tensor],
+            max_accumulator_tile_size: Optional[int] = None):
 
         if max_accumulator_bit_width is None:
             raise ValueError("max_accumulator_bit_width is not specified.")

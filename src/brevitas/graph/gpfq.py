@@ -6,10 +6,8 @@ import math
 from typing import Callable
 from typing import List
 from typing import Optional
-import warnings
 
 import torch
-from torch import Tensor
 import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
@@ -221,6 +219,8 @@ class A2GPFQ(AXE, GPFQ):
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require quantized inputs."
+        assert hasattr(self.layer, 'weight_orig'), \
+            "Error: GPFQ requires the original weights to be stored, see `create_weight_orig`."
         if self.quant_metadata is None:
             raise ValueError(
                 "Expected self.quant_metadata to calculate accumulator bounds, but recevied None. "
@@ -229,15 +229,13 @@ class A2GPFQ(AXE, GPFQ):
             )
         if hasattr(self.layer, "allocate_params"):
             self.layer.allocate_params(self.layer)
-        del self.B  # memory management
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
 
         weight = self.layer.weight.data
-        if self.create_weight_orig:
-            weight_orig = self.layer.weight_orig.data
-        else:
-            warnings.warn("Warning: GPFQ will perform better with `create_weight_orig=True`.")
-            weight_orig = weight.clone()
+        weight_orig = self.layer.weight_orig.data
         dev = weight.device
+        weight_orig = weight_orig.to(dev)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
@@ -284,16 +282,16 @@ class A2GPFQ(AXE, GPFQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        Dg = torch.zeros((self.groups, self.columns), dtype=torch.float32)
-        Dh = torch.zeros((self.groups, self.columns), dtype=torch.float32)
+        Dg = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
+        Dh = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
         for group_index in range(self.groups):
             Dg[group_index].copy_(self.G[group_index].diag())
             Dh[group_index].copy_(self.H[group_index].diag())
         # if either norms are 0, the weight is effectively pruned
         Ds = torch.where(Dg * Dh != 0, Dg / Dh, torch.zeros_like(Dg))  # \hat{D}_tt / D_tt
 
-        Lg = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=torch.float32)
-        Lh = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=torch.float32)
+        Lg = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=self.dtype)
+        Lh = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=self.dtype)
         for group_index in range(self.groups):
             L0g = torch.tril(self.G[group_index], -1)  # L0
             L0h = torch.tril(self.H[group_index], -1)  # \hat{L0}
@@ -307,16 +305,15 @@ class A2GPFQ(AXE, GPFQ):
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
         get_block_index = lambda bx: bx // self.max_accumulator_tile_size
-        if self.layer.weight_quant.is_groupwise:
-            if isinstance(self.layer, SUPPORTED_CONV_OP):
-                # only supporting groupwise quantization long the input dimension
-                group_dim = 0 if is_conv_transposed(self.layer) else 1
-                assert self.layer.weight_quant.group_dim == group_dim, \
-                    f"Error: only group_dim={group_dim} is supported, not {group_dim}"
-                group_size = self.layer.weight_quant.group_size
-                n_tiles = math.prod(self.layer.kernel_size) * \
-                    math.ceil(self.layer.in_channels / group_size)
-                get_block_index = lambda bx: bx % n_tiles
+        if self.layer.weight_quant.is_groupwise and isinstance(self.layer, SUPPORTED_CONV_OP):
+            # only supporting groupwise quantization long the input dimension
+            group_dim = 0 if is_conv_transposed(self.layer) else 1
+            assert self.layer.weight_quant.group_dim == group_dim, \
+                f"Error: only group_dim={group_dim} is supported, not {group_dim}"
+            group_size = self.layer.weight_quant.group_size
+            n_tiles = math.prod(self.layer.kernel_size) * \
+                math.ceil(self.layer.in_channels / group_size)
+            get_block_index = lambda bx: bx % n_tiles
 
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
@@ -337,15 +334,15 @@ class A2GPFQ(AXE, GPFQ):
                 perm = permutation_list[group_index]
                 i = perm[t]
                 block_index = get_block_index(i)
-                w = weight_orig[group_index, :, perm[:t]].to(torch.float32)
-                q = q_groups[group_index].to(torch.float32)
+                w = weight_orig[group_index, :, perm[:t]].to(self.dtype)
+                q = q_groups[group_index].to(self.dtype)
                 Lw = w.matmul(Lg[group_index, t, :t])
                 Lq = q.matmul(Lh[group_index, t, :t])
-                q_arg = Ds[group_index, t] * weight[group_index, :, i].to(torch.float32) + Lw - Lq
+                q_arg = Ds[group_index, t] * weight[group_index, :, i].to(self.dtype) + Lw - Lq
                 assert not torch.isnan(q_arg).any()
 
                 # calculate the q_max and q_min for the right group and right block
-                s = scales[group_index, :, i].to(torch.float32)
+                s = scales[group_index, :, i].to(self.dtype)
                 n = neg_limits[group_index, block_index]
                 p = pos_limits[group_index, block_index]
                 u = self.upper_lim(n, p)
@@ -375,6 +372,9 @@ class A2GPFQ(AXE, GPFQ):
                 neg_max_limit = -((self.input_min * pos_limits) + (self.input_max * neg_limits))
                 assert (neg_max_limit <= max_limits).all(), \
                     f"neg_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
+
+        if hasattr(self.layer, 'offload_params'):
+            self.layer.offload_params(self.layer)
 
 
 class gpfq_mode(a2q_mode_mixin, gpxq_mode):
