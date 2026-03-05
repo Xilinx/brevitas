@@ -18,6 +18,7 @@ from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtils
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtilsBase
 from brevitas_examples.llm.benchmark.llm_rand_benchmark import LLMRandomSearchBenchmarkUtils
 from tests.brevitas_examples.common import MockProcess
+from tests.marker import skip_on_macos_nox
 
 # ---------------------------------------------------------------------------
 # Paths to test YAML configs (shipped alongside this test file)
@@ -153,6 +154,7 @@ class TestLLMBenchmarkUtils:
             assert args.weight_bit_width in [4, 8]
 
     @pytest.mark.llm
+    @skip_on_macos_nox
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
@@ -238,6 +240,7 @@ class TestLLMRandomSearchBenchmarkUtils:
             assert args.model == "facebook/opt-125m"
 
     @pytest.mark.llm
+    @skip_on_macos_nox
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 

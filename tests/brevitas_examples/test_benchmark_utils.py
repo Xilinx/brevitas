@@ -24,6 +24,7 @@ from brevitas_examples.common.benchmark.utils import RandomArgNode
 from brevitas_examples.common.benchmark.utils import RandomSearchMixin
 from brevitas_examples.common.benchmark.utils import run_args_bucket_process
 from tests.brevitas_examples.common import MockProcess
+from tests.marker import skip_on_macos_nox
 
 # ---------------------------------------------------------------------------
 # Mock utilities: a minimal BenchmarkUtils with a 3-argument parser
@@ -330,6 +331,7 @@ class TestRunArgsBucketProcess:
             q.put(item)
         return q
 
+    @skip_on_macos_nox
     def test_successful_run(self, tmp_path):
         """Entrypoint succeeds: config.yaml and run_results.yaml are created."""
         results_folder = str(tmp_path)
@@ -365,6 +367,7 @@ class TestRunArgsBucketProcess:
         assert results["metric_b"] == 2.0
         assert "elapsed_time" in results
 
+    @skip_on_macos_nox
     def test_crashed_run_retry(self, tmp_path):
         """Entrypoint crashes: retries and records crashed status."""
         results_folder = str(tmp_path)
@@ -394,6 +397,7 @@ class TestRunArgsBucketProcess:
         assert results["status"] == "crashed"
         assert results["retry_number"] == 2
 
+    @skip_on_macos_nox
     def test_skip_existing_successful(self, tmp_path):
         """Pre-existing successful job is skipped."""
         import hashlib
@@ -454,6 +458,7 @@ class TestBenchmarkOrchestrator:
             yaml.dump(config, f)
         return yaml_path
 
+    @skip_on_macos_nox
     def test_benchmark_grid_search_e2e(self, tmp_path):
         yaml_path = self._write_grid_yaml(tmp_path)
         results_folder = str(tmp_path / "results")
@@ -505,6 +510,7 @@ class TestBenchmarkOrchestrator:
         csv_path = os.path.join(results_folder, "results.csv")
         assert not os.path.exists(csv_path)
 
+    @skip_on_macos_nox
     def test_benchmark_random_search_e2e(self, tmp_path):
         config = {
             "model": {
