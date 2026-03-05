@@ -16,7 +16,6 @@ from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
 from brevitas.export.inference.manager import quant_inference_mode
-from brevitas.export.inference.vLLM.manager import vLLMExportManager
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
 from brevitas.graph.equalize import apply_rewriters
@@ -175,6 +174,8 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
     elif args.export_target == 'vllm':
+        from brevitas.export.inference.vLLM.manager import vLLMExportManager
+
         with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
             model(**ref_input)
             export_mode.export_manager.export(model, tokenizer, args.export_prefix)
