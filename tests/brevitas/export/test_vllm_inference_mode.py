@@ -10,8 +10,6 @@ from brevitas import config
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.stats import StatsOp
 from brevitas.export.inference import quant_inference_mode
-from brevitas.export.inference.handler import DynamicFloatInferenceHandler
-from brevitas.export.inference.handler import DynamicIntInferenceHandler
 from brevitas.export.inference.handler import FloatInferencetHandler
 from brevitas.export.inference.handler import FloatWeightInferencetHandler
 from brevitas.export.inference.handler import GroupwiseFloatWeightInferenceHandler
@@ -19,7 +17,7 @@ from brevitas.export.inference.handler import GroupwiseIntWeightInferenceHandler
 from brevitas.export.inference.handler import IntInferenceHandler
 from brevitas.export.inference.handler import IntWeightInferencetHandler
 from brevitas.export.inference.manager import InferenceManager
-from brevitas.export.inference.vLLM.handler import vLLMDynamicPerRowIntInferenceHandler
+from brevitas.export.inference.vLLM.handler import vLLMDynamicPerRowFloatInferenceHandler
 from brevitas.export.inference.vLLM.handler import vLLMGroupwiseFloatInferenceHandler
 from brevitas.export.inference.vLLM.handler import vLLMGroupwiseIntInferenceHandler
 import brevitas.nn as qnn
@@ -36,7 +34,6 @@ from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
-from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from tests.brevitas.hyp_helper import float_tensor_st
 from tests.marker import requires_pt_ge
@@ -59,7 +56,7 @@ class vLLMTestManager(InferenceManager):
 
     handlers = [
         IntInferenceHandler,
-        vLLMDynamicPerRowIntInferenceHandler,
+        vLLMDynamicPerRowFloatInferenceHandler,
         FloatInferencetHandler,
         IntWeightInferencetHandler,
         FloatWeightInferencetHandler,
