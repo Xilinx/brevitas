@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.graph.gpxq import a2q_mode_mixin
+from brevitas.graph.gpxq import axe_mode_mixin
 from brevitas.graph.gpxq import AXEMixin
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
@@ -377,7 +377,7 @@ class A2GPFQ(AXEMixin, GPFQ):
             self.layer.offload_params(self.layer)
 
 
-class gpfq_mode(a2q_mode_mixin, gpxq_mode):
+class gpfq_mode(axe_mode_mixin, gpxq_mode):
     """
     Apply GPFQ algorithm, or other algorithms that solve the mismatched objective function,
     like Qronos or A2GPFQ.

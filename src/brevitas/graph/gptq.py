@@ -18,7 +18,7 @@ except:
     LinAlgError = RuntimeError
 
 from brevitas import torch_version
-from brevitas.graph.gpxq import a2q_mode_mixin
+from brevitas.graph.gpxq import axe_mode_mixin
 from brevitas.graph.gpxq import AXEMixin
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
@@ -391,7 +391,7 @@ class A2GPTQ(AXEMixin, GPTQ):
             self.layer.offload_params(self.layer)
 
 
-class gptq_mode(a2q_mode_mixin, gpxq_mode):
+class gptq_mode(axe_mode_mixin, gpxq_mode):
     """
     Apply GPTQ algorithm https://arxiv.org/abs/2210.17323
     Or accumulator-aware GPTQ (A2GPTQ) algorithm https://arxiv.org/pdf/2409.17092

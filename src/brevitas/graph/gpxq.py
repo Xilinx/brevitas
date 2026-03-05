@@ -439,7 +439,7 @@ def pad_tensor_with_zeros(tensor: Tensor, tile_size: int) -> Tensor:
     return pad_tensor
 
 
-class a2q_mode_mixin:
+class axe_mode_mixin:
     """
     Mixin for accumulator-aware quantization for gpxq_mode
     """
