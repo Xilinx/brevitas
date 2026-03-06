@@ -13,7 +13,7 @@ If you like this project please consider ⭐ this repo, as it is the simplest an
 
 ## Requirements
 
-* Python >= 3.9, <3.13
+* Python >= 3.9, <3.14
 * [Pytorch](https://pytorch.org) >= 1.12, <= 2.8 (more recent versions would be untested).
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
