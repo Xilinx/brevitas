@@ -25,6 +25,7 @@ from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
 from tests.conftest import SEED
+from tests.marker import skip_on_macos_nox
 
 # TODO (pml): Use stricter tolerance once a proper image dataset is used.
 # The validation set has 6 images, so ATOL_ACC is set to tolerate a single missclasification
@@ -104,6 +105,7 @@ class ImageNetCases:
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
 
+    @skip_on_macos_nox
     @pytest_cases.parametrize(
         "run_dict",
         [
