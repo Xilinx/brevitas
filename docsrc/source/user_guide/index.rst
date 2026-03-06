@@ -14,3 +14,5 @@ User Guides
    GGUF Export <export_gguf>
 
    Shark-AI Export <export_shark>
+
+   Learned Round <learned_round>
