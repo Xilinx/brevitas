@@ -169,6 +169,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         
     remove_hooks(model)
 
+
 def set_seed(seed):
     np.random.seed(seed)
     torch.random.manual_seed(seed)
