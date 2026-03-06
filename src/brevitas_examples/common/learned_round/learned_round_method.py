@@ -167,7 +167,7 @@ class RoundRegularisationLoss(BlockLoss):
 
         if self.iter < self.loss_start:
             b = self.temp_decay(self.iter)
-            round_loss = torch.tensor(0., device=pred.device, dtype=self.weight.dtype)
+            round_loss = torch.tensor(0., device=pred.device, dtype=pred.dtype)
         else:  # 1 - |(h-0.5)*2|**b
             b = self.temp_decay(self.iter)
             round_vals = self.learned_round_module.learned_round_impl(
