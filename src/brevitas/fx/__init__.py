@@ -1,6 +1,14 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
+warnings.warn(
+    "brevitas.fx is deprecated and will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from packaging import version
 import torch
 
