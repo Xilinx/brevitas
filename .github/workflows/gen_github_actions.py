@@ -68,27 +68,16 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
     'jit_disabled',])])
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-ALL_SUPPORTED_PYTHON_VERSIONS = ('3.10', '3.11', '3.12')
+ALL_SUPPORTED_PYTHON_VERSIONS = ('3.13', '3.14')
 
 ALL_SUPPORTED_PYTORCH_VERSIONS = (
-    '1.12.1',
-    '1.13.1',
-    '2.0.1',
-    '2.1.1',
-    '2.2.2',
-    '2.3.1',
-    '2.4.1',
     '2.5.1',
     '2.6.0',
     '2.7.1',
     '2.8.0',
     '2.9.1',
     '2.10.0')
-ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
-    [['python_version', [
-        '3.11',]], ['pytorch_version', ['1.12.1', '1.13.1']]],
-    [['python_version', [
-        '3.12',]], ['pytorch_version', ['1.12.1', '1.13.1', '2.0.1', '2.1.1']]],])
+ALL_SUPPORTED_EXCLUSION_LIST = []
 
 PYTHON_VERSIONS = ('3.10', '3.11')
 
