@@ -1,4 +1,4 @@
-onnx==1.17.0
+onnx
 onnxoptimizer
 onnxruntime>=1.15.0, <1.21
 onnxscript

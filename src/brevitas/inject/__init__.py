@@ -79,7 +79,13 @@ class _ExtendedInjectorType(_InjectorType):
 
         _check_inheritance(bases, (Injector, BaseInjector))
         ns = {}
-        for attr in ("__module__", "__doc__", "__weakref__", "__qualname__"):
+        for attr in ("__module__",
+                     "__doc__",
+                     "__weakref__",
+                     "__qualname__",
+                     "__firstlineno__",
+                     "__static_attributes__",
+                     "__classdictcell__"):
             try:
                 ns[attr] = namespace.pop(attr)
             except KeyError:
