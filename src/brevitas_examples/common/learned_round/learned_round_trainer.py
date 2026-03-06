@@ -469,9 +469,7 @@ class LearnedRoundTrainer:
                 scaler = torch.GradScaler(device="cuda" if torch.cuda.is_available() else "cpu")
             else:
                 # Ensure compatibility with older PyTorch versions
-                scaler = torch.cuda.amp.GradScaler() if torch.cuda.is_available(
-                ) else torch.cpu.amp.GradScaler()
-
+                scaler = torch.cuda.amp.GradScaler()
         pbar = tqdm(range(self.config.training_args.iters), desc='')
         # Zero-grad before starting
         model.zero_grad()
