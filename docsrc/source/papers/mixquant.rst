@@ -64,32 +64,69 @@ where :math:`\delta_{\{j\}}` is the activation mass concentration of block :math
    \delta_{\{j\}} =
    \frac{\|X_{\{j\}}\|_1}{b \|X_{\{j\}}\|_\infty}.
 
+Since :math:`\|X_{\{j\}}\|_\infty \le \|X_{\{j\}}\|_1 \le b \|X_{\{j\}}\|_\infty`, we have :math:`\delta_{\{j\}} \in [1/b, 1]`. Values near :math:`1` indicate a block with near-uniform magnitudes, while values near :math:`1/b` indicate a block dominated by a small number of large coordinates (i.e., stronger outliers).
+
 .. admonition:: Key idea 💡
 
-   For fixed :math:`b`, worst-case post-rotation outliers are governed by the block(s) with the largest mass. As 
-   :math:`b` decreases, fewer coordinates contribute to each rotated value. If the mass of an activation vector is 
-   concentrated in only a few blocks, then large-magnitude coordinates are not diffused as effectively.
+   For fixed :math:`b`, the deterministic worst-case bound is governed by the block(s) with the largest blockwise 
+   :math:`\ell_1` mass (equivalently, the largest :math:`\delta_{\{j\}}\sqrt{b}\|X_{\{j\}}\|_\infty` term). As :math:`b` 
+   decreases, fewer coordinates contribute to each rotated output, so any block that carries a large fraction of the 
+   activation mass will dominate the post-rotation range.
+
+Worst-case vs typical behavior
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The bound above is deterministic and worst-case, so it is intentionally pessimistic.
+
+To reason about the typical (non-adversarial) behavior, Proposition 3.5 in the paper analyzes block Hadamard rotations
+under a mild sign-randomness model (activation signs modeled as i.i.d. Rademacher variables). Under this model, with
+probability at least :math:`1 - \varepsilon`,
+
+.. math::
+
+   \|X \tilde{R}\|_\infty
+   \;\le\;
+   \sqrt{\frac{2}{b} \log\!\left(\frac{2d}{\varepsilon}\right)} \; \|X\|_2.
+
+This explains a common empirical trend: as block size :math:`b` increases, post-rotation outliers typically decrease (with 
+diminishing returns), but the online rotation cost increases as :math:`O(d \log b)`. MixQuant targets the small block size 
+regime by improving the pre-rotation geometry (i.e., balancing blockwise mass) so that block rotations behave more like
+their full-vector counterpart at the same compute budget.
 
 MixQuant: block rotation-aware permutations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-MixQuant addresses this limitation by inserting a permutation :math:`P` to explicitly minimize the maximum 
-:math:`\ell_1` mass before block rotation.
+MixQuant addresses this limitation by inserting a permutation :math:`P` to explicitly minimize the maximum per-block
+:math:`\ell_1` mass before block rotation. A simple algebraic rewrite makes the optimization target explicit:
+
+.. math::
+
+   \delta_{\{j\}} \sqrt{b} \|X_{\{j\}}\|_\infty
+   =
+   \sqrt{b}
+   \cdot
+   \frac{\|X_{\{j\}}\|_1}{b \|X_{\{j\}}\|_\infty}
+   \cdot
+   \|X_{\{j\}}\|_\infty
+   =
+   \frac{\|X_{\{j\}}\|_1}{\sqrt{b}}.
+
+Therefore, for fixed block size :math:`b`, the deterministic bound is governed by :math:`\max_{j \in [n]} \|X_{\{j\}}\|_1`.
 
 Using activation statistics, the permutation is calibrated so that large-magnitude coordinates are distributed across 
 blocks rather than concentrated in a small subset of them. After permutation, the per-block :math:`\ell_1` norms are 
 more balanced, which tightens the above bound and improves outlier suppression for a fixed block size.
 
 In Brevitas, the default permutation strategy is MassDiff, the greedy calibration algorithm
-described in Algorithm 1 of the paper. Given a calibration dataset, MassDiff:
+described in Algorithm 1 of the paper. Intuitively, MassDiff greedily assigns channels to blocks so as to equalize (in 
+expectation) the blockwise :math:`\ell_1`  mass. Given a calibration dataset, MassDiff:
 
 1. Computes an average magnitude score for each channel
 2. Processes channels in descending order of score
 3. Assigns each channel to the block whose accumulated :math:`\ell_1` mass would increase the least
 4. Continues until all blocks reach size :math:`b`
 
-Intuitively, this greedily balances the per-block mass over a calibration set, directly minimizing 
-:math:`\delta_{\{j\}}` to improve outlier suppression.
+The resulting permutations are then merged into surrounding weights, as we'll explain next.
 
 Permutation-equivariant regions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -102,19 +139,9 @@ Permutation-equivariant regions
    An illustration of a quantization graph architecture for a standard transformer block, merging rotations and permutations 
    wherever possible and quantizing the weights and activations for all linear layers
 
-Given a pre-trained model, a permutation does not change model behavior if it is inserted inside a 
-permutation-equivariant region (Definition 4.1 in the paper), i.e., a subgraph whose operations commute with 
-permutations along the feature dimension.
-
-Within transformer architectures, many subgraphs are permutation-equivariant along the feature dimension, 
-including compositions of:
-
-- linear → elementwise activation (e.g. SiLU/Swish) → elementwise multiply  
-- residual additions  
-- other featurewise operations  
-
-Within such regions, permutation :math:`P` can be commuted through subgraph  :math:`\Phi` and absorbed into surrounding 
-weights :math:`W_1, W_2`:
+A permutation-equivariant region is any subgraph whose operations commute with feature-wise permutations.
+Within such regions, permutation :math:`P` can be commuted through subgraph :math:`\Phi` and absorbed into surrounding 
+weights :math:`W_1, W_2`. For example,
 
 .. math::
 
@@ -122,11 +149,30 @@ weights :math:`W_1, W_2`:
    =
    \Phi(X W_1 P)\, P^T W_2.
 
-.. admonition:: Key idea 💡
+In transformer blocks, this typically includes compositions of:
 
-   Brevitas identifies permutation-equivariant regions and merges the calibrated permutation into adjacent linear weights 
-   before deployment. As a result, no explicit permutation operator remains in the inference graph. Only rotations that are 
-   intentionally kept online incur runtime cost.
+- Linear → elementwise activation (SiLU / GELU / ReLU)
+- Elementwise multiplication (e.g., SwiGLU gating)
+- Residual addition (when both branches share the same permutation)
+- Other featurewise operations that do not mix hidden coordinates
+
+In contrast, operations that reshape or mix the hidden feature dimension generally break permutation equivariance and therefore delimit the region within which permutations can be merged.
+
+Brevitas automatically detects these permutation-equivariant regions and merges calibrated permutations into adjacent linear 
+weights prior to deployment. This ensures that no explicit permutation operator remains in the inference graph.
+
+For the exact graph patterns and implementation details, see: ``brevitas.graph.permute`` `here <https://github.com/Xilinx/brevitas/blob/3719448d0da6e2b5815e9f977669dfd9fdebbdd8/src/brevitas/graph/permute.py>`_.
+
+.. code:: pycon
+
+   >>> import brevitas.graph.permute
+   >>> brevitas.graph.permute._permute_invariant_layers
+   (<class 'torch.nn.modules.activation.ReLU'>,
+    <class 'torch.nn.modules.activation.LeakyReLU'>,
+    <class 'torch.nn.modules.activation.GELU'>,
+    <class 'torch.nn.modules.activation.SELU'>,
+    <class 'torch.nn.modules.activation.SiLU'>,
+    <class 'torch.nn.modules.normalization.RMSNorm'>)
 
 
 Implementation Overview
@@ -142,7 +188,8 @@ At a high level, the Brevitas implementation of MixQuant:
 4. Inserts and merges rotations, leaving only the online rotations in the compute graph
 5. Runs the rest of the PTQ pipeline (e.g., error correction, etc.)
 
-The ``rotate_permute_mode`` context manager encapsulates most of the MixQuant workflow:
+The ``rotate_permute_mode`` context manager encapsulates most of the MixQuant workflow, as illustrated with the following 
+pseudocode:
 
 .. code:: python
 
@@ -165,7 +212,7 @@ The ``rotate_permute_mode`` context manager encapsulates most of the MixQuant wo
       model = rpm.model
       with torch.no_grad():
          for data in dataloader:
-            model(**data)  # 2. collecting activation stats
+            model(**data)  # 2. collects activation stats
       rewriters = rpm.rewriters
       # 3. calibrates and merges permutations on exit from context manager
    
@@ -243,14 +290,14 @@ Huggingface models in the CLI args. For example:
 
 .. code:: shell
 
-   brevitas_ptq_llm --config=llama3-mixquant-int4.yml --model=meta-llama/Llama-3.2-3B-Instruct
-
-The default config includes (among others):
+   brevitas_ptq_llm --config=llama3-mixquant_star-int4.yml --model=meta-llama/Llama-3.2-3B-Instruct
+   
+The MixQuant* config specifies:
 
 - INT4 weights and activations
-- Merge full-vector Hadamard rotations where possible
-- Online block Hadamard rotations with block size 32
-- MixQuant permutations via ``massdiff``
+- Full-vector Hadamard rotations where mergable (i.e., R1 and R2)
+- Online block Hadamard rotations with block size 32 (i.e., R3)
+- MixQuant permutations via ``massdiff`` (i.e., P3)
 - `Qronos <https://xilinx.github.io/brevitas/dev/papers/qronos.html>`_ rounding [3]
 
 
@@ -269,10 +316,29 @@ You can override other hyperparamters via CLI. For example:
 .. code:: shell
 
    # Try a different block size
-   brevitas_ptq_llm --config=llama3-mixquant-int4.yml --rotation-block_size=16
+   brevitas_ptq_llm --config=llama3-mixquant_star-int4.yml --rotation-block_size=16
 
    # Try a different permutation strategy
-   brevitas_ptq_llm --config=llama3-mixquant-int4.yml --permute-fn=zigzag
+   brevitas_ptq_llm --config=llama3-mixquant_star-int4.yml --permute-fn=zigzag
+
+
+The MixQuant† config specifies:
+
+- INT4 weights and activations
+- Learnable mergable rotations via CayleySGD (i.e., R1 and R2)
+- Online block Hadamard rotations with block size 32 (i.e., R3)
+- MixQuant permutations via ``massdiff`` (i.e., P3)
+- Round-to-nearest (RTN) rounding
+
++-------+-----------+-----------+-------+-------+--------+-------+-------+
+| Model | float_ppl | quant_ppl | ARC-C | ARC-E | HellaS | PIQA  | WinoG |
++=======+===========+===========+=======+=======+========+=======+=======+
+| 1B    | 11.7      | 15.8      | 25.9  | 47.5  | 39.3   | 65.3  | 51.6  |
++-------+-----------+-----------+-------+-------+--------+-------+-------+
+| 3B    | 9.9       | 10.9      | 33.6  | 62.0  | 46.8   | 68.7  | 53.7  |
++-------+-----------+-----------+-------+-------+--------+-------+-------+
+| 8B    | 6.5       | 8.38      | 43.2  | 71.3  | 53.4   | 74.1  | 58.8  |
++-------+-----------+-----------+-------+-------+--------+-------+-------+
 
 
 To run multiple experiments in parallel across GPUs (e.g., sweeping block sizes), use the benchmark script:
@@ -297,7 +363,7 @@ INT4 with and without MixQuant using MassDiff as the permutation algorithm.
 Citation
 --------
 
-::
+.. code:: bibtex
 
    @article{sanjeet2026mixquant,
      title   = {MixQuant: Pushing the Limits of Block Rotations in Post-Training Quantization},
