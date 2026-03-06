@@ -70,13 +70,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 ALL_SUPPORTED_PYTHON_VERSIONS = ('3.13', '3.14')
 
-ALL_SUPPORTED_PYTORCH_VERSIONS = (
-    '2.5.1',
-    '2.6.0',
-    '2.7.1',
-    '2.8.0',
-    '2.9.1',
-    '2.10.0')
+ALL_SUPPORTED_PYTORCH_VERSIONS = ('2.5.1', '2.6.0', '2.7.1', '2.8.0', '2.9.1', '2.10.0')
 ALL_SUPPORTED_EXCLUSION_LIST = []
 
 PYTHON_VERSIONS = ('3.10', '3.11')
