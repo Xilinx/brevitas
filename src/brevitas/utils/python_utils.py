@@ -6,6 +6,7 @@ from dataclasses import is_dataclass
 from enum import Enum
 import functools
 import json
+import re
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -16,6 +17,19 @@ from typing import Optional
 from typing import TypeVar
 from typing import Union
 import warnings
+
+# Regular expressions for checking if a string can be converted to an int or a float.
+INT_RE = re.compile(r"^[+-]?\d+$")
+FLOAT_RE = re.compile(
+    r"""^[+-]?(
+            (?:\d+\.\d*)|   # 1. or 1.23
+            (?:\.\d+)|      # .23
+            (?:\d+)         # 1
+        )
+        (?:[eE][+-]?\d+)?$
+    """,
+    re.VERBOSE,
+)
 
 
 class AutoName(str, Enum):
@@ -88,9 +102,9 @@ def convert_str_dict(passed_value: Dict) -> Dict:
             if value.lower() in ("true", "false"):
                 passed_value[key] = value.lower() == "true"
             # Check for digit
-            elif value.isdigit():
+            elif INT_RE.match(value):
                 passed_value[key] = int(value)
-            elif value.replace(".", "", 1).isdigit():
+            elif FLOAT_RE.match(value):
                 passed_value[key] = float(value)
 
     return passed_value

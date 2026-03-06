@@ -167,7 +167,7 @@ class RoundRegularisationLoss(BlockLoss):
 
         if self.iter < self.loss_start:
             b = self.temp_decay(self.iter)
-            round_loss = torch.tensor(0., device=pred.device, dtype=torch.float32)
+            round_loss = torch.tensor(0., device=pred.device, dtype=self.weight.dtype)
         else:  # 1 - |(h-0.5)*2|**b
             b = self.temp_decay(self.iter)
             round_vals = self.learned_round_module.learned_round_impl(
@@ -198,8 +198,6 @@ class MSELoss(BlockLoss):
 # Both `get_round_parameters` and `get_scale_parameters` are meant to be passed as the argument `get_target`
 # of `_get_target_parameters`, which iterates over the modules of a model in a recursive function.
 # The return value indicates whether the submodules of a given module need to be skipped.
-# For instance, for `get_round_parameters`, when a LearnedRoundSte module is found, the
-# learned round parameters are added to `state_dict` and `True` is returned to stop the recursion.
 @TARGET_PARAM_FN_REGISTRY.register(names="learned_round")
 def get_round_parameters(module: nn.Module, state_dict: OrderedDict, prefix: str = "") -> bool:
     if isinstance(module, LearnedRoundSte):
