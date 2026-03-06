@@ -166,7 +166,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         model = offload_model(model)
         rewriters = fix_rewriter(rewriters, model, 'weight')
         model = apply_rewriters(model, rewriters, delay_rewriters=False)
-
+        
+    remove_hooks(model)
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -411,7 +412,6 @@ def quantize_llm(args, extra_args=None):
     # fused_rotation_no_fx(). Rotations will be added in the layerwise block below.
     if args.rotation == 'fused_no_fx' or args.permute_fn is not None:
         fused_rotation_no_fx(model, calibration_loader, args)
-        remove_hooks(model)
 
     if args.rotation == 'layerwise':
         model = offload_model(model)
