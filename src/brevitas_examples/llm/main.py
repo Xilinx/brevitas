@@ -166,7 +166,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         model = offload_model(model)
         rewriters = fix_rewriter(rewriters, model, 'weight')
         model = apply_rewriters(model, rewriters, delay_rewriters=False)
-        
+
     remove_hooks(model)
 
 
