@@ -1,9 +1,9 @@
-# if true, online rotations are block rotations, and
-# merged (fused) rotations are full-vector rotations
-disable_block_rotation_for_fused:
-- true
 dataset_eval_split:
 - test
+# if disable_block_rotation_for_fused=True, then block rotations are
+# only applied to online rotations, leaving fused rotations as full-vector
+disable_block_rotation_for_fused:
+- true
 dtype:
 - bfloat16
 eval:
@@ -40,6 +40,7 @@ rotation_mode:
 - had
 rotation_orphan_sink:
 - true
+# "null" is full-vector rotations
 rotation_block_size:
 - null
 - 16
