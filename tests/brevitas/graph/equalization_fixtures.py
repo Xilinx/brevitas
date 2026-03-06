@@ -397,11 +397,16 @@ input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_qua
 def quant_conv_with_input_quant_model(input_quant, weight_quant):
 
     class QuantConvModel(nn.Module):
+        input_size = IN_SIZE_CONV_SMALL[1:]
 
         def __init__(self) -> None:
             super().__init__()
             self.conv_0 = qnn.QuantConv2d(
-                3, 16, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
+                self.input_size[0],
+                16,
+                kernel_size=3,
+                input_quant=input_quant,
+                weight_quant=weight_quant)
             self.conv_1 = qnn.QuantConv2d(
                 16, 32, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
 
@@ -418,11 +423,16 @@ def quant_conv_with_input_quant_model(input_quant, weight_quant):
 def quant_convdepthconv_model(input_quant, weight_quant):
 
     class QuantConvDepthConvModel(nn.Module):
+        input_size = IN_SIZE_CONV_SMALL[1:]
 
         def __init__(self) -> None:
             super().__init__()
             self.conv = qnn.QuantConv2d(
-                3, 16, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
+                self.input_size[0],
+                16,
+                kernel_size=3,
+                input_quant=input_quant,
+                weight_quant=weight_quant)
             self.conv_0 = qnn.QuantConv2d(
                 16,
                 16,
@@ -445,13 +455,15 @@ def quant_convdepthconv_model(input_quant, weight_quant):
 def quant_residual_model(input_quant, weight_quant):
 
     class QuantResidualModel(nn.Module):
+        input_size = IN_SIZE_CONV_SMALL[1:]
 
         def __init__(self) -> None:
             super().__init__()
+            in_channels = self.input_size[0]
             self.conv = qnn.QuantConv2d(
-                3, 16, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
+                in_channels, 16, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
             self.conv_0 = qnn.QuantConv2d(
-                16, 3, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
+                16, in_channels, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
             self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
 
         def forward(self, x):
@@ -470,12 +482,13 @@ def quant_residual_model(input_quant, weight_quant):
 def quant_convtranspose_model(input_quant, weight_quant):
 
     class QuantConvTransposeModel(nn.Module):
+        input_size = IN_SIZE_CONV_SMALL[1:]
 
         def __init__(self) -> None:
             super().__init__()
             self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
             self.conv_0 = qnn.QuantConvTranspose2d(
-                in_channels=3,
+                in_channels=self.input_size[0],
                 out_channels=8,
                 kernel_size=3,
                 input_quant=input_quant,
@@ -496,11 +509,38 @@ def quant_convtranspose_model(input_quant, weight_quant):
     return QuantConvTransposeModel
 
 
+@pytest_cases.fixture
+def quant_linear_model(input_quant, weight_quant):
+
+    class QuantLinearModel(nn.Module):
+        input_size = IN_SIZE_LINEAR[1:]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear_0 = qnn.QuantLinear(
+                in_features=self.input_size[-1],
+                out_features=16,
+                input_quant=input_quant,
+                weight_quant=weight_quant)
+            self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
+            self.linear_1 = qnn.QuantLinear(
+                in_features=16, out_features=32, input_quant=input_quant, weight_quant=weight_quant)
+
+        def forward(self, x):
+            x = self.linear_0(x)
+            x = self.relu(x)
+            x = self.linear_1(x)
+            return x
+
+    return QuantLinearModel
+
+
 list_of_quant_fixtures = [
     'quant_conv_with_input_quant_model',
     'quant_convdepthconv_model',
     'quant_residual_model',
-    'quant_convtranspose_model']
+    'quant_convtranspose_model',
+    'quant_linear_model']
 
 toy_quant_model = fixture_union(
     'toy_quant_model', list_of_quant_fixtures, ids=list_of_quant_fixtures)

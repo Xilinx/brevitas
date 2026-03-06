@@ -11,6 +11,7 @@ from torch.utils.data import TensorDataset
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 import brevitas.nn as qnn
@@ -25,7 +26,10 @@ def _a2q_layer_filter_fnc(layer: nn.Module) -> bool:
         kernel_size = np.prod(layer.kernel_size)
         if kernel_size == 1 and layer.groups == layer.in_channels:
             return False
-    return True
+    # Known issue with ConvTranspose2d (#1479)
+    if isinstance(layer, nn.ConvTranspose2d):
+        return False
+    return gpxq_mode._is_module_supported(None, layer)
 
 
 @torch.no_grad()
@@ -233,7 +237,7 @@ class TestQronosUpdateBatch:
     "apply_gpxq_tuple", apply_gpxq_func_map.items(), ids=apply_gpxq_func_map.keys())
 @pytest.mark.parametrize("max_accumulator_bit_width", [None, 12, 32])
 @pytest.mark.parametrize("max_accumulator_tile_size", [None, 32])
-def test_toymodels(
+def test_toy_quant_models(
         toy_quant_model,
         act_order,
         use_quant_activations,
@@ -252,19 +256,21 @@ def test_toymodels(
             "max_accumulator_tile_size doesn't matter if max_accumulator_bit_width is None.")
 
     if (max_accumulator_bit_width is not None) and input_quant.startswith("MXFloat"):
-        pytest.skip("AXE does not currently support minifloat formats.")
+        pytest.skip("No support for AXE + Float.")
 
     name, apply_gpxq = apply_gpxq_tuple
 
     if (max_accumulator_bit_width is not None) and (name == "qronos"):
-        pytest.skip("Qronos does not support accumulator-aware quantization.")
+        pytest.skip("No support for AXE + Qronos.")
 
     model_class = toy_quant_model
     model = model_class()
-    if 'mha' in test_id:
-        inp = torch.randn(32, *IN_SIZE_LINEAR[1:])
-    else:
-        inp = torch.randn(32, *IN_SIZE_CONV_SMALL[1:])
+
+    gpxq_layers = [mod for mod in model.modules() if _a2q_layer_filter_fnc(mod)]
+    if max_accumulator_bit_width is not None and not gpxq_layers:
+        pytest.skip(f"AXE does not support any modules in {name}.")
+
+    inp = torch.randn(32, *model.input_size)
     model.eval()
     model(inp)  # test forward pass and collect scaling factors
     dataset = TensorDataset(inp, inp)
