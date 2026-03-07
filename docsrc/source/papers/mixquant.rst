@@ -176,7 +176,7 @@ For the exact graph patterns and implementation details, see: ``brevitas.graph.p
 
 
 Implementation Overview
---------------------
+-------------------------
 
 MixQuant is available through the LLM entry point ``brevitas_ptq_llm``.
 
@@ -219,7 +219,7 @@ pseudocode:
    # 4. inserts and merges rotations
    model = apply_rewriters(model, rewriters)
 
-   # 5.continue with the rest of the PTQ pipeline
+   # 5. continue with the rest of the PTQ pipeline
    model = apply_qronos(model, ...)
 
 See how this is used in 
@@ -261,7 +261,7 @@ Getting Started
 
 Install Brevitas and the required dependencies:
 
-.. code::shell
+.. code:: shell
 
    pip install brevitas[llm, export] lighteval
 
