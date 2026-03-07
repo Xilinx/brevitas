@@ -57,21 +57,23 @@ magnitude under a block Hadamard rotation satisfies
    \|X \tilde{R}\|_\infty
    \le \max_{j \in [n]} \delta_{\{j\}} \sqrt{b}\, \|X_{\{j\}}\|_\infty,
 
-where :math:`\delta_{\{j\}}` is the activation mass concentration of block :math:`j`, defined as
+where for block :math:`j`, :math:`\delta_{\{j\}}` is defined as
 
 .. math::
 
    \delta_{\{j\}} =
    \frac{\|X_{\{j\}}\|_1}{b \|X_{\{j\}}\|_\infty}.
 
-Since :math:`\|X_{\{j\}}\|_\infty \le \|X_{\{j\}}\|_1 \le b \|X_{\{j\}}\|_\infty`, we have :math:`\delta_{\{j\}} \in [1/b, 1]`. Values near :math:`1` indicate a block with near-uniform magnitudes, while values near :math:`1/b` indicate a block dominated by a small number of large coordinates (i.e., stronger outliers).
+Since :math:`\|X_{\{j\}}\|_\infty \le \|X_{\{j\}}\|_1 \le b \|X_{\{j\}}\|_\infty`, we have :math:`\delta_{\{j\}} \in [1/b, 1]`.
+Values near :math:`1` indicate a block with near-uniform magnitudes, while values near :math:`1/b` indicate a block 
+dominated by a small number of large coordinates (i.e., stronger outliers). Therefore, :math:`\delta_{\{j\}}` can be viewed 
+as a proxy for the mass concentration of a vector.
 
 .. admonition:: Key idea 💡
 
-   For fixed :math:`b`, the deterministic worst-case bound is governed by the block(s) with the largest blockwise 
-   :math:`\ell_1` mass (equivalently, the largest :math:`\delta_{\{j\}}\sqrt{b}\|X_{\{j\}}\|_\infty` term). As :math:`b` 
-   decreases, fewer coordinates contribute to each rotated output, so any block that carries a large fraction of the 
-   activation mass will dominate the post-rotation range.
+   For fixed :math:b, worst-case post-rotation outliers are governed by the block(s) with the largest concentration of :math:\ell_1 mass. As :math:b decreases, fewer coordinates contribute to each rotated output. If the mass of an activation vector is concentrated in only a few blocks, then large-magnitude coordinates are not diffused as effectively.
+
+In Proposition 3.3, this dependence appears as the term :math:`\delta_{\{j\}}\sqrt{b}\|X_{\{j\}}\|_\infty`.
 
 Worst-case vs typical behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,8 +81,7 @@ Worst-case vs typical behavior
 The bound above is deterministic and worst-case, so it is intentionally pessimistic.
 
 To reason about the typical (non-adversarial) behavior, Proposition 3.5 in the paper analyzes block Hadamard rotations
-under a mild sign-randomness model (activation signs modeled as i.i.d. Rademacher variables). Under this model, with
-probability at least :math:`1 - \varepsilon`,
+under a mild sign-randomness assumption, verified in Appendix D.4. Under this model, with probability at least :math:`1 - \varepsilon`,
 
 .. math::
 
@@ -88,28 +89,20 @@ probability at least :math:`1 - \varepsilon`,
    \;\le\;
    \sqrt{\frac{2}{b} \log\!\left(\frac{2d}{\varepsilon}\right)} \; \|X\|_2.
 
-This explains a common empirical trend: as block size :math:`b` increases, post-rotation outliers typically decrease (with 
-diminishing returns), but the online rotation cost increases as :math:`O(d \log b)`. MixQuant targets the small block size 
-regime by improving the pre-rotation geometry (i.e., balancing blockwise mass) so that block rotations behave more like
-their full-vector counterpart at the same compute budget.
+This explains the common empirical trend: as block size :math:`b` increases with fixed :math:`d`, post-rotation outliers 
+typically decrease (with diminishing returns), but the online rotation cost increases as :math:`O(d \log b)`. MixQuant 
+targets the small block size regime by improving the pre-rotation geometry (i.e., balancing blockwise mass) so that block 
+rotations behave more like their full-vector counterpart at a reduced compute budget.
 
 MixQuant: block rotation-aware permutations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 MixQuant addresses this limitation by inserting a permutation :math:`P` to explicitly minimize the maximum per-block
-:math:`\ell_1` mass before block rotation. A simple algebraic rewrite makes the optimization target explicit:
+:math:`\ell_1` mass before block rotation. A simple rewrite makes the optimization target explicit:
 
 .. math::
 
-   \delta_{\{j\}} \sqrt{b} \|X_{\{j\}}\|_\infty
-   =
-   \sqrt{b}
-   \cdot
-   \frac{\|X_{\{j\}}\|_1}{b \|X_{\{j\}}\|_\infty}
-   \cdot
-   \|X_{\{j\}}\|_\infty
-   =
-   \frac{\|X_{\{j\}}\|_1}{\sqrt{b}}.
+   \delta_{\{j\}}\sqrt{b}\|X_{\{j\}}\|_\infty = \frac{\|X_{\{j\}}\|_1}{\sqrt{b}}.
 
 Therefore, for fixed block size :math:`b`, the deterministic bound is governed by :math:`\max_{j \in [n]} \|X_{\{j\}}\|_1`.
 
@@ -156,23 +149,10 @@ In transformer blocks, this typically includes compositions of:
 - Residual addition (when both branches share the same permutation)
 - Other featurewise operations that do not mix hidden coordinates
 
-In contrast, operations that reshape or mix the hidden feature dimension generally break permutation equivariance and therefore delimit the region within which permutations can be merged.
-
 Brevitas automatically detects these permutation-equivariant regions and merges calibrated permutations into adjacent linear 
 weights prior to deployment. This ensures that no explicit permutation operator remains in the inference graph.
 
 For the exact graph patterns and implementation details, see: ``brevitas.graph.permute`` `here <https://github.com/Xilinx/brevitas/blob/3719448d0da6e2b5815e9f977669dfd9fdebbdd8/src/brevitas/graph/permute.py>`_.
-
-.. code:: pycon
-
-   >>> import brevitas.graph.permute
-   >>> brevitas.graph.permute._permute_invariant_layers
-   (<class 'torch.nn.modules.activation.ReLU'>,
-    <class 'torch.nn.modules.activation.LeakyReLU'>,
-    <class 'torch.nn.modules.activation.GELU'>,
-    <class 'torch.nn.modules.activation.SELU'>,
-    <class 'torch.nn.modules.activation.SiLU'>,
-    <class 'torch.nn.modules.normalization.RMSNorm'>)
 
 
 Implementation Overview
@@ -316,7 +296,7 @@ You can override other hyperparamters via CLI. For example:
 .. code:: shell
 
    # Try a different block size
-   brevitas_ptq_llm --config=llama3-mixquant_star-int4.yml --rotation-block_size=16
+   brevitas_ptq_llm --config=llama3-mixquant_star-int4.yml --rotation-block-size=16
 
    # Try a different permutation strategy
    brevitas_ptq_llm --config=llama3-mixquant_star-int4.yml --permute-fn=zigzag
@@ -347,9 +327,9 @@ To run multiple experiments in parallel across GPUs (e.g., sweeping block sizes)
 
    python benchmark.py --config benchmark-rotation_block_size.yml --results results/ --gpus 0,1
 
-where ``--gpus`` refers to how many gpus to use. If multiple GPUs are specified, each one will be used to run an 
-individual experiment. Below, we summarize results when quantizing Llama-3.2-1B-Instruct weights and activations to 
-INT4 with and without MixQuant using MassDiff as the permutation algorithm.
+where ``--gpus`` is a comma-separated list of GPU device indices to use (e.g., ``0,1``). Each GPU runs one experiment at a 
+time. Below, we summarize results when quantizing Llama-3.2-1B-Instruct weights and activations to INT4 with and without 
+MixQuant using MassDiff as the permutation algorithm.
 
 +----------------------+------+------+------+------+------+------+------+
 | Block Size           | 16   | 32   | 64   | 128  | 256  | 512  | Full |
