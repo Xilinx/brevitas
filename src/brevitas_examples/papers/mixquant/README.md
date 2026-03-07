@@ -23,7 +23,7 @@ The provided configurations specify Llama-3.2-1B-Instruct, but you can specify d
 models in the CLI args. For example:
 
 ```bash
-   brevitas_ptq_llm --config llama3-mixquant-int4.yml --model meta-llama/Llama-3.2-3B-Instruct
+   brevitas_ptq_llm --config llama3-mixquant_star-int4.yml --model meta-llama/Llama-3.2-3B-Instruct
 ```
 
 You can use `benchmark.py` to run more experiments as follows:
