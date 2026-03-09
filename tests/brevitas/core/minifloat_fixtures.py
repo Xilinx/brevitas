@@ -7,10 +7,10 @@ import torch
 
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
-from brevitas.quant.experimental.float_base import FloatActBase
-from brevitas.quant.experimental.float_base import FloatWeightBase
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeight
+from brevitas.quant.float_base import FloatActBase
+from brevitas.quant.float_base import FloatWeightBase
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeight
+from brevitas.quant.float_quant_ocp import Fp8e5m2OCPWeight
 
 
 @pytest_cases.fixture

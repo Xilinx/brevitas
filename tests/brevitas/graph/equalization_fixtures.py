@@ -13,10 +13,10 @@ from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.mx_quant_ocp import MXInt8Act
+from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 
 SEED = 123456

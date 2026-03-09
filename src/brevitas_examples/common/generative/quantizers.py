@@ -37,11 +37,11 @@ from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.base import HQOWeightZeroPoint
 from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.base import PerChannelPoTScaling8bit
-from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
-from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
+from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.float import Fp8e4m3WeightPerChannelFloat
+from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO

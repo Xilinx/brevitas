@@ -8,8 +8,8 @@ import torch
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 import brevitas.nn as qnn
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from tests.marker import jit_disabled_for_export
 
 from ...export_fixture import qonnx_export_fn

@@ -18,11 +18,11 @@ from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantLinear
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat

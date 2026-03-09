@@ -11,9 +11,9 @@ import torch
 
 from brevitas import torch_version
 from brevitas.nn import QuantIdentity
-from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor

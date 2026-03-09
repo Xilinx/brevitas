@@ -7,9 +7,9 @@ import torch
 
 from brevitas.function.ops import compute_max_mantissa
 from brevitas.function.ops import max_float
-from brevitas.quant.experimental.float import *
-from brevitas.quant.experimental.float_quant_fnuz import *
-from brevitas.quant.experimental.float_quant_ocp import *
+from brevitas.quant.float import *
+from brevitas.quant.float_quant_fnuz import *
+from brevitas.quant.float_quant_ocp import *
 from brevitas.utils.float_quant_utils import get_max_available_float
 from brevitas.utils.float_quant_utils import get_min_available_float
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
