@@ -310,7 +310,7 @@ class RandomSearchMixin(BenchmarkSearchMixin):
 
     @staticmethod
     def parse_config_args(args: List[str], parse_args: bool = True) -> Namespace:
-        parser = super(GridSearchMixin, GridSearchMixin).parse_config_args(args, parse_args=False)
+        parser = super(RandomSearchMixin, RandomSearchMixin).parse_config_args(args, parse_args=False)
         parser.add_argument(
             '--num-experiments',
             type=int,
