@@ -205,9 +205,6 @@ def get_wikitext2(
 
 
 def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
-    splits = ["train", "test", "validation"]
-    if split not in splits:
-        raise ValueError(f"{split} not in {splits}")
     if dataset_name == "wikitext2":
         data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "c4":
