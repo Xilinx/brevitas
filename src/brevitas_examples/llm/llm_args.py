@@ -157,7 +157,7 @@ def create_args_parser() -> ArgumentParser:
         '--input-scale-precision',
         type=str,
         default='float_scale',
-        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
+        choices=['signed_float_scale', 'float_scale', 'po2_scale', 'signed_po2_scale'],
         help='Whether input scale is a float value or a po2. Default: float.')
     parser.add_argument(
         '--input-scale-type',
@@ -212,7 +212,7 @@ def create_args_parser() -> ArgumentParser:
         '--attn-scale-precision',
         type=str,
         default=None,
-        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
+        choices=['signed_float_scale', 'float_scale', 'po2_scale', 'signed_po2_scale'],
         help='Whether input scale is a float value or a po2. Default: (same as input).')
     parser.add_argument(
         '--attn-scale-type',
