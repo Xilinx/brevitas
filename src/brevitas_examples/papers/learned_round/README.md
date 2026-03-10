@@ -68,341 +68,341 @@ The results for `Llama 3.2` are summarized in the following table:
 </colgroup>
 <tbody>
 <tr>
-<th colspan="3"></th>
-<th colspan="6">W2g128</th>
-<th colspan="6">W4</th>
-<th colspan="6">W4g128</th>
+<th colspan="3" align="center"></th>
+<th colspan="6" align="center">W2g128</th>
+<th colspan="6" align="center">W4</th>
+<th colspan="6" align="center">W4g128</th>
 </tr>
 <tr>
-<td colspan="3"></th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
+<td colspan="3" align="center"></th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
 </tr>
 <tr>
-<th>Model</th>
-<th>Stage 1</th>
-<th>Stage 2</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
+<th align="center">Model</th>
+<th align="center">Stage 1</th>
+<th align="center">Stage 2</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
 </tr>
 <tr>
-<th rowspan="14">Llama-3.2</th>
-<th>BF16</th>
-<td></td>
-<td>8.9</td>
-<td>7.2</td>
-<td>5.9</td>
-<td>56.2</td>
-<td>63.6</td>
-<td>69.1</td>
-<td>8.9</td>
-<td>7.2</td>
-<td>5.9</td>
-<td>56.2</td>
-<td>63.6</td>
-<td>69.1</td>
-<td>8.9</td>
-<td>7.2</td>
-<td>5.9</td>
-<td>56.2</td>
-<td>63.6</td>
-<td>69.1</td>
+<th rowspan="14" align="center">Llama-3.2</th>
+<th align="center">BF16</th>
+<td align="center"></td>
+<td align="center">8.9</td>
+<td align="center">7.2</td>
+<td align="center">5.9</td>
+<td align="center">56.2</td>
+<td align="center">63.6</td>
+<td align="center">69.1</td>
+<td align="center">8.9</td>
+<td align="center">7.2</td>
+<td align="center">5.9</td>
+<td align="center">56.2</td>
+<td align="center">63.6</td>
+<td align="center">69.1</td>
+<td align="center">8.9</td>
+<td align="center">7.2</td>
+<td align="center">5.9</td>
+<td align="center">56.2</td>
+<td align="center">63.6</td>
+<td align="center">69.1</td>
 </tr>
 <tr>
-<th rowspan="5">None</th>
-<th>RTN</th>
-<td>92672.00</td>
-<td>11776.00</td>
-<td>38656.00</td>
-<td>35.06</td>
-<td>35.54</td>
-<td>35.57</td>
-<td>23.12</td>
-<td>9.81</td>
-<td>7.88</td>
-<td>48.50</td>
-<td>58.72</td>
-<td>65.23</td>
-<td>11.06</td>
-<td>7.75</td>
-<td>6.38</td>
-<td>52.83</td>
-<td>61.57</td>
-<td>68.31</td>
+<th rowspan="5" align="center">None</th>
+<th align="center">RTN</th>
+<td align="center">92672.00</td>
+<td align="center">11776.00</td>
+<td align="center">38656.00</td>
+<td align="center">35.06</td>
+<td align="center">35.54</td>
+<td align="center">35.57</td>
+<td align="center">23.12</td>
+<td align="center">9.81</td>
+<td align="center">7.88</td>
+<td align="center">48.50</td>
+<td align="center">58.72</td>
+<td align="center">65.23</td>
+<td align="center">11.06</td>
+<td align="center">7.75</td>
+<td align="center">6.38</td>
+<td align="center">52.83</td>
+<td align="center">61.57</td>
+<td align="center">68.31</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>179.00</td>
-<td>33.00</td>
-<td>25.38</td>
-<td>36.78</td>
-<td>41.08</td>
-<td>43.60</td>
-<td>11.06</td>
-<td>8.12</td>
-<td>6.78</td>
-<td>53.40</td>
-<td>61.48</td>
-<td>66.52</td>
-<td>9.81</td>
-<td>7.50</td>
-<td>6.22</td>
-<td>54.93</td>
-<td>62.49</td>
-<td>68.27</td>
+<th align="center">GPTQ</th>
+<td align="center">179.00</td>
+<td align="center">33.00</td>
+<td align="center">25.38</td>
+<td align="center">36.78</td>
+<td align="center">41.08</td>
+<td align="center">43.60</td>
+<td align="center">11.06</td>
+<td align="center">8.12</td>
+<td align="center">6.78</td>
+<td align="center">53.40</td>
+<td align="center">61.48</td>
+<td align="center">66.52</td>
+<td align="center">9.81</td>
+<td align="center">7.50</td>
+<td align="center">6.22</td>
+<td align="center">54.93</td>
+<td align="center">62.49</td>
+<td align="center">68.27</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>60.00</td>
-<td>21.00</td>
-<td>16.12</td>
-<td>38.84</td>
-<td>45.68</td>
-<td>50.20</td>
-<td>10.75</td>
-<td>7.88</td>
-<td>6.62</td>
-<td>53.83</td>
-<td>62.00</td>
-<td>67.18</td>
-<td>9.62</td>
-<td>7.38</td>
-<td>6.19</td>
-<td>55.23</td>
-<td>62.82</td>
-<td>68.31</td>
+<th align="center">Qronos</th>
+<td align="center">60.00</td>
+<td align="center">21.00</td>
+<td align="center">16.12</td>
+<td align="center">38.84</td>
+<td align="center">45.68</td>
+<td align="center">50.20</td>
+<td align="center">10.75</td>
+<td align="center">7.88</td>
+<td align="center">6.62</td>
+<td align="center">53.83</td>
+<td align="center">62.00</td>
+<td align="center">67.18</td>
+<td align="center">9.62</td>
+<td align="center">7.38</td>
+<td align="center">6.19</td>
+<td align="center">55.23</td>
+<td align="center">62.82</td>
+<td align="center">68.31</td>
 </tr>
 <tr>
-<th>Sign Round</th>
-<td>17151.00</td>
-<td>36352.00</td>
-<td>6304.00</td>
-<td>41.71</td>
-<td>51.06</td>
-<td>55.21</td>
-<td>10.12</td>
-<td>13.38</td>
-<td>10.75</td>
-<td>54.73</td>
-<td>62.74</td>
-<td>68.20</td>
-<td>9.62</td>
-<td>7.38</td>
-<td>6.12</td>
-<td>55.23</td>
-<td>63.17</td>
-<td>68.37</td>
+<th align="center">Sign Round</th>
+<td align="center">17151.00</td>
+<td align="center">36352.00</td>
+<td align="center">6304.00</td>
+<td align="center">41.71</td>
+<td align="center">51.06</td>
+<td align="center">55.21</td>
+<td align="center">10.12</td>
+<td align="center">13.38</td>
+<td align="center">10.75</td>
+<td align="center">54.73</td>
+<td align="center">62.74</td>
+<td align="center">68.20</td>
+<td align="center">9.62</td>
+<td align="center">7.38</td>
+<td align="center">6.12</td>
+<td align="center">55.23</td>
+<td align="center">63.17</td>
+<td align="center">68.37</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>41.67</td>
-<td>18.18</td>
-<td>14.13</td>
-<td>43.66</td>
-<td>48.76</td>
-<td>55.47</td>
-<td>10.44</td>
-<td>8.11</td>
-<td>6.48</td>
-<td>54.12</td>
-<td>62.62</td>
-<td>67.09</td>
-<td>9.57</td>
-<td>7.44</td>
-<td>6.12</td>
-<td>55.23</td>
-<td>63.08</td>
-<td>68.20</td>
+<th align="center">Learned Round</th>
+<td align="center">41.67</td>
+<td align="center">18.18</td>
+<td align="center">14.13</td>
+<td align="center">43.66</td>
+<td align="center">48.76</td>
+<td align="center">55.47</td>
+<td align="center">10.44</td>
+<td align="center">8.11</td>
+<td align="center">6.48</td>
+<td align="center">54.12</td>
+<td align="center">62.62</td>
+<td align="center">67.09</td>
+<td align="center">9.57</td>
+<td align="center">7.44</td>
+<td align="center">6.12</td>
+<td align="center">55.23</td>
+<td align="center">63.08</td>
+<td align="center">68.20</td>
 </tr>
 <tr>
-<th rowspan="4">HIP</th>
-<th>RTN</th>
-<td>143360.00</td>
-<td>16128.00</td>
-<td>4928.00</td>
-<td>34.79</td>
-<td>35.06</td>
-<td>35.40</td>
-<td>12.94</td>
-<td>9.06</td>
-<td>7.09</td>
-<td>50.85</td>
-<td>59.54</td>
-<td>66.64</td>
-<td>10.94</td>
-<td>8.00</td>
-<td>6.47</td>
-<td>53.50</td>
-<td>61.72</td>
-<td>67.91</td>
+<th rowspan="4" align="center">HIP</th>
+<th align="center">RTN</th>
+<td align="center">143360.00</td>
+<td align="center">16128.00</td>
+<td align="center">4928.00</td>
+<td align="center">34.79</td>
+<td align="center">35.06</td>
+<td align="center">35.40</td>
+<td align="center">12.94</td>
+<td align="center">9.06</td>
+<td align="center">7.09</td>
+<td align="center">50.85</td>
+<td align="center">59.54</td>
+<td align="center">66.64</td>
+<td align="center">10.94</td>
+<td align="center">8.00</td>
+<td align="center">6.47</td>
+<td align="center">53.50</td>
+<td align="center">61.72</td>
+<td align="center">67.91</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>131.00</td>
-<td>27.00</td>
-<td>18.62</td>
-<td>37.35</td>
-<td>43.10</td>
-<td>48.70</td>
-<td>10.25</td>
-<td>7.75</td>
-<td>6.47</td>
-<td>54.27</td>
-<td>62.37</td>
-<td>67.00</td>
-<td>9.62</td>
-<td>7.50</td>
-<td>6.19</td>
-<td>55.22</td>
-<td>63.15</td>
-<td>68.16</td>
+<th align="center">GPTQ</th>
+<td align="center">131.00</td>
+<td align="center">27.00</td>
+<td align="center">18.62</td>
+<td align="center">37.35</td>
+<td align="center">43.10</td>
+<td align="center">48.70</td>
+<td align="center">10.25</td>
+<td align="center">7.75</td>
+<td align="center">6.47</td>
+<td align="center">54.27</td>
+<td align="center">62.37</td>
+<td align="center">67.00</td>
+<td align="center">9.62</td>
+<td align="center">7.50</td>
+<td align="center">6.19</td>
+<td align="center">55.22</td>
+<td align="center">63.15</td>
+<td align="center">68.16</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>77.00</td>
-<td>35.25</td>
-<td>20.75</td>
-<td>38.38</td>
-<td>41.31</td>
-<td>46.14</td>
-<td>10.56</td>
-<td>8.12</td>
-<td>6.62</td>
-<td>52.94</td>
-<td>61.49</td>
-<td>66.53</td>
-<td>9.94</td>
-<td>7.62</td>
-<td>6.28</td>
-<td>55.02</td>
-<td>62.89</td>
-<td>68.35</td>
+<th align="center">Qronos</th>
+<td align="center">77.00</td>
+<td align="center">35.25</td>
+<td align="center">20.75</td>
+<td align="center">38.38</td>
+<td align="center">41.31</td>
+<td align="center">46.14</td>
+<td align="center">10.56</td>
+<td align="center">8.12</td>
+<td align="center">6.62</td>
+<td align="center">52.94</td>
+<td align="center">61.49</td>
+<td align="center">66.53</td>
+<td align="center">9.94</td>
+<td align="center">7.62</td>
+<td align="center">6.28</td>
+<td align="center">55.02</td>
+<td align="center">62.89</td>
+<td align="center">68.35</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>32.53</td>
-<td>17.64</td>
-<td>13.09</td>
-<td>43.97</td>
-<td>50.57</td>
-<td>36.05</td>
-<td>9.74</td>
-<td>7.65</td>
-<td>6.31</td>
-<td>55.37</td>
-<td>62.82</td>
-<td>67.98</td>
-<td>9.40</td>
-<td>7.42</td>
-<td>6.09</td>
-<td>55.97</td>
-<td>63.29</td>
-<td>68.58</td>
+<th align="center">Learned Round</th>
+<td align="center">32.53</td>
+<td align="center">17.64</td>
+<td align="center">13.09</td>
+<td align="center">43.97</td>
+<td align="center">50.57</td>
+<td align="center">36.05</td>
+<td align="center">9.74</td>
+<td align="center">7.65</td>
+<td align="center">6.31</td>
+<td align="center">55.37</td>
+<td align="center">62.82</td>
+<td align="center">67.98</td>
+<td align="center">9.40</td>
+<td align="center">7.42</td>
+<td align="center">6.09</td>
+<td align="center">55.97</td>
+<td align="center">63.29</td>
+<td align="center">68.58</td>
 </tr>
 <tr>
-<th rowspan="4">MagR</th>
-<th>RTN</th>
-<td>20736.00</td>
-<td>16128.00</td>
-<td>5568.00</td>
-<td>35.81</td>
-<td>35.44</td>
-<td>35.57</td>
-<td>13.19</td>
-<td>9.06</td>
-<td>7.09</td>
-<td>50.84</td>
-<td>54.51</td>
-<td>65.12</td>
-<td>12.19</td>
-<td>8.50</td>
-<td>6.78</td>
-<td>51.84</td>
-<td>56.34</td>
-<td>65.08</td>
+<th rowspan="4" align="center">MagR</th>
+<th align="center">RTN</th>
+<td align="center">20736.00</td>
+<td align="center">16128.00</td>
+<td align="center">5568.00</td>
+<td align="center">35.81</td>
+<td align="center">35.44</td>
+<td align="center">35.57</td>
+<td align="center">13.19</td>
+<td align="center">9.06</td>
+<td align="center">7.09</td>
+<td align="center">50.84</td>
+<td align="center">54.51</td>
+<td align="center">65.12</td>
+<td align="center">12.19</td>
+<td align="center">8.50</td>
+<td align="center">6.78</td>
+<td align="center">51.84</td>
+<td align="center">56.34</td>
+<td align="center">65.08</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>96.00</td>
-<td>34.25</td>
-<td>25.38</td>
-<td>37.10</td>
-<td>38.90</td>
-<td>42.68</td>
-<td>11.25</td>
-<td>8.38</td>
-<td>6.69</td>
-<td>53.35</td>
-<td>57.26</td>
-<td>66.64</td>
-<td>10.75</td>
-<td>8.12</td>
-<td>6.53</td>
-<td>53.67</td>
-<td>58.81</td>
-<td>66.80</td>
+<th align="center">GPTQ</th>
+<td align="center">96.00</td>
+<td align="center">34.25</td>
+<td align="center">25.38</td>
+<td align="center">37.10</td>
+<td align="center">38.90</td>
+<td align="center">42.68</td>
+<td align="center">11.25</td>
+<td align="center">8.38</td>
+<td align="center">6.69</td>
+<td align="center">53.35</td>
+<td align="center">57.26</td>
+<td align="center">66.64</td>
+<td align="center">10.75</td>
+<td align="center">8.12</td>
+<td align="center">6.53</td>
+<td align="center">53.67</td>
+<td align="center">58.81</td>
+<td align="center">66.80</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>43.75</td>
-<td>21.75</td>
-<td>18.25</td>
-<td>40.23</td>
-<td>45.90</td>
-<td>51.31</td>
-<td>10.56</td>
-<td>7.75</td>
-<td>6.41</td>
-<td>54.39</td>
-<td>61.61</td>
-<td>67.44</td>
-<td>10.25</td>
-<td>7.62</td>
-<td>6.28</td>
-<td>54.83</td>
-<td>61.50</td>
-<td>67.85</td>
+<th align="center">Qronos</th>
+<td align="center">43.75</td>
+<td align="center">21.75</td>
+<td align="center">18.25</td>
+<td align="center">40.23</td>
+<td align="center">45.90</td>
+<td align="center">51.31</td>
+<td align="center">10.56</td>
+<td align="center">7.75</td>
+<td align="center">6.41</td>
+<td align="center">54.39</td>
+<td align="center">61.61</td>
+<td align="center">67.44</td>
+<td align="center">10.25</td>
+<td align="center">7.62</td>
+<td align="center">6.28</td>
+<td align="center">54.83</td>
+<td align="center">61.50</td>
+<td align="center">67.85</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>34.16</td>
-<td>17.98</td>
-<td></td>
-<td>43.83</td>
-<td>49.63</td>
-<td></td>
-<td>10.07</td>
-<td>8.11</td>
-<td></td>
-<td>52.58</td>
-<td>46.94</td>
-<td></td>
-<td>9.89</td>
-<td>7.91</td>
-<td></td>
-<td>54.31</td>
-<td>56.37</td>
-<td></td>
+<th align="center">Learned Round</th>
+<td align="center">34.16</td>
+<td align="center">17.98</td>
+<td align="center"></td>
+<td align="center">43.83</td>
+<td align="center">49.63</td>
+<td align="center"></td>
+<td align="center">10.07</td>
+<td align="center">8.11</td>
+<td align="center"></td>
+<td align="center">52.58</td>
+<td align="center">46.94</td>
+<td align="center"></td>
+<td align="center">9.89</td>
+<td align="center">7.91</td>
+<td align="center"></td>
+<td align="center">54.31</td>
+<td align="center">56.37</td>
+<td align="center"></td>
 </tr>
 </tbody>
 </table>
@@ -435,341 +435,341 @@ The results for `Qwen 2.5` are summarized in the following table:
 </colgroup>
 <tbody>
 <tr>
-<th colspan="3"></th>
-<th colspan="6">W2g128</th>
-<th colspan="6">W4</th>
-<th colspan="6">W4g128</th>
+<th colspan="3" align="center"></th>
+<th colspan="6" align="center">W2g128</th>
+<th colspan="6" align="center">W4</th>
+<th colspan="6" align="center">W4g128</th>
 </tr>
 <tr>
-<th colspan="3"></th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
+<th colspan="3" align="center"></th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
 </tr>
 <tr>
-<th>Model</th>
-<th>Stage 1</th>
-<th>Stage 2</th>
-<th>1.5B</th>
-<th>3B</th>
-<th>7B</th>
-<th>1.5B</th>
-<th>3B</th>
-<th>7B</th>
-<th>1.5B</th>
-<th>3B</th>
-<th>7B</th>
-<th>1.5B</th>
-<th>3B</th>
-<th>7B</th>
-<th>1.5B</th>
-<th>3B</th>
-<th>7B</th>
-<th>1.5B</th>
-<th>3B</th>
-<th>7B</th>
+<th align="center">Model</th>
+<th align="center">Stage 1</th>
+<th align="center">Stage 2</th>
+<th align="center">1.5B</th>
+<th align="center">3B</th>
+<th align="center">7B</th>
+<th align="center">1.5B</th>
+<th align="center">3B</th>
+<th align="center">7B</th>
+<th align="center">1.5B</th>
+<th align="center">3B</th>
+<th align="center">7B</th>
+<th align="center">1.5B</th>
+<th align="center">3B</th>
+<th align="center">7B</th>
+<th align="center">1.5B</th>
+<th align="center">3B</th>
+<th align="center">7B</th>
+<th align="center">1.5B</th>
+<th align="center">3B</th>
+<th align="center">7B</th>
 </tr>
 <tr>
-<th rowspan="14">Qwen 2.5</th>
-<th>BF16</th>
-<td></td>
-<td>8.5</td>
-<td>7.4</td>
-<td>6.5</td>
-<td>60.7</td>
-<td>64.3</td>
-<td>67.2</td>
-<td>8.5</td>
-<td>7.4</td>
-<td>6.5</td>
-<td>60.7</td>
-<td>64.3</td>
-<td>67.2</td>
-<td>8.5</td>
-<td>7.4</td>
-<td>6.5</td>
-<td>60.7</td>
-<td>64.3</td>
-<td>67.2</td>
+<th rowspan="14" align="center">Qwen 2.5</th>
+<th align="center">BF16</th>
+<td align="center"></td>
+<td align="center">8.5</td>
+<td align="center">7.4</td>
+<td align="center">6.5</td>
+<td align="center">60.7</td>
+<td align="center">64.3</td>
+<td align="center">67.2</td>
+<td align="center">8.5</td>
+<td align="center">7.4</td>
+<td align="center">6.5</td>
+<td align="center">60.7</td>
+<td align="center">64.3</td>
+<td align="center">67.2</td>
+<td align="center">8.5</td>
+<td align="center">7.4</td>
+<td align="center">6.5</td>
+<td align="center">60.7</td>
+<td align="center">64.3</td>
+<td align="center">67.2</td>
 </tr>
 <tr>
-<th rowspan="5">None</th>
-<th>RTN</th>
-<td>152576.00</td>
-<td>76800.00</td>
-<td>19456.00</td>
-<td>35.33</td>
-<td>34.90</td>
-<td>35.53</td>
-<td>12.75</td>
-<td>6304.00</td>
-<td>8.50</td>
-<td>54.52</td>
-<td>35.56</td>
-<td>61.49</td>
-<td>9.50</td>
-<td>9.06</td>
-<td>6.78</td>
-<td>58.47</td>
-<td>61.37</td>
-<td>65.61</td>
+<th rowspan="5" align="center">None</th>
+<th align="center">RTN</th>
+<td align="center">152576.00</td>
+<td align="center">76800.00</td>
+<td align="center">19456.00</td>
+<td align="center">35.33</td>
+<td align="center">34.90</td>
+<td align="center">35.53</td>
+<td align="center">12.75</td>
+<td align="center">6304.00</td>
+<td align="center">8.50</td>
+<td align="center">54.52</td>
+<td align="center">35.56</td>
+<td align="center">61.49</td>
+<td align="center">9.50</td>
+<td align="center">9.06</td>
+<td align="center">6.78</td>
+<td align="center">58.47</td>
+<td align="center">61.37</td>
+<td align="center">65.61</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>38.00</td>
-<td>23.12</td>
-<td>12.56</td>
-<td>39.46</td>
-<td>41.43</td>
-<td>52.07</td>
-<td>9.81</td>
-<td>8.38</td>
-<td>7.09</td>
-<td>56.59</td>
-<td>62.24</td>
-<td>64.16</td>
-<td>8.94</td>
-<td>7.75</td>
-<td>6.69</td>
-<td>59.38</td>
-<td>62.85</td>
-<td>66.36</td>
+<th align="center">GPTQ</th>
+<td align="center">38.00</td>
+<td align="center">23.12</td>
+<td align="center">12.56</td>
+<td align="center">39.46</td>
+<td align="center">41.43</td>
+<td align="center">52.07</td>
+<td align="center">9.81</td>
+<td align="center">8.38</td>
+<td align="center">7.09</td>
+<td align="center">56.59</td>
+<td align="center">62.24</td>
+<td align="center">64.16</td>
+<td align="center">8.94</td>
+<td align="center">7.75</td>
+<td align="center">6.69</td>
+<td align="center">59.38</td>
+<td align="center">62.85</td>
+<td align="center">66.36</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>27.50</td>
-<td>18.62</td>
-<td>12.19</td>
-<td>42.57</td>
-<td>46.41</td>
-<td>55.23</td>
-<td>9.50</td>
-<td>8.25</td>
-<td>7.06</td>
-<td>56.42</td>
-<td>62.41</td>
-<td>65.33</td>
-<td>8.94</td>
-<td>7.75</td>
-<td>6.69</td>
-<td>60.14</td>
-<td>62.47</td>
-<td>66.75</td>
+<th align="center">Qronos</th>
+<td align="center">27.50</td>
+<td align="center">18.62</td>
+<td align="center">12.19</td>
+<td align="center">42.57</td>
+<td align="center">46.41</td>
+<td align="center">55.23</td>
+<td align="center">9.50</td>
+<td align="center">8.25</td>
+<td align="center">7.06</td>
+<td align="center">56.42</td>
+<td align="center">62.41</td>
+<td align="center">65.33</td>
+<td align="center">8.94</td>
+<td align="center">7.75</td>
+<td align="center">6.69</td>
+<td align="center">60.14</td>
+<td align="center">62.47</td>
+<td align="center">66.75</td>
 </tr>
 <tr>
-<th>Sign Round</th>
-<td>26.62</td>
-<td>18.00</td>
-<td>11.62</td>
-<td>46.56</td>
-<td>50.65</td>
-<td>59.26</td>
-<td>9.19</td>
-<td>8.00</td>
-<td>6.84</td>
-<td>58.88</td>
-<td>62.41</td>
-<td>65.93</td>
-<td>8.94</td>
-<td>7.75</td>
-<td>6.62</td>
-<td>60.46</td>
-<td>63.99</td>
-<td>66.79</td>
+<th align="center">Sign Round</th>
+<td align="center">26.62</td>
+<td align="center">18.00</td>
+<td align="center">11.62</td>
+<td align="center">46.56</td>
+<td align="center">50.65</td>
+<td align="center">59.26</td>
+<td align="center">9.19</td>
+<td align="center">8.00</td>
+<td align="center">6.84</td>
+<td align="center">58.88</td>
+<td align="center">62.41</td>
+<td align="center">65.93</td>
+<td align="center">8.94</td>
+<td align="center">7.75</td>
+<td align="center">6.62</td>
+<td align="center">60.46</td>
+<td align="center">63.99</td>
+<td align="center">66.79</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>23.70</td>
-<td>16.93</td>
-<td>12.09</td>
-<td>45.96</td>
-<td>51.00</td>
-<td>57.73</td>
-<td>9.85</td>
-<td>8.10</td>
-<td>10.04</td>
-<td>59.28</td>
-<td>63.27</td>
-<td>65.34</td>
-<td>8.86</td>
-<td>7.73</td>
-<td>6.68</td>
-<td>59.73</td>
-<td>64.22</td>
-<td>66.84</td>
+<th align="center">Learned Round</th>
+<td align="center">23.70</td>
+<td align="center">16.93</td>
+<td align="center">12.09</td>
+<td align="center">45.96</td>
+<td align="center">51.00</td>
+<td align="center">57.73</td>
+<td align="center">9.85</td>
+<td align="center">8.10</td>
+<td align="center">10.04</td>
+<td align="center">59.28</td>
+<td align="center">63.27</td>
+<td align="center">65.34</td>
+<td align="center">8.86</td>
+<td align="center">7.73</td>
+<td align="center">6.68</td>
+<td align="center">59.73</td>
+<td align="center">64.22</td>
+<td align="center">66.84</td>
 </tr>
 <tr>
-<th rowspan="4">HIP</th>
-<th>RTN</th>
-<td>14208.00</td>
-<td>95420416.00</td>
-<td>536.00</td>
-<td>34.83</td>
-<td>35.06</td>
-<td>37.65</td>
-<td>9.94</td>
-<td>11.81</td>
-<td>8.00</td>
-<td>56.84</td>
-<td>59.66</td>
-<td>62.94</td>
-<td>9.31</td>
-<td>8.25</td>
-<td>6.78</td>
-<td>59.73</td>
-<td>62.51</td>
-<td>65.94</td>
+<th rowspan="4" align="center">HIP</th>
+<th align="center">RTN</th>
+<td align="center">14208.00</td>
+<td align="center">95420416.00</td>
+<td align="center">536.00</td>
+<td align="center">34.83</td>
+<td align="center">35.06</td>
+<td align="center">37.65</td>
+<td align="center">9.94</td>
+<td align="center">11.81</td>
+<td align="center">8.00</td>
+<td align="center">56.84</td>
+<td align="center">59.66</td>
+<td align="center">62.94</td>
+<td align="center">9.31</td>
+<td align="center">8.25</td>
+<td align="center">6.78</td>
+<td align="center">59.73</td>
+<td align="center">62.51</td>
+<td align="center">65.94</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>23.12</td>
-<td>15.88</td>
-<td>10.94</td>
-<td>43.71</td>
-<td>45.93</td>
-<td>52.79</td>
-<td>9.06</td>
-<td>7.88</td>
-<td>6.94</td>
-<td>59.81</td>
-<td>63.56</td>
-<td>65.70</td>
-<td>8.75</td>
-<td>7.62</td>
-<td>6.62</td>
-<td>59.66</td>
-<td>63.73</td>
-<td>66.48</td>
+<th align="center">GPTQ</th>
+<td align="center">23.12</td>
+<td align="center">15.88</td>
+<td align="center">10.94</td>
+<td align="center">43.71</td>
+<td align="center">45.93</td>
+<td align="center">52.79</td>
+<td align="center">9.06</td>
+<td align="center">7.88</td>
+<td align="center">6.94</td>
+<td align="center">59.81</td>
+<td align="center">63.56</td>
+<td align="center">65.70</td>
+<td align="center">8.75</td>
+<td align="center">7.62</td>
+<td align="center">6.62</td>
+<td align="center">59.66</td>
+<td align="center">63.73</td>
+<td align="center">66.48</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>20.38</td>
-<td>15.19</td>
-<td>10.75</td>
-<td>45.99</td>
-<td>47.02</td>
-<td>55.92</td>
-<td>9.06</td>
-<td>7.88</td>
-<td>6.94</td>
-<td>58.69</td>
-<td>62.78</td>
-<td>66.19</td>
-<td>8.75</td>
-<td>7.75</td>
-<td>6.62</td>
-<td>60.29</td>
-<td>63.16</td>
-<td>66.87</td>
+<th align="center">Qronos</th>
+<td align="center">20.38</td>
+<td align="center">15.19</td>
+<td align="center">10.75</td>
+<td align="center">45.99</td>
+<td align="center">47.02</td>
+<td align="center">55.92</td>
+<td align="center">9.06</td>
+<td align="center">7.88</td>
+<td align="center">6.94</td>
+<td align="center">58.69</td>
+<td align="center">62.78</td>
+<td align="center">66.19</td>
+<td align="center">8.75</td>
+<td align="center">7.75</td>
+<td align="center">6.62</td>
+<td align="center">60.29</td>
+<td align="center">63.16</td>
+<td align="center">66.87</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>18.72</td>
-<td>13.48</td>
-<td>11.49</td>
-<td>46.55</td>
-<td>52.08</td>
-<td>57.49</td>
-<td>11.84</td>
-<td>7.99</td>
-<td>7.46</td>
-<td>52.57</td>
-<td>64.18</td>
-<td>65.72</td>
-<td>8.74</td>
-<td>7.63</td>
-<td>6.69</td>
-<td>59.93</td>
-<td>64.06</td>
-<td>66.42</td>
+<th align="center">Learned Round</th>
+<td align="center">18.72</td>
+<td align="center">13.48</td>
+<td align="center">11.49</td>
+<td align="center">46.55</td>
+<td align="center">52.08</td>
+<td align="center">57.49</td>
+<td align="center">11.84</td>
+<td align="center">7.99</td>
+<td align="center">7.46</td>
+<td align="center">52.57</td>
+<td align="center">64.18</td>
+<td align="center">65.72</td>
+<td align="center">8.74</td>
+<td align="center">7.63</td>
+<td align="center">6.69</td>
+<td align="center">59.93</td>
+<td align="center">64.06</td>
+<td align="center">66.42</td>
 </tr>
 <tr>
-<th rowspan="4">MagR</th>
-<th>RTN</th>
-<td>56320.00</td>
-<td>68096.00</td>
-<td>1696.00</td>
-<td>35.55</td>
-<td>35.15</td>
-<td>36.15</td>
-<td>10.56</td>
-<td>9.06</td>
-<td>7.50</td>
-<td>55.31</td>
-<td>59.89</td>
-<td>64.93</td>
-<td>10.12</td>
-<td>8.62</td>
-<td>7.28</td>
-<td>56.66</td>
-<td>61.02</td>
-<td>66.33</td>
+<th rowspan="4" align="center">MagR</th>
+<th align="center">RTN</th>
+<td align="center">56320.00</td>
+<td align="center">68096.00</td>
+<td align="center">1696.00</td>
+<td align="center">35.55</td>
+<td align="center">35.15</td>
+<td align="center">36.15</td>
+<td align="center">10.56</td>
+<td align="center">9.06</td>
+<td align="center">7.50</td>
+<td align="center">55.31</td>
+<td align="center">59.89</td>
+<td align="center">64.93</td>
+<td align="center">10.12</td>
+<td align="center">8.62</td>
+<td align="center">7.28</td>
+<td align="center">56.66</td>
+<td align="center">61.02</td>
+<td align="center">66.33</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>43.75</td>
-<td>40.00</td>
-<td>13.81</td>
-<td>40.42</td>
-<td>42.54</td>
-<td>51.59</td>
-<td>9.94</td>
-<td>8.38</td>
-<td>7.34</td>
-<td>58.19</td>
-<td>62.56</td>
-<td>65.39</td>
-<td>9.62</td>
-<td>8.25</td>
-<td>7.16</td>
-<td>58.04</td>
-<td>61.89</td>
-<td>66.12</td>
+<th align="center">GPTQ</th>
+<td align="center">43.75</td>
+<td align="center">40.00</td>
+<td align="center">13.81</td>
+<td align="center">40.42</td>
+<td align="center">42.54</td>
+<td align="center">51.59</td>
+<td align="center">9.94</td>
+<td align="center">8.38</td>
+<td align="center">7.34</td>
+<td align="center">58.19</td>
+<td align="center">62.56</td>
+<td align="center">65.39</td>
+<td align="center">9.62</td>
+<td align="center">8.25</td>
+<td align="center">7.16</td>
+<td align="center">58.04</td>
+<td align="center">61.89</td>
+<td align="center">66.12</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>34.25</td>
-<td>19.75</td>
-<td>13.81</td>
-<td>41.37</td>
-<td>46.71</td>
-<td>54.87</td>
-<td>9.81</td>
-<td>8.38</td>
-<td>7.28</td>
-<td>57.71</td>
-<td>61.56</td>
-<td>65.65</td>
-<td>9.50</td>
-<td>8.00</td>
-<td>7.16</td>
-<td>57.90</td>
-<td>61.51</td>
-<td>66.38</td>
+<th align="center">Qronos</th>
+<td align="center">34.25</td>
+<td align="center">19.75</td>
+<td align="center">13.81</td>
+<td align="center">41.37</td>
+<td align="center">46.71</td>
+<td align="center">54.87</td>
+<td align="center">9.81</td>
+<td align="center">8.38</td>
+<td align="center">7.28</td>
+<td align="center">57.71</td>
+<td align="center">61.56</td>
+<td align="center">65.65</td>
+<td align="center">9.50</td>
+<td align="center">8.00</td>
+<td align="center">7.16</td>
+<td align="center">57.90</td>
+<td align="center">61.51</td>
+<td align="center">66.38</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>22.49</td>
-<td>15.79</td>
-<td></td>
-<td><strong>46.83</strong></td>
-<td>48.03</td>
-<td></td>
-<td>10.14</td>
-<td>8.08</td>
-<td></td>
-<td>58.21</td>
-<td>63.07</td>
-<td></td>
-<td>9.03</td>
-<td>7.80</td>
-<td></td>
-<td>59.14</td>
-<td>63.44</td>
-<td></td>
+<th align="center">Learned Round</th>
+<td align="center">22.49</td>
+<td align="center">15.79</td>
+<td align="center"></td>
+<td align="center"><strong>46.83</strong></td>
+<td align="center">48.03</td>
+<td align="center"></td>
+<td align="center">10.14</td>
+<td align="center">8.08</td>
+<td align="center"></td>
+<td align="center">58.21</td>
+<td align="center">63.07</td>
+<td align="center"></td>
+<td align="center">9.03</td>
+<td align="center">7.80</td>
+<td align="center"></td>
+<td align="center">59.14</td>
+<td align="center">63.44</td>
+<td align="center"></td>
 </tr>
 </tbody>
 </table>
@@ -797,220 +797,220 @@ The results for `Llama 3.2` are summarized in the following table:
 </colgroup>
 <tbody>
 <tr>
-<td colspan="3"></td>
-<th colspan="6">W4A4</th>
+<td colspan="3" align="center"></td>
+<th colspan="6" align="center">W4A4</th>
 </tr>
 <tr>
-<td colspan="3"></td>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
+<td colspan="3" align="center"></td>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
 </tr>
 <tr>
-<th>Model</th>
-<th>Stage 1</th>
-<th>Stage 2</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
+<th align="center">Model</th>
+<th align="center">Stage 1</th>
+<th align="center">Stage 2</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
 </tr>
 <tr>
-<th rowspan="21">Llama-3.2</th>
-<th>BF16</th>
-<td></td>
-<td>8.9</td>
-<td>7.2</td>
-<td>5.9</td>
-<td>56.2</td>
-<td>63.6</td>
-<td>69.1</td>
+<th rowspan="21" align="center">Llama-3.2</th>
+<th align="center">BF16</th>
+<td align="center"></td>
+<td align="center">8.9</td>
+<td align="center">7.2</td>
+<td align="center">5.9</td>
+<td align="center">56.2</td>
+<td align="center">63.6</td>
+<td align="center">69.1</td>
 </tr>
 <tr>
-<th rowspan="4">None</th>
-<th>RTN</th>
-<td>6304.00</td>
-<td>22016.00</td>
-<td>52736.00</td>
-<td>34.59</td>
-<td>34.83</td>
-<td>35.60</td>
+<th rowspan="4" align="center">None</th>
+<th align="center">RTN</th>
+<td align="center">6304.00</td>
+<td align="center">22016.00</td>
+<td align="center">52736.00</td>
+<td align="center">34.59</td>
+<td align="center">34.83</td>
+<td align="center">35.60</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>23424.00</td>
-<td>14208.00</td>
-<td>23424.00</td>
-<td>34.38</td>
-<td>35.48</td>
-<td>34.32</td>
+<th align="center">GPTQ</th>
+<td align="center">23424.00</td>
+<td align="center">14208.00</td>
+<td align="center">23424.00</td>
+<td align="center">34.38</td>
+<td align="center">35.48</td>
+<td align="center">34.32</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>174.00</td>
-<td>84.50</td>
-<td>82.00</td>
-<td>37.44</td>
-<td>38.59</td>
-<td>38.65</td>
+<th align="center">Qronos</th>
+<td align="center">174.00</td>
+<td align="center">84.50</td>
+<td align="center">82.00</td>
+<td align="center">37.44</td>
+<td align="center">38.59</td>
+<td align="center">38.65</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>100.67</td>
-<td>73.80</td>
-<td>274.88</td>
-<td>36.10</td>
-<td>39.03</td>
-<td>38.15</td>
+<th align="center">Learned Round</th>
+<td align="center">100.67</td>
+<td align="center">73.80</td>
+<td align="center">274.88</td>
+<td align="center">36.10</td>
+<td align="center">39.03</td>
+<td align="center">38.15</td>
 </tr>
 <tr>
-<th rowspan="4">HIP</th>
-<th>RTN</th>
-<td>18.25</td>
-<td>10.56</td>
-<td>8.38</td>
-<td>45.78</td>
-<td>55.25</td>
-<td>61.33</td>
+<th rowspan="4" align="center">HIP</th>
+<th align="center">RTN</th>
+<td align="center">18.25</td>
+<td align="center">10.56</td>
+<td align="center">8.38</td>
+<td align="center">45.78</td>
+<td align="center">55.25</td>
+<td align="center">61.33</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>13.19</td>
-<td>8.75</td>
-<td>7.50</td>
-<td>48.49</td>
-<td>58.35</td>
-<td>62.76</td>
+<th align="center">GPTQ</th>
+<td align="center">13.19</td>
+<td align="center">8.75</td>
+<td align="center">7.50</td>
+<td align="center">48.49</td>
+<td align="center">58.35</td>
+<td align="center">62.76</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>13.19</td>
-<td>9.19</td>
-<td>7.62</td>
-<td>48.40</td>
-<td>58.24</td>
-<td>62.85</td>
+<th align="center">Qronos</th>
+<td align="center">13.19</td>
+<td align="center">9.19</td>
+<td align="center">7.62</td>
+<td align="center">48.40</td>
+<td align="center">58.24</td>
+<td align="center">62.85</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>12.32</td>
-<td>8.78</td>
-<td>7.23</td>
-<td>50.57</td>
-<td>59.09</td>
-<td>63.70</td>
+<th align="center">Learned Round</th>
+<td align="center">12.32</td>
+<td align="center">8.78</td>
+<td align="center">7.23</td>
+<td align="center">50.57</td>
+<td align="center">59.09</td>
+<td align="center">63.70</td>
 </tr>
 <tr>
-<th rowspan="4">MagR</th>
-<th>RTN</th>
-<td>5920.00</td>
-<td>8096.00</td>
-<td>24960.00</td>
-<td>34.94</td>
-<td>35.03</td>
-<td>34.75</td>
+<th rowspan="4" align="center">MagR</th>
+<th align="center">RTN</th>
+<td align="center">5920.00</td>
+<td align="center">8096.00</td>
+<td align="center">24960.00</td>
+<td align="center">34.94</td>
+<td align="center">35.03</td>
+<td align="center">34.75</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>12544.00</td>
-<td>17152.00</td>
-<td>24960.00</td>
-<td>35.74</td>
-<td>35.91</td>
-<td>35.44</td>
+<th align="center">GPTQ</th>
+<td align="center">12544.00</td>
+<td align="center">17152.00</td>
+<td align="center">24960.00</td>
+<td align="center">35.74</td>
+<td align="center">35.91</td>
+<td align="center">35.44</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>197.00</td>
-<td>153.00</td>
-<td>174.00</td>
-<td>36.74</td>
-<td>37.65</td>
-<td>38.05</td>
+<th align="center">Qronos</th>
+<td align="center">197.00</td>
+<td align="center">153.00</td>
+<td align="center">174.00</td>
+<td align="center">36.74</td>
+<td align="center">37.65</td>
+<td align="center">38.05</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>103.10</td>
-<td>82.66</td>
-<td></td>
-<td>38.74</td>
-<td>36.75</td>
-<td></td>
+<th align="center">Learned Round</th>
+<td align="center">103.10</td>
+<td align="center">82.66</td>
+<td align="center"></td>
+<td align="center">38.74</td>
+<td align="center">36.75</td>
+<td align="center"></td>
 </tr>
 <tr>
-<th rowspan="4">QuaRot</th>
-<th>RTN</th>
-<td>27.88</td>
-<td>19.12</td>
-<td>11.62</td>
-<td>42.25</td>
-<td>44.93</td>
-<td>55.34</td>
+<th rowspan="4" align="center">QuaRot</th>
+<th align="center">RTN</th>
+<td align="center">27.88</td>
+<td align="center">19.12</td>
+<td align="center">11.62</td>
+<td align="center">42.25</td>
+<td align="center">44.93</td>
+<td align="center">55.34</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>14.69</td>
-<td>10.12</td>
-<td>8.00</td>
-<td>47.54</td>
-<td>55.34</td>
-<td>61.58</td>
+<th align="center">GPTQ</th>
+<td align="center">14.69</td>
+<td align="center">10.12</td>
+<td align="center">8.00</td>
+<td align="center">47.54</td>
+<td align="center">55.34</td>
+<td align="center">61.58</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>13.81</td>
-<td>9.31</td>
-<td>7.75</td>
-<td>48.77</td>
-<td>57.18</td>
-<td>62.80</td>
+<th align="center">Qronos</th>
+<td align="center">13.81</td>
+<td align="center">9.31</td>
+<td align="center">7.75</td>
+<td align="center">48.77</td>
+<td align="center">57.18</td>
+<td align="center">62.80</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>13.65</td>
-<td>9.88</td>
-<td>7.86</td>
-<td>49.26</td>
-<td>55.22</td>
-<td>44.84</td>
+<th align="center">Learned Round</th>
+<td align="center">13.65</td>
+<td align="center">9.88</td>
+<td align="center">7.86</td>
+<td align="center">49.26</td>
+<td align="center">55.22</td>
+<td align="center">44.84</td>
 </tr>
 <tr>
-<th rowspan="4">SpinQuant</th>
-<th>RTN</th>
-<td>18.25</td>
-<td>87.00</td>
-<td>77.00</td>
-<td>46.57</td>
-<td>35.06</td>
-<td>36.15</td>
+<th rowspan="4" align="center">SpinQuant</th>
+<th align="center">RTN</th>
+<td align="center">18.25</td>
+<td align="center">87.00</td>
+<td align="center">77.00</td>
+<td align="center">46.57</td>
+<td align="center">35.06</td>
+<td align="center">36.15</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>15.38</td>
-<td>1240.00</td>
-<td>392.00</td>
-<td>47.50</td>
-<td>34.58</td>
-<td>34.67</td>
+<th align="center">GPTQ</th>
+<td align="center">15.38</td>
+<td align="center">1240.00</td>
+<td align="center">392.00</td>
+<td align="center">47.50</td>
+<td align="center">34.58</td>
+<td align="center">34.67</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>14.69</td>
-<td>368.00</td>
-<td>286.00</td>
-<td>47.81</td>
-<td>34.68</td>
-<td>35.27</td>
+<th align="center">Qronos</th>
+<td align="center">14.69</td>
+<td align="center">368.00</td>
+<td align="center">286.00</td>
+<td align="center">47.81</td>
+<td align="center">34.68</td>
+<td align="center">35.27</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>13.52</td>
-<td>9.41</td>
-<td>7.59</td>
-<td>50.22</td>
-<td>57.08</td>
-<td>62.22</td>
+<th align="center">Learned Round</th>
+<td align="center">13.52</td>
+<td align="center">9.41</td>
+<td align="center">7.59</td>
+<td align="center">50.22</td>
+<td align="center">57.08</td>
+<td align="center">62.22</td>
 </tr>
 </tbody>
 </table>
@@ -1037,220 +1037,220 @@ The results for `Llama 3.2` are summarized in the following table:
 </colgroup>
 <tbody>
 <tr>
-<th colspan="3"></th>
-<th colspan="6">W4g32A</th>
+<th colspan="3" align="center"></th>
+<th colspan="6" align="center">W4g32A</th>
 </tr>
 <tr>
-<th colspan="3"></th>
-<th colspan="3">WikiText2 ↓</th>
-<th colspan="3">0-shot ↑</th>
+<th colspan="3" align="center"></th>
+<th colspan="3" align="center">WikiText2 ↓</th>
+<th colspan="3" align="center">0-shot ↑</th>
 </tr>
 <tr>
-<th>Model</th>
-<th>Stage 1</th>
-<th>Stage 2</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
-<th>1B</th>
-<th>3B</th>
-<th>8B</th>
+<th align="center">Model</th>
+<th align="center">Stage 1</th>
+<th align="center">Stage 2</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
+<th align="center">1B</th>
+<th align="center">3B</th>
+<th align="center">8B</th>
 </tr>
 <tr>
-<th rowspan="21">Llama-3.2</th>
-<th>BF16</th>
-<td></td>
-<td>8.9</td>
-<td>7.2</td>
-<td>5.9</td>
-<td>56.2</td>
-<td>63.6</td>
-<td>69.1</td>
+<th rowspan="21" align="center">Llama-3.2</th>
+<th align="center">BF16</th>
+<td align="center"></td>
+<td align="center">8.9</td>
+<td align="center">7.2</td>
+<td align="center">5.9</td>
+<td align="center">56.2</td>
+<td align="center">63.6</td>
+<td align="center">69.1</td>
 </tr>
 <tr>
-<th rowspan="4">None</th>
-<th>RTN</th>
-<td>14.44</td>
-<td>9.19</td>
-<td>7.75</td>
-<td>50.15</td>
-<td>57.39</td>
-<td>63.45</td>
+<th rowspan="4" align="center">None</th>
+<th align="center">RTN</th>
+<td align="center">14.44</td>
+<td align="center">9.19</td>
+<td align="center">7.75</td>
+<td align="center">50.15</td>
+<td align="center">57.39</td>
+<td align="center">63.45</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>12.38</td>
-<td>8.62</td>
-<td>7.16</td>
-<td>51.80</td>
-<td>56.95</td>
-<td>64.68</td>
+<th align="center">GPTQ</th>
+<td align="center">12.38</td>
+<td align="center">8.62</td>
+<td align="center">7.16</td>
+<td align="center">51.80</td>
+<td align="center">56.95</td>
+<td align="center">64.68</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>12.56</td>
-<td>8.75</td>
-<td>7.22</td>
-<td>51.57</td>
-<td>59.14</td>
-<td>64.09</td>
+<th align="center">Qronos</th>
+<td align="center">12.56</td>
+<td align="center">8.75</td>
+<td align="center">7.22</td>
+<td align="center">51.57</td>
+<td align="center">59.14</td>
+<td align="center">64.09</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>11.78</td>
-<td>8.49</td>
-<td>6.97</td>
-<td>52.78</td>
-<td>61.01</td>
-<td>65.21</td>
+<th align="center">Learned Round</th>
+<td align="center">11.78</td>
+<td align="center">8.49</td>
+<td align="center">6.97</td>
+<td align="center">52.78</td>
+<td align="center">61.01</td>
+<td align="center">65.21</td>
 </tr>
 <tr>
-<th rowspan="4">HIP</th>
-<th>RTN</th>
-<td>13.19</td>
-<td>8.94</td>
-<td>7.28</td>
-<td>50.42</td>
-<td>59.21</td>
-<td>65.99</td>
+<th rowspan="4" align="center">HIP</th>
+<th align="center">RTN</th>
+<td align="center">13.19</td>
+<td align="center">8.94</td>
+<td align="center">7.28</td>
+<td align="center">50.42</td>
+<td align="center">59.21</td>
+<td align="center">65.99</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>11.06</td>
-<td>8.25</td>
-<td>6.78</td>
-<td>52.49</td>
-<td>60.98</td>
-<td>65.94</td>
+<th align="center">GPTQ</th>
+<td align="center">11.06</td>
+<td align="center">8.25</td>
+<td align="center">6.78</td>
+<td align="center">52.49</td>
+<td align="center">60.98</td>
+<td align="center">65.94</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>11.62</td>
-<td>8.50</td>
-<td>7.06</td>
-<td>51.58</td>
-<td>59.72</td>
-<td>65.54</td>
+<th align="center">Qronos</th>
+<td align="center">11.62</td>
+<td align="center">8.50</td>
+<td align="center">7.06</td>
+<td align="center">51.58</td>
+<td align="center">59.72</td>
+<td align="center">65.54</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>11.01</td>
-<td>8.38</td>
-<td>6.70</td>
-<td>53.05</td>
-<td>61.11</td>
-<td>65.64</td>
+<th align="center">Learned Round</th>
+<td align="center">11.01</td>
+<td align="center">8.38</td>
+<td align="center">6.70</td>
+<td align="center">53.05</td>
+<td align="center">61.11</td>
+<td align="center">65.64</td>
 </tr>
 <tr>
-<th rowspan="4">MagR</th>
-<th>RTN</th>
-<td>18.88</td>
-<td>12.00</td>
-<td>8.94</td>
-<td>46.03</td>
-<td>48.84</td>
-<td>57.59</td>
+<th rowspan="4" align="center">MagR</th>
+<th align="center">RTN</th>
+<td align="center">18.88</td>
+<td align="center">12.00</td>
+<td align="center">8.94</td>
+<td align="center">46.03</td>
+<td align="center">48.84</td>
+<td align="center">57.59</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>14.44</td>
-<td>9.94</td>
-<td>7.88</td>
-<td>49.36</td>
-<td>53.12</td>
-<td>62.19</td>
+<th align="center">GPTQ</th>
+<td align="center">14.44</td>
+<td align="center">9.94</td>
+<td align="center">7.88</td>
+<td align="center">49.36</td>
+<td align="center">53.12</td>
+<td align="center">62.19</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>13.19</td>
-<td>8.94</td>
-<td>7.50</td>
-<td>51.28</td>
-<td>58.27</td>
-<td>63.86</td>
+<th align="center">Qronos</th>
+<td align="center">13.19</td>
+<td align="center">8.94</td>
+<td align="center">7.50</td>
+<td align="center">51.28</td>
+<td align="center">58.27</td>
+<td align="center">63.86</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>12.48</td>
-<td>9.50</td>
-<td></td>
-<td>50.86</td>
-<td>59.18</td>
-<td></td>
+<th align="center">Learned Round</th>
+<td align="center">12.48</td>
+<td align="center">9.50</td>
+<td align="center"></td>
+<td align="center">50.86</td>
+<td align="center">59.18</td>
+<td align="center"></td>
 </tr>
 <tr>
-<th rowspan="4">QuaRot</th>
-<th>RTN</th>
-<td>15.62</td>
-<td>12.38</td>
-<td>8.50</td>
-<td>48.36</td>
-<td>54.34</td>
-<td>62.64</td>
+<th rowspan="4" align="center">QuaRot</th>
+<th align="center">RTN</th>
+<td align="center">15.62</td>
+<td align="center">12.38</td>
+<td align="center">8.50</td>
+<td align="center">48.36</td>
+<td align="center">54.34</td>
+<td align="center">62.64</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>12.19</td>
-<td>9.06</td>
-<td>7.38</td>
-<td>51.10</td>
-<td>58.52</td>
-<td>64.59</td>
+<th align="center">GPTQ</th>
+<td align="center">12.19</td>
+<td align="center">9.06</td>
+<td align="center">7.38</td>
+<td align="center">51.10</td>
+<td align="center">58.52</td>
+<td align="center">64.59</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>11.81</td>
-<td>8.62</td>
-<td>7.00</td>
-<td>51.71</td>
-<td>59.06</td>
-<td></td>
+<th align="center">Qronos</th>
+<td align="center">11.81</td>
+<td align="center">8.62</td>
+<td align="center">7.00</td>
+<td align="center">51.71</td>
+<td align="center">59.06</td>
+<td align="center"></td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>11.69</td>
-<td>8.40</td>
-<td>6.86</td>
-<td>52.35</td>
-<td>60.26</td>
-<td>41.28</td>
+<th align="center">Learned Round</th>
+<td align="center">11.69</td>
+<td align="center">8.40</td>
+<td align="center">6.86</td>
+<td align="center">52.35</td>
+<td align="center">60.26</td>
+<td align="center">41.28</td>
 </tr>
 <tr>
-<th rowspan="4">SpinQuant</th>
-<th>RTN</th>
-<td>12.00</td>
-<td>8.75</td>
-<td>7.16</td>
-<td>51.92</td>
-<td>59.35</td>
-<td>66.01</td>
+<th rowspan="4" align="center">SpinQuant</th>
+<th align="center">RTN</th>
+<td align="center">12.00</td>
+<td align="center">8.75</td>
+<td align="center">7.16</td>
+<td align="center">51.92</td>
+<td align="center">59.35</td>
+<td align="center">66.01</td>
 </tr>
 <tr>
-<th>GPTQ</th>
-<td>12.38</td>
-<td>9.62</td>
-<td>8.12</td>
-<td>51.06</td>
-<td>58.37</td>
-<td>62.93</td>
+<th align="center">GPTQ</th>
+<td align="center">12.38</td>
+<td align="center">9.62</td>
+<td align="center">8.12</td>
+<td align="center">51.06</td>
+<td align="center">58.37</td>
+<td align="center">62.93</td>
 </tr>
 <tr>
-<th>Qronos</th>
-<td>11.62</td>
-<td>8.62</td>
-<td>7.22</td>
-<td>51.50</td>
-<td>59.26</td>
-<td>64.49</td>
+<th align="center">Qronos</th>
+<td align="center">11.62</td>
+<td align="center">8.62</td>
+<td align="center">7.22</td>
+<td align="center">51.50</td>
+<td align="center">59.26</td>
+<td align="center">64.49</td>
 </tr>
 <tr>
-<th>Learned Round</th>
-<td>11.71</td>
-<td>8.51</td>
-<td>6.93</td>
-<td>52.52</td>
-<td>59.79</td>
-<td></td>
+<th align="center">Learned Round</th>
+<td align="center">11.71</td>
+<td align="center">8.51</td>
+<td align="center">6.93</td>
+<td align="center">52.52</td>
+<td align="center">59.79</td>
+<td align="center"></td>
 </tr>
 </tbody>
 </table>
