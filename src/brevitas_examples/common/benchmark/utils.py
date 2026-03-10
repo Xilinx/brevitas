@@ -96,9 +96,7 @@ class BenchmarkSearchMixin(ABC):
             '--config',
             type=str,
             required=True,
-            help=
-            'Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml)'
-        )
+            help='Specify YAML with argument combinations (e.g., benchmark/benchmark_config.yml)')
         parser.add_argument(
             '--results-folder',
             type=str,
