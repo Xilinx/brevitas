@@ -34,6 +34,34 @@ To assess generalization, **LightEval** was used across five zero-shot reasoning
 - PIQA
 - Winogrande
 
+For the composition of PTQ techniques, the taxonomy from [Qronos](https://arxiv.org/pdf/2505.11695) was adopted, subdiving these into Stage 1 (Transform)
+and Stage 2 (Rounding).
+
+For the Transform phase (Stage 1) the following methods were used:
+
+- **None**: No preprocessing.
+- **[HIP](https://arxiv.org/pdf/2307.13304)**: Hadamard-based incoherence processing.
+- **[MagR](https://arxiv.org/pdf/2406.00800)**: Weight magnitude reduction.
+- **[QuaRot](https://arxiv.org/pdf/2404.00456)**: Rotation-based outlier reduction.
+- **[SpinQuant](https://arxiv.org/pdf/2405.16406)**: Cailey-optimized orthogonal rotations.
+
+For the Rounding phase (Stage 2) the following methods were used:
+
+- **RTN**: Round-To-Nearest.
+- **[GPTQ](https://arxiv.org/pdf/2210.17323)**.
+- **[Qronos](https://arxiv.org/pdf/2505.11695)**.
+- **[Learned Round]**: Brevitas' implementation of learnable rounding.
+
+The following quantization configurations were evaluated:
+
+- **W2g128**: 2-bit weight-only quantization with group size of 128. See [Weight-only quantization](#weight-only-quantization-of-llama-32-and-qwen-25-foundation-models).
+- **W4**: 4-bit per-channel weight-only quantization. See [Weight-only quantization](#weight-only-quantization-of-llama-32-and-qwen-25-foundation-models).
+- **W4g128**: 4-bit weight-only quantization with group size of 128. See [Weight-only quantization](#weight-only-quantization-of-llama-32-and-qwen-25-foundation-models).
+- **W4g32A4g32**: 4-bit weight and activation quantization with group size of 128. See [Weight and activation quantization](#weight-and-activation-quantization-of-llama-32-foundation-models).
+- **W4g32A4g32Po2**: MXFP4 weight and activation quantization. See [MXFP4 weight and activation quantization](#mxfp4-weight-and-activation-quantization-of-llama-32-foundation-models).
+
+
+
 Weight-only quantization of `Llama 3.2` and `Qwen 2.5` foundation models
 --------------------------------------------------------------------------
 
@@ -798,7 +826,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <tbody>
 <tr>
 <td colspan="3" align="center"></td>
-<th colspan="6" align="center">W4A4</th>
+<th colspan="6" align="center">W4g32A4g32</th>
 </tr>
 <tr>
 <td colspan="3" align="center"></td>
@@ -1038,7 +1066,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <tbody>
 <tr>
 <th colspan="3" align="center"></th>
-<th colspan="6" align="center">W4g32A</th>
+<th colspan="6" align="center">W4g32A4g32Po2</th>
 </tr>
 <tr>
 <th colspan="3" align="center"></th>
