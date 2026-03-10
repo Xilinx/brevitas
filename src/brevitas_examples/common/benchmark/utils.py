@@ -90,7 +90,7 @@ class BenchmarkSearchMixin(ABC):
         pass
 
     @classmethod
-    def parse_config_args(cls, args: List[str], parse_args: bool = True) -> Namespace:
+    def parser(cls) -> ArgumentParser:
         parser = ArgumentParser()
         parser.add_argument(
             '--config',
@@ -130,10 +130,7 @@ class BenchmarkSearchMixin(ABC):
             default=False,
             help="Whether to skip running experiments (default: %(default)s).",
         )
-        if parse_args:
-            return parser.parse_args(args)
-        else:
-            return parser
+        return parser
 
     @classmethod
     @abstractmethod
@@ -155,8 +152,8 @@ class GridSearchMixin(BenchmarkSearchMixin):
         return [action.default]
 
     @classmethod
-    def parse_config_args(cls, args: List[str], parse_args: bool = True) -> Namespace:
-        parser = super().parse_config_args(args, parse_args=False)
+    def parser(cls) -> ArgumentParser:
+        parser = super().parser()
         parser.add_argument(
             '--start-index',
             type=int,
@@ -178,10 +175,7 @@ class GridSearchMixin(BenchmarkSearchMixin):
             help=
             'The seed to use to shuffle the jobs. If None, no shuffling will be applied. Default: %(default)s.'
         )
-        if parse_args:
-            return parser.parse_args(args)
-        else:
-            return parser
+        return parser
 
     @classmethod
     def gen_search_space(
@@ -309,8 +303,8 @@ class RandomSearchMixin(BenchmarkSearchMixin):
         return {"rand_type": "const", "rand_values": action.default}
 
     @classmethod
-    def parse_config_args(cls, args: List[str], parse_args: bool = True) -> Namespace:
-        parser = super().parse_config_args(args, parse_args=False)
+    def parser(cls) -> ArgumentParser:
+        parser = super().parser()
         parser.add_argument(
             '--num-experiments',
             type=int,
@@ -328,10 +322,7 @@ class RandomSearchMixin(BenchmarkSearchMixin):
             type=int,
             default=0,
             help='The seed to use for the search (default: %(default)s).')
-        if parse_args:
-            return parser.parse_args(args)
-        else:
-            return parser
+        return parser
 
     @classmethod
     def gen_search_space(
@@ -613,7 +604,7 @@ def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
     # if processes are started in fork mode
     multiprocessing.set_start_method('spawn')
     # Parse benchmark arguments
-    script_args = entrypoint_utils.parse_config_args(args)
+    script_args = entrypoint_utils.parser().parse_args(args)
     # Retrieve the argument parser for the entrypoint
     entrypoint_parser = entrypoint_utils.argument_parser
     # Instantiate directory for storing the results
