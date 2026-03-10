@@ -34,10 +34,10 @@ To assess generalization, **LightEval** was used across five zero-shot reasoning
 - PIQA
 - Winogrande
 
-For the composition of PTQ techniques, the taxonomy from [Qronos](https://arxiv.org/pdf/2505.11695) was adopted, subdiving these into Stage 1 (Transform)
-and Stage 2 (Rounding).
+For the composition of PTQ techniques, the taxonomy from [Qronos](https://arxiv.org/pdf/2505.11695) was adopted, subdiving these into **Stage 1 (Transform)**
+and **Stage 2 (Rounding)**.
 
-For the Transform phase (Stage 1) the following methods were used:
+For the **Transform** phase (Stage 1) the following methods were used:
 
 - **None**: No preprocessing.
 - **[HIP](https://arxiv.org/pdf/2307.13304)**: Hadamard-based incoherence processing.
@@ -45,12 +45,12 @@ For the Transform phase (Stage 1) the following methods were used:
 - **[QuaRot](https://arxiv.org/pdf/2404.00456)**: Rotation-based outlier reduction.
 - **[SpinQuant](https://arxiv.org/pdf/2405.16406)**: Cailey-optimized orthogonal rotations.
 
-For the Rounding phase (Stage 2) the following methods were used:
+For the **Rounding** phase (Stage 2) the following methods were used:
 
 - **RTN**: Round-To-Nearest.
 - **[GPTQ](https://arxiv.org/pdf/2210.17323)**.
 - **[Qronos](https://arxiv.org/pdf/2505.11695)**.
-- **[Learned Round]**: Brevitas' implementation of learnable rounding.
+- **Learned Round**: Brevitas' implementation of learnable rounding.
 
 The following quantization configurations were evaluated:
 
