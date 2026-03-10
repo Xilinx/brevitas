@@ -83,31 +83,31 @@ The results for `Llama 3.2` are summarized in the following table:
 <th colspan="3">0-shot ↑</th>
 </tr>
 <tr>
-<td>Model</td>
-<td>Stage 1</td>
-<td>Stage 2</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
+<th>Model</th>
+<th>Stage 1</th>
+<th>Stage 2</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
 </tr>
 <tr>
-<td rowspan="14">Llama-3.2</td>
-<td>BF16</td>
+<th rowspan="14">Llama-3.2</th>
+<th>BF16</th>
 <td></td>
 <td>8.9</td>
 <td>7.2</td>
@@ -129,10 +129,10 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>69.1</td>
 </tr>
 <tr>
-<td rowspan="5"><ul>
+<th rowspan="5"><ul>
 <li></li>
-</ul></td>
-<td>RTN</td>
+</ul></th>
+<th>RTN</th>
 <td>92672.00</td>
 <td>11776.00</td>
 <td>38656.00</td>
@@ -153,7 +153,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.31</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>179.00</td>
 <td>33.00</td>
 <td>25.38</td>
@@ -174,7 +174,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.27</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>60.00</td>
 <td>21.00</td>
 <td>16.12</td>
@@ -195,7 +195,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.31</td>
 </tr>
 <tr>
-<td>Sign Round</td>
+<th>Sign Round</th>
 <td>17151.00</td>
 <td>36352.00</td>
 <td>6304.00</td>
@@ -216,7 +216,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.37</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>41.67</td>
 <td>18.18</td>
 <td>14.13</td>
@@ -237,8 +237,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.20</td>
 </tr>
 <tr>
-<td rowspan="4">HIP</td>
-<td>RTN</td>
+<th rowspan="4">HIP</th>
+<th>RTN</th>
 <td>143360.00</td>
 <td>16128.00</td>
 <td>4928.00</td>
@@ -259,7 +259,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>67.91</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>131.00</td>
 <td>27.00</td>
 <td>18.62</td>
@@ -280,7 +280,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.16</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>77.00</td>
 <td>35.25</td>
 <td>20.75</td>
@@ -301,7 +301,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.35</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>32.53</td>
 <td>17.64</td>
 <td>13.09</td>
@@ -322,8 +322,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>68.58</td>
 </tr>
 <tr>
-<td rowspan="4">MagR</td>
-<td>RTN</td>
+<th rowspan="4">MagR</th>
+<th>RTN</th>
 <td>20736.00</td>
 <td>16128.00</td>
 <td>5568.00</td>
@@ -344,7 +344,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>65.08</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>96.00</td>
 <td>34.25</td>
 <td>25.38</td>
@@ -365,7 +365,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>66.80</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>43.75</td>
 <td>21.75</td>
 <td>18.25</td>
@@ -386,7 +386,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>67.85</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>34.16</td>
 <td>17.98</td>
 <td></td>
@@ -452,31 +452,31 @@ The results for `Qwen 2.5` are summarized in the following table:
 <th colspan="3">0-shot ↑</th>
 </tr>
 <tr>
-<td>Model</td>
-<td>Stage 1</td>
-<td>Stage 2</td>
-<td>1.5B</td>
-<td>3B</td>
-<td>7B</td>
-<td>1.5B</td>
-<td>3B</td>
-<td>7B</td>
-<td>1.5B</td>
-<td>3B</td>
-<td>7B</td>
-<td>1.5B</td>
-<td>3B</td>
-<td>7B</td>
-<td>1.5B</td>
-<td>3B</td>
-<td>7B</td>
-<td>1.5B</td>
-<td>3B</td>
-<td>7B</td>
+<th>Model</th>
+<th>Stage 1</th>
+<th>Stage 2</th>
+<th>1.5B</th>
+<th>3B</th>
+<th>7B</th>
+<th>1.5B</th>
+<th>3B</th>
+<th>7B</th>
+<th>1.5B</th>
+<th>3B</th>
+<th>7B</th>
+<th>1.5B</th>
+<th>3B</th>
+<th>7B</th>
+<th>1.5B</th>
+<th>3B</th>
+<th>7B</th>
+<th>1.5B</th>
+<th>3B</th>
+<th>7B</th>
 </tr>
 <tr>
-<td rowspan="14">Qwen 2.5</td>
-<td>BF16</td>
+<th rowspan="14">Qwen 2.5</th>
+<th>BF16</th>
 <td></td>
 <td>8.5</td>
 <td>7.4</td>
@@ -498,10 +498,10 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>67.2</td>
 </tr>
 <tr>
-<td rowspan="5"><ul>
+<th rowspan="5"><ul>
 <li></li>
-</ul></td>
-<td>RTN</td>
+</ul></th>
+<th>RTN</th>
 <td>152576.00</td>
 <td>76800.00</td>
 <td>19456.00</td>
@@ -522,7 +522,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>65.61</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>38.00</td>
 <td>23.12</td>
 <td>12.56</td>
@@ -543,7 +543,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.36</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>27.50</td>
 <td>18.62</td>
 <td>12.19</td>
@@ -564,7 +564,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.75</td>
 </tr>
 <tr>
-<td>Sign Round</td>
+<th>Sign Round</th>
 <td>26.62</td>
 <td>18.00</td>
 <td>11.62</td>
@@ -585,7 +585,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.79</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>23.70</td>
 <td>16.93</td>
 <td>12.09</td>
@@ -606,8 +606,8 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.84</td>
 </tr>
 <tr>
-<td rowspan="4">HIP</td>
-<td>RTN</td>
+<th rowspan="4">HIP</th>
+<th>RTN</th>
 <td>14208.00</td>
 <td>95420416.00</td>
 <td>536.00</td>
@@ -628,7 +628,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>65.94</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>23.12</td>
 <td>15.88</td>
 <td>10.94</td>
@@ -649,7 +649,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.48</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>20.38</td>
 <td>15.19</td>
 <td>10.75</td>
@@ -670,7 +670,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.87</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>18.72</td>
 <td>13.48</td>
 <td>11.49</td>
@@ -691,8 +691,8 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.42</td>
 </tr>
 <tr>
-<td rowspan="4">MagR</td>
-<td>RTN</td>
+<th rowspan="4">MagR</th>
+<th>RTN</th>
 <td>56320.00</td>
 <td>68096.00</td>
 <td>1696.00</td>
@@ -713,7 +713,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.33</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>43.75</td>
 <td>40.00</td>
 <td>13.81</td>
@@ -734,7 +734,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.12</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>34.25</td>
 <td>19.75</td>
 <td>13.81</td>
@@ -755,7 +755,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>66.38</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>22.49</td>
 <td>15.79</td>
 <td></td>
@@ -810,19 +810,19 @@ The results for `Llama 3.2` are summarized in the following table:
 <th colspan="3">0-shot ↑</th>
 </tr>
 <tr>
-<td>Model</td>
-<td>Stage 1</td>
-<td>Stage 2</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
+<th>Model</th>
+<th>Stage 1</th>
+<th>Stage 2</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
 </tr>
 <tr>
-<td rowspan="21">Llama-3.2</td>
-<td>BF16</td>
+<th rowspan="21">Llama-3.2</th>
+<th>BF16</th>
 <td></td>
 <td>8.9</td>
 <td>7.2</td>
@@ -832,10 +832,10 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>69.1</td>
 </tr>
 <tr>
-<td rowspan="4"><ul>
+<th rowspan="4"><ul>
 <li></li>
-</ul></td>
-<td>RTN</td>
+</ul></th>
+<th>RTN</th>
 <td>6304.00</td>
 <td>22016.00</td>
 <td>52736.00</td>
@@ -844,7 +844,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>35.60</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>23424.00</td>
 <td>14208.00</td>
 <td>23424.00</td>
@@ -853,7 +853,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>34.32</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>174.00</td>
 <td>84.50</td>
 <td>82.00</td>
@@ -862,7 +862,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>38.65</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>100.67</td>
 <td>73.80</td>
 <td>274.88</td>
@@ -871,8 +871,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>38.15</td>
 </tr>
 <tr>
-<td rowspan="4">HIP</td>
-<td>RTN</td>
+<th rowspan="4">HIP</th>
+<th>RTN</th>
 <td>18.25</td>
 <td>10.56</td>
 <td>8.38</td>
@@ -881,7 +881,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>61.33</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>13.19</td>
 <td>8.75</td>
 <td>7.50</td>
@@ -890,7 +890,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>62.76</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>13.19</td>
 <td>9.19</td>
 <td>7.62</td>
@@ -899,7 +899,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>62.85</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>12.32</td>
 <td>8.78</td>
 <td>7.23</td>
@@ -908,8 +908,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>63.70</td>
 </tr>
 <tr>
-<td rowspan="4">MagR</td>
-<td>RTN</td>
+<th rowspan="4">MagR</th>
+<th>RTN</th>
 <td>5920.00</td>
 <td>8096.00</td>
 <td>24960.00</td>
@@ -918,7 +918,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>34.75</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>12544.00</td>
 <td>17152.00</td>
 <td>24960.00</td>
@@ -927,7 +927,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>35.44</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>197.00</td>
 <td>153.00</td>
 <td>174.00</td>
@@ -936,7 +936,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>38.05</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>103.10</td>
 <td>82.66</td>
 <td></td>
@@ -945,8 +945,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td></td>
 </tr>
 <tr>
-<td rowspan="4">QuaRot</td>
-<td>RTN</td>
+<th rowspan="4">QuaRot</th>
+<th>RTN</th>
 <td>27.88</td>
 <td>19.12</td>
 <td>11.62</td>
@@ -955,7 +955,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>55.34</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>14.69</td>
 <td>10.12</td>
 <td>8.00</td>
@@ -964,7 +964,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>61.58</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>13.81</td>
 <td>9.31</td>
 <td>7.75</td>
@@ -973,7 +973,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>62.80</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>13.65</td>
 <td>9.88</td>
 <td>7.86</td>
@@ -982,8 +982,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>44.84</td>
 </tr>
 <tr>
-<td rowspan="4">SpinQuant</td>
-<td>RTN</td>
+<th rowspan="4">SpinQuant</th>
+<th>RTN</th>
 <td>18.25</td>
 <td>87.00</td>
 <td>77.00</td>
@@ -992,7 +992,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>36.15</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>15.38</td>
 <td>1240.00</td>
 <td>392.00</td>
@@ -1001,7 +1001,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>34.67</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>14.69</td>
 <td>368.00</td>
 <td>286.00</td>
@@ -1010,7 +1010,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>35.27</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>13.52</td>
 <td>9.41</td>
 <td>7.59</td>
@@ -1052,19 +1052,19 @@ The results for `Llama 3.2` are summarized in the following table:
 <th colspan="3">0-shot ↑</th>
 </tr>
 <tr>
-<td>Model</td>
-<td>Stage 1</td>
-<td>Stage 2</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
-<td>1B</td>
-<td>3B</td>
-<td>8B</td>
+<th>Model</th>
+<th>Stage 1</th>
+<th>Stage 2</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
+<th>1B</th>
+<th>3B</th>
+<th>8B</th>
 </tr>
 <tr>
-<td rowspan="21">Llama-3.2</td>
-<td>BF16</td>
+<th rowspan="21">Llama-3.2</th>
+<th>BF16</th>
 <td></td>
 <td>8.9</td>
 <td>7.2</td>
@@ -1074,10 +1074,10 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>69.1</td>
 </tr>
 <tr>
-<td rowspan="4"><ul>
+<th rowspan="4"><ul>
 <li></li>
-</ul></td>
-<td>RTN</td>
+</ul></th>
+<th>RTN</th>
 <td>14.44</td>
 <td>9.19</td>
 <td>7.75</td>
@@ -1086,7 +1086,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>63.45</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>12.38</td>
 <td>8.62</td>
 <td>7.16</td>
@@ -1095,7 +1095,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>64.68</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>12.56</td>
 <td>8.75</td>
 <td>7.22</td>
@@ -1104,7 +1104,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>64.09</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>11.78</td>
 <td>8.49</td>
 <td>6.97</td>
@@ -1113,8 +1113,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>65.21</td>
 </tr>
 <tr>
-<td rowspan="4">HIP</td>
-<td>RTN</td>
+<th rowspan="4">HIP</th>
+<th>RTN</th>
 <td>13.19</td>
 <td>8.94</td>
 <td>7.28</td>
@@ -1123,7 +1123,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>65.99</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>11.06</td>
 <td>8.25</td>
 <td>6.78</td>
@@ -1132,7 +1132,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>65.94</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>11.62</td>
 <td>8.50</td>
 <td>7.06</td>
@@ -1141,7 +1141,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>65.54</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>11.01</td>
 <td>8.38</td>
 <td>6.70</td>
@@ -1150,8 +1150,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>65.64</td>
 </tr>
 <tr>
-<td rowspan="4">MagR</td>
-<td>RTN</td>
+<th rowspan="4">MagR</th>
+<th>RTN</th>
 <td>18.88</td>
 <td>12.00</td>
 <td>8.94</td>
@@ -1160,7 +1160,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>57.59</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>14.44</td>
 <td>9.94</td>
 <td>7.88</td>
@@ -1169,7 +1169,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>62.19</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>13.19</td>
 <td>8.94</td>
 <td>7.50</td>
@@ -1178,7 +1178,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>63.86</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>12.48</td>
 <td>9.50</td>
 <td></td>
@@ -1187,8 +1187,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td></td>
 </tr>
 <tr>
-<td rowspan="4">QuaRot</td>
-<td>RTN</td>
+<th rowspan="4">QuaRot</th>
+<th>RTN</th>
 <td>15.62</td>
 <td>12.38</td>
 <td>8.50</td>
@@ -1197,7 +1197,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>62.64</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>12.19</td>
 <td>9.06</td>
 <td>7.38</td>
@@ -1206,7 +1206,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>64.59</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>11.81</td>
 <td>8.62</td>
 <td>7.00</td>
@@ -1215,7 +1215,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td></td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>11.69</td>
 <td>8.40</td>
 <td>6.86</td>
@@ -1224,8 +1224,8 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>41.28</td>
 </tr>
 <tr>
-<td rowspan="4">SpinQuant</td>
-<td>RTN</td>
+<th rowspan="4">SpinQuant</th>
+<th>RTN</th>
 <td>12.00</td>
 <td>8.75</td>
 <td>7.16</td>
@@ -1234,7 +1234,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>66.01</td>
 </tr>
 <tr>
-<td>GPTQ</td>
+<th>GPTQ</th>
 <td>12.38</td>
 <td>9.62</td>
 <td>8.12</td>
@@ -1243,7 +1243,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>62.93</td>
 </tr>
 <tr>
-<td>Qronos</td>
+<th>Qronos</th>
 <td>11.62</td>
 <td>8.62</td>
 <td>7.22</td>
@@ -1252,7 +1252,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>64.49</td>
 </tr>
 <tr>
-<td>Learned Round</td>
+<th>Learned Round</th>
 <td>11.71</td>
 <td>8.51</td>
 <td>6.93</td>
