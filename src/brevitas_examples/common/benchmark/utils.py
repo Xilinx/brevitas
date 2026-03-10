@@ -14,6 +14,7 @@ import itertools
 import multiprocessing
 from multiprocessing import Queue
 import os
+import pprint
 import random
 import sys
 import time
@@ -396,8 +397,7 @@ def _make_float(value: Any) -> Any:
 
 def _print_indented_dict(message: str, dictionary: Dict) -> None:
     print(message)
-    for key, value in dictionary.items():
-        print(f"\t{key}: {value}")
+    pprint.pp(dictionary)
 
 
 # Ensures that the bytestring is the same irrespective
