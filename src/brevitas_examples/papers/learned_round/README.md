@@ -69,18 +69,18 @@ The results for `Llama 3.2` are summarized in the following table:
 <tbody>
 <tr>
 <td colspan="3"></td>
-<td colspan="6"><pre><code>                                W2g128</code></pre></td>
-<td colspan="6"><pre><code>                                  W4</code></pre></td>
-<td colspan="6"><pre><code>                                W4g128</code></pre></td>
+<td colspan="6">                                W2g128</td>
+<td colspan="6">                                  W4</td>
+<td colspan="6">                                W4g128</td>
 </tr>
 <tr>
 <td colspan="3"></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
 </tr>
 <tr>
 <td>Model</td>
@@ -438,18 +438,18 @@ The results for `Qwen 2.5` are summarized in the following table:
 <tbody>
 <tr>
 <td colspan="3"></td>
-<td colspan="6"><pre><code>                                W2g128</code></pre></td>
-<td colspan="6"><pre><code>                                  W4</code></pre></td>
-<td colspan="6"><pre><code>                                W4g128</code></pre></td>
+<td colspan="6">                                W2g128</td>
+<td colspan="6">                                  W4</td>
+<td colspan="6">                                W4g128</td>
 </tr>
 <tr>
 <td colspan="3"></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
 </tr>
 <tr>
 <td>Model</td>
@@ -802,12 +802,12 @@ The results for `Llama 3.2` are summarized in the following table:
 <tbody>
 <tr>
 <td colspan="3"></td>
-<td colspan="6"><pre><code>                                W4A4</code></pre></td>
+<td colspan="6">                                W4A4</td>
 </tr>
 <tr>
 <td colspan="3"></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
 </tr>
 <tr>
 <td>Model</td>
@@ -1044,12 +1044,12 @@ The results for `Llama 3.2` are summarized in the following table:
 <tbody>
 <tr>
 <td colspan="3"></td>
-<td colspan="6"><pre><code>                                W4g32A</code></pre></td>
+<td colspan="6">                                W4g32A</td>
 </tr>
 <tr>
 <td colspan="3"></td>
-<td colspan="3"><pre><code>          WikiText2 ↓</code></pre></td>
-<td colspan="3"><pre><code>          0-shot ↑</code></pre></td>
+<td colspan="3">          WikiText2 ↓</td>
+<td colspan="3">          0-shot ↑</td>
 </tr>
 <tr>
 <td>Model</td>
