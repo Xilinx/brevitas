@@ -167,6 +167,8 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         rewriters = fix_rewriter(rewriters, model, 'weight')
         model = apply_rewriters(model, rewriters, delay_rewriters=False)
 
+    remove_hooks(model)
+
 
 def set_seed(seed):
     np.random.seed(seed)
