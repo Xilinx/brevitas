@@ -68,9 +68,9 @@ The results for `Llama 3.2` are summarized in the following table:
 <tbody>
 <tr>
 <td colspan="3"></td>
-<td colspan="6"><pre><code>                                **W2g128**</code></pre></td>
-<td colspan="6"><pre><code>                                  **W4**</code></pre></td>
-<td colspan="6"><pre><code>                                **W4g128**</code></pre></td>
+<td colspan="6"><pre><code>                                W2g128</code></pre></td>
+<td colspan="6"><pre><code>                                  W4</code></pre></td>
+<td colspan="6"><pre><code>                                W4g128</code></pre></td>
 </tr>
 <tr>
 <td colspan="3"></td>
