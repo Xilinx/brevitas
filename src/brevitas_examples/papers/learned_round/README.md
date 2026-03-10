@@ -129,9 +129,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>69.1</td>
 </tr>
 <tr>
-<th rowspan="5"><ul>
-<li></li>
-</ul></th>
+<th rowspan="5">None</th>
 <th>RTN</th>
 <td>92672.00</td>
 <td>11776.00</td>
@@ -498,9 +496,7 @@ The results for `Qwen 2.5` are summarized in the following table:
 <td>67.2</td>
 </tr>
 <tr>
-<th rowspan="5"><ul>
-<li></li>
-</ul></th>
+<th rowspan="5">None</th>
 <th>RTN</th>
 <td>152576.00</td>
 <td>76800.00</td>
@@ -832,9 +828,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>69.1</td>
 </tr>
 <tr>
-<th rowspan="4"><ul>
-<li></li>
-</ul></th>
+<th rowspan="4">None</th>
 <th>RTN</th>
 <td>6304.00</td>
 <td>22016.00</td>
@@ -1074,9 +1068,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td>69.1</td>
 </tr>
 <tr>
-<th rowspan="4"><ul>
-<li></li>
-</ul></th>
+<th rowspan="4">None</th>
 <th>RTN</th>
 <td>14.44</td>
 <td>9.19</td>
