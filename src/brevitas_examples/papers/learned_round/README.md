@@ -17,7 +17,7 @@ Results
 ==============
 
 To demonstrate the effectivenes and flexibility of the Learned Round implementation in Brevitas,
-ts performance was compared against the [SignRound](https://aclanthology.org/2024.findings-emnlp.662.pdf) for weight-only quantization,
+its performance was compared against the [SignRound](https://aclanthology.org/2024.findings-emnlp.662.pdf) for weight-only quantization,
 and against GPTQ and Qronos for the rest of scenarios.
 
 In comparison with [SignRound](https://aclanthology.org/2024.findings-emnlp.662.pdf), Signed SGD was also used in these experiments,
