@@ -185,7 +185,10 @@ import logging
 import os
 import pathlib
 import random
-from typing import List, Optional, Tuple, Union
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import numpy as np
 import open_clip

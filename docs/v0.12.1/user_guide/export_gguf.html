@@ -1,0 +1,820 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>GGUF Export &#8212; Brevitas Documentation - v0.12.1</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/export_gguf';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'v0.12.1';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Shark-AI Export" href="export_shark.html" />
+    <link rel="prev" title="Brevitas and Compile" href="compile.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - v0.12.1 - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - v0.12.1 - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compile.html">Brevitas and Compile</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">GGUF Export</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_shark.html">Shark-AI Export</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guides</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">GGUF Export</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="gguf-export">
+<h1>GGUF Export<a class="headerlink" href="#gguf-export" title="Permalink to this heading">#</a></h1>
+<p>GGML and GGUF have established as popular libraries and format to quantize and export LLM,
+with several libraries being able to read GGUF and apply optimized inference.</p>
+<p>In its current status, GGUF provides lots of flexibility in terms of representation, with several
+quantization options, but it also has some limitations, such as:</p>
+<ul class="simple">
+<li><p>No graph representation during export</p></li>
+<li><p>Mostly focused on weight-only quantization</p></li>
+<li><p>Limited optimization possibilities during QAT and/or PTQ</p></li>
+</ul>
+<p>In Brevitas, we are progressively adding better support for GGUF export.
+Currently the supported formats are:</p>
+<ul class="simple">
+<li><p>Q8_0</p></li>
+<li><p>Q4_0</p></li>
+<li><p>Q4_1</p></li>
+<li><p>Q4_K</p></li>
+</ul>
+<p>The first three modes can be obtained through our LLM entrypoint (<cite>brevitas_ptq_llm</cite>),
+while it is possible to target all the formats through direct quantization.</p>
+<p>The specification for these formats can be found <a class="reference external" href="https://huggingface.co/docs/hub/gguf">here</a>.</p>
+<section id="llm-entrypoint">
+<h2>LLM Entrypoint<a class="headerlink" href="#llm-entrypoint" title="Permalink to this heading">#</a></h2>
+<p>Brevitas’ LLM entrypoint allows the user to load, quantize, test, and export many of the LLM available on
+HuggingFace, by simply passing a series of command line arguments that can control, among other things:</p>
+<ul class="simple">
+<li><p>Weights and activations bit width</p></li>
+<li><p>Weights and activation quantization format (int vs float, asym vs sym, etc.)</p></li>
+<li><p>PTQ algorithms to apply and their options</p></li>
+<li><p>and much more…</p></li>
+</ul>
+<p>We have recently added the possibility to export directly to GGUF after quantization, targetting Q4_0 and Q4_1.</p>
+<p>In terms of command line arguments, this corresponds to the following configurations:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brevitas_ptq_llm<span class="w"> </span>--model<span class="w"> </span>org/model<span class="w"> </span>--weight-bit-width<span class="w"> </span><span class="m">4</span><span class="w"> </span>--weight-quant-type<span class="w"> </span>sym<span class="w"> </span>--weight-quant-granularity<span class="w"> </span>per_group<span class="w"> </span>--weight-group-size<span class="w"> </span><span class="m">32</span><span class="w"> </span>--export-target<span class="w"> </span>gguf:q4_0
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brevitas_ptq_llm<span class="w"> </span>--model<span class="w"> </span>org/model<span class="w"> </span>--weight-bit-width<span class="w"> </span><span class="m">4</span><span class="w"> </span>--weight-quant-type<span class="w"> </span>sym<span class="w"> </span>--weight-quant-granularity<span class="w"> </span>per_group<span class="w"> </span>--weight-quant-type<span class="w"> </span>asym<span class="w"> </span>--weight-group-size<span class="w"> </span><span class="m">32</span><span class="w"> </span>--export-target<span class="w"> </span>gguf:q4_1
+</pre></div>
+</div>
+<p>If activation bit-width is not specifies, weight-only quantization will be performed.</p>
+<p>These commands will produce quantized models without any extra pre-processing, but several PTQ algorithms are compatible with weight-only quantization.
+Among these:</p>
+<ul class="simple">
+<li><p>GPTQ</p></li>
+<li><p>AWQ</p></li>
+<li><p>Learned Round</p></li>
+<li><p>QuaRot/SpinQuant (without any online hadamard rotation)</p></li>
+<li><p>MagR</p></li>
+</ul>
+<p>Once the model is exported, it can be used as any other GGUF model.</p>
+</section>
+<section id="direct-export-and-quantized-scales-zero-points">
+<h2>Direct export and quantized scales/zero_points<a class="headerlink" href="#direct-export-and-quantized-scales-zero-points" title="Permalink to this heading">#</a></h2>
+<p>Although our LLM entrypoint is highly customizable, it still does not expose all the flexibility that Brevitas offers.</p>
+<p>In particular, Brevitas allows easily to quantize scale and zero points, matching the new GGUF formats like Q4_K.</p>
+<p>This can be done by defining three custom quantizers.
+The first two are quantizers that specify how the scales and the zero point must be quantized (i.e., for
+the superblocks in the _K GGUF formats). The third one is the base quantizer combining everything together.</p>
+<p>This looks like:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ShapeMixin</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scaling_shape</span><span class="p">(</span>
+            <span class="n">scaling_per_output_type</span><span class="p">,</span>
+            <span class="n">scaling_per_output_channel_shape</span><span class="p">,</span>
+            <span class="n">expanded_groupwise_shape</span><span class="p">,</span>
+            <span class="n">group_dim</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">TENSOR</span><span class="p">:</span>
+            <span class="n">scaling</span> <span class="o">=</span> <span class="n">SCALAR_SHAPE</span>
+        <span class="k">elif</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">CHANNEL</span><span class="p">:</span>
+            <span class="n">scaling</span> <span class="o">=</span> <span class="n">scaling_per_output_channel_shape</span>
+        <span class="k">elif</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">GROUP</span><span class="p">:</span>
+            <span class="c1"># Scaling shape is like expanded_groupwise_shape but has 1 in position group_dim + 1</span>
+            <span class="k">assert</span> <span class="n">expanded_groupwise_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Per Group scaling not correctly configured&quot;</span>
+            <span class="k">assert</span> <span class="n">group_dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Per Group scaling not correctly configured&quot;</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">expanded_groupwise_shape</span><span class="p">)</span>
+            <span class="n">size</span><span class="p">[</span><span class="n">group_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">scaling</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantScalingInt</span><span class="p">(</span><span class="n">Int8WeightPerTensorFloat</span><span class="p">,</span> <span class="n">ShapeMixin</span><span class="p">):</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="p">(</span><span class="n">this</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">module</span>
+
+    <span class="n">rescaling_int_quant</span> <span class="o">=</span> <span class="n">RescalingIntQuant</span>
+    <span class="n">group_size</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="n">scaling_per_output_type</span> <span class="o">=</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">GROUP</span>
+    <span class="n">upstream_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">this</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">scaling_shape</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tracked_parameter_list</span><span class="p">(</span><span class="n">upstream_shape</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">upstream_shape</span><span class="p">)]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantZPInt</span><span class="p">(</span><span class="n">Int8WeightPerTensorFloat</span><span class="p">,</span> <span class="n">ShapeMixin</span><span class="p">):</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="p">(</span><span class="n">this</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">module</span>
+
+    <span class="n">rescaling_int_quant</span> <span class="o">=</span> <span class="n">RescalingIntQuant</span>
+    <span class="n">restrict_threshold_impl</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">scaling_per_output_type</span> <span class="o">=</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">GROUP</span>
+    <span class="n">group_size</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="n">upstream_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">this</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">zero_point_shape</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tracked_parameter_list</span><span class="p">(</span><span class="n">upstream_shape</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">upstream_shape</span><span class="p">)]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantScaleQuantZPInt8WeightPerTensorFloat</span><span class="p">(</span><span class="n">ShiftedUint8WeightPerTensorFloat</span><span class="p">):</span>
+    <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">GroupwiseWeightQuantProxyFromInjector</span>
+    <span class="n">scaling_quant</span> <span class="o">=</span> <span class="n">QuantScalingInt</span>
+    <span class="n">zp_quant</span> <span class="o">=</span> <span class="n">QuantZPInt</span>
+    <span class="n">restrict_scaling_impl</span> <span class="o">=</span> <span class="n">QuantRestrictValue</span>
+    <span class="n">scaling_per_output_type</span> <span class="o">=</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">GROUP</span>
+    <span class="n">restrict_threshold_impl</span> <span class="o">=</span> <span class="n">FloatRestrictValue</span>
+    <span class="n">scale_shift_zero_point_impl</span> <span class="o">=</span> <span class="n">_ScaleShiftQuantZeroPoint</span>
+    <span class="n">group_size</span> <span class="o">=</span> <span class="mi">32</span>
+    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">4</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_value_float_to_int_impl</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">this</span><span class="o">.</span><span class="n">scaling_quant</span><span class="o">.</span><span class="n">rescaling_int_quant</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">zp_int_quant</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">this</span><span class="o">.</span><span class="n">zp_quant</span><span class="o">.</span><span class="n">rescaling_int_quant</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scale_dequantized_shape</span><span class="p">(</span><span class="n">scaling_per_output_type</span><span class="p">,</span> <span class="n">scaling_shape</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">TENSOR</span> <span class="ow">or</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">CHANNEL</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">GROUP</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">scaling_shape</span>
+
+    <span class="nd">@value</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">zero_point_dequantized_shape</span><span class="p">(</span><span class="n">scaling_per_output_type</span><span class="p">,</span> <span class="n">zero_point_shape</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">TENSOR</span> <span class="ow">or</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">CHANNEL</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">scaling_per_output_type</span> <span class="o">==</span> <span class="n">ScalingPerOutputType</span><span class="o">.</span><span class="n">GROUP</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">zero_point_shape</span>
+</pre></div>
+</div>
+<p>The intuition behind these quantizers is as follows:
+<cite>QuantScaleQuantZeroPointInt8WeightPerTensorFloat</cite> is the baseline quantizer, with asymmetric group-wise quantization at 4 bit.</p>
+<p>This quantizer specified two classes used for scale and zero_point quantization:</p>
+<ul class="simple">
+<li><p>restrict_scaling_impl set to QuantRestrictValue, which is responsible for the scale</p></li>
+<li><p>scale_shift_zero_point_impl set to _ScaleShiftQuantZeroPoint, responsible for the zero_point</p></li>
+</ul>
+<p>In order to construct these two classes through dependency injection, we need to define <cite>restrict_value_float_to_int_impl</cite> and
+<cite>zp_int_quant</cite>, which is done through two <cite>value</cite> functions, a detail of the dependency injection package we use in Brevitas
+(for more info about this, check our <cite>Anatomy of a quantizer tutorial</cite>).</p>
+<p>These value functions select the object to instantiate from two other variables defined in the main quantizer, <cite>scaling_quant</cite> and <cite>zp_quant</cite>.</p>
+<p>These two variables contain the scale and zero point quantizer, respectively:</p>
+<ul class="simple">
+<li><p>QuantScalingInt</p></li>
+<li><p>QuantZeroPointInt</p></li>
+</ul>
+<p>For all practical purposes, these two quantizers behave exactly as any other Brevitas quantizer.
+The main exceptions are that they are not directly attached to any layer, but rather to another quantizer.</p>
+<p>Starting from a standard 8-bit integer quantizer, some parameters are re-defined to match the
+<a class="reference external" href="https://huggingface.co/docs/hub/gguf">Q4_K recipe</a> , in particular:</p>
+<ul class="simple">
+<li><p>Group-wise quantization</p></li>
+<li><p>Group size equals to 8 (as in, the super block is composed of 8 blocks of 32 elements)</p></li>
+<li><p>Bit width is set to 6</p></li>
+<li><p>Quantization is unsigned, as we assume that both scales and zero point are defined positive</p></li>
+</ul>
+<p>The other elements are needed for a correct definition of a Brevitas quantizer through dependency injection,
+and can be ignored and left as they are.</p>
+<p>After they have been created, it is possible to manually create a quant layer as follow:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">IN_CHANNEL</span><span class="p">,</span> <span class="n">OUT_CHANNEL</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">QuantScaleQuantZeroPointInt8WeightPerTensorFloat</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Alternatively, it is possible to programmatically quantize your network with these quantizers with:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="o">...</span>
+<span class="n">layer_map</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s1">&#39;weight_quant&#39;</span><span class="p">:</span> <span class="n">QuantScaleQuantZeroPointInt8WeightPerTensorFloat</span><span class="p">})</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">layerwise_quantize</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">compute_layer_map</span><span class="o">=</span><span class="n">layer_map</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After quantization is applied, all the same considerations made above for PTQ hold true, and QAT is also a possibility.</p>
+<p>Changing the <cite>weight_scaling_impl_type</cite> in the scale and zero_point quantizer to <cite>parameter_from_stats</cite> should
+also allow to learn the scale factors of the scale and zero point with QAT, although this is not tested.</p>
+<p>After the model is quantized, it is possible to export it with the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.llm.gguf_export.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_quantized_as_gguf</span>
+
+<span class="n">save_quantized_as_gguf</span><span class="p">(</span><span class="s2">&quot;/path/to/exported/model&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">cpu</span><span class="p">(),</span> <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;gguf:q4_k_s&quot;</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="faq">
+<h2>FAQ<a class="headerlink" href="#faq" title="Permalink to this heading">#</a></h2>
+<ul class="simple">
+<li><p><em>How to export in GGUF format X?</em></p></li>
+</ul>
+<p>If you want to quantize and export in GGUF format that is not currently supported, feel free to open an issue.
+In general, the indications above, combined with the export code itself, should provide a solid
+blueprint to add new export formats, especially similar ones like Q3_K, etc.</p>
+<ul class="simple">
+<li><p><em>How to export in Q4_K but still do PTQ?</em></p></li>
+</ul>
+<p>We plan to expand the options available in our LLM entrypoint, but introducing scale and zero point quantization
+could limit the readability and usability of the script.
+If you want to do Q4_K and apply one or more of the algorithms we propose, just follow the same style used in the entrypoint
+and write your own quantization script, focusing on one or a few configurations that are of interest for you.</p>
+<ul class="simple">
+<li><p><em>Accuracy/Quality of the models seem to be worse compared to other GGUF model. Is it normal?</em></p></li>
+</ul>
+<p>Generally speaking, different quantizers have different ways of achieving the same target format.
+If the quality you get is not up to your expectations, feel free to try some of the PTQ algorithms suggested above.</p>
+<p>If that still does not help, please open an issue and we will be more than happy to look into it.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="compile.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Brevitas and Compile</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="export_shark.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Shark-AI Export</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#llm-entrypoint">LLM Entrypoint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#direct-export-and-quantized-scales-zero-points">Direct export and quantized scales/zero_points</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#faq">FAQ</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/user_guide/export_gguf.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

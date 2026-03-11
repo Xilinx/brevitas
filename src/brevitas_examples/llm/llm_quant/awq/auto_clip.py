@@ -28,7 +28,8 @@ SOFTWARE.
 """
 
 import gc
-from typing import Dict, List
+from typing import Dict
+from typing import List
 
 import torch
 import torch.nn as nn

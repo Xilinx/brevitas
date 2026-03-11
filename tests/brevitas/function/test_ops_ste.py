@@ -3,6 +3,7 @@
 
 from typing import Tuple
 
+from hypothesis import assume
 from hypothesis import given
 import mock
 import pytest
@@ -11,8 +12,11 @@ import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.function_wrapper.ops_ste import ScalarClampMinSte
+from brevitas.core.function_wrapper.ops_ste import ScalarSignedClampMinSte
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
+from tests.brevitas.common import assert_allclose
 from tests.brevitas.common import BOOLS
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_ste_test_st
@@ -182,3 +186,79 @@ def test_scalar_clamp_min_ste_backend(prefix_and_status: Tuple[str, bool], x):
         else:
             # If (config.JIT_ENABLED and brevitas.NATIVE_STE_BACKEND_LOADED) we expect the prefix won't be called
             python_backend.assert_not_called()
+
+
+class TestScalarSignedClampMinSte:
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_bwd(self, x):
+        """
+        Test that gradients are correctly passed through to val only
+        """
+        # min_val must be set to a value greater than zero
+        min_val, val, val_grad = x
+        assume(abs(min_val) > 0.0)
+        module = ScalarSignedClampMinSte(min_val)
+        val.requires_grad_(True)
+        output = module(val)
+        output.backward(val_grad, retain_graph=True)
+        assert_allclose(val_grad, val.grad)
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_bwd_reference(self, x):
+        """
+        Test that gradients are correctly passed through to val only
+        """
+        # min_val must be set to a value greater than zero
+        min_val, val, val_grad = x
+        assume(abs(min_val) > 0.0)
+        # Outputs of ScalarSignedClampMinSte and ScalarClampMinSte
+        # should match for positive inputs
+        val = torch.abs(val)
+        module = ScalarSignedClampMinSte(min_val)
+        ref_module = ScalarClampMinSte(min_val)
+        val.requires_grad_(True)
+        # Compute gradient for module
+        output = module(val)
+        output.backward(val_grad)
+        module_val_grad = val.grad.detach().clone()
+        # Compute gradient for ref_module
+        val.grad = None
+        output = ref_module(val)
+        output.backward(val_grad)
+        assert_allclose(module_val_grad, val.grad)
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_fwd(self, x):
+        """
+        Test that values are correctly clamped
+        """
+        # min_val must be set to a value greater than zero
+        min_val, val, _ = x
+        assume(abs(min_val) > 0.0)
+        module = ScalarSignedClampMinSte(min_val)
+        output = module(val)
+        # Compute reference output
+        mask = (val > -abs(min_val)) & (val < abs(min_val))
+        ref_output = torch.where(val >= 0, 1., -1.) * torch.where(
+            mask, abs(min_val), torch.abs(val))
+        assert_allclose(output, ref_output)
+
+    @given(x=scalar_clamp_min_ste_test_st())
+    def test_fwd_reference(self, x):
+        """
+        Test that values are correctly clamped
+        """
+        x = (-1.0, torch.tensor([0.]), torch.tensor([0.]))
+        # min_val must be set to a value greater than zero
+        min_val, val, _ = x
+        assume(abs(min_val) > 0.0)
+        # Outputs of ScalarSignedClampMinSte and ScalarClampMinSte
+        # should match for positive inputs
+        val = torch.abs(val)
+        module = ScalarSignedClampMinSte(min_val)
+        ref_module = ScalarClampMinSte(abs(min_val))
+        output = module(val)
+        # Compute reference output
+        ref_output = ref_module(val)
+        assert_allclose(output, ref_output)

@@ -4,7 +4,11 @@
 from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 from warnings import warn
 
 import torch
@@ -18,7 +22,6 @@ from brevitas import is_dynamo_compiling
 from brevitas.core.function_wrapper.misc import Identity
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -105,6 +108,10 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             # For groupwise weight quantization, we have graph breaks
             fullgraph = not self.is_groupwise
             self.tensor_quant = torch.compile(self.tensor_quant, dynamic=True, fullgraph=fullgraph)
+
+    @property
+    def is_proxy_compiled(self):
+        return 'OptimizedModule' in str(type(self.tensor_quant))
 
     @property
     def input_view_impl(self):

@@ -18,6 +18,10 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import MNIST
 
+import brevitas.config as config
+from brevitas.export import export_onnx_qcdq
+from brevitas.export import export_qonnx
+
 from .logger import EvalEpochMeters
 from .logger import Logger
 from .logger import TrainingEpochMeters
@@ -65,6 +69,9 @@ class Trainer(object):
 
         model, cfg = model_with_cfg(args.network, args.pretrained)
 
+        # Catch invalid settings
+        self.validate(args)
+
         # Init arguments
         self.args = args
         prec_name = "_{}W{}A".format(
@@ -82,6 +89,11 @@ class Trainer(object):
             if not args.resume:
                 os.mkdir(self.output_dir_path)
                 os.mkdir(self.checkpoints_dir_path)
+        # If we want to export a ONNX model, we still need to make output dirs
+        if args.export_qonnx or args.export_qcdq_onnx:
+            self.output_onnx_path = os.path.join(self.output_dir_path, "onnx")
+            os.makedirs(self.output_onnx_path, exist_ok=True)
+
         self.logger = Logger(self.output_dir_path, args.dry_run)
 
         # Randomness
@@ -131,10 +143,7 @@ class Trainer(object):
 
         # Resume checkpoint, if any
         if args.resume:
-            print('Loading model checkpoint at: {}'.format(args.resume))
-            package = torch.load(args.resume, map_location='cpu')
-            model_state_dict = package['state_dict']
-            model.load_state_dict(model_state_dict, strict=args.strict)
+            model = self.load_checkpoint(model, args.resume, args.strict)
 
         if args.state_dict_to_pth:
             state_dict = model.state_dict()
@@ -149,7 +158,7 @@ class Trainer(object):
             self.logger.info("Saving checkpoint model to {}".format(new_path))
             exit(0)
 
-        if args.gpus is not None and len(args.gpus) == 1:
+        if args.gpus is not None:
             model = model.to(device=self.device)
         if args.gpus is not None and len(args.gpus) > 1:
             model = nn.DataParallel(model, args.gpus)
@@ -196,7 +205,47 @@ class Trainer(object):
 
         # Resume scheduler, if any
         if args.resume and not args.evaluate and self.scheduler is not None:
-            self.scheduler.last_epoch = package['epoch'] - 1
+            self.scheduler.last_epoch = package['epoch']
+
+    def validate(self, args):
+        if args.export_qonnx or args.export_qcdq_onnx:
+            assert not config.JIT_ENABLED, "JIT must be disabled for ONNX export, please run with BREVITAS_JIT=0"
+        if "RESNET" in args.network and args.gpus is not None and not args.evaluate:
+            assert len(args.gpus) == 1, "Training ResNet models is currently not supported with multiple GPUs, see: https://github.com/Xilinx/brevitas/issues/1349"
+
+    # Move model to CPU for reloading state_dicts or export - handles if model is data parallel
+    def to_cpu(self, model):
+        if isinstance(model, nn.DataParallel):
+            self.logger.log.info("Converting Model from `nn.DataParallel` to `nn.Module`")
+            model = model.module
+        model = model.to(device="cpu")
+        return model
+
+    # Load checkpoint onto CPU
+    def load_checkpoint(self, model, checkpoint_path, strict):
+
+        def maybe_remove_prefix(state_dict, prefix='module'):
+            new_state_dict = dict()
+            flag = False
+            prefix_dot = f"{prefix}."
+            for k, v in state_dict.items():
+                if k.startswith(prefix_dot):
+                    flag = True
+                    new_key = "".join(k.split(prefix_dot)[1:])
+                    new_state_dict[new_key] = v
+                else:
+                    new_state_dict[k] = v
+            if flag:
+                self.logger.info(f"Renaming state_dict keys to remove {prefix}")
+            return new_state_dict
+
+        model = self.to_cpu(model)
+        print('Loading model checkpoint at: {}'.format(checkpoint_path))
+        package = torch.load(checkpoint_path, map_location='cpu')
+        model_state_dict = maybe_remove_prefix(package['state_dict'])
+        model.load_state_dict(model_state_dict, strict=strict)
+        model.to(device="cpu")
+        return model
 
     def checkpoint_best(self, epoch, name):
         best_path = os.path.join(self.checkpoints_dir_path, name)
@@ -204,7 +253,7 @@ class Trainer(object):
         torch.save({
             'state_dict': self.model.state_dict(),
             'optim_dict': self.optimizer.state_dict(),
-            'epoch': epoch + 1,
+            'epoch': epoch,
             'best_val_acc': self.best_val_acc,},
                    best_path)
 
@@ -214,7 +263,7 @@ class Trainer(object):
         if self.args.detect_nan:
             torch.autograd.set_detect_anomaly(True)
 
-        for epoch in range(self.starting_epoch, self.args.epochs):
+        for epoch in range(self.starting_epoch, self.args.epochs + 1):
 
             # Set to training mode
             self.model.train()
@@ -292,7 +341,14 @@ class Trainer(object):
 
         # training ends
         if not self.args.dry_run:
-            return os.path.join(self.checkpoints_dir_path, "best.tar")
+            best_path = os.path.join(self.checkpoints_dir_path, "best.tar")
+            if self.args.export_qonnx or self.args.export_qonnx:
+                self.model = self.load_checkpoint(self.model, best_path, strict=True)
+            if self.args.export_qonnx:
+                self.export_qonnx()
+            if self.args.export_qcdq_onnx:
+                self.export_qcdq_onnx()
+            return best_path
 
     def eval_model(self, epoch=None):
         eval_meters = EvalEpochMeters()
@@ -345,3 +401,34 @@ class Trainer(object):
             self.logger.eval_batch_cli_log(eval_meters, i, len(self.test_loader))
 
         return eval_meters.top1.avg
+
+    def export_onnx(self, onnx_type):
+        name = self.args.network.lower()
+        path = os.path.join(self.output_onnx_path, name)
+        model = self.to_cpu(self.model)  # Switch to CPU for ONNX export
+        training_state = model.training
+        model.eval()
+        if onnx_type == "qonnx":
+            logstr = "QONNX"
+            export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+        elif onnx_type == "qcdq":
+            logstr = "QCDQ ONNX"
+            export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+            export_onnx_qcdq(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+        else:
+            self.logger.error(f"Unknown ONNX export format: {onnx_type}, expected qonnx or qcdq")
+            exit(1)
+        with open(path, "rb") as f:
+            bytes = f.read()
+            readable_hash = sha256(bytes).hexdigest()[:8]
+        new_path = os.path.join(
+            self.output_onnx_path, "{}-{}-{}.onnx".format(name, onnx_type, readable_hash))
+        os.rename(path, new_path)
+        self.logger.info("Exporting {} to {}".format(logstr, new_path))
+        model.train(training_state)
+
+    def export_qonnx(self):
+        self.export_onnx(onnx_type="qonnx")
+
+    def export_qcdq_onnx(self):
+        self.export_onnx(onnx_type="qcdq")

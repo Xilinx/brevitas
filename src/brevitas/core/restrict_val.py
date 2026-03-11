@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import math
-from typing import Callable, Optional, Union
+from typing import Optional
+from typing import Tuple
 
 import torch
 from torch import Tensor
@@ -14,7 +15,10 @@ from brevitas.core.function_wrapper import InplaceLogTwo
 from brevitas.core.function_wrapper import LogTwo
 from brevitas.core.function_wrapper import PowerOfTwo
 from brevitas.core.function_wrapper import RoundSte
-from brevitas.core.function_wrapper import ScalarClampMinSte
+from brevitas.core.function_wrapper import ScalarClampSte
+from brevitas.core.function_wrapper import ScalarSignedClampMinSte
+from brevitas.core.function_wrapper.misc import Abs
+from brevitas.core.function_wrapper.misc import InplaceAbs
 from brevitas.inject.enum import FloatToIntImplType  # retrocompatibility
 from brevitas.inject.enum import RestrictValueType
 
@@ -26,13 +30,23 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            scaling_min_val: Optional[float] = None,
+            min_val: Optional[float] = None,
+            max_val: Optional[float] = None,
             restrict_value_impl: Optional[Module] = None):
         super(_RestrictClampValue, self).__init__()
-        if scaling_min_val is not None and scaling_min_val != 0:
-            self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
+        # If only min_val is defined, then we enforce values to fall outside the range (-min_val, min_val)
+        # If both min_val and max_val are defined, then this behaves as a normal clamp
+        # If neither is defined, no clamping is performed
+        if min_val is not None:
+            if max_val is not None:
+                # When min_val and max_val are defined, we don't need to have a signed version of
+                # Clamp
+                self.clamp_ste = ScalarClampSte(min_val, max_val)
+            else:
+                self.clamp_ste = ScalarSignedClampMinSte(min_val)
         else:
-            self.clamp_min_ste = Identity()
+            self.clamp_ste = Identity()
+
         if restrict_value_impl is not None:
             self.restrict_value_impl = restrict_value_impl
         else:
@@ -41,7 +55,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         x = self.restrict_value_impl(x)
-        x = self.clamp_min_ste(x)
+        x = self.clamp_ste(x)
         return x
 
 
@@ -65,7 +79,7 @@ class _ClampValue(brevitas.jit.ScriptModule):
     def __init__(self, scaling_min_val: Optional[float]):
         super(_ClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
-            self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
+            self.clamp_min_ste = ScalarSignedClampMinSte(scaling_min_val)
         else:
             self.clamp_min_ste = Identity()
         self.min_val = scaling_min_val
@@ -78,8 +92,32 @@ class _ClampValue(brevitas.jit.ScriptModule):
 
 class FloatRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self) -> None:
+    def __init__(self):
         super(FloatRestrictValue, self).__init__()
+        self.apply_abs: Module = Abs()
+
+    def restrict_init_float(self, x: float):
+        return math.fabs(x)
+
+    def restrict_init_tensor(self, x: Tensor):
+        return torch.abs(x)
+
+    def restrict_init_module(self):
+        return Abs()
+
+    def restrict_init_inplace_module(self):
+        return InplaceAbs()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        x = self.apply_abs(x)
+        return x
+
+
+class SignedFloatRestrictValue(brevitas.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super(SignedFloatRestrictValue, self).__init__()
 
     def restrict_init_float(self, x: float) -> float:
         return x
@@ -174,9 +212,15 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
 class QuantRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, restrict_value_float_to_int_impl: Module):
+    def __init__(
+            self,
+            restrict_value_float_to_int_impl: Module,
+            scaling_shape: Tuple[int, ...],
+            scale_dequantized_shape: Optional[Tuple[int, ...]]):
         super(QuantRestrictValue, self).__init__()
         self.float_to_int_impl = restrict_value_float_to_int_impl
+        self.scaling_shape = scaling_shape
+        self.scale_dequantized_shape = scale_dequantized_shape
 
     def restrict_init_float(self, x: float):
         return Identity()
@@ -196,4 +240,9 @@ class QuantRestrictValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         o, *_ = self.float_to_int_impl(x)
+
+        # We need to go back to the dequantized shape, relevant for groupwise quantization
+        if self.scale_dequantized_shape is not None:
+            o = o.view(self.scale_dequantized_shape)
+
         return o

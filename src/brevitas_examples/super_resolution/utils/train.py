@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 
 from brevitas.core.scaling.pre_scaling import AccumulatorAwareParameterPreScaling
-from brevitas.function import abs_binary_sign_grad
+from brevitas.function.ops_ste import abs_binary_sign_grad
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 

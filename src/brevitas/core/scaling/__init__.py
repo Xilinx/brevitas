@@ -1,3 +1,6 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 
@@ -7,6 +10,7 @@ assert ScalingPerOutputType
 from brevitas.core.stats import SCALAR_SHAPE
 
 from .float_scaling import FloatScaling
+from .float_scaling import RoundMidMaxSte
 from .int_scaling import IntScaling
 from .int_scaling import PowerOfTwoIntScaling
 from .pre_scaling import AccumulatorAwareParameterPreScaling

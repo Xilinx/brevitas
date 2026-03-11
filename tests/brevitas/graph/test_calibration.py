@@ -4,7 +4,8 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import math
-from typing import Optional, Union
+from typing import Optional
+from typing import Union
 
 from hypothesis import given
 import pytest

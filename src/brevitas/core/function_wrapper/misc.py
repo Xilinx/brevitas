@@ -10,6 +10,49 @@ import torch
 import brevitas
 
 
+class Abs(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of :func:`~torch.abs`.
+
+    Examples:
+        >>> abs_module = Abs()
+        >>> x = torch.tensor([-1.0, 0.0, 1.0])
+        >>> abs_module(x)
+        tensor([1., 0., 1.])
+    """
+
+    def __init__(self) -> None:
+        super(Abs, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.abs(x)
+
+
+class InplaceAbs(torch.nn.Module):
+    """
+    Module wrapper for :func:`~torch.abs_`.
+
+    Examples:
+        >>> inplace_abs = InplaceAbs()
+        >>> x = torch.tensor(-1.0)
+        >>> inplace_abs(x)
+        >>> x
+        tensor(1.)
+
+    Notes:
+        Inplace operations in TorchScript can be problematic, compilation is disabled.
+    """
+
+    def __init__(self) -> None:
+        super(InplaceAbs, self).__init__()
+
+    @torch.jit.ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x.abs_()
+        return x
+
+
 class Identity(brevitas.jit.ScriptModule):
     """
     Identity ScriptModule.

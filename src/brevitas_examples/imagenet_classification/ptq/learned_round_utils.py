@@ -28,7 +28,12 @@
 
 import functools
 import re
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Optional
+from typing import Tuple
+from typing import Union
 import warnings
 
 from accelerate.utils.operations import send_to_device

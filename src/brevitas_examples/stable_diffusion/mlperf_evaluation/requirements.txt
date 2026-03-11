@@ -1,5 +1,6 @@
 accelerate==1.0.1
 diffusers==0.30.3
+numexpr<2.14.0
 open-clip-torch==2.26.1
 opencv-python==4.10.0.84
 pandas==2.2.2

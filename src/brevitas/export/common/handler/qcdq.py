@@ -73,6 +73,8 @@ class CDQCastMixin(DQCastMixin, ABC):
 
 class FloatQMixin(ABC):
 
+    export_fake_quantized = False
+
     @abstractmethod
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         pass
@@ -97,6 +99,8 @@ class FloatQMixin(ABC):
 
 
 class QMixin(BitWidthHandlerMixin, ABC):
+
+    export_fake_quantized = False
 
     @classmethod
     @abstractmethod
@@ -228,6 +232,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             if self._export_q_node:
                 self.prepare_quantize_from_floating_point(module)
@@ -262,12 +267,16 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
                 quant_weight.mantissa_bit_width,
                 module.is_ocp,
                 module.is_fnuz)
+            if self.export_fake_quantized:
+                self.symbolic_kwargs['fake_quant_weights'] = quant_weight.value
         else:
             self.symbolic_kwargs = None
 
     def quantize_from_floating_point(self, x: Tensor):
         # Workaround for equal_cpu RuntimeError
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        if self.export_fake_quantized:
+            x = self.symbolic_kwargs['fake_quant_weights']
         # Before quantization, cast input to float32
         if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)
@@ -337,6 +346,8 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
             scale = self.cast_fn(scale, torch.float32)
         self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
             scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
+        if self.export_fake_quantized:
+            self.symbolic_kwargs['fake_quant_weights'] = quant_weight.value
 
     def prepare_quantize_from_integer(self, module):
         int_weights = {
@@ -373,6 +384,8 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     def quantize_from_floating_point(self, x: Tensor):
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
         # Before quantization, cast input to float32
+        if self.export_fake_quantized:
+            x = self.symbolic_kwargs['fake_quant_weights']
         if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
@@ -450,6 +463,7 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             self.symbolic_kwargs['exponent_bit_width'] = module.exponent_bit_width()
             self.symbolic_kwargs['mantissa_bit_width'] = module.mantissa_bit_width()
@@ -529,6 +543,7 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
     handled_layer = ActQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+
         # compute axis before redefining scale
         axis = cls.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
@@ -544,6 +559,7 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             self.symbolic_kwargs['bit_width'] = module.bit_width()
 
@@ -779,6 +795,7 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
         if module.is_quant_enabled:
+            assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
             self.symbolic_kwargs = {
                 'narrow_range': module.is_narrow_range,

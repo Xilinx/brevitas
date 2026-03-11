@@ -118,3 +118,34 @@ class QuantIdentity(QuantNLAL):
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
+
+
+class QuantHardSwish(QuantNLAL):
+    """
+    Quantized HardSwish activation.
+
+    This is a baseline implementation using unsigned quantization (Uint8ActPerTensorFloat).
+    HardSwish output range is approximately [-0.33, ∞), and unsigned quantization clamps
+    the small negative values to zero, which is acceptable for most use cases.
+
+    For hardware-specific optimizations, consider:
+    - Asymmetric quantization with learned zero-point for better range utilization
+    - Hardware-specific quantization schemes that match your deployment target
+
+    Users should validate this implementation works for their specific use case.
+    """
+
+    def __init__(
+            self,
+            act_quant: Optional[ActQuantType] = Uint8ActPerTensorFloat,
+            input_quant: Optional[ActQuantType] = None,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.Hardswish,
+            passthrough_act=False,
+            input_quant=input_quant,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)

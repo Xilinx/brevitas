@@ -1,7 +1,8 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Any, Union
+from typing import Any
+from typing import Union
 
 from accelerate.utils.operations import send_to_device
 from hypothesis import given

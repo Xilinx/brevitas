@@ -1,9 +1,12 @@
 accelerate
 datasets
-lm_eval
+gguf==0.17.0
+numexpr<2.14.0
 onnx
 onnxruntime<1.21
 optimum
 pandas
+pydantic
+torch>=2.4
 tqdm
-transformers[sentencepiece]==4.47.1
+transformers[sentencepiece]<5.0

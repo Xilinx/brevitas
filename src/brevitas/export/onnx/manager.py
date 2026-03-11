@@ -4,7 +4,9 @@
 from abc import ABC
 from contextlib import nullcontext
 from io import BytesIO
-from typing import Optional, Tuple, Union
+from typing import Optional
+from typing import Tuple
+from typing import Union
 import warnings
 
 from packaging import version
@@ -42,7 +44,7 @@ class PatchFp8Ops():
     def __enter__(self):
         import numpy as np
 
-        if torch_version >= version.parse('2.1.0') and torch_version < version.parse('2.5'):
+        if torch_version >= version.parse('2.1.0') and torch_version < version.parse('2.6'):
             self.lib = torch.library.Library("aten", "IMPL")
 
             def equal_cpu(self, other):
@@ -75,6 +77,7 @@ class PatchFp8Ops():
 class ONNXBaseManager(BaseManager, ABC):
 
     model_transforms = []
+    run_onnx_passes = True
     onnx_passes = []
     custom_fns = []
     dequantize_tracing_input = True
@@ -82,8 +85,8 @@ class ONNXBaseManager(BaseManager, ABC):
 
     @classmethod
     def apply_model_transforms(cls, model):
-        for tranform in cls.model_transforms:
-            model = tranform(model)
+        for transform in cls.model_transforms:
+            model = transform(model)
         return model
 
     @classmethod
@@ -191,7 +194,8 @@ class ONNXBaseManager(BaseManager, ABC):
                         model = onnx.load(export_path)
                     else:
                         model = onnx.ModelProto.FromString(model_bytes.getvalue())
-                    model = opt.optimize(model, cls.onnx_passes)
+                    if cls.run_onnx_passes:
+                        model = opt.optimize(model, cls.onnx_passes)
                     model = cls.apply_model_transforms(model)
                     if export_path is not None:
                         onnx.save(model, export_path)

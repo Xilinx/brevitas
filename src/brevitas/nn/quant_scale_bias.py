@@ -1,7 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Type, Union
+from typing import Optional
+from typing import Tuple
+from typing import Type
+from typing import Union
 
 import torch
 from torch import Tensor
@@ -23,7 +26,8 @@ __all__ = ['ScaleBias', 'QuantScaleBias']
 
 class ScaleBias(Module):
 
-    def __init__(self, num_features: int, bias: bool, runtime_shape=(1, -1, 1, 1)):
+    def __init__(
+        self, num_features: int, bias: bool, runtime_shape: Tuple[int, ...] = (1, -1, 1, 1)):
         super(ScaleBias, self).__init__()
         self.num_features = num_features
         self.weight = Parameter(torch.ones(num_features))
@@ -47,9 +51,10 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
             bias_quant: Optional[BiasQuantType] = None,
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
+            runtime_shape: Tuple[int, ...] = (1, -1, 1, 1),
             return_quant_tensor: bool = False,
             **kwargs) -> None:
-        ScaleBias.__init__(self, num_features, bias)
+        ScaleBias.__init__(self, num_features, bias, runtime_shape)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,

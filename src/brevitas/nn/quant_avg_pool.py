@@ -3,7 +3,10 @@
 
 from functools import reduce
 from operator import mul
-from typing import Optional, Tuple, Type, Union
+from typing import Optional
+from typing import Tuple
+from typing import Type
+from typing import Union
 
 import torch
 from torch import Tensor

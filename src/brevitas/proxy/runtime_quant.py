@@ -3,7 +3,10 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Any, Optional, Tuple, Union
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn
@@ -108,6 +111,10 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif self.fused_activation_quant_proxy is not None:
             self.fused_activation_quant_proxy.tensor_quant = torch.compile(
                 self.fused_activation_quant_proxy.tensor_quant, dynamic=True, fullgraph=fullgraph)
+
+    @property
+    def is_proxy_compiled(self):
+        return 'OptimizedModule' in str(type(self.fused_activation_quant_proxy.tensor_quant))
 
     @property
     def input_view_impl(self):

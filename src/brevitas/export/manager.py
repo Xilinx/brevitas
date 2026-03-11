@@ -4,7 +4,9 @@
 from abc import ABC
 from abc import abstractmethod
 from io import BytesIO
-from typing import Tuple, Union
+from typing import Tuple
+from typing import Union
+import warnings
 
 import torch
 from torch import nn
@@ -12,12 +14,15 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas import config
+from brevitas.common import LayerProtocol
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
-from brevitas.utils.python_utils import patch
+from brevitas.utils.logging import setup_logger
+
+logging = setup_logger(__name__)
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -94,7 +99,7 @@ def _set_recurrent_layer_export_mode(model: Module, enabled: bool):
 
 def _set_layer_export_mode(model: Module, enabled: bool):
     for m in model.modules():
-        if isinstance(m, QuantLayerMixin) and hasattr(m, 'export_mode'):
+        if isinstance(m, LayerProtocol) and hasattr(m, 'export_mode'):
             m.export_mode = enabled
 
 
@@ -109,7 +114,7 @@ def _set_export_handler(manager_cls, module: Module, instance_type, no_inheritan
             module.export_handler is None):
         handler = manager_cls.handler_from_module(module, no_inheritance)
         if handler is None and module.requires_export_handler:
-            raise RuntimeError(f"Module {module.__class__} not supported for export.")
+            warnings.warn(f" Skipping module {module.__class__} because it has no handler")
         elif handler is None and not module.requires_export_handler:
             pass
         else:

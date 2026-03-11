@@ -2,7 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from contextlib import ExitStack
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Optional
+from typing import Union
 
 import torch
 from torch.nn import Module

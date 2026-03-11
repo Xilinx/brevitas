@@ -3,20 +3,19 @@
 
 from copy import deepcopy
 import math
-from typing import List, Optional
+from typing import List
+from typing import Optional
 import warnings
 
 import torch
 from torch import Tensor
 import torch.nn as nn
-import unfoldNd
 
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
-import brevitas.nn as qnn
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -29,22 +28,31 @@ class GPFQ(GPxQ):
     https://epubs.siam.org/doi/abs/10.1137/22M1511709
     """
 
-    def __init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig) -> None:
-        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
+    def __init__(
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            device='cpu',
+            dtype=torch.float32) -> None:
+        super().__init__(
+            layer, name, act_order, len_parallel_layers, create_weight_orig, device, dtype)
         # Initialize covariance matrices. We need them in float32
         # H = \hat{X} \hat{X}^T
-        self.H: Tensor = torch.zeros((self.groups, self.columns, self.columns),
-                                     device="cpu",
-                                     dtype=torch.float32)
+        self.H = torch.zeros((self.groups, self.columns, self.columns),
+                             device=self.device,
+                             dtype=self.dtype)
         # G = \hat{X} X^T
-        self.G: Tensor = torch.zeros((self.groups, self.columns, self.columns),
-                                     device="cpu",
-                                     dtype=torch.float32)
-        # buffer to speed-up GPU to CPU transfer
-        self.B: Tensor = torch.zeros((self.groups, self.columns, self.columns),
-                                     device="cpu",
-                                     dtype=torch.float32,
-                                     pin_memory=torch.cuda.is_available())
+        self.G = torch.zeros((self.groups, self.columns, self.columns),
+                             device=self.device,
+                             dtype=self.dtype)
+        if self.use_intermediate_buffer:
+            self.B = torch.zeros((self.groups, self.columns, self.columns),
+                                 device=self.device,
+                                 dtype=self.dtype,
+                                 pin_memory=torch.cuda.is_available())
         self.nsamples = 0
 
         self.quant_input = None
@@ -59,43 +67,12 @@ class GPFQ(GPxQ):
         current_layer.layer_names.add(self.name)
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
-        inp = self.process_input(input)
+        # NOTE: batch_size = seqlen for language models here
+        inp_processed = self.process_input(input)  # [groups, in_features, batch_size]
+        batch_size = inp_processed.shape[-1]
 
-        # Preprocess the input to compute the Hessian
-        if isinstance(self.layer, qnn.QuantLinear):
-            if len(inp.shape) > 2:
-                inp = inp.reshape((-1, sum(inp.shape[2:])))
-            inp = inp.t()
-            # For QuantLinear layer, groups will be 1
-            inp_processed = inp.unsqueeze(0)
-
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            # Pick the correct unfoldNd class
-            if is_conv_transposed(self.layer):
-                unfold_impl = unfoldNd.UnfoldTransposeNd
-            else:
-                unfold_impl = unfoldNd.UnfoldNd
-
-            unfold = unfold_impl(
-                self.layer.kernel_size,
-                dilation=self.layer.dilation,
-                padding=self.layer.padding,
-                stride=self.layer.stride)
-
-            # Split input based on how many groups in convolution
-            inp_by_group = torch.chunk(inp, self.groups, 1)
-            inp_processed = []
-            # Preprocess input by group
-            for inp in inp_by_group:
-                inp = unfold(inp)
-                inp = inp.transpose(1, 0)
-                inp = inp.flatten(1)
-                inp_processed.append(inp)
-            inp_processed = torch.stack(inp_processed)
-
-        # Normalizing by the sequence length for numerical stability
-        n = inp_processed.size(1)
-        inp_processed = math.sqrt(1 / n) * inp_processed.to(torch.float32)
+        # Normalizing for numerical stability
+        inp_processed = math.sqrt(1 / batch_size) * inp_processed.to(self.dtype)
 
         # NOTE: in the gpfq_mode context manager, we first collect quant inputs, then
         # we collect float inputs for the same batch. We assume this pattern here, but
@@ -104,14 +81,20 @@ class GPFQ(GPxQ):
         # if quant is not enabled, then it is the float input; if it is a float input
         # then a quant input has already happened and we can update G
         if not is_quant_enabled:
-            # Computing the normalized G matrix using CPU buffer
-            self.B.copy_(self.quant_input.bmm(inp_processed.transpose(2, 1)))
-            self.G += self.B
+            # Compute the normalized G matrix
+            if self.use_intermediate_buffer:
+                self.B.copy_(self.quant_input.bmm(inp_processed.transpose(2, 1)))
+                self.G += self.B
+            else:
+                self.G += self.quant_input.bmm(inp_processed.transpose(2, 1))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
-            # Computing the normalized H matrix using CPU buffer
-            self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
-            self.H += self.B
+            # Compute the normalized H matrix
+            if self.use_intermediate_buffer:
+                self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
+                self.H += self.B
+            else:
+                self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
             # store the quantized input for computing the H matrix
             assert self.quant_input is None
             self.quant_input = inp_processed
@@ -127,18 +110,17 @@ class GPFQ(GPxQ):
     def single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require metadata from input quantizers."
-
+        assert hasattr(self.layer, 'weight_orig'), \
+            "Error: GPFQ requires the original weights to be stored, see `create_weight_orig`."
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
-        del self.B  # free up memory by deleting the buffer
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
 
         weight = self.layer.weight.data
-        if self.create_weight_orig:
-            weight_orig = self.layer.weight_orig.data
-        else:
-            warnings.warn("Warning: GPFQ will perform better with `create_weight_orig=True`.")
-            weight_orig = weight.clone()
+        weight_orig = self.layer.weight_orig.data
         dev = weight.device
+        weight_orig = weight_orig.to(dev)
 
         # Store the original dtype of the weights
         # During computation, everything is converted to float32.
@@ -177,16 +159,16 @@ class GPFQ(GPxQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        Dg = torch.zeros((self.groups, self.columns), dtype=torch.float32)
-        Dh = torch.zeros((self.groups, self.columns), dtype=torch.float32)
+        Dg = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
+        Dh = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
         for group_index in range(self.groups):
             Dg[group_index].copy_(self.G[group_index].diag())
             Dh[group_index].copy_(self.H[group_index].diag())
         # if either norms are 0, the weight is effectively pruned
         Ds = torch.where(Dg * Dh != 0, Dg / Dh, torch.zeros_like(Dg))  # \hat{D}_tt / D_tt
 
-        Lg = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=torch.float32)
-        Lh = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=torch.float32)
+        Lg = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=self.dtype)
+        Lh = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=self.dtype)
         for group_index in range(self.groups):
             L0g = torch.tril(self.G[group_index], -1)  # L0
             L0h = torch.tril(self.H[group_index], -1)  # \hat{L0}
@@ -204,11 +186,11 @@ class GPFQ(GPxQ):
                 # t := time step (Lg, Lh, and Ds are re-ordered in time)
                 # i := input channel index (weight and error are not re-ordered)
                 i = permutation_list[group_index][t]
-                w = weight_orig[group_index, :, permutation_list[group_index][:t]].to(torch.float32)
-                q = q_groups[group_index].to(torch.float32)
+                w = weight_orig[group_index, :, permutation_list[group_index][:t]].to(self.dtype)
+                q = q_groups[group_index].to(self.dtype)
                 Lw = w.matmul(Lg[group_index, t, :t])
                 Lq = q.matmul(Lh[group_index, t, :t])
-                q_arg = Ds[group_index, t] * weight[group_index, :, i].to(torch.float32) + Lw - Lq
+                q_arg = Ds[group_index, t] * weight[group_index, :, i].to(self.dtype) + Lw - Lq
                 assert not torch.isnan(q_arg).any()
                 weight[group_index, :, i] = q_arg.to(dtype)
 
@@ -218,7 +200,8 @@ class GPFQ(GPxQ):
 
 class gpfq_mode(gpxq_mode):
     """
-    Apply GPFQ algorithm.
+    Apply GPFQ algorithm, or other algorithms that solve the mismatched objective function,
+    like Qronos or A2GPFQ.
 
     Args:
         model (Module): The model to quantize with GPFQ
@@ -234,8 +217,10 @@ class gpfq_mode(gpxq_mode):
             the forward call inside the context manager returns None. Default: False
         act_order (bool): Whether to order greedy path following by Hessian approximation.
             Default: False
-        gpfq_class (GPFQ): The uninitialized class to perform GPFQ.
-            Default: `brevitas.graph.gpfq.GPFQv2`, which is the memory-efficient formulation
+        algorithm_impl (GPFQ): The uninitialized class to execute the algorithm.
+            Default: `brevitas.graph.gpfq.GPFQ`
+        device (str): Device the buffers are stored on. Default: cpu
+        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
     Example:
         >>> with torch.no_grad():
@@ -257,7 +242,9 @@ class gpfq_mode(gpxq_mode):
             use_quant_activations: bool = True,
             return_forward_output: bool = False,
             act_order: bool = False,
-            gpfq_class: GPFQ = GPFQ) -> None:
+            algorithm_impl: GPFQ = GPFQ,
+            device: str = 'cpu',
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -267,9 +254,11 @@ class gpfq_mode(gpxq_mode):
             create_weight_orig,
             use_quant_activations,
             act_order,
-            return_forward_output)
+            return_forward_output,
+            device,
+            dtype)
 
-        self.gpfq_class = gpfq_class
+        self.algorithm_impl = algorithm_impl
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -303,9 +292,11 @@ class gpfq_mode(gpxq_mode):
             return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
-        return self.gpfq_class(
+        return self.algorithm_impl(
             layer=layer,
             name=name,
             act_order=self.act_order,
             len_parallel_layers=len_parallel_layers,
-            create_weight_orig=create_weight_orig)
+            create_weight_orig=create_weight_orig,
+            device=self.device,
+            dtype=self.dtype)

@@ -1,4 +1,8 @@
-from typing import List, Optional
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+from typing import List
+from typing import Optional
 
 import torch
 import torch.nn as nn

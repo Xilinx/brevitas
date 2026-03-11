@@ -1,5 +1,11 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from abc import ABC
-from typing import Any, Optional, Tuple, Union
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 import torch.nn as nn
@@ -45,26 +51,39 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
             return Identity()
 
     @property
-    def is_ocp(self):
-        is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
-        is_ocp_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values() == (('111',))
-
+    def is_ocp_e5m2(self):
         is_e5m2 = self.mantissa_bit_width() == 2 and self.exponent_bit_width() == 5
         is_ocp_e5m2 = is_e5m2 and self.inf_values() == (
             ('00',)) and self.nan_values() == ('01', '11', '10')
-
-        return is_ocp_e4m3 or is_ocp_e5m2
+        return is_ocp_e5m2
 
     @property
-    def is_fnuz(self):
+    def is_ocp_e4m3(self):
         is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
-        is_fnuz_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values(
-        ) is None and self.exponent_bias() == 8
+        is_ocp_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values() == (('111',))
+        return is_ocp_e4m3
 
+    @property
+    def is_ocp(self):
+        return self.is_ocp_e4m3 or self.is_ocp_e5m2
+
+    @property
+    def is_fnuz_e5m2(self):
         is_e5m2 = self.mantissa_bit_width() == 2 and self.exponent_bit_width() == 5
         is_fnuz_e5m2 = is_e5m2 and self.inf_values() is None and self.nan_values(
         ) is None and self.exponent_bias() == 16
-        return is_fnuz_e4m3 or is_fnuz_e5m2
+        return is_fnuz_e5m2
+
+    @property
+    def is_fnuz_e4m3(self):
+        is_e4m3 = self.mantissa_bit_width() == 3 and self.exponent_bit_width() == 4
+        is_fnuz_e4m3 = is_e4m3 and self.inf_values() is None and self.nan_values(
+        ) is None and self.exponent_bias() == 8
+        return is_fnuz_e4m3
+
+    @property
+    def is_fnuz(self):
+        return self.is_fnuz_e4m3 or self.is_fnuz_e5m2
 
 
 class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):

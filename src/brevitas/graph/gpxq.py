@@ -8,12 +8,15 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
 from operator import attrgetter
-from typing import List, Optional, Set
+from typing import List
+from typing import Optional
+from typing import Set
 import warnings
 
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+import unfoldNd
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
@@ -49,6 +52,8 @@ class gpxq_mode(quantization_status_manager):
         act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
         return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
             forward call inside the context manager returns None. Default: False
+        device (str): Device the buffers are stored on. Default: cpu
+        dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
 
     Example:
         >>> with torch.no_grad():
@@ -69,7 +74,9 @@ class gpxq_mode(quantization_status_manager):
             create_weight_orig: bool = True,
             use_quant_activations: bool = True,
             act_order: bool = False,
-            return_forward_output: bool = False) -> None:
+            return_forward_output: bool = False,
+            device: str = 'cpu',
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         # Note that if use_quant_activations = True, the super() context manager
@@ -90,6 +97,9 @@ class gpxq_mode(quantization_status_manager):
         self.num_layers = 0
         # Quantize following magnitude of activation
         self.act_order = act_order
+        # the device and dtype of the buffers
+        self.device = device
+        self.dtype = dtype
 
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
@@ -176,16 +186,26 @@ class gpxq_mode(quantization_status_manager):
 class GPxQ(ABC):
 
     def __init__(
-            self, layer, name, act_order, len_parallel_layers=1, create_weight_orig=True) -> None:
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers=1,
+            create_weight_orig=True,
+            device='cpu',
+            dtype=torch.float32) -> None:
         self.layer = layer
         self.name = name
         self.act_order = act_order
         self.create_weight_orig = create_weight_orig
+        # device and dtype of buffers; 'same' means using the same device for the buffer as the layer weights
+        self.device = layer.weight.device if device == 'same' else device
+        self.dtype = dtype
 
         weight_shape = torch.tensor(layer.weight.shape)
 
         if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
-            self.layer.register_buffer('weight_orig', layer.weight.detach().clone())
+            self.layer.register_buffer('weight_orig', layer.weight.detach().clone().cpu())
 
         # By default, use groups = 1
         self.groups = 1
@@ -203,6 +223,14 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_metadata = None
+
+    @property
+    def use_intermediate_buffer(self):
+        # By default, we are optimizing for minimizing peak memory usage, which is
+        # when self.device=='cpu'. Since the compute is done on the GPU but the buffers
+        # are on the GPU, we optimize the CPU to GPU transfer using in-place copy to
+        # pinned memory in an intermediate buffer, usually self.B
+        return self.device == 'cpu'
 
     def process_input(self, inp):
         # Input is a tuple, so we take first element
@@ -231,7 +259,39 @@ class GPxQ(ABC):
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
 
-        return inp
+        # Preprocess the input to compute the Hessian
+        if isinstance(self.layer, nn.Linear):
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
+            inp = inp.t()
+            # For QuantLinear layer, groups will be 1
+            inp_processed = inp.unsqueeze(0)
+
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            # Pick the correct unfoldNd class
+            if is_conv_transposed(self.layer):
+                unfold_impl = unfoldNd.UnfoldTransposeNd
+            else:
+                unfold_impl = unfoldNd.UnfoldNd
+
+            unfold = unfold_impl(
+                self.layer.kernel_size,
+                dilation=self.layer.dilation,
+                padding=self.layer.padding,
+                stride=self.layer.stride)
+
+            # Split input based on how many groups in convolution
+            inp_by_group = torch.chunk(inp, self.groups, 1)
+            inp_processed = []
+            # Preprocess input by group
+            for i, inp in enumerate(inp_by_group):
+                inp = unfold(inp)
+                inp = inp.transpose(1, 0)
+                inp = inp.flatten(1)
+                inp_processed.append(inp)
+            inp_processed = torch.stack(inp_processed)
+
+        return inp_processed
 
     @abstractmethod
     def update_batch(self):
@@ -242,6 +302,13 @@ class GPxQ(ABC):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list, with_quant_history=False):
+
+        # If the weight quantizer has not been initialized, raise an error
+        for m in self.layer.weight_quant.modules():
+            if hasattr(m, 'init_done') and not m.init_done:
+                raise RuntimeError(
+                    "Weight quantizer not initialized. Run a forward pass after quantization and try again."
+                )
 
         # We need to recompute quant weights at runtime since our float weights are being updated
         # Add offset in case of blockwise computation

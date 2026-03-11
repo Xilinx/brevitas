@@ -1,4 +1,10 @@
-from typing import List, NamedTuple, Optional, Tuple
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+from typing import List
+from typing import NamedTuple
+from typing import Optional
+from typing import Tuple
 
 import torch
 from torch import Tensor
@@ -6,7 +12,7 @@ from torch import Tensor
 from brevitas.function.ops_ste import round_ste
 from brevitas.utils.torch_utils import float_internal_scale
 
-TOLERANCE = {torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
+TOLERANCE = {torch.float64: 1e-1, torch.float32: 2e-1, torch.float16: 0.5, torch.bfloat16: 0.5}
 
 
 # Base class for all QuantTensor.

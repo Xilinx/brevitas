@@ -25,7 +25,13 @@ SOFTWARE.
 """
 
 import random
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import Union
 import warnings
 
 import numpy as np
@@ -92,15 +98,15 @@ def get_dataset_for_model(
     np.random.seed(seed)
     torch.random.manual_seed(seed)
 
-    if split not in ["train", "validation"]:
+    test_splits = ["validation", "test"]
+    # Pile and fineweb does not have a test section
+    testless_datasets = ['pile', 'fineweb']
+
+    if split not in ["train", *test_splits]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
 
-    raw_dataset = load_raw_dataset(
-        dataset_name=dataset_name,
-        split=split,
-        seed=seed,
-    )
-    if dataset_name == "wikitext2" or (dataset_name == "pile" and split == "validation"):
+    raw_dataset = load_raw_dataset(dataset_name=dataset_name, split=split, seed=seed)
+    if dataset_name == "wikitext2" or (dataset_name in testless_datasets and split in test_splits):
         # Document level BOS preprocessing is not supported for Wikitext2 as each row does not belong to
         # a single document
         if bos_preprocessing == "document":
@@ -115,8 +121,7 @@ def get_dataset_for_model(
             nsamples=nsamples,
             split=split,
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
-            seed=seed,
-        )
+            seed=seed)
     else:
         data = get_clm_dataset(
             raw_dataset=raw_dataset,
@@ -162,5 +167,21 @@ def get_dataset_for_model(
             ) for _ in range(num_layers))
 
     data = DatasetToDevice(data, device=device)
-
     return data
+
+
+def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
+    kwargs = {}
+    for curr_dict in batch:
+        for key, value in curr_dict.items():
+            if isinstance(value, torch.Tensor):
+                if key not in kwargs:
+                    kwargs[key] = []
+                kwargs[key].append(value)
+            else:
+                if key not in kwargs:
+                    kwargs[key] = value
+    for key, value in kwargs.items():
+        if isinstance(value, list) and len(value) > 0:
+            kwargs[key] = torch.cat(kwargs[key], dim=0)
+    return kwargs

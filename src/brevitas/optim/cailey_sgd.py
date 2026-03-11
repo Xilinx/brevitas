@@ -31,17 +31,14 @@ def matrix_norm_one(W):
     return out
 
 
-def Cayley_loop(X, W, tan_vec, t):  #
-    [n, p] = X.size()
+def cayley_loop(X, W, tan_vec, t, iters=5):
     Y = X + t * tan_vec
-    for i in range(5):
+    for _ in range(iters):
         Y = X + t * torch.matmul(W, 0.5 * (X + Y))
-
     return Y.t()
 
 
-def qr_retraction(tan_vec):  # tan_vec, p-by-n, p <= n
-    [p, n] = tan_vec.size()
+def qr_retraction(tan_vec):
     tan_vec.t_()
     dtype = tan_vec.dtype
     # torch.linalg.qr is not implemented for 'Half'
@@ -51,11 +48,10 @@ def qr_retraction(tan_vec):  # tan_vec, p-by-n, p <= n
     ph = d.sign()
     q *= ph.expand_as(q)
     q.t_()
-
     return q
 
 
-episilon = 1e-8
+epsilon = 1e-8
 
 
 class CaileySGD(Optimizer):
@@ -96,8 +92,9 @@ class CaileySGD(Optimizer):
         weight_decay: int = 0,
         nesterov: bool = False,
         stiefel: bool = False,
-        omega: int = 0,
-        grad_clip=None,
+        iters: int = 5,
+        grad_clip: bool = None,
+        dtype: str = None,
     ) -> None:
         defaults = dict(
             lr=lr,
@@ -107,11 +104,13 @@ class CaileySGD(Optimizer):
             nesterov=nesterov,
             stiefel=stiefel,
             omega=0,
+            iters=iters,
             grad_clip=grad_clip,
         )
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(CaileySGD, self).__init__(params, defaults)
+        self.dtype = getattr(torch, dtype) if dtype is not None else dtype
 
     def __setstate__(self, state) -> None:
         super(CaileySGD, self).__setstate__(state)
@@ -132,46 +131,62 @@ class CaileySGD(Optimizer):
         for group in self.param_groups:
             momentum = group["momentum"]
             stiefel = group["stiefel"]
+            iters = group["iters"]
 
             for p in group["params"]:
                 if p.grad is None:
                     continue
 
-                unity, _ = unit(p.data.view(p.size()[0], -1))
+                param = p.data
+                param_state = self.state[p]
+                # Store a copy of weights in desired dtype if it is different from param dtype
+                if self.dtype is not None and self.dtype != param.dtype:
+                    if "weight_buffer" not in param_state:
+                        param_state["weight_buffer"] = param.clone().to(self.dtype)
+                    param = param_state["weight_buffer"]
+
+                unity = param.view(p.size()[0], -1)
+                unity, _ = unit(unity)
                 if stiefel and unity.size()[0] <= unity.size()[1]:
-                    weight_decay = group["weight_decay"]
-                    dampening = group["dampening"]
-                    nesterov = group["nesterov"]
 
                     rand_num = random.randint(1, 101)
                     if rand_num == 1:
                         unity = qr_retraction(unity)
 
                     g = p.grad.data.view(p.size()[0], -1)
+                    if self.dtype is not None:
+                        g = g.to(self.dtype)
 
                     lr = group["lr"]
 
-                    param_state = self.state[p]
-                    if "momentum_buffer" not in param_state:
-                        param_state["momentum_buffer"] = torch.zeros_like(g.t())
+                    # if momentum is used, initialize the momentum buffer
+                    V = 0.
+                    if momentum != 0:
+                        if "momentum_buffer" not in param_state:
+                            param_state["momentum_buffer"] = torch.zeros_like(g.t())
+                        V = param_state["momentum_buffer"]
 
-                    V = param_state["momentum_buffer"]
                     V = momentum * V - g.t()
                     MX = torch.mm(V, unity)
                     XMX = torch.mm(unity, MX)
                     XXMX = torch.mm(unity.t(), XMX)
                     W_hat = MX - 0.5 * XXMX
                     W = W_hat - W_hat.t()
-                    t = 0.5 * 2 / (matrix_norm_one(W) + episilon)
+                    t = 1. / (matrix_norm_one(W) + epsilon)
                     alpha = min(t, lr)
 
-                    p_new = Cayley_loop(unity.t(), W, V, alpha)
-                    V_new = torch.mm(W, unity.t())  # n-by-p
-                    #                     check_identity(p_new.t())
-                    p.data.copy_(p_new.view(p.size()))
-                    V.copy_(V_new)
+                    p_new = cayley_loop(unity.t(), W, V, alpha, iters)
+                    param.copy_(p_new)  # update shadow weights
+                    p.data.copy_(p_new.view(p.size()).to(p.data.dtype))  # update param.data
+                    # update momentum buffer if momentum is used
+                    if momentum != 0:
+                        V.copy_(torch.mm(W, unity.t()))  # n-by-p
 
                 else:
+
+                    weight_decay = group["weight_decay"]
+                    dampening = group["dampening"]
+                    nesterov = group["nesterov"]
                     d_p = p.grad.data
                     #  defined.
                     try:

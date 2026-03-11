@@ -95,3 +95,20 @@ def get_min_available_float(
     min_value = get_minifloat_value(
         exponent=exponent, mantissa=mantissa, exponent_bias=exponent_bias)
     return min_value
+
+
+# TODO: Allow dynamically changing this value at runtime
+def get_midmax_mantissa_bit_bias(
+        mantissa_bit_width: int, nan_values: Tuple[str], inf_values: Tuple[str]) -> float:
+    # Calculate how much bias needs to be added midmax calculation, based on the amount of reserved values for inf, nan
+    num_inf_values = 0 if inf_values is None else len(inf_values)
+    num_nan_values = 0 if nan_values is None else len(nan_values)
+    total_reserved_values = num_inf_values + num_nan_values
+    excess_reserved_values = total_reserved_values % 2 ** mantissa_bit_width  # How many extra values are reserved for the highest valid exponent
+    if excess_reserved_values == 0:
+        return 0.0  # No special reserved mantissa values at maximum valid mantissa
+    elif (excess_reserved_values + 1) == 2 ** mantissa_bit_width:
+        return 0.0  # Edge case when only f'0{mantissa_bit_width}b' is representable at the maximum mantissa
+    else:
+        return torch.log2(torch.tensor(excess_reserved_values + 1)).item(
+        )  # The number of bits of the mantissa that are consumed by the reserved values

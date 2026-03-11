@@ -1,4 +1,8 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import pytest
+import torch
 
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_activation import QuantReLU
@@ -80,3 +84,12 @@ class TestProxy:
 
         model.act_quant.disable_quant = True
         assert model.act_quant.bit_width() is None
+
+    def test_training_state(self):
+        quant_layer = QuantLinear(10, 5, weight_quant=Int8WeightPerTensorFloat)
+        quant_layer.eval()
+
+        # Setting new weights will re-init the quant tensor
+        quant_layer.weight = torch.nn.Parameter(torch.randn_like(quant_layer.weight))
+
+        assert quant_layer.weight_quant.tensor_quant.training == False

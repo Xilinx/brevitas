@@ -3,6 +3,9 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 import re
+from typing import Any
+from typing import Dict
+from typing import Tuple
 
 from dependencies import this
 import torch
@@ -12,9 +15,12 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
+from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import StatsOp
 from brevitas.quant.base import ParameterFromRuntimeZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
@@ -69,6 +75,7 @@ from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActP
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
@@ -130,7 +137,10 @@ WEIGHT_QUANT_MAP = {
                 'per_channel': {
                     'sym': Fp8e4m3WeightPerChannelFloat},
                 'per_group': {
-                    'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
+                    'sym': Fp8e4m3WeightSymmetricGroupQuant}},
+            'mse': {
+                'per_channel': {
+                    'sym': Fp8e4m3WeightPerChannelFloatMSE}}}},
     'float_ocp': {
         'float_scale': {
             'stats': {
@@ -243,8 +253,38 @@ INPUT_QUANT_MAP = {
                         'sym': Fp8e4m3FNUZActPerTensorFloat}}}}}}
 
 
+def maybe_inject_signed_scale_kwargs(
+        injector, scale_quant_format: str, quant_kwargs: Dict[str, Any]):
+    if not quant_kwargs.get('signed', False):
+        return injector
+    return injector.let(
+        **{
+            'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+            'scaling_stats_op': StatsOp.SIGNED_MAX,})
+
+
+# Retrive base quantizer, match against custom float format, or return as-is
+def quant_format_from_string(quant_format: str) -> Tuple[str, Dict[str, Any]]:
+    quant_format_re = re.compile(r'e[1-8]m[1-8]')
+    if quant_format_re.findall(quant_format):
+        float_type = quant_format_re.findall(quant_format)[0]
+        quant_format = quant_format.replace('_' + float_type, '')
+        float_format = {
+            'exponent_bit_width': int(float_type[1]), 'mantissa_bit_width': int(float_type[3])}
+    else:
+        float_format = {}
+    return quant_format, float_format
+
+
+def scale_quant_format_from_string(scale_quant_format: str) -> Tuple[str, Dict[str, Any]]:
+    is_signed = False
+    if scale_quant_format.startswith('signed_'):
+        scale_quant_format = scale_quant_format.removeprefix('signed_')
+        is_signed = True
+    return scale_quant_format, {'signed': is_signed}
+
+
 def generate_quantizers(
-        dtype,
         weight_bit_width,
         weight_param_method,
         weight_scale_precision,
@@ -263,43 +303,44 @@ def generate_quantizers(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
-        kv_quant_type=None,
-        kv_quant_granularity=None,
+        attn_quant_config="qkvs",  # choices: "kv", "qkvs", "qkv"
+        attn_bit_width=None,
+        attn_quant_format=None,
+        attn_scale_precision=None,
+        attn_scale_type=None,
+        attn_param_method=None,
+        attn_quant_type=None,
+        attn_quant_granularity=None,
+        attn_group_size=None,
         quantize_input_zero_point=False,
         scale_rounding_func_type=None,
-        device=None,
         weight_kwargs=None,
         input_kwargs=None,
+        attn_kwargs=None,
         quant_attn_mode='mha',
         scaling_min_val=1e-4):
     """
     Replace float layers with quant layers in the target model
     """
-    # Retrive base input and weight quantizers
-    # match against custom float format
-    if re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format):
-        format = re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format)[0]
-        weight_quant_format = weight_quant_format.replace('_' + format, '')
-        weight_float_format = {
-            'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
-    else:
-        weight_float_format = {}
-    if re.compile(r'e[1-8]m[1-8]').findall(input_quant_format):
-        format = re.compile(r'e[1-8]m[1-8]').findall(input_quant_format)[0]
-        input_quant_format = input_quant_format.replace('_' + format, '')
-        input_float_format = {
-            'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
-    else:
-        input_float_format = {}
+
+    weight_quant_format, weight_float_format = quant_format_from_string(weight_quant_format)
+    input_quant_format, input_float_format = quant_format_from_string(input_quant_format)
+
+    # Process scale precision format
+    weight_scale_precision, weight_scale_quant_kwargs = scale_quant_format_from_string(weight_scale_precision)
+    input_scale_precision, input_scale_quant_kwargs = scale_quant_format_from_string(input_scale_precision)
 
     weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
         weight_param_method][weight_quant_granularity][weight_quant_type]
 
     if input_kwargs is None:
         input_kwargs = dict()
+    if attn_kwargs is None:
+        attn_kwargs = dict()
 
     if scale_rounding_func_type is not None:
-        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte}
+        scale_rounding_func_dict = {
+            'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         input_kwargs = {**input_kwargs, **{'restrict_value_float_to_int_impl': scale_type}}
 
@@ -307,48 +348,62 @@ def generate_quantizers(
         input_kwargs = {**input_kwargs, **{'scaling_min_val': scaling_min_val}}
 
     if input_bit_width is not None and input_scale_type == 'no_scale':
-        input_quant = sym_input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
-            input_scale_type][input_quant_type]
+        input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+            input_quant_type]
     elif input_bit_width is not None:
         input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][input_scale_precision][
             input_param_method][input_quant_granularity][input_quant_type]
-        # Some activations in MHA should always be symmetric
-        sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][input_quant_granularity]['sym']
         linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
-        if kv_quant_type is not None:
-            q_scaled_quant = attn_output_weights_quant = None
-
-        else:
-            q_scaled_quant = attn_output_weights_quant = sym_input_quant
-
-        kv_quant_type = kv_quant_type if kv_quant_type is not None else input_quant_type
-        kv_quant_granularity = kv_quant_granularity if kv_quant_granularity is not None else input_quant_granularity
-
-        v_quant = k_transposed_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][kv_quant_granularity][kv_quant_type]
+        attn_quant_format, attn_float_format = quant_format_from_string(attn_quant_format) if attn_quant_format is not None else (input_quant_format, input_float_format)
+        attn_scale_precision, attn_scale_quant_kwargs = scale_quant_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_quant_kwargs)
+        attn_scale_type = attn_scale_type if attn_scale_type is not None else input_scale_type
+        attn_scale_precision = attn_scale_precision if attn_scale_precision is not None else input_scale_precision
+        attn_param_method = attn_param_method if attn_param_method is not None else input_param_method
+        attn_quant_granularity = attn_quant_granularity if attn_quant_granularity is not None else input_quant_granularity
+        attn_quant_type = attn_quant_type if attn_quant_type is not None else input_quant_type
+        attn_group_size = attn_group_size if attn_group_size is not None else input_group_size
+        k_transposed_quant = INPUT_QUANT_MAP[attn_quant_format][attn_scale_type][
+            attn_scale_precision][attn_param_method][attn_quant_granularity][attn_quant_type]
 
         extra_kwargs = {
             'bit_width': input_bit_width,
-            'quantize_zero_point': quantize_input_zero_point,
-            'dtype': dtype,
-            'device': device}
+            'quantize_zero_point': quantize_input_zero_point,}
         input_kwargs = {**input_kwargs, **extra_kwargs, **input_float_format}
+        attn_override_kwargs = {
+            'bit_width': attn_bit_width if attn_bit_width is not None else input_bit_width,
+            **attn_float_format,
+            **attn_kwargs,}
 
         input_quant = input_quant.let(**input_kwargs)
-        sym_input_quant = sym_input_quant.let(**input_kwargs)
+        # Enable signed scale if specified in the input scale precision format
+        input_quant = maybe_inject_signed_scale_kwargs(
+            input_quant, input_scale_precision, input_scale_quant_kwargs)
+
         linear_input_quant = linear_input_quant.let(**input_kwargs)
-        v_quant = v_quant.let(**input_kwargs)
-        k_transposed_quant = k_transposed_quant.let(**input_kwargs)
-        q_scaled_quant = q_scaled_quant.let(**input_kwargs) if q_scaled_quant is not None else None
-        attn_output_weights_quant = attn_output_weights_quant.let(
-            **input_kwargs) if attn_output_weights_quant is not None else None
+        linear_input_quant = maybe_inject_signed_scale_kwargs(
+            linear_input_quant, input_scale_precision, input_scale_quant_kwargs)
+
+        k_transposed_quant = k_transposed_quant.let(
+            **input_kwargs
+        )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
+        k_transposed_quant = k_transposed_quant.let(
+            **attn_override_kwargs
+        )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
+        # Enable signed scale if specified in the attention scale precision format
+        k_transposed_quant = maybe_inject_signed_scale_kwargs(
+            k_transposed_quant, attn_scale_precision, attn_scale_quant_kwargs)
+        if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
+            q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
+        elif attn_quant_config == "kv":
+            q_scaled_quant = None
+        else:
+            raise ValueError(
+                f"Unknown option for attn_quant_config. attn_quant_config={attn_quant_config}")
 
     else:
         input_quant = None
-        sym_input_quant = None
         linear_input_quant = None
         q_scaled_quant = attn_output_weights_quant = v_quant = k_transposed_quant = None
 
@@ -361,7 +416,8 @@ def generate_quantizers(
         **weight_float_format)
 
     if scale_rounding_func_type is not None:
-        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte}
+        scale_rounding_func_dict = {
+            'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         weight_quant = weight_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
 
@@ -385,6 +441,10 @@ def generate_quantizers(
     if weight_quant_type == 'asym' and weight_scaling_impl_type == 'parameter_from_stats':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
 
+    # Enable signed scale if specified in the weight scale precision format
+    weight_quant = maybe_inject_signed_scale_kwargs(
+        weight_quant, weight_scale_precision, weight_scale_quant_kwargs)
+
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)
         kv_broadcastable_shape_lambda = lambda x, shape: x.view(shape[0], shape[1], 1, shape[-1])
@@ -406,34 +466,38 @@ def generate_quantizers(
             input_quant = input_quant.let(**{'group_size': input_group_size})
 
         # QKV/Softmax Quant
-        if kv_quant_granularity == 'per_row':
+        if attn_quant_granularity == 'per_row':
             q_scaled_quant = q_scaled_quant.let(
                 **{
                     'dynamic_scaling_broadcastable_fn': lambda x,
                                                         shape: x.view(*shape[:-1], 1),
                     'permute_dims': None,
                     'stats_reduce_dim': 1}) if q_scaled_quant is not None else None
-            v_quant = v_quant.let(
-                **{
-                    'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
-                    'permute_dims': kv_permute_dims,
-                    'stats_reduce_dim': 1})
             k_transposed_quant = k_transposed_quant.let(
                 **{
                     'dynamic_scaling_broadcastable_fn': kv_broadcastable_shape_lambda,
                     'permute_dims': kv_permute_dims,
                     'stats_reduce_dim': 1})
-        elif kv_quant_granularity == 'per_group':
+        elif attn_quant_granularity == 'per_group':
             q_scaled_quant = q_scaled_quant.let(
                 **{
-                    'group_dim': -1, 'group_size': input_group_size
+                    'group_dim': -1, 'group_size': attn_group_size
                 }) if q_scaled_quant is not None else None
-            v_quant = v_quant.let(**{'group_dim': -1, 'group_size': input_group_size})
             k_transposed_quant = k_transposed_quant.let(
                 **{
-                    'group_dim': -2, 'group_size': input_group_size})
+                    'group_dim': -2, 'group_size': attn_group_size})
         v_quant = k_transposed_quant
-        attn_output_weights_quant = q_scaled_quant
+
+        # If we only quantize QKV< set attn_output_weight_quant to None
+        if attn_quant_config == 'qkv':
+            attn_output_weights_quant = None
+        else:
+            attn_output_weights_quant = q_scaled_quant
+
+        if (attn_quant_type == "sym") and \
+            (not "float" in attn_quant_format) and \
+            (attn_output_weights_quant is not None):
+            attn_output_weights_quant = attn_output_weights_quant.let(**{'signed': False})
 
         # Input to Linear Layer Quant
         if input_quant_granularity == 'per_row':
@@ -447,7 +511,14 @@ def generate_quantizers(
             linear_input_quant = linear_input_quant.let(
                 **{
                     'group_dim': -1, 'group_size': input_group_size})
-    return linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant
+    return {
+        'linear_input_quant': linear_input_quant,
+        'weight_quant': weight_quant,
+        'input_quant': input_quant,
+        'q_scaled_quant': q_scaled_quant,
+        'k_transposed_quant': k_transposed_quant,
+        'v_quant': v_quant,
+        'attn_output_weights_quant': attn_output_weights_quant}
 
 
 def generate_quant_maps(
@@ -460,7 +531,6 @@ def generate_quant_maps(
         attn_output_weights_quant,
         dtype,
         device,
-        input_quant_format,
         quantize_embedding):
 
     quant_linear_kwargs = {
@@ -477,7 +547,6 @@ def generate_quant_maps(
         'in_proj_bias_quant': None,
         'softmax_input_quant': None,
         'attn_output_weights_quant': attn_output_weights_quant,
-        'attn_output_weights_signed': 'float' in input_quant_format,
         'q_scaled_quant': q_scaled_quant,
         'k_transposed_quant': k_transposed_quant,
         'v_quant': v_quant,
@@ -495,7 +564,6 @@ def generate_quant_maps(
     quant_sdpa_kwargs = {
         'softmax_input_quant': None,
         'attn_output_weights_quant': attn_output_weights_quant,
-        'attn_output_weights_signed': 'float' in input_quant_format,
         'q_scaled_quant': q_scaled_quant,
         'k_transposed_quant': k_transposed_quant,
         'v_quant': v_quant,
@@ -538,6 +606,15 @@ def quantize_model(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
+        attn_quant_config="qkvs",  # choices: "kv", "qkvs"
+        attn_bit_width=None,
+        attn_quant_format=None,
+        attn_scale_precision=None,
+        attn_scale_type=None,
+        attn_param_method=None,
+        attn_quant_type=None,
+        attn_quant_granularity=None,
+        attn_group_size=None,
         quantize_input_zero_point=False,
         quantize_embedding=False,
         device=None,
@@ -545,7 +622,6 @@ def quantize_model(
         input_kwargs=None):
 
     linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
-        dtype=dtype,
         weight_bit_width=weight_bit_width,
         weight_param_method=weight_param_method,
         weight_scale_precision=weight_scale_precision,
@@ -562,22 +638,29 @@ def quantize_model(
         input_quant_type=input_quant_type,
         input_quant_granularity=input_quant_granularity,
         input_group_size=input_group_size,
+        attn_quant_config=attn_quant_config,
+        attn_bit_width=attn_bit_width,
+        attn_quant_format=attn_quant_format,
+        attn_scale_precision=attn_scale_precision,
+        attn_scale_type=attn_scale_type,
+        attn_param_method=attn_param_method,
+        attn_quant_type=attn_quant_type,
+        attn_quant_granularity=attn_quant_granularity,
+        attn_group_size=attn_group_size,
         quantize_input_zero_point=quantize_input_zero_point,
-        device=device,
         weight_kwargs=weight_kwargs,
         input_kwargs=input_kwargs)
     layer_map = generate_quant_maps(
-        linear_input_quant,
-        weight_quant,
-        input_quant,
-        q_scaled_quant,
-        k_transposed_quant,
-        v_quant,
-        attn_output_weights_quant,
-        dtype,
-        device,
-        input_quant_format,
-        quantize_embedding)
+        linear_input_quant=linear_input_quant,
+        weight_quant=weight_quant,
+        input_quant=input_quant,
+        q_scaled_quant=q_scaled_quant,
+        k_transposed_quant=k_transposed_quant,
+        v_quant=v_quant,
+        attn_output_weights_quant=attn_output_weights_quant,
+        dtype=dtype,
+        device=device,
+        quantize_embedding=quantize_embedding)
     model = layerwise_quantize(
         model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
     return model

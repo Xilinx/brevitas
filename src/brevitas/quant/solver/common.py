@@ -1,7 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
+from dependencies import this
+
 from brevitas.core.bit_width import *
+from brevitas.core.bit_width.float import ComputeMaxMantissa
+from brevitas.core.bit_width.float import StaticMaxMantissa
 from brevitas.core.function_wrapper import *
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundIdentity
@@ -15,6 +21,8 @@ from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
+from brevitas.core.stats.stats_op import SIGNEDNESS_STATS
+from brevitas.function.ops import compute_max_mantissa
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
 from brevitas.inject.enum import LearnedRoundImplType
@@ -32,7 +40,8 @@ __all__ = [
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
     'SolveScalingStatsInputViewShapeImplFromEnum',
-    'SolveDtypeDeviceFromTrackedParameterList']
+    'SolveDtypeDeviceFromTrackedParameterList',
+    'SolveRestrictScaleSign']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -65,9 +74,15 @@ def solve_bit_width_impl_from_enum(impl_type):
         raise Exception(f"{impl_type} not recognized.")
 
 
+# TODO (pml): For retrocompatibility, the scale is assumed to be unsigned when
+# impl_type == RestrictValueType.FP. In the future, FP should return
+# SignedFloatRestrictValue, with SIGNED_FP being removed in favour of UNSIGNED_FP for
+# consistent naming.
 def solve_restrict_value_impl_from_enum(impl_type):
     if impl_type == RestrictValueType.FP:
         return FloatRestrictValue
+    elif impl_type == RestrictValueType.SIGNED_FP:
+        return SignedFloatRestrictValue
     elif impl_type == RestrictValueType.LOG_FP:
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:
@@ -83,6 +98,49 @@ class SolveRestrictScalingImplFromEnum(ExtendedInjector):
         return solve_restrict_value_impl_from_enum(restrict_scaling_type)
 
 
+class ExponentBitWidthClass(ExtendedInjector):
+    exponent_bit_width_impl_type = (this << 1).exponent_bit_width_impl_type
+    bit_width = (this << 1).exponent_bit_width
+
+    @value
+    def bit_width_impl_type(exponent_bit_width_impl_type):
+        return solve_bit_width_impl_from_enum(exponent_bit_width_impl_type)
+
+
+class MantissaBitWidthClass(ExtendedInjector):
+    mantissa_bit_width_impl_type = (this << 1).mantissa_bit_width_impl_type
+    bit_width = (this << 1).mantissa_bit_width
+
+    @value
+    def bit_width_impl_type(mantissa_bit_width_impl_type):
+        return solve_bit_width_impl_from_enum(mantissa_bit_width_impl_type)
+
+    @value
+    def compute_max_mantissa(mantissa_bit_width_impl_type, bit_width):
+        if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
+            return StaticMaxMantissa(compute_max_mantissa(torch.tensor(float(bit_width))))
+        else:
+            return ComputeMaxMantissa
+
+
+class SolveFloatBitWidthImplFromEnum(ExtendedInjector):
+
+    exponent_bit_class = ExponentBitWidthClass
+    mantissa_bit_class = MantissaBitWidthClass
+
+    @value
+    def exponent_bit_width_impl():
+        return this.exponent_bit_class.bit_width_impl_type
+
+    @value
+    def mantissa_bit_width_impl():
+        return this.mantissa_bit_class.bit_width_impl_type
+
+    @value
+    def compute_max_mantissa():
+        return this.mantissa_bit_class.compute_max_mantissa
+
+
 class SolveBitWidthImplFromEnum(ExtendedInjector):
 
     @value
@@ -93,25 +151,42 @@ class SolveBitWidthImplFromEnum(ExtendedInjector):
 class SolveScalingStatsOpFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_impl(scaling_stats_op):
-        if scaling_stats_op == StatsOp.MAX:
-            return AbsMax
+    def scaling_stats_impl(scaling_stats_op=None, restrict_scaling_type=None):
+        if scaling_stats_op is None:
+            scaling_stats_impl = None
+        elif scaling_stats_op == StatsOp.MAX:
+            scaling_stats_impl = AbsMax
         elif scaling_stats_op == StatsOp.MAX_AVE:
-            return AbsMaxAve
+            scaling_stats_impl = AbsMaxAve
         elif scaling_stats_op == StatsOp.AVE:
-            return AbsAve
+            scaling_stats_impl = AbsAve
         elif scaling_stats_op == StatsOp.MEAN_SIGMA_STD:
-            return MeanSigmaStd
+            scaling_stats_impl = MeanSigmaStd
         elif scaling_stats_op == StatsOp.MEAN_LEARN_SIGMA_STD:
-            return MeanLearnedSigmaStd
+            scaling_stats_impl = MeanLearnedSigmaStd
         elif scaling_stats_op == StatsOp.PERCENTILE:
-            return AbsPercentile
+            scaling_stats_impl = AbsPercentile
         elif scaling_stats_op == StatsOp.MIN_MAX:
-            return AbsMinMax
+            scaling_stats_impl = AbsMinMax
         elif scaling_stats_op == StatsOp.PERCENTILE_INTERVAL:
-            return PercentileInterval
+            scaling_stats_impl = PercentileInterval
+        elif scaling_stats_op == StatsOp.SIGNED_MAX:
+            scaling_stats_impl = SignedAbsMax
         else:
             raise RuntimeError(f"{scaling_stats_op} not recognized.")
+
+        # For power of two scales, the stat needs to be unsigned
+        if restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
+            if scaling_stats_impl not in SIGNEDNESS_STATS:
+                raise ValueError(
+                    f"Signedness of statistic {scaling_stats_impl.__name__} is not known."
+                    f"Register the statistic using the decorator @register_stat_implementation.")
+            if SIGNEDNESS_STATS[scaling_stats_impl]:
+                raise ValueError(
+                    f"Statistic {scaling_stats_impl.__name__} is signed but only unsigned statistics can "
+                    f"be used with power-of-two scales.")
+
+        return scaling_stats_impl
 
 
 class SolveAffineRescalingFromEnum(ExtendedInjector):
@@ -163,6 +238,8 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
     @value
     def int_scaling_impl(restrict_scaling_type):
         if restrict_scaling_type == RestrictValueType.FP:
+            return IntScaling
+        if restrict_scaling_type == RestrictValueType.SIGNED_FP:
             return IntScaling
         elif restrict_scaling_type == RestrictValueType.LOG_FP:
             return IntScaling
@@ -233,3 +310,10 @@ class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
             return tracked_parameter_list[0].device
         else:
             return None
+
+
+class SolveRestrictScaleSign(ExtendedInjector):
+
+    @value
+    def restrict_scale_positive(restrict_scaling_type=None):
+        return restrict_scaling_type in [RestrictValueType.FP, RestrictValueType.POWER_OF_TWO]

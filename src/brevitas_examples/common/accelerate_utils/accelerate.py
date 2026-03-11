@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import logging
-from typing import Dict, Mapping, Optional, Union
+from typing import Dict
+from typing import Mapping
+from typing import Optional
+from typing import Union
 
 from accelerate import dispatch_model
 from accelerate import infer_auto_device_map
@@ -312,7 +315,8 @@ def offload_call_function(model: torch.fx.GraphModule, device_map: Dict):
     model.graph.lint()
 
 
-def remove_hooks(model: torch.nn.Module):
+def remove_hooks(model: torch.nn.Module) -> torch.nn.Module:
+
     for module in model.modules():
         if hasattr(module, "_hf_hook"):
             if hasattr(module, "allocate_params"):

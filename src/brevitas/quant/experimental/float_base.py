@@ -1,26 +1,32 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from brevitas.core.bit_width.float import StaticExponentBias
 from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
+from brevitas.inject.enum import BitWidthImplType
 from brevitas.proxy import ActFloatQuantProxyFromInjector
 from brevitas.proxy import WeightFloatQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
+from brevitas.quant.solver.common import SolveFloatBitWidthImplFromEnum
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
 
 
-class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
+class FloatBase(SolveTensorQuantFloatToIntImplFromEnum, SolveFloatBitWidthImplFromEnum):
     tensor_quant = FloatQuant
     signed = True
     float_to_int_impl_type = 'round'
     scaling_min_val = 1e-10
     float_clamp_impl = FloatClamp
     tensor_clamp_impl = TensorClamp
+    exponent_bit_width_impl_type = BitWidthImplType.CONST
+    mantissa_bit_width_impl_type = BitWidthImplType.CONST
+    exponent_bias_impl = StaticExponentBias
 
     @value
     def exponent_bias(exponent_bit_width):

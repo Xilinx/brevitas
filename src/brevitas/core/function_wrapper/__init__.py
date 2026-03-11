@@ -6,6 +6,7 @@ from .clamp import FloatClamp
 from .clamp import ScalarClamp
 from .clamp import TensorClamp
 from .learned_round import LearnedRoundSte
+from .misc import Abs
 from .misc import Identity
 from .misc import InplaceLogTwo
 from .misc import LogTwo
@@ -17,6 +18,8 @@ from .ops_ste import InplaceTensorClampSte
 from .ops_ste import RoundSte
 from .ops_ste import RoundToZeroSte
 from .ops_ste import ScalarClampMinSte
+from .ops_ste import ScalarClampSte
+from .ops_ste import ScalarSignedClampMinSte
 from .ops_ste import TensorClampSte
 from .shape import OverBatchOverOutputChannelView
 from .shape import OverBatchOverTensorView

@@ -1,0 +1,34 @@
+# non-defaults only; see default_template.yml for defaults
+# adds a BOS token to the beginning of each sequence
+bos_preprocessing: sequence
+dtype: bfloat16
+eval: true
+# we use lighteval since it is faster, but using lm_eval
+# requires different strings for few_shot_tasks
+few_shot_eval: lighteval
+few_shot_override_batch_size: 128
+few_shot_tasks:
+- lighteval|piqa|0|0
+- lighteval|arc:easy|0|0
+- leaderboard|arc:challenge|0|0
+- leaderboard|winogrande|0|0
+- leaderboard|hellaswag|0|0
+few_shot_zeroshot: true
+# enables ordering by diagonal of H
+gpxq_act_order: true
+# enables block-level optimization
+gpxq_block_name: model.layers
+# enabling MagR
+magr: true
+magr_alpha: 0.01
+model: meta-llama/Llama-3.2-1B
+# enabling Had. rotations
+rotation: layerwise
+rotation_mode: had
+rotation_orphan_sink: true
+weight_bit_width: 2
+# stats + asym yields the scaled min-max grid
+weight_quant_granularity: per_channel
+weight_quant_rescaling_init: 0.8
+weight_quant_type: asym
+weight_scale_precision: float_scale

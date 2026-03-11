@@ -1,0 +1,49 @@
+# non-defaults only; see default_template.yml for defaults
+# adds a BOS token to the beginning of each sequence
+bos_preprocessing: sequence
+dtype: bfloat16
+eval: true
+# we use lighteval since it is faster, but using lm_eval
+# requires different strings for few_shot_tasks
+few_shot_eval: lighteval
+few_shot_override_batch_size: 128
+few_shot_tasks:
+- lighteval|piqa|0|0
+- lighteval|arc:easy|0|0
+- leaderboard|arc:challenge|0|0
+- leaderboard|winogrande|0|0
+- leaderboard|hellaswag|0|0
+few_shot_zeroshot: true
+# enables ordering by diagonal of H
+gpxq_act_order: true
+gpxq_block_name: model.layers
+# enables OCP MXFP4 activation quantization
+input_bit_width: 4
+input_group_size: 32
+input_param_method: stats
+input_quant_format: float_ocp_e2m1
+input_quant_granularity: per_group
+input_quant_type: sym
+input_scale_precision: po2_scale
+input_scale_type: dynamic
+qronos_alpha: 1e-3
+# standardizes RMS norm to the base torch module
+replace_rmsnorm: true
+# fuses the rotations
+rotation: fused_no_fx
+# also rotates the scaled dot product attention (SDPA)
+rotation_sdpa_regions: true
+# specifies Hadamard matrices for rotations
+rotation_mode: had
+# allows online Hadamard matrices
+rotation_orphan_sink: true
+scale_rounding_func_type: floor
+model: meta-llama/Llama-3.2-1B
+# enables OCP MXFP4 weight quantization
+weight_bit_width: 4
+weight_group_size: 32
+weight_param_method: mse
+weight_quant_format: float_ocp_e2m1
+weight_quant_granularity: per_group
+weight_quant_type: sym
+weight_scale_precision: po2_scale

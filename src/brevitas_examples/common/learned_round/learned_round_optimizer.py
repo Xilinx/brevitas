@@ -188,7 +188,15 @@ from contextlib import nullcontext
 import copy
 from functools import partial
 import itertools
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import OrderedDict
+from typing import Tuple
+from typing import Type
+from typing import Union
 import warnings
 
 from accelerate.utils.operations import send_to_device
@@ -387,10 +395,10 @@ class LearnedRoundOptimizer:
             learned_round_loss_class, **learned_round_loss_kwargs)
 
     @torch.no_grad()
-    def _load_round_params(self, block: nn.Module, round_params: Dict) -> None:
+    def _load_saved_params(self, block: nn.Module, saved_params: Dict) -> None:
         for n, m in block.named_modules():
-            if n in round_params:
-                m.load_state_dict(round_params[n])
+            if n in saved_params:
+                m.load_state_dict(saved_params[n], strict=False)
 
     @torch.no_grad()
     def _collect_round_params(self, block: nn.Module) -> Dict:
@@ -398,6 +406,18 @@ class LearnedRoundOptimizer:
         for n, m in block.named_modules():
             if isinstance(m, LearnedRoundSte):
                 params[n] = copy.deepcopy(m.state_dict())
+        return params
+
+    @torch.no_grad()
+    def _collect_scale_params(self, block: nn.Module) -> Dict:
+        params = {}
+        for n, m in block.named_modules():
+            if isinstance(m, WeightQuantProxyFromInjectorBase):
+                state_dict = OrderedDict()
+                for param_name, param in m.named_parameters():
+                    if param_name.endswith('scaling_impl.value'):
+                        state_dict[param_name] = param
+                params[n] = copy.deepcopy(state_dict)
         return params
 
     def _optim_step(self, *optimizers: Optimizer, scaler: Optional[Any] = None) -> None:
@@ -546,6 +566,8 @@ class LearnedRoundOptimizer:
                 last_best_iter = i + 1
                 if self.use_best_model:
                     optimal_rounding_params = self._collect_round_params(block)
+                    if self.learn_scale:
+                        optimal_scale_params = self._collect_scale_params(block)
 
             # Scale loss and perform gradient step
             if scaler:
@@ -563,9 +585,16 @@ class LearnedRoundOptimizer:
 
         # Make sure no updates are received in the progress bar
         pbar.close()
-
         if self.use_best_model:
-            self._load_round_params(block, optimal_rounding_params)
+            # Prevent quantizer from reiniting when restoring the best
+            # quantizaiton parameters
+            prev_config_reinit = config.REINIT_ON_STATE_DICT_LOAD
+            config.REINIT_ON_STATE_DICT_LOAD = False
+            self._load_saved_params(block, optimal_rounding_params)
+            if self.learn_scale:
+                self._load_saved_params(block, optimal_scale_params)
+            # Restore previous setting
+            config.REINIT_ON_STATE_DICT_LOAD = prev_config_reinit
         else:
             # Override if the model with the lowest training error is not used
             best_loss = curr_loss

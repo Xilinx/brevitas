@@ -26,7 +26,10 @@ SOFTWARE.
 
 from functools import partial
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
 import warnings
 
 from datasets import Dataset
@@ -192,7 +195,7 @@ def get_wikitext2(
             inp = sequence_process_fn(data.input_ids[:, i:j])
             attention_mask = torch.ones_like(inp)
             dataloader.append({'input_ids': inp, 'attention_mask': attention_mask})
-    elif split == 'validation':
+    elif split in ['test', 'validation']:
         nsamples = data['input_ids'].numel() // seqlen
         for i in tqdm(range(nsamples)):
             batch = sequence_process_fn(data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)])
@@ -214,16 +217,22 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
             data = load_dataset(
                 "allenai/c4",
                 split="validation",
-                data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"},
-            )
+                data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"})
         data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
-            data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
-        elif split == "validation":
+            data = data.shuffle(seed=seed).select(range(10000))
+        else:
+            warnings.warn(f"There is no available {split} split for pile. Defaulting to wikitext2.")
+            data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
+    elif dataset_name == "fineweb":
+        if split == "train":
+            data = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")
+            data = data.shuffle(seed=seed).select(range(10000))
+        else:
             warnings.warn(
-                f"There is no available validation split for pile. Defaulting to wikitext2.")
+                f"There is no available {split} split for fineweb. Defaulting to wikitext2.")
             data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")

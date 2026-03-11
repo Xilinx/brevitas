@@ -202,7 +202,7 @@ def min_int(
 
 
 def compute_max_mantissa(mantissa_bit_width: Tensor):
-    return torch.sum((2. ** torch.arange(0, -1. * mantissa_bit_width - 1., -1.)))
+    return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
 
 
 @brevitas.jit.ignore
@@ -210,6 +210,13 @@ def max_float(exponent_bit_width: Tensor, max_mantissa: Tensor, exponent_bias: T
     max_exponent = (2. ** exponent_bit_width) - 1. - exponent_bias
     max_val = max_mantissa * (2 ** max_exponent)
     return max_val
+
+
+@brevitas.jit.script
+def calculate_midmax_bias(mantissa_bit_width: Tensor, midmax_mantissa_bit_bias: float) -> Tensor:
+    return torch.log2(
+        (2 -
+         2 ** (-mantissa_bit_width - 1 + midmax_mantissa_bit_bias)))  # extra 1 for the implicit bit
 
 
 def get_upper_bound_on_l1_norm(

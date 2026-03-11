@@ -55,6 +55,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.quant.solver.common import SolveRestrictScaleSign
 from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
 from brevitas.quant.solver.parameter import SolveInputViewImpl
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
@@ -281,7 +282,8 @@ class PerTensorConstScaling2bit(ExtendedInjector):
     bit_width = 2
 
 
-class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromModule):
+class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromModule,
+                                           SolveRestrictScaleSign):
     """
     Experimental narrow per-tensor signed int weight quantizer fragment with decoupled L2,inf
     normalization and learned scaling.
@@ -300,6 +302,7 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     scaling_shape = SCALAR_SHAPE
     scaling_per_output_type = ScalingPerOutputType.TENSOR
     input_view_impl = Identity
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_impl = ParameterFromStatsFromParameterScaling
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
@@ -313,7 +316,8 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
                                      SolveWeightScalingStatsInputDimsFromModule,
                                      SolveWeightScalingPerOutputChannelShapeFromModule,
                                      SolveParameterScalingShape,
-                                     SolveInputViewImpl):
+                                     SolveInputViewImpl,
+                                     SolveRestrictScaleSign):
     """
     Experimental narrow per-channel signed int weight quantizer fragment with decoupled Linf
     normalization and learned scaling.
@@ -327,6 +331,7 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
     scaling_stats_impl = AbsMax
     restrict_scaling_impl = FloatRestrictValue
     scaling_impl = ParameterFromStatsFromParameterScaling
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
     pre_zero_point_impl = ZeroZeroPoint
@@ -399,6 +404,7 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
                                          SolveWeightScalingStatsInputDimsFromModule,
                                          SolveWeightScalingPerOutputChannelShapeFromModule,
                                          SolveParameterScalingShape,
+                                         SolveRestrictScaleSign,
                                          SolveInputViewImpl):
     """Experimental narrow per-channel weight normalization-based signed integer quantizer
     based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
@@ -428,6 +434,7 @@ class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
     scaling_impl = ParameterScaling
+    scaling_impl_type = ScalingImplType.PARAMETER
     scaling_init_impl = StatsFromParameterScaling
     restrict_scaling_impl = LogFloatRestrictValue
     scaling_stats_impl = AbsMax
@@ -505,6 +512,10 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
     mse_search_method = 'grid'
 
+    @value
+    def restrict_scale_positive():
+        return (this << 1).restrict_scale_positive
+
 
 class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     scaling_per_output = (this << 1).scaling_per_output
@@ -517,6 +528,10 @@ class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     permute_dims = (this << 1).permute_dims
     inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
     mse_search_method = 'grid'
+
+    @value
+    def restrict_scale_positive():
+        return (this << 1).restrict_scale_positive
 
 
 class MSEZeroPointSubInjector(ExtendedInjector):
@@ -628,6 +643,10 @@ class HQOScale(ExtendedInjector):
     @value
     def scaling_stats_impl():
         return this.stats_impl_scale
+
+    @value
+    def restrict_scale_positive():
+        return this.hqo_init_op_scale.restrict_scale_positive
 
 
 class HQOAsymmetricScale(HQOScale):

@@ -5,25 +5,25 @@ from abc import ABC
 from abc import abstractmethod
 import inspect
 from inspect import getcallargs
-from typing import Any, Dict, Type
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import Tuple
+from typing import Type
 
 import torch
 from torch.nn import Module
+from torch.nn.utils.parametrize import is_parametrized
+from torch.nn.utils.parametrize import register_parametrization
 from torch.overrides import get_testing_overrides
-
-# TODO: Deprecate PyTorch 1.11
-try:
-    from torch.nn.utils.parametrize import is_parametrized
-    from torch.nn.utils.parametrize import register_parametrization
-except ImportError:
-    from brevitas.utils.torch_utils import is_parametrized
-    register_parametrization = None
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+
+INPUT_NAMES = ('input', 'inp', 'query', 'hidden_states', 'x')
 
 __all__ = [
     'Transform',
@@ -62,6 +62,44 @@ class GraphTransform(Transform):
     @abstractmethod
     def apply(self, graph_model: GraphModule) -> GraphModule:
         pass
+
+    def _process_input(
+            self,
+            module: Module,
+            args: tuple,
+            kwargs: dict,
+            batch_dim: int = 0,
+            use_inp: bool = True) -> Tuple[Optional[torch.Tensor], Optional[int]]:
+        """
+        Process input from forward hook, handling MHA cross-attention
+        """
+        # Check for MHA Cross attention, and if found, skip it
+        # When using hf/accelerate, we need to check the signature of the original forward
+        forward_to_check = module._old_forward if hasattr(
+            module, '_old_forward') else module.forward
+        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
+
+        # Check for cross-attention in MHA (skip if found)
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
+                return None, None
+
+        inp_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
+        if use_inp:
+            inp = kwargs[inp_kwarg]
+        else:
+            inp = args[-1]
+
+        # Handle case where inp is a tuple (common in forward hooks)
+        if isinstance(inp, tuple):
+            assert len(inp) == 1, "Expected single element tuple"
+            inp = inp[0]
+
+        # Extra check for batch_dim using named tensors
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+
+        return inp, batch_dim
 
 
 class UntilFixedPointGraphTransform(Transform):
@@ -141,6 +179,46 @@ def _remove_parametrization_entries_state_dict(state_dict: Dict[str, Any]) -> Di
     return state_dict
 
 
+# TODO (pml): Remove this auxiliar function after deprecating PyTorch versions older than 2.1, which
+# do not admit the argument `assign``.
+def _load_state_dict(
+        module: torch.nn.Module, state_dict: Dict[str, torch.Tensor],
+        is_assign_supported: bool) -> None:
+    if is_assign_supported:
+        module.load_state_dict(state_dict, assign=True)
+    else:
+        module.load_state_dict(state_dict)
+
+
+def load_old_module_state_dict(
+        old_module: torch.nn.Module, new_module: torch.nn.Module,
+        is_assign_supported: bool) -> None:
+    # work-around since weight_orig is from a previous quantization algorithm
+    old_module_state_dict = old_module.state_dict()
+    if hasattr(old_module, 'weight_orig'):
+        new_module.register_buffer('weight_orig', old_module.weight_orig.data.cpu())
+    if not is_parametrized(old_module):
+        _load_state_dict(new_module, old_module_state_dict, is_assign_supported)
+
+    else:
+        # If parametrizations are present in old_module, the state_dict needs
+        # to be processed beforehand
+        old_module_state_dict = _remove_parametrization_entries_state_dict(old_module_state_dict)
+
+        # Strict can be left to True (default), since potential parametrizations were
+        # accounted for
+        _load_state_dict(new_module, old_module_state_dict, is_assign_supported)
+
+        # If the old module is parametrized, these need to be transferred to the new module.
+        # The method transfer_parametrizations_and_params as it can result in parameter ties
+        # being broken
+        # NOTE: unsafe is set to True for efficiency, as the checks should have been done
+        # when first registering the parametrization to old_module
+        for tensor_name in old_module.parametrizations:
+            for param_func in old_module.parametrizations[tensor_name]:
+                register_parametrization(new_module, tensor_name, param_func, unsafe=True)
+
+
 class ModuleToModule(GraphTransform, ABC):
 
     def __init__(self, new_module_class, **kwargs):
@@ -174,7 +252,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs.update(update_dict)
         return new_kwargs
 
-    def _init_new_module(self, old_module: Module, name=None):
+    def init_new_module(self, old_module: Module, name: str = None, load_state_dict: bool = True):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
         # transforms attribute of original module, e.g. bias Parameter -> bool
@@ -184,35 +262,27 @@ class ModuleToModule(GraphTransform, ABC):
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
         new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
+        # skip memory allocation if the module constructor admits 'device'
+        # as keyword argument and the state_dict from the old module is loaded
+
+        # TODO (pml): Remove check after deprecating older PyTorch versions
+        # This check is needed as older PyTorch versions do not admit the `assign`
+        # and `load_state_dict` would act as a no-op, thus leaving "meta" tensors
+        # on new_module
+
+        # Check if torch supports `assign` flag
+        is_assign_supported = 'assign' in inspect.signature(
+            old_module.load_state_dict).parameters.keys()
+        if 'device' in new_module_signature_keys and is_assign_supported and load_state_dict:
+            new_kwargs['device'] = torch.device("meta")
+
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
-        return new_module
 
-    def _replace_old_module(self, model, old_module, new_module, load_state_dict=True):
-        replace_module(model, old_module, new_module)
+        # load state dict of the old module
         if load_state_dict:
-            # work-around since weight_orig is from a previous quantization algorithm
-            if hasattr(old_module, 'weight_orig'):
-                new_module.register_buffer('weight_orig', old_module.weight_orig.data.cpu())
-            if not is_parametrized(old_module):
-                new_module.load_state_dict(old_module.state_dict())
-            else:
-                old_module_state_dict = old_module.state_dict()
-                # If parametrizations are present in old_module, the state_dict needs
-                # to be processed beforehand
-                old_module_state_dict = _remove_parametrization_entries_state_dict(
-                    old_module_state_dict)
-                # Strict can be set to True, since potential parametrizations were
-                # accounted for
-                new_module.load_state_dict(old_module_state_dict)
-                # If the old module is parametrized, these need to be transferred to the new module.
-                # The method transfer_parametrizations_and_params as it can result in parameter ties
-                # being broken
-                # NOTE: unsafe is set to True for efficiency, as the checks should have been done
-                # when first registering the parametrization to old_module
-                for tensor_name in old_module.parametrizations:
-                    for param_func in old_module.parametrizations[tensor_name]:
-                        register_parametrization(new_module, tensor_name, param_func, unsafe=True)
+            load_old_module_state_dict(old_module, new_module, is_assign_supported)
+        return new_module
 
 
 class InsertModuleCallAfter(GraphTransform):
@@ -380,8 +450,8 @@ class ModuleToModuleByName(ModuleToModule):
         for name, old_module in model.named_modules():
             if name == self.old_module_name:
                 # init the new module based on the old one
-                new_module = self._init_new_module(old_module)
-                self._replace_old_module(model, old_module, new_module)
+                new_module = self.init_new_module(old_module)
+                replace_module(model, old_module, new_module)
                 break
         return model
 
@@ -396,8 +466,8 @@ class ModuleToModuleByInstance(ModuleToModule):
         for name, old_module in model.named_modules():
             if old_module is self.old_module_instance:
                 # init the new module based on the old one
-                new_module = self._init_new_module(old_module, name)
-                self._replace_old_module(model, old_module, new_module)
+                new_module = self.init_new_module(old_module, name)
+                replace_module(model, old_module, new_module)
                 break
         return model
 
@@ -407,19 +477,19 @@ class ModuleToModuleByClass(ModuleToModule):
     def __init__(self, old_module_class, new_module_class, **kwargs):
         super().__init__(new_module_class, **kwargs)
         self.old_module_class = old_module_class
+        self.old_new_module_dict = {}
 
     def apply(self, model: GraphModule) -> GraphModule:
-        old_new_module_dict = {}
         for old_module in model.modules():
             # check for equality, not inheritance
             if type(old_module) == self.old_module_class:
                 # init the new module based on the old one
-                new_module = self._init_new_module(old_module)
+                new_module = self.init_new_module(old_module)
                 # register modules pair to be replaced
-                old_new_module_dict[old_module] = new_module
+                self.old_new_module_dict[old_module] = new_module
         # replace all pairs registered
-        for old_module, new_module in old_new_module_dict.items():
-            self._replace_old_module(model, old_module, new_module)
+        for old_module, new_module in self.old_new_module_dict.items():
+            replace_module(model, old_module, new_module)
         return model
 
 

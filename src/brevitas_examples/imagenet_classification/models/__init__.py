@@ -3,7 +3,8 @@
 
 from configparser import ConfigParser
 import os
-from typing import Dict, Optional
+from typing import Dict
+from typing import Optional
 from warnings import warn
 
 from torch import hub

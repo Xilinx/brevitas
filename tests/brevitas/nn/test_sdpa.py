@@ -15,7 +15,7 @@ from tests.marker import requires_pt_ge
 
 ATOL = 1e-6
 EMBED_DIM = 9
-HEAD_DIM = 3
+HEAD_DIM = 6
 BATCH_SIZE = 2
 SEQUENCE_LENGTH = 4
 PAST_SEQUENCE_LENGTH = 5
@@ -87,11 +87,17 @@ class TestScaledDotProductAttention:
         if torch_version < version.parse('2.1.0'):
             del extra_kwargs["scale"]
 
+        # GQA means that there is a ration between KV head_dim and Q head_dim, in this case 2:1
+        if extra_kwargs.get("enable_gqa", False):
+            kv_head_dim = HEAD_DIM // 2
+        else:
+            kv_head_dim = HEAD_DIM
+
         kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
         m = ScaledDotProductAttention()
         q = torch.randn(BATCH_SIZE, HEAD_DIM, SEQUENCE_LENGTH, EMBED_DIM)
-        k = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM)
-        v = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM)
+        k = torch.randn(BATCH_SIZE, kv_head_dim, kv_length, EMBED_DIM)
+        v = torch.randn(BATCH_SIZE, kv_head_dim, kv_length, EMBED_DIM)
         if rand_attn_mask and not is_causal:
             attn_mask = torch.randint(
                 low=0, high=2, size=(BATCH_SIZE, 1, SEQUENCE_LENGTH, kv_length), dtype=torch.bool)
@@ -118,10 +124,18 @@ class TestScaledDotProductAttention:
             "is_causal": is_causal,
             "scale": scale,
             "enable_gqa": enable_gqa,}
+
         if torch_version < version.parse('2.5.0'):
             del extra_kwargs["enable_gqa"]
+
         if torch_version < version.parse('2.1.0'):
             del extra_kwargs["scale"]
+
+        # GQA means that there is a ration between KV head_dim and Q head_dim, in this case 2:1
+        if extra_kwargs.get("enable_gqa", False):
+            kv_head_dim = HEAD_DIM // 2
+        else:
+            kv_head_dim = HEAD_DIM
 
         kv_length = PAST_SEQUENCE_LENGTH + SEQUENCE_LENGTH
         m = ScaledDotProductAttention()
@@ -134,8 +148,8 @@ class TestScaledDotProductAttention:
             sdpa_output_quant=None,
         )
         q = torch.randn(BATCH_SIZE, HEAD_DIM, SEQUENCE_LENGTH, EMBED_DIM)
-        k = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM)
-        v = torch.randn(BATCH_SIZE, HEAD_DIM, kv_length, EMBED_DIM)
+        k = torch.randn(BATCH_SIZE, kv_head_dim, kv_length, EMBED_DIM)
+        v = torch.randn(BATCH_SIZE, kv_head_dim, kv_length, EMBED_DIM)
         if rand_attn_mask and not is_causal:
             attn_mask = torch.randint(
                 low=0, high=2, size=(BATCH_SIZE, 1, SEQUENCE_LENGTH, kv_length), dtype=torch.bool)

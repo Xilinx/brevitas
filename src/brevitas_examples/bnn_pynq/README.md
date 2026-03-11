@@ -45,3 +45,24 @@ To evaluate your own checkpoint, of e.g. LFC_1W1A, run:
  ```bash
 BREVITAS_JIT=1 python bnn_pynq_train.py --evaluate --network LFC_1W1A --resume /path/to/checkpoint.tar
  ```
+
+## ONNX Export
+
+The models can be exported to either QONNX or ONNX QCDQ by adding the `--export_qonnx`, `--export_qcdq_onnx` flags respectively.
+This flag can be added to any training or evaluation run to export the model at the end of the process.
+Note, to export an ONNX model,
+Brevitas' JIT must be disabled (i.e., `BREVITAS_JIT=0`),
+so it may be convenient to export the ONNX model as separate step _after_ training.
+
+For example, you may want train as described [above](#train),
+then export as a separate step as follows:
+
+```bash
+BREVITAS_JIT=0 python bnn_pynq_train.py --evaluate --network LFC_1W1A --resume /path/to/checkpoint.tar --export_qonnx
+```
+
+Note, ONNX export also works with pretrained models as follows:
+
+```bash
+BREVITAS_JIT=0 python bnn_pynq_train.py --evaluate --network LFC_1W1A --pretrained --export_qonnx --experiments /path/to/export_dir
+```

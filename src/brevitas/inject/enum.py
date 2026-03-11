@@ -30,6 +30,7 @@ class RestrictValueType(AutoName):
 
     """
     FP = auto()
+    SIGNED_FP = auto()
     LOG_FP = auto()
     INT = auto()
     POWER_OF_TWO = auto()
@@ -93,6 +94,7 @@ class StatsOp(AutoName):
     # Typically adopted for asymmetric quantization
     MIN_MAX = auto()
     PERCENTILE_INTERVAL = auto()
+    SIGNED_MAX = auto()
 
 
 class TruncScalingImplType(AutoName):

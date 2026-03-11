@@ -1,34 +1,65 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from functools import partial
+
 import pytest
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
+from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.magr import magr_mode
+from brevitas.graph.qronos import Qronos
 
 from .equalization_fixtures import *
 
 
-def apply_gpfq(
-        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+@torch.no_grad()
+def _dual_optimization_callback(
+        calib_loader: DataLoader,
+        model: nn.Module,
+        act_order: bool,
+        use_quant_activations: bool,
+        algorithm_impl: nn.Module):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gpfq_mode(model, use_quant_activations=use_quant_activations,
-                       act_order=act_order) as gpfq:
-            gpfq_model = gpfq.model
-            for _ in range(gpfq.num_layers):
+        with gpfq_mode(model,
+                       use_quant_activations=use_quant_activations,
+                       act_order=act_order,
+                       algorithm_impl=algorithm_impl) as algo:
+            algo_model = algo.model
+            for _ in range(algo.num_layers):
                 for _, (images, _) in enumerate(calib_loader):
                     images = images.to(device)
                     images = images.to(dtype)
-                    gpfq_model(images)
-                gpfq.update()
+                    algo_model(images)
+                algo.update()
+
+
+def apply_gpfq(
+        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+    _dual_optimization_callback(
+        calib_loader=calib_loader,
+        model=model,
+        act_order=act_order,
+        use_quant_activations=use_quant_activations,
+        algorithm_impl=GPFQ)
+
+
+def apply_qronos(
+        calib_loader: DataLoader, model: nn.Module, act_order: bool, use_quant_activations: bool):
+    _dual_optimization_callback(
+        calib_loader=calib_loader,
+        model=model,
+        act_order=act_order,
+        use_quant_activations=use_quant_activations,
+        algorithm_impl=Qronos)
 
 
 def apply_gptq(
@@ -48,7 +79,7 @@ def apply_gptq(
                 gptq.update()
 
 
-apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
+apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": apply_qronos}
 
 
 @pytest.mark.parametrize("act_order", [True, False])

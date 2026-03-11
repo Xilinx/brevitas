@@ -1,3 +1,6 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import torch
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
@@ -86,7 +89,6 @@ def validate(val_loader, model, stable=True):
             # measure accuracy
             acc1, = accuracy(output, target, stable=stable)
             top1.update(acc1[0], images.size(0))
-
         print_accuracy(top1, 'Total:')
     return top1.avg.cpu().numpy()
 
@@ -123,6 +125,10 @@ def generate_dataloader(
     if subset_size is not None:
         dataset = torch.utils.data.Subset(dataset, list(range(subset_size)))
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
+        dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True)
 
     return loader

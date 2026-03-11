@@ -1,67 +1,87 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import argparse
 from contextlib import nullcontext
 from copy import deepcopy
-from datetime import timedelta
 import functools
+import importlib
+import os
+from pathlib import Path
 import pprint
 import sys
+import warnings
 
 import numpy as np
-from optimum.exporters.onnx import onnx_export_from_model
 import torch
+from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-from transformers.utils.fx import _SUPPORTED_MODELS
-import yaml
 
-from brevitas.export import export_torch_qcdq
 from brevitas.export.inference.manager import quant_inference_mode
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph import load_quant_model_mode
-from brevitas.graph.base import ModuleInstanceTransformTensor
+from brevitas.graph.equalize import apply_rewriters
 from brevitas.graph.equalize import fuse_parametrizations
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.equalize import LayerwiseActivationRotation
+from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
+from brevitas.graph.utils import remove_weight_orig
 from brevitas.nn.quant_sdpa import ScaledDotProductAttention
+from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.llm.llm_args import create_llm_args_parser
+from brevitas_examples.common.generative.quantizers import QuantInjector
+from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
+from brevitas_examples.common.parse_utils import override_defaults
+from brevitas_examples.common.parse_utils import parse_args
+from brevitas_examples.llm.gguf_export.export import save_quantized_as_gguf
+from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_args import fx_required
 from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
+from brevitas_examples.llm.llm_quant.data_utils import collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
+from brevitas_examples.llm.llm_quant.export import _get_dataset_props
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import convert_hf_hparams_to_gguf
+from brevitas_examples.llm.llm_quant.export import gguf_mapping
 from brevitas_examples.llm.llm_quant.gpxq import apply_gpfq
 from brevitas_examples.llm.llm_quant.gpxq import apply_gptq
 from brevitas_examples.llm.llm_quant.gpxq import apply_magr
+from brevitas_examples.llm.llm_quant.gpxq import apply_qronos
 from brevitas_examples.llm.llm_quant.learned_round_utils import apply_learned_round
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_to_rmsnorm
-from brevitas_examples.llm.llm_quant.ln_affine_merge import replace_rmsnorm_with_torch
+from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
-from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
-from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+
+logging = setup_logger(__name__)
+
+try:
+    from brevitas.export.shark.manager import SharkManager
+except:
+    SharkManager = None
+    logging.debug("Shark-AI not installed, cannot export to Shark")
 
 
 def filter_results(results, tasks):
@@ -77,49 +97,77 @@ def filter_results(results, tasks):
     return eval_results
 
 
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-
-
 def fused_rotation_no_fx(model, calibration_loader, args):
-    model.config.use_cache = False
-    with torch.no_grad():
-        new_model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+    with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
+        rmsnorm_classes = patcher.rmsnorm_classes
+        with make_dynamo_compatible(model) as dynamo_comp:
+            fx_model, guards = torch._dynamo.export(dynamo_comp.model)(**next(iter(calibration_loader)))
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
-        new_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
+        fx_model.add_module(str(torch.nn.functional.scaled_dot_product_attention), m_to_add)
 
     layers_to_expand = []
     if args.rotation is not None:
-        for name, _ in new_model.named_modules():
+        for name, _ in fx_model.named_modules():
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
 
-    apply_layernorm_affine_merge(new_model)
+    apply_layernorm_affine_merge(fx_model, rmsnorm_classes)
     # NOTE: This call breaks ties between the the lm_head and the embedding layer
-    new_model, rewriters = apply_layernorm_to_rmsnorm(new_model, return_rewriters=True)
+    fx_model, rewriters = apply_layernorm_to_rmsnorm(fx_model, return_rewriters=True)
     rewriters = fix_rewriter(rewriters, model, 'weight')
 
     for r in rewriters:
         r.apply(model)
-    new_model = offload_model(new_model)
+    fx_model = offload_model(fx_model)
+
+    # Since we apply the rewriters to a different, non-fx model, we need only to compute them
+    # And apply them in a second moment on the non-fx model
+    delay_rewriters = True
+    return_rewriters = True
+
+    extra_state_kwargs = {'scale_invariant_layers': rmsnorm_classes}
     eq = GraphRotationEqualization(
         orphan_sink=args.rotation_orphan_sink,
         full_rotation_method=args.rotation_mode,
-        return_rewriters=True,
+        return_rewriters=return_rewriters,
         sdpa_regions=args.rotation_sdpa_regions,
         use_parametrized_rotations=args.optimize_rotations,
-        layers_to_expand=layers_to_expand)
-    new_model, rewriters = eq.apply(new_model)
-    rewriters = fix_rewriter(rewriters, model, 'weight')
-    with torch.no_grad():
-        for r in rewriters:
-            # The weights between model and new_model are tied, so this check prevents
-            # rotating the weights twice
-            if not isinstance(r, ModuleInstanceTransformTensor):
-                model = r.apply(model)
-    remove_hooks(new_model)
+        delay_rewriters=delay_rewriters,
+        expansion_step=args.expansion_step,
+        layers_to_expand=layers_to_expand,
+        rotation_block_size=args.rotation_block_size,
+        disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+        extra_state_kwargs=extra_state_kwargs)
+
+    if args.permute_fn is not None:
+        print("Applying permutations...")
+        with rotate_permute_mode(fx_model,
+                                 rotation=eq,
+                                 permute_fn=args.permute_fn,
+                                 block_size=args.rotation_block_size,
+                                 disable_for_fused_rotations=args.disable_block_rotation_for_fused,
+                                 extra_state_kwargs=extra_state_kwargs) as rpm:
+
+            # Get fx_model from the context manager
+            fx_model = rpm.model
+            # Run calibration on fx_model to collect activation statistics
+            with torch.no_grad():
+                fx_model(**next(iter(calibration_loader)))
+            # Get rewriters from the context manager
+            rewriters = rpm.rewriters
+    else:
+        # Only rotation enabled
+        fx_model, rewriters = eq.apply(fx_model)
+
+    # fused_rotation_no_fx() may be called either if args.rotation == 'fused_no_fx' or args.permute_fn is not None,
+    # so if args.rotation == 'layerwise', we need to skip applying the rewriters here to do it later
+    if args.rotation != 'layerwise':
+        model = offload_model(model)
+        rewriters = fix_rewriter(rewriters, model, 'weight')
+        model = apply_rewriters(model, rewriters, delay_rewriters=False)
+
+    remove_hooks(model)
 
 
 def set_seed(seed):
@@ -127,16 +175,11 @@ def set_seed(seed):
     torch.random.manual_seed(seed)
 
 
-def model_export(model, ref_input, args):
-    if args.export_target == 'sharded_torchmlir_group_weight':
-        from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
-            sharded_weight_group_export
-        sharded_weight_group_export(model, no_custom_packed_export=True)
-    elif args.export_target == 'sharded_packed_torchmlir_group_weight':
-        from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
-            sharded_weight_group_export
-        sharded_weight_group_export(model, no_custom_packed_export=False)
-    elif args.export_target == 'onnx_qcdq':
+def model_export(model, tokenizer, ref_input, args, config=None):
+    if args.export_target == 'onnx_qcdq':
+        # Local import to allow for optional install
+        from optimum.exporters.onnx import onnx_export_from_model
+
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
@@ -150,13 +193,75 @@ def model_export(model, ref_input, args):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
-    elif args.export_target == 'torch_qcdq':
-        export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
+    elif 'gguf' in args.export_target:
+        save_quantized_as_gguf('.', model, tokenizer, args.export_target)
+
+    elif args.export_target == 'shark':
+        assert SharkManager is not None, "Please install shark-ai to export to Shark"
+        from sharktank.types import Theta
+
+        if args.export_prefix is None:
+            export_path = "./dataset.irpa"
+        else:
+            os.makedirs(f"./{args.export_prefix}", exist_ok=True)
+            export_path = f"./{args.export_prefix}/dataset.irpa"
+
+        print(f"Exporting the model in {export_path}")
+
+        export = SharkManager(config=config)
+        with torch.no_grad():
+            model = offload_model(model)
+            ds = export.export(model, **ref_input)
+        properties = ds.properties
+        root_theta = ds.root_theta.flatten()
+
+        # Export is always upcast to float32, and if we don't update the properties, it will fail
+        properties['torch_dtype'] = 'float32'
+        root_theta = Theta(gguf_mapping(root_theta, config))
+        properties = convert_hf_hparams_to_gguf(_get_dataset_props(properties))
+        root_theta.rename_tensors_to_paths()
+        ds.properties = properties
+        ds.root_theta = root_theta
+        ds.save(export_path, io_report_callback=None)
 
 
-def fx_required(args):
-    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
-    return True if args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or quant_sdpa_fx else False
+# Recursive function to unwrap equalized layers
+def find_equalized_layer(layer):
+    if hasattr(layer, 'layer'):
+        return find_equalized_layer(layer.layer)
+    return layer
+
+
+def parse_custom_quantizer(quant_name: str) -> str:
+    # Detect "/path/to/plugin.py:quant_name"
+    quant_path = None
+    if ":" in quant_name:
+        path, name = quant_name.rsplit(":", 1)
+        # Treat as a file plugin if paths points to an existing .py file
+        if not Path(path).expanduser().exists():
+            raise FileNotFoundError(f"Quantizer file path {path} does not exist.")
+        if not path.endswith(".py"):
+            raise ValueError(f"{path} is not a .py file.")
+        quant_path = path
+        quant_name = name
+
+    if quant_path is not None:
+        # Retrieve previously registered quantizers
+        pre_registered_quantizers = set(QUANTIZERS_REGISTRY.get_registered_keys())
+        # Load the module with the custom quantizers
+        spec = importlib.util.spec_from_file_location("custom_quant", quant_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load spec for quantizer path: {quant_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        # Retrieve newly registered quantizers
+        post_registered_quantizers = set(QUANTIZERS_REGISTRY.get_registered_keys())
+
+        logging.debug(
+            f"The following quantizers were loaded from {quant_path}: {', '.join(post_registered_quantizers - pre_registered_quantizers)}"
+        )
+
+    return quant_name
 
 
 def quantize_llm(args, extra_args=None):
@@ -165,20 +270,16 @@ def quantize_llm(args, extra_args=None):
     if args.export_prefix is None:
         args.export_prefix = f"{args.model.replace('/', '--')}"
 
-    dtype = getattr(torch, args.dtype)
-
     # Whether to quantize SDPA with FX
-    quant_sdpa_fx = args.quant_sdpa and not args.replace_mha
 
-    kwargs = {"torch_dtype": dtype}
-    if quant_sdpa_fx:
+    kwargs = {"torch_dtype": args.dtype}
+    if args.quant_sdpa:
         kwargs["attn_implementation"] = "sdpa"
-
-    if args.export_target == 'torch_qcdq':
-        kwargs['torchscript'] = True
 
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
+    dtype = next(model.parameters()).dtype
+    config = model.config
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -186,9 +287,13 @@ def quantize_llm(args, extra_args=None):
     quant_ppl = None
 
     require_fx = fx_required(args)
+    if require_fx and args.calibration_batch_size > 1:
+        warnings.warn(
+            f"The provided configuration requires fx and has a batch size of {args.calibration_batch_size}.\nErrors may occur when using fx and batch_size > 1.\nIf you experience any issues try chaning the configuration to avoid using fx or to set the batch_size to 1."
+        )
 
     # Load the data for calibration and evaluation.
-    calibration_loader = get_dataset_for_model(
+    calibration_dataset = get_dataset_for_model(
         args.model,
         bos_preprocessing=args.bos_preprocessing,
         dataset_name=args.dataset,
@@ -200,14 +305,18 @@ def quantize_llm(args, extra_args=None):
         require_fx=require_fx and args.export_target is not None,
         device=None)
 
-    validation_loader = get_dataset_for_model(
+    # Batched data loader to accelerate GPXQ algorithms
+    calibration_loader = DataLoader(
+        dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
+
+    validation_dataset = get_dataset_for_model(
         args.model,
         bos_preprocessing=args.bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
-        split="validation",
+        split=args.dataset_eval_split,
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
         device=None)
@@ -216,8 +325,9 @@ def quantize_llm(args, extra_args=None):
         # Extra arguments should be used as training arguments for rotation optimization
         rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
         # Load the data for rotation optimization
-        rot_calibration_loader = get_dataset_for_model(
+        rot_calibration_dataset = get_dataset_for_model(
             args.model,
+            bos_preprocessing=args.bos_preprocessing,
             dataset_name=args.dataset,
             tokenizer=tokenizer,
             nsamples=args.nsamples_rot_calibration,
@@ -231,31 +341,28 @@ def quantize_llm(args, extra_args=None):
     print("Data loaded.")
 
     if args.eval:
-        assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
-    if args.replace_rmsnorm:
-        model = replace_rmsnorm_with_torch(model, model.config)
-
+    rmsnorm_classes = ()
     if require_fx:
-        if model.__class__.__name__ in _SUPPORTED_MODELS and not args.replace_rmsnorm:
-            model = get_fx(model, is_export=args.export_target is not None)
-        else:
-            with torch.no_grad():
-                model, guards = torch._dynamo.export(model)(**calibration_loader[0])
+        with torch.no_grad(), rmsnorm_patch(model, model.config, enabled=args.replace_rmsnorm) as patcher:
+            rmsnorm_classes = patcher.rmsnorm_classes
+            with make_dynamo_compatible(model) as dynamo_comp:
+                model, guards = torch._dynamo.export(model)(**next(iter(calibration_loader)))
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
+    model.eval()
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
     if args.ln_affine_merge:
         print("Apply LN affine merge...")
-        apply_layernorm_affine_merge(model)
+        apply_layernorm_affine_merge(model, rmsnorm_classes)
         print("LN affine merge applied.")
 
     if args.convert_layernorm_to_rmsnorm:
@@ -265,26 +372,26 @@ def quantize_llm(args, extra_args=None):
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if args.replace_mha:
-        print("Replace HF MHA with quantizable variants...")
-        model = replace_mha_with_quantizable_layers(model, dtype)
-        print("Replacing done.")
-    elif quant_sdpa_fx:
+    if args.quant_sdpa == 'fx':
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
-    elif args.functional_sdpa_quant:
+    elif args.quant_sdpa == 'functional':
         print("Inserting SDPA quantizable module")
         model = offload_model(model)
         with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
-            model(**calibration_loader[0])
+            model(**next(iter(calibration_loader)))
         remove_hooks(model)
+    elif args.quant_sdpa == 'eager':
+        model = replace_sdpa_with_quantizable_layers(
+            model, is_fx=False, eager_quant_sdpa_class=args.eager_quant_sdpa_class)
 
     layers_to_expand = []
     if args.rotation is not None:
         for name, _ in model.named_modules():
             if any(map(lambda x: x in name, args.rotation_layers_to_expand)):
                 layers_to_expand.append(name)
+
     if args.rotation == 'fx':
         model = offload_model(model)
         eq = GraphRotationEqualization(
@@ -292,14 +399,29 @@ def quantize_llm(args, extra_args=None):
             full_rotation_method=args.rotation_mode,
             sdpa_regions=args.rotation_sdpa_regions,
             use_parametrized_rotations=args.optimize_rotations,
-            layers_to_expand=layers_to_expand)
+            expansion_step=args.expansion_step,
+            layers_to_expand=layers_to_expand,
+            rotation_block_size=args.rotation_block_size,
+            disable_block_rotation_for_fused=args.disable_block_rotation_for_fused,
+            extra_state_kwargs={'scale_invariant_layers': rmsnorm_classes})
         model = eq.apply(model)
         remove_hooks(model)
-    elif args.rotation == 'layerwise':
-        eq = LayerwiseActivationRotation(layers_to_expand=layers_to_expand)
-        model = eq.apply(model)
-    elif args.rotation == 'fused_no_fx':
+
+    # Permutations are always fused. So, if we are applying them, then we go through
+    # the 'fused_no_fx' path to get the permutation-equivariant regions in the graph.
+    # If args.rotation == 'layerwise', then the rotations will not be applied in
+    # fused_rotation_no_fx(). Rotations will be added in the layerwise block below.
+    if args.rotation == 'fused_no_fx' or args.permute_fn is not None:
         fused_rotation_no_fx(model, calibration_loader, args)
+
+    if args.rotation == 'layerwise':
+        model = offload_model(model)
+        eq = LayerwiseActivationRotation(
+            layers_to_expand=layers_to_expand,
+            expansion_step=args.expansion_step,
+            rotation_block_size=args.rotation_block_size)
+        model = eq.apply(model)
+        remove_hooks(model)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
@@ -313,7 +435,7 @@ def quantize_llm(args, extra_args=None):
         offload_model(model)
         print(f"Apply act equalization (SmoothQuant) with alpha {args.act_equalization_alpha}")
         if args.load_checkpoint:
-            loader = [calibration_loader[0]]
+            loader = [next(iter(calibration_loader))]
         else:
             loader = calibration_loader
         apply_act_equalization(
@@ -327,9 +449,9 @@ def quantize_llm(args, extra_args=None):
         apply_magr(
             model,
             calibration_loader,
-            create_weight_orig=args.gpxq_create_weight_orig or
-            args.gpfq,  # save original weights for GPxQ
-            alpha=args.magr_alpha)
+            create_weight_orig=not args.disable_create_weight_orig,
+            alpha=args.magr_alpha,
+            buffer_device=args.gpxq_buffer_device)
         remove_hooks(model)
         print(f"MagR applied.")
 
@@ -340,8 +462,16 @@ def quantize_llm(args, extra_args=None):
         # scaling factor that multiplies the weights is optimized
         weight_scaling_impl_type = 'stats' if (
             args.awq_scale or args.awq_clip) else 'parameter_from_stats'
-        linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
-            dtype=dtype,
+        weight_kwargs = {}
+        if args.weight_quant_rescaling_init is not None:
+            weight_kwargs = {
+                **weight_kwargs,
+                **{
+                    'scaling_affine_rescaling_init': args.weight_quant_rescaling_init,
+                    'zero_point_affine_rescaling_init': args.weight_quant_rescaling_init}}
+        if args.weight_narrow_range:
+            weight_kwargs = {**weight_kwargs, **{'narrow_range': args.weight_narrow_range}}
+        quantizers_dict = generate_quantizers(
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
@@ -358,27 +488,28 @@ def quantize_llm(args, extra_args=None):
             input_scale_type=args.input_scale_type,
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
-            kv_quant_type=args.kv_quant_type,
-            kv_quant_granularity=args.kv_quant_granularity,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
+            attn_quant_config=args.attn_quant_config,
+            attn_bit_width=args.attn_bit_width,
+            attn_quant_format=args.attn_quant_format,
+            attn_scale_precision=args.attn_scale_precision,
+            attn_scale_type=args.attn_scale_type,
+            attn_param_method=args.attn_param_method,
+            attn_quant_type=args.attn_quant_type,
+            attn_quant_granularity=args.attn_quant_granularity,
+            attn_group_size=args.attn_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             scale_rounding_func_type=args.scale_rounding_func_type,
-            quant_attn_mode='sdpa' if (quant_sdpa_fx or args.functional_sdpa_quant) else 'mha',
-            device=device,
-            scaling_min_val=args.scaling_min_val)
+            quant_attn_mode='sdpa',
+            scaling_min_val=args.scaling_min_val,
+            weight_kwargs=weight_kwargs)
+        if args.custom_quantizer is not None:
+            quantizer_name = parse_custom_quantizer(args.custom_quantizer)
+            custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
+            quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
         layer_map = generate_quant_maps(
-            linear_input_quant=linear_input_quant,
-            weight_quant=weight_quant,
-            input_quant=input_quant,
-            q_scaled_quant=q_scaled_quant,
-            k_transposed_quant=k_transposed_quant,
-            v_quant=v_quant,
-            attn_output_weights_quant=attn_output_weights_quant,
-            dtype=dtype,
-            device=device,
-            input_quant_format=args.input_quant_format,
-            quantize_embedding=False)
+            **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
             # Dynamo tracing changes the name of the modules, thus we need this workaround to pick
             # up the last module.
@@ -386,7 +517,7 @@ def quantize_llm(args, extra_args=None):
                 last_node = [node for node in model.graph.nodes if node.op == 'call_module'][-1]
                 last_module = get_module(model, last_node.target)
                 # In case we have layerwise rotation/equalization, we need to pick the wrapped module
-                last_module = last_module.layer if hasattr(last_module, 'layer') else last_module
+                last_module = find_equalized_layer(last_module)
                 last_layer_kwargs = layer_map[type(last_module)][1]
                 prev_weight_quant = deepcopy(last_layer_kwargs['weight_quant'])
                 prev_input_quant = deepcopy(last_layer_kwargs['input_quant'])
@@ -398,10 +529,14 @@ def quantize_llm(args, extra_args=None):
                 last_layer_kwargs['input_quant'] = input_quant
             else:
                 name_blacklist += ["lm_head", "embed_out"]
+
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+
         # Just to be sure
         model.eval()
+        model = model.to(dtype)
+
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
@@ -409,7 +544,7 @@ def quantize_llm(args, extra_args=None):
         apply_awq(
             model=model,
             tokenizer=tokenizer,
-            calibration_loader=calibration_loader,
+            calibration_dataset=calibration_dataset,
             args=args,
             auto_scale=args.awq_scale,
             mse_range=args.awq_clip,
@@ -443,16 +578,16 @@ def quantize_llm(args, extra_args=None):
 
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
-    if args.functional_sdpa_quant:
+    if args.quant_sdpa == "functional":
         quantization_cm = functional_quantization_mode(
             model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention})
     else:
         quantization_cm = nullcontext()
 
     with quantization_cm:
-        # We initialize weights scale factor pre-GPTQ
+        # We initialize weights scale factor
         with torch.no_grad():
-            model(**calibration_loader[0])
+            model(**next(iter(calibration_loader)))
 
         if args.compile_ptq:
             for m in model.modules():
@@ -465,10 +600,12 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.optimize_rotations:
+            if args.load_checkpoint:
+                rot_optimization_args.max_steps = 0
             apply_rotation_optimization(
                 model=model,
                 tokenizer=tokenizer,
-                train_dataset=rot_calibration_loader,
+                train_dataset=rot_calibration_dataset,
                 training_args=rot_optimization_args,
             )
             # Remove hooks from optimization
@@ -489,18 +626,19 @@ def quantize_llm(args, extra_args=None):
                 dtype=torch.float32)
             model = offload_model(model)
             with torch.no_grad():
-                model(**calibration_loader[0])
+                model(**next(iter(calibration_loader)))
             print("SVDQuant applied.")
 
         if args.learned_round:
             print("Applying learned round...")
             if args.load_checkpoint:
                 iters = 1
-                loader = [calibration_loader[0]]
+                loader = [calibration_dataset[0]]
             else:
                 iters = args.learned_round_iters
-                loader = calibration_loader
+                loader = calibration_dataset
             remove_hooks(model)
+            # TODO (pml): Fix learned round type hints
             apply_learned_round(
                 model,
                 loader,
@@ -517,10 +655,12 @@ def quantize_llm(args, extra_args=None):
             model = offload_model(model)
 
         if args.load_checkpoint:
+            print(f"Loading checkpoint from {args.checkpoint_name}...")
             remove_hooks(model)
             with load_quant_model_mode(model):
                 model.load_state_dict(torch.load(args.checkpoint_name, map_location='cpu'))
             model = offload_model(model)
+            print("Checkpoint loaded.")
 
         if args.gptq and not args.load_checkpoint:
             print("Applying GPTQ...")
@@ -529,8 +669,9 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 use_quant_activations=args.gpxq_use_quant_activations,
-                create_weight_orig=args.gpxq_create_weight_orig,
+                create_weight_orig=not args.disable_create_weight_orig,
                 block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPTQ applied.")
@@ -542,9 +683,21 @@ def quantize_llm(args, extra_args=None):
                 calibration_loader,
                 act_order=args.gpxq_act_order,
                 block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device,
                 max_accumulator_bit_width=args.gpxq_max_accumulator_bit_width,
                 max_accumulator_tile_size=args.gpxq_max_accumulator_tile_size)
             print("GPFQ applied.")
+
+        if args.qronos and not args.load_checkpoint:
+            print("Applying Qronos...")
+            apply_qronos(
+                model,
+                calibration_loader,
+                alpha=args.qronos_alpha,
+                act_order=args.gpxq_act_order,
+                block_name=args.gpxq_block_name,
+                buffer_device=args.gpxq_buffer_device)
+            print("Qronos applied.")
 
         if args.bias_corr and not args.load_checkpoint:
             print("Applying bias correction...")
@@ -555,24 +708,31 @@ def quantize_llm(args, extra_args=None):
         for k, v in dict_hooks.items():
             k._hf_hook.post_forward = v
 
-        if args.eval and not args.no_quantize:
+        # create_weight_orig=True creates a copy of the weights for the model to use when disabling weight
+        # quantization so that any downstream optimization can optimize w.r.t. the original reference model.
+        # However, it also creates additional tensors that are stored on the CPU, but are cast to the GPU
+        # by the zero shot evaluation libraries (e.g., LightEvel), so we remove the `weight_orig` tensors
+        # here, if they exist, to save memory.
+        remove_weight_orig(model)
 
+        if args.eval and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
-                model(**calibration_loader[0])
+                model(**next(iter(calibration_loader)))
                 quant_ppl = compute_perplexity(
-                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+                    model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
-
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
             from lm_eval.models.huggingface import HFLM
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
-                model(**calibration_loader[0])
-
+                model(**next(iter(calibration_loader)))
+                batch_size = 'auto' if args.few_shot_override_batch_size is None else args.few_shot_override_batch_size
                 wrapped_model = HFLM(
-                    pretrained=model, add_bos_token=True)  # need to wrap for LLM eval
+                    pretrained=model,
+                    add_bos_token=args.bos_preprocessing is not None,
+                    batch_size=batch_size)  # need to wrap for LLM eval
                 few_shot_eval_results = evaluator.simple_evaluate(
                     model=wrapped_model,
                     model_args=None,
@@ -587,43 +747,20 @@ def quantize_llm(args, extra_args=None):
             print("Few shot eval results")
             pprint.pprint(few_shot_eval_results)
         elif args.few_shot_eval == 'lighteval':
-            from accelerate import Accelerator
-            from accelerate import InitProcessGroupKwargs
-            from huggingface_hub import constants
-            from lighteval.logging.evaluation_tracker import EvaluationTracker
-            from lighteval.models.transformers.transformers_model import TransformersModelConfig
-            from lighteval.pipeline import ParallelismManager
-            from lighteval.pipeline import Pipeline
-            from lighteval.pipeline import PipelineParameters
-            from lighteval.utils.utils import EnvConfig
 
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
-                model(**calibration_loader[0])
+                model(**next(iter(calibration_loader)))
                 remove_hooks(model)
-                # expects a list
-                few_shot_tasks = ",".join(args.few_shot_tasks)
-                accelerator = Accelerator(
-                    kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
-                evaluation_tracker = EvaluationTracker(output_dir="./results", save_details=True)
-                pipeline_params = PipelineParameters(
-                    launcher_type=ParallelismManager.ACCELERATE,
-                    env_config=EnvConfig(cache_dir=constants.HF_HUB_CACHE),
-                    override_batch_size=args.few_shot_override_batch_size)
-                model_config = TransformersModelConfig(
-                    pretrained=args.model,
-                    dtype=dtype,
-                    model_parallel=True,
-                    accelerator=accelerator)
-                pipeline = Pipeline(
-                    tasks=few_shot_tasks,
-                    pipeline_parameters=pipeline_params,
-                    evaluation_tracker=evaluation_tracker,
+
+                from brevitas_examples.llm.eval_lighteval import run_lighteval
+                few_shot_eval_results = run_lighteval(
+                    model_name=args.model,
                     model=model,
-                    config=model_config)
-                pipeline.evaluate()
-            few_shot_eval_results = pipeline.get_results()
-            few_shot_eval_results = filter_results(
-                few_shot_eval_results, list(few_shot_eval_results["results"].keys()))
+                    tasks=args.few_shot_tasks,
+                    dtype=args.dtype,
+                    batch_size=args.few_shot_override_batch_size,
+                )
+            # Print nicely formatted results
             pprint.pprint(few_shot_eval_results)
         remove_hooks(model)
         if args.checkpoint_name is not None and not args.load_checkpoint:
@@ -632,53 +769,17 @@ def quantize_llm(args, extra_args=None):
 
         if args.export_target:
             print(f"Export to {args.export_target}")
-            # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
+            # Currently we always export with a float32 container to avoid float16 CPU errors
             model = model.to(dtype=torch.float32)
-            model_export(model, calibration_loader[0], args)
+            model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
     return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
 
 
-def override_defaults(args):
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help=
-        'Specify alternative default commandline args (e.g., config/default_template.yml). Default: %(default)s.'
-    )
-    known_args = parser.parse_known_args()[0]  # Returns a tuple
-    if known_args.config is not None:
-        with open(known_args.config, 'r') as f:
-            defaults = yaml.safe_load(f)
-    else:
-        defaults = {}
-    return defaults
-
-
-def parse_args(args, override_defaults={}):
-    parser = create_llm_args_parser()
-    if len(override_defaults) > 0:
-        # Retrieve keys that are known to the parser
-        parser_keys = set(map(lambda action: action.dest, parser._actions))
-        # Extract the entries in override_defaults that correspond to keys not known to the parser
-        extra_args_keys = [key for key in override_defaults.keys() if key not in parser_keys]
-        # Remove all the keys in override_defaults that are unknown to the parser and, instead,
-        # include them in args, as if they were passed as arguments to the command line.
-        # This prevents the keys of HF TrainingArguments from being added as arguments to the parser.
-        # Consequently, they will be part of the second value returned by parse_known_args (thus being
-        # used as extra_args in quantize_llm)
-        for key in extra_args_keys:
-            args += [f"--{key}", str(override_defaults[key])]
-            del override_defaults[key]
-    parser.set_defaults(**override_defaults)
-    return parser.parse_known_args(args)
-
-
 def main():
     overrides = override_defaults(sys.argv[1:])
-    args, extra_args = parse_args(sys.argv[1:], override_defaults=overrides)
+    parser = create_args_parser()
+    args, extra_args = parse_args(parser, sys.argv[1:], override_defaults=overrides)
     quantize_llm(args, extra_args)
 
 

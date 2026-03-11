@@ -1,3 +1,6 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantLinear
 

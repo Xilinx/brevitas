@@ -3,6 +3,12 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
+from typing import ClassVar
+from typing import Dict
+from typing import Optional
+from typing import Type
+from typing import TypeAlias
+
 from torch import nn
 
 from brevitas.core.function_wrapper.ops_ste import FloorSte
@@ -11,6 +17,7 @@ from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.stats import StatsOp
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
@@ -38,10 +45,40 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChann
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.utils.python_utils import Registry
 
 from .quant_blocks import *
+
+# Prevents Pylance from raising "Variable not allowed in type expression" error in every type hint in BaseQuantizer
+QuantInjector: TypeAlias = ExtendedInjector  # type: ignore
+
+
+class BaseQuantizer:
+    weight_quant: ClassVar[Optional[QuantInjector]] = None
+    linear_input_quant: ClassVar[Optional[QuantInjector]] = None
+    input_quant: ClassVar[Optional[QuantInjector]] = None
+    q_scaled_quant: ClassVar[Optional[QuantInjector]] = None
+    k_transposed_quant: ClassVar[Optional[QuantInjector]] = None
+    v_quant: ClassVar[Optional[QuantInjector]] = None
+    attn_output_weights_quant: ClassVar[Optional[QuantInjector]] = None
+
+    @classmethod
+    def override_quantizers_dict(
+            cls: "BaseQuantizer",
+            quantizers_dict: Dict[str,
+                                  Optional[QuantInjector]]) -> Dict[str, Optional[QuantInjector]]:
+        # Overrides the quantizers in the input dictionary
+        for key in quantizers_dict:
+            if (value := getattr(cls, key)) is not None:
+                quantizers_dict[key] = value
+        return quantizers_dict
+
+
+# Registry for custom quantizers
+QUANTIZERS_REGISTRY = Registry[Type[BaseQuantizer]](registry_name="QuantizersRegistry")
 
 
 class DynamicActProxyMixin(ExtendedInjector):
@@ -72,7 +109,7 @@ class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
 
@@ -82,7 +119,7 @@ class Fp8e4m3FNUZDynamicActPerTensorFloat(Fp8e4m3FNUZActPerTensorFloat):
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
 
@@ -92,7 +129,7 @@ class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverOutputFeaturesView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     scaling_per_output_channel = True
 
 
@@ -107,7 +144,7 @@ class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     proxy_class = GroupwiseActQuantProxyFromInjector
     scaling_impl = RuntimeDynamicGroupStatsScaling
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
 
@@ -117,7 +154,7 @@ class ShiftedUint8DynamicActPerGroupFloat(DynamicActProxyMixin, ShiftedUint8ActP
     """
     proxy_class = GroupwiseActQuantProxyFromInjector
     scaling_impl = RuntimeDynamicGroupStatsScaling
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MIN_MAX
     scaling_per_output_type = ScalingPerOutputType.GROUP
     zero_point_impl = RuntimeDynamicGroupZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
@@ -129,7 +166,7 @@ class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8Act
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MIN_MAX
     zero_point_impl = RuntimeDynamicStatsZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
@@ -141,7 +178,7 @@ class ShiftedUint8DynamicActPerRowFloat(DynamicActProxyMixin, ShiftedUint8ActPer
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverOutputFeaturesView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MIN_MAX
     scaling_per_output_channel = True
     zero_point_impl = RuntimeDynamicStatsZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
@@ -154,7 +191,7 @@ class Fp8e4m3DynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3ActPerTensorFl
     proxy_class = GroupwiseActFloatQuantProxyFromInjector
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
 
 
 class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
@@ -163,7 +200,7 @@ class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverOutputFeaturesView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     scaling_per_output_channel = True
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = FloorSte
@@ -173,7 +210,7 @@ class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
 class FP8e4m3OCPDynamicActPerRowFloat(Fp8e4m3OCPActPerTensorFloat):
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverOutputFeaturesView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     scaling_per_output_channel = True
     proxy_class = DynamicActFloatQuantProxyFromInjector
 
@@ -185,7 +222,7 @@ class Fp8e4m3OCPDynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3OCPActPerTe
     proxy_class = GroupwiseActFloatQuantProxyFromInjector
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
 
 
 class Fp8e4m3OCPWeightSymmetricGroupQuant(Fp8e4m3OCPWeightPerChannelFloat):
@@ -210,6 +247,10 @@ class Fp8e4m3OCPWeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3OCPWeightPerC
 class FP8e4m3FNUZDynamicActPerRowFloat(Fp8e4m3FNUZActPerTensorFloat):
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverOutputFeaturesView
-    scaling_stats_op = 'min_max'
+    scaling_stats_op = StatsOp.MAX
     scaling_per_output_channel = True
     proxy_class = DynamicActFloatQuantProxyFromInjector
+
+
+class Fp8e4m3WeightPerChannelFloatMSE(MSESymmetricScale, Fp8e4m3WeightPerChannelFloat):
+    pass

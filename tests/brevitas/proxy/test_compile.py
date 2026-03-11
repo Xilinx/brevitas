@@ -1,3 +1,6 @@
+# Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import platform
 
 from hypothesis import given
@@ -60,11 +63,14 @@ def test_compile_weight(weight, weight_quantizer):
         pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
+    if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
+        pytest.skip("Unknown compile error on torch versions above 2.5")
     inp = torch.randn(8, 16)
     linear = qnn.QuantLinear(16, 8, weight_quant=quant)
     linear.weight.data = weight
     linear.eval()
     out = linear.quant_weight().value
+
     linear.weight_quant.compile_quant()
     quant_out = linear.quant_weight().value
     with quant_inference_mode(linear, compile=True):
@@ -82,6 +88,8 @@ def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
+    if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
+        pytest.skip("Unknown compile error on torch versions above 2.5")
     if 'mx' in name:
         extra_kwargs = {'group_dim': 1}
     else:

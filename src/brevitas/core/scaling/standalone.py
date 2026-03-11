@@ -1,7 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import List, Optional, Tuple, Union
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import torch
 from torch import Tensor
@@ -10,7 +13,6 @@ from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.restrict_val import _ClampValue
@@ -32,9 +34,13 @@ class ConstScaling(brevitas.jit.ScriptModule):
     ScriptModule implementation of a constant scale factor.
 
     Args:
-        scaling_init (Union[float, Tensor]): value to use as constant scale factor.
-        restrict_scaling_impl (Module): restrict scaling_init according to some criteria. Default: None
-        scaling_min_val (float): force a lower-bound on scaling_init. Default: None
+        scaling_init (Union[float, Tensor]): value to initialize the constant scale factor.
+        restrict_scaling_impl (Module): restrict the scale factor according to some criteria. Default: FloatRestrictValue().
+        restrict_threshold_impl (Optional[Module]): restrict the threshold according to some criteria. Default: None.
+        restrict_scale_threshold_impl (Optional[Module]): restrict value of scale / threshold according to some criteria. Default: None.
+        scaling_min_val (Optional[float]): force a lower-bound on the scale factor. Default: None.
+        dtype (Optional[torch.dtype]): data type of the scale factor. Default: None.
+        device (Optional[torch.device]): device of the scale factor. Default: None.
 
     Returns:
         Tensor: scale factor wrapped in a float torch.tensor.
@@ -62,7 +68,8 @@ class ConstScaling(brevitas.jit.ScriptModule):
             self,
             scaling_init: Union[float, Tensor],
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
+            restrict_threshold_impl: Optional[Module] = None,
+            restrict_scale_threshold_impl: Optional[Module] = None,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -72,9 +79,12 @@ class ConstScaling(brevitas.jit.ScriptModule):
         if restrict_threshold_impl is None:
             restrict_threshold_impl = restrict_scaling_impl
 
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
+        self.restrict_clamp_scale_threshold = _RestrictClampValue(
+            restrict_value_impl=restrict_scale_threshold_impl)
         if isinstance(scaling_init, Tensor):
             scaling_init = scaling_init.to(device=device, dtype=dtype)
             scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
@@ -92,7 +102,7 @@ class ConstScaling(brevitas.jit.ScriptModule):
         # For IntQuant, this is no-op, retrocompatible.
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
         restricted_value = self.restrict_clamp_scaling(self.value())
-        restricted_value = restricted_value / threshold
+        restricted_value = self.restrict_clamp_scale_threshold(restricted_value / threshold)
         return restricted_value
 
 
@@ -101,10 +111,14 @@ class ParameterScaling(brevitas.jit.ScriptModule):
     ScriptModule implementation of a learned scale factor.
 
     Args:
-        scaling_init (Union[float, Tensor]): value to initialize the learned scale factor.
-        scaling_shape (Tuple[int, ...]): shape to extend a scalar float or tensor scaling_init. Default: None
-        restrict_scaling_impl (Module): restrict the learned scale factor according to some criteria. Default: None
-        scaling_min_val (float): force a lower-bound on the learned scale factor. Default: None
+        scaling_init (Union[float, Tensor]): Value to initialize the learned scale factor.
+        scaling_shape (Optional[Tuple[int, ...]]): Shape of the learned scale factor. Default: None.
+        restrict_scaling_impl (Module): Restrict the scale factor according to some criteria. Default: FloatRestrictValue().
+        restrict_threshold_impl (Optional[Module]): Restrict the threshold according to some criteria. Default: None.
+        restrict_scale_threshold_impl (Optional[Module]): restrict value of scale / threshold according to some criteria. Default: None.
+        scaling_min_val (Optional[float]): Force a lower-bound on the scale factor. Default: None.
+        dtype (Optional[torch.dtype]): Data type of the scale factor. Default: None.
+        device (Optional[torch.device]): Device of the scale factor. Default: None.
 
     Returns:
         Tensor: learned scale factor wrapped in a float torch.tensor.
@@ -132,7 +146,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         TorchScript to be consistent across different scaling implementations.
 
     Note:
-        Maps to scaling_impl_type == ScalingImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level APIs.
+        Maps to scaling_impl_type == ScalingImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level
+    APIs.
     """
 
     def __init__(
@@ -140,7 +155,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             scaling_init: Union[float, Tensor],
             scaling_shape: Optional[Tuple[int, ...]] = None,
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
+            restrict_threshold_impl: Optional[Module] = None,
+            restrict_scale_threshold_impl: Optional[Module] = None,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -165,10 +181,13 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         if scaling_init.shape == SCALAR_SHAPE and scaling_shape is not None:
             scaling_init = torch.full(scaling_shape, scaling_init, dtype=dtype, device=device)
         self.value = Parameter(scaling_init)
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
+        self.restrict_clamp_scale_threshold = _RestrictClampValue(
+            restrict_value_impl=restrict_scale_threshold_impl)
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
@@ -178,8 +197,9 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         # For IntQuant, this is no-op, retrocompatible.
         threshold = self.restrict_clamp_threshold(self.restrict_threshold_pre(threshold))
         # We can clamp after restrict val since the learned parameter is already in log-domain
-        value = torch.abs(self.restrict_clamp_scaling(self.value))
-        return value / threshold
+        value = self.restrict_clamp_scaling(self.value)
+        value = self.restrict_clamp_scale_threshold(value / threshold)
+        return value
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
@@ -196,8 +216,45 @@ class ParameterScaling(brevitas.jit.ScriptModule):
 
 class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
     """
-    ScriptModule implementation of a learned scale factor initialized from statistics of a parameter,
-    e.g. weights MSE or AbsMax.
+    ScriptModule implementation of a learned scale factor initialized from statistics computed over a list of parameters.
+
+    Args:
+        scaling_stats_impl (Module): Implementation of the statistics computed over the parameter list.
+        scaling_stats_input_view_shape_impl (Module): Implementation of the view applied to the input before statistics computation.
+        scaling_stats_input_concat_dim (int): Dimension along which to concatenate parameter tensors for statistics computation.
+        tracked_parameter_list (List[torch.nn.Parameter]): List of parameters to track and compute statistics over.
+        scaling_shape (Tuple[int, ...]): Shape of the learned scale factor.
+        force_parameter (bool): If True, always use a tracked_parameter_list for statistics, even if only one is tracked. Default: False.
+        restrict_scaling_impl (Module): Restrict the scale factor according to some criteria. Default: FloatRestrictValue().
+        restrict_threshold_impl (Optional[Module]): Restrict the threshold according to some criteria. Default: None.
+        restrict_scale_threshold_impl (Optional[Module]): restrict value of scale / threshold according to some criteria. Default: None.
+        scaling_affine_rescaling_init (Optional[float]): Initial value for affine rescaling. Default: None.
+        scaling_affine_shifting_init (Optional[float]): Initial value for affine shifting. Default: None.
+        scaling_min_val (Optional[float]): Force a lower-bound on the scale factor. Default: None.
+        dtype (Optional[torch.dtype]): Data type of the scale factor. Default: None.
+        device (Optional[torch.device]): Device of the scale factor. Default: None.
+
+    Returns:
+        Tensor: learned scale factor wrapped in a float torch.tensor.
+
+    Note:
+        Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+        from a floating point state dict.
+
+    Note:
+        Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS ==
+        'PARAMETER_FROM_STATS' == 'parameter_from_stats' in higher-level APIs.
+
+    Example:
+        >>> scaling_impl = ParameterFromStatsFromParameterScaling(
+        ...     scaling_stats_impl=AbsMax(),
+        ...     scaling_stats_input_view_shape_impl=Identity(),
+        ...     scaling_stats_input_concat_dim=0,
+        ...     tracked_parameter_list=[torch.nn.Parameter(torch.ones(3))],
+        ...     scaling_shape=(3,))
+        >>> x = torch.randn(3)
+        >>> scaling_impl(x)
+        tensor([...], grad_fn=<...>)
     """
 
     def __init__(
@@ -209,11 +266,14 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_shape: Tuple[int, ...],
             force_parameter: bool = False,
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
+            restrict_threshold_impl: Optional[Module] = None,
+            restrict_scale_threshold_impl: Optional[Module] = None,
+            scaling_affine_rescaling_init: Optional[float] = None,
+            scaling_affine_shifting_init: Optional[float] = None,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None,
-            is_learnable: bool =True) -> None:
+            is_learnable: bool = True) -> None:
         super(ParameterFromStatsFromParameterScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -228,14 +288,15 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             restrict_threshold_impl = restrict_scaling_impl
 
         self.stats_scaling_impl = _StatsScaling(
-            restrict_scaling_impl,
-            restrict_threshold_impl,
-            scaling_shape,
-            scaling_min_val,
-            False,
-            False,
-            dtype,
-            device)
+            restrict_scaling_impl=restrict_scaling_impl,
+            restrict_threshold_impl=restrict_threshold_impl,
+            restrict_scale_threshold_impl=restrict_scale_threshold_impl,
+            scaling_min_val=scaling_min_val,
+            scaling_shape=scaling_shape,
+            scaling_affine_rescaling_init=scaling_affine_rescaling_init,
+            scaling_affine_shifting_init=scaling_affine_shifting_init,
+            dtype=dtype,
+            device=device)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.restrict_inplace_scaling_pre = restrict_scaling_impl.restrict_init_inplace_module()
         self.clamp_scaling = _ClampValue(scaling_min_val)
@@ -257,8 +318,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            value = torch.abs(self.stats_scaling_impl.restrict_clamp_scaling(value))
-            value = value / threshold
+            value = self.stats_scaling_impl.restrict_clamp_scaling(self.value)
+            value = self.stats_scaling_impl.restrict_clamp_scale_threshold(value / threshold)
             return value
         else:
             stats = self.parameter_list_stats(x)
@@ -270,11 +331,12 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             # Clamping avoids eventual log(0) with restrict_val
             stats = self.clamp_scaling(stats)
             stats = self.restrict_inplace_scaling_pre(stats)
+            stats = self.stats_scaling_impl.affine_rescaling(stats)  # possible rescaling
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
-            inplace_tensor_mul(value.detach(), stats)
-            value = torch.abs(self.stats_scaling_impl.restrict_clamp_scaling(value))
-            value = value / threshold
+            inplace_tensor_mul(self.value.detach(), stats)
+            value = self.stats_scaling_impl.restrict_clamp_scaling(self.value)
+            value = self.stats_scaling_impl.restrict_clamp_scale_threshold(value / threshold)
             self.init_done = True
             return value
 
@@ -312,22 +374,27 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     Args:
         collect_stats_steps (int): Number of calls to the forward method in training mode to collect statistics for.
         scaling_stats_impl (Module): Implementation of the statistics computed during the collection phase.
-        scaling_stats_input_view_shape_impl (Module): Implementation of the view applied to the runtime
+        scaling_stats_input_view_shape_impl (Module, optional): Implementation of the view applied to the runtime
             input during the statistics collection phase. Default: OverBatchOverTensorView().
-        scaling_shape (Tuple[int, ...]): shape of the torch.nn.Parameter used in the second phase. Default: SCALAR_SHAPE.
-        restrict_scaling_impl (Module): restrict the learned scale factor according to some criteria. Default: None
-            input before going into scaling_stats_input_view_shape_impl. Default: None
-        scaling_stats_momentum: float = Momentum for the statistics moving average. Default: DEFAULT_MOMENTUM.
-        scaling_min_val (float): force a lower-bound on the learned scale factor. Default: None.
+        scaling_shape (Tuple[int, ...], optional): Shape of the torch.nn.Parameter used in the second phase. Default: SCALAR_SHAPE.
+        restrict_scaling_impl (Module, optional): Restrict the learned scale factor according to some criteria. Default: FloatRestrictValue().
+        restrict_threshold_impl (Optional[Module], optional): Restrict the threshold according to some criteria. Default: None.
+        restrict_scale_threshold_impl (Optional[Module]): restrict value of scale / threshold according to some criteria. Default: None.
+        scaling_stats_momentum (Optional[float], optional): Momentum for the statistics moving average. Default: DEFAULT_MOMENTUM.
+        scaling_min_val (Optional[float], optional): Force a lower-bound on the learned scale factor. Default: None.
+        dtype (Optional[torch.dtype], optional): Data type of the scale factor. Default: None.
+        device (Optional[torch.device], optional): Device of the scale factor. Default: None.
 
     Returns:
         Tensor: learned scale factor wrapped in a float torch.tensor.
 
     Raises:
-        RuntimeError: if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None
+        RuntimeError: if collect_stats_steps <= 0.
 
     Examples:
-        >>> scaling_impl = ParameterFromRuntimeStatsScaling(collect_stats_steps=1, scaling_stats_impl=AbsMax())
+        >>> scaling_impl = ParameterFromRuntimeStatsScaling(
+        ...     collect_stats_steps=1,
+        ...     scaling_stats_impl=AbsMax())
         >>> scaling_impl.training
         True
         >>> x = torch.arange(-3, 2, 0.1)
@@ -352,7 +419,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             restrict_scaling_impl: Module = FloatRestrictValue(),
-            restrict_threshold_impl: Optional[Module] = FloatRestrictValue(),
+            restrict_threshold_impl: Optional[Module] = None,
+            restrict_scale_threshold_impl: Optional[Module] = None,
             scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None,
             dtype: Optional[torch.dtype] = None,
@@ -380,6 +448,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
 
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.restrict_threshold = _RestrictValue(restrict_threshold_impl)
+        self.restrict_scale_threshold = _RestrictValue(restrict_scale_threshold_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
         self.local_loss_mode: bool = brevitas.jit.Attribute(
             False, bool)  # required to support MSE eval or variants
@@ -407,25 +476,25 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             # Whenever we are in local loss mode, we don't update the counter nor the buffer
             if self.local_loss_mode:
                 # Local loss mode, we early exit and divide by threshold
-                return torch.abs(clamped_stats / threshold)
+                return clamped_stats / threshold
             if self.counter == 0:
                 inplace_tensor_mul(self.buffer, clamped_stats.detach())
             else:
                 inplace_momentum_update(
                     self.buffer, clamped_stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            return torch.abs(clamped_stats / threshold)
+            return clamped_stats / threshold
         elif self.counter == self.collect_stats_steps:
             self.init_scale()
             value = self.clamp_scaling(self.restrict_scaling(value))
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
-            value = value / threshold
-            return torch.abs(value)
+            value = self.restrict_scale_threshold(value / threshold)
+            return value
         else:
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
-            value = self.clamp_scaling(self.restrict_scaling(value))
-            value = value / threshold
-            return torch.abs(value)
+            value = self.clamp_scaling(self.restrict_scaling(self.value))
+            value = self.restrict_scale_threshold(value / threshold)
+            return value
 
     @brevitas.jit.script_method
     def forward(self, stats_input: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
@@ -444,9 +513,9 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 out = value
             threshold = self.restrict_threshold(self.restrict_threshold_pre(threshold))
             out = self.restrict_scaling(out)
-            out = out / threshold
+            out = self.restrict_scale_threshold(out / threshold)
             # We can clamp after restrict val since the learned parameter is already in log-domain
-            out = torch.abs(self.clamp_scaling(out))
+            out = self.clamp_scaling(out)
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
