@@ -247,6 +247,8 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
             return IntScaling
         elif restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
             return PowerOfTwoIntScaling
+        elif restrict_scaling_type == RestrictValueType.SIGNED_POWER_OF_TWO:
+            return PowerOfTwoIntScaling
         else:
             raise RuntimeError(f"{restrict_scaling_type} not recognized.")
 
