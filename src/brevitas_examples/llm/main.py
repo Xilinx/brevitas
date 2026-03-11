@@ -48,7 +48,6 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data_utils import collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
@@ -292,6 +291,11 @@ def quantize_llm(args, extra_args=None):
             f"The provided configuration requires fx and has a batch size of {args.calibration_batch_size}.\nErrors may occur when using fx and batch_size > 1.\nIf you experience any issues try chaning the configuration to avoid using fx or to set the batch_size to 1."
         )
 
+    collate_fn = llm_collate(
+        model_name_or_path=args.model,
+        sequence_length=args.seqlen,
+        require_fx=require_fx and args.export_target is not None)
+
     # Load the data for calibration and evaluation.
     calibration_dataset = get_dataset_for_model(
         args.model,
@@ -302,10 +306,8 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split="train",
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
-        device=None)
-
-    # Batched data loader to accelerate data-aware algorithms
+        require_fx=require_fx and args.export_target is not None)
+    # Batched data loader to accelerate GPXQ algorithms
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
 
@@ -318,8 +320,7 @@ def quantize_llm(args, extra_args=None):
         seqlen=args.seqlen,
         split=args.dataset_eval_split,
         seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
-        device=None)
+        require_fx=require_fx and args.export_target is not None)
 
     validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 

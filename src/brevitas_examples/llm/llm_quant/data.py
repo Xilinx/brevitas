@@ -173,30 +173,27 @@ def get_wikitext2(
     # Add BOS token to each sequence if add_bos_token is True and the tokenizer supports this token
     if add_bos_token and tokenizer.bos_token_id is not None:
         seqlen = seqlen - 1
-        sequence_process_fn = lambda inp: torch.cat([
-            torch.tensor([[tokenizer.bos_token_id]], dtype=inp.dtype, device=inp.device), inp],
-                                                    dim=1)
+        sequence_process_fn = sequence_process_fn = lambda inp: [tokenizer.bos_token_id] + inp
     else:
         # Identity, the BOS token is not added
         sequence_process_fn = lambda inp: inp
 
-    data = tokenizer("\n\n".join(raw_dataset['text']), return_tensors='pt')
-    dataloader = []
+    input_ids = tokenizer(
+        "\n\n".join(raw_dataset['text']), return_attention_mask=False)["input_ids"]
+    tokenized_data = []
     if split == 'train':
         for _ in tqdm(range(nsamples)):
-            i = random.randint(0, data.input_ids.shape[1] - seqlen - 1)
+            i = random.randint(0, input_ids.shape[1] - seqlen - 1)
             j = i + seqlen
-            inp = sequence_process_fn(data.input_ids[:, i:j])
+            inp = sequence_process_fn(input_ids[:, i:j])
             attention_mask = torch.ones_like(inp)
-            dataloader.append({'input_ids': inp, 'attention_mask': attention_mask, 'labels': inp})
+            tokenized_data.append({'input_ids': inp})
     elif split in ['test', 'validation']:
-        nsamples = data['input_ids'].numel() // seqlen
+        nsamples = input_ids.numel() // seqlen
         for i in tqdm(range(nsamples)):
-            batch = sequence_process_fn(data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)])
-            attention_mask = torch.ones_like(batch)
-            dataloader.append({
-                'input_ids': batch, 'attention_mask': attention_mask, 'labels': batch})
-    return dataloader
+            batch = sequence_process_fn(input_ids[:, (i * seqlen):((i + 1) * seqlen)])
+            tokenized_data.append({'input_ids': inp})
+    return Dataset.from_list(tokenized_data)
 
 
 def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
