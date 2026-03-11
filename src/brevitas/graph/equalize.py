@@ -481,7 +481,7 @@ def _get_input_axis(module: nn.Module) -> Optional[int]:
             return 0
         elif module.groups == module.out_channels:
             return 1
-    elif isinstance(module, (nn.LayerNorm, RMSNorm)):
+    elif isinstance(module, (nn.LayerNorm, RMSNorm)) or 'RMSNorm' in type(module).__name__:
         # We assume normalization happens only along the channel dimension
         if len(module.weight.shape) == 1:
             return 0
@@ -509,7 +509,7 @@ def _get_output_axis(module: nn.Module) -> Optional[int]:
     elif isinstance(module,
                     (nn.Embedding, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         return 1
-    elif isinstance(module, (nn.LayerNorm, RMSNorm)):
+    elif isinstance(module, (nn.LayerNorm, RMSNorm)) or 'RMSNorm' in type(module).__name__:
         # We assume normalization happens only along the channel dimension
         if len(module.weight.shape) == 1:
             return 0

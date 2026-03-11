@@ -65,6 +65,17 @@ class LLMRunCases:
             },{
                 "weight_quant_format": "float_e2m1",
                 "weight_param_method": "mse",
+            },
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "weight_bit_width": 3,
+                "weight_group_size": 128,
+                "weight_quant_granularity": "per_group",
+                "weight_quant_type": "asym",
+                "scaling_min_val": 1e-5,
+                "quantize_weight_zero_point": True,
+                "awq_scale": True,
+                "awq_clip": True,
             }
         ],
         ids=[
@@ -86,7 +97,8 @@ class LLMRunCases:
             "quant_sdpa_functional_per_row",
             "functional_sdpa_quant=True,rotation=fused_no_fx",
             "per_group_w_padding,learned_round=linear_round",
-            "float_e2m1_and_mse"
+            "float_e2m1_and_mse",
+            "awq_clip_scale"
         ],)
     def case_small_models_toggle_args(self, run_dict, default_run_args, request):
         if config.JIT_ENABLED and run_dict.get("weight_param_method") == "mse":

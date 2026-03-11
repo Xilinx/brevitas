@@ -305,7 +305,7 @@ def quantize_llm(args, extra_args=None):
         require_fx=require_fx and args.export_target is not None,
         device=None)
 
-    # Batched data loader to accelerate GPXQ algorithms
+    # Batched data loader to accelerate data-aware algorithms
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
 
@@ -320,6 +320,8 @@ def quantize_llm(args, extra_args=None):
         seed=args.seed,
         require_fx=require_fx and args.export_target is not None,
         device=None)
+
+    validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
@@ -344,7 +346,7 @@ def quantize_llm(args, extra_args=None):
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(
-            model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
@@ -544,7 +546,7 @@ def quantize_llm(args, extra_args=None):
         apply_awq(
             model=model,
             tokenizer=tokenizer,
-            calibration_dataset=calibration_dataset,
+            calibration_loader=calibration_loader,
             args=args,
             auto_scale=args.awq_scale,
             mse_range=args.awq_clip,
@@ -720,7 +722,7 @@ def quantize_llm(args, extra_args=None):
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
                 quant_ppl = compute_perplexity(
-                    model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
+                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
