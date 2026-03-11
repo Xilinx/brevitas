@@ -56,7 +56,6 @@ from brevitas_examples.llm.llm_quant.awq.auto_scale import auto_scale_block
 from brevitas_examples.llm.llm_quant.awq.graph import EqualizeAWQ
 from brevitas_examples.llm.llm_quant.awq.utils.region import RegionAWQ
 from brevitas_examples.llm.llm_quant.awq.utils.region import retrieve_block_awq_regions
-from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
 __all__ = ["apply_awq"]
 

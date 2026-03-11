@@ -157,7 +157,6 @@ def get_clm_dataset(
     random_indices = random_indices[:nsamples]
     # Retrive random slice of dataset
     dataset = dataset.select(random_indices)
-    # Now return the slice in a format that can be converted to a DatasetToDevice
     return dataset
 
 
