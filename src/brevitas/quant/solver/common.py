@@ -247,6 +247,7 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
             return IntScaling
         elif restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
             return PowerOfTwoIntScaling
+        # `int_threshold` is unsigned by construction
         elif restrict_scaling_type == RestrictValueType.SIGNED_POWER_OF_TWO:
             return PowerOfTwoIntScaling
         else:
