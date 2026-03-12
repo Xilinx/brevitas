@@ -48,6 +48,7 @@ from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
 from brevitas.utils.python_utils import Registry
 
 from .quant_blocks import *
@@ -94,6 +95,15 @@ class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
 
+class IntWeightSymmetricGroupQuantMSE(Int8WeightPerChannelFloatMSE):
+    """
+    Block / group / vector signed symmetric int weight quantizer with float scales.
+    We inherit from a per-channel quantizer to re-use some underlying machinery.
+    """
+    proxy_class = GroupwiseWeightQuantProxyFromInjector
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+
+
 class Fp8e4m3WeightSymmetricGroupQuant(Fp8e4m3WeightPerChannelFloat):
     """
     Block / group / vector signed symmetric e4m3 weight quantizer with float scales.
@@ -112,6 +122,9 @@ class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     scaling_stats_op = StatsOp.MAX
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
+
+class ShiftedUint8WeightGroupQuantFloatMSE(MSESymmetricScale, ShiftedUint8WeightGroupQuantFloat):
+    pass
 
 class Fp8e4m3FNUZDynamicActPerTensorFloat(Fp8e4m3FNUZActPerTensorFloat):
     """

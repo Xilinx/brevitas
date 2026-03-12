@@ -82,10 +82,12 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowF
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuantMSE
 from brevitas_examples.common.generative.quantizers import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8WeightGroupQuantFloatMSE
 
 WEIGHT_QUANT_MAP = {
     'int': {
@@ -104,7 +106,10 @@ WEIGHT_QUANT_MAP = {
                     'asym': ShiftedUint8WeightPerTensorFloatMSE},
                 'per_channel': {
                     'sym': Int8WeightPerChannelFloatMSE,
-                    'asym': ShiftedUint8WeightPerChannelFloatMSE}},
+                    'asym': ShiftedUint8WeightPerChannelFloatMSE},
+                'per_group': {
+                    'sym': IntWeightSymmetricGroupQuantMSE,
+                    'asym': ShiftedUint8WeightGroupQuantFloatMSE}},
             'hqo': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFloatHQO,
