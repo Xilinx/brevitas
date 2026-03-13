@@ -126,6 +126,7 @@ class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
 class ShiftedUint8WeightGroupQuantFloatMSE(MSESymmetricScale, ShiftedUint8WeightGroupQuantFloat):
     pass
 
+
 class Fp8e4m3FNUZDynamicActPerTensorFloat(Fp8e4m3FNUZActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
@@ -134,6 +135,18 @@ class Fp8e4m3FNUZDynamicActPerTensorFloat(Fp8e4m3FNUZActPerTensorFloat):
     scaling_stats_input_view_shape_impl = OverTensorView
     scaling_stats_op = StatsOp.MAX
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
+    proxy_class = DynamicActFloatQuantProxyFromInjector
+
+
+class Fp8e4m3OCPDynamicActPerTensorFloat(Fp8e4m3OCPActPerTensorFloat):
+    """
+    Symmetric quantizer with per tensor dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = StatsOp.MAX
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
@@ -197,7 +210,7 @@ class ShiftedUint8DynamicActPerRowFloat(DynamicActProxyMixin, ShiftedUint8ActPer
     zero_point_stats_impl = NegativeMinOrZero
 
 
-class Fp8e4m3DynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3ActPerTensorFloat):
+class Fp8e4m3DynamicActPerGroupFloat(Fp8e4m3ActPerTensorFloat):
     """
     Symmetric quantizer with per group scale.
     """
@@ -205,6 +218,7 @@ class Fp8e4m3DynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3ActPerTensorFl
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = StatsOp.MAX
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class FP8e4m3OCPDynamicActPerRowFixedPoint(Fp8e4m3OCPActPerTensorFloat):
@@ -228,7 +242,7 @@ class FP8e4m3OCPDynamicActPerRowFloat(Fp8e4m3OCPActPerTensorFloat):
     proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
-class Fp8e4m3OCPDynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3OCPActPerTensorFloat):
+class Fp8e4m3OCPDynamicActPerGroupFloat(Fp8e4m3OCPActPerTensorFloat):
     """
     Symmetric quantizer with per group scale.
     """
@@ -236,6 +250,7 @@ class Fp8e4m3OCPDynamicActPerGroupFloat(DynamicActProxyMixin, Fp8e4m3OCPActPerTe
     scaling_impl = RuntimeDynamicGroupStatsScaling
     scaling_per_output_type = ScalingPerOutputType.GROUP
     scaling_stats_op = StatsOp.MAX
+    proxy_class = DynamicActFloatQuantProxyFromInjector
 
 
 class Fp8e4m3OCPWeightSymmetricGroupQuant(Fp8e4m3OCPWeightPerChannelFloat):
