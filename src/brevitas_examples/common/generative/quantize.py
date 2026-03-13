@@ -72,6 +72,7 @@ from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicAct
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFixedPoint
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPDynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
@@ -233,6 +234,8 @@ INPUT_QUANT_MAP = {
         'dynamic': {
             'float_scale': {
                 'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3OCPDynamicActPerTensorFloat},
                     'per_row': {
                         'sym': FP8e4m3OCPDynamicActPerRowFloat},
                     'per_group': {
