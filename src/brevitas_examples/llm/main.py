@@ -759,6 +759,7 @@ def quantize_llm(args, extra_args=None):
                     tasks=args.few_shot_tasks,
                     dtype=args.dtype,
                     batch_size=args.few_shot_override_batch_size,
+                    max_samples=args.few_shot_limit,
                 )
             # Print nicely formatted results
             pprint.pprint(few_shot_eval_results)
