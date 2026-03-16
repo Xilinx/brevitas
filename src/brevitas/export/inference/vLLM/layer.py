@@ -87,7 +87,8 @@ class QuantLinear(LinearMethodBase):
         else:
             scale_shape = scale.shape
             zero_point_shape = zero_point.shape
-            quant_class = quant_class_type(scale_shape, zero_point_shape)
+            quant_class = quant_class_type(
+                scale_shape=scale_shape, zero_point_shape=zero_point_shape)
 
         # Set the remaining attributes
         quant_class.float_to_int_impl_type = float_to_int_impl_type

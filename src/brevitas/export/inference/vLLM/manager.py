@@ -37,20 +37,12 @@ from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
 
-from ..handler import DynamicFloatInferenceHandler
-from ..handler import DynamicIntInferenceHandler
 from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
-from ..handler import GroupwiseFloatInferenceHandler
 from ..handler import GroupwiseFloatWeightInferenceHandler
-from ..handler import GroupwiseIntInferenceHandler
 from ..handler import GroupwiseIntWeightInferenceHandler
 from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
-from ..manager import _override_act_caching_mode
-from ..manager import _override_bias_caching_mode
-from ..manager import _override_create_quant_tensor
-from ..manager import _override_weight_caching_mode
 from .handler import vLLMDynamicPerRowFloatInferenceHandler
 from .handler import vLLMGroupwiseFloatInferenceHandler
 from .handler import vLLMGroupwiseIntInferenceHandler
@@ -172,8 +164,6 @@ class vLLMExportManager(BaseManager):
         _set_proxy_export_handler(cls, module)
         _set_recurrent_layer_export_handler(cls, module)
 
-    wrap_layers = (EqualizedModule, RotatedModule)
-
     @staticmethod
     def handle_wrap_layer(module: Module):
         class_type = type(module)
@@ -204,11 +194,10 @@ class vLLMExportManager(BaseManager):
         os.makedirs(filepath, exist_ok=True)
         for name, module in model.named_modules():
 
-            if isinstance(module, QuantLayerMixin) or isinstance(module,
-                                                                 vLLMExportManager.wrap_layers):
+            if isinstance(module, QuantLayerMixin) or isinstance(module, RotatedModule):
                 layer_dict = dict()
                 json_to_save[name] = layer_dict
-                if isinstance(module, vLLMExportManager.wrap_layers):
+                if isinstance(module, RotatedModule):
                     layers_to_restore.append(module)
                     vLLMExportManager.handle_wrap_layer(module)
                     layer_dict['rotation_config'] = dict()
