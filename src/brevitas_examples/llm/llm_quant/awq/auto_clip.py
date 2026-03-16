@@ -162,8 +162,7 @@ def apply_clip(block_regions: List[RegionAWQ], clip_dict: Dict[int, torch.Tensor
         for name in region.sinks_names:
             if name in clip_dict:
                 sink = region.name_to_module[name]
-                if torch.cuda.is_available():
-                    sink.cuda()
+                sink = sink.cuda() if torch.cuda.is_available() else sink
                 max_val = clip_dict[name].to(sink.weight.device)
                 org_shape = sink.weight.shape
                 sink.weight.data = sink.weight.data.reshape(*max_val.shape[:2], -1)
