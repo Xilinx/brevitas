@@ -32,7 +32,6 @@ from typing import Dict
 from typing import List
 
 import torch
-from torch.cuda import is_available
 import torch.nn as nn
 
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector

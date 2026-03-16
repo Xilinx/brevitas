@@ -38,7 +38,6 @@ from typing import Tuple
 
 from accelerate.utils.operations import send_to_device
 import torch
-from torch.cuda import is_available
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
