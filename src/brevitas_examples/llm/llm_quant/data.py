@@ -223,10 +223,18 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
-            data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
+            data = data.shuffle(seed=seed).select(range(10000))
         elif split == "validation":
             warnings.warn(
                 f"There is no available validation split for pile. Defaulting to wikitext2.")
+            data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
+    elif dataset_name == "fineweb":
+        if split == "train":
+            data = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")
+            data = data.shuffle(seed=seed).select(range(10000))
+        elif split == "validation":
+            warnings.warn(
+                f"There is no available validation split for fineweb. Defaulting to wikitext2.")
             data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")

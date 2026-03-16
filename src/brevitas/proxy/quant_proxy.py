@@ -102,6 +102,10 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         return not self.disable_quant and self.tensor_quant is not None
 
     @property
+    def is_proxy_compiled(self):
+        return False
+
+    @property
     def is_groupwise(self):
         return _is_groupwise(self.quant_injector)
 

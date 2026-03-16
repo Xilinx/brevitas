@@ -5,6 +5,7 @@ from inspect import signature
 from typing import Any
 from typing import Dict
 from typing import Iterable
+from typing import Optional
 from typing import Tuple
 
 import torch
@@ -20,6 +21,7 @@ __all__ = [
     'replace_all_uses_except',
     'signature_keys',
     'is_subseq',
+    'find_node_for_module',
     'get_module_name_and_parent',
     'set_module',
     'get_module',
@@ -90,6 +92,18 @@ def signature_keys(module_class):
 
 def is_subseq(seq, subseq):
     return any(subseq == seq[i:len(subseq) + i] for i in range(len(seq) - len(subseq) + 1))
+
+
+def find_node_for_module(graph_model, target_module) -> Optional[Node]:
+    """
+    Find the graph node corresponding to a module instance by matching its identity.
+    """
+    for node in graph_model.graph.nodes:
+        if node.op == 'call_module':
+            module = get_module(graph_model, node.target)
+            if id(module) == id(target_module):
+                return node
+    return None
 
 
 def get_module_name_and_parent(model, fully_qualified_module_name):

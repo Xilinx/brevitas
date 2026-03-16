@@ -90,7 +90,7 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
             pre_scaling_init = torch.full(pre_scaling_shape, pre_scaling_init)
         self.value = Parameter(pre_scaling_init)
         self.restrict_clamp_scaling = _RestrictClampValue(
-            pre_scaling_min_val, restrict_pre_scaling_impl)
+            min_val=pre_scaling_min_val, restrict_value_impl=restrict_pre_scaling_impl)
 
     @brevitas.jit.script_method
     def forward(self, weights: Tensor) -> Tensor:
@@ -190,8 +190,8 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         T = self.calc_max_l1_norm(input_bit_width, input_is_signed)  # T / s
         g = torch.clamp_max(g / s, T)
         value = d_w / g  # calculating final pre-clipping scaling factor
-        # re-apply clamp_min_ste from restrict_scaling_impl to the specified pre_scaling_min_val
-        value = self.restrict_clamp_scaling.clamp_min_ste(value)
+        # re-apply clamp_ste from restrict_scaling_impl to the specified pre_scaling_min_val
+        value = self.restrict_clamp_scaling.clamp_ste(value)
         return value
 
     @brevitas.jit.script_method

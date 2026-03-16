@@ -99,12 +99,14 @@ def get_dataset_for_model(
     torch.random.manual_seed(seed)
 
     test_splits = ["validation", "test"]
+    # Pile and fineweb does not have a test section
+    testless_datasets = ['pile', 'fineweb']
 
     if split not in ["train", *test_splits]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
 
     raw_dataset = load_raw_dataset(dataset_name=dataset_name, split=split, seed=seed)
-    if dataset_name == "wikitext2" or (dataset_name == "pile" and split in test_splits):
+    if dataset_name == "wikitext2" or (dataset_name in testless_datasets and split in test_splits):
         # Document level BOS preprocessing is not supported for Wikitext2 as each row does not belong to
         # a single document
         if bos_preprocessing == "document":

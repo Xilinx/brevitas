@@ -452,6 +452,7 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">brevitas.config</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">config</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.restrict_val</span><span class="w"> </span><span class="kn">import</span> <span class="n">_RestrictClampValue</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.restrict_val</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntRestrictValue</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.function</span><span class="w"> </span><span class="kn">import</span> <span class="n">abs_binary_sign_grad</span>
 
@@ -467,7 +468,7 @@ document.write(`
 <span class="sd">    Args:</span>
 <span class="sd">        bit_width (int): value to initialize the output learned bit-width.</span>
 <span class="sd">        min_bit_width (int): lower bound for the output learned bit-width. Default: 2.</span>
-<span class="sd">        restrict_bit_width_impl: restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).</span>
+<span class="sd">        restrict_clamp_bit_width_impl: restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).</span>
 <span class="sd">        override_pretrained_bit_width (bool): ignore pretrained bit-width loaded from a state dict. Default: False.</span>
 
 <span class="sd">    Returns:</span>
@@ -495,6 +496,8 @@ document.write(`
             <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
             <span class="n">min_bit_width</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">MIN_INT_BIT_WIDTH</span><span class="p">,</span>
             <span class="n">restrict_bit_width_impl</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">IntRestrictValue</span><span class="p">(</span><span class="n">RoundSte</span><span class="p">()),</span>
+            <span class="n">bit_width_offset_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">bit_width_offset_max_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">override_pretrained_bit_width</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
             <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -513,13 +516,16 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">bit_width_offset</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">bit_width_offset_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bit_width_base</span> <span class="o">=</span> <span class="n">bit_width_base</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_bit_width_impl</span> <span class="o">=</span> <span class="n">restrict_bit_width_impl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">_RestrictClampValue</span><span class="p">(</span>
+            <span class="n">min_val</span><span class="o">=</span><span class="n">bit_width_offset_min_val</span><span class="p">,</span>
+            <span class="n">restrict_value_impl</span><span class="o">=</span><span class="n">restrict_bit_width_impl</span><span class="p">,</span>
+            <span class="n">max_val</span><span class="o">=</span><span class="n">bit_width_offset_max_val</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">override_pretrained</span> <span class="o">=</span> <span class="n">override_pretrained_bit_width</span>
 
 <div class="viewcode-block" id="BitWidthParameter.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.parameter.BitWidthParameter.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="n">bit_width</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bit_width_offset</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_width_base</span>
-        <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_bit_width_impl</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
+        <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_bit_width_impl</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">bit_width</span></div>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_from_state_dict</span><span class="p">(</span>

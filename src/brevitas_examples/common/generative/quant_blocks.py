@@ -33,7 +33,7 @@ class RuntimeDynamicStatsScaling(nn.Module):
         self.dynamic_scaling_broadcastable_fn = dynamic_scaling_broadcastable_fn
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
         self.restrict_clamp_scaling = _RestrictClampValue(
-            scaling_min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
+            min_val=scaling_min_val, restrict_value_impl=restrict_scaling_impl)
         self.restrict_threshold_pre = restrict_threshold_impl.restrict_init_module()
         self.restrict_clamp_threshold = _RestrictClampValue(
             restrict_value_impl=restrict_threshold_impl)

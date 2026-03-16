@@ -207,20 +207,20 @@ def trunc_quant(
 @trunc_quant.register_fake
 def _trunc_quant_fake(
     tensor_x,
-    scale: torch.Tensor,
-    zero_point: torch.Tensor,
-    input_bit_width: torch.Tensor,
-    output_scale: torch.Tensor,
-    output_bit_width: torch.Tensor,
-    rounding_mode: str,
-    signed: int,
-    narrow: int,
+    scale,
+    zero_point,
+    input_bit_width,
+    output_scale,
+    output_bit_width,
+    rounding_mode,
+    signed,
+    narrow,
 ):
     return torch.empty_like(tensor_x)
 
 
 @onnxscript.script(qonnx_op, default_opset=qonnx_op)
-def TruncQuant(
+def Trunc(
         x: FLOAT,
         scale: FLOAT,
         zero_point: FLOAT,
@@ -245,7 +245,7 @@ def trunc_quant_wrapper(
         rounding_mode: str,
         signed: int,
         narrow: int) -> FLOAT:
-    return TruncQuant(
+    return Trunc(
         x,
         scale,
         zero_point,

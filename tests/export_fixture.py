@@ -13,11 +13,12 @@ from brevitas.export import export_qonnx
 
 
 def _get_qonnx_export_modes():
-    if parse("2.6") > torch_version:
+    if parse("2.7") > torch_version:
         export_fns = [export_qonnx]
         export_ids = ["torchscript"]
     else:
-        export_fns = [export_qonnx, partial(export_qonnx, dynamo=True, optimize=True)]
+        export_fns = [
+            partial(export_qonnx, dynamo=False), partial(export_qonnx, dynamo=True, optimize=True)]
         export_ids = ["torchscript", "dynamo"]
     return export_fns, export_ids
 

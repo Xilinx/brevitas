@@ -7,8 +7,6 @@ from typing import List
 from typing import Optional
 from warnings import warn
 
-import torch
-
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
@@ -20,6 +18,13 @@ def create_args_parser() -> ArgumentParser:
         type=str,
         default="facebook/opt-125m",
         help='HF model name. Default: facebook/opt-125m.')
+    parser.add_argument(
+        '--custom-quantizer',
+        type=str,
+        default=None,
+        help=
+        'Override the quantization list with custom user defined quantizers. This must be a .py file with a list of seven quantizers. Default: None.'
+    )
     parser.add_argument(
         '--dtype',
         type=str,
@@ -43,7 +48,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikitext2', 'c4', 'pile'],
+        choices=['wikitext2', 'c4', 'pile', 'fineweb'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(
@@ -79,8 +84,8 @@ def create_args_parser() -> ArgumentParser:
         '--weight-scale-precision',
         type=str,
         default='float_scale',
-        choices=['float_scale', 'po2_scale'],
-        help='Whether scale is a float value or a po2. Default: po2.')
+        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
+        help='Whether scale is a float value or a po2. Default: %(default)s.')
     parser.add_argument(
         '--weight-quant-rescaling-init',
         type=float,
@@ -152,7 +157,7 @@ def create_args_parser() -> ArgumentParser:
         '--input-scale-precision',
         type=str,
         default='float_scale',
-        choices=['float_scale', 'po2_scale'],
+        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
         help='Whether input scale is a float value or a po2. Default: float.')
     parser.add_argument(
         '--input-scale-type',
@@ -207,7 +212,7 @@ def create_args_parser() -> ArgumentParser:
         '--attn-scale-precision',
         type=str,
         default=None,
-        choices=['float_scale', 'po2_scale'],
+        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
         help='Whether input scale is a float value or a po2. Default: (same as input).')
     parser.add_argument(
         '--attn-scale-type',
@@ -361,7 +366,7 @@ def create_args_parser() -> ArgumentParser:
         'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
     )
     parser.add_argument(
-        '--block-rotation-dim',
+        '--rotation-block-size',
         type=int,
         default=None,
         help='Perform blockwise rotations when possible. Default: %(default)s')
@@ -392,6 +397,13 @@ def create_args_parser() -> ArgumentParser:
         default=0.5,
         type=float,
         help='If activation equalization is enabled, decide what alpha to use')
+    parser.add_argument(
+        '--permute-fn',
+        choices=['absmax', 'massdiff', 'zigzag', 'random'],
+        default=None,
+        help=
+        'Permutation function to use. If None, no permutation is applied. Works with block rotations when both are enabled.'
+    )
     parser.add_argument(
         '--export-target',
         default=None,

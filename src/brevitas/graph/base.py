@@ -7,6 +7,8 @@ import inspect
 from inspect import getcallargs
 from typing import Any
 from typing import Dict
+from typing import Optional
+from typing import Tuple
 from typing import Type
 
 import torch
@@ -20,6 +22,8 @@ from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
+
+INPUT_NAMES = ('input', 'inp', 'query', 'hidden_states', 'x')
 
 __all__ = [
     'Transform',
@@ -58,6 +62,44 @@ class GraphTransform(Transform):
     @abstractmethod
     def apply(self, graph_model: GraphModule) -> GraphModule:
         pass
+
+    def _process_input(
+            self,
+            module: Module,
+            args: tuple,
+            kwargs: dict,
+            batch_dim: int = 0,
+            use_inp: bool = True) -> Tuple[Optional[torch.Tensor], Optional[int]]:
+        """
+        Process input from forward hook, handling MHA cross-attention
+        """
+        # Check for MHA Cross attention, and if found, skip it
+        # When using hf/accelerate, we need to check the signature of the original forward
+        forward_to_check = module._old_forward if hasattr(
+            module, '_old_forward') else module.forward
+        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
+
+        # Check for cross-attention in MHA (skip if found)
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
+                return None, None
+
+        inp_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
+        if use_inp:
+            inp = kwargs[inp_kwarg]
+        else:
+            inp = args[-1]
+
+        # Handle case where inp is a tuple (common in forward hooks)
+        if isinstance(inp, tuple):
+            assert len(inp) == 1, "Expected single element tuple"
+            inp = inp[0]
+
+        # Extra check for batch_dim using named tensors
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+
+        return inp, batch_dim
 
 
 class UntilFixedPointGraphTransform(Transform):

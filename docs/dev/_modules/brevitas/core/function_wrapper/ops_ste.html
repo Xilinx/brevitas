@@ -446,6 +446,8 @@ document.write(`
 <span class="sd">ScriptModule wrappers of various functions defined in :obj:`~brevitas.function.ops_ste`.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
@@ -531,6 +533,23 @@ document.write(`
 <div class="viewcode-block" id="ScalarClampMinSte.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarClampMinSte.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">scalar_clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="ScalarClampSte"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarClampSte">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">ScalarClampSte</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.scalar_clamp_ste`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;min_val&#39;</span><span class="p">,</span> <span class="s1">&#39;max_val&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ScalarClampSte</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">min_val</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">max_val</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ScalarClampSte.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarClampSte.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">scalar_clamp_ste</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_val</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="ScalarSignedClampMinSte"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.ops_ste.ScalarSignedClampMinSte">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>

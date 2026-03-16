@@ -27,7 +27,7 @@ class LLMRunCases:
             "mistral",  #"mixtral",
             "opt",],
     )
-    def case_small_models_with_ppl(self, run_dict, default_run_args, request):
+    def case_small_models_run(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict)
 
     # yapf: disable
@@ -93,6 +93,29 @@ class LLMRunCases:
             pytest.skip(reason=f'MSE as weight_param_method requires JIT to be disabled')
         yield process_args_and_metrics(default_run_args, run_dict)
 
+    @pytest_cases.parametrize(
+        "run_dict",
+        [
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "custom_quantizer": "example_int8_weight_quant",},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "custom_quantizer": "tests/brevitas_examples/llm_example_quantizer.py:example_int4_weight_quant"},],
+        ids=[
+            "llama-quant", "llama-quant-file",]
+    )
+    def case_small_models_custom_quantizer(self, run_dict, default_run_args, request):
+        from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+        from brevitas.utils.python_utils import Registry
+        from brevitas_examples.common.generative.quantizers import BaseQuantizer
+        from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
+        @Registry.register(QUANTIZERS_REGISTRY, "example_int8_weight_quant")
+        class ExampleInt8WeightQuantizer(BaseQuantizer):
+            weight_quant = Int8WeightPerTensorFloat
+        yield process_args_and_metrics(default_run_args, run_dict)
+
+
 class LLMPerplexityCases:
 
     METRICS = ["float_ppl", "quant_ppl"]
@@ -141,13 +164,20 @@ class LLMPerplexityCases:
                 "rotation": "fx",
                 "float_ppl": 50467.9575,
                 "quant_ppl": 50464.0117},
+            {
+                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+                "weight_bit_width": 2,
+                "weight_scale_precision": "signed_float_scale",
+                "float_ppl": 32428.475,
+                "quant_ppl": 32523.836},
         ],
         ids=[
         "llama",
         "llama_float_dynamic_input",
         "mistral",
         "opt-quant-sdpa",
-        "rotation_fx_and_gptq"
+        "rotation_fx_and_gptq",
+        "llama_signed_scale",
         ],)
     def case_small_models_with_ppl(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS)
@@ -383,6 +413,51 @@ class LLMQuantLayerTypeCases:
             "quant_sdpa": "fx",
             "exp_layer_types": {
                 "attn_output": "<class 'brevitas.nn.quant_sdpa.QuantScaledDotProductAttention'>",}},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "weight_quant_format": "float_ocp_e4m3",
+            "weight_scale_precision": "po2_scale",
+            "weight_param_method": "stats",
+            "weight_quant_granularity": "per_group",
+            "weight_group_size": 16,
+            "weight_quant_type": "sym",
+            "weight_param_method": "mse",
+            "input_quant_format": "float_ocp_e5m2",
+            "input_scale_type": "dynamic",
+            "input_scale_precision": "po2_scale",
+            "input_param_method": "stats",
+            "input_quant_granularity": "per_group",
+            "input_group_size": 16,
+            "input_quant_type": "sym",
+            "act_calibration": False,
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.stats.stats_impl":
+                    "<class 'brevitas.core.stats.stats_op.MSE'>",},},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "weight_quant_format": "float_ocp_e4m3",
+            "weight_quant_type": "sym",
+            "weight_scale_precision": "signed_float_scale",
+            "input_quant_format": "float_ocp_e5m2",
+            "input_quant_type": "sym",
+            "input_scale_precision": "signed_float_scale",
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats.stats_impl":
+                    "<class 'brevitas.core.stats.stats_op.SignedAbsMax'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.restrict_scaling.restrict_value_impl":
+                    "<class 'brevitas.core.restrict_val.SignedFloatRestrictValue'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.stats.stats_impl":
+                    "<class 'brevitas.core.stats.stats_op.SignedAbsMax'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.stats_scaling_impl.restrict_clamp_scaling.restrict_value_impl":
+                    "<class 'brevitas.core.restrict_val.SignedFloatRestrictValue'>",
+                },
+            },
         ],
         ids=[
             "mistral-int8",
@@ -394,7 +469,10 @@ class LLMQuantLayerTypeCases:
             "llama-int8-rotation=layerwise",
             "mistral-int8-quant-last-layer",
             "llama-int8-svd_quant",
-            "opt-quant-sdpa",],)
+            "opt-quant-sdpa",
+            "llama-mxfp8-mse",
+            "mistral-fp8_ocp-signed",
+        ],)
     def case_small_models_quant_layer(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=["exp_layer_types"])
 
@@ -684,7 +762,7 @@ class LLMRotationOptimizationCases:
             "optimize_rotations": True,
             "rotation_orphan_sink": True,
             "rotation_mode": "had",
-            "block_rotation_dim": 32,
+            "rotation_block_size": 32,
             "nsamples_rot_calibration": 2,
             "dtype": "float32",
             "extra_args": [

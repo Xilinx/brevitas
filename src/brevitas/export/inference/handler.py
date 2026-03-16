@@ -333,7 +333,8 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
         self.skip_create_quant_tensor = True
 
     def prepare_for_export(self, module):
-        super().prepare_for_export(module)
+        IntWeightInferencetHandler.prepare_for_export(self, module)
+        GroupwiseMixin.prepare_for_export(self, module)
         if module.is_quant_enabled:
             self.input_view = module.input_view_impl
 

@@ -25,6 +25,7 @@ import torch
 from brevitas import config
 from brevitas import torch_version
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
@@ -465,3 +466,58 @@ def test_few_shot_eval(caplog, few_shot_eval_args, main):
     # Verify that LM eval metrics match. `strict` is set to False, as
     # only a subset of metrics are checked.
     assert_metrics(results, exp_metrics, atol=ATOL_ACC, rtol=RTOL_ACC, strict=False)
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.4')
+def test_rmsnorm_patch_context_manager(caplog):
+    """Test that rmsnorm_patch correctly replaces RMSNorm modules on enter
+    and restores original modules on exit."""
+    from transformers import AutoModelForCausalLM
+
+    caplog.set_level(logging.INFO)
+
+    model_id = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
+    config = model.config
+
+    # Discover what RMSNorm classes the model uses before patching
+    original_rmsnorm_classes = tuple(
+        set(type(m) for m in model.modules() if 'RMS' in type(m).__name__))
+    assert len(original_rmsnorm_classes) > 0, "Model should contain at least one RMSNorm class"
+
+    # Collect original module types for all RMSNorm layers before the context manager
+    rmsnorm_modules_before = {
+        name: type(m) for name, m in model.named_modules() if 'RMS' in type(m).__name__}
+    for name, cls in rmsnorm_modules_before.items():
+        assert cls in original_rmsnorm_classes, (
+            f"Before context manager: {name} should be an original RMSNorm type, got {cls}")
+        assert cls is not torch.nn.RMSNorm, (
+            f"Before context manager: {name} should not be torch.nn.RMSNorm")
+
+    # Enter the context manager and check that modules are replaced with torch.nn.RMSNorm
+    patcher = rmsnorm_patch(model, config, enabled=True)
+    patcher.__enter__()
+    model_during = patcher.model
+
+    rmsnorm_modules_during = {
+        name: type(m) for name, m in model_during.named_modules() if 'RMS' in type(m).__name__}
+    assert len(rmsnorm_modules_during) == len(rmsnorm_modules_before), (
+        "Number of RMSNorm modules should be the same during the context manager")
+    for name, cls in rmsnorm_modules_during.items():
+        assert cls is torch.nn.RMSNorm, (
+            f"During context manager: {name} should be torch.nn.RMSNorm, got {cls}")
+
+    # Exit the context manager and check that original modules are restored
+    patcher.__exit__(None, None, None)
+    model_after = patcher.model
+
+    rmsnorm_modules_after = {
+        name: type(m) for name, m in model_after.named_modules() if 'RMS' in type(m).__name__}
+    assert len(rmsnorm_modules_after) == len(rmsnorm_modules_before), (
+        "Number of RMSNorm modules should be the same after the context manager")
+    for name, cls in rmsnorm_modules_after.items():
+        assert cls in original_rmsnorm_classes, (
+            f"After context manager: {name} should be restored to original type, got {cls}")
+        assert cls is not torch.nn.RMSNorm, (
+            f"After context manager: {name} should not be torch.nn.RMSNorm")
