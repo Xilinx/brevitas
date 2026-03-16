@@ -166,8 +166,7 @@ def apply_awq(
     block_kwargs = cached_kwargs[0]
     # Iterate through all the blocks
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
-        if torch.cuda.is_available():
-            block.cuda()
+        block = block.cuda() if torch.cuda.is_available() else block
         device = next(block.parameters()).device
         block_regions = regions_per_block[index]
 
