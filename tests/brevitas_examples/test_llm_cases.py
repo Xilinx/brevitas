@@ -238,7 +238,7 @@ class LLMPerplexityCases:
                 "rotation_orphan_sink": True,
                 "rotation_mode": "ort",
                 "float_ppl": 32428.475,
-                "quant_ppl": 32405.289,},
+                "quant_ppl": 32547.232,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -249,7 +249,7 @@ class LLMPerplexityCases:
                 "rotation_orphan_sink": False,
                 "rotation_mode": "ort",
                 "float_ppl": 32428.475,
-                "quant_ppl": 32406.865,},
+                "quant_ppl": 32474.061,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -260,7 +260,7 @@ class LLMPerplexityCases:
                 "rotation_orphan_sink": True,
                 "rotation_mode": "had",
                 "float_ppl": 32428.475,
-                "quant_ppl": 32410.234,},
+                "quant_ppl": 32410.324,},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -271,7 +271,7 @@ class LLMPerplexityCases:
                 "rotation_orphan_sink": False,
                 "rotation_mode": "had",
                 "float_ppl": 32428.475,
-                "quant_ppl": 32512.951},
+                "quant_ppl": 32512.982},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
                 "act_calibration": False,
@@ -672,7 +672,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32368.255,
+                    "quant_ppl": 32562.941,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -700,7 +700,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32367.639,
+                    "quant_ppl": 32476.322,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -728,7 +728,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32466.104,
+                    "quant_ppl": 32254.857,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 4,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -757,7 +757,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32352.826,
+                    "quant_ppl": 32353.010,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -787,7 +787,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32360.973,
+                    "quant_ppl": 32350.172,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 2,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -815,7 +815,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32482.518,
+                    "quant_ppl": 32265.172,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
@@ -847,7 +847,7 @@ class LLMRotationOptimizationCases:
                         "--gradient_accumulation_steps",
                         "1"],
                     "float_ppl": 32428.475,
-                    "quant_ppl": 32435.49609375,
+                    "quant_ppl": 32289.268,
                     "exp_layer_types_count": {
                         "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
                         "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
