@@ -382,6 +382,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "eval": False,
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
             "few_shot_tasks": [
                 "arc:challenge|0",
                 "winogrande|0",
@@ -398,6 +399,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "eval": False,
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
             "few_shot_tasks": [
                 "arc:challenge|0",
                 "winogrande|0",
@@ -445,23 +447,7 @@ def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
     args, _, exp_metrics = few_shot_eval_args
 
-    with ExitStack() as ctx_stack:
-        # Patch LM eval calls when needed
-        if args.few_shot_eval == "lighteval":
-            from brevitas_examples.llm.eval_lighteval import run_lighteval
-            max_samples = args.few_shot_override_batch_size
-
-            def mock_run_lighteval(*args, **kwargs):
-                kwargs["max_samples"] = max_samples
-                return run_lighteval(*args, **kwargs)
-
-            # Patch the call to `run_lighteval`
-            ctx_stack.enter_context(
-                patch(
-                    'brevitas_examples.llm.eval_lighteval.run_lighteval',
-                    side_effect=mock_run_lighteval))
-
-        results, _ = main(args)
+    results, _ = main(args)
 
     # Verify that LM eval metrics match. `strict` is set to False, as
     # only a subset of metrics are checked.
