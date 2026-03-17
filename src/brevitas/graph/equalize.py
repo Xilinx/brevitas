@@ -1830,11 +1830,6 @@ def _is_supported_ln_shape(layer_norm, channels):
     ) == channels
 
 
-def _is_supported_ln_affine_merge(layer_norm, next_module):
-    return isinstance(next_module, nn.Linear) and _is_supported_ln_shape(
-        layer_norm, next_module.in_features)
-
-
 def _raise_merge_ln_error(layer_norm, next_module):
     raise RuntimeError(
         f"Unsupported affine merge from {layer_norm.__class__.__name__} into "
@@ -2289,9 +2284,9 @@ class MergeLnAffine(GraphTransform, RegionWalkMixin):
                 if not layernorm_module.elementwise_affine:
                     continue
 
-                for name, indexes in region.sinks.items():
+                for name in region.sinks:
                     module = region.get_module_from_name(name)
-                    if not _is_supported_ln_affine_merge(layernorm_module, module):
+                    if not _is_supported_ln_shape(layernorm_module, module):
                         _raise_merge_ln_error(layernorm_module, module)
 
                     scale_bias = id(module) not in scaled_biases
