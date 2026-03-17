@@ -1813,28 +1813,58 @@ def fuse_parametrizations(model: nn.Module) -> nn.Module:
 
 
 def _replace_bias(next_module, new_bias):
-    new_bias = new_bias.view(-1)
+    new_bias = new_bias.view(-1).to(
+        device=next_module.weight.device, dtype=next_module.weight.dtype)
     if next_module.bias is not None:
         next_module.bias.data.copy_(new_bias)
     else:
-        new_bias = new_bias.to(next_module.weight.device).to(next_module.weight.dtype)
         next_module.register_parameter('bias', nn.Parameter(new_bias))
 
 
-def _merge_ln(layer_norm, next_module, scale_bias_by_weight):
-    view_shape = (1, -1)
-    # Merge weight
-    if scale_bias_by_weight and hasattr(layer_norm, 'bias'):
-        layer_norm.bias.data /= layer_norm.weight.data
-    # We can't do an inplace update as some layers we merge into like lm_head might share the weight tensor
-    scale = layer_norm.weight.data.view(view_shape).expand_as(next_module.weight)
-    next_module.weight = nn.Parameter(next_module.weight.clone() * scale)
+def _has_bias(module):
+    return hasattr(module, 'bias') and module.bias is not None
 
-    # Merge bias, new_bias includes the bias of next_module by going through its fwd
-    if hasattr(layer_norm, 'bias'):
-        inp = layer_norm.bias.data.view(view_shape)
-        new_bias = next_module(inp)
-        _replace_bias(next_module, new_bias)
+
+def _is_supported_ln_shape(layer_norm, channels):
+    return layer_norm.weight is not None and layer_norm.weight.ndim == 1 and layer_norm.weight.numel(
+    ) == channels
+
+
+def _is_supported_ln_affine_merge(layer_norm, next_module):
+    return isinstance(next_module, nn.Linear) and _is_supported_ln_shape(
+        layer_norm, next_module.in_features)
+
+
+def _raise_merge_ln_error(layer_norm, next_module):
+    raise RuntimeError(
+        f"Unsupported affine merge from {layer_norm.__class__.__name__} into "
+        f"{next_module.__class__.__name__}. LayerNorm/RMSNorm affine parameters must be channelwise "
+        f"and the sink must be Linear.")
+
+
+def _merge_ln(layer_norm, next_module, scale_bias_by_weight):
+    weight_dtype = next_module.weight.dtype
+    weight_device = next_module.weight.device
+    weight = next_module.weight.detach().to(dtype=torch.float64)
+    gamma = layer_norm.weight.detach().to(device=weight_device, dtype=torch.float64)
+    beta = None
+    if _has_bias(layer_norm):
+        beta = layer_norm.bias.detach().to(device=weight_device, dtype=torch.float64)
+        if scale_bias_by_weight:
+            beta = beta / gamma
+
+    merged_weight = weight * gamma.view(1, -1)
+    if beta is not None:
+        bias_delta = torch.mv(merged_weight, beta)
+
+    next_module.weight = nn.Parameter(merged_weight.to(device=weight_device, dtype=weight_dtype))
+
+    if beta is not None:
+        current_bias = next_module.bias.detach().to(
+            device=weight_device,
+            dtype=torch.float64) if next_module.bias is not None else torch.zeros(
+                next_module.out_features, device=weight_device, dtype=torch.float64)
+        _replace_bias(next_module, current_bias + bias_delta)
 
 
 class RegionWalkMixin:
@@ -2251,7 +2281,6 @@ class MergeLnAffine(GraphTransform, RegionWalkMixin):
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         regions = _extract_regions(graph_model, state_impl_kwargs=self.full_state_kwargs)
-
         if len(regions) > 0:
             scaled_biases = set()
             for region in regions:
@@ -2259,8 +2288,12 @@ class MergeLnAffine(GraphTransform, RegionWalkMixin):
                 layernorm_module = region.get_module_from_name(layernorm_module_name)
                 if not layernorm_module.elementwise_affine:
                     continue
+
                 for name, indexes in region.sinks.items():
                     module = region.get_module_from_name(name)
+                    if not _is_supported_ln_affine_merge(layernorm_module, module):
+                        _raise_merge_ln_error(layernorm_module, module)
+
                     scale_bias = id(module) not in scaled_biases
                     _merge_ln(layernorm_module, module, scale_bias_by_weight=scale_bias)
 
