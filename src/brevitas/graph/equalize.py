@@ -2286,7 +2286,7 @@ class MergeLnAffine(GraphTransform, RegionWalkMixin):
 
                 for name in region.sinks:
                     module = region.get_module_from_name(name)
-                    if not _is_supported_ln_shape(layernorm_module, module):
+                    if not _is_supported_ln_shape(layernorm_module, module.in_features):
                         _raise_merge_ln_error(layernorm_module, module)
 
                     scale_bias = id(module) not in scaled_biases
