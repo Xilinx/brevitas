@@ -37,7 +37,6 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.generative.quantizers import QuantInjector
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
@@ -48,7 +47,8 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model, llm_collate
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
@@ -609,7 +609,7 @@ def quantize_llm(args, extra_args=None):
                 tokenizer=tokenizer,
                 train_dataset=rot_calibration_dataset,
                 training_args=rot_optimization_args,
-            )
+                collate_fn=collate_fn)
             # Remove hooks from optimization
             remove_hooks(model)
             # Offload model before fusing the rotations
@@ -635,10 +635,10 @@ def quantize_llm(args, extra_args=None):
             print("Applying learned round...")
             if args.load_checkpoint:
                 iters = 1
-                loader = [calibration_dataset[0]]
+                loader = next(iter(**calibration_loader))
             else:
                 iters = args.learned_round_iters
-                loader = calibration_dataset
+                loader = calibration_loader
             remove_hooks(model)
             # TODO (pml): Fix learned round type hints
             apply_learned_round(

@@ -51,12 +51,12 @@ def collate_batch(examples: List[Dict[str, List[np.ndarray]]],
     assert all(list(example.keys()) == ["input_ids"] for example in examples)
 
     input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
-
+    input_ids = torch.tensor(input_ids)
     result: Dict[str, np.ndarray] = {}
     # Process inputs: last token is the label
     result["input_ids"] = input_ids
     result["labels"] = input_ids
-    result["attention_mask"] = torch.tensor((1, sequence_length), dtype=torch.bool)
+    result["attention_mask"] = torch.ones_like(input_ids)
 
     return result
 
