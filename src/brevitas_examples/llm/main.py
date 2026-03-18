@@ -48,7 +48,7 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model, llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
@@ -337,8 +337,7 @@ def quantize_llm(args, extra_args=None):
             seqlen=args.seqlen,
             split="train",
             seed=args.seed,
-            require_fx=require_fx and args.export_target is not None,
-            device=None)
+            require_fx=require_fx and args.export_target is not None)
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")

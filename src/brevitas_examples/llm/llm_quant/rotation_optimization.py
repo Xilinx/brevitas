@@ -27,8 +27,6 @@ from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-from brevitas_examples.llm.llm_quant.data_utils import collate_fn
-from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
 
 @dataclass
@@ -160,7 +158,7 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
 def apply_rotation_optimization(
     model: torch.nn.Module,
     tokenizer: PreTrainedTokenizerBase,
-    train_dataset: DatasetToDevice,
+    train_dataset: Dataset,
     training_args: TrainingArguments,
 ) -> None:
 
