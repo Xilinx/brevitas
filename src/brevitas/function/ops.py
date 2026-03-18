@@ -153,12 +153,9 @@ def max_int(
         >>> max_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
         tensor(255)
     """
-    # Workaround: required for compatibility with the JIT for PT=2.2.2
-    _signed = bool(signed.item()) if isinstance(signed, Tensor) else signed
-    _narrow_range = bool(narrow_range.item()) if isinstance(narrow_range, Tensor) else narrow_range
-    if not _signed and not _narrow_range:
+    if not signed and not narrow_range:
         value = (2 ** bit_width) - 1
-    elif not _signed and _narrow_range:
+    elif not signed and narrow_range:
         value = (2 ** bit_width) - 2
     else:
         value = (2 ** (bit_width - 1)) - 1
@@ -189,12 +186,9 @@ def min_int(
         >>> min_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
         tensor(0)
     """
-    # Workaround: required for compatibility with the JIT for PT=2.2.2
-    _signed = bool(signed.item()) if isinstance(signed, Tensor) else signed
-    _narrow_range = bool(narrow_range.item()) if isinstance(narrow_range, Tensor) else narrow_range
-    if _signed and _narrow_range:
+    if signed and narrow_range:
         value = -(2 ** (bit_width - 1)) + 1
-    elif _signed and not _narrow_range:
+    elif signed and not narrow_range:
         value = -(2 ** (bit_width - 1))
     else:
         value = 0 * bit_width
