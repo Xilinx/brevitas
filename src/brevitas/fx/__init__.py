@@ -1,13 +1,21 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import warnings
+
+warnings.warn(
+    "brevitas.fx is deprecated and will be removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from packaging import version
 import torch
 
 from brevitas import torch_version
 
 # This needs to be bumped until https://github.com/pytorch/pytorch/pull/94461 gets merged
-if torch_version < version.parse('2.8'):
+if torch_version < version.parse('2.11'):
     import brevitas.backport.fx as fx
     from brevitas.backport.fx._compatibility import compatibility
     from brevitas.backport.fx._symbolic_trace import _assert_is_none

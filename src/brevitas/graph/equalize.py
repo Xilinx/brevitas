@@ -1530,8 +1530,7 @@ class GraphActivationEqualization(ActivationEqualization):
 
 
 def _apply_had_device(tensor, had_K, K):
-    is_gpu = 'cuda' in str(tensor.device)
-    if is_gpu and fast_hadamard_transform is not None:
+    if tensor.is_cuda and fast_hadamard_transform is not None:
         return matmul_hadU_cuda(tensor, had_K, K)
     else:
         return matmul_hadU(tensor)
