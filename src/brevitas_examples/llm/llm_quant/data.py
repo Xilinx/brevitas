@@ -175,15 +175,14 @@ def get_wikitext2(
     else:
         # Identity, the BOS token is not added
         sequence_process_fn = lambda inp: inp
-
     input_ids = tokenizer(
         "\n\n".join(raw_dataset['text']), return_attention_mask=False)["input_ids"]
     tokenized_data = []
     if split == 'train':
         for _ in tqdm(range(nsamples)):
-            i = random.randint(0, input_ids.shape[1] - seqlen - 1)
+            i = random.randint(0, len(input_ids) - seqlen - 1)
             j = i + seqlen
-            inp = sequence_process_fn(input_ids[:, i:j])
+            inp = sequence_process_fn(input_ids[i:j])
             tokenized_data.append({'input_ids': inp})
     elif split in ['test', 'validation']:
         nsamples = len(input_ids) // seqlen

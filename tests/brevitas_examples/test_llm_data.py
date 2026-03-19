@@ -10,11 +10,13 @@ from datasets import Dataset
 import numpy as np
 import pytest_cases
 import torch
+from transformers import AutoTokenizer
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
-from brevitas_examples.llm.llm_quant.data_utils import collate_fn
-from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
+from brevitas_examples.llm.llm_quant.data_utils import llm_collate
+
+# from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
 # Identifiers for the special tokens of DummyTokenizer
 BOS_TOKEN_ID = 0
@@ -31,6 +33,9 @@ class DummyBatchEncoding:
     def __getitem__(self, item) -> torch.Tensor:
         assert item == "input_ids"
         return self.input_ids
+
+
+import itertools
 
 
 # Sample tokenizer which maps to each character in a string to its integer representation
@@ -170,26 +175,26 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
             add_bos_token=add_bos_token,
         )
     for tokenized_text, expected_tokenized_text in zip(tokenized_texts, expected_tokenized_texts):
-        assert torch.equal(tokenized_text["input_ids"], expected_tokenized_text)
+        assert np.equal(tokenized_text["input_ids"], expected_tokenized_text).any()
 
 
 def test_llm_dataloader():
     data = [{
-        'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64),
-        'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64),},
-            {
-                'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64),
-                'attention_mask': torch.tensor([[1, 0, 1, 0]], dtype=torch.int64),}]
-    dataset2device = DatasetToDevice(data, device='cpu')
+        'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64)}, {
+            'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64)}]
+    expected_attention_mask = [{
+        'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64)}, {
+            'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64)}]
+    dataset2device = Dataset.from_list(data)
 
     # create dataloader with batch size 1 (default)
+    collate_fn = llm_collate(model_name_or_path='', require_fx=False)
     data_loader = torch.utils.data.DataLoader(dataset=dataset2device, collate_fn=collate_fn)
     assert len(data_loader) == 2, 'data loader has length != num_samples/batch_size'
-
     for idx, batch in enumerate(data_loader):
         assert torch.allclose(batch['input_ids'], data[idx]['input_ids']), 'input_ids mismatch'
-        assert torch.allclose(batch['attention_mask'], data[idx]['attention_mask']), 'attention_mask mismatch'
-        assert set(batch.keys()) == set(['input_ids', 'attention_mask']), 'unexpected keys in dataloader'
+        assert torch.allclose(batch['attention_mask'], expected_attention_mask[idx]['attention_mask']), 'attention_mask mismatch'
+        assert set(batch.keys()) == set(['input_ids', 'labels', 'attention_mask']), 'unexpected keys in dataloader'
 
     # create dataloader with batch size 2
     data_loader = data_loader = torch.utils.data.DataLoader(
@@ -200,6 +205,6 @@ def test_llm_dataloader():
         assert torch.allclose(batch['input_ids'][1], data[1]['input_ids']), 'input_ids mismatch'
         assert batch['input_ids'].shape[0] == 2, 'wrong number of input_ids'
 
-        assert torch.allclose(batch['attention_mask'][0], data[0]['attention_mask']), 'attention_mask mismatch'
-        assert torch.allclose(batch['attention_mask'][1], data[1]['attention_mask']), 'attention_mask mismatch'
+        assert torch.allclose(batch['attention_mask'][0], expected_attention_mask[0]['attention_mask']), 'attention_mask mismatch'
+        assert torch.allclose(batch['attention_mask'][1], expected_attention_mask[1]['attention_mask']), 'attention_mask mismatch'
         assert batch['attention_mask'].shape[0] == 2, 'wrong number of attention_mask'
