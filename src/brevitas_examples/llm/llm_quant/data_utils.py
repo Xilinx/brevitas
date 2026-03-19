@@ -51,7 +51,7 @@ def collate_batch(examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, torc
 
     input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
     input_ids = torch.tensor(input_ids)
-    result: Dict[str, np.ndarray] = {}
+    result: Dict[str, torch.Tensor] = {}
     # Process inputs: last token is the label
     result["input_ids"] = input_ids
     result["labels"] = input_ids
@@ -75,8 +75,7 @@ def collate_batch_fx(examples: List[Dict[str, List[np.ndarray]]], num_kv_heads: 
 
 def llm_collate(
     model_name_or_path: str,
-    sequence_length: int,
-    require_fx: bool = False,
+    require_fx: bool = False
 ) -> Callable[[List[Dict[str, List[np.ndarray]]]], Dict[str, torch.Tensor]]:
     num_kv_heads = None
     head_dim = None
@@ -95,8 +94,8 @@ def llm_collate(
             num_kv_heads = num_heads
         head_dim = normalized_config.hidden_size // num_heads
         return partial(collate_batch_fx, num_kv_heads=num_kv_heads, head_dim=head_dim)
-    else:
-        return partial(collate_batch)
+
+    return partial(collate_batch)
 
 
 @torch.no_grad()
@@ -118,7 +117,6 @@ def recursive_to_device(tensor_or_iterable: Union[Iterable, torch.Tensor], devic
 
 
 def get_dataset_for_model(
-        model_name_or_path: str,
         dataset_name: str,
         tokenizer: Any,
         nsamples: int = 128,
@@ -127,8 +125,7 @@ def get_dataset_for_model(
         split: str = "train",
         bos_preprocessing: Optional[str] = None,
         add_eos_token: bool = False,
-        fuse_documents: bool = True,
-        require_fx: bool = False):
+        fuse_documents: bool = True):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)

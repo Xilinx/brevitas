@@ -292,35 +292,29 @@ def quantize_llm(args, extra_args=None):
         )
 
     collate_fn = llm_collate(
-        model_name_or_path=args.model,
-        sequence_length=args.seqlen,
-        require_fx=require_fx and args.export_target is not None)
+        model_name_or_path=args.model, require_fx=require_fx and args.export_target is not None)
 
     # Load the data for calibration and evaluation.
     calibration_dataset = get_dataset_for_model(
-        args.model,
         bos_preprocessing=args.bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
         split="train",
-        seed=args.seed,
-        require_fx=require_fx and args.export_target is not None)
+        seed=args.seed)
     # Batched data loader to accelerate GPXQ algorithms
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
 
     validation_dataset = get_dataset_for_model(
-        args.model,
         bos_preprocessing=args.bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
         split=args.dataset_eval_split,
-        seed=args.seed,
-        require_fx=require_fx and args.export_target is not None)
+        seed=args.seed)
 
     validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
@@ -329,15 +323,13 @@ def quantize_llm(args, extra_args=None):
         rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
         # Load the data for rotation optimization
         rot_calibration_dataset = get_dataset_for_model(
-            args.model,
             bos_preprocessing=args.bos_preprocessing,
             dataset_name=args.dataset,
             tokenizer=tokenizer,
             nsamples=args.nsamples_rot_calibration,
             seqlen=args.seqlen,
             split="train",
-            seed=args.seed,
-            require_fx=require_fx and args.export_target is not None)
+            seed=args.seed)
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")

@@ -102,17 +102,16 @@ def tokenize_and_group_texts(
 
 
 def get_clm_dataset(
-    raw_dataset: Dataset,
-    tokenizer: PreTrainedTokenizerBase,
-    nsamples: int,
-    seqlen: int,
-    filter_empty_sequences: bool = True,
-    bos_preprocessing: Optional[str] = None,
-    add_eos_token: bool = False,
-    fuse_documents: bool = False,
-    dataset_processing_num_proc_per_process: int = 1,
-    text_column_name: str = "text",
-):
+        raw_dataset: Dataset,
+        tokenizer: PreTrainedTokenizerBase,
+        nsamples: int,
+        seqlen: int,
+        filter_empty_sequences: bool = True,
+        bos_preprocessing: Optional[str] = None,
+        add_eos_token: bool = False,
+        fuse_documents: bool = False,
+        dataset_processing_num_proc_per_process: int = 1,
+        text_column_name: str = "text") -> Dataset:
     """
     Methods group_texts, tokenize_and_group_texts and get_clm_dataset are adapted from
     https://github.com/huggingface/nanotron/blob/main/src/nanotron/data/processing.py,
@@ -167,12 +166,12 @@ def get_wikitext2(
         nsamples: int,
         split: str = 'train',
         add_bos_token: bool = False,
-        seed: int = 42) -> List[Dict[str, torch.Tensor]]:
+        seed: int = 42) -> Dataset:
     random.seed(seed)
     # Add BOS token to each sequence if add_bos_token is True and the tokenizer supports this token
     if add_bos_token and tokenizer.bos_token_id is not None:
         seqlen = seqlen - 1
-        sequence_process_fn = sequence_process_fn = lambda inp: [tokenizer.bos_token_id] + inp
+        sequence_process_fn = lambda inp: [tokenizer.bos_token_id] + inp
     else:
         # Identity, the BOS token is not added
         sequence_process_fn = lambda inp: inp
