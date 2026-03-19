@@ -154,18 +154,12 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
     tokenizer = DummyTokenizer(bos_token_id=BOS_TOKEN_ID,)
     expected_tokenized_texts = {
         "train": {
-            False: [
-                torch.tensor([[61, 97, 61, 10, 10]], dtype=torch.int64),
-                torch.tensor([[10, 10, 10, 98, 98]], dtype=torch.int64)],
-            True: [
-                torch.tensor([[BOS_TOKEN_ID, 61, 97, 61, 10]], dtype=torch.int64),
-                torch.tensor([[BOS_TOKEN_ID, 10, 10, 10, 98]], dtype=torch.int64)]},
+            False: [[[61, 97, 61, 10, 10]], [[10, 10, 10, 98, 98]]],
+            True: [[[BOS_TOKEN_ID, 61, 97, 61, 10]], [[BOS_TOKEN_ID, 10, 10, 10, 98]]]},
         "validation": {
-            False: [torch.tensor([[61, 97, 61, 10, 10]], dtype=torch.int64)],
-            True: [
-                torch.tensor([[BOS_TOKEN_ID, 61, 97, 61, 10]], dtype=torch.int64),
-                torch.tensor([[BOS_TOKEN_ID, 10, 10, 10, 98]],
-                             dtype=torch.int64)]}}[split][add_bos_token]
+            False: [[[61, 97, 61, 10, 10]]],
+            True: [[[BOS_TOKEN_ID, 61, 97, 61, 10]], [[BOS_TOKEN_ID, 10, 10, 10,
+                                                       98]]]}}[split][add_bos_token]
     with patch('brevitas_examples.llm.llm_quant.data.random.randint', side_effect=[0, 4]):
         tokenized_texts = get_wikitext2(
             raw_dataset=raw_dataset,
