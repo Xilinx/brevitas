@@ -47,7 +47,8 @@ from brevitas_examples.llm.llm_quant.data import load_raw_dataset
 
 def collate_batch(examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, torch.Tensor]:
     # Make sure we load only what's necessary, ie we only load a `input_ids` column.
-    assert all(list(example.keys()) == ["input_ids"] for example in examples)
+    if not all(list(example.keys()) == ["input_ids"] for example in examples):
+        raise ValueError("Missing input_ids keys")
 
     input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
     input_ids = torch.tensor(input_ids)
