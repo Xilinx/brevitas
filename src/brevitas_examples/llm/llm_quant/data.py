@@ -185,7 +185,6 @@ def get_wikitext2(
             i = random.randint(0, input_ids.shape[1] - seqlen - 1)
             j = i + seqlen
             inp = sequence_process_fn(input_ids[:, i:j])
-            attention_mask = torch.ones_like(inp)
             tokenized_data.append({'input_ids': inp})
     elif split in ['test', 'validation']:
         nsamples = input_ids.numel() // seqlen

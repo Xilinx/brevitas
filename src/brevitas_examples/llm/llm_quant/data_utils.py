@@ -45,8 +45,7 @@ from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import load_raw_dataset
 
 
-def collate_batch(examples: List[Dict[str, List[np.ndarray]]],
-                  sequence_length) -> Dict[str, torch.Tensor]:
+def collate_batch(examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, torch.Tensor]:
     # Make sure we load only what's necessary, ie we only load a `input_ids` column.
     assert all(list(example.keys()) == ["input_ids"] for example in examples)
 
@@ -97,7 +96,7 @@ def llm_collate(
         head_dim = normalized_config.hidden_size // num_heads
         return partial(collate_batch_fx, num_kv_heads=num_kv_heads, head_dim=head_dim)
     else:
-        return partial(collate_batch, sequence_length=sequence_length)
+        return partial(collate_batch)
 
 
 @torch.no_grad()
