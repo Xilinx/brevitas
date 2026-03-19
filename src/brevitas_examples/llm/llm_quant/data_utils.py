@@ -35,6 +35,7 @@ from typing import Optional
 from typing import Union
 import warnings
 
+from datasets import Dataset
 import numpy as np
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
