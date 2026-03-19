@@ -186,10 +186,10 @@ def get_wikitext2(
             inp = sequence_process_fn(input_ids[:, i:j])
             tokenized_data.append({'input_ids': inp})
     elif split in ['test', 'validation']:
-        nsamples = input_ids.numel() // seqlen
+        nsamples = len(input_ids) // seqlen
         for i in tqdm(range(nsamples)):
-            batch = sequence_process_fn(input_ids[:, (i * seqlen):((i + 1) * seqlen)])
-            tokenized_data.append({'input_ids': inp})
+            batch = sequence_process_fn(input_ids[(i * seqlen):((i + 1) * seqlen)])
+            tokenized_data.append({'input_ids': batch})
     return Dataset.from_list(tokenized_data)
 
 
