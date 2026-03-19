@@ -126,7 +126,7 @@ def get_dataset_for_model(
         split: str = "train",
         bos_preprocessing: Optional[str] = None,
         add_eos_token: bool = False,
-        fuse_documents: bool = True):
+        fuse_documents: bool = True) -> Dataset:
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
