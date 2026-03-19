@@ -123,29 +123,6 @@ def test_composition_unfused_rotations(N):
         assert torch.allclose(gt_output, rot_output, atol=ATOL)
 
 
-# This method is almost the same as brevitas.graph.equalize.random_orthogonal_matrix, except for the
-# possibility of passing a generator, that enables controlling the random matrices that are generated
-# Adapted from https://github.com/facebookresearch/SpinQuant/blob/main/eval_utils/rotation_utils.py#L26
-# This functions needs to be patches to enable passing the generator and ensuring that the orthogonal
-# matrices generated are the same.
-def _random_orthogonal_matrix(size, generator):
-    """
-    Generate a random orthogonal matrix of the specified size.
-    First, we generate a random matrix with entries from a standard distribution.
-    Then, we use QR decomposition to obtain an orthogonal matrix.
-    Finally, we multiply by a diagonal matrix with diag r to adjust the signs.
-    Args:
-    size (int): The size of the matrix (size x size).
-    Returns:
-    torch.Tensor: An orthogonal matrix of the specified size.
-    """
-    torch.cuda.empty_cache()
-    random_matrix = torch.randn(size, size, dtype=torch.float64, generator=generator)
-    q, r = torch.linalg.qr(random_matrix)
-    q *= torch.sign(torch.diag(r)).unsqueeze(0).float()
-    return q
-
-
 # Auxiliar method to convert a dictionary of sources/sinks into a valid region
 def _instantiate_region(region_dict, model, expand_region=False) -> Region:
     if len(region_dict["srcs"]) > 0:
@@ -279,37 +256,36 @@ def test_compute_rotations(
                 fuse_rotations=False,
                 expansion_step=expansion_step,
                 rotation_block_size=rotation_block_size,
-                disable_block_rotation_for_fused=disable_block_rotation_for_fused)
+                disable_block_rotation_for_fused=disable_block_rotation_for_fused,
+                generator=generator)
     elif full_rotation_method == 'ort':
-        with patch('brevitas.graph.equalize.random_orthogonal_matrix',
-                   partial(_random_orthogonal_matrix, generator=generator)):
-            rewriters = _compute_rotations(
-                rotated_model_unfused,
-                regions_unfused,
-                full_rotation_method=full_rotation_method,
-                fuse_rotations=False,
-                expansion_step=expansion_step,
-                rotation_block_size=rotation_block_size,
-                disable_block_rotation_for_fused=disable_block_rotation_for_fused)
+        rewriters = _compute_rotations(
+            rotated_model_unfused,
+            regions_unfused,
+            full_rotation_method=full_rotation_method,
+            fuse_rotations=False,
+            expansion_step=expansion_step,
+            rotation_block_size=rotation_block_size,
+            disable_block_rotation_for_fused=disable_block_rotation_for_fused,
+            generator=generator)
 
     apply_rewriters(rotated_model_unfused, rewriters)
 
     # Apply rotations on the model with fused rotations
-    with patch('brevitas.graph.equalize.random_orthogonal_matrix',
-               partial(_random_orthogonal_matrix, generator=generator_clone)):
-        regions_fused = list(
-            map(
-                lambda x: _instantiate_region(x, rotated_model_fused, expand_region=expand_region),
-                regions_dicts))
-        r = _compute_rotations(
-            rotated_model_fused,
-            regions_fused,
-            full_rotation_method=full_rotation_method,
-            fuse_rotations=True,
-            expansion_step=expansion_step,
-            rotation_block_size=rotation_block_size,
-            disable_block_rotation_for_fused=disable_block_rotation_for_fused)
-        apply_rewriters(rotated_model_fused, r)
+    regions_fused = list(
+        map(
+            lambda x: _instantiate_region(x, rotated_model_fused, expand_region=expand_region),
+            regions_dicts))
+    r = _compute_rotations(
+        rotated_model_fused,
+        regions_fused,
+        full_rotation_method=full_rotation_method,
+        fuse_rotations=True,
+        expansion_step=expansion_step,
+        rotation_block_size=rotation_block_size,
+        disable_block_rotation_for_fused=disable_block_rotation_for_fused,
+        generator=generator_clone)
+    apply_rewriters(rotated_model_fused, r)
 
     # Compute outputs for each model
     model_output = model(sample_inputs)

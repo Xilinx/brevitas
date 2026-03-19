@@ -21,9 +21,12 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
+from torch import nn
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas.graph.equalize import _compute_rotations
+from brevitas.graph.equalize import Region
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.main import fx_required
@@ -41,6 +44,7 @@ from tests.brevitas_examples.test_llm_cases import LLMQuantLayerCountCases
 from tests.brevitas_examples.test_llm_cases import LLMQuantLayerTypeCases
 from tests.brevitas_examples.test_llm_cases import LLMRotationOptimizationCases
 from tests.brevitas_examples.test_llm_cases import LLMRunCases
+from tests.conftest import SEED
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
@@ -61,6 +65,30 @@ def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Data
     ]
     return Dataset.from_dict({
         "text": C4_TEXTS,})
+
+
+def mock_compute_rotations(
+    model: nn.Module,
+    regions: List[Region],
+    full_rotation_method='had',
+    fuse_rotations: bool = True,
+    expansion_step: int = 1,
+    rotation_block_size: Optional[int] = None,
+    disable_block_rotation_for_fused: bool = False,
+    generator: Optional[torch.Generator] = None,
+):
+    generator = torch.Generator()
+    generator.manual_seed(SEED)
+
+    return _compute_rotations(
+        model=model,
+        regions=regions,
+        full_rotation_method=full_rotation_method,
+        fuse_rotations=fuse_rotations,
+        expansion_step=expansion_step,
+        rotation_block_size=rotation_block_size,
+        disable_block_rotation_for_fused=disable_block_rotation_for_fused,
+        generator=generator)
 
 
 def ptid2pathname(string):

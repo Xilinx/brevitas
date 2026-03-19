@@ -38,6 +38,8 @@ from transformers.models.qwen2.modeling_qwen2 import Qwen2DecoderLayer
 from brevitas.graph.equalize import _get_input_axis
 from brevitas.graph.equalize import _get_output_axis
 from brevitas.graph.equalize import EqualizationIndexes
+from brevitas.graph.equalize import EqualizationSinkWrapper
+from brevitas.graph.equalize import EqualizationSourceWrapper
 from brevitas_examples.llm.llm_quant.awq.graph import RegionAWQ
 
 
@@ -149,12 +151,16 @@ def retrieve_block_awq_regions(block: nn.Module) -> List[RegionAWQ]:
             m = region.name_to_module[src_name]
             axis = _get_output_axis(m)
             if hasattr(m, "weight"):
-                region.srcs[src_full_name] = EqualizationIndexes(0, m.weight.shape[axis], 0)
+                indexes = EqualizationIndexes(0, m.weight.shape[axis], 0)
+                region.srcs[src_full_name] = EqualizationSourceWrapper.from_module_indexes(
+                    m, indexes)
 
         for sink_full_name, sink_name in zip(region.sinks, region.sinks_names):
             m = region.name_to_module[sink_name]
             axis = _get_input_axis(m)
             if hasattr(m, "weight"):
-                region.sinks[sink_full_name] = EqualizationIndexes(0, m.weight.shape[axis], 0)
+                indexes = EqualizationIndexes(0, m.weight.shape[axis], 0)
+                region.sinks[sink_full_name] = EqualizationSinkWrapper.from_module_indexes(
+                    m, indexes)
 
     return block_regions
