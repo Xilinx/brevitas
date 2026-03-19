@@ -39,6 +39,7 @@ from typing import Tuple
 from accelerate.utils.operations import send_to_device
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from brevitas.graph.calibrate import quantization_status_manager
@@ -113,7 +114,7 @@ def intercept_input(
 def apply_awq(
     model: nn.Module,
     tokenizer,
-    calibration_dataset: DatasetToDevice,
+    calibration_loader: DataLoader,
     args: Namespace,
     auto_scale: bool = True,
     mse_range: bool = True,
@@ -127,7 +128,7 @@ def apply_awq(
         get_blocks_attribute(model) if args.gpxq_block_name is None else args.gpxq_block_name)
 
     # Concatenate input_ids across the batch dimension
-    samples = torch.cat(list(map(lambda sample: sample["input_ids"], calibration_dataset)), dim=0)
+    samples = torch.cat(tuple(map(lambda sample: sample["input_ids"], calibration_loader)), dim=0)
 
     first_block = blocks[0]
     cached_args, cached_kwargs = [], []
@@ -165,7 +166,7 @@ def apply_awq(
     block_kwargs = cached_kwargs[0]
     # Iterate through all the blocks
     for index, block in tqdm(enumerate(blocks), desc="Blocks", total=len(blocks)):
-        block.cuda()
+        block = block.cuda() if torch.cuda.is_available() else block
         device = next(block.parameters()).device
         block_regions = regions_per_block[index]
 
@@ -190,7 +191,9 @@ def apply_awq(
                                          disable_act_quant=True,
                                          disable_weight_quant=True,
                                          disable_bias_quant=True):
-            inps = block(inps, **block_kwargs)[0]
+            inps = block(inps, **block_kwargs)
+            if isinstance(inps, tuple):
+                inps = inps[0]
         for hook in hooks:
             hook.remove()
 

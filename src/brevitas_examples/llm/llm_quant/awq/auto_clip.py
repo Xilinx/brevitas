@@ -84,12 +84,13 @@ def auto_clip_layer(
     group_size, oc_batch_size, quant_injector_properties, batch_quant_injector_properties = _get_weight_quant_properties(sink)
 
     w = sink.weight.data
+    group_size = min(group_size, w.shape[1])
     assert w.dim() == 2
     # w           [co, ci]      -> [co, 1, n_group, group size]
     # input_feat  [n_token, ci] -> [1, n_token, n_group, group size]
     input_feat = input_feat.view(-1, input_feat.shape[-1])
     input_feat = input_feat.reshape(1, input_feat.shape[0], -1, group_size)
-    input_feat = input_feat[:, 0::input_feat.shape[1] // n_sample_token]
+    input_feat = input_feat[:, 0::max(1, input_feat.shape[1] // n_sample_token)]
     w = w.reshape(w.shape[0], 1, -1, group_size)
     assert w.shape[0] % oc_batch_size == 0
     w_all = w
@@ -161,7 +162,7 @@ def apply_clip(block_regions: List[RegionAWQ], clip_dict: Dict[int, torch.Tensor
         for name in region.sinks_names:
             if name in clip_dict:
                 sink = region.name_to_module[name]
-                sink.cuda()
+                sink = sink.cuda() if torch.cuda.is_available() else sink
                 max_val = clip_dict[name].to(sink.weight.device)
                 org_shape = sink.weight.shape
                 sink.weight.data = sink.weight.data.reshape(*max_val.shape[:2], -1)

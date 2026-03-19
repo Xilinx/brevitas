@@ -116,6 +116,11 @@ class gpxq_mode(quantization_status_manager):
         else:
             is_quant_enabled = False
         if isinstance(module, (nn.Linear, *SUPPORTED_CONV_OP)):
+            # ConvTranspose is temporarily unsupported in GPxQ
+            # See https://github.com/Xilinx/brevitas/issues/1479
+            if is_conv_transposed(module):
+                warnings.warn("ConvTranspose is temporarily unsupported for GPxQ, skipping.")
+                return False
             return is_quant_enabled
         else:
             return False

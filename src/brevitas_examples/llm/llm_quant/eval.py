@@ -95,8 +95,8 @@ def compute_perplexity(
             shift_logits = lm_logits[:, context_length - 1:-1]
 
             # Fuse batch and sequence length dimensions.
-            reference_labels = reference_labels.view(reference_labels.shape[-1])
-            shift_logits = shift_logits.view(-1, shift_logits.shape[-1])
+            reference_labels = reference_labels.reshape(-1)
+            shift_logits = shift_logits.reshape(-1, shift_logits.shape[-1])
             shift_logits = shift_logits.to(dtype)
 
             loss = cross_entropy_loss(shift_logits, reference_labels)

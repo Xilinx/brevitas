@@ -4,6 +4,7 @@
 import math
 import os
 import pathlib
+from typing import Optional
 
 try:
     import fast_hadamard_transform
@@ -131,9 +132,9 @@ def matmul_hadUt(X):
     return matmul_hadU(X, transpose=True)
 
 
-def random_hadamard_matrix(size, device):
+def random_hadamard_matrix(size, device, generator: Optional[torch.Generator] = None):
     # See https://github.com/Cornell-RelaxML/quip-sharp , Section "Randomized Hadamard Transformation"
-    Q = torch.randint(low=0, high=2, size=(size,)).to(torch.float64)
+    Q = torch.randint(low=0, high=2, size=(size,), generator=generator).to(torch.float64)
     Q = Q * 2 - 1
     Q = torch.diag(Q)
     # Set to float32 for consistency with random_orthogonal_matrix and get_hadK
