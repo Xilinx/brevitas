@@ -63,7 +63,9 @@ MassDiff (Algorithm 1 in the paper), is a greedy assignment that:
 4. Continues until all blocks reach size :math:`b`
 
 The result is a permutation that spreads high-magnitude channels evenly across blocks,
-improving outlier suppression for a fixed block size and at no inference cost.
+improving outlier suppression for a fixed block size and at no inference cost. The permutation
+itself is never applied at runtime — it is absorbed into adjacent weight tensors during
+calibration, as described in the next section.
 
 Permutation-equivariant regions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -141,6 +143,25 @@ one permutation per region and fuses each permutation directly into the surround
 
 ``GraphPermutationEqualization`` handles the graph walk and permutation application. It reuses
 the same region-walk logic as used for rotation equalization to find permutation-equivariant regions.
+
+The MixQuant pipeline is accessible via the ``brevitas_ptq_llm`` entrypoint, using an example
+config from the `examples directory <https://github.com/Xilinx/brevitas/blob/dev/src/brevitas_examples/papers/mixquant/llama3-mixquant_star-int4.yml>`_:
+
+.. code:: bash
+
+   brevitas_ptq_llm --config llama3-mixquant_star-int4.yml
+
+Key flags:
+
+- ``--rotation-block-size`` — block size :math:`b` for online Hadamard rotations (e.g. ``32``).
+  Omit for full-vector rotations (permutations are not applied in that case).
+- ``--permute-fn`` — permutation strategy (``massdiff``, ``zigzag``, ``absmax``, ``random``).
+  Omit or set to ``null`` to disable permutations.
+- ``--disable-block-rotation-for-fused`` — apply block rotations only to online (orphan-sink)
+  rotations; keep fused rotations as full-vector. This is the setting used by MixQuant\*.
+
+See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/mixquant>`_
+for full configuration details and benchmarking instructions.
 
 Permutation strategies
 ~~~~~~~~~~~~~~~~~~~~~~
