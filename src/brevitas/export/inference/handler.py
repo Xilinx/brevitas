@@ -34,18 +34,17 @@ from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.solver.act import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.common import solve_float_to_int_enum_from_impl
-from brevitas.quant.solver.common import \
-    solve_restrict_value_enum_from_impl  # FLOAT_TO_INT_IMPL_TO_ENUM
+from brevitas.quant.solver.common import solve_restrict_value_enum_from_impl
 from brevitas.utils.quant_utils import groupwise_dequant_expand
 from brevitas.utils.torch_utils import float_internal_scale
 
 
 class StaticScaleZeroPointMixin(torch.nn.Module, ABC):
 
-    def __init__(self, scale_shape=(1,), zero_point_shape=(1,), **kwargs):
-        super().__init__(**kwargs)
-        self.register_buffer('scale', torch.ones(scale_shape))
-        self.register_buffer('zero_point', torch.ones(zero_point_shape))
+    def __init__(self, scale_shape=(1,), zero_point_shape=(1,), dtype=None, device=None, **kwargs):
+        super().__init__(**kwargs, dtype=dtype, device=device)
+        self.register_buffer('scale', torch.ones(scale_shape, dtype=dtype, device=device))
+        self.register_buffer('zero_point', torch.ones(zero_point_shape, dtype=dtype, device=device))
 
     def prepare_for_export(self, module: nn.Module):
         if hasattr(super(), 'prepare_for_export'):
@@ -62,9 +61,9 @@ class StaticScaleZeroPointMixin(torch.nn.Module, ABC):
 
 class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.register_buffer('threshold', torch.ones(()))
+    def __init__(self, dtype=None, device=None, **kwargs):
+        super().__init__(**kwargs, dtype=dtype, device=device)
+        self.register_buffer('threshold', torch.ones((), dtype=dtype, device=device))
         self._scaling_restriction = 'power_of_two'
         self._threshold_restriction = 'power_of_two'
 
@@ -79,7 +78,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
         elif isinstance(value, str):
             self._scaling_restriction = value
         else:
-            raise "Unrecognized scaling restriction"
+            raise ValueError("Unrecognized scaling restriction")
 
     @property
     def threshold_restriction(self):
@@ -92,7 +91,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
         elif isinstance(value, str):
             self._threshold_restriction = value
         else:
-            raise "Unrecognized scaling restriction"
+            raise ValueError("Unrecognized scaling restriction")
 
     def prepare_for_export(self, module: nn.Module):
         if hasattr(super(), 'prepare_for_export'):
@@ -161,11 +160,11 @@ class FloatToIntMixin(torch.nn.Module, ABC):
 
 class GroupwiseMixin(torch.nn.Module):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, dtype=None, device=None, **kwargs):
+        super().__init__(**kwargs, dtype=dtype, device=device)
         self.skip_create_quant_tensor = True
-        self.register_buffer('group_dim_t', torch.ones(()))
-        self.register_buffer('group_size_t', torch.ones(()))
+        self.register_buffer('group_dim_t', torch.ones((), dtype=torch.int, device=device))
+        self.register_buffer('group_size_t', torch.ones((), dtype=torch.int, device=device))
 
     @property
     def group_dim(self):
@@ -221,11 +220,11 @@ class InferenceHandler(torch.nn.Module, ABC):
 
 class IntInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.register_buffer('bit_width', torch.ones(()))
-        self.register_buffer('min_clamp', torch.ones(()))
-        self.register_buffer('max_clamp', torch.ones(()))
+    def __init__(self, dtype=None, device=None, **kwargs):
+        super().__init__(**kwargs, dtype=dtype, device=device)
+        self.register_buffer('bit_width', torch.ones((), dtype=dtype, device=device))
+        self.register_buffer('min_clamp', torch.ones((), dtype=torch.int, device=device))
+        self.register_buffer('max_clamp', torch.ones((), dtype=torch.int, device=device))
 
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
@@ -360,17 +359,17 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
 
 class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.register_buffer('min_clamp', torch.ones(()))
-        self.register_buffer('max_clamp', torch.ones(()))
-        self.register_buffer('mantissa_bit_width', torch.ones(()))
-        self.register_buffer('exponent_bit_width', torch.ones(()))
-        self.register_buffer('exponent_bias', torch.ones(()))
-        self.register_buffer('fp_internal_scale_min', torch.ones(()))
+    def __init__(self, dtype=None, device=None, **kwargs):
+        super().__init__(**kwargs, dtype=dtype, device=device)
+        self.register_buffer('min_clamp', torch.ones((), dtype=dtype, device=device))
+        self.register_buffer('max_clamp', torch.ones((), dtype=dtype, device=device))
+        self.register_buffer('mantissa_bit_width', torch.ones((), dtype=dtype, device=device))
+        self.register_buffer('exponent_bit_width', torch.ones((), dtype=dtype, device=device))
+        self.register_buffer('exponent_bias', torch.ones((), dtype=dtype, device=device))
+        self.register_buffer('fp_internal_scale_min', torch.ones((), dtype=dtype, device=device))
         self.inf_values = None
         self.nan_values = None
-        self.eps = 1e-8  #torch.finfo(self.scale.dtype).tiny
+        self.eps = torch.finfo(self.fp_internal_scale_min).tiny
         self.saturating = True
 
     def prepare_for_export(self, module):

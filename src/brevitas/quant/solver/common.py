@@ -60,7 +60,7 @@ def solve_float_to_int_impl_from_enum(impl_type):
     elif impl_type == FloatToIntImplType.STOCHASTIC_ROUND:
         return StochasticRoundSte
     else:
-        raise Exception(f"{impl_type} not recognized.")
+        raise NotImplementedError(f"{impl_type} not recognized.")
 
 
 def solve_float_to_int_enum_from_impl(impl_type):
@@ -68,7 +68,7 @@ def solve_float_to_int_enum_from_impl(impl_type):
         solve_float_to_int_impl_from_enum(enum_value): enum_value
         for enum_value in FloatToIntImplType}
     if impl_type not in impl_to_enum_dict:
-        raise Exception(f"{impl_type} not recognized.")
+        raise NotImplementedError(f"{impl_type} not recognized.")
     return impl_to_enum_dict[impl_type]
 
 

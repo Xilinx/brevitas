@@ -32,7 +32,6 @@ from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.manager import BaseManager
-from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyFromInjector
@@ -224,9 +223,10 @@ class vLLMExportManager(BaseManager):
         with open(json_filename, 'w+') as f:
             json.dump(json_to_save, f, cls=EncodeTensor)
 
-        config.IGNORE_EXPORT_KEYS = True
+        token = config.IGNORE_EXPORT_KEYS.set(True)
         model.save_pretrained(filepath)
         tokenizer.save_pretrained(filepath)
-        config.IGNORE_EXPORT_KEYS = False
+        config.IGNORE_EXPORT_KEYS.reset(token)
+
         for layer in layers_to_restore:
             layer.state_dict = layer.orig_state_dict
