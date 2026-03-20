@@ -51,13 +51,16 @@ from .handler import vLLMGroupwiseIntInferenceHandler
 @dataclass
 class QuantConfigBrevitas(QuantizationConfig):
 
-    def __init__(self, ignored_layers: list[str] | None = None, config: Dict | None = None):
+    def __init__(
+            self,
+            ignored_layers: Optional[List[str]] = None,
+            config: Optional[Dict] = None) -> None:
         super().__init__()
         self.ignored_layers = ignored_layers
         self.config = config
 
     @classmethod
-    def from_config(cls, config: dict[str, Any]) -> "QuantConfigBrevitas":
+    def from_config(cls, config: Dict[str, Any]) -> "QuantConfigBrevitas":
         return cls(config=config)
 
     @classmethod
@@ -70,11 +73,11 @@ class QuantConfigBrevitas(QuantizationConfig):
         return "quant_brevitas"
 
     @classmethod
-    def get_supported_act_dtypes(cls) -> list[torch.dtype]:
+    def get_supported_act_dtypes(cls) -> List[torch.dtype]:
         return [torch.float16, torch.bfloat16, torch.float32]
 
     @staticmethod
-    def get_config_filenames() -> list[str]:
+    def get_config_filenames() -> List[str]:
         return ["brevitas_config.json"]
 
     def get_quant_method(self, layer: torch.nn.Module,
@@ -117,7 +120,7 @@ class QuantConfigBrevitas(QuantizationConfig):
         return None
 
 
-def combine_configs(config, *names):
+def combine_configs(config: Dict, *names: str) -> Dict:
     base_config = config[names[0]]
     scale = None  #base_config['scale']
     for n in names:
@@ -132,7 +135,7 @@ def combine_configs(config, *names):
 
 class EncodeTensor(JSONEncoder, Dataset):
 
-    def default(self, obj):
+    def default(self, obj: Any) -> Any:
         if isinstance(obj, torch.Tensor):
             if obj.dtype == torch.bfloat16:
                 obj = obj.to(torch.float32)
@@ -187,7 +190,7 @@ class vLLMExportManager(BaseManager):
         module.state_dict = unwrap
 
     @staticmethod
-    def export(model, tokenizer, filepath):
+    def export(model: Module, tokenizer: Any, filepath: str) -> None:
         layers_to_restore = list()
         json_to_save = dict()
         os.makedirs(filepath, exist_ok=True)

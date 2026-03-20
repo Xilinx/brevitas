@@ -31,7 +31,7 @@ class_mapping = {
 
 class QuantLinear(LinearMethodBase):
 
-    def __init__(self, quant_configs: Optional[Dict[str, Any]] = None):
+    def __init__(self, quant_configs: Optional[Dict[str, Any]] = None) -> None:
 
         self.input_quant = self.configure_proxy(quant_configs["input_config"])
         weight_config = quant_configs["weight_config"]
@@ -44,7 +44,8 @@ class QuantLinear(LinearMethodBase):
         self.output_quant = self.configure_proxy(quant_configs["output_config"])
         self.rotation = self.configure_rotation(quant_configs["rotation_config"])
 
-    def configure_rotation(self, rotation_config):
+    def configure_rotation(
+            self, rotation_config: Optional[Dict[str, Any]]) -> Optional[RotatedModule]:
         if rotation_config is None:
             return None
         rot_mat_shape = rotation_config['rot_mat_shape']
@@ -55,7 +56,8 @@ class QuantLinear(LinearMethodBase):
             had_mat, _ = get_hadK(rot_mat_shape)
         return RotatedModule(self, had_mat, k)
 
-    def configure_proxy(self, quant_config):
+    # TODO: return type is Union[torch.nn.Identity, InferenceHandler] but handler type hierarchy is complex
+    def configure_proxy(self, quant_config: Optional[Dict[str, Any]]) -> torch.nn.Module:
         # No config, no quantizer
         if quant_config is None:
             return torch.nn.Identity()

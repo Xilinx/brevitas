@@ -11,7 +11,7 @@ except ImportError:
     from torch.jit._state import _enabled
 
 
-def env_to_bool(name, default):
+def env_to_bool(name: str, default: bool) -> bool:
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
 
 

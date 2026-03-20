@@ -1,4 +1,5 @@
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import torch
@@ -21,7 +22,7 @@ from ..handler import GroupwiseIntInferenceHandler
 EPS = 1e-16
 
 
-def maybe_permute(x: Tensor, permute_dims: Tuple[int]):
+def maybe_permute(x: Tensor, permute_dims: Optional[Tuple[int, ...]]) -> Tensor:
     if permute_dims is None:
         return x
     else:
@@ -30,7 +31,8 @@ def maybe_permute(x: Tensor, permute_dims: Tuple[int]):
 
 class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 
-    def compute_scale(self, x: Tensor, group_dim: int = None):
+    def compute_scale(
+            self, x: Tensor, group_dim: Optional[int] = None) -> Tensor:
         if group_dim is not None:
             max_abs = torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0]
         else:
@@ -47,7 +49,7 @@ class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 
 class vLLMGroupwiseIntInferenceHandler(GroupwiseIntInferenceHandler, StandaloneGroupwiseQuantMixin):
 
-    def forward(self, x: Tensor):
+    def forward(self, x: Tensor) -> Tuple[Tensor, ...]:
         inp_shape = x.shape
         x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
         group_dim = self.group_dim + 1 if self.group_dim > 0 else self.group_dim
@@ -61,7 +63,7 @@ class vLLMGroupwiseIntInferenceHandler(GroupwiseIntInferenceHandler, StandaloneG
 class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
                                          StandaloneGroupwiseQuantMixin):
 
-    def forward(self, x: Tensor):
+    def forward(self, x: Tensor) -> Tuple[Tensor, ...]:
         inp_shape = x.shape
         x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
         group_dim = self.group_dim + 1 if self.group_dim > 0 else self.group_dim
@@ -76,7 +78,7 @@ class vLLMDynamicPerRowFloatInferenceHandler(DynamicFloatInferenceHandler,
                                              StandaloneGroupwiseQuantMixin):
     handled_layer = DynamicActFloatQuantProxyFromInjector
 
-    def __init__(self):
+    def __init__(self) -> None:
         DynamicFloatInferenceHandler.__init__(self)
         StandaloneGroupwiseQuantMixin.__init__(self)
         self.register_buffer("permute_dims", None)
@@ -93,14 +95,14 @@ class vLLMDynamicPerRowFloatInferenceHandler(DynamicFloatInferenceHandler,
                 else:
                     self.permute_dims = None
 
-    def dynamic_broadcast(self, x: Tensor, shape: List[int]):
+    def dynamic_broadcast(self, x: Tensor, shape: List[int]) -> Tensor:
         return x.view(*shape[:-1], 1)
 
     def inner_forward(self, x: Tensor, scale: Tensor, zero_point: Tensor) -> Tuple[Tensor]:
         out = self.dequantize(self.quantize(x, scale, zero_point), scale, zero_point)
         return out
 
-    def forward(self, x: Tensor):
+    def forward(self, x: Tensor) -> Tuple[Tensor, ...]:
         x = maybe_permute(x, self.permute_dims)
         x_shape = over_output_features(x)
         scale = self.compute_scale(x.reshape(x_shape), self.stats_reduce_dim)

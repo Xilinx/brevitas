@@ -63,7 +63,7 @@ def solve_float_to_int_impl_from_enum(impl_type):
         raise NotImplementedError(f"{impl_type} not recognized.")
 
 
-def solve_float_to_int_enum_from_impl(impl_type):
+def solve_float_to_int_enum_from_impl(impl_type: type) -> FloatToIntImplType:
     impl_to_enum_dict = {
         solve_float_to_int_impl_from_enum(enum_value): enum_value
         for enum_value in FloatToIntImplType}
@@ -102,7 +102,7 @@ def solve_restrict_value_impl_from_enum(impl_type):
         raise RuntimeError(f"{impl_type} not recognized.")
 
 
-def solve_restrict_value_enum_from_impl(impl):
+def solve_restrict_value_enum_from_impl(impl: type) -> RestrictValueType:
     impl_to_enum_dict = {
         solve_restrict_value_impl_from_enum(enum_value): enum_value
         for enum_value in RestrictValueType}

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from functools import partial
+from typing import Optional
 
 import torch
 from torch.nn import Module
@@ -55,11 +56,11 @@ class quant_inference_mode:
 
     def __init__(
             self,
-            model,
-            cache_quant_weight=False,
-            compile=False,
-            enabled=True,
-            export_manager=None):
+            model: nn.Module,
+            cache_quant_weight: bool = False,
+            compile: bool = False,
+            enabled: bool = True,
+            export_manager: Optional[type] = None) -> None:
         self.model = model
         self.enabled = enabled
         self.compile = compile

@@ -4,6 +4,7 @@
 from abc import ABC
 from abc import abstractmethod
 from inspect import isclass
+from typing import Optional
 from typing import Tuple
 import warnings
 
@@ -41,12 +42,18 @@ from brevitas.utils.torch_utils import float_internal_scale
 
 class StaticScaleZeroPointMixin(torch.nn.Module, ABC):
 
-    def __init__(self, scale_shape=(1,), zero_point_shape=(1,), dtype=None, device=None, **kwargs):
-        super().__init__(**kwargs, dtype=dtype, device=device)
+    def __init__(
+            self,
+            scale_shape: tuple = (1,),
+            zero_point_shape: tuple = (1,),
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            **kwargs) -> None:
+        super().__init__(**kwargs)
         self.register_buffer('scale', torch.ones(scale_shape, dtype=dtype, device=device))
         self.register_buffer('zero_point', torch.ones(zero_point_shape, dtype=dtype, device=device))
 
-    def prepare_for_export(self, module: nn.Module):
+    def prepare_for_export(self, module: nn.Module) -> None:
         if hasattr(super(), 'prepare_for_export'):
             super().prepare_for_export(module)
 
@@ -61,14 +68,18 @@ class StaticScaleZeroPointMixin(torch.nn.Module, ABC):
 
 class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
 
-    def __init__(self, dtype=None, device=None, **kwargs):
-        super().__init__(**kwargs, dtype=dtype, device=device)
+    def __init__(
+            self,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            **kwargs) -> None:
+        super().__init__(**kwargs)
         self.register_buffer('threshold', torch.ones((), dtype=dtype, device=device))
         self._scaling_restriction = 'power_of_two'
         self._threshold_restriction = 'power_of_two'
 
     @property
-    def scaling_restriction(self):
+    def scaling_restriction(self) -> str:
         return self._scaling_restriction
 
     @scaling_restriction.setter
@@ -81,7 +92,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
             raise ValueError("Unrecognized scaling restriction")
 
     @property
-    def threshold_restriction(self):
+    def threshold_restriction(self) -> str:
         return self._threshold_restriction
 
     @threshold_restriction.setter
@@ -93,7 +104,7 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
         else:
             raise ValueError("Unrecognized scaling restriction")
 
-    def prepare_for_export(self, module: nn.Module):
+    def prepare_for_export(self, module: nn.Module) -> None:
         if hasattr(super(), 'prepare_for_export'):
             super().prepare_for_export(module)
 
@@ -120,12 +131,12 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
 
 class FloatToIntMixin(torch.nn.Module, ABC):
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._float_to_int_impl_type = 'round'
 
     @property
-    def float_to_int_impl_type(self):
+    def float_to_int_impl_type(self) -> str:
         return self._float_to_int_impl_type
 
     @float_to_int_impl_type.setter
@@ -137,7 +148,7 @@ class FloatToIntMixin(torch.nn.Module, ABC):
         # A bit ugly but we need to instantiate the class
         self.float_to_int_impl = solve_float_to_int_impl_from_enum(value)()
 
-    def prepare_for_export(self, module: nn.Module):
+    def prepare_for_export(self, module: nn.Module) -> None:
         if hasattr(super(), 'prepare_for_export'):
             super().prepare_for_export(module)
 
@@ -160,28 +171,32 @@ class FloatToIntMixin(torch.nn.Module, ABC):
 
 class GroupwiseMixin(torch.nn.Module):
 
-    def __init__(self, dtype=None, device=None, **kwargs):
-        super().__init__(**kwargs, dtype=dtype, device=device)
+    def __init__(
+            self,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            **kwargs) -> None:
+        super().__init__(**kwargs)
         self.skip_create_quant_tensor = True
         self.register_buffer('group_dim_t', torch.ones((), dtype=torch.int, device=device))
         self.register_buffer('group_size_t', torch.ones((), dtype=torch.int, device=device))
 
     @property
-    def group_dim(self):
+    def group_dim(self) -> torch.Tensor:
         return self.group_dim_t.int()
 
     @property
-    def group_size(self):
+    def group_size(self) -> torch.Tensor:
         return self.group_size_t.int()
 
-    def prepare_for_export(self, module: nn.Module):
+    def prepare_for_export(self, module: nn.Module) -> None:
         if hasattr(super(), 'prepare_for_export'):
             super().prepare_for_export(module)
         if module.is_quant_enabled:
             self.group_dim_t = torch.tensor(module.group_dim)
             self.group_size_t = torch.tensor(module.group_size)
 
-    def reshape(self, x, group_dim, group_size):
+    def reshape(self, x: Tensor, group_dim: int, group_size: int) -> Tensor:
         init_shape = list(x.shape)
         shape = init_shape
         assert shape[group_dim] % group_size == 0
@@ -193,6 +208,9 @@ class GroupwiseMixin(torch.nn.Module):
 
 
 class InferenceHandler(torch.nn.Module, ABC):
+    
+    def __init__(self, **kwargs):
+        return super().__init__(**kwargs)
 
     def attach_debug_info(self, module: nn.Module):
         pass
@@ -210,7 +228,11 @@ class InferenceHandler(torch.nn.Module, ABC):
     def dequantize(self, x: Tensor):
         pass
 
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
+    def state_dict(
+            self,
+            destination: Optional[dict] = None,
+            prefix: str = '',
+            keep_vars: bool = False) -> dict:
         if config.IGNORE_EXPORT_KEYS:
             return dict()
         output_dict = super(InferenceHandler, self).state_dict(
@@ -220,7 +242,11 @@ class InferenceHandler(torch.nn.Module, ABC):
 
 class IntInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
-    def __init__(self, dtype=None, device=None, **kwargs):
+    def __init__(
+            self,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            **kwargs) -> None:
         super().__init__(**kwargs, dtype=dtype, device=device)
         self.register_buffer('bit_width', torch.ones((), dtype=dtype, device=device))
         self.register_buffer('min_clamp', torch.ones((), dtype=torch.int, device=device))
@@ -247,9 +273,8 @@ class IntInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 class IntInferenceHandler(IntInferenceHandlerBase, StaticScaleZeroPointMixin):
     handled_layer = (ActQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
-    def __init__(self, **kwargs):
-        IntInferenceHandlerBase.__init__(self, **kwargs)
-        StaticScaleZeroPointMixin.__init__(self, **kwargs)
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
@@ -258,7 +283,7 @@ class IntInferenceHandler(IntInferenceHandlerBase, StaticScaleZeroPointMixin):
 class IntWeightInferencetHandler(IntInferenceHandler):
     handled_layer = WeightQuantProxyFromInjector
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.cached_weight = None
 
@@ -299,7 +324,7 @@ class GroupwiseIntInferenceHandler(IntInferenceHandlerBase,
                                    DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActQuantProxyFromInjector
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.skip_create_quant_tensor = True
 
@@ -327,7 +352,7 @@ class GroupwiseIntInferenceHandler(IntInferenceHandlerBase,
 class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseWeightQuantProxyFromInjector
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.skip_create_quant_tensor = True
 
@@ -359,8 +384,12 @@ class GroupwiseIntWeightInferenceHandler(IntWeightInferencetHandler, GroupwiseMi
 
 class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
 
-    def __init__(self, dtype=None, device=None, **kwargs):
-        super().__init__(**kwargs, dtype=dtype, device=device)
+    def __init__(
+            self,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None,
+            **kwargs) -> None:
+        super().__init__(**kwargs)
         self.register_buffer('min_clamp', torch.ones((), dtype=dtype, device=device))
         self.register_buffer('max_clamp', torch.ones((), dtype=dtype, device=device))
         self.register_buffer('mantissa_bit_width', torch.ones((), dtype=dtype, device=device))
@@ -425,10 +454,10 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
         return self.dequantize(self.quantize(x, self.scale, self.zero_point), self.scale, self.zero_point), self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
 
 
-class FloatInferencetHandler(StaticScaleZeroPointMixin, FloatInferenceHandlerBase):
+class FloatInferencetHandler(FloatInferenceHandlerBase, StaticScaleZeroPointMixin):
     handled_layer = (ActFloatQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     def prepare_for_export(self, module):
@@ -438,7 +467,7 @@ class FloatInferencetHandler(StaticScaleZeroPointMixin, FloatInferenceHandlerBas
 class FloatWeightInferencetHandler(FloatInferencetHandler):
     handled_layer = WeightFloatQuantProxyFromInjector
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.cached_weight = None
 
@@ -466,7 +495,7 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase,
                                      DynamicScaleZeroPointMixin):
     handled_layer = GroupwiseActFloatQuantProxyFromInjector
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     def prepare_for_export(self, module: nn.Module):
@@ -492,13 +521,13 @@ class GroupwiseFloatInferenceHandler(FloatInferenceHandlerBase,
 class GroupwiseFloatWeightInferenceHandler(FloatWeightInferencetHandler, GroupwiseMixin):
     handled_layer = GroupwiseWeightFloatQuantProxyFromInjector
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.skip_create_quant_tensor = True
         self.cached_weight = None
 
-    def reshape(self, x, group_dim, group_size):
+    def reshape(self, x: Tensor, group_dim: int, group_size: int) -> Tensor:
         init_shape = list(x.shape)
         shape = init_shape
         assert shape[group_dim] % group_size == 0
