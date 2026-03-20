@@ -97,8 +97,7 @@ def tokenize_and_group_texts(
         fuse_documents=fuse_documents,
         sequence_length=sequence_length,
         bos_token_id=tokenizer.bos_token_id,
-        add_bos_token=bos_preprocessing == "sequence",
-    )
+        add_bos_token=bos_preprocessing == "sequence")
 
 
 def get_clm_dataset(

@@ -35,7 +35,8 @@ class DummyBatchEncoding:
         return self.input_ids
 
 
-import itertools
+def flatten_list(v):
+    return [item for sublist in v for item in sublist]
 
 
 # Sample tokenizer which maps to each character in a string to its integer representation
@@ -58,10 +59,10 @@ class DummyTokenizer:
                           list(map(ord, text)) for text in texts]}
 
     def __call__(self, text: str, **kwargs) -> torch.Tensor:
-        return DummyBatchEncoding(
-            torch.tensor(
-                self.batch_encode_plus([text], add_special_tokens=False)["input_ids"],
-                dtype=torch.int64))
+        output = self.batch_encode_plus([text], add_special_tokens=False)
+
+        flat_list = {k: flatten_list(v) for k, v in output.items()}
+        return flat_list
 
 
 # Expected results for test_clm_tokenization. The nesting order corresponds to bos_preprocessing,
@@ -130,10 +131,7 @@ def test_clm_tokenization(
         fuse_documents: bool,
         add_eos_token: bool):
     texts = ["", "a", "", "bbb"]
-    tokenizer = DummyTokenizer(
-        bos_token_id=bos_token_id,
-        eos_token_id=eos_token_id,
-    )
+    tokenizer = DummyTokenizer(bos_token_id=bos_token_id, eos_token_id=eos_token_id)
     expected_tokenized_text = EXPECTED_CLM_TOKENIZED_TEXTS[
         "none" if bos_token_id is None or bos_preprocessing is None else bos_preprocessing][
             fuse_documents][add_eos_token and eos_token_id is not None]
@@ -143,8 +141,7 @@ def test_clm_tokenization(
         sequence_length=2,
         bos_preprocessing=bos_preprocessing,
         fuse_documents=fuse_documents,
-        add_eos_token=add_eos_token,
-    )["input_ids"]
+        add_eos_token=add_eos_token)["input_ids"]
     assert all(map(lambda x: np.array_equal(*x), zip(expected_tokenized_text, tokenized_text)))
 
 
@@ -172,8 +169,7 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
             seqlen=5,
             nsamples=2,
             split=split,
-            add_bos_token=add_bos_token,
-        )
+            add_bos_token=add_bos_token)
     for tokenized_text, expected_tokenized_text in zip(tokenized_texts, expected_tokenized_texts):
         assert np.equal(tokenized_text["input_ids"], expected_tokenized_text).any()
 
