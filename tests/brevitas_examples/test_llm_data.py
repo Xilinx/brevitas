@@ -10,13 +10,10 @@ from datasets import Dataset
 import numpy as np
 import pytest_cases
 import torch
-from transformers import AutoTokenizer
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
 from brevitas_examples.llm.llm_quant.data_utils import llm_collate
-
-# from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
 
 # Identifiers for the special tokens of DummyTokenizer
 BOS_TOKEN_ID = 0
