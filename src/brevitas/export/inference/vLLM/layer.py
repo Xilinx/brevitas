@@ -101,15 +101,14 @@ class QuantLinear(LinearMethodBase):
         return quant_class
 
     def create_weights(
-        self,
-        layer: torch.nn.Module,
-        input_size_per_partition: int,
-        output_partition_sizes: List[int],
-        input_size: int,
-        output_size: int,
-        params_dtype: torch.dtype,
-        **extra_weight_attrs,
-    ):
+            self,
+            layer: torch.nn.Module,
+            input_size_per_partition: int,
+            output_partition_sizes: List[int],
+            input_size: int,
+            output_size: int,
+            params_dtype: torch.dtype,
+            **extra_weight_attrs):
         weight_loader = extra_weight_attrs.get("weight_loader")
         self.input_size_per_partition = input_size_per_partition
         self.output_partition_sizes = output_partition_sizes
@@ -140,11 +139,10 @@ class QuantLinear(LinearMethodBase):
             weight[start_idx:end_idx] = weight_quant(weight[start_idx:end_idx])[0]
 
     def apply(
-        self,
-        layer: torch.nn.Module,
-        x: torch.Tensor,
-        bias: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
+            self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.rotation is not None:
             x = self.rotation.rotation_forward(x)
         x = self.input_quant(x)[0]
