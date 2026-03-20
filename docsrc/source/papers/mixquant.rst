@@ -144,14 +144,7 @@ one permutation per region and fuses each permutation directly into the surround
 ``GraphPermutationEqualization`` handles the graph walk and permutation application. It reuses
 the same region-walk logic as used for rotation equalization to find permutation-equivariant regions.
 
-The MixQuant pipeline is accessible via the ``brevitas_ptq_llm`` entrypoint, using an example
-config from the `examples directory <https://github.com/Xilinx/brevitas/blob/dev/src/brevitas_examples/papers/mixquant/llama3-mixquant_star-int4.yml>`_:
-
-.. code:: bash
-
-   brevitas_ptq_llm --config llama3-mixquant_star-int4.yml
-
-Key flags:
+The MixQuant pipeline is accessible via the ``brevitas_ptq_llm`` entrypoint. Key flags:
 
 - ``--rotation-block-size`` — block size :math:`b` for online Hadamard rotations (e.g. ``32``).
   Omit for full-vector rotations (permutations are not applied in that case).
@@ -159,6 +152,15 @@ Key flags:
   Omit or set to ``null`` to disable permutations.
 - ``--disable-block-rotation-for-fused`` — apply block rotations only to online (orphan-sink)
   rotations; keep fused rotations as full-vector. This is the setting used by MixQuant\*.
+
+A minimal example:
+
+.. code:: bash
+
+   brevitas_ptq_llm --model meta-llama/Llama-3.2-1B \
+       --rotation-block-size 32 \
+       --permute-fn massdiff \
+       --disable-block-rotation-for-fused
 
 See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/mixquant>`_
 for full configuration details and benchmarking instructions.
