@@ -1,4 +1,5 @@
-onnx==1.17.0
+onnx==1.17.0 ; python_version < "3.13"
+onnx ; python_version >= "3.13"
 onnxoptimizer
 onnxruntime>=1.15.0, <1.21
 onnxscript
