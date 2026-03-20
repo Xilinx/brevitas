@@ -171,7 +171,7 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
             split=split,
             add_bos_token=add_bos_token)
     for tokenized_text, expected_tokenized_text in zip(tokenized_texts, expected_tokenized_texts):
-        assert np.equal(tokenized_text["input_ids"], expected_tokenized_text).any()
+        assert np.equal(tokenized_text["input_ids"], expected_tokenized_text).all()
 
 
 def test_llm_dataloader():
