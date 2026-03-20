@@ -44,8 +44,8 @@ class QuantLinear(LinearMethodBase):
         self.output_quant = self.configure_proxy(quant_configs["output_config"])
         self.rotation = self.configure_rotation(quant_configs["rotation_config"])
 
-    def configure_rotation(
-            self, rotation_config: Optional[Dict[str, Any]]) -> Optional[RotatedModule]:
+    def configure_rotation(self, rotation_config: Optional[Dict[str,
+                                                                Any]]) -> Optional[RotatedModule]:
         if rotation_config is None:
             return None
         rot_mat_shape = rotation_config['rot_mat_shape']

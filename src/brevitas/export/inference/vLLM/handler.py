@@ -31,8 +31,7 @@ def maybe_permute(x: Tensor, permute_dims: Optional[Tuple[int, ...]]) -> Tensor:
 
 class StandaloneGroupwiseQuantMixin(DynamicScaleZeroPointMixin):
 
-    def compute_scale(
-            self, x: Tensor, group_dim: Optional[int] = None) -> Tensor:
+    def compute_scale(self, x: Tensor, group_dim: Optional[int] = None) -> Tensor:
         if group_dim is not None:
             max_abs = torch.max(torch.abs(x), dim=group_dim, keepdim=True)[0]
         else:

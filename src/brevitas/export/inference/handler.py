@@ -208,7 +208,7 @@ class GroupwiseMixin(torch.nn.Module):
 
 
 class InferenceHandler(torch.nn.Module, ABC):
-    
+
     def __init__(self, **kwargs):
         return super().__init__(**kwargs)
 
