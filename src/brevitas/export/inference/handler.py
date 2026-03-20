@@ -310,6 +310,9 @@ class IntWeightInferencetHandler(IntInferenceHandler):
 class DynamicIntInferenceHandler(IntInferenceHandlerBase):
     handled_layer = DynamicActQuantProxyFromInjector
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
     def prepare_for_export(self, module: nn.Module):
         super().prepare_for_export(module)
         if module.is_quant_enabled:
@@ -398,7 +401,7 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
         self.register_buffer('fp_internal_scale_min', torch.ones((), dtype=dtype, device=device))
         self.inf_values = None
         self.nan_values = None
-        self.eps = torch.finfo(self.fp_internal_scale_min).tiny
+        self.eps = torch.finfo(self.fp_internal_scale_min.dtype).tiny
         self.saturating = True
 
     def prepare_for_export(self, module):
