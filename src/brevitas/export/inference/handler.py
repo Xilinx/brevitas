@@ -247,7 +247,7 @@ class IntInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None,
             **kwargs) -> None:
-        super().__init__(**kwargs, dtype=dtype, device=device)
+        super().__init__(**kwargs)
         self.register_buffer('bit_width', torch.ones((), dtype=dtype, device=device))
         self.register_buffer('min_clamp', torch.ones((), dtype=torch.int, device=device))
         self.register_buffer('max_clamp', torch.ones((), dtype=torch.int, device=device))

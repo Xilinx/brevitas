@@ -23,7 +23,7 @@ NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', False)
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 LOGGING_LEVEL = os.environ.get('BREVITAS_LOGGING', 'CRITICAL')
 
-IGNORE_EXPORT_KEYS = ContextVar("IGNORE_EXPORT_KEYS", default=False)
+IGNORE_PROXY_KEYS = ContextVar("IGNORE_PROXY_KEYS", default=False)
 
 # Internal global variables
 _FULL_STATE_DICT = False

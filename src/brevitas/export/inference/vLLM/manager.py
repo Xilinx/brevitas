@@ -226,10 +226,10 @@ class vLLMExportManager(BaseManager):
         with open(json_filename, 'w+') as f:
             json.dump(json_to_save, f, cls=EncodeTensor)
 
-        token = config.IGNORE_EXPORT_KEYS.set(True)
+        token = config.IGNORE_PROXY_KEYS.set(True)
         model.save_pretrained(filepath)
         tokenizer.save_pretrained(filepath)
-        config.IGNORE_EXPORT_KEYS.reset(token)
+        config.IGNORE_PROXY_KEYS.reset(token)
 
         for layer in layers_to_restore:
             layer.state_dict = layer.orig_state_dict
