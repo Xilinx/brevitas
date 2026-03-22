@@ -52,6 +52,31 @@ def _override_create_quant_tensor(m: nn.Module, state: bool):
         m.skip_create_quant_tensor = state
 
 
+# Inheritance from BaseManager is not techincally needed
+class InferenceManager(BaseManager):
+    handlers = [
+        IntInferenceHandler,
+        DynamicIntInferenceHandler,
+        DynamicFloatInferenceHandler,
+        FloatInferencetHandler,
+        IntWeightInferencetHandler,
+        FloatWeightInferencetHandler,
+        GroupwiseIntInferenceHandler,
+        GroupwiseIntWeightInferenceHandler,
+        GroupwiseFloatInferenceHandler,
+        GroupwiseFloatWeightInferenceHandler]
+
+    @classmethod
+    def set_export_mode(cls, model: Module, enabled: bool):
+        _set_proxy_export_mode(model, enabled)
+        _set_recurrent_layer_export_mode(model, enabled)
+
+    @classmethod
+    def set_export_handler(cls, module: Module):
+        _set_proxy_export_handler(cls, module)
+        _set_recurrent_layer_export_handler(cls, module)
+
+
 class quant_inference_mode:
 
     def __init__(
@@ -60,12 +85,12 @@ class quant_inference_mode:
             cache_quant_weight: bool = False,
             compile: bool = False,
             enabled: bool = True,
-            export_manager: Optional[type] = None) -> None:
+            export_manager: 'BaseManager' = InferenceManager) -> None:
         self.model = model
         self.enabled = enabled
         self.compile = compile
         self.cache_quant_weight = cache_quant_weight
-        self.export_manager = export_manager if export_manager is not None else InferenceManager
+        self.export_manager = export_manager
         self.hook_list = []
         self.return_quant_tensor_state = dict()
 
@@ -124,28 +149,3 @@ class quant_inference_mode:
                 if isinstance(m, QuantProxyFromInjector) and hasattr(
                         m, 'compile_quant') and m.is_quant_enabled:
                     m.compile_quant(compile_export=True)
-
-
-# Inheritance from BaseManager is not techincally needed
-class InferenceManager(BaseManager):
-    handlers = [
-        IntInferenceHandler,
-        DynamicIntInferenceHandler,
-        DynamicFloatInferenceHandler,
-        FloatInferencetHandler,
-        IntWeightInferencetHandler,
-        FloatWeightInferencetHandler,
-        GroupwiseIntInferenceHandler,
-        GroupwiseIntWeightInferenceHandler,
-        GroupwiseFloatInferenceHandler,
-        GroupwiseFloatWeightInferenceHandler]
-
-    @classmethod
-    def set_export_mode(cls, model: Module, enabled: bool):
-        _set_proxy_export_mode(model, enabled)
-        _set_recurrent_layer_export_mode(model, enabled)
-
-    @classmethod
-    def set_export_handler(cls, module: Module):
-        _set_proxy_export_handler(cls, module)
-        _set_recurrent_layer_export_handler(cls, module)
