@@ -70,7 +70,7 @@ class vLLMGroupwiseFloatInferenceHandler(GroupwiseFloatInferenceHandler,
         x = dynamic_over_sub_channel_block_view(x, self.group_size, self.group_dim)
         group_dim = self.group_dim + 1 if self.group_dim > 0 else self.group_dim
         scale = self.compute_scale(x, group_dim)
-        zero_point = torch.zeros(()).type_as(x)
+        zero_point = torch.zeros((), dtype=x.dtype, device=x.device)
         out = self.inner_forward(x, scale, zero_point)
         out = groupwise_dequant_expand(out, scale, zero_point, self.group_dim, inp_shape)[0]
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
@@ -87,8 +87,7 @@ class vLLMDynamicPerRowFloatInferenceHandler(DynamicFloatInferenceHandler,
         self.stats_reduce_dim = 1
 
     def prepare_for_export(self, module):
-        DynamicFloatInferenceHandler.prepare_for_export(self, module)
-        StandaloneGroupwiseQuantMixin.prepare_for_export(self, module)
+        super().prepare_for_export(module)
         for name, submodule in module.named_modules():
             if name.endswith('scaling_stats_input_view_shape_impl'):
                 assert type(submodule) == OverOutputFeaturesView, "Only per-row dynamic quantization is supported"
@@ -109,6 +108,6 @@ class vLLMDynamicPerRowFloatInferenceHandler(DynamicFloatInferenceHandler,
         x_shape = over_output_features(x)
         scale = self.compute_scale(x.reshape(x_shape), self.stats_reduce_dim)
         scale = self.dynamic_broadcast(scale, x.shape)
-        zero_point = torch.zeros(()).type_as(x)
+        zero_point = torch.zeros((), dtype=x.dtype, device=x.device)
         out = self.inner_forward(x, scale, zero_point)
         return out, scale, zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values

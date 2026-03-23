@@ -426,7 +426,10 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
                 self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)
             self.max_clamp = self.max_clamp if self.max_available_float is None else torch.min(
                 self.max_clamp, self.max_available_float())
-            self.min_clamp = torch.tensor(0.) if not module.is_signed else -self.max_clamp
+            dtype = self.max_clamp.dtype
+            device = self.max_clamp.device
+            self.min_clamp = torch.tensor(
+                0., dtype=dtype, device=device) if not module.is_signed else -self.max_clamp
 
             self.fp_internal_scale_min = 1. - self.exponent_bias - self.mantissa_bit_width
 

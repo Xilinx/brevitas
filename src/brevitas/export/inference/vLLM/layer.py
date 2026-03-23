@@ -59,7 +59,6 @@ class QuantLinear(LinearMethodBase):
             had_mat, _ = get_hadK(rot_mat_shape)
         return RotatedModule(self, had_mat, k)
 
-    # TODO: return type is Union[torch.nn.Identity, InferenceHandler] but handler type hierarchy is complex
     def configure_proxy(self, quant_config: Optional[Dict[str, Any]]) -> torch.nn.Module:
         # No config, no quantizer
         if quant_config is None:
@@ -86,24 +85,23 @@ class QuantLinear(LinearMethodBase):
         # Shapes must be set otherwise the state dict loading will fail
         scale = quant_config.get('scale', None)
         zero_point = quant_config.get('zero_point', None)
-        quant_class_type = class_mapping[quant_class_name]
+        quant_class = class_mapping[quant_class_name]
         if scale is None and zero_point is None:
-            quant_class = quant_class_type()
+            quantizer = quant_class()
         else:
             scale_shape = scale.shape
             zero_point_shape = zero_point.shape
-            quant_class = quant_class_type(
-                scale_shape=scale_shape, zero_point_shape=zero_point_shape)
+            quantizer = quant_class(scale_shape=scale_shape, zero_point_shape=zero_point_shape)
 
         # Set the remaining attributes
-        quant_class.float_to_int_impl_type = float_to_int_impl_type
+        quantizer.float_to_int_impl_type = float_to_int_impl_type
         if scaling_restriction is not None:
-            quant_class.scaling_restriction = scaling_restriction
+            quantizer.scaling_restriction = scaling_restriction
         if threshold_restriction is not None:
-            quant_class.threshold_restriction = threshold_restriction
-        quant_class.float_to_int_impl_type = float_to_int_impl_type
-        quant_class.load_state_dict(quant_config)
-        return quant_class
+            quantizer.threshold_restriction = threshold_restriction
+        quantizer.float_to_int_impl_type = float_to_int_impl_type
+        quantizer.load_state_dict(quant_config)
+        return quantizer
 
     def create_weights(
             self,
@@ -113,7 +111,7 @@ class QuantLinear(LinearMethodBase):
             input_size: int,
             output_size: int,
             params_dtype: torch.dtype,
-            **extra_weight_attrs):
+            **extra_weight_attrs) -> None:
         weight_loader = extra_weight_attrs.get("weight_loader")
         self.input_size_per_partition = input_size_per_partition
         self.output_partition_sizes = output_partition_sizes
@@ -152,8 +150,6 @@ class QuantLinear(LinearMethodBase):
             x = self.rotation.rotation_forward(x)
         x = self.input_quant(x)[0]
         bias = self.bias_quant(bias) if bias is not None else None
-        y = x.matmul(layer.weight.t())
-        if bias is not None:
-            y = y + bias
+        y = torch.nn.functional.linear(x, layer.weight, bias)
         y = self.output_quant(y)
         return y
