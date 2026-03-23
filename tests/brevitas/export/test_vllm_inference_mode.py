@@ -85,7 +85,7 @@ ACT_QUANTIZERS = {
 @pytest_cases.parametrize('weight_quantizer', WEIGHT_QUANTIZERS.items())
 @given(weight=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.1')
-def test_vllm_compile_weight(weight, weight_quantizer):
+def test_vllm_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
 
     inp = torch.randn(8, 16)
@@ -103,7 +103,7 @@ def test_vllm_compile_weight(weight, weight_quantizer):
 @pytest_cases.parametrize('act_quantizer', ACT_QUANTIZERS.items())
 @given(inp=float_tensor_st(shape=(8, 16), max_val=1e10, min_val=-1e10))
 @requires_pt_ge('2.1')
-def test_vllm_compile_act(inp, act_quantizer):
+def test_vllm_act(inp, act_quantizer):
     name, quant = act_quantizer
 
     if 'mx' in name:
