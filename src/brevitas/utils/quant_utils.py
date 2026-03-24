@@ -20,7 +20,7 @@ class _CachedIO:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value=torch.empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
@@ -47,7 +47,7 @@ class _CachedIOFloat:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(value=torch.empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
@@ -94,7 +94,7 @@ class _CachedIOGroupwiseFloat:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value_=None)
+            self.quant_tensor = quant_tensor.set(value_=torch.empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility
@@ -146,7 +146,7 @@ class _CachedIOGroupwiseInt:
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.value = None
-            self.quant_tensor = quant_tensor.set(value_=None)
+            self.quant_tensor = quant_tensor.set(value_=torch.empty(0))
         else:
             self.quant_tensor = quant_tensor
             # torch.compile compatibility

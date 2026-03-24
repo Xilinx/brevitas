@@ -281,7 +281,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             self._cached_act = cached_inp
 
         if self.is_quant_enabled:
-            if quant_input is None or isinstance(quant_input, Tensor):
+            if quant_input is None or not isinstance(quant_input, IntQuantTensor):
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:

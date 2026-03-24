@@ -146,7 +146,7 @@ class ONNXBaseManager(BaseManager, ABC):
                     elif input_t is not None:
                         args = input_t
                     # do a forward pass with the dummy input to e.g. store input/output shapes
-                    if isinstance(args, tuple) and not isinstance(args, QuantTensor):
+                    if isinstance(args, tuple):
                         # https://pytorch.org/docs/stable/onnx.html#torch.onnx.export
                         if isinstance(args[-1], dict) and isinstance(args[-2], dict):
                             model_args = args[:-2] + (args[-1],)
