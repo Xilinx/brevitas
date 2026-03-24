@@ -5,14 +5,30 @@ import torch
 
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor.base_quant_tensor import FloatMixin
-from brevitas.quant_tensor.base_quant_tensor import GroupwiseFloatQuantTensorBase
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, QuantTensor):
+class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
+
+    _fields = (
+        'scale_',
+        'zero_point_',
+        'group_size',
+        'group_dim',
+        'exponent_bit_width',
+        'mantissa_bit_width',
+        'exponent_bias',
+        'saturating',
+        'inf_values',
+        'nan_values',
+        'signed',
+        'training',
+        'dequant_shape')
+    _field_to_constructor_param = {'scale_': 'scale', 'zero_point_': 'zero_point'}
+    _is_groupwise = True
 
     def __new__(
             cls,
@@ -30,7 +46,27 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, Quant
             signed,
             training,
             dequant_shape=None):
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Use as_subclass to preserve grad_fn and requires_grad
+        return value.as_subclass(cls)
 
+    def __init__(
+            self,
+            value,
+            scale,
+            zero_point,
+            group_size,
+            group_dim,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            saturating,
+            inf_values,
+            nan_values,
+            signed,
+            training,
+            dequant_shape=None):
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if not isinstance(zero_point, torch.Tensor):
@@ -47,23 +83,74 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, Quant
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(
-            cls,
-            value,
-            scale,
-            zero_point,
-            group_size,
-            group_dim,
-            exponent_bit_width,
-            mantissa_bit_width,
-            exponent_bias,
-            saturating,
-            inf_values,
-            nan_values,
-            signed,
-            training,
-            dequant_shape)
-        return quant_tensor
+        # Store raw (grouped) versions with trailing underscore
+        self._value_ = value if isinstance(value, torch.Tensor) else torch.tensor(
+            value, dtype=torch.float)
+        self.scale_ = scale
+        self.zero_point_ = zero_point
+        self._group_size = group_size
+        self._group_dim = group_dim
+        self._exponent_bit_width = exponent_bit_width
+        self._mantissa_bit_width = mantissa_bit_width
+        self._exponent_bias = exponent_bias
+        self.saturating_t = saturating
+        self._inf_values = inf_values
+        self._nan_values = nan_values
+        self.signed_t = signed
+        self.training_t = training
+        self._dequant_shape = dequant_shape
+
+    @property
+    def group_size(self):
+        return self._group_size
+
+    @property
+    def group_dim(self):
+        return self._group_dim
+
+    @property
+    def exponent_bit_width(self):
+        return self._exponent_bit_width
+
+    @exponent_bit_width.setter
+    def exponent_bit_width(self, value):
+        self._exponent_bit_width = value
+
+    @property
+    def mantissa_bit_width(self):
+        return self._mantissa_bit_width
+
+    @mantissa_bit_width.setter
+    def mantissa_bit_width(self, value):
+        self._mantissa_bit_width = value
+
+    @property
+    def exponent_bias(self):
+        return self._exponent_bias
+
+    @exponent_bias.setter
+    def exponent_bias(self, value):
+        self._exponent_bias = value
+
+    @property
+    def inf_values(self):
+        return self._inf_values
+
+    @inf_values.setter
+    def inf_values(self, value):
+        self._inf_values = value
+
+    @property
+    def nan_values(self):
+        return self._nan_values
+
+    @nan_values.setter
+    def nan_values(self, value):
+        self._nan_values = value
+
+    @property
+    def dequant_shape(self):
+        return self._dequant_shape
 
     @property
     def signed(self):
@@ -91,7 +178,7 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, Quant
     def expand(self):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
+            self._value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):
@@ -183,7 +270,7 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, Quant
             return GroupwiseFloatQuantTensor(
                 value=neg_value,
                 scale=scale,
-                zero_point=self.zero_point,
+                zero_point=self.zero_point_,
                 group_size=self.group_size,
                 group_dim=self.group_dim,
                 exponent_bit_width=self.exponent_bit_width,
@@ -216,8 +303,8 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, FloatMixin, Quant
                 scale, self.group_size, self.group_dim, compress=True)
             return GroupwiseFloatQuantTensor(
                 value=abs_value,
-                scale=self.scale,
-                zero_point=self.zero_point,
+                scale=self.scale_,
+                zero_point=self.zero_point_,
                 group_size=self.group_size,
                 group_dim=self.group_dim,
                 exponent_bit_width=self.exponent_bit_width,

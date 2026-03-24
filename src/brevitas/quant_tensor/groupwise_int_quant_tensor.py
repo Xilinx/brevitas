@@ -5,7 +5,6 @@ import torch
 
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor.base_quant_tensor import GroupwisIntQuantTensorBase
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import float_internal_scale
@@ -14,7 +13,19 @@ from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor):
+class GroupwiseIntQuantTensor(IntMixin, QuantTensor):
+
+    _fields = (
+        'scale_',
+        'zero_point_',
+        'group_size',
+        'group_dim',
+        'bit_width',
+        'signed',
+        'training',
+        'dequant_shape')
+    _field_to_constructor_param = {'scale_': 'scale', 'zero_point_': 'zero_point'}
+    _is_groupwise = True
 
     def __new__(
             cls,
@@ -27,7 +38,22 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
             signed,
             training,
             dequant_shape=None):
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Use as_subclass to preserve grad_fn and requires_grad
+        return value.as_subclass(cls)
 
+    def __init__(
+            self,
+            value,
+            scale,
+            zero_point,
+            group_size,
+            group_dim,
+            bit_width,
+            signed,
+            training,
+            dequant_shape=None):
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if not isinstance(zero_point, torch.Tensor):
@@ -38,18 +64,37 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(
-            cls,
-            value,
-            scale,
-            zero_point,
-            group_size,
-            group_dim,
-            bit_width,
-            signed,
-            training,
-            dequant_shape)
-        return quant_tensor
+        # Store raw (grouped) versions with trailing underscore
+        self._value_ = value if isinstance(value, torch.Tensor) else torch.tensor(
+            value, dtype=torch.float)
+        self.scale_ = scale
+        self.zero_point_ = zero_point
+        self._group_size = group_size
+        self._group_dim = group_dim
+        self._bit_width = bit_width
+        self.signed_t = signed
+        self.training_t = training
+        self._dequant_shape = dequant_shape
+
+    @property
+    def group_size(self):
+        return self._group_size
+
+    @property
+    def group_dim(self):
+        return self._group_dim
+
+    @property
+    def bit_width(self):
+        return self._bit_width
+
+    @bit_width.setter
+    def bit_width(self, value):
+        self._bit_width = value
+
+    @property
+    def dequant_shape(self):
+        return self._dequant_shape
 
     @property
     def signed(self):
@@ -58,10 +103,6 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
     @property
     def training(self):
         return self.training_t.item()
-
-    @property
-    def saturating(self):
-        return self.saturating_t.item()
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -78,7 +119,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
     def expand(self):
         from brevitas.utils.quant_utils import groupwise_dequant_expand
         return groupwise_dequant_expand(
-            self.value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
+            self._value_, self.scale_, self.zero_point_, self.group_dim, self.dequant_shape)
 
     @staticmethod
     def from_expanded(value, group_size, group_dim, compress=False):
@@ -114,13 +155,9 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
 
     @property
     def device(self):
-        value_device = self.value_.device
+        value_device = self._value_.device
         is_same_device = True
-        for t in [self.scale,
-                  self.zero_point,
-                  self.exponent_bit_width,
-                  self.mantissa_bit_width,
-                  self.exponent_bias]:
+        for t in [self.scale_, self.zero_point_, self._bit_width]:
             is_same_device &= value_device == t.device
         if not is_same_device:
             raise RuntimeError("Value and metadata are on different devices")
@@ -161,13 +198,12 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
             return GroupwiseIntQuantTensor(
                 value=neg_value,
                 scale=scale,
-                zero_point=self.zero_point,
+                zero_point=self.zero_point_,
                 group_size=self.group_size,
                 group_dim=self.group_dim,
                 bit_width=self.bit_width,
                 signed=self.signed,
-                training=self.training,
-                saturating=self.saturating)
+                training=self.training)
         else:
             # TODO: implement
             raise NotImplementedError
@@ -211,13 +247,12 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, IntMixin, QuantTensor)
                 scale, self.group_size, self.group_dim, compress=True)
             return GroupwiseIntQuantTensor(
                 value=abs_value,
-                scale=self.scale,
-                zero_point=self.zero_point,
+                scale=self.scale_,
+                zero_point=self.zero_point_,
                 group_size=self.group_size,
                 group_dim=self.group_dim,
                 bit_width=self.bit_width,
                 signed=False,
-                training=self.training,
-                saturating=self.saturating)
+                training=self.training)
         else:
             return self
