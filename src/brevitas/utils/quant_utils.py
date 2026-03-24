@@ -33,8 +33,9 @@ class _CachedIO:
     def quant_tensor(self):
         if self._quant_tensor is not None:
             return self._quant_tensor
+        value = self.value if self.value is not None else self.scale.new_empty(0)
         self._quant_tensor = IntQuantTensor(
-            self.value,
+            value,
             self.scale,
             self.zero_point,
             self.bit_width,
@@ -72,8 +73,9 @@ class _CachedIOFloat:
     def quant_tensor(self):
         if self._quant_tensor is not None:
             return self._quant_tensor
+        value = self.value if self.value is not None else self.scale.new_empty(0)
         self._quant_tensor = FloatQuantTensor(
-            self.value,
+            value,
             self.scale,
             self.zero_point,
             self.exponent_bit_width,
@@ -92,7 +94,7 @@ class _CachedIOGroupwiseFloat:
     def __init__(self, quant_tensor: GroupwiseFloatQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         self.value = None if metadata_only else quant_tensor.value
-        self._value = None if metadata_only else quant_tensor.value_
+        self._value = None if metadata_only else quant_tensor._value_
         self._quant_tensor = None if metadata_only else quant_tensor
         self.scale_ = quant_tensor.scale_
         self.zero_point_ = quant_tensor.zero_point_
@@ -120,8 +122,9 @@ class _CachedIOGroupwiseFloat:
     def quant_tensor(self):
         if self._quant_tensor is not None:
             return self._quant_tensor
+        value = self._value if self._value is not None else self.scale_.new_empty(0)
         self._quant_tensor = GroupwiseFloatQuantTensor(
-            self._value,
+            value,
             self.scale_,
             self.zero_point_,
             self.group_size,
@@ -143,7 +146,7 @@ class _CachedIOGroupwiseInt:
     def __init__(self, quant_tensor: GroupwiseIntQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         self.value = None if metadata_only else quant_tensor.value
-        self._value = None if metadata_only else quant_tensor.value_
+        self._value = None if metadata_only else quant_tensor._value_
         self._quant_tensor = None if metadata_only else quant_tensor
         self.scale_ = quant_tensor.scale_
         self.zero_point_ = quant_tensor.zero_point_
@@ -162,8 +165,9 @@ class _CachedIOGroupwiseInt:
     def quant_tensor(self):
         if self._quant_tensor is not None:
             return self._quant_tensor
+        value = self._value if self._value is not None else self.scale_.new_empty(0)
         self._quant_tensor = GroupwiseIntQuantTensor(
-            self._value,
+            value,
             self.scale_,
             self.zero_point_,
             self.group_size,
