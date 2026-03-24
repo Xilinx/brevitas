@@ -12,8 +12,7 @@ class AXEBenchmark(LLMBenchmarkUtils):
     @staticmethod
     def validate(args, extra_args=None):
         super(LLMBenchmarkUtils, AXEBenchmark).validate(args, extra_args)
-        # TODO: add support for accumulator-aware Qronos
-        assert (int(args.gptq) + int(args.gpfq) + int(args.qronos)) == 1
+        assert (int(args.gptq) + int(args.gpfq) + int(args.qronos)) <= 1
 
 
 if __name__ == "__main__":
