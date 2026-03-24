@@ -4,7 +4,6 @@
 import torch
 
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import FloatQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import FloatMixin
 
@@ -12,7 +11,19 @@ from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class FloatQuantTensor(FloatQuantTensorBase, FloatMixin, QuantTensor):
+class FloatQuantTensor(FloatMixin, QuantTensor):
+
+    _fields = (
+        'scale',
+        'zero_point',
+        'exponent_bit_width',
+        'mantissa_bit_width',
+        'exponent_bias',
+        'saturating',
+        'inf_values',
+        'nan_values',
+        'signed',
+        'training')
 
     def __new__(
             cls,
@@ -27,7 +38,24 @@ class FloatQuantTensor(FloatQuantTensorBase, FloatMixin, QuantTensor):
             nan_values,
             signed,
             training):
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Use as_subclass to preserve grad_fn and requires_grad
+        return value.as_subclass(cls)
 
+    def __init__(
+            self,
+            value,
+            scale,
+            zero_point,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            saturating,
+            inf_values,
+            nan_values,
+            signed,
+            training):
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if not isinstance(zero_point, torch.Tensor):
@@ -44,20 +72,72 @@ class FloatQuantTensor(FloatQuantTensorBase, FloatMixin, QuantTensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(
-            cls,
-            value,
-            scale,
-            zero_point,
-            exponent_bit_width,
-            mantissa_bit_width,
-            exponent_bias,
-            saturating,
-            inf_values,
-            nan_values,
-            signed,
-            training)
-        return quant_tensor
+        self._scale = scale
+        self._zero_point = zero_point
+        self._exponent_bit_width = exponent_bit_width
+        self._mantissa_bit_width = mantissa_bit_width
+        self._exponent_bias = exponent_bias
+        self.saturating_t = saturating
+        self._inf_values = inf_values
+        self._nan_values = nan_values
+        self.signed_t = signed
+        self.training_t = training
+
+    @property
+    def scale(self):
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        self._scale = value
+
+    @property
+    def zero_point(self):
+        return self._zero_point
+
+    @zero_point.setter
+    def zero_point(self, value):
+        self._zero_point = value
+
+    @property
+    def exponent_bit_width(self):
+        return self._exponent_bit_width
+
+    @exponent_bit_width.setter
+    def exponent_bit_width(self, value):
+        self._exponent_bit_width = value
+
+    @property
+    def mantissa_bit_width(self):
+        return self._mantissa_bit_width
+
+    @mantissa_bit_width.setter
+    def mantissa_bit_width(self, value):
+        self._mantissa_bit_width = value
+
+    @property
+    def exponent_bias(self):
+        return self._exponent_bias
+
+    @exponent_bias.setter
+    def exponent_bias(self, value):
+        self._exponent_bias = value
+
+    @property
+    def inf_values(self):
+        return self._inf_values
+
+    @inf_values.setter
+    def inf_values(self, value):
+        self._inf_values = value
+
+    @property
+    def nan_values(self):
+        return self._nan_values
+
+    @nan_values.setter
+    def nan_values(self, value):
+        self._nan_values = value
 
     @property
     def signed(self):
@@ -87,10 +167,6 @@ class FloatQuantTensor(FloatQuantTensorBase, FloatMixin, QuantTensor):
             args = _unpack_quant_tensor(args)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
-
-    @property
-    def tensor(self):
-        return self.value
 
     @staticmethod
     def check_input_type(tensor):

@@ -8,7 +8,6 @@ from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import IntQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.base_quant_tensor import IntMixin
 
@@ -16,10 +15,17 @@ from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
+class IntQuantTensor(IntMixin, QuantTensor):
+
+    _fields = ('scale', 'zero_point', 'bit_width', 'signed', 'training')
 
     def __new__(cls, value, scale, zero_point, bit_width, signed, training):
+        if not isinstance(value, torch.Tensor):
+            value = torch.tensor(value, dtype=torch.float)
+        # Use as_subclass to preserve grad_fn and requires_grad
+        return value.as_subclass(cls)
 
+    def __init__(self, value, scale, zero_point, bit_width, signed, training):
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if not isinstance(zero_point, torch.Tensor):
@@ -30,8 +36,35 @@ class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
-        return quant_tensor
+        self._scale = scale
+        self._zero_point = zero_point
+        self._bit_width = bit_width
+        self.signed_t = signed
+        self.training_t = training
+
+    @property
+    def scale(self):
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        self._scale = value
+
+    @property
+    def zero_point(self):
+        return self._zero_point
+
+    @zero_point.setter
+    def zero_point(self, value):
+        self._zero_point = value
+
+    @property
+    def bit_width(self):
+        return self._bit_width
+
+    @bit_width.setter
+    def bit_width(self, value):
+        self._bit_width = value
 
     @property
     def signed(self):
@@ -53,10 +86,6 @@ class IntQuantTensor(IntQuantTensorBase, IntMixin, QuantTensor):
             args = _unpack_quant_tensor(args)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
-
-    @property
-    def tensor(self):
-        return self.value
 
     @property
     def device(self):
