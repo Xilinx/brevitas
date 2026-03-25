@@ -60,6 +60,9 @@ The following quantization configurations were evaluated:
 - **W4g32A4g32**: 4-bit weight and activation quantization with group size of 128. See [Weight and activation quantization](#weight-and-activation-quantization-of-llama-32-foundation-models).
 - **W4g32A4g32Po2**: MXFP4 weight and activation quantization. See [MXFP4 weight and activation quantization](#mxfp4-weight-and-activation-quantization-of-llama-32-foundation-models).
 
+> [!NOTE]
+> Cells marked as **N/A** correspond to experiments that failed due to out-of-memory errors and are pending rerun.
+
 
 
 Weight-only quantization of `Llama 3.2` and `Qwen 2.5` foundation models
@@ -69,8 +72,6 @@ The following results were obtained using the configurations `brevitas_examples/
 and `brevitas_examples/papers/learned_round/learned_round_weight_only_spinquant.yaml`.
 
 The results for `Llama 3.2` are summarized in the following table:
-
-**Summary**: At W2g128, Learned Round achieves the lowest perplexity across all transforms (e.g. 32.53 with HIP vs. 60.00 for Qronos on 1B), substantially outperforming both GPTQ and Qronos. At W4 and W4g128, all rounding methods perform comparably, with Learned Round combined with HIP achieving the best overall WikiText2 perplexity (9.40 on W4g128 for 1B) and competitive zero-shot accuracy. The benefit of learned round is most pronounced in low bit-widths regimes, where greedy rounding algorithns exhibit a significant drop in performance.
 
 <table style="width:94%;">
 <colgroup>
@@ -437,9 +438,9 @@ The results for `Llama 3.2` are summarized in the following table:
 </tbody>
 </table>
 
-The results for `Qwen 2.5` are summarized in the following table:
+**Key takeaways**: At W2g128, Learned Round achieves the lowest perplexity across all transforms (e.g. 32.53 with HIP vs. 60.00 for Qronos on 1B), substantially outperforming both GPTQ and Qronos. At W4 and W4g128, all rounding methods perform comparably, with Learned Round combined with HIP achieving the best overall WikiText2 perplexity (9.40 on W4g128 for 1B) and competitive zero-shot accuracy. The benefit of learned rounding is most pronounced in the aggressive W2g128 regime, where greedy solvers struggle.
 
-**Summary**: Trends on Qwen 2.5 mirror those on Llama 3.2. At W2g128, Learned Round consistently delivers the best or near-best perplexity across transforms (e.g. 18.72 with HIP vs. 20.38 for Qronos on 1.5B). At W4 and W4g128, Learned Round with HIP yields the best WikiText2 perplexity (8.74 on W4g128 for 1.5B) and top zero-shot scores (64.22 on W4g128 for 3B), confirming the robustness of the technique across model families.
+The results for `Qwen 2.5` are summarized in the following table:
 
 <table style="width:94%;">
 <colgroup>
@@ -806,6 +807,8 @@ The results for `Qwen 2.5` are summarized in the following table:
 </tbody>
 </table>
 
+**Key takeaways**: Trends on Qwen 2.5 mirror those on Llama 3.2. At W2g128, Learned Round consistently delivers the best or near-best perplexity across transforms (e.g. 18.72 with HIP vs. 20.38 for Qronos on 1.5B). At W4 and W4g128, Learned Round with HIP yields the best WikiText2 perplexity (8.74 on W4g128 for 1.5B) and top zero-shot scores (64.22 on W4g128 for 3B), confirming the generality of the approach across model families.
+
 
 Weight and activation quantization of `Llama 3.2` foundation models
 --------------------------------------------------------------------
@@ -814,8 +817,6 @@ The following results were obtained using the configurations `brevitas_examples/
 and `brevitas_examples/papers/learned_round/learned_round_weight_act_spinquant.yaml`.
 
 The results for `Llama 3.2` are summarized in the following table:
-
-**Summary**: W4A4 quantization is significantly more challenging than weight-only. Without a transform (Stage 1 = None), all rounding methods produce near-random accuracy. A transform is essential: HIP and QuaRot enable usable models, and Learned Round consistently achieves the best perplexity and zero-shot accuracy within each transform group (e.g. 12.32/50.57 with HIP on 1B vs. 13.19/48.49 for GPTQ). SpinQuant + Learned Round yields the overall best combination (7.59 perplexity, 62.22 zero-shot on 8B), notably recovering from the poor results that GPTQ and Qronos produce with SpinQuant on 3B and 8B.
 
 <table style="width:95%;">
 <colgroup>
@@ -1049,6 +1050,8 @@ The results for `Llama 3.2` are summarized in the following table:
 </tbody>
 </table>
 
+**Key takeaways**: W4A4 quantization is significantly more challenging than weight-only. Without a transform (Stage 1 = None), all rounding methods produce near-random accuracy. A transform is essential: HIP and QuaRot enable usable models, and Learned Round consistently achieves the best perplexity and zero-shot accuracy within each transform group (e.g. 12.32/50.57 with HIP on 1B vs. 13.19/48.49 for GPTQ). SpinQuant + Learned Round yields the overall best combination (7.59 perplexity, 62.22 zero-shot on 8B), notably recovering from the poor results that GPTQ and Qronos produce with SpinQuant on 3B and 8B.
+
 MXFP4 weight and activation quantization of `Llama 3.2` foundation models
 ----------------------------------------------------------------------------
 
@@ -1056,8 +1059,6 @@ The following results were obtained using the configurations `brevitas_examples/
 and `brevitas_examples/papers/learned_round/learned_round_mxfp4_spinquant.yaml`.
 
 The results for `Llama 3.2` are summarized in the following table:
-
-**Summary**: MXFP4 quantization is more forgiving than integer W4A4, with all transforms producing usable models even with RTN. Learned Round still provides consistent gains: it achieves the best or near-best perplexity within every transform group (e.g. 11.01 with HIP on 1B vs. 11.06 for GPTQ). The margins between rounding methods are narrower than in integer W4A4, but Learned Round with any of HIP, QuaRot, or SpinQuant approaches BF16 quality (e.g. 6.86 perplexity on 8B with QuaRot, vs. 5.9 for BF16).
 
 <table style="width:95%;">
 <colgroup>
@@ -1290,3 +1291,5 @@ The results for `Llama 3.2` are summarized in the following table:
 </tr>
 </tbody>
 </table>
+
+**Key takeaways**: MXFP4 quantization is more forgiving than integer W4A4, with all transforms producing usable models even with RTN. Learned Round still provides consistent gains: it achieves the best or near-best perplexity within every transform group (e.g. 11.01 with HIP on 1B vs. 11.06 for GPTQ). The margins between rounding methods are narrower than in integer W4A4, but Learned Round with any of HIP, QuaRot, or SpinQuant approaches BF16 quality (e.g. 6.86 perplexity on 8B with QuaRot, vs. 5.9 for BF16).
