@@ -165,6 +165,15 @@ class QuantTensor(Tensor):
     def __sub__(self, other):
         return self.__add__(-other)
 
+    def __iadd__(self, other):
+        return self.__add__(other)
+
+    def __imul__(self, other):
+        return self.__mul__(other)
+
+    def __isub__(self, other):
+        return self.__sub__(other)
+
     def __pos__(self):
         return self
 
