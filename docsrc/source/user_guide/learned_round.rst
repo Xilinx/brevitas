@@ -4,7 +4,13 @@ Learned Round
 
 Learned Round is a **post-training quantization (PTQ)** technique that improves quantization quality by **learning per-weight
 rounding decisions**, instead of relying on fixed round-to-nearest (RTN). It unifies methods such as **AdaRound** [1]_ and
-**SignRound** [2]_ under a single, configurable framework integrated into Brevitas’ PTQ pipelines.
+**SignRound** [2]_ under a single, configurable framework integrated into Brevitas' PTQ pipelines.
+
+.. raw:: html
+
+    <div align="center">
+		<a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round">💻 Examples</a>
+    </div>
 
 .. contents:: Table of Contents
    :local:
@@ -61,9 +67,9 @@ objectives sequentially, learned rounding methods:
 - rely on gradient‑based optimization over calibration data,
 - restrict the search space to a limited subset of quantization grid points.
 
-By jointly correcting quantization error across all weights within a block 
-in a constrained manner, this approach more effectively reduces block output error 
-while mitigating overfitting to calibration data. However, compared to **GPTQ** and **Qronos**, 
+By jointly correcting quantization error across all weights within a block
+in a constrained manner, this approach more effectively reduces block output error
+while mitigating overfitting to calibration data. However, compared to **GPTQ** and **Qronos**,
 learned rounding typically requires greater compute and hyperparameter tuning.
 
 
@@ -88,15 +94,15 @@ It is also composable with other PTQ techniques, including **QuaRot** [5]_, **Sp
 Implementation Overview
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-At a high level, Learned Round performs **block‑wise post‑training optimization** of rounding decisions, 
+At a high level, Learned Round performs **block‑wise post‑training optimization** of rounding decisions,
 following these steps:
 
 1. Prepare the model (optional preprocessing, e.g. disabling internal caches).
 2. Insert learnable rounding parameters into the quantization operators.
 3. Decompose the model into blocks.
 4. For each block:
-   a. Cache block inputs (and reference outputs) using calibration data.  
-   b. Optimize rounding parameters (and optionally scales) via a local reconstruction loss.  
+   a. Cache block inputs (and reference outputs) using calibration data.
+   b. Optimize rounding parameters (and optionally scales) via a local reconstruction loss.
    c. Freeze the optimized rounding decisions.
 5. Optionally reuse cached activations to accelerate block‑to‑block optimization.
 6. Restore the original model configuration for inference.
@@ -128,11 +134,7 @@ Following, an example configuration matching the **SignRound** [2]_ setup (witho
                                 lr_scheduler_kwargs={
                                     "start_factor": 1.0,
                                     "end_factor": 0.0,
-                                    "total_iters": 200,
-                                },
-                            ),
-                        ),
-                    ],
+                                    "total_iters": 200}))],
                     batch_size=8,
                     iters=200,
                     losses_args=[LossArgs(cls="mse")],
@@ -140,19 +142,12 @@ Following, an example configuration matching the **SignRound** [2]_ setup (witho
                     use_best_model=True,
                     use_amp=True,
                     amp_dtype="float16",
-                    fast_update=False,
-                ),
+                    fast_update=False),
                 training_handlers=[
                     HandlerSpec(
                         name="learned_round",
                         config=LearnedRoundArgs(
-                            learned_round_param=LearnedRoundImplType.IDENTITY,
-                        ),
-                    )
-                ],
-            )
-        )
-    )
+                            learned_round_param=LearnedRoundImplType.IDENTITY))])))
 
 
 Entrypoint Integration
@@ -227,31 +222,31 @@ Extending to Custom Models or Datasets
 
 To use Learned Round with custom models/datasets outside of the supported entrypoints, you will need to implement the following components:
 
-1. **Cache**: A class, inheriting from ``brevitas_examples/common/learned_round/learned_round_utils.py:Cache``, that captures block inputs 
+1. **Cache**: A class, inheriting from ``brevitas_examples/common/learned_round/learned_round_utils.py:Cache``, that captures block inputs
 and reference outputs during the forward pass (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:CacheLLM`` for an example).
 
-2. **Block forward function**: A function, implementing the `Protocol` ``brevitas_examples/common/learned_round/learned_round_utils.py:BlockForwardFn``, 
-that performs the forward pass through the block being optimized, using the cached inputs and reference 
+2. **Block forward function**: A function, implementing the `Protocol` ``brevitas_examples/common/learned_round/learned_round_utils.py:BlockForwardFn``,
+that performs the forward pass through the block being optimized, using the cached inputs and reference
 outputs (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:llm_block_forward`` for an example).
 
-3. **Model forward function**: A function, implementing the `Protocol` ``brevitas_examples/common/learned_round/learned_round_utils.py:ModelForwardFn``, 
+3. **Model forward function**: A function, implementing the `Protocol` ``brevitas_examples/common/learned_round/learned_round_utils.py:ModelForwardFn``,
 that performs a forward pass through the model (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:llm_forward`` for an example).
 
-4. **Block extraction function**: A function that extracts the blocks to be optimized from the model 
+4. **Block extraction function**: A function that extracts the blocks to be optimized from the model
 (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:get_blocks`` for an example).
 
-Getting Started
----------------
+Next Steps
+----------
 
 Learned Round has been evaluated in the LLM entrypoint across multiple quantization scenarios, including weight-only and weight-and-activation PTQ,
 and in combination with outlier suppression techniques. For detailed results, as well as instructions on how to reproduce them, see ``brevitas_examples/papers/learned_round/README.md``.
 
 .. rubric:: References
 
-.. [1] Nagel, M., Amjad, R. A., Van Baalen, M., Louizos, C., & Blankevoort, T. (2020, November). Up or down? adaptive rounding for post-training quantization. In International conference on machine learning (pp. 7197-7206). PMLR. 
+.. [1] Nagel, M., Amjad, R. A., Van Baalen, M., Louizos, C., & Blankevoort, T. (2020, November). Up or down? adaptive rounding for post-training quantization. In International conference on machine learning (pp. 7197-7206). PMLR.
 .. [2] Cheng, W., Zhang, W., Shen, H., Cai, Y., He, X., Kaokao, L., & Liu, Y. (2024, November). Optimize weight rounding via signed gradient descent for the quantization of llms. In Findings of the Association for Computational Linguistics: EMNLP 2024 (pp. 11332-11350).
-.. [3] Frantar, E., Ashkboos, S., Hoefler, T., & Alistarh, D. (2022). Gptq: Accurate post-training quantization for generative pre-trained transformers. arXiv preprint arXiv:2210.17323. 
-.. [4] Zhang, S., Zhang, H., Colbert, I., & Saab, R. (2025). Qronos: Correcting the Past by Shaping the Future... in Post-Training Quantization. arXiv preprint arXiv:2505.11695. 
+.. [3] Frantar, E., Ashkboos, S., Hoefler, T., & Alistarh, D. (2022). Gptq: Accurate post-training quantization for generative pre-trained transformers. arXiv preprint arXiv:2210.17323.
+.. [4] Zhang, S., Zhang, H., Colbert, I., & Saab, R. (2025). Qronos: Correcting the Past by Shaping the Future... in Post-Training Quantization. arXiv preprint arXiv:2505.11695.
 .. [5] Ashkboos, S., Mohtashami, A., Croci, M. L., Li, B., Cameron, P., Jaggi, M., ... & Hensman, J. (2024). Quarot: Outlier-free 4-bit inference in rotated llms. Advances in Neural Information Processing Systems, 37, 100213-100240.
 .. [6] Liu, Z., Zhao, C., Fedorov, I., Soran, B., Choudhary, D., Krishnamoorthi, R., ... & Blankevoort, T. (2024). Spinquant: Llm quantization with learned rotations. arXiv preprint arXiv:2405.16406.
 .. [7] Zhang, A., Wang, N., Deng, Y., Li, X., Yang, Z., & Yin, P. (2024). Magr: Weight magnitude reduction for enhancing post-training quantization. Advances in neural information processing systems, 37, 85109-85130.

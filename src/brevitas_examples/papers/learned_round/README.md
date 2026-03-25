@@ -70,6 +70,8 @@ and `brevitas_examples/papers/learned_round/learned_round_weight_only_spinquant.
 
 The results for `Llama 3.2` are summarized in the following table:
 
+**Summary**: At W2g128, Learned Round achieves the lowest perplexity across all transforms (e.g. 32.53 with HIP vs. 60.00 for Qronos on 1B), substantially outperforming both GPTQ and Qronos. At W4 and W4g128, all rounding methods perform comparably, with Learned Round combined with HIP achieving the best overall WikiText2 perplexity (9.40 on W4g128 for 1B) and competitive zero-shot accuracy. The benefit of learned round is most pronounced in low bit-widths regimes, where greedy rounding algorithns exhibit a significant drop in performance.
+
 <table style="width:94%;">
 <colgroup>
 <col style="width: 4%" />
@@ -159,9 +161,9 @@ The results for `Llama 3.2` are summarized in the following table:
 <tr>
 <th rowspan="5" align="center">None</th>
 <th align="center">RTN</th>
-<td align="center">92672.00</td>
-<td align="center">11776.00</td>
-<td align="center">38656.00</td>
+<td align="center">9e4</td>
+<td align="center">1e4</td>
+<td align="center">4e4</td>
 <td align="center">35.06</td>
 <td align="center">35.54</td>
 <td align="center">35.57</td>
@@ -222,9 +224,9 @@ The results for `Llama 3.2` are summarized in the following table:
 </tr>
 <tr>
 <th align="center">Sign Round</th>
-<td align="center">17151.00</td>
-<td align="center">36352.00</td>
-<td align="center">6304.00</td>
+<td align="center">2e4</td>
+<td align="center">4e4</td>
+<td align="center">6e3</td>
 <td align="center">41.71</td>
 <td align="center">51.06</td>
 <td align="center">55.21</td>
@@ -265,9 +267,9 @@ The results for `Llama 3.2` are summarized in the following table:
 <tr>
 <th rowspan="4" align="center">HIP</th>
 <th align="center">RTN</th>
-<td align="center">143360.00</td>
-<td align="center">16128.00</td>
-<td align="center">4928.00</td>
+<td align="center">1e5</td>
+<td align="center">2e4</td>
+<td align="center">5e3</td>
 <td align="center">34.79</td>
 <td align="center">35.06</td>
 <td align="center">35.40</td>
@@ -350,9 +352,9 @@ The results for `Llama 3.2` are summarized in the following table:
 <tr>
 <th rowspan="4" align="center">MagR</th>
 <th align="center">RTN</th>
-<td align="center">20736.00</td>
-<td align="center">16128.00</td>
-<td align="center">5568.00</td>
+<td align="center">2e4</td>
+<td align="center">2e4</td>
+<td align="center">6e3</td>
 <td align="center">35.81</td>
 <td align="center">35.44</td>
 <td align="center">35.57</td>
@@ -415,27 +417,29 @@ The results for `Llama 3.2` are summarized in the following table:
 <th align="center">Learned Round</th>
 <td align="center">34.16</td>
 <td align="center">17.98</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">43.83</td>
 <td align="center">49.63</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">10.07</td>
 <td align="center">8.11</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">52.58</td>
 <td align="center">46.94</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">9.89</td>
 <td align="center">7.91</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">54.31</td>
 <td align="center">56.37</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 </tr>
 </tbody>
 </table>
 
 The results for `Qwen 2.5` are summarized in the following table:
+
+**Summary**: Trends on Qwen 2.5 mirror those on Llama 3.2. At W2g128, Learned Round consistently delivers the best or near-best perplexity across transforms (e.g. 18.72 with HIP vs. 20.38 for Qronos on 1.5B). At W4 and W4g128, Learned Round with HIP yields the best WikiText2 perplexity (8.74 on W4g128 for 1.5B) and top zero-shot scores (64.22 on W4g128 for 3B), confirming the robustness of the technique across model families.
 
 <table style="width:94%;">
 <colgroup>
@@ -526,14 +530,14 @@ The results for `Qwen 2.5` are summarized in the following table:
 <tr>
 <th rowspan="5" align="center">None</th>
 <th align="center">RTN</th>
-<td align="center">152576.00</td>
-<td align="center">76800.00</td>
-<td align="center">19456.00</td>
+<td align="center">2e5</td>
+<td align="center">8e4</td>
+<td align="center">2e4</td>
 <td align="center">35.33</td>
 <td align="center">34.90</td>
 <td align="center">35.53</td>
 <td align="center">12.75</td>
-<td align="center">6304.00</td>
+<td align="center">6e3</td>
 <td align="center">8.50</td>
 <td align="center">54.52</td>
 <td align="center">35.56</td>
@@ -632,8 +636,8 @@ The results for `Qwen 2.5` are summarized in the following table:
 <tr>
 <th rowspan="4" align="center">HIP</th>
 <th align="center">RTN</th>
-<td align="center">14208.00</td>
-<td align="center">95420416.00</td>
+<td align="center">1e4</td>
+<td align="center">1e8</td>
 <td align="center">536.00</td>
 <td align="center">34.83</td>
 <td align="center">35.06</td>
@@ -717,9 +721,9 @@ The results for `Qwen 2.5` are summarized in the following table:
 <tr>
 <th rowspan="4" align="center">MagR</th>
 <th align="center">RTN</th>
-<td align="center">56320.00</td>
-<td align="center">68096.00</td>
-<td align="center">1696.00</td>
+<td align="center">6e4</td>
+<td align="center">7e4</td>
+<td align="center">2e3</td>
 <td align="center">35.55</td>
 <td align="center">35.15</td>
 <td align="center">36.15</td>
@@ -782,22 +786,22 @@ The results for `Qwen 2.5` are summarized in the following table:
 <th align="center">Learned Round</th>
 <td align="center">22.49</td>
 <td align="center">15.79</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center"><strong>46.83</strong></td>
 <td align="center">48.03</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">10.14</td>
 <td align="center">8.08</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">58.21</td>
 <td align="center">63.07</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">9.03</td>
 <td align="center">7.80</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">59.14</td>
 <td align="center">63.44</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 </tr>
 </tbody>
 </table>
@@ -810,6 +814,8 @@ The following results were obtained using the configurations `brevitas_examples/
 and `brevitas_examples/papers/learned_round/learned_round_weight_act_spinquant.yaml`.
 
 The results for `Llama 3.2` are summarized in the following table:
+
+**Summary**: W4A4 quantization is significantly more challenging than weight-only. Without a transform (Stage 1 = None), all rounding methods produce near-random accuracy. A transform is essential: HIP and QuaRot enable usable models, and Learned Round consistently achieves the best perplexity and zero-shot accuracy within each transform group (e.g. 12.32/50.57 with HIP on 1B vs. 13.19/48.49 for GPTQ). SpinQuant + Learned Round yields the overall best combination (7.59 perplexity, 62.22 zero-shot on 8B), notably recovering from the poor results that GPTQ and Qronos produce with SpinQuant on 3B and 8B.
 
 <table style="width:95%;">
 <colgroup>
@@ -858,18 +864,18 @@ The results for `Llama 3.2` are summarized in the following table:
 <tr>
 <th rowspan="4" align="center">None</th>
 <th align="center">RTN</th>
-<td align="center">6304.00</td>
-<td align="center">22016.00</td>
-<td align="center">52736.00</td>
+<td align="center">6e3</td>
+<td align="center">2e4</td>
+<td align="center">5e4</td>
 <td align="center">34.59</td>
 <td align="center">34.83</td>
 <td align="center">35.60</td>
 </tr>
 <tr>
 <th align="center">GPTQ</th>
-<td align="center">23424.00</td>
-<td align="center">14208.00</td>
-<td align="center">23424.00</td>
+<td align="center">2e4</td>
+<td align="center">1e4</td>
+<td align="center">2e4</td>
 <td align="center">34.38</td>
 <td align="center">35.48</td>
 <td align="center">34.32</td>
@@ -932,18 +938,18 @@ The results for `Llama 3.2` are summarized in the following table:
 <tr>
 <th rowspan="4" align="center">MagR</th>
 <th align="center">RTN</th>
-<td align="center">5920.00</td>
-<td align="center">8096.00</td>
-<td align="center">24960.00</td>
+<td align="center">6e3</td>
+<td align="center">8e3</td>
+<td align="center">2e4</td>
 <td align="center">34.94</td>
 <td align="center">35.03</td>
 <td align="center">34.75</td>
 </tr>
 <tr>
 <th align="center">GPTQ</th>
-<td align="center">12544.00</td>
-<td align="center">17152.00</td>
-<td align="center">24960.00</td>
+<td align="center">1e4</td>
+<td align="center">2e4</td>
+<td align="center">2e4</td>
 <td align="center">35.74</td>
 <td align="center">35.91</td>
 <td align="center">35.44</td>
@@ -961,10 +967,10 @@ The results for `Llama 3.2` are summarized in the following table:
 <th align="center">Learned Round</th>
 <td align="center">103.10</td>
 <td align="center">82.66</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">38.74</td>
 <td align="center">36.75</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 </tr>
 <tr>
 <th rowspan="4" align="center">QuaRot</th>
@@ -1016,7 +1022,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <tr>
 <th align="center">GPTQ</th>
 <td align="center">15.38</td>
-<td align="center">1240.00</td>
+<td align="center">1e3</td>
 <td align="center">392.00</td>
 <td align="center">47.50</td>
 <td align="center">34.58</td>
@@ -1050,6 +1056,8 @@ The following results were obtained using the configurations `brevitas_examples/
 and `brevitas_examples/papers/learned_round/learned_round_mxfp4_spinquant.yaml`.
 
 The results for `Llama 3.2` are summarized in the following table:
+
+**Summary**: MXFP4 quantization is more forgiving than integer W4A4, with all transforms producing usable models even with RTN. Learned Round still provides consistent gains: it achieves the best or near-best perplexity within every transform group (e.g. 11.01 with HIP on 1B vs. 11.06 for GPTQ). The margins between rounding methods are narrower than in integer W4A4, but Learned Round with any of HIP, QuaRot, or SpinQuant approaches BF16 quality (e.g. 6.86 perplexity on 8B with QuaRot, vs. 5.9 for BF16).
 
 <table style="width:95%;">
 <colgroup>
@@ -1201,10 +1209,10 @@ The results for `Llama 3.2` are summarized in the following table:
 <th align="center">Learned Round</th>
 <td align="center">12.48</td>
 <td align="center">9.50</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 <td align="center">50.86</td>
 <td align="center">59.18</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 </tr>
 <tr>
 <th rowspan="4" align="center">QuaRot</th>
@@ -1232,7 +1240,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td align="center">7.00</td>
 <td align="center">51.71</td>
 <td align="center">59.06</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 </tr>
 <tr>
 <th align="center">Learned Round</th>
@@ -1278,7 +1286,7 @@ The results for `Llama 3.2` are summarized in the following table:
 <td align="center">6.93</td>
 <td align="center">52.52</td>
 <td align="center">59.79</td>
-<td align="center"></td>
+<td align="center">N/A</td>
 </tr>
 </tbody>
 </table>
