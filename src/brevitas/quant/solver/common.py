@@ -87,6 +87,8 @@ def solve_restrict_value_impl_from_enum(impl_type):
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:
         return PowerOfTwoRestrictValue
+    elif impl_type == RestrictValueType.SIGNED_POWER_OF_TWO:
+        return SignedPowerOfTwoRestrictValue
     else:
         raise RuntimeError(f"{impl_type} not recognized.")
 
@@ -244,6 +246,9 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
         elif restrict_scaling_type == RestrictValueType.LOG_FP:
             return IntScaling
         elif restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
+            return PowerOfTwoIntScaling
+        # `int_threshold` is unsigned by construction
+        elif restrict_scaling_type == RestrictValueType.SIGNED_POWER_OF_TWO:
             return PowerOfTwoIntScaling
         else:
             raise RuntimeError(f"{restrict_scaling_type} not recognized.")
