@@ -11,8 +11,8 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.torch_utils import compute_channel_view_shape
 
 from .mixin import *
 from .utils import merge_bn
@@ -45,12 +45,12 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayer
 
     def forward(self, input: Union[Tensor, QuantTensor]):
         input = self.unpack_input(input)
-        quant_input = self.input_quant(input)
+        quant_input = self.input_quant(input, return_quant_tensor=self.return_quant_tensor)
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler(quant_input)
             return out
-        out = self.act_quant(quant_input)
+        out = self.act_quant(quant_input, return_quant_tensor=self.return_quant_tensor)
         out = self.pack_output(out)
         return out
 
@@ -142,8 +142,11 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             out = self.export_handler(inp)
             return out
 
-        quant_input = self.input_quant(inp)
-        quant_weight = self.quant_weight(quant_input)
+        is_quant_tensor_required = self.return_quant_tensor or getattr(
+            self.bias_quant, 'requires_input_scale', False) or getattr(
+                self.weight_quant, 'requires_quant_input', False)
+        quant_input = self.input_quant(inp, return_quant_tensor=is_quant_tensor_required)
+        quant_weight = self.quant_weight(quant_input, return_quant_tensor=is_quant_tensor_required)
 
         compute_output_quant_tensor = isinstance(quant_input, QuantTensor) and isinstance(
             quant_weight, QuantTensor)
@@ -152,12 +155,15 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             raise RuntimeError("QuantLayer is not correctly configured")
 
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, quant_input, quant_weight)
+            quant_bias = self.bias_quant(
+                self.bias, quant_input, quant_weight, return_quant_tensor=self.return_quant_tensor)
         else:
             quant_bias = None
+
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
-        quant_output = self.output_quant(output_tensor)
+        quant_output = self.output_quant(
+            output_tensor, return_quant_tensor=self.return_quant_tensor)
         return self.pack_output(quant_output)
 
     def _load_from_state_dict(

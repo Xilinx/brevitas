@@ -83,7 +83,7 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             if not isinstance(x, QuantTensor):
                 x = self.cache_class.quant_tensor.set(value=x)
             y = AvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            y = self.trunc_quant(y, return_quant_tensor=self.return_quant_tensor)
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
@@ -149,7 +149,7 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             if not isinstance(x, QuantTensor):
                 x = self.cache_class.quant_tensor.set(value=x)
             y = AdaptiveAvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            y = self.trunc_quant(y, return_quant_tensor=self.return_quant_tensor)
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 

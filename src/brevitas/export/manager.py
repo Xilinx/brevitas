@@ -66,6 +66,13 @@ def _override_bias_caching_mode(m: Module, enabled: bool):
             m.cache_inference_quant_bias = enabled
 
 
+def _override_weight_caching_mode(m: Module, enabled: bool):
+    if hasattr(m, 'cache_inference_quant_weight'):
+        if not hasattr(m, "cache_inference_quant_weight_backup"):
+            m.cache_inference_quant_weight_backup = m.cache_inference_quant_weight
+            m.cache_inference_quant_weight = enabled
+
+
 def _override_act_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_inference_quant_act'):
         if not hasattr(m, "cache_inference_quant_act_backup"):
@@ -89,6 +96,12 @@ def _restore_act_caching_mode(m: Module):
     if hasattr(m, "cache_inference_quant_act_backup"):
         m.cache_inference_quant_act = m.cache_inference_quant_act_backup
         del m.cache_inference_quant_act_backup
+
+
+def _restore_weight_caching_mode(m: Module):
+    if hasattr(m, "cache_inference_quant_weight_backup"):
+        m.cache_inference_quant_weight = m.cache_inference_quant_weight_backup
+        del m.cache_inference_quant_weight_backup
 
 
 def _set_recurrent_layer_export_mode(model: Module, enabled: bool):
@@ -196,11 +209,13 @@ class BaseManager(ABC):
         module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_act_caching_mode(m, enabled=True))
+        module.apply(lambda m: _override_weight_caching_mode(m, enabled=True))
         _ = module.forward(*args, **kwargs)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
         module.apply(lambda m: _restore_bias_caching_mode(m))
         module.apply(lambda m: _restore_act_caching_mode(m))
+        module.apply(lambda m: _restore_weight_caching_mode(m))
 
     @classmethod
     def jit_inference_trace(

@@ -173,7 +173,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
             *args,
             **kwargs)
 
-    if isinstance(quant_input, IntQuantTensor) and isinstance(quant_weight, IntQuantTensor):
+    if compute_output_quant_tensor:
         output_bit_width = max_acc_bit_width(
             quant_input.bit_width,
             quant_weight.bit_width,
@@ -187,9 +187,11 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
 
     if bias is not None:
         if output_scale is not None:
-            if (isinstance(bias, IntQuantTensor) and
-                    not torch.allclose(bias.scale, output_scale)) or not isinstance(bias,
-                                                                                    IntQuantTensor):
+            if hasattr(torch, '_dynamo') and torch._dynamo.is_compiling():
+                pass
+            elif (isinstance(bias, IntQuantTensor) and
+                  not torch.allclose(bias.scale, output_scale)) or not isinstance(bias,
+                                                                                  IntQuantTensor):
                 channel_dim = -1 if isinstance(fn, torch.nn.Linear) else 1
                 output_scale_broadcast_shape = compute_channel_view_shape(
                     quant_input, channel_dim=channel_dim)

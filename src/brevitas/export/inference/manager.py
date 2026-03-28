@@ -44,7 +44,7 @@ def _override_act_caching_mode(m: nn.Module, enabled: bool, metadata_only: bool 
     _override_caching_mode(m, 'act', enabled, metadata_only)
 
 
-def _override_weight_caching_mode(m: nn.Module, enabled: bool, metadata_only: bool = False):
+def _override_weight_caching_mode(m: nn.Module, enabled: bool, metadata_only: bool = True):
     _override_caching_mode(m, 'weight', enabled, metadata_only)
 
 
