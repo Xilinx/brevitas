@@ -213,6 +213,9 @@ class vLLMExportManager(BaseManager):
                         proxy_dict = dict()
                         proxy_name = subname.split('.')[-1]
                         export_handler = submodule.export_handler
+                        if export_handler is None:
+                            raise RuntimeError(
+                                "Quantization configuration currently not supported for vLLM")
                         proxy_dict.update(export_handler.state_dict())
                         proxy_dict['threshold_restriction'] = getattr(
                             export_handler, 'threshold_restriction', None)

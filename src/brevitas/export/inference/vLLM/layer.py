@@ -17,13 +17,17 @@ from brevitas.nn.equalized_layer import RotatedModule
 from ..handler import FloatInferencetHandler
 from ..handler import FloatWeightInferencetHandler
 from ..handler import GroupwiseFloatWeightInferenceHandler
+from ..handler import GroupwiseIntWeightInferenceHandler
 from ..handler import IntInferenceHandler
 from ..handler import IntWeightInferencetHandler
 from .handler import vLLMDynamicPerRowFloatInferenceHandler
 from .handler import vLLMGroupwiseFloatInferenceHandler
+from .handler import vLLMGroupwiseIntInferenceHandler
 
 class_mapping = {
     'vLLMGroupwiseFloatInferenceHandler': vLLMGroupwiseFloatInferenceHandler,
+    'vLLMGroupwiseIntInferenceHandler': vLLMGroupwiseIntInferenceHandler,
+    'GroupwiseIntWeightInferenceHandler': GroupwiseIntWeightInferenceHandler,
     'GroupwiseFloatWeightInferenceHandler': GroupwiseFloatWeightInferenceHandler,
     'FloatInferencetHandler': FloatInferencetHandler,
     'FloatWeightInferencetHandler': FloatWeightInferencetHandler,

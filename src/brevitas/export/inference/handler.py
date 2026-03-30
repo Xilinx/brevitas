@@ -233,7 +233,7 @@ class InferenceHandler(torch.nn.Module, ABC):
             destination: Optional[dict] = None,
             prefix: str = '',
             keep_vars: bool = False) -> dict:
-        if config.IGNORE_EXPORT_KEYS:
+        if config.IGNORE_PROXY_KEYS.get():
             return dict()
         output_dict = super(InferenceHandler, self).state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars)
