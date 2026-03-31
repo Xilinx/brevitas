@@ -153,15 +153,47 @@ Following, an example configuration matching the **SignRound** [2]_ setup (witho
 Entrypoint Integration
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Learned Round is available through Brevitas’ PTQ pipelines, including the LLM and ImageNet entrypoints. Therefore,
-if you using Brevitas' entrypoints, you **do not need** to implement caches, block forward functions, or block extraction logic.
-Lower‑level abstractions (cache objects, block forwards, etc.) are only required when building a **custom PTQ pipeline**
-outside the supported entrypoints.
+Learned Round is built into Brevitas' LLM and ImageNet PTQ entrypoints. When using these entrypoints,
+caches, block forward functions, and block extraction logic are handled internally so you only need to
+pass the appropriate CLI flags.
 
-See:
+**LLM entrypoint.** The ``brevitas_ptq_llm`` command enables learned round through the
+``--learned-round`` flag (currently accepts ``identity``). The ``--gpxq-block-name`` flag must be set
+to the transformer block attribute path (e.g., ``model.model.layers`` for Qwen and LLaMA‑family
+models). The following example applies SignRound‑style learned round to a Qwen model:
 
-- ``brevitas_examples/llm/llm_quant/learned_round_utils.py``
-- ``brevitas_examples/imagenet_classification/ptq/learned_round_utils.py``
+.. code-block:: bash
+
+    brevitas_ptq_llm \
+        --model Qwen/Qwen3-1.7B \
+        --learned-round identity \
+        --gpxq-block-name model.model.layers \
+        --learned-round-iters 200 \
+        --learned-round-lr 5e-3 \
+        --weight-bit-width 4 \
+        --weight-quant-granularity per_group \
+        --weight-group-size 128
+
+**ImageNet entrypoint.** The ``brevitas_ptq_imagenet_val`` command supports learned round through the
+``--learned-round`` flag, which accepts ``identity``, ``sigmoid``, or ``hard_sigmoid``. The
+``--target-backend layerwise`` flag is required. The loss function can be set with
+``--learned-round-loss`` (choices: ``regularised_mse``, ``mse``; default: ``regularised_mse``).
+The following example uses an AdaRound‑style configuration with sigmoid rounding and regularized MSE:
+
+.. code-block:: bash
+
+    brevitas_ptq_imagenet_val \
+        --calibration-dir /path/to/imagenet/train \
+        --validation-dir /path/to/imagenet/val \
+        --learned-round sigmoid \
+        --target-backend layerwise \
+        --learned-round-mode layerwise \
+        --learned-round-loss regularised_mse \
+        --learned-round-iters 1000 \
+        --learned-round-lr 1e-3
+
+When using ``regularised_mse``, the loss combines MSE with AdaRound's [1]_ round regularization term
+(defaults: weight ``0.01``, temperature annealing from ``20`` to ``2``, ``20%`` warmup).
 
 
 Extending Learned Round
