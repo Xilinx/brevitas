@@ -232,6 +232,161 @@ that performs a forward pass through the model (see ``brevitas_examples/llm/llm_
 4. **Block extraction function**: A function that extracts the blocks to be optimized from the model
 (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:get_blocks`` for an example).
 
+The following self-contained example demonstrates how to implement these four components
+for a simple quantized MLP on synthetic data.
+
+**Model definition.** The model is a 3‑block quantized MLP for regression. Each block contains
+two ``QuantLinear`` layers with a ``QuantReLU`` activation. Blocks are named ``block_0``,
+``block_1``, ``block_2`` so they can be extracted by name during optimization.
+
+.. code-block:: python
+
+    import torch
+    from torch import nn
+    import brevitas.nn as qnn
+
+    class QuantBlock(nn.Module):
+        def __init__(self, in_features, hidden_dim, out_features):
+            super().__init__()
+            self.linear1 = qnn.QuantLinear(in_features, hidden_dim, weight_bit_width=3)
+            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+            self.linear2 = qnn.QuantLinear(hidden_dim, out_features, weight_bit_width=3)
+
+        def forward(self, x):
+            return self.linear2(self.relu(self.linear1(x)))
+
+    class QuantMLP(nn.Module):
+        def __init__(self, in_features, hidden_dim, out_features):
+            super().__init__()
+            self.block_0 = QuantBlock(in_features, hidden_dim, hidden_dim)
+            self.block_1 = QuantBlock(hidden_dim, hidden_dim, hidden_dim)
+            self.block_2 = QuantBlock(hidden_dim, hidden_dim, out_features)
+
+        def forward(self, x):
+            return self.block_2(self.block_1(self.block_0(x)))
+
+**Cache.** The cache stores per‑sample inputs and reference outputs captured during
+calibration. It inherits from ``Cache`` (a ``Dataset`` subclass) and must implement
+``store_inputs``, ``store_output``, ``reset_cache``, ``__getitem__``, ``__len__``, and
+``collate_fn``. Inputs are split along the batch dimension so each sample is stored
+individually.
+
+.. code-block:: python
+
+    from typing import Any, Dict, Iterable, List, Tuple
+    from brevitas_examples.common.learned_round.learned_round_utils import Cache
+
+    class CacheMLP(Cache[torch.Tensor, torch.Tensor]):
+
+        def __init__(self):
+            self.inputs: List[torch.Tensor] = []
+            self.outputs: List[torch.Tensor] = []
+
+        def store_inputs(self, args: Tuple[torch.Tensor, ...], kwargs: Dict[str, Any]) -> None:
+            self.inputs.extend(torch.split(args[0], 1, dim=0))
+
+        def store_output(self, output: Any) -> None:
+            self.outputs.extend(torch.split(output, 1, dim=0))
+
+        def reset_cache(self) -> None:
+            self.inputs, self.outputs = [], []
+
+        def __len__(self) -> int:
+            return len(self.inputs)
+
+        def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+            return self.inputs[index], self.outputs[index]
+
+        def collate_fn(
+                self,
+                batch: Iterable[Tuple[torch.Tensor, torch.Tensor]],
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
+            inputs, outputs = zip(*batch)
+            return torch.cat(inputs, dim=0), torch.cat(outputs, dim=0)
+
+**Forward functions.** ``mlp_forward`` runs the full model on a calibration batch (matching
+the ``ModelForwardFn`` protocol), while ``mlp_block_forward`` runs a single block on cached
+inputs (matching the ``BlockForwardFn`` protocol). Note that ``mlp_forward`` receives raw
+batches from the ``DataLoader`` (a list of tensors when using ``TensorDataset``), so the
+input tensor must be unpacked.
+
+.. code-block:: python
+
+    from accelerate.utils.operations import send_to_device
+
+    def mlp_forward(model: nn.Module, inputs: List[torch.Tensor]) -> None:
+        device = next(model.parameters()).device
+        # TensorDataset yields [tensor], so unpack the first element
+        model(send_to_device(inputs[0], device))
+
+    def mlp_block_forward(block: nn.Module, inputs: torch.Tensor) -> torch.Tensor:
+        device = next(block.parameters()).device
+        return block(send_to_device(inputs, device))
+
+**Block extraction.** Returns the list of blocks to optimize. Uses ``get_blocks`` with a
+check function that matches module names starting with ``"block_"``.
+
+.. code-block:: python
+
+    from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
+
+    def get_mlp_blocks(model: nn.Module) -> List[nn.Module]:
+        return get_blocks(model, lambda module, name: name.startswith("block_"))
+
+**Putting it all together.** Create a synthetic calibration set, configure the trainer with
+``TrainerConfig``, and call ``trainer.train()`` to run block‑wise optimization. The
+configuration below uses SignSGD with a linear LR decay, MSE loss, and the identity
+(SignRound‑style) rounding parameterization.
+
+.. code-block:: python
+
+    from torch.utils.data import DataLoader, TensorDataset
+    from brevitas_examples.common.learned_round.learned_round_trainer import LearnedRoundTrainer
+    from brevitas_examples.common.learned_round.learned_round_args import (
+        HandlerSpec, LossArgs, LRSchedulerArgs, OptimizerArgs,
+        TrainerConfig, TrainingArgs)
+    from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundArgs
+
+    # Synthetic calibration data
+    calib_loader = DataLoader(TensorDataset(torch.randn(64, 8)), batch_size=8)
+
+    # Model
+    model = QuantMLP(in_features=8, hidden_dim=16, out_features=1)
+
+    # Trainer configuration
+    config = TrainerConfig(
+        training_args=TrainingArgs(
+            optimizers_args=[
+                OptimizerArgs(
+                    target_params="learned_round",
+                    optimizer_cls="SignSGD",
+                    lr=5e-3,
+                    lr_scheduler_args=LRSchedulerArgs(
+                        lr_scheduler_cls="LinearLR",
+                        lr_scheduler_kwargs={
+                            "start_factor": 1.0,
+                            "end_factor": 0.0,
+                            "total_iters": 100}))],
+            batch_size=8,
+            iters=100,
+            losses_args=[LossArgs(cls="mse")],
+            loss_scaling_factor=1000.0),
+        training_handlers=[
+            HandlerSpec(
+                name="learned_round",
+                config=LearnedRoundArgs(learned_round_param="identity"))])
+
+    # Run learned round optimization
+    trainer = LearnedRoundTrainer(config=config)
+    trainer.train(
+        model=model,
+        model_forward=mlp_forward,
+        block_forward=mlp_block_forward,
+        data_loader=calib_loader,
+        cache=CacheMLP(),
+        get_blocks_fn=get_mlp_blocks,
+        keep_gpu=True)
+
 Next Steps
 ----------
 
