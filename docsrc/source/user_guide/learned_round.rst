@@ -154,10 +154,7 @@ Entrypoint Integration
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Learned Round is available through Brevitas’ PTQ pipelines, including the LLM and ImageNet entrypoints. Therefore,
-if you using Brevitas' entrypoints:
-
-✅ You **do not need** to implement caches, block forward functions, or block extraction logic.
-
+if you using Brevitas' entrypoints, you **do not need** to implement caches, block forward functions, or block extraction logic.
 Lower‑level abstractions (cache objects, block forwards, etc.) are only required when building a **custom PTQ pipeline**
 outside the supported entrypoints.
 
