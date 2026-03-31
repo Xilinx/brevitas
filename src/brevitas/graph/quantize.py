@@ -43,30 +43,143 @@ from brevitas.quant import Uint8ActPerTensorFloatMaxInit
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 
 if torch_version >= version.parse('1.12'):
+    from collections import defaultdict
+
     from torch.overrides import TorchFunctionMode
 
+    from brevitas.nn import QuantIdentity
+    from brevitas.quant_tensor import _unpack_quant_tensor
+
     class functional_quantization_mode(TorchFunctionMode):
+        """Context manager that uses hooks and TorchFunctionMode to quantize inputs to
+        torch functions without requiring specialized PassThrough modules.
+
+        Args:
+            model: The nn.Module whose forward pass will be intercepted.
+            quant_map: A mapping from torch functions (e.g. torch.nn.functional.linear)
+                to brevitas quantizer classes (e.g. Int8ActPerTensorFloat) that define
+                how to quantize the input tensor before it is passed to the function.
+            enabled: Whether quantization is active. Defaults to True.
+        """
 
         def __init__(self, model: torch.nn.Module, quant_map: Dict, enabled: bool = True):
             super().__init__()
-            self.quant_map = quant_map
             self.model = model
+            self.quant_map = quant_map
             self.enabled = enabled
-            for stateless_function, stateless_module in quant_map.items():
-                if not hasattr(model, str(stateless_function)):
-                    model.add_module(str(stateless_function), stateless_module())
+            # Stack of (module_name, module) to track which nn.Module we are in
+            self._module_stack = []
+            # Per-module, per-function call counters: {module_name: {func: int}}
+            self._counters: Dict = defaultdict(lambda: defaultdict(int))
+            # Quantizer registry: {(module_name, func, index): QuantIdentity}
+            self._quantizers: Dict = {}
+            # Hook handles for cleanup
+            self._hook_handles = []
+            # Whether quantizers have been initialized (first pass done)
+            self._initialized = False
+
+        def _make_quantizer_key(self, module_name, func, index):
+            """Create a unique key for a quantizer instance."""
+            func_name = getattr(func, '__name__', str(func))
+            return f'_fq_{module_name}_{func_name}_{index}'
+
+        def _get_or_create_quantizer(self, module_name, func, index):
+            """Get an existing quantizer or create a new one for the given location."""
+            key = self._make_quantizer_key(module_name, func, index)
+            if key not in self._quantizers:
+                quant_class = self.quant_map[func]
+                quantizer = QuantIdentity(act_quant=quant_class, return_quant_tensor=True)
+                # Move quantizer to the same device as the model
+                try:
+                    device = next(self.model.parameters()).device
+                    quantizer = quantizer.to(device)
+                except StopIteration:
+                    pass
+                self._quantizers[key] = quantizer
+                # Register as a submodule on the model for proper state tracking
+                if not hasattr(self.model, key):
+                    self.model.add_module(key, quantizer)
+            return self._quantizers[key]
+
+        def _pre_hook(self, module_name):
+            """Create a forward pre-hook that pushes the module onto the stack."""
+
+            def hook(module, args):
+                self._module_stack.append((module_name, module))
+
+            return hook
+
+        def _post_hook(self, module_name):
+            """Create a forward hook that pops the module from the stack."""
+
+            def hook(module, args, output):
+                if self._module_stack and self._module_stack[-1][0] == module_name:
+                    self._module_stack.pop()
+
+            return hook
+
+        def _reset_counters(self):
+            """Reset all per-module call counters."""
+            self._counters.clear()
+
+        def _attach_hooks(self):
+            """Attach pre/post forward hooks to all modules of the model."""
+            for name, module in self.model.named_modules():
+                # Skip quantizer modules we added ourselves
+                if name.startswith('_fq_'):
+                    continue
+                pre_handle = module.register_forward_pre_hook(self._pre_hook(name))
+                post_handle = module.register_forward_hook(self._post_hook(name))
+                self._hook_handles.append(pre_handle)
+                self._hook_handles.append(post_handle)
+            # Attach a hook on the top-level model to reset counters after each forward
+            def reset_hook(module, args, output):
+                self._reset_counters()
+                self._initialized = True
+
+            handle = self.model.register_forward_hook(reset_hook)
+            self._hook_handles.append(handle)
+
+        def _remove_hooks(self):
+            """Remove all attached hooks."""
+            for handle in self._hook_handles:
+                handle.remove()
+            self._hook_handles.clear()
+
+        def __enter__(self):
+            self._attach_hooks()
+            return super().__enter__()
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            result = super().__exit__(exc_type, exc_val, exc_tb)
+            self._remove_hooks()
+            return result
 
         def __torch_function__(self, func, types, args=(), kwargs=None):
             if kwargs is None:
-                kwargs = dict()
+                kwargs = {}
 
-            if hasattr(self.model, str(func)) and self.enabled:
-                module = getattr(self.model, str(func))
-                out = module(*args, **kwargs)
-            else:
-                out = func(*args, **kwargs)
+            if not self.enabled or func not in self.quant_map or not self._module_stack:
+                return func(*args, **kwargs)
 
-            return out
+            # Identify the current (innermost) module
+            current_module_name, current_module = self._module_stack[-1]
+
+            # Get and increment the call counter for this (module, func) pair
+            index = self._counters[current_module_name][func]
+            self._counters[current_module_name][func] += 1
+
+            # Get or create the quantizer for this location
+            quantizer = self._get_or_create_quantizer(current_module_name, func, index)
+
+            # Quantize the first positional argument (the input tensor)
+            if args:
+                quant_input = quantizer(args[0])
+                quant_input = _unpack_quant_tensor(quant_input)
+                args = (quant_input,) + args[1:]
+
+            return func(*args, **kwargs)
+
 else:
     functional_quantization_mode = object()
 
