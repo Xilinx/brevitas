@@ -65,10 +65,10 @@ class Qronos(GPFQ):
             inp_processed /= math.sqrt(
                 self.nsamples)  # NOTE: quant_input is normalized before, in the H update
             if self.use_intermediate_buffer:
-                self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
+                self.B.copy_(self.quant_input.bmm(inp_processed.transpose(2, 1)))
                 self.G += self.B
             else:
-                self.G += inp_processed.bmm(self.quant_input.transpose(2, 1))
+                self.G += self.quant_input.bmm(inp_processed.transpose(2, 1))
             self.quant_input = None  # NOTE: set back to None now that we've used it
         else:
             # Computing the normalized H matrix
@@ -191,7 +191,7 @@ class Qronos(GPFQ):
             q: Tensor = q_groups[group_index].to(self.dtype)
             v: Tensor = weight[group_index, :, perm].to(self.dtype)
             w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
-            Gw = w.matmul(self.G[group_index, :, 0] * Dhi[group_index, 0])
+            Gw = w.matmul(self.G[group_index, 0, :] * Dhi[group_index, 0])
             Uv = v.matmul(Uh[group_index, 0, :] * Dhi[group_index, 0])
             q_arg = Gw - Uv
             assert (q_arg >= dtype_min).all() and (q_arg <= dtype_max).all()
@@ -211,7 +211,7 @@ class Qronos(GPFQ):
             q: Tensor = q_groups[group_index].to(self.dtype)
             w: Tensor = weight_orig[group_index, :, perm].to(self.dtype)
             Ih = torch.diag(torch.full((self.columns,), damp[group_index], device=dev))
-            Gh = self.G[group_index] + Ih
+            Gh = self.G[group_index].mT + Ih
             Gw = w.matmul(Gh[:, 1:] @ self.iH[group_index])
             Hq = q.matmul(self.H[group_index, :1, 1:] @ self.iH[group_index])
             weight[group_index, :, perm[1:]] = (Gw - Hq).to(dtype)
