@@ -195,8 +195,8 @@ The following example uses an AdaRound‑style configuration with sigmoid roundi
 When using ``regularised_mse``, the loss combines MSE with AdaRound's [1]_ round regularization term
 (defaults: weight ``0.01``, temperature annealing from ``20`` to ``2``, ``20%`` warmup).
 
-More examples on how to use learned round through the LLM entrypoint are provided in the
-`Examples <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round>`_.
+More examples on how to use learned round through the LLM entrypoint are provided in
+`LLM Learned Round Examples <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round>`_.
 
 
 Extending Learned Round
