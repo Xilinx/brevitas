@@ -249,27 +249,24 @@ To add a custom rounding parameterization:
 Extending to Custom Models or Datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To use Learned Round with custom models/datasets outside of the supported entrypoints, you will need to implement the following components:
+To use Learned Round with custom models or datasets outside of the supported entrypoints,
+four components need to be defined. The following walks through each one and illustrates
+them with a self-contained MLP example on synthetic data.
 
-1. **Cache**: A class, inheriting from ``brevitas_examples/common/learned_round/learned_round_utils.py:Cache``, that captures block inputs
-and reference outputs during the forward pass (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:CacheLLM`` for an example).
 
-2. **Block forward function**: A function, implementing the `Protocol` ``brevitas_examples/common/learned_round/learned_round_utils.py:BlockForwardFn``,
-that performs the forward pass through the block being optimized, using the cached inputs and reference
-outputs (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:llm_block_forward`` for an example).
+1. Model and blocks
+^^^^^^^^^^^^^^^^^^^^
 
-3. **Model forward function**: A function, implementing the `Protocol` ``brevitas_examples/common/learned_round/learned_round_utils.py:ModelForwardFn``,
-that performs a forward pass through the model (see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:llm_forward`` for an example).
+Learned Round optimizes the model one **block** at a time. A block is the **unit of
+optimization**: a repeated structural pattern in the network architecture. Typical
+examples include a ResNet block (conv‑bn‑relu‑conv‑bn) in vision models, an
+Attention+MLP layer in transformer‑based LLMs, or even an individual layer when
+fine‑grained per‑layer optimization is preferred. Blocks must be accessible as named
+submodules so they can be extracted programmatically.
 
-4. **Block extraction function**: A function that extracts the blocks to be optimized from the model
-(see ``brevitas_examples/llm/llm_quant/learned_round_utils.py:get_blocks`` for an example).
-
-The following self-contained example demonstrates how to implement these four components
-for a simple quantized MLP on synthetic data.
-
-**Model definition.** The model is a 3‑block quantized MLP for regression. Each block contains
-two ``QuantLinear`` layers with a ``QuantReLU`` activation. Blocks are named ``block_0``,
-``block_1``, ``block_2`` so they can be extracted by name during optimization.
+The model below is a 3‑block quantized MLP for regression. Each block contains two
+``QuantLinear`` layers with a ``QuantReLU`` activation, named ``block_0`` through
+``block_2``.
 
 .. code-block:: python
 
@@ -297,11 +294,15 @@ two ``QuantLinear`` layers with a ``QuantReLU`` activation. Blocks are named ``b
         def forward(self, x):
             return self.block_2(self.block_1(self.block_0(x)))
 
-**Cache.** The cache stores per‑sample inputs and reference outputs captured during
-calibration. It inherits from ``Cache`` (a ``Dataset`` subclass) and must implement
-``store_inputs``, ``store_output``, ``reset_cache``, ``__getitem__``, ``__len__``, and
-``collate_fn``. Inputs are split along the batch dimension so each sample is stored
-individually.
+
+2. Cache
+^^^^^^^^
+
+A **cache** captures block inputs and reference outputs during a calibration forward pass
+so they can be replayed during optimization. It must inherit from ``Cache`` (a ``Dataset``
+subclass defined in ``learned_round_utils.py``) and implement ``store_inputs``,
+``store_output``, ``reset_cache``, ``__getitem__``, ``__len__``, and ``collate_fn``.
+Inputs are typically split along the batch dimension so each sample is stored individually.
 
 .. code-block:: python
 
@@ -336,11 +337,18 @@ individually.
             inputs, outputs = zip(*batch)
             return torch.cat(inputs, dim=0), torch.cat(outputs, dim=0)
 
-**Forward functions.** ``mlp_forward`` runs the full model on a calibration batch (matching
-the ``ModelForwardFn`` protocol), while ``mlp_block_forward`` runs a single block on cached
-inputs (matching the ``BlockForwardFn`` protocol). Note that ``mlp_forward`` receives raw
-batches from the ``DataLoader`` (a list of tensors when using ``TensorDataset``), so the
-input tensor must be unpacked.
+
+3. Forward functions
+^^^^^^^^^^^^^^^^^^^^
+
+Two forward functions are needed:
+
+- A **model forward function** (``ModelForwardFn`` protocol) that runs the full model on
+  a calibration batch. This is used to populate the cache. Note that it receives raw
+  batches from the ``DataLoader`` — for example, ``TensorDataset`` yields a list of
+  tensors, so the input must be unpacked.
+- A **block forward function** (``BlockForwardFn`` protocol) that runs a single block
+  on cached inputs and returns its output, used during per‑block optimization.
 
 .. code-block:: python
 
@@ -355,8 +363,14 @@ input tensor must be unpacked.
         device = next(block.parameters()).device
         return block(send_to_device(inputs, device))
 
-**Block extraction.** Returns the list of blocks to optimize. Uses ``get_blocks`` with a
-check function that matches module names starting with ``"block_"``.
+
+4. Block extraction function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A **block extraction function** returns the ordered list of blocks (units of optimization)
+from the model. It typically delegates to ``get_blocks`` with a check function that
+identifies blocks by name or type. The blocks are optimized sequentially in the order
+returned.
 
 .. code-block:: python
 
@@ -365,10 +379,14 @@ check function that matches module names starting with ``"block_"``.
     def get_mlp_blocks(model: nn.Module) -> List[nn.Module]:
         return get_blocks(model, lambda module, name: name.startswith("block_"))
 
-**Putting it all together.** Create a synthetic calibration set, configure the trainer with
-``TrainerConfig``, and call ``trainer.train()`` to run block‑wise optimization. The
-configuration below uses SignSGD with a linear LR decay, MSE loss, and the identity
-(SignRound‑style) rounding parameterization.
+
+Putting it all together
+^^^^^^^^^^^^^^^^^^^^^^^
+
+With the four components defined, create a calibration ``DataLoader``, configure the
+trainer with ``TrainerConfig``, and call ``trainer.train()`` to run block‑wise
+optimization. The configuration below uses SignSGD with a linear LR decay, MSE loss, and
+the identity (SignRound‑style) rounding parameterization.
 
 .. code-block:: python
 
