@@ -443,6 +443,9 @@ Next Steps
 Learned Round has been evaluated in the LLM entrypoint across multiple quantization scenarios, including weight-only and weight-and-activation PTQ,
 and in combination with outlier suppression techniques. For detailed results, as well as instructions on how to reproduce them, see ``brevitas_examples/papers/learned_round/README.md``.
 
+References
+----------
+
 .. rubric:: References
 
 .. [1] Nagel, M., Amjad, R. A., Van Baalen, M., Louizos, C., & Blankevoort, T. (2020, November). Up or down? adaptive rounding for post-training quantization. In International conference on machine learning (pp. 7197-7206). PMLR.
