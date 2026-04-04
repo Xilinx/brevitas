@@ -1,4 +1,4 @@
-# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 import pytest
@@ -16,6 +16,9 @@ from brevitas.nn.utils import merge_quant_weights
 SEED = 123456
 IN_FEATURES = 8
 OUT_FEATURES = 16
+
+LEARNED_ROUND_OPTIONS = [
+    LearnedRoundImplType.HARD_SIGMOID, LearnedRoundImplType.SIGMOID, LearnedRoundImplType.IDENTITY]
 
 
 def _insert_learned_round(model, learned_round_param):
@@ -50,11 +53,7 @@ def _get_quant_weights(model):
     return results
 
 
-@pytest.mark.parametrize(
-    "learned_round_param", [
-        LearnedRoundImplType.HARD_SIGMOID,
-        LearnedRoundImplType.SIGMOID,
-        LearnedRoundImplType.IDENTITY,])
+@pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
 def test_merge_quant_weights_preserves_quantised_weights(learned_round_param):
     """After merging, standard round should produce the same quantised weights."""
     torch.manual_seed(SEED)
@@ -93,11 +92,7 @@ def test_merge_quant_weights_preserves_quantised_weights(learned_round_param):
             f"Quantised weights differ for {name} after merge"
 
 
-@pytest.mark.parametrize(
-    "learned_round_param", [
-        LearnedRoundImplType.HARD_SIGMOID,
-        LearnedRoundImplType.SIGMOID,
-        LearnedRoundImplType.IDENTITY,])
+@pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
 def test_merge_quant_weights_rounding_mode_reset(learned_round_param):
     """After merging, the rounding mode should be ROUND."""
     torch.manual_seed(SEED)
@@ -113,11 +108,7 @@ def test_merge_quant_weights_rounding_mode_reset(learned_round_param):
     assert model.weight_quant.rounding_mode == "ROUND"
 
 
-@pytest.mark.parametrize(
-    "learned_round_param", [
-        LearnedRoundImplType.HARD_SIGMOID,
-        LearnedRoundImplType.SIGMOID,
-        LearnedRoundImplType.IDENTITY,])
+@pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
 def test_merge_quant_weights_forward_equivalence(learned_round_param):
     """The model forward output should be identical before and after merging."""
     torch.manual_seed(SEED)
