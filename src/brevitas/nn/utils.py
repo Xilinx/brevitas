@@ -12,6 +12,7 @@ from torch.utils.hooks import RemovableHandle
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import FloatToIntImplType
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.utils.torch_utils import compute_channel_view_shape
 
 
@@ -87,29 +88,48 @@ class merge_quant_weights:
         model: A model containing quantised layers with learned round quantisers.
     """
 
-    def __init__(self, model: torch.nn.Module) -> None:
+    def __init__(self, model: torch.nn.Module, disable_quant: bool = True) -> None:
         self._model = model
         self._hooks: List[RemovableHandle] = []
-        self._modules_list = []
+        self._module_tensor_id_mapping = {}
+        self.disable_quant = disable_quant
+        self.hook_check = False
 
     def __enter__(self) -> 'merge_learned_round':
         # Imported here to avoid a circular import
         from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 
+        def model_hook(module, args, output):
+            if self.hook_check:
+                raise RuntimeError(
+                    "Calling multiple forward pass within the context manager is not supported")
+            self.hook_check = True
+
         def hook(module, args, output):
             input_tensor = args[0]
             with torch.no_grad():
                 for m in module.tracked_module_list:
+                    # We match the module based on its weights and the ID of the tensor to quantize
                     if id(m.weight.data) == id(input_tensor.data):
-                        m.weight.data = output[0].data
+                        # This could be a Tensor or a QuantTensor
+                        m.weight.data = _unpack_quant_tensor(output).data
+                        # We track how many modules have been converted
+                        if module not in self._module_tensor_id_mapping:
+                            self._module_tensor_id_mapping[module] = [id(m.weight.data)]
+                        else:
+                            self._module_tensor_id_mapping[module].append(id(m.weight.data))
 
+        # Register Proxy hooks
         for module in self._model.modules():
             if not isinstance(module, WeightQuantProxyFromInjectorBase):
                 continue
 
             hook = module.register_forward_hook(hook)
             self._hooks.append(hook)
-            self._modules_list.append(module)
+
+        # Register Model hook
+        hook = self._model.register_forward_hook(model_hook)
+        self._hooks.append(hook)
 
         return self
 
@@ -119,7 +139,7 @@ class merge_quant_weights:
         self._hooks.clear()
 
         with torch.no_grad():
-            for module in self._modules_list:
+            for module in self._module_tensor_id_mapping:
                 self._reset_quantizer(module)
 
     @staticmethod
