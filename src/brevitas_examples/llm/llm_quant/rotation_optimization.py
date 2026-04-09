@@ -150,10 +150,6 @@ class GeneralizedTrainer(Trainer):
     def forward_kl_loss(
             student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
 
-        if topk > 0:
-            teacher_logits, indices = teacher_logits.topk(topk, dim=-1, sorted=False)
-            student_log_probs = student_log_probs.gather(-1, indices).flatten(0, -2)
-
         # Apply temperature scaling
         student_logits = student_logits / temperature
         teacher_logits = teacher_logits / temperature
@@ -161,7 +157,10 @@ class GeneralizedTrainer(Trainer):
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
         teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
-        student_log_probs = student_log_probs
+
+        if topk > 0:
+            teacher_log_probs, indices = teacher_log_probs.topk(topk, dim=-1, sorted=False)
+            student_log_probs = student_log_probs.gather(-1, indices)
 
         loss = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
         return loss
@@ -316,7 +315,10 @@ def _build_optimizers_from_configs(
             schedulers.append(None)
 
     multi_optimizer = MultiOptimizer(optimizers)
-    multi_scheduler = MultiScheduler(schedulers) if any(s is not None for s in schedulers) else None
+    # Always return a MultiScheduler, even when all entries are None.
+    # This prevents the HF Trainer from creating its own scheduler
+    # (which would fail because MultiOptimizer is not a real Optimizer).
+    multi_scheduler = MultiScheduler(schedulers)
     return multi_optimizer, multi_scheduler
 
 
