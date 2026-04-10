@@ -327,8 +327,8 @@ class TestFunctionalQuantizationMode:
         # After exiting, parametrization should be gone
         assert not is_parametrized(model.linear, 'weight')
 
-    def test_backward_compat_single_quantizer(self):
-        """Test that the old format {func: quant_class} still works (no second quantizer)."""
+    def test_single_quantizer(self):
+        """Test that the old format {func: quant_class} works."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
