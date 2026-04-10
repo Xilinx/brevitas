@@ -4,9 +4,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.parametrize import is_parametrized
 
+from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from tests.marker import requires_pt_ge
 
 
@@ -59,6 +62,18 @@ class ModelWithMultiLinear(nn.Module):
 
     def forward(self, x):
         return self.block(x)
+
+
+class BmmModel(nn.Module):
+    """Model that calls torch.bmm with two non-parameter tensors."""
+
+    def __init__(self):
+        super().__init__()
+        # Dummy parameter so the model is a valid nn.Module with parameters
+        self.dummy = nn.Parameter(torch.zeros(1))
+
+    def forward(self, a, b):
+        return torch.bmm(a, b)
 
 
 @requires_pt_ge('1.12')
@@ -225,3 +240,150 @@ class TestFunctionalQuantizationMode:
         # We don't assert strict inequality because first-pass calibration
         # behavior may vary
         assert quant_out.shape == unquant_out.shape
+
+    def test_second_quantizer_with_parameter(self):
+        """Test that when a second quantizer is specified and the second arg is a parameter,
+        it is registered as a parametrization."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            # During the forward pass, the weight should be parametrized
+            assert is_parametrized(model.linear, 'weight')
+        assert out.shape == (2, 3)
+        # After exit, parametrizations should be removed
+        assert not is_parametrized(model.linear, 'weight')
+
+    def test_second_quantizer_creates_weight_quant_proxy(self):
+        """Test that a weight quant proxy is created with the _wq suffix."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            model(x)
+        wq_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        assert len(wq_quantizers) > 0, "Should have created weight quant proxy"
+
+    def test_second_arg_non_parameter_uses_first_quant_type(self):
+        """Test that when the second argument is not a parameter, the same quantizer type
+        as the first input is reused via QuantIdentity."""
+        model = BmmModel()
+        quant_map = {torch.bmm: Int8ActPerTensorFloat}
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(a, b)
+        assert out.shape == (2, 3, 3)
+        # Should have created quantizers for both args (first + second reusing same type)
+        arg1_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k]
+        assert len(arg1_quantizers) > 0
+
+    def test_second_arg_already_quant_tensor_skipped(self):
+        """Test that the second argument is not re-quantized if it is already a QuantTensor."""
+        from brevitas.nn import QuantIdentity as QI
+
+        class ModelWithPreQuantized(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.quant_id = QI(act_quant=Int8ActPerTensorFloat, return_quant_tensor=True)
+                self.weight = nn.Parameter(torch.randn(3, 4))
+
+            def forward(self, x):
+                # Pre-quantize weight (returns a QuantTensor)
+                qw = self.quant_id(self.weight)
+                return F.linear(x, qw)
+
+        model = ModelWithPreQuantized()
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 3)
+        # No weight quant proxy or _arg1 quantizer should have been created because
+        # the second arg was already a QuantTensor
+        second_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k or '_wq' in k]
+        assert len(second_quantizers) == 0
+
+    def test_parametrization_removed_on_exit(self):
+        """Test that parametrizations registered during the context manager are removed."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        with functional_quantization_mode(model, quant_map):
+            model(x)
+            assert is_parametrized(model.linear, 'weight')
+
+        # After exiting, parametrization should be gone
+        assert not is_parametrized(model.linear, 'weight')
+
+    def test_backward_compat_single_quantizer(self):
+        """Test that the old format {func: quant_class} still works (no second quantizer)."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: Int8ActPerTensorFloat}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 3)
+        # No weight or _arg1 quantizers should be created when second quant is not specified
+        second_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k or '_wq' in k]
+        assert len(second_quantizers) == 0
+
+    def test_parametrization_persistent_across_forwards(self):
+        """Test that parametrization persists across multiple forward passes."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out1 = model(x)
+            # Parametrization should be registered after first forward
+            assert is_parametrized(model.linear, 'weight')
+            out2 = model(x)
+            # Still parametrized on second forward
+            assert is_parametrized(model.linear, 'weight')
+        assert out1.shape == (2, 3)
+        assert out2.shape == (2, 3)
+
+    def test_two_linear_with_second_quantizer(self):
+        """Test two linear layers each getting weight parametrization."""
+        model = TwoLinearModel(4, 3, 2)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            assert is_parametrized(model.linear1, 'weight')
+            assert is_parametrized(model.linear2, 'weight')
+        assert out.shape == (2, 2)
+        # After exit, all parametrizations removed
+        assert not is_parametrized(model.linear1, 'weight')
+        assert not is_parametrized(model.linear2, 'weight')
+
+    def test_parametrization_uses_quant_parametrization_class(self):
+        """Test that registered parametrizations use the _QuantParametrization class."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        with functional_quantization_mode(model, quant_map):
+            model(x)
+            # Check the parametrization type
+            assert is_parametrized(model.linear, 'weight')
+            param_list = list(model.linear.parametrizations.weight)
+            found = any(isinstance(p, _QuantParametrization) for p in param_list)
+            assert found, "Parametrization should use _QuantParametrization"
