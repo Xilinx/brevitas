@@ -27,6 +27,9 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.equalize import _compute_rotations
 from brevitas.graph.equalize import Region
+from brevitas.utils.python_utils import Registry
+from brevitas_examples.common.generative.quantizers import BaseQuantizer
+from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.main import fx_required
@@ -194,6 +197,52 @@ def test_small_models_quant_layer_types_count(caplog, args_and_layer_types_count
     args, extra_args, exp_metrics = args_and_layer_types_count
     _, model = main(args, extra_args)
     assert_layer_types_count(model, exp_metrics["exp_layer_types_count"])
+
+
+@pytest.mark.llm
+def test_custom_quantizer_can_modify_quantized_model(caplog, default_run_args, main):
+    caplog.set_level(logging.INFO)
+
+    @Registry.register(QUANTIZERS_REGISTRY, "example_inline_model_adjuster")
+    class ExampleInlineModelAdjuster(BaseQuantizer):
+
+        @classmethod
+        def modify_quantized_model(cls, model: nn.Module) -> nn.Module:
+            model.example_inline_model_adjuster_applied = True
+            return model
+
+    args = default_run_args
+    args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    args.custom_quantizer = "example_inline_model_adjuster"
+
+    _, model = main(args)
+
+    assert getattr(model, "example_inline_model_adjuster_applied", False)
+
+
+@pytest.mark.llm
+def test_custom_quantizer_file_can_override_quantizers_and_modify_quantized_model(
+        caplog, default_run_args, main):
+    caplog.set_level(logging.INFO)
+
+    args = default_run_args
+    args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    args.custom_quantizer = (
+        "tests/brevitas_examples/llm_example_quantizer.py:example_quant_and_model_adjuster")
+
+    _, model = main(args)
+
+    assert getattr(model, "example_quant_and_model_adjuster_applied", False)
+
+    weight_proxies = []
+    for module in model.modules():
+        if hasattr(module, 'weight_quant') and module.weight_quant is not None:
+            weight_proxies.append(module.weight_quant)
+
+    assert weight_proxies
+    assert any(
+        hasattr(proxy, 'bit_width') and proxy.bit_width() is not None and
+        proxy.bit_width().item() == 4 for proxy in weight_proxies)
 
 
 @pytest_cases.fixture(

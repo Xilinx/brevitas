@@ -4,7 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
-import importlib
+import importlib.util
 import os
 from pathlib import Path
 import pprint
@@ -456,6 +456,7 @@ def quantize_llm(args, extra_args=None):
 
     if not args.no_quantize:
         name_blacklist = []
+        custom_quantizer = None
         print("Applying model quantization...")
         # When AWQ is enabled, the scaling_impl_type for the weights needs to be 'stats', as the
         # scaling factor that multiplies the weights is optimized
@@ -531,6 +532,9 @@ def quantize_llm(args, extra_args=None):
 
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+
+        if custom_quantizer is not None:
+            model = custom_quantizer.modify_quantized_model(model)
 
         # Just to be sure
         model.eval()
