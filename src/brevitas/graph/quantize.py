@@ -57,7 +57,7 @@ if torch_version >= version.parse('1.12'):
     class _WeightQuantHolder(nn.Module):
         """Dummy module that holds a weight parameter so that
         WeightQuantProxyFromInjector can be instantiated through the standard
-        QuantProxyMixin path (Option B)."""
+        QuantProxyMixin path"""
 
         def __init__(self, weight: nn.Parameter):
             super().__init__()
@@ -295,15 +295,13 @@ if torch_version >= version.parse('1.12'):
             index = self._counters[current_module_name][func]
             self._counters[current_module_name][func] += 1
 
-            # Get or create the quantizer for the first input
-            quantizer = self._get_or_create_quantizer(current_module_name, func, index)
-
             args = list(args)
 
             # Quantize the first positional argument (the input tensor)
-            if args:
-                quant_input = quantizer(args[0])
-                args[0] = _unpack_quant_tensor(quant_input)
+            if args and not self._is_quant_tensor(args[0]):
+                # Get or create the quantizer for the first input
+                quantizer = self._get_or_create_quantizer(current_module_name, func, index)
+                args[0] = quantizer(args[0])
 
             # Handle the second argument if present and not already quantized
             if len(args) >= 2 and not self._is_quant_tensor(args[1]):
@@ -323,15 +321,13 @@ if torch_version >= version.parse('1.12'):
                         key = self._make_quantizer_key(
                             current_module_name, func, index, suffix='_wq')
                         weight_quant_proxy = self._quantizers[key]
-                        quant_second = weight_quant_proxy(second_arg)
-                        args[1] = _unpack_quant_tensor(quant_second)
+                        args[1] = weight_quant_proxy(second_arg)
                     elif not is_param:
                         # Second arg is a regular tensor (not a parameter):
                         # quantize using the same quantizer type as the first input
                         second_quantizer = self._get_or_create_second_act_quantizer(
                             current_module_name, func, index)
-                        quant_second = second_quantizer(second_arg)
-                        args[1] = _unpack_quant_tensor(quant_second)
+                        args[1] = second_quantizer(second_arg)
 
             return func(*tuple(args), **kwargs)
 
