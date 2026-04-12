@@ -269,11 +269,11 @@ class TestFunctionalQuantizationMode:
         wq_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
         assert len(wq_quantizers) > 0, "Should have created weight quant proxy"
 
-    def test_second_arg_non_parameter_uses_first_quant_type(self):
-        """Test that when the second argument is not a parameter, the same quantizer type
-        as the first input is reused via QuantIdentity."""
+    def test_second_arg_non_parameter_uses_explicit_quant_type(self):
+        """Test that when the second argument is not a parameter and a tuple is provided,
+        a QuantIdentity quantizer is created for the second arg."""
         model = BmmModel()
-        quant_map = {torch.bmm: Int8ActPerTensorFloat}
+        quant_map = {torch.bmm: (Int8ActPerTensorFloat, Int8ActPerTensorFloat)}
         a = torch.randn(2, 3, 4)
         b = torch.randn(2, 4, 3)
 
@@ -281,7 +281,7 @@ class TestFunctionalQuantizationMode:
         with ctx:
             out = model(a, b)
         assert out.shape == (2, 3, 3)
-        # Should have created quantizers for both args (first + second reusing same type)
+        # Should have created quantizers for both args
         arg1_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k]
         assert len(arg1_quantizers) > 0
 
@@ -387,3 +387,211 @@ class TestFunctionalQuantizationMode:
             param_list = list(model.linear.parametrizations.weight)
             found = any(isinstance(p, _QuantParametrization) for p in param_list)
             assert found, "Parametrization should use _QuantParametrization"
+
+    def test_none_first_quantizer_skips_first_arg(self):
+        """Test that specifying None as the first quantizer skips first-arg quantization."""
+
+        class TwoTensorFunc(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.dummy = nn.Parameter(torch.zeros(1))
+
+            def forward(self, a, b):
+                return torch.bmm(a, b)
+
+        model = TwoTensorFunc()
+        # None for first arg, Int8ActPerTensorFloat for second arg
+        quant_map = {torch.bmm: (None, Int8ActPerTensorFloat)}
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(a, b)
+        assert out.shape == (2, 3, 3)
+        # Only second-arg quantizer should be created, not first-arg
+        first_quantizers = [k for k in ctx._quantizers.keys() if not k.endswith('_arg1')]
+        arg1_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
+        assert len(first_quantizers) == 0, "First-arg quantizer should not be created"
+        assert len(arg1_quantizers) == 1, "Second-arg quantizer should be created"
+
+    def test_none_first_with_explicit_second_quantizer(self):
+        """Test that the explicit second quantizer class is used even when first is None."""
+
+        class TwoTensorFunc(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.dummy = nn.Parameter(torch.zeros(1))
+
+            def forward(self, a, b):
+                return torch.bmm(a, b)
+
+        model = TwoTensorFunc()
+        quant_map = {torch.bmm: (None, Int8ActPerTensorFloat)}
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(a, b)
+        assert out.shape == (2, 3, 3)
+        # The second arg quantizer should exist
+        assert len(ctx._quantizers) == 1
+
+    def test_sdpa_quantization_two_args(self):
+        """Test quantizing scaled_dot_product_attention query and key only."""
+
+        class SDPAModel(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.dummy = nn.Parameter(torch.zeros(1))
+
+            def forward(self, q, k, v):
+                return F.scaled_dot_product_attention(q, k, v)
+
+        model = SDPAModel()
+        # Quantize query (first arg) and key (second arg), value not specified
+        quant_map = {F.scaled_dot_product_attention: (Int8ActPerTensorFloat, Int8ActPerTensorFloat)}
+
+        q = torch.randn(1, 1, 4, 8)
+        k = torch.randn(1, 1, 4, 8)
+        v = torch.randn(1, 1, 4, 8)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(q, k, v)
+        assert out.shape == (1, 1, 4, 8)
+        # 2 quantizers: one for query, one for key
+        assert len(ctx._quantizers) == 2
+
+    def test_sdpa_quantization_three_args(self):
+        """Test quantizing scaled_dot_product_attention query, key, and value."""
+
+        class SDPAModel(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.dummy = nn.Parameter(torch.zeros(1))
+
+            def forward(self, q, k, v):
+                return F.scaled_dot_product_attention(q, k, v)
+
+        model = SDPAModel()
+        # Quantize all three: query, key, and value
+        quant_map = {
+            F.scaled_dot_product_attention:
+                (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8ActPerTensorFloat)}
+
+        q = torch.randn(1, 1, 4, 8)
+        k = torch.randn(1, 1, 4, 8)
+        v = torch.randn(1, 1, 4, 8)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(q, k, v)
+        assert out.shape == (1, 1, 4, 8)
+        # 3 quantizers: query (arg0), key (arg1), value (arg2)
+        assert len(ctx._quantizers) == 3
+        arg0_keys = [k for k in ctx._quantizers if not '_arg' in k]
+        arg1_keys = [k for k in ctx._quantizers if '_arg1' in k]
+        arg2_keys = [k for k in ctx._quantizers if '_arg2' in k]
+        assert len(arg0_keys) == 1
+        assert len(arg1_keys) == 1
+        assert len(arg2_keys) == 1
+
+    def test_sdpa_none_query_quantize_key(self):
+        """Test SDPA with None query quantizer and explicit key quantizer."""
+
+        class SDPAModel(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.dummy = nn.Parameter(torch.zeros(1))
+
+            def forward(self, q, k, v):
+                return F.scaled_dot_product_attention(q, k, v)
+
+        model = SDPAModel()
+        # Skip query quantization, quantize key
+        quant_map = {F.scaled_dot_product_attention: (None, Int8ActPerTensorFloat)}
+
+        q = torch.randn(1, 1, 4, 8)
+        k = torch.randn(1, 1, 4, 8)
+        v = torch.randn(1, 1, 4, 8)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(q, k, v)
+        assert out.shape == (1, 1, 4, 8)
+        # Only 1 quantizer for key (second arg)
+        assert len(ctx._quantizers) == 1
+        arg1_keys = [k for k in ctx._quantizers if k.endswith('_arg1')]
+        assert len(arg1_keys) == 1
+
+    def test_sdpa_none_query_quantize_key_and_value(self):
+        """Test SDPA with None query quantizer, explicit key and value quantizers."""
+
+        class SDPAModel(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.dummy = nn.Parameter(torch.zeros(1))
+
+            def forward(self, q, k, v):
+                return F.scaled_dot_product_attention(q, k, v)
+
+        model = SDPAModel()
+        # Skip query, quantize key and value
+        quant_map = {
+            F.scaled_dot_product_attention: (None, Int8ActPerTensorFloat, Int8ActPerTensorFloat)}
+
+        q = torch.randn(1, 1, 4, 8)
+        k = torch.randn(1, 1, 4, 8)
+        v = torch.randn(1, 1, 4, 8)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(q, k, v)
+        assert out.shape == (1, 1, 4, 8)
+        # 2 quantizers: key (arg1) and value (arg2)
+        assert len(ctx._quantizers) == 2
+        arg1_keys = [k for k in ctx._quantizers if '_arg1' in k]
+        arg2_keys = [k for k in ctx._quantizers if '_arg2' in k]
+        assert len(arg1_keys) == 1
+        assert len(arg2_keys) == 1
+
+    def test_nested_module_dots_in_name(self):
+        """Test that nested modules with dots in their names are handled correctly."""
+
+        class Inner(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(4, 3)
+
+            def forward(self, x):
+                return self.linear(x)
+
+        class Outer(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.sub_module = Inner()
+
+            def forward(self, x):
+                return self.sub_module(x)
+
+        model = Outer()
+        quant_map = {F.linear: Int8ActPerTensorFloat}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 3)
+        # Quantizer key should not contain dots
+        for key in ctx._quantizers:
+            assert '.' not in key, f"Quantizer key should not contain dots: {key}"

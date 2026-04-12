@@ -27,7 +27,6 @@ from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
-from brevitas.nn.quant_sdpa import ScaledDotProductAttention
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
@@ -355,12 +354,6 @@ def quantize_llm(args, extra_args=None):
         print("Replace `F.scaled_dot_product_attention` with QuantSDPA...")
         model = replace_sdpa_with_quantizable_layers(model)
         print("Replacing done.")
-    elif args.quant_sdpa == 'functional':
-        print("Inserting SDPA quantizable module")
-        model = offload_model(model)
-        with torch.no_grad(), functional_quantization_mode(model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention}):
-            model(**next(iter(calibration_loader)))
-        remove_hooks(model)
     elif args.quant_sdpa == 'eager':
         model = replace_sdpa_with_quantizable_layers(
             model, is_fx=False, eager_quant_sdpa_class=args.eager_quant_sdpa_class)
@@ -492,6 +485,10 @@ def quantize_llm(args, extra_args=None):
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
             quantizers_dict = custom_quantizer.override_quantizers_dict(quantizers_dict)
+        # Save SDPA quantizers for the functional quantization mode context manager
+        sdpa_q_quant = quantizers_dict.get('q_scaled_quant')
+        sdpa_k_quant = quantizers_dict.get('k_transposed_quant')
+        sdpa_v_quant = quantizers_dict.get('v_quant')
         layer_map = generate_quant_maps(
             **quantizers_dict, dtype=dtype, device=device, quantize_embedding=False)
         if not args.quantize_last_layer:
@@ -566,8 +563,10 @@ def quantize_llm(args, extra_args=None):
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
     if args.quant_sdpa == "functional":
-        quantization_cm = functional_quantization_mode(
-            model, {torch.nn.functional.scaled_dot_product_attention: ScaledDotProductAttention})
+        sdpa_quant_map = {
+            torch.nn.functional.scaled_dot_product_attention:
+                (sdpa_q_quant, sdpa_k_quant, sdpa_v_quant)}
+        quantization_cm = functional_quantization_mode(model, sdpa_quant_map)
     else:
         quantization_cm = nullcontext()
 

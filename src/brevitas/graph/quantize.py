@@ -83,13 +83,17 @@ if torch_version >= version.parse('1.12'):
             model: The nn.Module whose forward pass will be intercepted.
             quant_map: A mapping from torch functions (e.g. torch.nn.functional.linear)
                 to either:
-                - A brevitas quantizer class for the first input tensor, or
-                - A tuple of (input_quant_class, weight_quant_class) where
-                  weight_quant_class is used to quantize the second argument when
-                  it is a parameter (registered as a persistent parametrization).
-                  If the second argument is a regular tensor (not a parameter and
-                  not already quantized), a separate quantizer using the first
-                  input's quantizer class is created instead.
+                - A brevitas quantizer class for the first input tensor (or None to
+                  skip first-input quantization while still tracking the function), or
+                - A tuple of quantizer classes, one per positional argument.
+                  Each element may be None to skip quantization of that argument.
+                  For arguments at index >= 1:
+                    - If the argument is a parameter, a weight-style quantizer is
+                      registered as a persistent parametrization.
+                    - If the argument is a regular tensor (not a parameter and not
+                      already quantized), a QuantIdentity activation quantizer is
+                      created using the explicit class (or falling back to the first
+                      non-None quantizer class in the tuple).
             enabled: Whether quantization is active. Defaults to True.
         """
 
@@ -112,21 +116,25 @@ if torch_version >= version.parse('1.12'):
             # Track parametrizations we registered so we can remove them on exit
             self._registered_parametrizations = []
 
-            # Normalize quant_map: always store as (input_quant, weight_quant_or_None)
-            self._input_quant_map: Dict = {}
-            self._second_quant_map: Dict = {}
+            # Set of all functions we should intercept
+            self._quant_map: Dict = {}
+            # Per-function list of quantizer classes per positional arg (may contain None)
+            self._arg_quant_map: Dict = {}
             for func, spec in quant_map.items():
+                self._quant_map[func] = spec
                 if isinstance(spec, tuple):
-                    self._input_quant_map[func] = spec[0]
-                    self._second_quant_map[func] = spec[1]
+                    self._arg_quant_map[func] = list(spec)
                 else:
-                    self._input_quant_map[func] = spec
-                    self._second_quant_map[func] = None
+                    self._arg_quant_map[func] = [spec]
 
         def _make_quantizer_key(self, module_name, func, index, suffix=''):
-            """Create a unique key for a quantizer instance."""
+            """Create a unique key for a quantizer instance.
+
+            Dots in module_name are replaced with underscores because
+            ``nn.Module.add_module`` does not allow dots in names."""
             func_name = getattr(func, '__name__', str(func))
-            return f'_fq_{module_name}_{func_name}_{index}{suffix}'
+            safe_name = module_name.replace('.', '_')
+            return f'_fq_{safe_name}_{func_name}_{index}{suffix}'
 
         def _move_to_model_device(self, module):
             """Move a module to the same device as the model."""
@@ -140,6 +148,7 @@ if torch_version >= version.parse('1.12'):
         def _create_act_quantizer(self, quant_class):
             """Create a QuantIdentity quantizer for activation tensors."""
             quantizer = QuantIdentity(act_quant=quant_class, return_quant_tensor=True)
+            quantizer.train(self.model.training)
             return self._move_to_model_device(quantizer)
 
         def _create_weight_quant_proxy(self, quant_class, weight_param):
@@ -152,23 +161,19 @@ if torch_version >= version.parse('1.12'):
             proxy = quant_injector.proxy_class(holder, quant_injector)
             return self._move_to_model_device(proxy)
 
-        def _get_or_create_quantizer(self, module_name, func, index):
-            """Get an existing activation quantizer or create a new one."""
-            key = self._make_quantizer_key(module_name, func, index)
-            if key not in self._quantizers:
-                quant_class = self._input_quant_map[func]
-                quantizer = self._create_act_quantizer(quant_class)
-                self._quantizers[key] = quantizer
-                if not hasattr(self.model, key):
-                    self.model.add_module(key, quantizer)
-            return self._quantizers[key]
+        def _get_or_create_act_quantizer(self, module_name, func, index, arg_idx, quant_class):
+            """Get an existing activation quantizer or create a new one.
 
-        def _get_or_create_second_act_quantizer(self, module_name, func, index):
-            """Get or create an activation quantizer for the second argument
-            (non-parameter tensor case). Reuses the first input's quantizer class."""
-            key = self._make_quantizer_key(module_name, func, index, suffix='_arg1')
+            Args:
+                module_name: Name of the current nn.Module.
+                func: The torch function being intercepted.
+                index: Call index within this module for this function.
+                arg_idx: Positional argument index (0 = first arg, 1 = second, etc.).
+                quant_class: The quantizer class to use.
+            """
+            suffix = '' if arg_idx == 0 else f'_arg{arg_idx}'
+            key = self._make_quantizer_key(module_name, func, index, suffix=suffix)
             if key not in self._quantizers:
-                quant_class = self._input_quant_map[func]
                 quantizer = self._create_act_quantizer(quant_class)
                 self._quantizers[key] = quantizer
                 if not hasattr(self.model, key):
@@ -184,12 +189,22 @@ if torch_version >= version.parse('1.12'):
                 for param_name, param in module.named_parameters(recurse=False):
                     self._param_to_module[param.data_ptr()] = (module, param_name)
 
-        def _register_weight_parametrization(self, param_tensor, func, module_name, index):
+        def _register_weight_parametrization(
+                self, param_tensor, func, module_name, index, arg_idx, quant_class):
             """Register a quantization parametrization on the module that owns the parameter.
 
             Creates a weight quant proxy through _WeightQuantHolder and wraps it in
             a _QuantParametrization. The parametrization persists for the lifetime of
-            the context manager."""
+            the context manager.
+
+            Args:
+                param_tensor: The parameter tensor to parametrize.
+                func: The torch function being intercepted.
+                module_name: Name of the current nn.Module.
+                index: Call index within this module for this function.
+                arg_idx: Positional argument index.
+                quant_class: The weight quantizer class to use.
+            """
             data_ptr = param_tensor.data_ptr()
             if data_ptr not in self._param_to_module:
                 return
@@ -201,11 +216,11 @@ if torch_version >= version.parse('1.12'):
                         return  # Already registered
 
             # Create weight quant proxy through the standard path
-            quant_class = self._second_quant_map[func]
             weight_quant_proxy = self._create_weight_quant_proxy(quant_class, param_tensor)
 
             # Store for state tracking
-            key = self._make_quantizer_key(module_name, func, index, suffix='_wq')
+            suffix = f'_arg{arg_idx}_wq' if arg_idx > 1 else '_wq'
+            key = self._make_quantizer_key(module_name, func, index, suffix=suffix)
             self._quantizers[key] = weight_quant_proxy
             if not hasattr(self.model, key):
                 self.model.add_module(key, weight_quant_proxy)
@@ -281,11 +296,79 @@ if torch_version >= version.parse('1.12'):
             """Check if a value is already a QuantTensor."""
             return isinstance(t, QuantTensor)
 
+        def _fallback_quant_class(self, func):
+            """Return the first non-None quantizer class in the arg list for ``func``."""
+            for qc in self._arg_quant_map.get(func, []):
+                if qc is not None:
+                    return qc
+            return None
+
+        def _quantize_arg(self, args, arg_idx, func, current_module_name, index):
+            """Quantize a single positional argument in-place within *args*.
+
+            For arg_idx == 0 (the first argument), an activation quantizer is always used.
+            For arg_idx >= 1:
+              - If the arg is already a QuantTensor, skip.
+              - If the arg is a parameter and a quantizer class is provided, register
+                a persistent weight parametrization.
+              - If the arg is a non-parameter tensor, create an activation quantizer
+                using the explicit class or falling back to the first non-None class.
+            """
+            if arg_idx >= len(args):
+                return
+            arg = args[arg_idx]
+            if self._is_quant_tensor(arg):
+                return
+            if not isinstance(arg, torch.Tensor):
+                return
+
+            quant_classes = self._arg_quant_map.get(func, [])
+            quant_class = quant_classes[arg_idx] if arg_idx < len(quant_classes) else None
+
+            if arg_idx == 0:
+                # First argument: always use an activation quantizer
+                if quant_class is not None:
+                    quantizer = self._get_or_create_act_quantizer(
+                        current_module_name, func, index, arg_idx, quant_class)
+                    args[arg_idx] = quantizer(arg)
+            else:
+                # Subsequent arguments: handle parameter vs non-parameter
+                wq_suffix = f'_arg{arg_idx}_wq' if arg_idx > 1 else '_wq'
+                wq_key = self._make_quantizer_key(
+                    current_module_name, func, index, suffix=wq_suffix)
+                already_parametrized = wq_key in self._quantizers
+                is_param = isinstance(arg, nn.Parameter) or \
+                    arg.data_ptr() in self._param_to_module
+                if already_parametrized:
+                    # The parametrization has already quantized this tensor
+                    pass
+                elif is_param and quant_class is not None:
+                    # Arg is a parameter and a weight quantizer was specified:
+                    # register a persistent parametrization on the owning module.
+                    # On this first call the parametrization wasn't active yet, so
+                    # we must also quantize explicitly. On subsequent forwards the
+                    # parametrization handles it automatically.
+                    self._register_weight_parametrization(
+                        arg, func, current_module_name, index, arg_idx, quant_class)
+                    weight_quant_proxy = self._quantizers[wq_key]
+                    args[arg_idx] = weight_quant_proxy(arg)
+                elif not is_param:
+                    # Arg is a regular tensor (not a parameter).
+                    # Use the explicit quantizer class if provided,
+                    # otherwise fall back to the first non-None class.
+                    effective_class = quant_class
+                    if effective_class is None:
+                        effective_class = self._fallback_quant_class(func)
+                    if effective_class is not None:
+                        quantizer = self._get_or_create_act_quantizer(
+                            current_module_name, func, index, arg_idx, effective_class)
+                        args[arg_idx] = quantizer(arg)
+
         def __torch_function__(self, func, types, args=(), kwargs=None):
             if kwargs is None:
                 kwargs = {}
 
-            if not self.enabled or func not in self._input_quant_map or not self._module_stack:
+            if not self.enabled or func not in self._quant_map or not self._module_stack:
                 return func(*args, **kwargs)
 
             # Identify the current (innermost) module
@@ -297,37 +380,10 @@ if torch_version >= version.parse('1.12'):
 
             args = list(args)
 
-            # Quantize the first positional argument (the input tensor)
-            if args and not self._is_quant_tensor(args[0]):
-                # Get or create the quantizer for the first input
-                quantizer = self._get_or_create_quantizer(current_module_name, func, index)
-                args[0] = quantizer(args[0])
-
-            # Handle the second argument if present and not already quantized
-            if len(args) >= 2 and not self._is_quant_tensor(args[1]):
-                second_arg = args[1]
-                if isinstance(second_arg, torch.Tensor):
-                    is_param = isinstance(second_arg, nn.Parameter) or \
-                        second_arg.data_ptr() in self._param_to_module
-                    if is_param and self._second_quant_map.get(func) is not None:
-                        # Second arg is a parameter and a weight quantizer was specified:
-                        # register a persistent parametrization on the owning module.
-                        # On this first call the parametrization wasn't active yet, so
-                        # we must also quantize explicitly. On subsequent forwards the
-                        # parametrization handles it automatically (args[1] arrives
-                        # already quantized and is no longer an nn.Parameter).
-                        self._register_weight_parametrization(
-                            second_arg, func, current_module_name, index)
-                        key = self._make_quantizer_key(
-                            current_module_name, func, index, suffix='_wq')
-                        weight_quant_proxy = self._quantizers[key]
-                        args[1] = weight_quant_proxy(second_arg)
-                    elif not is_param:
-                        # Second arg is a regular tensor (not a parameter):
-                        # quantize using the same quantizer type as the first input
-                        second_quantizer = self._get_or_create_second_act_quantizer(
-                            current_module_name, func, index)
-                        args[1] = second_quantizer(second_arg)
+            # Quantize each positional argument that has a quantizer spec
+            num_quant_args = len(self._arg_quant_map.get(func, []))
+            for arg_idx in range(min(num_quant_args, len(args))):
+                self._quantize_arg(args, arg_idx, func, current_module_name, index)
 
             return func(*tuple(args), **kwargs)
 
