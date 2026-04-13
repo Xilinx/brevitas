@@ -2,13 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
+from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.parametrize import is_parametrized
 
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
+from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from tests.marker import requires_pt_ge
 
@@ -16,23 +21,23 @@ from tests.marker import requires_pt_ge
 class SimpleLinearModel(nn.Module):
     """Model with a single linear layer that calls F.linear."""
 
-    def __init__(self, in_features, out_features):
+    def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         return self.linear(x)
 
 
 class TwoLinearModel(nn.Module):
     """Model with two linear layers in sequence."""
 
-    def __init__(self, in_features, hidden, out_features):
+    def __init__(self, in_features: int, hidden: int, out_features: int) -> None:
         super().__init__()
         self.linear1 = nn.Linear(in_features, hidden)
         self.linear2 = nn.Linear(hidden, out_features)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = self.linear1(x)
         x = self.linear2(x)
         return x
@@ -41,14 +46,14 @@ class TwoLinearModel(nn.Module):
 class MultiLinearInModule(nn.Module):
     """A submodule that calls F.linear twice with different weights."""
 
-    def __init__(self, in_features, hidden, out_features):
+    def __init__(self, in_features: int, hidden: int, out_features: int) -> None:
         super().__init__()
         self.weight1 = nn.Parameter(torch.randn(hidden, in_features))
         self.bias1 = nn.Parameter(torch.randn(hidden))
         self.weight2 = nn.Parameter(torch.randn(out_features, hidden))
         self.bias2 = nn.Parameter(torch.randn(out_features))
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = F.linear(x, self.weight1, self.bias1)
         x = F.linear(x, self.weight2, self.bias2)
         return x
@@ -56,24 +61,46 @@ class MultiLinearInModule(nn.Module):
 
 class ModelWithMultiLinear(nn.Module):
 
-    def __init__(self, in_features, hidden, out_features):
+    def __init__(self, in_features: int, hidden: int, out_features: int) -> None:
         super().__init__()
         self.block = MultiLinearInModule(in_features, hidden, out_features)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         return self.block(x)
 
 
 class BmmModel(nn.Module):
     """Model that calls torch.bmm with two non-parameter tensors."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         # Dummy parameter so the model is a valid nn.Module with parameters
         self.dummy = nn.Parameter(torch.zeros(1))
 
-    def forward(self, a, b):
+    def forward(self, a: Tensor, b: Tensor) -> Tensor:
         return torch.bmm(a, b)
+
+
+class MatmulWeightModel(nn.Module):
+    """Model that calls torch.matmul with a runtime tensor and a parameter."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(4, 3))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return torch.matmul(x, self.weight)
+
+
+class FunctionalConvTranspose1dModel(nn.Module):
+    """Model that calls F.conv_transpose1d with a parameter weight."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(64, 16, 3))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.conv_transpose1d(x, self.weight)
 
 
 @requires_pt_ge('1.12')
@@ -284,6 +311,87 @@ class TestFunctionalQuantizationMode:
         # Should have created quantizers for both args
         arg1_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k]
         assert len(arg1_quantizers) > 0
+
+    def test_groupwise_activation_quantizer_keeps_functional_layer_metadata(self):
+        """Test that groupwise activation DI still resolves module-dependent metadata."""
+        model = SimpleLinearModel(64, 16)
+        quant_map = {F.linear: MXInt8Act}
+        x = torch.randn(2, 64)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 16)
+        assert len(ctx._quantizers) == 1
+        quantizer = next(iter(ctx._quantizers.values()))
+        assert isinstance(quantizer.act_quant, GroupwiseActQuantProxyFromInjector)
+        assert quantizer.act_quant.group_size == 32
+
+    def test_per_channel_weight_quantizer_keeps_linear_metadata(self):
+        """Test that weight DI resolves out_channels/output_channel_dim for F.linear."""
+        model = SimpleLinearModel(16, 8)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerChannelFloat)}
+        x = torch.randn(2, 16)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            assert is_parametrized(model.linear, 'weight')
+            weight_quantizers = [m for k, m in ctx._quantizers.items() if '_wq' in k]
+            assert len(weight_quantizers) == 1
+            scale = weight_quantizers[0].scale()
+            assert scale.shape == (8, 1)
+        assert out.shape == (2, 8)
+
+    def test_groupwise_weight_quantizer_keeps_transposed_metadata(self):
+        """Test that functional conv_transpose weight DI preserves transposed metadata."""
+        model = FunctionalConvTranspose1dModel()
+        quant_map = {F.conv_transpose1d: (None, MXInt8Weight)}
+        x = torch.randn(2, 64, 8)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            assert is_parametrized(model, 'weight')
+            weight_quantizers = [m for k, m in ctx._quantizers.items() if '_wq' in k]
+            assert len(weight_quantizers) == 1
+            assert weight_quantizers[0].group_dim == 0
+        assert out.shape[1] == 16
+
+    def test_binary_op_three_quantizers_uses_runtime_second_quantizer(self):
+        """Test that binary ops use the runtime second-input quantizer for tensor inputs."""
+        model = BmmModel()
+        quant_map = {
+            torch.bmm: (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        a = torch.randn(2, 3, 4)
+        b = torch.randn(2, 4, 3)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(a, b)
+        assert out.shape == (2, 3, 3)
+        runtime_second_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
+        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        assert len(runtime_second_quantizers) == 1
+        assert len(weight_quantizers) == 0
+
+    def test_binary_op_three_quantizers_uses_weight_quantizer_for_parameter(self):
+        """Test that binary ops use the weight quantizer when the second input is a parameter."""
+        model = MatmulWeightModel()
+        quant_map = {
+            torch.matmul: (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            assert is_parametrized(model, 'weight')
+        assert out.shape == (2, 3)
+        runtime_second_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
+        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        assert len(runtime_second_quantizers) == 0
+        assert len(weight_quantizers) == 1
+        assert not is_parametrized(model, 'weight')
 
     def test_second_arg_already_quant_tensor_skipped(self):
         """Test that the second argument is not re-quantized if it is already a QuantTensor."""

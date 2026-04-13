@@ -120,11 +120,25 @@ class SolveActScalingShape(ExtendedInjector):
 
     @value
     def group_dim(module=None, group_size=None):
+        """Infer the group dimension from the tracked module.
+
+        Functional quantization can provide lightweight tracked modules exposing
+        ``functional_layer_kind`` instead of concrete quant-layer types.
+        """
         # Avoid circular import
         from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 
         if group_size is not None and module is not None:
-            if isinstance(module, QuantWeightBiasInputOutputLayer):
+            functional_layer_kind = getattr(module, 'functional_layer_kind', None)
+            if functional_layer_kind == 'linear':
+                return -1
+            elif functional_layer_kind == 'conv':
+                warn(
+                    "Group dim is being selected assuming batched input. Using unbatched input will fail and requires manually specification of group_dim"
+                )
+                # We are assuming batched input
+                return 1
+            elif isinstance(module, QuantWeightBiasInputOutputLayer):
                 if isinstance(module, nn.Linear):
                     return -1
                 elif isinstance(module,

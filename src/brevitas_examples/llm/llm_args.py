@@ -531,7 +531,7 @@ def create_args_parser() -> ArgumentParser:
     return parser
 
 
-def fx_required(args: Namespace):
+def fx_required(args: Namespace) -> bool:
     return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
 
 
@@ -606,7 +606,7 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 
 
-def attn_quant_format_validator(value):
+def attn_quant_format_validator(value: Optional[str]) -> Union[bool, str]:
     if value is None:
         return True
     else:
