@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn import QuantLinear
@@ -108,7 +109,7 @@ def test_merge_quant_weights_errors_on_multiple_forward_passes(learned_round_par
 
 
 @pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
-def test_merge_quant_weights_rounding_mode_reset(learned_round_param):
+def test_merge_quant_weights_reset(learned_round_param):
     """After merging, the rounding mode should be ROUND."""
     torch.manual_seed(SEED)
     model = QuantLinear(in_features=IN_FEATURES, out_features=OUT_FEATURES, bias=False)
@@ -120,6 +121,8 @@ def test_merge_quant_weights_rounding_mode_reset(learned_round_param):
     x = torch.randn(4, IN_FEATURES)
     with merge_quant_weights(model):
         model(x)
+    assert isinstance(
+        model.weight_quant.tensor_quant.scaling_impl, ParameterFromStatsFromParameterScaling)
     assert model.weight_quant.rounding_mode == "ROUND"
 
 

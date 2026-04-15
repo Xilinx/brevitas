@@ -12,6 +12,7 @@ from torch.utils.hooks import RemovableHandle
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import FloatToIntImplType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.utils.torch_utils import compute_channel_view_shape
 
@@ -88,14 +89,19 @@ class merge_quant_weights:
         model: A model containing quantised layers with learned round quantisers.
     """
 
-    def __init__(self, model: torch.nn.Module, disable_quant: bool = True) -> None:
+    def __init__(
+            self,
+            model: torch.nn.Module,
+            disable_quant: bool = True,
+            preserve_original_weights: bool = False) -> None:
         self._model = model
         self._hooks: List[RemovableHandle] = []
         self._module_tensor_id_mapping = {}
         self.disable_quant = disable_quant
         self.hook_check = False
+        self.preserve_original_weights = preserve_original_weights
 
-    def __enter__(self) -> 'merge_learned_round':
+    def __enter__(self) -> 'merge_quant_weights':
         # Imported here to avoid a circular import
         from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 
@@ -111,8 +117,9 @@ class merge_quant_weights:
                 for m in module.tracked_module_list:
                     # We match the module based on its weights and the ID of the tensor to quantize
                     if id(m.weight.data) == id(input_tensor.data):
-                        # This could be a Tensor or a QuantTensor
-                        m.weight.data = _unpack_quant_tensor(output).data
+                        if self.preserve_original_weights:
+                            m.weight_orig = m.weight.data.cpu()
+                        m.weight.data = output.value.data
                         # We track how many modules have been converted
                         if module not in self._module_tensor_id_mapping:
                             self._module_tensor_id_mapping[module] = [id(m.weight.data)]
@@ -123,13 +130,13 @@ class merge_quant_weights:
         for module in self._model.modules():
             if not isinstance(module, WeightQuantProxyFromInjectorBase):
                 continue
-
-            hook = module.register_forward_hook(hook)
-            self._hooks.append(hook)
+            self.change_scale_impl_type(module)
+            handle = module.register_forward_hook(hook)
+            self._hooks.append(handle)
 
         # Register Model hook
-        hook = self._model.register_forward_hook(model_hook)
-        self._hooks.append(hook)
+        handle = self._model.register_forward_hook(model_hook)
+        self._hooks.append(handle)
 
         return self
 
@@ -142,6 +149,19 @@ class merge_quant_weights:
             for module in self._module_tensor_id_mapping:
                 self._reset_quantizer(module)
 
+    def change_scale_impl_type(self, proxy) -> None:
+        reinit_on_state_dict = config.REINIT_ON_STATE_DICT_LOAD
+        ignore_missing_key = config.IGNORE_MISSING_KEYS
+        config.REINIT_ON_STATE_DICT_LOAD = False
+        config.IGNORE_MISSING_KEYS = True
+        state_dict = proxy.state_dict()
+        proxy.quant_injector = proxy.quant_injector.let(
+            scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS)
+        proxy.init_tensor_quant()
+        proxy.load_state_dict(state_dict, strict=False)
+        config.IGNORE_MISSING_KEYS = ignore_missing_key
+        config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
+
     @staticmethod
     def _reset_quantizer(proxy) -> None:
         """Switch a weight quant proxy from LearnedRound back to standard Round."""
@@ -149,18 +169,16 @@ class merge_quant_weights:
         ignore_missing_key = config.IGNORE_MISSING_KEYS
         config.REINIT_ON_STATE_DICT_LOAD = False
         config.IGNORE_MISSING_KEYS = True
-        try:
-            state_dict = {
-                k: v for k,
-                v in proxy.state_dict().items() if not k.endswith('float_to_int_impl.value')}
+        state_dict = {
+            k: v for k,
+            v in proxy.state_dict().items() if not k.endswith('float_to_int_impl.value')}
 
-            proxy.quant_injector = proxy.quant_injector.let(
-                float_to_int_impl_type=FloatToIntImplType.ROUND,)
-            proxy.init_tensor_quant()
-            proxy.load_state_dict(state_dict, strict=False)
-        finally:
-            config.IGNORE_MISSING_KEYS = ignore_missing_key
-            config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
+        proxy.quant_injector = proxy.quant_injector.let(
+            float_to_int_impl_type=FloatToIntImplType.ROUND)
+        proxy.init_tensor_quant()
+        proxy.load_state_dict(state_dict, strict=False)
+        config.IGNORE_MISSING_KEYS = ignore_missing_key
+        config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
 
 
 def check_tensors_same_ptr(tensor_list):
