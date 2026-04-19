@@ -173,6 +173,10 @@ def create_args_parser() -> ArgumentParser:
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
     parser.add_argument(
+        '--input-narrow-range',
+        action="store_true",
+        help='Use narrow range for input quantization. Default: False.')
+    parser.add_argument(
         '--input-quant-granularity',
         type=str,
         default='per_tensor',

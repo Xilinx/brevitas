@@ -470,6 +470,9 @@ def quantize_llm(args, extra_args=None):
                     'zero_point_affine_rescaling_init': args.weight_quant_rescaling_init}}
         if args.weight_narrow_range:
             weight_kwargs = {**weight_kwargs, **{'narrow_range': args.weight_narrow_range}}
+        input_kwargs = {}
+        if args.input_narrow_range:
+            input_kwargs = {**input_kwargs, **{'narrow_range': args.input_narrow_range}}
         quantizers_dict = generate_quantizers(
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
@@ -502,7 +505,8 @@ def quantize_llm(args, extra_args=None):
             scale_rounding_func_type=args.scale_rounding_func_type,
             quant_attn_mode='sdpa',
             scaling_min_val=args.scaling_min_val,
-            weight_kwargs=weight_kwargs)
+            weight_kwargs=weight_kwargs,
+            input_kwargs=input_kwargs)
         if args.custom_quantizer is not None:
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
