@@ -3,7 +3,6 @@
 
 from argparse import ArgumentParser
 from argparse import Namespace
-from contextlib import ExitStack
 import logging
 import os
 import platform
