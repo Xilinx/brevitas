@@ -1,6 +1,11 @@
-block_rotation_dim: 32
-disable_block_rotation_for_fused: true
+# MixQuant* settings
+disable_block_rotation_for_fused: true  # online block rotations; fused full rotations
 permute_fn: massdiff
+rotation: fused_no_fx  # fuse rotations whenever possible
+rotation_block_size: 32
+qronos: true
+qronos_alpha: 1e-3
+# other settings
 dataset_eval_split: test
 dtype: bfloat16
 eval: true
@@ -20,10 +25,7 @@ gpxq_buffer_device: same
 input_bit_width: 4
 input_quant_granularity: per_row
 input_scale_type: dynamic
-qronos: true
-qronos_alpha: 1e-3
 replace_rmsnorm: true
-rotation: fused_no_fx
 rotation_sdpa_regions: true
 rotation_mode: had
 rotation_orphan_sink: true

@@ -59,10 +59,11 @@ def create_args_parser() -> ArgumentParser:
         help='Specify which split to use for the evaluation dataset (default: %(default)s)')
     parser.add_argument(
         '--gpxq-block-name',
+        '--block-name',
         type=str,
         default=None,
         help=
-        'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
+        'Attribute for model blocks. Used for faster GPxQ optimization (if FX is not needed) and learned round (default: %(default)s)'
     )
     parser.add_argument(
         '--gpxq-buffer-device',
@@ -409,6 +410,7 @@ def create_args_parser() -> ArgumentParser:
         default=None,
         choices=[
             None,
+            'vllm',
             'shark',
             'onnx_qcdq',
             'gguf:q8_0',
@@ -437,7 +439,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--learned-round',
         default=None,
-        choices=[None, 'linear_round'],
+        choices=[None, 'identity'],
         help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     parser.add_argument(
         '--learned-round-fast-update',
@@ -551,8 +553,6 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
 
-        if args.export_target is not None and args.input_bit_width is not None:
-            assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."

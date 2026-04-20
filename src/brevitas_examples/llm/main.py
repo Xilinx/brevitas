@@ -37,7 +37,6 @@ from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.generative.quantizers import QuantInjector
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.common.parse_utils import override_defaults
 from brevitas_examples.common.parse_utils import parse_args
@@ -48,8 +47,8 @@ from brevitas_examples.llm.llm_args import validate
 from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data_utils import collate_fn
 from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import compute_perplexity
@@ -195,7 +194,12 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 do_validation=False)
     elif 'gguf' in args.export_target:
         save_quantized_as_gguf('.', model, tokenizer, args.export_target)
+    elif args.export_target == 'vllm':
+        from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
+        with quant_inference_mode(model, export_manager=vLLMExportManager) as export_mode:
+            model(**ref_input)
+            export_mode.export_manager.export(model, tokenizer, args.export_prefix)
     elif args.export_target == 'shark':
         assert SharkManager is not None, "Please install shark-ai to export to Shark"
         from sharktank.types import Theta
@@ -292,50 +296,45 @@ def quantize_llm(args, extra_args=None):
             f"The provided configuration requires fx and has a batch size of {args.calibration_batch_size}.\nErrors may occur when using fx and batch_size > 1.\nIf you experience any issues try chaning the configuration to avoid using fx or to set the batch_size to 1."
         )
 
+    collate_fn = llm_collate(
+        model_name_or_path=args.model, require_fx=require_fx and args.export_target is not None)
+
     # Load the data for calibration and evaluation.
     calibration_dataset = get_dataset_for_model(
-        args.model,
         bos_preprocessing=args.bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
         split="train",
-        seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
-        device=None)
-
+        seed=args.seed)
     # Batched data loader to accelerate GPXQ algorithms
     calibration_loader = DataLoader(
         dataset=calibration_dataset, batch_size=args.calibration_batch_size, collate_fn=collate_fn)
 
     validation_dataset = get_dataset_for_model(
-        args.model,
         bos_preprocessing=args.bos_preprocessing,
         dataset_name=args.dataset,
         tokenizer=tokenizer,
         nsamples=args.nsamples,
         seqlen=args.seqlen,
         split=args.dataset_eval_split,
-        seed=args.seed,
-        require_fx=require_fx and args.export_target is not None,
-        device=None)
+        seed=args.seed)
+
+    validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
     if args.optimize_rotations:
         # Extra arguments should be used as training arguments for rotation optimization
         rot_optimization_args = parse_rotation_optimization_args(extra_args=extra_args)
         # Load the data for rotation optimization
         rot_calibration_dataset = get_dataset_for_model(
-            args.model,
             bos_preprocessing=args.bos_preprocessing,
             dataset_name=args.dataset,
             tokenizer=tokenizer,
             nsamples=args.nsamples_rot_calibration,
             seqlen=args.seqlen,
             split="train",
-            seed=args.seed,
-            require_fx=require_fx and args.export_target is not None,
-            device=None)
+            seed=args.seed)
 
     device = next(iter(model.parameters())).device
     print("Data loaded.")
@@ -344,7 +343,7 @@ def quantize_llm(args, extra_args=None):
         print("Float model eval...")
         model = offload_model(model)
         float_ppl = compute_perplexity(
-            model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
 
@@ -544,7 +543,7 @@ def quantize_llm(args, extra_args=None):
         apply_awq(
             model=model,
             tokenizer=tokenizer,
-            calibration_dataset=calibration_dataset,
+            calibration_loader=calibration_loader,
             args=args,
             auto_scale=args.awq_scale,
             mse_range=args.awq_clip,
@@ -607,7 +606,7 @@ def quantize_llm(args, extra_args=None):
                 tokenizer=tokenizer,
                 train_dataset=rot_calibration_dataset,
                 training_args=rot_optimization_args,
-            )
+                collate_fn=collate_fn)
             # Remove hooks from optimization
             remove_hooks(model)
             # Offload model before fusing the rotations
@@ -632,25 +631,13 @@ def quantize_llm(args, extra_args=None):
         if args.learned_round:
             print("Applying learned round...")
             if args.load_checkpoint:
-                iters = 1
-                loader = [calibration_dataset[0]]
+                args.learned_round_iters = 1
+                loader = DataLoader(
+                    dataset=[calibration_dataset[0]], batch_size=1, collate_fn=collate_fn)
             else:
-                iters = args.learned_round_iters
-                loader = calibration_dataset
+                loader = calibration_loader
             remove_hooks(model)
-            # TODO (pml): Fix learned round type hints
-            apply_learned_round(
-                model,
-                loader,
-                iters=iters,
-                block_name_attribute=args.gpxq_block_name,
-                learn_scale=args.learned_round_scale,
-                scale_optimizer_class='sgd',
-                optimizer_kwargs={'lr': args.learned_round_lr},
-                scale_optimizer_kwargs={
-                    'lr': args.learned_round_scale_lr,
-                    'momentum': args.learned_round_scale_momentum},
-                fast_update=args.learned_round_fast_update)
+            apply_learned_round(model, loader, args)
             print("Learned round applied.")
             model = offload_model(model)
 
@@ -714,13 +701,12 @@ def quantize_llm(args, extra_args=None):
         # by the zero shot evaluation libraries (e.g., LightEvel), so we remove the `weight_orig` tensors
         # here, if they exist, to save memory.
         remove_weight_orig(model)
-
         if args.eval and not args.no_quantize:
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
                 quant_ppl = compute_perplexity(
-                    model, validation_dataset, context_length=args.seqlen // 2, tokenizer=tokenizer)
+                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
             print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':

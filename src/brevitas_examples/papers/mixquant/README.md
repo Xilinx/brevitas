@@ -2,7 +2,7 @@
 
 📄 [Paper](https://arxiv.org/pdf/2601.22347)
 💻 [Code](https://github.com/Xilinx/brevitas/pull/1448)
-
+💡 [Docs](https://xilinx.github.io/brevitas/dev/papers/mixquant.html)
 
 ```
 @article{sanjeet2026mixquant,
@@ -17,6 +17,61 @@
 ```
 
 > [!IMPORTANT]
-> These yaml files were tested with transformers==4.57.3 and lighteval==0.13.0
+> These yaml files were tested with `transformers==4.57.3` and `lighteval==0.13.0`
 
-Please use https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant to reproduce the experiments used for the paper.
+## Configs
+
+| Config | Description |
+|---|---|
+| `llama3-mixquant_star-int4.yml` | MixQuant\* — block rotations + MassDiff + Qronos, W4A4 |
+| `llama3-mixquant_dag-int4.yml` | MixQuant† — learned rotations (CayleySGD) + MassDiff + RTN, W4A4 |
+| `benchmark-rotation_block_size.yml` | Multi-GPU sweep over block sizes and permutation strategies |
+
+The provided configurations specify `meta-llama/Llama-3.2-1B-Instruct` by default.
+
+## Running
+
+```bash
+brevitas_ptq_llm --config llama3-mixquant_star-int4.yml
+```
+
+Override the model:
+
+```bash
+brevitas_ptq_llm --config llama3-mixquant_star-int4.yml --model meta-llama/Llama-3.2-3B-Instruct
+```
+
+Key flags:
+
+- `--rotation-block-size` — block size `b` for online Hadamard rotations (e.g. `16`, `32`, `64`).
+  Smaller blocks reduce online rotation cost but suppress outliers less effectively without
+  MixQuant. Omit for full-vector rotations (permutations are not applied in that case).
+- `--permute-fn` — permutation strategy (`massdiff`, `zigzag`, `absmax`, `random`).
+  Omit or set to `null` to disable permutations.
+- `--disable-block-rotation-for-fused` — use block rotations only for online (orphan-sink)
+  rotations; keep fused rotations as full-vector. This is the setting used by MixQuant\*.
+
+## Benchmarking
+
+To sweep over multiple configurations in parallel across GPUs:
+
+```bash
+python benchmark.py --config benchmark-rotation_block_size.yml --results results/ --gpus 0,1
+```
+
+`--gpus` is a comma-separated list of GPU device indices (e.g. `0,1,2,3`). Each GPU runs one
+experiment at a time; experiments are dispatched as GPUs become available.
+
+Below are WikiText2 perplexity results sweeping block size on Llama-3.2-1B-Instruct (W4A4,
+per-channel weights), comparing MassDiff permutations against no permutation. Collected with
+`python==3.12` and `torch==2.6.0`; different versions may yield different results.
+
+| Block Size  | 16   | 32   | 64   | 128  | 256  | 512  | Full |
+|-------------|------|------|------|------|------|------|------|
+| No Permute  | 35.9 | 26.5 | 22.9 | 20.4 | 19.1 | 17.3 | 16.2 |
+| MixQuant    | 18.2 | 17.0 | 16.6 | 16.1 | 16.1 | 15.9 | 16.2 |
+
+## Reproducing paper experiments
+
+Please use https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant
+to reproduce the experiments from the paper.

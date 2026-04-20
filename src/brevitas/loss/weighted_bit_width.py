@@ -21,12 +21,14 @@ MEGA = 10e6
 class BitWidthWeighted(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, model):
+    def __init__(self, model, dtype=None):
         self.model: nn.Module = model
         self.weighted_bit_width_list: List[torch.Tensor] = []
         self.tot_num_elements: int = 0
         self.list_of_hooks = []
         self.register_hooks()
+        self.orig_dtype = next(iter(model.parameters())).dtype
+        self.dtype = dtype if dtype is not None else self.orig_dtype
 
     @abstractmethod
     def register_hooks(self):
@@ -47,7 +49,7 @@ class BitWidthWeighted(object):
                     bit_width / self.tot_num_elements for bit_width in self.weighted_bit_width_list]
         else:
             raise Exception("Number of elements to penalize can't be zero")
-        return value
+        return value.to(self.orig_dtype)
 
     def log(self):
         return self.retrieve(as_average=True).detach().clone()
@@ -67,7 +69,7 @@ class WeightBitWidthWeightedBySize(BitWidthWeighted):
 
         def hook_fn(module, input, output: QuantTensor):
             num_elements = reduce(mul, output.value.size(), 1)
-            self.weighted_bit_width_list.append(num_elements * output.bit_width)
+            self.weighted_bit_width_list.append(num_elements * output.bit_width.to(self.dtype))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -86,7 +88,7 @@ class ActivationBitWidthWeightedBySize(BitWidthWeighted):
 
         def hook_fn(module, input, output: QuantTensor):
             num_elements = reduce(mul, output.value.size()[1:], 1)  # exclude batch size
-            self.weighted_bit_width_list.append(num_elements * (output.bit_width))
+            self.weighted_bit_width_list.append(num_elements * output.bit_width.to(self.dtype))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -107,7 +109,8 @@ class WeightFloatBitWidthWeightedBySize(BitWidthWeighted):
             num_elements = reduce(mul, output.value.size(), 1)
             self.weighted_bit_width_list.append(
                 num_elements *
-                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)))
+                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)).to(
+                    self.dtype))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -128,7 +131,8 @@ class ActivationFloatBitWidthWeightedBySize(BitWidthWeighted):
             num_elements = reduce(mul, output.value.size()[1:], 1)  # exclude batch size
             self.weighted_bit_width_list.append(
                 num_elements *
-                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)))
+                (output.mantissa_bit_width + output.exponent_bit_width + int(output.signed)).to(
+                    self.dtype))
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -150,7 +154,7 @@ class QuantLayerOutputBitWidthWeightedByOps(BitWidthWeighted):
             if isinstance(output, QuantTensor):
                 output_size = reduce(mul, output.size()[1:], 1)  # exclude batch size
                 num_mops = output_size * module.per_elem_ops / MEGA
-                self.weighted_bit_width_list.append(output.bit_width * num_mops)
+                self.weighted_bit_width_list.append(output.bit_width.to(self.dtype) * num_mops)
                 self.tot_num_elements += num_mops
 
         for name, module in self.model.named_modules():

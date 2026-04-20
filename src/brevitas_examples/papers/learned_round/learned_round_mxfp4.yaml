@@ -1,0 +1,129 @@
+# ======================
+# Model/Dataset settings
+# ======================
+model:
+- meta-llama/Llama-3.2-1B
+- meta-llama/Llama-3.2-3B
+- meta-llama/Llama-3.1-8B
+- Qwen/Qwen2.5-1.5B
+- Qwen/Qwen2.5-3B
+- Qwen/Qwen2.5-7B
+seed:
+- 0
+seqlen:
+- 2048
+nsamples:
+- 512
+dataset:
+- pile
+# adds a BOS token to the beginning of each sequence
+bos_preprocessing:
+- sequence
+dtype:
+- float32
+# ===================
+# Evaluation settings
+# ===================
+eval:
+- true
+few_shot_eval:
+- lighteval
+few_shot_limit:
+- null
+few_shot_override_batch_size:
+- 16
+few_shot_tasks:
+- - leaderboard|arc:challenge|0|0
+  - leaderboard|winogrande|0|0
+  - lighteval|arc:easy|0|0
+  - leaderboard|hellaswag|0|0
+  - lighteval|piqa|0|0
+few_shot_zeroshot:
+- true
+# ==================
+# Stage 1: Transform
+# ==================
+magr:
+- true
+- false
+magr_alpha:
+- 0.01
+
+rotation:
+- null
+- layerwise
+- fused_no_fx
+rotation_mode:
+- had
+rotation_orphan_sink:
+- true
+# =================
+# Stage 2: Rounding
+# =================
+qronos:
+- false
+- true
+qronos_alpha:
+- 0.001
+
+gptq:
+- false
+- true
+gpxq_act_order:
+- true
+
+learned_round:
+- null
+- linear_round
+learned_round_fast_update:
+- true
+learned_round_iters:
+- 500
+learned_round_lr:
+- 0.005
+learned_round_scale:
+- true
+learned_round_scale_lr:
+- 0.001
+learned_round_scale_momentum:
+- 0.1
+# ================================
+# MXFP4 quantization configuration
+# ================================
+scaling_min_val:
+- 0.0001
+weight_bit_width:
+- 4
+weight_group_dim:
+- null
+weight_group_size:
+- 32
+weight_param_method:
+- stats
+weight_quant_format:
+- float_ocp_e2m1
+weight_quant_granularity:
+- per_group
+weight_quant_type:
+- sym
+weight_scale_precision:
+- po2_scale
+scale_rounding_func_type:
+- floor
+
+input_bit_width:
+- 4
+input_group_size:
+- 32
+input_param_method:
+- stats
+input_quant_format:
+- float_ocp_e2m1
+input_quant_granularity:
+- per_group
+input_quant_type:
+- sym
+input_scale_precision:
+- po2_scale
+input_scale_type:
+- dynamic

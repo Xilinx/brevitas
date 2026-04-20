@@ -60,7 +60,16 @@ def solve_float_to_int_impl_from_enum(impl_type):
     elif impl_type == FloatToIntImplType.STOCHASTIC_ROUND:
         return StochasticRoundSte
     else:
-        raise Exception(f"{impl_type} not recognized.")
+        raise NotImplementedError(f"{impl_type} not recognized.")
+
+
+def solve_float_to_int_enum_from_impl(impl_type: type) -> FloatToIntImplType:
+    impl_to_enum_dict = {
+        solve_float_to_int_impl_from_enum(enum_value): enum_value
+        for enum_value in FloatToIntImplType}
+    if impl_type not in impl_to_enum_dict:
+        raise NotImplementedError(f"{impl_type} not recognized.")
+    return impl_to_enum_dict[impl_type]
 
 
 def solve_bit_width_impl_from_enum(impl_type):
@@ -87,8 +96,19 @@ def solve_restrict_value_impl_from_enum(impl_type):
         return LogFloatRestrictValue
     elif impl_type == RestrictValueType.POWER_OF_TWO:
         return PowerOfTwoRestrictValue
+    elif impl_type == RestrictValueType.INT:
+        return IntRestrictValue
     else:
         raise RuntimeError(f"{impl_type} not recognized.")
+
+
+def solve_restrict_value_enum_from_impl(impl: type) -> RestrictValueType:
+    impl_to_enum_dict = {
+        solve_restrict_value_impl_from_enum(enum_value): enum_value
+        for enum_value in RestrictValueType}
+    if impl not in impl_to_enum_dict:
+        raise RuntimeError(f"{impl} not recognized.")
+    return impl_to_enum_dict[impl]
 
 
 class SolveRestrictScalingImplFromEnum(ExtendedInjector):

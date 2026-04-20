@@ -25,6 +25,7 @@ from tests.brevitas_examples.common import get_default_args
 from tests.brevitas_examples.common import process_args_and_metrics
 from tests.brevitas_examples.common import UpdatableNamespace
 from tests.conftest import SEED
+from tests.marker import skip_on_macos_nox
 
 # TODO (pml): Use stricter tolerance once a proper image dataset is used.
 # The validation set has 6 images, so ATOL_ACC is set to tolerate a single missclasification
@@ -102,6 +103,28 @@ class ImageNetCases:
                 "model_name": "resnet18", "gptq": True, "quant_top1": 66.6667},],
         ids=["res-defaults", "res-bias-corr", "res-gptq"])
     def case_small_models_args_and_metrics(self, run_dict, default_run_args, request):
+        yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
+
+    @skip_on_macos_nox
+    @pytest_cases.parametrize(
+        "run_dict",
+        [
+            {
+                "model_name": "resnet18",
+                "target_backend": "layerwise",
+                "learned_round": "hard_sigmoid",
+                "learned_round_iters": 2,
+                "quant_top1": 83.3333},
+            {
+                "model_name": "resnet18",
+                "target_backend": "layerwise",
+                "learned_round_mode": "blockwise",
+                "learned_round": "hard_sigmoid",
+                "learned_round_iters": 2,
+                "learned_round_loss": "mse",
+                "quant_top1": 83.3333},],
+        ids=["res-layerwise", "res-blockwise"])
+    def case_small_models_learned_round(self, run_dict, default_run_args, request):
         yield process_args_and_metrics(default_run_args, run_dict, extra_keys=ImageNetCases.METRICS)
 
 

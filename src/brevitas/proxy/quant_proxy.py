@@ -151,3 +151,10 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         zero_hw_sentinel_key = prefix + 'zero_hw_sentinel'
         if zero_hw_sentinel_key in unexpected_keys:
             unexpected_keys.remove(zero_hw_sentinel_key)
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        if config.IGNORE_PROXY_KEYS.get():
+            return dict()
+        output_dict = super(QuantProxyFromInjector, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        return output_dict

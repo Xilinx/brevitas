@@ -1,4 +1,9 @@
-onnx==1.17.0
+# Recent versions of onnxruntime are not compatible with python < 3.13
+# Latest version of onnx is not compatible with older version of onnxruntime
+# For python < 3.13, we will automatically install older versions of onnxruntime
+# and we need to pin a slightly old version of ONNX
+onnx==1.17.0 ; python_version < "3.13"
+onnx ; python_version >= "3.13"
 onnxoptimizer
 onnxscript
 qonnx
