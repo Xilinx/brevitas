@@ -78,9 +78,9 @@ class MXActMixin(MXMixin):
 
     @value
     def stats_reduce_dim(group_dim):
-        # If group_dim = -1, we need a workaround to avoid selecting wrong dim
-        if group_dim == -1:
-            return -1
+        # If group_dim < 0, we need a workaround to avoid selecting wrong dim
+        if group_dim < 0:
+            return group_dim
         else:
             return group_dim + 1
 
