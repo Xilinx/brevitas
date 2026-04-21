@@ -217,3 +217,31 @@ def test_weight_mx(inp, bit_widths, scale_rounding, weight_quant_type):
     y = quantizer.quantize(x, select=scale_rounding == "midmax")
     assert torch.allclose(qx_weight.value, y, atol=1e-8)
     assert torch.allclose(qx_weight_two.value, y, atol=1e-8)
+
+
+@pytest_cases.parametrize(
+    'shape, group_dim_pos, group_dim_neg', [((1, 32), 1, -1), ((2, 32), 1, -1), ((2, 3, 32), 2, -1),
+                                            ((2, 3, 32), 1, -2)])
+def test_act_mx_negative_group_dim(shape, group_dim_pos, group_dim_neg):
+    """Verify that negative group_dim values produce the same results as positive equivalents."""
+    torch.manual_seed(0)
+    x = torch.randn(shape)
+
+    def make_act_quant(group_dim):
+        return QuantIdentity(
+            MXFloat8e4m3Act,
+            exponent_bit_width=4,
+            mantissa_bit_width=3,
+            bit_width=8,
+            group_dim=group_dim,
+            return_quant_tensor=True)
+
+    act_pos = make_act_quant(group_dim_pos)
+    act_pos.eval()
+    act_neg = make_act_quant(group_dim_neg)
+    act_neg.eval()
+
+    qx_pos = act_pos(x)
+    qx_neg = act_neg(x)
+
+    assert torch.allclose(qx_pos.value, qx_neg.value, atol=1e-8)
