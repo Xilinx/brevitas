@@ -139,7 +139,8 @@ def get_dataset_for_model(
     if split not in ["train", *test_splits]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
 
-    raw_dataset = load_raw_dataset(dataset_name=dataset_name, split=split, seed=seed)
+    raw_dataset = load_raw_dataset(
+        dataset_name=dataset_name, split=split, nsamples=nsamples, seed=seed)
     if dataset_name == "wikitext2" or (dataset_name in testless_datasets and split in test_splits):
         # Document level BOS preprocessing is not supported for Wikitext2 as each row does not belong to
         # a single document

@@ -149,12 +149,12 @@ def get_clm_dataset(
         load_from_cache_file=True,
         desc=f"Grouping texts in chunks of {seqlen}",
     )
-    # Retrieve a random subset of sequences
-    random_indices = [i for i in range(len(dataset))]
-    random.shuffle(random_indices)
-    random_indices = random_indices[:nsamples]
-    # Retrive random slice of dataset
-    dataset = dataset.select(random_indices)
+    # Retrieve a random subset of sequences (nsamples == -1 means use all)
+    if nsamples != -1:
+        random_indices = [i for i in range(len(dataset))]
+        random.shuffle(random_indices)
+        random_indices = random_indices[:nsamples]
+        dataset = dataset.select(random_indices)
     return dataset
 
 
@@ -178,11 +178,18 @@ def get_wikitext2(
         "\n\n".join(raw_dataset['text']), return_attention_mask=False)["input_ids"]
     tokenized_data = []
     if split == 'train':
-        for _ in tqdm(range(nsamples)):
-            i = random.randint(0, len(input_ids) - seqlen - 1)
-            j = i + seqlen
-            inp = sequence_process_fn(input_ids[i:j])
-            tokenized_data.append({'input_ids': inp})
+        if nsamples == -1:
+            # Load all non-overlapping sequences
+            nsamples = len(input_ids) // seqlen
+            for i in tqdm(range(nsamples)):
+                inp = sequence_process_fn(input_ids[(i * seqlen):((i + 1) * seqlen)])
+                tokenized_data.append({'input_ids': inp})
+        else:
+            for _ in tqdm(range(nsamples)):
+                i = random.randint(0, len(input_ids) - seqlen - 1)
+                j = i + seqlen
+                inp = sequence_process_fn(input_ids[i:j])
+                tokenized_data.append({'input_ids': inp})
     elif split in ['test', 'validation']:
         nsamples = len(input_ids) // seqlen
         for i in tqdm(range(nsamples)):
@@ -191,7 +198,7 @@ def get_wikitext2(
     return Dataset.from_list(tokenized_data)
 
 
-def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
+def load_raw_dataset(dataset_name: str, split: str, nsamples: int = 128, seed: int = 42) -> Dataset:
     if dataset_name == "wikitext2":
         data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "c4":
@@ -205,18 +212,18 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
                 "allenai/c4",
                 split="validation",
                 data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"})
-        data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
+        data = _maybe_truncate_raw_dataset(data, nsamples, seed)
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
-            data = data.shuffle(seed=seed).select(range(10000))
+            data = _maybe_truncate_raw_dataset(data, nsamples, seed)
         else:
             warnings.warn(f"There is no available {split} split for pile. Defaulting to wikitext2.")
             data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "fineweb":
         if split == "train":
             data = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")
-            data = data.shuffle(seed=seed).select(range(10000))
+            data = _maybe_truncate_raw_dataset(data, nsamples, seed)
         else:
             warnings.warn(
                 f"There is no available {split} split for fineweb. Defaulting to wikitext2.")
@@ -224,3 +231,19 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")
     return data
+
+
+def _maybe_truncate_raw_dataset(data: Dataset, nsamples: int, seed: int) -> Dataset:
+    """Truncate large raw datasets to a reasonable size based on the requested number of samples.
+
+    When nsamples is -1 (load all), the dataset is only shuffled without truncation.
+    Otherwise, we load enough raw rows to ensure we can produce at least nsamples
+    tokenized sequences after processing.
+    """
+    if nsamples == -1:
+        return data.shuffle(seed=seed)
+    # Ensure we load enough raw rows; each raw row may produce fewer tokenized
+    # sequences than expected, so we use a generous lower bound.
+    n_raw = max(nsamples, 10000)
+    n_raw = min(n_raw, len(data))
+    return data.shuffle(seed=seed).select(range(n_raw))

@@ -37,7 +37,8 @@ def create_args_parser() -> ArgumentParser:
         '--nsamples',
         type=int,
         default=128,
-        help='Number of calibration data samples. Default: 128.')
+        help=
+        'Number of calibration data samples. Set to -1 to load the entire dataset. Default: 128.')
     parser.add_argument(
         '--nsamples-rot-calibration',
         type=int,
