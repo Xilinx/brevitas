@@ -323,7 +323,7 @@ def _build_optimizers_from_configs(
     return multi_optimizer, multi_scheduler
 
 
-def apply_rotation_optimization(
+def apply_fine_tuning(
     model: torch.nn.Module,
     tokenizer: PreTrainedTokenizerBase,
     train_dataset: Dataset,
@@ -333,12 +333,21 @@ def apply_rotation_optimization(
     callbacks: Optional[List[Any]] = None,
     optimizer_configs: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
-    """Optimize rotation matrices inserted into the model.
+    """Fine-tune model weights and/or rotation matrices.
+
+    This is the unified training entry point.  When *optimizer_configs*
+    is ``None``, the function inspects the model:
+
+    * If trainable rotation matrices are found, a ``CaileySGD`` optimizer
+      is built for them (backward-compatible rotation-optimization
+      behaviour).
+    * Otherwise, ``(None, None)`` is passed to the Trainer so that it
+      uses its built-in optimizer (AdamW by default).
 
     Parameters
     ----------
     model : torch.nn.Module
-        The model whose rotation matrices will be optimized.
+        The model to fine-tune.
     tokenizer : PreTrainedTokenizerBase
         The tokenizer associated with the model.
     train_dataset : Dataset
@@ -370,17 +379,17 @@ def apply_rotation_optimization(
 
         When multiple configs are provided, a ``MultiOptimizer`` /
         ``MultiScheduler`` is built automatically.  When ``None``
-        (the default), the original single-optimizer behaviour is used
-        (``CaileySGD`` on the rotation matrices only).
+        (the default), the behaviour depends on whether the model
+        contains trainable rotation matrices (see above).
     """
 
     # Prepare dataset and model for training
     train_dataset = _prepare_train_dataset(train_dataset)
     model = _prepare_model(model)
-    # Enable skipping optimization
+    # Enable skipping training
     if training_args.max_steps <= 0:
         return
-    # Remove hooks and empty cache before starting optimization
+    # Remove hooks and empty cache before starting training
     remove_hooks(model)
     torch.cuda.empty_cache()
     # Freeze all model parameters; individual param groups will be
@@ -390,10 +399,14 @@ def apply_rotation_optimization(
 
     # Build optimizer / scheduler pair
     if optimizer_configs is not None:
-        optimizer, scheduler = _build_optimizers_from_configs(
-            model, training_args, optimizer_configs)
+        optimizers = _build_optimizers_from_configs(model, training_args, optimizer_configs)
+    elif extract_trainable_rotation_matrices(model):
+        # Backward-compatible default: CaileySGD on rotation matrices
+        optimizers = _build_default_optimizers(model, training_args)
     else:
-        optimizer, scheduler = _build_default_optimizers(model, training_args)
+        # No custom configs and no rotation matrices — let the HF
+        # Trainer use its built-in optimizer.
+        optimizers = (None, None)
 
     # Select trainer class
     if trainer_cls is None:
@@ -406,7 +419,7 @@ def apply_rotation_optimization(
         train_dataset=train_dataset,
         eval_dataset=None,
         data_collator=collate_fn,
-        optimizers=(optimizer, scheduler))
+        optimizers=optimizers)
     if callbacks is not None:
         trainer_kwargs["callbacks"] = callbacks
 
@@ -414,3 +427,7 @@ def apply_rotation_optimization(
     trainer.train()
     # After finishing training, set eval mode again
     model.eval()
+
+
+# Backward-compatible alias
+apply_rotation_optimization = apply_fine_tuning

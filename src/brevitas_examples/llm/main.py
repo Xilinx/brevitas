@@ -71,7 +71,7 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_t
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
-from brevitas_examples.llm.llm_quant.rotation_optimization import apply_rotation_optimization
+from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
 from brevitas_examples.llm.llm_quant.rotation_optimization import OPTIMIZER_CONFIG_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
@@ -139,7 +139,7 @@ def fused_rotation_no_fx(model, calibration_loader, args):
         full_rotation_method=args.rotation_mode,
         return_rewriters=return_rewriters,
         sdpa_regions=args.rotation_sdpa_regions,
-        use_parametrized_rotations=args.optimize_rotations,
+        use_parametrized_rotations=args.fine_tune,
         delay_rewriters=delay_rewriters,
         expansion_step=args.expansion_step,
         layers_to_expand=layers_to_expand,
@@ -308,7 +308,7 @@ def quantize_llm(args, extra_args=None):
 
     validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
-    if args.optimize_rotations:
+    if args.fine_tune:
         # Load custom training plugin if specified
         custom_trainer_config_name = None
         custom_trainer_cls = None
@@ -332,11 +332,11 @@ def quantize_llm(args, extra_args=None):
                 if callable(custom_optimizer_configs):
                     custom_optimizer_configs = custom_optimizer_configs()
 
-        # Extra arguments should be used as training arguments for rotation optimization
-        rot_optimization_args = parse_rotation_optimization_args(
+        # Extra arguments should be used as training arguments
+        training_args = parse_rotation_optimization_args(
             extra_args=extra_args, training_args_cls=custom_training_args_cls)
-        # Load the data for rotation optimization
-        rot_calibration_dataset = get_dataset_for_model(
+        # Load the data for training
+        train_dataset = get_dataset_for_model(
             bos_preprocessing=args.bos_preprocessing,
             dataset_name=args.dataset,
             tokenizer=tokenizer,
@@ -406,7 +406,7 @@ def quantize_llm(args, extra_args=None):
             orphan_sink=args.rotation_orphan_sink,
             full_rotation_method=args.rotation_mode,
             sdpa_regions=args.rotation_sdpa_regions,
-            use_parametrized_rotations=args.optimize_rotations,
+            use_parametrized_rotations=args.fine_tune,
             expansion_step=args.expansion_step,
             layers_to_expand=layers_to_expand,
             rotation_block_size=args.rotation_block_size,
@@ -615,24 +615,25 @@ def quantize_llm(args, extra_args=None):
             apply_calibration(model, calibration_loader)
             print("Act calibration applied.")
 
-        if args.optimize_rotations:
+        if args.fine_tune:
             if args.load_checkpoint:
-                rot_optimization_args.max_steps = 0
-            apply_rotation_optimization(
+                training_args.max_steps = 0
+            apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
-                train_dataset=rot_calibration_dataset,
-                training_args=rot_optimization_args,
+                train_dataset=train_dataset,
+                training_args=training_args,
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
                 callbacks=custom_callbacks,
                 optimizer_configs=custom_optimizer_configs)
-            # Remove hooks from optimization
+            # Remove hooks from training
             remove_hooks(model)
-            # Offload model before fusing the rotations
             model = offload_model(model)
-            # Fuse rotations with weights
-            model = fuse_parametrizations(model)
+            # Fuse rotation parametrizations with weights when rotations
+            # were used (the function is a no-op when there are none).
+            if args.rotation is not None:
+                model = fuse_parametrizations(model)
 
         if args.svd_quant:
             print("Apply SVDQuant...")

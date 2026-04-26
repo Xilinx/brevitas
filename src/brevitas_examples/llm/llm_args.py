@@ -336,20 +336,31 @@ def create_args_parser() -> ArgumentParser:
         choices=['fx', 'layerwise', 'fused_no_fx'],
         help='Apply graph rotation equalization')
     parser.add_argument(
+        "--fine-tune",
+        action="store_true",
+        default=False,
+        help="Enable the training / fine-tuning pipeline. When used with "
+        "--rotation, rotation matrices are parametrized and optimized. "
+        "When used without --rotation, a custom trainer plugin can "
+        "fine-tune all model weights (default: %(default)s).",
+    )
+    parser.add_argument(
         "--optimize-rotations",
         action="store_true",
         default=False,
-        help="Whether to optimize the rotations (default: %(default)s).",
+        dest="optimize_rotations",
+        help="Deprecated: use --fine-tune instead. Implies --fine-tune "
+        "(default: %(default)s).",
     )
     parser.add_argument(
         '--custom-trainer',
         type=str,
         default=None,
-        help='Path to a custom training plugin for rotation optimization, in the format '
+        help='Path to a custom training plugin, in the format '
         '"path/to/plugin.py:config_name". The plugin .py file should register a '
         'trainer class, training args class, callbacks, and/or optimizer configs '
         'into the TRAINER_REGISTRY, TRAINING_ARGS_REGISTRY, and '
-        'OPTIMIZER_CONFIG_REGISTRY. Default: None.',
+        'OPTIMIZER_CONFIG_REGISTRY. Implies --fine-tune. Default: None.',
     )
     parser.add_argument(
         '--rotation-mode',
@@ -523,9 +534,20 @@ def fx_required(args: Namespace):
 
 
 def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
+    # --optimize-rotations is a deprecated alias for --fine-tune
     if args.optimize_rotations:
+        warn(
+            "--optimize-rotations is deprecated, use --fine-tune instead.",
+            DeprecationWarning,
+            stacklevel=2)
+        args.fine_tune = True
+    # --custom-trainer implies --fine-tune
+    if args.custom_trainer is not None:
+        args.fine_tune = True
+    # Rotation optimization requires --rotation to be set
+    if args.fine_tune and args.rotation is not None:
         assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
-    else:
+    if not args.fine_tune:
         assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
     if args.rotation == 'fx':
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
