@@ -77,7 +77,9 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_t
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_compatible
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.rotation_optimization import _is_fsdp_enabled
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
+from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -634,6 +636,7 @@ def quantize_llm(args, extra_args=None):
     else:
         quantization_cm = nullcontext()
 
+    fsdp_enabled = False
     with quantization_cm:
         # We initialize weights scale factor
         with torch.no_grad():
@@ -663,13 +666,29 @@ def quantize_llm(args, extra_args=None):
             fine_tune_extra_args = list(extra_args) if extra_args is not None else []
             if args.load_checkpoint:
                 fine_tune_extra_args += ["--max_steps", "0"]
-            apply_fine_tuning(
+            training_args = parse_rotation_optimization_args(
+                extra_args=fine_tune_extra_args,
+                trainer_cls=custom_trainer_cls)
+            fsdp_enabled = _is_fsdp_enabled(training_args)
+            copied_model = deepcopy(model.cpu()) if fsdp_enabled else None
+            fsdp_state_dict = apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
                 extra_args=fine_tune_extra_args)
+            if fsdp_enabled:
+                rank = dist.get_rank()
+                if rank == 0:
+                    copied_model.load_state_dict(fsdp_state_dict)
+                    model = copied_model
+                del copied_model
+                dist.barrier()
+                dist.destroy_process_group()
+                if rank != 0:
+                    sys.exit(0)
+                torch.cuda.empty_cache()
             # Remove hooks from training
             remove_hooks(model)
             model = offload_model(model)
@@ -825,6 +844,8 @@ def quantize_llm(args, extra_args=None):
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
                 remove_hooks(model)
+                if fsdp_enabled:
+                    model = model.to("cuda:0")
 
                 from brevitas_examples.llm.eval_lighteval import run_lighteval
                 few_shot_eval_results = run_lighteval(
@@ -851,7 +872,12 @@ def quantize_llm(args, extra_args=None):
         "quant_ppl": quant_ppl,
         "quant_ear": quant_ear,
         "quant_kld": quant_kld}
-    return {**eval_results, **few_shot_eval_results}, model
+    results = {**eval_results, **few_shot_eval_results}
+    if args.job_folder is not None:
+        os.makedirs(args.job_folder, exist_ok=True)
+        with open(os.path.join(args.job_folder, "results.json"), "w") as results_file:
+            json.dump(results, results_file)
+    return results, model
 
 
 def main():
