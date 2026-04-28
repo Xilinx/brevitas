@@ -60,6 +60,10 @@ def _select_rotation_params(
     return extract_trainable_rotation_matrices(model)
 
 
+def _is_fsdp_enabled(training_args: transformers.TrainingArguments) -> bool:
+    return training_args.distributed_state.distributed_type == DistributedType.FSDP
+
+
 class RotationTrainer(GeneralizedTrainer):
     """Default trainer for rotation optimization.
 
@@ -124,7 +128,7 @@ def apply_fine_tuning(
         train_dataset: Dataset,
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None) -> None:
+        extra_args: Optional[List[str]] = None) -> Optional[Dict[str, torch.Tensor]]:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -190,13 +194,23 @@ def apply_fine_tuning(
     for param in model.parameters():
         param.requires_grad = False
 
-    # Build optimizer / scheduler pair from the training args.
+    # Build optimizers after FSDP wraps the model, because wrapping replaces
+    # parameter objects and invalidates eagerly created optimizer references.
     if training_args.optimizer_scheduler_args is None:
         raise RuntimeError("TrainingArguments needs to specify optimizer_scheduler_args")
 
-    # The optimizer-building helpers unfreeze the parameters of each
-    # selected param group.
-    optimizers = _build_optimizers_from_configs(model, training_args)
+    fsdp_enabled = _is_fsdp_enabled(training_args)
+    if fsdp_enabled:
+        if not issubclass(trainer_cls, GeneralizedTrainer):
+            raise RuntimeError(
+                "FSDP fine-tuning requires a GeneralizedTrainer subclass so the optimizer can "
+                "be created after model wrapping.")
+        training_args._deferred_optimizer_scheduler_args = training_args.optimizer_scheduler_args
+        optimizers = (None, None)
+    else:
+        # The optimizer-building helpers unfreeze the parameters of each
+        # selected param group.
+        optimizers = _build_optimizers_from_configs(model, training_args)
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
@@ -216,5 +230,8 @@ def apply_fine_tuning(
 
     trainer = trainer_cls(**trainer_kwargs)
     trainer.train()
+    if fsdp_enabled:
+        return trainer.accelerator.get_state_dict(trainer.model)
     # After finishing training, set eval mode again
     model.eval()
+    return None

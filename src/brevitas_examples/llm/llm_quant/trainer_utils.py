@@ -17,6 +17,7 @@ from typing import Union
 
 import torch
 import torch.nn.functional as F
+from torch.distributed._composable.fsdp import fully_shard
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 import transformers
@@ -362,7 +363,9 @@ class GeneralizedTrainer(Trainer):
         self.gamma = args.gamma
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
-        self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
+        self.teacher_model = (
+            teacher_model if self.is_fsdp_enabled else offload_model(teacher_model)
+        )
 
     def _default_scheduler(self, optimizer, num_training_steps):
         """Build the HuggingFace default LR scheduler for a single optimizer.
@@ -404,6 +407,35 @@ class GeneralizedTrainer(Trainer):
         # Single-optimizer case: the base implementation already builds the
         # HuggingFace default scheduler when self.lr_scheduler is None.
         return super().create_scheduler(num_training_steps, optimizer)
+
+    def create_optimizer_and_scheduler(self, num_training_steps: int) -> None:
+        deferred_optimizer_args = getattr(self.args, "_deferred_optimizer_scheduler_args", None)
+        if deferred_optimizer_args is None:
+            return super().create_optimizer_and_scheduler(num_training_steps)
+
+        del self.args._deferred_optimizer_scheduler_args
+        self.args.optimizer_scheduler_args = deferred_optimizer_args
+        self.optimizer, self.lr_scheduler = _build_optimizers_from_configs(self.model, self.args)
+        self.create_scheduler(num_training_steps, optimizer=self.optimizer)
+
+    def _wrap_model(self, model, training=True, dataloader=None):
+        wrapped = super()._wrap_model(model, training, dataloader)
+        if self.teacher_model is not None and self.is_fsdp_enabled:
+            fsdp_plugin = self.accelerator.state.fsdp_plugin
+            class_names = getattr(fsdp_plugin, "transformer_cls_names_to_wrap", None)
+            if not class_names:
+                class_names = list(getattr(self.teacher_model, "_no_split_modules", []) or [])
+
+            from accelerate.utils.dataclasses import get_module_class_from_name
+
+            layer_classes = tuple(
+                cls for name in class_names
+                if (cls := get_module_class_from_name(self.teacher_model, name)) is not None)
+            for module in self.teacher_model.modules():
+                if layer_classes and isinstance(module, layer_classes):
+                    fully_shard(module)
+            fully_shard(self.teacher_model)
+        return wrapped
 
     @staticmethod
     def forward_kl_loss(
