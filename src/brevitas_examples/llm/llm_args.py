@@ -571,6 +571,14 @@ def create_args_parser() -> ArgumentParser:
     # Adds Scale Optimization (--sopt-*) flags (PiSO being the current solver instance behind them).
     ScaleOptimizerArgumentParser.add_arguments(parser)
 
+    parser.add_argument(
+        '--job-folder',
+        type=str,
+        default=None,
+        help='If set, write results.json to this folder after quantization '
+        'completes. Used by the benchmark framework to collect results '
+        'from accelerate launch subprocesses. Default: %(default)s.')
+
     return parser
 
 
