@@ -24,6 +24,8 @@ except:
     # This has changed in transformers v5
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
+from torch.optim.lr_scheduler import ConstantLR
+
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
@@ -84,8 +86,6 @@ class MultiScheduler:
                 scheduler.step(*args, **kwargs)
 
     def get_last_lr(self) -> List[float]:
-        if not self.schedulers or self.schedulers[0] is None:
-            return []
         return self.schedulers[0].get_last_lr()
 
     @property
@@ -137,6 +137,8 @@ class TrainingArguments(transformers.TrainingArguments):
     topk: int = field(
         default=-1,
         metadata={"help": "Consider the first K logits when computing distillation loss"})
+    kl_loss_reduction = field(
+        default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
 
 
 class GeneralizedTrainer(Trainer):
@@ -146,14 +148,62 @@ class GeneralizedTrainer(Trainer):
         self.use_distillation_loss = args.use_distillation_loss
         self.gamma = args.gamma
         self.temperature = args.temperature
+        self.kl_loss_reduction = args.kl_loss_reduction
+
+    def create_optimizer_and_scheduler(self, num_training_steps: int) -> None:
+        """Build optimizer/scheduler from deferred configs when FSDP is active.
+
+        Under FSDP the optimizer cannot be passed to the Trainer constructor
+        because parameter references become stale after FSDP wraps the model.
+        Instead, ``apply_fine_tuning`` stashes the optimizer configs on
+        ``self.args._deferred_optimizer_configs`` and this method builds the
+        optimizer after FSDP wrapping, using ``self.model`` (which now holds
+        the FSDP-wrapped model with valid parameter references).
+        """
+        deferred = getattr(self.args, "_deferred_optimizer_configs", None)
+        if deferred is None:
+            return super().create_optimizer_and_scheduler(num_training_steps)
+
+        del self.args._deferred_optimizer_configs
+
+        if len(deferred) > 1:
+            raise RuntimeError(
+                "FSDP does not support MultiOptimizer (multiple optimizer "
+                "groups).  Use a single optimizer config or disable FSDP.")
+
+        os_args: Optional[List[Dict[str,
+                                    Any]]] = getattr(self.args, "optimizer_scheduler_args", None)
+        if os_args is None or len(os_args) < len(deferred):
+            raise RuntimeError(
+                "optimizer_scheduler_args on training_args does not match "
+                "the deferred optimizer configs.")
+
+        config = deferred[0]
+        params = config["params"]
+        if callable(params):
+            params = params(self.model, self.args)
+        for param in params:
+            param.requires_grad = True
+
+        entry = os_args[0]
+        optimizer_class = config.get("optimizer_class", torch.optim.AdamW)
+        optimizer_kwargs = entry.get("optimizer_kwargs", {})
+        self.optimizer = optimizer_class(params, **optimizer_kwargs)
+
+        scheduler_class = config.get("scheduler_class", None)
+        if scheduler_class is not None:
+            scheduler_kwargs = entry.get("scheduler_kwargs", {})
+            self.lr_scheduler = scheduler_class(self.optimizer, **scheduler_kwargs)
+        else:
+            self.create_scheduler(num_training_steps, optimizer=self.optimizer)
 
     @staticmethod
     def forward_kl_loss(
             student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
-
+        out_dtype = student_logits.dtype
         # Apply temperature scaling
-        student_logits = student_logits / temperature
-        teacher_logits = teacher_logits / temperature
+        student_logits = student_logits.float() / temperature
+        teacher_logits = teacher_logits.float() / temperature
 
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
@@ -164,7 +214,10 @@ class GeneralizedTrainer(Trainer):
             student_log_probs = student_log_probs.gather(-1, indices)
 
         loss = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
-        return loss
+        if reduction == "none":
+            # We sum across the vocabulary dim, and then average the rest
+            loss = loss.sum(dim=-1).mean()
+        return loss.to(out_dtype)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         """
@@ -188,7 +241,8 @@ class GeneralizedTrainer(Trainer):
                 student_logits=outputs.logits,
                 teacher_logits=fp_outputs.logits,
                 temperature=self.temperature,
-            )
+                reduction=self.kl_loss_reduction)
+
             if (self.args.average_tokens_across_devices and
                 (self.model_accepts_loss_kwargs or self.compute_loss_func) and
                     num_items_in_batch is not None):
@@ -200,7 +254,7 @@ class GeneralizedTrainer(Trainer):
 
 def parse_rotation_optimization_args(
     extra_args: Optional[List[str]] = None,
-    training_args_cls: Optional[Type[transformers.TrainingArguments]] = None,
+    training_args_cls: Optional[Type[transformers.TrainingArguments]] = None
 ) -> transformers.TrainingArguments:
     if training_args_cls is None:
         training_args_cls = TrainingArguments
@@ -238,10 +292,7 @@ def _prepare_train_dataset(train_dataset: Dataset) -> Dataset:
     return train_dataset
 
 
-def _build_default_optimizers(
-    model: torch.nn.Module,
-    training_args: TrainingArguments,
-) -> tuple:
+def _build_default_optimizers(model: torch.nn.Module, training_args: TrainingArguments) -> tuple:
     """Build the default (CaileySGD, None) optimizer/scheduler pair.
 
     Returns a tuple ``(optimizer_or_multi, scheduler_or_none)`` ready to
@@ -259,10 +310,9 @@ def _build_default_optimizers(
 
 
 def _build_optimizers_from_configs(
-    model: torch.nn.Module,
-    training_args: transformers.TrainingArguments,
-    optimizer_configs: List[Dict[str, Any]],
-) -> tuple:
+        model: torch.nn.Module,
+        training_args: transformers.TrainingArguments,
+        optimizer_configs: List[Dict[str, Any]]) -> tuple:
     """Build a ``(MultiOptimizer, MultiScheduler | None)`` pair from a
     list of optimizer configuration dicts.
 
@@ -313,7 +363,9 @@ def _build_optimizers_from_configs(
             scheduler = scheduler_class(optimizer, **scheduler_kwargs)
             schedulers.append(scheduler)
         else:
-            schedulers.append(None)
+            # If no scheduler is specified, we use a "dummy" scheduler with constant lr
+            scheduler = ConstantLR(optimizer, factor=1.)
+            schedulers.append(scheduler)
 
     multi_optimizer = MultiOptimizer(optimizers)
     # Always return a MultiScheduler, even when all entries are None.
@@ -324,15 +376,14 @@ def _build_optimizers_from_configs(
 
 
 def apply_fine_tuning(
-    model: torch.nn.Module,
-    tokenizer: PreTrainedTokenizerBase,
-    train_dataset: Dataset,
-    training_args: transformers.TrainingArguments,
-    collate_fn: Callable,
-    trainer_cls: Optional[Type[Trainer]] = None,
-    callbacks: Optional[List[Any]] = None,
-    optimizer_configs: Optional[List[Dict[str, Any]]] = None,
-) -> None:
+        model: torch.nn.Module,
+        tokenizer: PreTrainedTokenizerBase,
+        train_dataset: Dataset,
+        training_args: transformers.TrainingArguments,
+        collate_fn: Callable,
+        trainer_cls: Optional[Type[Trainer]] = None,
+        callbacks: Optional[List[Any]] = None,
+        optimizer_configs: Optional[List[Dict[str, Any]]] = None) -> None:
     """Fine-tune model weights and/or rotation matrices.
 
     This is the unified training entry point.  When *optimizer_configs*
