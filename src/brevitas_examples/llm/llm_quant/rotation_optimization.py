@@ -1,6 +1,7 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import copy
 from dataclasses import dataclass
 from dataclasses import field
 import os
@@ -30,6 +31,7 @@ from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas.utils.python_utils import Registry
+from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 
 # Registries for out-of-source customization of the training process.
@@ -143,12 +145,13 @@ class TrainingArguments(transformers.TrainingArguments):
 
 class GeneralizedTrainer(Trainer):
 
-    def __init__(self, args: TrainingArguments = None, **kwargs) -> None:
+    def __init__(self, args: TrainingArguments = None, teacher_model=None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
         self.use_distillation_loss = args.use_distillation_loss
         self.gamma = args.gamma
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
+        self.teacher_model = offload_model(teacher_model)
 
     def create_optimizer_and_scheduler(self, num_training_steps: int) -> None:
         """Build optimizer/scheduler from deferred configs when FSDP is active.
@@ -234,8 +237,8 @@ class GeneralizedTrainer(Trainer):
             loss, outputs = loss
 
         if self.use_distillation_loss:
-            with torch.no_grad(), quantization_status_manager(model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
-                fp_outputs = model(**inputs)
+            with torch.no_grad(), quantization_status_manager(self.teacher_model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
+                fp_outputs = self.teacher_model(**inputs)
             # Compute the distillation loss
             distill_loss = GeneralizedTrainer.forward_kl_loss(
                 student_logits=outputs.logits,
@@ -463,8 +466,11 @@ def apply_fine_tuning(
     if trainer_cls is None:
         trainer_cls = GeneralizedTrainer
 
+    teacher_model = copy.deepcopy(model.cpu()) if trainer_kwargs.use_distillation_loss else None
+
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
+        teacher_model=teacher_model,
         tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
