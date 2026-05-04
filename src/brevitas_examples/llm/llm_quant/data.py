@@ -198,7 +198,7 @@ def get_wikitext2(
     return Dataset.from_list(tokenized_data)
 
 
-def load_raw_dataset(dataset_name: str, split: str, nsamples: int = 128, seed: int = 42) -> Dataset:
+def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     if dataset_name == "wikitext2":
         data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "c4":
@@ -212,18 +212,18 @@ def load_raw_dataset(dataset_name: str, split: str, nsamples: int = 128, seed: i
                 "allenai/c4",
                 split="validation",
                 data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"})
-        data = _maybe_truncate_raw_dataset(data, nsamples, seed)
+       data = data.shuffle(seed=seed)
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
-            data = _maybe_truncate_raw_dataset(data, nsamples, seed)
+            data = data.shuffle(seed=seed)
         else:
             warnings.warn(f"There is no available {split} split for pile. Defaulting to wikitext2.")
             data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "fineweb":
         if split == "train":
             data = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")
-            data = _maybe_truncate_raw_dataset(data, nsamples, seed)
+            data = data.shuffle(seed=seed)
         else:
             warnings.warn(
                 f"There is no available {split} split for fineweb. Defaulting to wikitext2.")
@@ -231,19 +231,3 @@ def load_raw_dataset(dataset_name: str, split: str, nsamples: int = 128, seed: i
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")
     return data
-
-
-def _maybe_truncate_raw_dataset(data: Dataset, nsamples: int, seed: int) -> Dataset:
-    """Truncate large raw datasets to a reasonable size based on the requested number of samples.
-
-    When nsamples is -1 (load all), the dataset is only shuffled without truncation.
-    Otherwise, we load enough raw rows to ensure we can produce at least nsamples
-    tokenized sequences after processing.
-    """
-    if nsamples == -1:
-        return data.shuffle(seed=seed)
-    # Ensure we load enough raw rows; each raw row may produce fewer tokenized
-    # sequences than expected, so we use a generous lower bound.
-    n_raw = max(nsamples, 10000)
-    n_raw = min(n_raw, len(data))
-    return data.shuffle(seed=seed).select(range(n_raw))
