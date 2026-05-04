@@ -56,7 +56,7 @@ RTOL_ACC = 1e-5
 
 
 def mock_load_raw_dataset(
-        dataset_name: str, split: str, nsamples: int = 128, seed: int = 42) -> Dataset:
+        dataset_name: str, split: str, seed: int = 42) -> Dataset:
     assert dataset_name == "c4", f"Expected dataset_name to be c4 but got {dataset_name} instead"
     assert split in ["train", "validation"], f"Expected split to be 'train' or 'validation' but got "
     # Contains information from allenai/c4 (https://huggingface.co/datasets/allenai/c4) which is made available under the ODC Attribution License.
