@@ -212,7 +212,7 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
                 "allenai/c4",
                 split="validation",
                 data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"})
-       data = data.shuffle(seed=seed)
+        data = data.shuffle(seed=seed)
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
