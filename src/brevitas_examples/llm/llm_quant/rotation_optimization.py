@@ -139,7 +139,7 @@ class TrainingArguments(transformers.TrainingArguments):
     topk: int = field(
         default=-1,
         metadata={"help": "Consider the first K logits when computing distillation loss"})
-    kl_loss_reduction = field(
+    kl_loss_reduction: str = field(
         default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
 
 
