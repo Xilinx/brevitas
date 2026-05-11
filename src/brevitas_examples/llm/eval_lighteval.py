@@ -202,7 +202,11 @@ def run_lighteval(
         custom_tasks_directory=full_path)
 
     model_config = TransformersModelConfig(
-        model_name=model_name, dtype=dtype, batch_size=batch_size, model_parallel=True)
+        model_name=model_name,
+        dtype=dtype,
+        batch_size=batch_size,
+        model_parallel=True,
+        override_chat_template=False)
 
     # Pipeline expects a comma-separated list of tasks
     tasks = ",".join(tasks)
