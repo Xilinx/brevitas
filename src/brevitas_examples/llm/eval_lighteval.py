@@ -40,6 +40,7 @@ from lighteval.pipeline import PipelineParameters
 from lighteval.tasks.lighteval_task import LightevalTaskConfig
 from lighteval.tasks.requests import Doc
 from torch import nn
+from transformers import AutoTokenizer
 
 ### LightEval Custom Tasks
 
@@ -156,11 +157,24 @@ class BrevitasPipeline(Pipeline):
         assert model is not None and model_config is not None, "Provide both a model and a model config."
         assert not isinstance(model, LightevalModel), "A LigthevalModel and a model config cannot be provided simultaneously."
 
-        return TransformersModel.from_model(
+        # Retrieve the original pad_token before lighteval overwrites it.
+        # lighteval unconditionally does `tokenizer.pad_token = tokenizer.eos_token`
+        # which is wrong for models like Qwen3 that define a distinct pad_token.
+        tokenizer_name = model_config.tokenizer or model_config.model_name
+        original_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        original_pad_token = original_tokenizer.pad_token
+
+        wrapped_model = TransformersModel.from_model(
             model=model,
             config=model_config,
             accelerator=self.accelerator,
         )
+
+        # Restore the original pad_token if the model explicitly defined one
+        if original_pad_token is not None:
+            wrapped_model._tokenizer.pad_token = original_pad_token
+
+        return wrapped_model
 
 
 def run_lighteval(
