@@ -7,6 +7,7 @@ from typing import Dict
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn
@@ -31,7 +32,8 @@ __all__ = [
     'name_from_module',
     'matches_module_pattern',
     'get_output_channels',
-    'get_output_channel_dim']
+    'get_output_channel_dim',
+    'power_iteration']
 
 CONV_TRANSPOSED = (
     nn.ConvTranspose1d,
@@ -200,3 +202,27 @@ def remove_weight_orig(model: nn.Module):
     for name, module in model.named_modules():
         if hasattr(module, 'weight_orig'):
             del module.weight_orig
+
+
+def power_iteration(
+        H: torch.Tensor,
+        steps: int,
+        eps: float = 1e-12,
+        device: Union[str, torch.device] = 'cpu') -> torch.Tensor:
+    """
+    Power iteration to estimate the dominant eigenvalue of the Hessian.
+    Accuracy improves with `steps`. Several choices below reduce run-to-run variation.
+    """
+    # CPU default: floating-point reductions on CPU tend to be more deterministic than on GPU
+    b_k = torch.ones(H.shape[1], device=device, dtype=H.dtype)
+    # `torch.ones` (vs `torch.randn`) avoids variation with negligible impact on convergence
+    c_k = H.max().abs()
+    # normalize H by its absmax for numerical stability; rescale the eigenvalue before returning
+    H_k = (H / c_k).to(device)
+    for _ in range(steps):
+        b_k1 = torch.mv(H_k, b_k)
+        b_k1_norm = torch.norm(b_k1)
+        b_k = b_k1 / (b_k1_norm + eps)
+    # Rayleigh quotient on the normalized H, then undo the absmax scaling; return on H.device
+    max_eigenval = torch.dot(b_k, torch.mv(H_k, b_k)).to(c_k.device) * c_k
+    return max_eigenval

@@ -16,6 +16,7 @@ import warnings
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.graph.utils import power_iteration
 from brevitas.utils.torch_utils import StopFwdException
 
 
@@ -93,7 +94,6 @@ class Qronos(GPFQ):
             raise StopFwdException
 
     def single_layer_update(self, beta: int = 1e4):
-        from brevitas.graph.magr import _power_iteration
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: Qronos does not support weight quantizers that require metadata from input quantizers."
         assert hasattr(self.layer, 'weight_orig'), \
@@ -166,7 +166,7 @@ class Qronos(GPFQ):
         try:
             for group_index in range(self.groups):
                 # using power iteration to estimate the maximum singular value
-                damp[group_index] = self.alpha * _power_iteration(self.H[group_index], 30)
+                damp[group_index] = self.alpha * power_iteration(self.H[group_index], 30)
                 self.iH[group_index, diag, diag] += damp[group_index]
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])
