@@ -151,7 +151,7 @@ class GeneralizedTrainer(Trainer):
         self.gamma = args.gamma
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
-        self.teacher_model = offload_model(teacher_model)
+        self.teacher_model = None if teacher_model is None else offload_model(teacher_model) 
 
     def create_optimizer_and_scheduler(self, num_training_steps: int) -> None:
         """Build optimizer/scheduler from deferred configs when FSDP is active.
