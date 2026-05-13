@@ -366,16 +366,20 @@ def _build_optimizers_from_configs(
             scheduler = scheduler_class(optimizer, **scheduler_kwargs)
             schedulers.append(scheduler)
         else:
-            # If no scheduler is specified, we use a "dummy" scheduler with constant lr
-            scheduler = ConstantLR(optimizer, factor=1.)
+            scheduler = None
             schedulers.append(scheduler)
-
-    multi_optimizer = MultiOptimizer(optimizers)
-    # Always return a MultiScheduler, even when all entries are None.
-    # This prevents the HF Trainer from creating its own scheduler
-    # (which would fail because MultiOptimizer is not a real Optimizer).
-    multi_scheduler = MultiScheduler(schedulers)
-    return multi_optimizer, multi_scheduler
+    
+    if len(optimizers) > 1:
+        multi_optimizer = MultiOptimizer(optimizers)
+        # Always return a MultiScheduler, even when all entries are None.
+        # This prevents the HF Trainer from creating its own scheduler
+        # (which would fail because MultiOptimizer is not a real Optimizer).
+        # If no scheduler is specified, we use a "dummy" scheduler with constant lr
+        schedulers = [ConstantLR(optimizer, factor=1.) if scheduler is None else scheduler for (optimizer,scheduler) in zip(optimizers,schedulers)]
+        multi_scheduler = MultiScheduler(schedulers)
+        return multi_optimizer, multi_scheduler
+    else:
+        return optimizers[0], schedulers[0]
 
 
 def apply_fine_tuning(
