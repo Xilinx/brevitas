@@ -25,11 +25,12 @@ SOFTWARE.
 """
 
 import random
-from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 
 import numpy as np
+from scipy.stats import bootstrap
 import torch
 from torch import nn
 from tqdm import tqdm
@@ -52,9 +53,8 @@ def compute_perplexity(
         model: torch.nn.Module,
         data: List[Dict],
         context_length: int,
-        tokenizer: Any,
         seed: int = 0,
-        dtype: torch.dtype = torch.float32):
+        dtype: torch.dtype = torch.float32) -> Tuple[float, float]:
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
@@ -102,5 +102,12 @@ def compute_perplexity(
             nlls.append(loss)
 
     ppl = torch.exp(torch.stack(nlls).mean())
+    ppl_std = bootstrap(
+        data=[nlls],
+        statistic=lambda x: np.exp(np.mean(x)).item(),
+        n_resamples=1000,
+        confidence_level=0.95,
+        method="BCa",
+    ).standard_error
 
-    return ppl.item()
+    return ppl.item(), ppl_std

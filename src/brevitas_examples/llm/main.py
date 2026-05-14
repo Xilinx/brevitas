@@ -322,10 +322,10 @@ def quantize_llm(args, extra_args=None):
     if args.eval:
         print("Float model eval...")
         model = offload_model(model)
-        float_ppl = compute_perplexity(
-            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        float_ppl, float_ppl_std = compute_perplexity(
+            model, validation_loader, context_length=args.seqlen // 2)
         remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f}")
+        print(f"Float perplexity ({args.dataset}): {float_ppl:.3f} ± {float_ppl_std:.3f}")
 
     rmsnorm_classes = ()
     if require_fx:
@@ -710,9 +710,9 @@ def quantize_llm(args, extra_args=None):
             print("Model eval...")
             with torch.no_grad(), quant_inference_mode(model, compile=args.compile_eval):
                 model(**next(iter(calibration_loader)))
-                quant_ppl = compute_perplexity(
-                    model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-            print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f}")
+                quant_ppl, quant_ppl_std = compute_perplexity(
+                    model, validation_loader, context_length=args.seqlen // 2)
+            print(f"Quantized perplexity ({args.dataset}): {quant_ppl:.3f} ± {quant_ppl_std:.3f}")
         few_shot_eval_results = dict()
         if args.few_shot_eval == 'lm_eval':
             from lm_eval import evaluator
@@ -765,7 +765,7 @@ def quantize_llm(args, extra_args=None):
             model = model.to(dtype=torch.float32)
             model_export(model, tokenizer, next(iter(calibration_loader)), args, config)
 
-    return {"float_ppl": float_ppl, "quant_ppl": quant_ppl, **few_shot_eval_results}, model
+    return {"float_ppl": float_ppl, "float_ppl_std": float_ppl_std, "quant_ppl": quant_ppl, "quant_ppl_std": quant_ppl_std, **few_shot_eval_results}, model
 
 
 def main():
