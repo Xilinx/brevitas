@@ -16,37 +16,32 @@ from brevitas_examples.common.benchmark.utils import EntryPointUtils
 from brevitas_examples.common.benchmark.utils import GridSearchUtils
 from brevitas_examples.llm.llm_args import create_args_parser as create_llm_args_parser
 from brevitas_examples.llm.llm_args import validate as validate_llm_args
+from brevitas_examples.llm.metric_report import LLM_LOG_METRICS
+from brevitas_examples.llm.metric_report import LogMetric
+from brevitas_examples.llm.metric_report import result_keys
 
 
 class LLMEntryPointUtils(EntryPointUtils):
 
     argument_parser: ArgumentParser = create_llm_args_parser()
-    eval_metrics: List[str] = ["float_ppl", "quant_ppl", "quant_ear", "quant_kld"]
+    # Adding a metric only requires extending this tuple. Subclasses can do the
+    # same with `log_metrics = LLMEntryPointUtils.log_metrics + (LogMetric(...),)`.
+    log_metrics: Tuple[LogMetric, ...] = LLM_LOG_METRICS
+    eval_metrics: List[str] = result_keys(log_metrics)
 
-    @staticmethod
-    def parse_log(job_log: str) -> Dict[str, Any]:
-        # Find the line containing Float PPL number
-        float_ppl_line = re.search(r"Float perplexity \((.*?)\): (\d+\.\d+)", job_log)
-        float_ppl = float(float_ppl_line.group(2)) if float_ppl_line is not None else None
-        # Find the line containing Quant PPL number
-        quant_ppl_line = re.search(r"Quantized perplexity \((.*?)\): (\d+\.\d+)", job_log)
-        quant_ppl = float(quant_ppl_line.group(2)) if quant_ppl_line is not None else None
-        quant_ear_line = re.search(
-            r"Quantized expected acceptance rate \((.*?)\): (\d+\.\d+)", job_log)
-        quant_ear = float(quant_ear_line.group(2)) if quant_ear_line is not None else None
-        quant_kld_line = re.search(r"Quantized KL divergence \((.*?)\): (-?\d+\.\d+)", job_log)
-        quant_kld = float(quant_kld_line.group(2)) if quant_kld_line is not None else None
+    @classmethod
+    def parse_log(cls, job_log: str) -> Dict[str, Any]:
+        job_log_results: Dict[str, Any] = {}
+        for metric in cls.log_metrics:
+            value, standard_error = metric.parse(job_log)
+            job_log_results[metric.name] = value
+            job_log_results[metric.std_name] = standard_error
         # Search for dictionary in log
         few_shot_eval_line = re.findall(r"({.*?})", job_log)
         # Retrieve last dictionary, in case other dictionaries were printed to the log
         few_shot_eval = eval(few_shot_eval_line[-1]) if len(few_shot_eval_line) > 0 else {}
         # Return the results from the log as a dictionary
-        job_log_results = {
-            "float_ppl": float_ppl,
-            "quant_ppl": quant_ppl,
-            "quant_ear": quant_ear,
-            "quant_kld": quant_kld,
-            **few_shot_eval,}
+        job_log_results.update(few_shot_eval)
         return job_log_results
 
     @staticmethod
