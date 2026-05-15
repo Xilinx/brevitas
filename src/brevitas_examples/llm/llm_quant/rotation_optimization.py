@@ -42,14 +42,27 @@ TRAINING_ARGS_REGISTRY = Registry[type](registry_name="TrainingArgsRegistry")
 OPTIMIZER_CONFIG_REGISTRY = Registry[type](registry_name="OptimizerConfigRegistry")
 
 
-class MultiOptimizer:
+class MultiOptimizer(torch.optim.Optimizer):
     """Wrapper to handle multiple optimizers as a single optimizer for Trainer.
 
     Allows attaching different optimizer/scheduler pairs to different parameter
     groups (e.g. CaileySGD for rotation matrices and AdamW for other params).
+
+    Inherits from :class:`torch.optim.Optimizer` (without calling
+    ``super().__init__()``) so that ``isinstance`` checks in ``accelerate``
+    and the HuggingFace ``Trainer`` recognise this object as an optimizer.
+
+    .. note::
+        The HuggingFace ``Trainer`` calls ``model.zero_grad()`` rather than
+        ``optimizer.zero_grad()``, so :meth:`zero_grad` is typically **not**
+        invoked during training.  Sub-optimizers that perform bookkeeping
+        inside ``zero_grad()`` beyond clearing ``.grad`` should be aware of
+        this.
     """
 
     def __init__(self, optimizers: List[torch.optim.Optimizer]) -> None:
+        # Intentionally skip super().__init__() — this is a thin wrapper
+        # that delegates all real work to the sub-optimizers.
         self.optimizers = optimizers
 
     def zero_grad(self, set_to_none: bool = False) -> None:
@@ -57,19 +70,68 @@ class MultiOptimizer:
             optimizer.zero_grad(set_to_none=set_to_none)
 
     def step(self, closure=None):
+        # If a closure is provided, execute it exactly once before stepping
+        # any sub-optimizer.  Passing the closure to every sub-optimizer would
+        # execute it N times (one full forward+backward per optimizer), which
+        # doubles compute and corrupts accumulated gradients.
         loss = None
+        if closure is not None:
+            loss = closure()
         for optimizer in self.optimizers:
-            loss = optimizer.step(closure=closure)
+            optimizer.step()
         return loss
 
     @property
     def state(self) -> Dict[str, Any]:
-        return {k: v for optimizer in self.optimizers for k, v in optimizer.state.items()}
+        # Returns a **snapshot** (shallow copy) of the merged optimizer
+        # states.  Mutations to this dict do not propagate back to the
+        # sub-optimizers.  Keys are parameter objects; if two sub-optimizers
+        # manage the same parameter (a misconfiguration), the later entry
+        # silently wins — detect and raise to prevent silent corruption.
+        merged: Dict[str, Any] = {}
+        for optimizer in self.optimizers:
+            for k, v in optimizer.state.items():
+                if k in merged:
+                    raise RuntimeError(
+                        f"MultiOptimizer.state: parameter {k} appears in "
+                        "multiple sub-optimizers.  Each parameter must belong "
+                        "to exactly one optimizer.")
+                merged[k] = v
+        return merged
 
     @property
     def param_groups(self) -> List[Dict[str, Any]]:
         return [
             param_group for optimizer in self.optimizers for param_group in optimizer.param_groups]
+
+    @property
+    def defaults(self) -> Dict[str, Any]:
+        # Return the defaults of the first sub-optimizer as a best-effort
+        # approximation.  This is accessed by accelerate's
+        # AcceleratedOptimizer property delegation.
+        if self.optimizers:
+            return self.optimizers[0].defaults
+        return {}
+
+    def state_dict(self) -> Dict[str, Any]:
+        """Return a serialisation-safe state dict for all sub-optimizers."""
+        return {"sub_optimizer_states": [opt.state_dict() for opt in self.optimizers]}
+
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        """Restore state from a dict produced by :meth:`state_dict`."""
+        sub_states = state_dict.get("sub_optimizer_states")
+        if sub_states is None:
+            raise ValueError(
+                "MultiOptimizer.load_state_dict expects a dict with key "
+                "'sub_optimizer_states' containing a list of per-optimizer "
+                "state dicts.")
+        if len(sub_states) != len(self.optimizers):
+            raise ValueError(
+                f"MultiOptimizer.load_state_dict: expected "
+                f"{len(self.optimizers)} sub-optimizer state dicts, "
+                f"got {len(sub_states)}.")
+        for optimizer, sub_state in zip(self.optimizers, sub_states):
+            optimizer.load_state_dict(sub_state)
 
 
 class MultiScheduler:
@@ -77,6 +139,14 @@ class MultiScheduler:
 
     Schedulers in the list may be ``None`` to indicate no scheduling for the
     corresponding optimizer.
+
+    Serialisation format
+    --------------------
+    :meth:`state_dict` returns::
+
+        {"sub_scheduler_states": [state_dict_or_none, ...]}
+
+    :meth:`load_state_dict` expects the same structure.
     """
 
     def __init__(self, schedulers: List[Optional[Any]]) -> None:
@@ -88,16 +158,44 @@ class MultiScheduler:
                 scheduler.step(*args, **kwargs)
 
     def get_last_lr(self) -> List[float]:
-        return self.schedulers[0].get_last_lr()
+        """Return the concatenation of all schedulers' ``get_last_lr()`` lists.
 
-    @property
-    def state_dict(self) -> List[Optional[Dict[str, Any]]]:
-        return [scheduler.state_dict() if scheduler else None for scheduler in self.schedulers]
+        ``None`` entries are skipped so that the first real LR occupies
+        index 0 — which is the index the HuggingFace Trainer reads for
+        logging.
+        """
+        lrs: List[float] = []
+        for scheduler in self.schedulers:
+            if scheduler is not None:
+                lrs.extend(scheduler.get_last_lr())
+        return lrs
 
-    def load_state_dict(self, state_dicts: List[Optional[Dict[str, Any]]]) -> None:
-        for scheduler, state_dict in zip(self.schedulers, state_dicts):
-            if scheduler and state_dict:
-                scheduler.load_state_dict(state_dict)
+    def state_dict(self) -> Dict[str, Any]:
+        """Return a serialisation-safe state dict for all sub-schedulers."""
+        return {
+            "sub_scheduler_states": [
+                scheduler.state_dict() if scheduler is not None else None
+                for scheduler in self.schedulers]}
+
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        """Restore state from a dict produced by :meth:`state_dict`.
+
+        Validates the format and length before applying.
+        """
+        if not isinstance(state_dict, dict) or "sub_scheduler_states" not in state_dict:
+            raise ValueError(
+                "MultiScheduler.load_state_dict expects a dict with key "
+                "'sub_scheduler_states' containing a list of per-scheduler "
+                "state dicts (or None entries).")
+        sub_states = state_dict["sub_scheduler_states"]
+        if len(sub_states) != len(self.schedulers):
+            raise ValueError(
+                f"MultiScheduler.load_state_dict: expected "
+                f"{len(self.schedulers)} sub-scheduler state dicts, "
+                f"got {len(sub_states)}.")
+        for scheduler, sub_state in zip(self.schedulers, sub_states):
+            if scheduler is not None and sub_state is not None:
+                scheduler.load_state_dict(sub_state)
 
 
 @dataclass
@@ -151,7 +249,7 @@ class GeneralizedTrainer(Trainer):
         self.gamma = args.gamma
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
-        self.teacher_model = None if teacher_model is None else offload_model(teacher_model) 
+        self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
 
     def create_optimizer_and_scheduler(self, num_training_steps: int) -> None:
         """Build optimizer/scheduler from deferred configs when FSDP is active.
@@ -368,14 +466,16 @@ def _build_optimizers_from_configs(
         else:
             scheduler = None
             schedulers.append(scheduler)
-    
+
     if len(optimizers) > 1:
         multi_optimizer = MultiOptimizer(optimizers)
         # Always return a MultiScheduler, even when all entries are None.
         # This prevents the HF Trainer from creating its own scheduler
         # (which would fail because MultiOptimizer is not a real Optimizer).
         # If no scheduler is specified, we use a "dummy" scheduler with constant lr
-        schedulers = [ConstantLR(optimizer, factor=1.) if scheduler is None else scheduler for (optimizer,scheduler) in zip(optimizers,schedulers)]
+        schedulers = [
+            ConstantLR(optimizer, factor=1.) if scheduler is None else scheduler
+            for (optimizer, scheduler) in zip(optimizers, schedulers)]
         multi_scheduler = MultiScheduler(schedulers)
         return multi_optimizer, multi_scheduler
     else:
