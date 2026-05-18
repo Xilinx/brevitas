@@ -7,9 +7,9 @@ from brevitas_examples.common.benchmark.utils import benchmark
 from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtils
 
 
-class MixQuantBenchmark(LLMBenchmarkUtils):
+class PeRQBenchmark(LLMBenchmarkUtils):
     pass
 
 
 if __name__ == "__main__":
-    benchmark(MixQuantBenchmark, sys.argv[1:])
+    benchmark(PeRQBenchmark, sys.argv[1:])

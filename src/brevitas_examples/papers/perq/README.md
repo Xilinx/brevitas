@@ -1,12 +1,12 @@
-# MixQuant: Pushing the Limits of Block Rotations in Post-Training Quantization
+# Pushing the Limits of Block Rotations in Post-Training Quantization
 
 📄 [Paper](https://arxiv.org/pdf/2601.22347)
 💻 [Code](https://github.com/Xilinx/brevitas/pull/1448)
-💡 [Docs](https://xilinx.github.io/brevitas/dev/papers/mixquant.html)
+💡 [Docs](https://xilinx.github.io/brevitas/dev/papers/perq.html)
 
 ```
-@article{sanjeet2026mixquant,
-      title={MixQuant: Pushing the Limits of Block Rotations in Post-Training Quantization},
+@article{sanjeet2026perq,
+      title={PeRQ: Pushing the Limits of Block Rotations in Post-Training Quantization},
       author={Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser},
       year={2026},
       eprint={2601.22347},
@@ -23,8 +23,8 @@
 
 | Config | Description |
 |---|---|
-| `llama3-mixquant_star-int4.yml` | MixQuant\* — block rotations + MassDiff + Qronos, W4A4 |
-| `llama3-mixquant_dag-int4.yml` | MixQuant† — learned rotations (CayleySGD) + MassDiff + RTN, W4A4 |
+| `llama3-perq_star-int4.yml` | PeRQ\* — block rotations + MassDiff + Qronos, W4A4 |
+| `llama3-perq_dag-int4.yml` | PeRQ† — learned rotations (CayleySGD) + MassDiff + RTN, W4A4 |
 | `benchmark-rotation_block_size.yml` | Multi-GPU sweep over block sizes and permutation strategies |
 
 The provided configurations specify `meta-llama/Llama-3.2-1B-Instruct` by default.
@@ -32,24 +32,24 @@ The provided configurations specify `meta-llama/Llama-3.2-1B-Instruct` by defaul
 ## Running
 
 ```bash
-brevitas_ptq_llm --config llama3-mixquant_star-int4.yml
+brevitas_ptq_llm --config llama3-perq_star-int4.yml
 ```
 
 Override the model:
 
 ```bash
-brevitas_ptq_llm --config llama3-mixquant_star-int4.yml --model meta-llama/Llama-3.2-3B-Instruct
+brevitas_ptq_llm --config llama3-perq_star-int4.yml --model meta-llama/Llama-3.2-3B-Instruct
 ```
 
 Key flags:
 
 - `--rotation-block-size` — block size `b` for online Hadamard rotations (e.g. `16`, `32`, `64`).
   Smaller blocks reduce online rotation cost but suppress outliers less effectively without
-  MixQuant. Omit for full-vector rotations (permutations are not applied in that case).
+  PeRQ. Omit for full-vector rotations (permutations are not applied in that case).
 - `--permute-fn` — permutation strategy (`massdiff`, `zigzag`, `absmax`, `random`).
   Omit or set to `null` to disable permutations.
 - `--disable-block-rotation-for-fused` — use block rotations only for online (orphan-sink)
-  rotations; keep fused rotations as full-vector. This is the setting used by MixQuant\*.
+  rotations; keep fused rotations as full-vector. This is the setting used by PeRQ\*.
 
 ## Benchmarking
 
@@ -69,9 +69,9 @@ per-channel weights), comparing MassDiff permutations against no permutation. Co
 | Block Size  | 16   | 32   | 64   | 128  | 256  | 512  | Full |
 |-------------|------|------|------|------|------|------|------|
 | No Permute  | 35.9 | 26.5 | 22.9 | 20.4 | 19.1 | 17.3 | 16.2 |
-| MixQuant    | 18.2 | 17.0 | 16.6 | 16.1 | 16.1 | 15.9 | 16.2 |
+| PeRQ        | 18.2 | 17.0 | 16.6 | 16.1 | 16.1 | 15.9 | 16.2 |
 
 ## Reproducing paper experiments
 
-Please use https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant
+Please use the [perq branch](https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant)
 to reproduce the experiments from the paper.

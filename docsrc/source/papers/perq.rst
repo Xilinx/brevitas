@@ -1,8 +1,8 @@
-Post-Training Quantization with MixQuant
-=================================================================
+Pushing the Limits of Block Rotations in Post-Training Quantization
+===================================================================
 
-MixQuant is a post-training quantization (PTQ) technique that improves the outlier suppression
-capabilities of block Hadamard rotations. Prior to rotation, MixQuant inserts calibrated
+PeRQ is a post-training quantization (PTQ) technique that improves the outlier suppression
+capabilities of block Hadamard rotations. Prior to rotation, PeRQ inserts calibrated
 permutations to redistribute activation mass within permutation-equivariant regions of the graph.
 The permutations are calibrated once offline using activation statistics and then merged into
 surrounding weight tensors before deployment so they do not incur additional inference overhead.
@@ -13,7 +13,7 @@ See the `paper <https://arxiv.org/abs/2601.22347>`_ for the full theoretical tre
     <div align="center">
         <a href="https://arxiv.org/abs/2601.22347">📄 Paper</a>&nbsp
         <a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
-        <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/mixquant">🧪 Examples</a>
+        <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">🧪 Examples</a>
     </div>
 
 
@@ -49,11 +49,11 @@ However, the outlier suppression behavior changes under block structure, as seen
 
 The core issue is that when outlier channels are concentrated within the same block, a block
 rotation cannot diffuse them effectively — they stay within that block rather than spreading
-across the full hidden dimension. MixQuant shows (Propositions 3.3 and 3.5 in the paper) that
+across the full hidden dimension. PeRQ shows (Propositions 3.3 and 3.5 in the paper) that
 worst-case post-rotation outliers are governed by the maximum per-block :math:`\ell_1` mass,
 which tightens as block mass becomes more balanced.
 
-MixQuant addresses this by inserting a permutation :math:`P` before rotation to explicitly
+PeRQ addresses this by inserting a permutation :math:`P` before rotation to explicitly
 balance the per-block :math:`\ell_1` mass across blocks. The default calibration algorithm,
 MassDiff (Algorithm 1 in the paper), is a greedy assignment that:
 
@@ -99,7 +99,7 @@ Implementation Overview
 
 The ``rotate_permute_mode`` context manager in
 `brevitas.graph.permute <https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py>`_
-encapsulates the full MixQuant workflow:
+encapsulates the full PeRQ workflow:
 
 .. code:: python
 
@@ -144,14 +144,14 @@ one permutation per region and fuses each permutation directly into the surround
 ``GraphPermutationEqualization`` handles the graph walk and permutation application. It reuses
 the same region-walk logic as used for rotation equalization to find permutation-equivariant regions.
 
-The MixQuant pipeline is accessible via the ``brevitas_ptq_llm`` entrypoint. Key flags:
+The PeRQ pipeline is accessible via the ``brevitas_ptq_llm`` entrypoint. Key flags:
 
 - ``--rotation-block-size`` — block size :math:`b` for online Hadamard rotations (e.g. ``32``).
   Omit for full-vector rotations (permutations are not applied in that case).
 - ``--permute-fn`` — permutation strategy (``massdiff``, ``zigzag``, ``absmax``, ``random``).
   Omit or set to ``null`` to disable permutations.
 - ``--disable-block-rotation-for-fused`` — apply block rotations only to online (orphan-sink)
-  rotations; keep fused rotations as full-vector. This is the setting used by MixQuant\*.
+  rotations; keep fused rotations as full-vector. This is the setting used by PeRQ\*.
 
 A minimal example:
 
@@ -162,7 +162,7 @@ A minimal example:
        --permute-fn massdiff \
        --disable-block-rotation-for-fused
 
-See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/mixquant>`_
+See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq>`_
 for full configuration details and benchmarking instructions.
 
 Permutation strategies
@@ -207,7 +207,7 @@ Results
 -------
 
 The results below use Llama-3.2 Instruct models with INT4 weight-activation quantization.
-See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/mixquant>`_
+See the `README <https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq>`_
 for instructions on how to reproduce. Below are the versions used; different versions 
 may yield different results.
 
@@ -216,8 +216,8 @@ may yield different results.
 - ``transformers==4.57.3``
 - ``lighteval==0.13.0``
 
-MixQuant\* (block rotations + MassDiff + Qronos)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PeRQ\* (block rotations + MassDiff + Qronos)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Full-vector Hadamard rotations where mergeable (R1, R2), online block Hadamard rotations with
 block size 32 (R3), MassDiff permutations (P3), and `Qronos <https://xilinx.github.io/brevitas/dev/papers/qronos.html>`_ rounding [3].
@@ -232,8 +232,8 @@ block size 32 (R3), MassDiff permutations (P3), and `Qronos <https://xilinx.gith
 | 8B    | 6.5       | 8.5       | 43.2  | 74.0  | 51.4   | 74.9  | 59.0  |
 +-------+-----------+-----------+-------+-------+--------+-------+-------+
 
-MixQuant† (learned rotations + MassDiff + RTN)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+PeRQ† (learned rotations + MassDiff + RTN)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Learnable mergeable rotations via CayleySGD (R1, R2), online block Hadamard rotations with
 block size 32 (R3), MassDiff permutations (P3), and round-to-nearest rounding.
@@ -254,8 +254,8 @@ Citation
 
 .. code:: bibtex
 
-   @article{sanjeet2026mixquant,
-     title   = {MixQuant: Pushing the Limits of Block Rotations in Post-Training Quantization},
+   @article{sanjeet2026perq,
+     title   = {PeRQ: Pushing the Limits of Block Rotations in Post-Training Quantization},
      author  = {Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser},
      year    = {2026},
      eprint  = {2601.22347},
@@ -266,7 +266,7 @@ Citation
 
 Note that this page is not intended to reproduce all experiments from the original paper.
 To more accurately reproduce the paper's experiments, please see
-`this branch <https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant>`_.
+`the perq branch <https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant>`_.
 
 References
 ----------

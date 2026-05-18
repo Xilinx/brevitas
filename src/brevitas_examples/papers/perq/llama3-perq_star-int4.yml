@@ -1,4 +1,4 @@
-# MixQuant* settings
+# PeRQ* settings
 disable_block_rotation_for_fused: true  # online block rotations; fused full rotations
 permute_fn: massdiff
 rotation: fused_no_fx  # fuse rotations whenever possible

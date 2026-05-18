@@ -7,4 +7,4 @@ Papers
 
    Qronos <qronos>
    Post Training Model Expansion <post_training_expansion>
-   MixQuant <mixquant>
+   PeRQ <perq>
