@@ -167,7 +167,11 @@ class BrevitasPromptManager(PromptManager):
             return self._prepare_plain_text(doc)
 
     def _prepare_chat_template_no_thinking(self, doc: Doc) -> str:
-        """Format using the chat template with thinking mode explicitly disabled."""
+        """
+        Format using the chat template with thinking mode explicitly disabled.
+        This is copied from: https://github.com/huggingface/lighteval/blob/3fd15266bc8448b797e61462d293aa3fd40b3580/src/lighteval/tasks/prompt_manager.py#L97
+        The only difference is enable_thinking=False when calling the tokenizer.
+        """
         messages = []
         instruction_used = False
 
