@@ -49,7 +49,7 @@ However, the outlier suppression behavior changes under block structure, as seen
 
 The core issue is that when outlier channels are concentrated within the same block, a block
 rotation cannot diffuse them effectively — they stay within that block rather than spreading
-across the full hidden dimension. PeRQ shows (Propositions 3.3 and 3.5 in the paper) that
+across the full hidden dimension. PeRQ shows that
 worst-case post-rotation outliers are governed by the maximum per-block :math:`\ell_1` mass,
 which tightens as block mass becomes more balanced.
 
