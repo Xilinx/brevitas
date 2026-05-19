@@ -6,7 +6,7 @@
 
 ```
 @article{sanjeet2026perq,
-      title={PeRQ: Pushing the Limits of Block Rotations in Post-Training Quantization},
+      title={Pushing the Limits of Block Rotations in Post-Training Quantization},
       author={Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser},
       year={2026},
       eprint={2601.22347},
@@ -73,5 +73,5 @@ per-channel weights), comparing MassDiff permutations against no permutation. Co
 
 ## Reproducing paper experiments
 
-Please use the [perq branch](https://github.com/i-colbert/brevitas/tree/mixquant/src/brevitas_examples/papers/mixquant)
+Please use [this branch](https://github.com/i-colbert/brevitas/tree/permutations/src/brevitas_examples/papers/perq)
 to reproduce the experiments from the paper.
