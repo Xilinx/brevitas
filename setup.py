@@ -41,6 +41,7 @@ setup(
         "tts": read_requirements('requirements-tts.txt'),
         "stt": read_requirements('requirements-stt.txt'),
         "llm": read_requirements('requirements-llm.txt'),
+        "lighteval": read_requirements('requirements-lighteval.txt'),
         "diffusion": read_requirements('requirements-diffusion.txt'),
         "vision": read_requirements('requirements-vision.txt'),
         "finn_integration": read_requirements('requirements-finn-integration.txt'),
