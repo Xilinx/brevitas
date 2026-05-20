@@ -25,6 +25,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from functools import partial
 import os
 import pathlib
 import re
@@ -168,36 +169,12 @@ class BrevitasPromptManager(PromptManager):
 
     def _prepare_chat_template_no_thinking(self, doc: Doc) -> str:
         """Format using the chat template with thinking mode explicitly disabled."""
-        messages = []
-        instruction_used = False
-
-        if self.system_prompt is not None:
-            messages.append({"role": "system", "content": self.system_prompt})
-
-        for ix, fewshot_sample in enumerate(doc.fewshot_samples):
-            query = self._extract_query(fewshot_sample.query, fewshot_sample.instruction)
-            if ix == 0 and doc.instruction is not None:
-                instruction_used = True
-                query = doc.instruction + query
-
-            messages.append({"role": "user", "content": query})
-            messages.append({"role": "assistant", "content": fewshot_sample.get_golds()[0]})
-
-        main_query = self._extract_query(doc.query, doc.instruction)
-
-        if doc.instruction is not None and not instruction_used:
-            main_query = doc.instruction + main_query
-
-        messages.append({"role": "user", "content": main_query})
-
-        assert self.tokenizer is not None, "Tokenizer must be set for chat template formatting."
-
-        return self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=False,
-        )
+        orig_apply = self.tokenizer.apply_chat_template
+        try:
+            self.tokenizer.apply_chat_template = partial(orig_apply, enable_thinking=False)
+            return self._prepare_chat_template(doc)
+        finally:
+            self.tokenizer.apply_chat_template = orig_apply
 
 
 def filter_results(results, tasks):
