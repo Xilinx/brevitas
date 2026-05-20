@@ -239,6 +239,17 @@ def test_custom_quantizer_file_can_override_quantizers_and_modify_quantized_mode
         if hasattr(module, 'weight_quant') and module.weight_quant is not None:
             weight_proxies.append(module.weight_quant)
 
+    for m in model.model.layers:
+        # Check input_quant are tied
+        assert id(m.self_attn.q_proj.input_quant) == id(m.self_attn.k_proj.input_quant) == id(
+            m.self_attn.v_proj.input_quant)
+        assert id(m.mlp.up_proj.input_quant) == id(m.mlp.gate_proj.input_quant)
+
+        # Check weight_quant are tied
+        assert id(m.self_attn.q_proj.weight_quant) == id(m.self_attn.k_proj.weight_quant) == id(
+            m.self_attn.v_proj.weight_quant)
+        assert id(m.mlp.up_proj.weight_quant) == id(m.mlp.gate_proj.weight_quant)
+
     assert weight_proxies
     assert any(
         hasattr(proxy, 'bit_width') and proxy.bit_width() is not None and
