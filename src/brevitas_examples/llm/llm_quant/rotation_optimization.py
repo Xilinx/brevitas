@@ -251,53 +251,6 @@ class GeneralizedTrainer(Trainer):
         self.kl_loss_reduction = args.kl_loss_reduction
         self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
 
-    def create_optimizer_and_scheduler(self, num_training_steps: int) -> None:
-        """Build optimizer/scheduler from deferred configs when FSDP is active.
-
-        Under FSDP the optimizer cannot be passed to the Trainer constructor
-        because parameter references become stale after FSDP wraps the model.
-        Instead, ``apply_fine_tuning`` stashes the optimizer configs on
-        ``self.args._deferred_optimizer_configs`` and this method builds the
-        optimizer after FSDP wrapping, using ``self.model`` (which now holds
-        the FSDP-wrapped model with valid parameter references).
-        """
-        deferred = getattr(self.args, "_deferred_optimizer_configs", None)
-        if deferred is None:
-            return super().create_optimizer_and_scheduler(num_training_steps)
-
-        del self.args._deferred_optimizer_configs
-
-        if len(deferred) > 1:
-            raise RuntimeError(
-                "FSDP does not support MultiOptimizer (multiple optimizer "
-                "groups).  Use a single optimizer config or disable FSDP.")
-
-        os_args: Optional[List[Dict[str,
-                                    Any]]] = getattr(self.args, "optimizer_scheduler_args", None)
-        if os_args is None or len(os_args) < len(deferred):
-            raise RuntimeError(
-                "optimizer_scheduler_args on training_args does not match "
-                "the deferred optimizer configs.")
-
-        config = deferred[0]
-        params = config["params"]
-        if callable(params):
-            params = params(self.model, self.args)
-        for param in params:
-            param.requires_grad = True
-
-        entry = os_args[0]
-        optimizer_class = config.get("optimizer_class", torch.optim.AdamW)
-        optimizer_kwargs = entry.get("optimizer_kwargs", {})
-        self.optimizer = optimizer_class(params, **optimizer_kwargs)
-
-        scheduler_class = config.get("scheduler_class", None)
-        if scheduler_class is not None:
-            scheduler_kwargs = entry.get("scheduler_kwargs", {})
-            self.lr_scheduler = scheduler_class(self.optimizer, **scheduler_kwargs)
-        else:
-            self.create_scheduler(num_training_steps, optimizer=self.optimizer)
-
     @staticmethod
     def forward_kl_loss(
             student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
