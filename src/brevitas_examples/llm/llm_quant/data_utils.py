@@ -162,6 +162,7 @@ def get_dataset_for_model(
             tokenizer=tokenizer,
             nsamples=nsamples,
             seqlen=seqlen,
+            seed=seed,
             bos_preprocessing=bos_preprocessing,
             add_eos_token=add_eos_token,
             fuse_documents=fuse_documents)
