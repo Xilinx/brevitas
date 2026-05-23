@@ -7,6 +7,7 @@ from typing import Dict
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn
@@ -200,3 +201,32 @@ def remove_weight_orig(model: nn.Module):
     for name, module in model.named_modules():
         if hasattr(module, 'weight_orig'):
             del module.weight_orig
+
+
+@torch.no_grad()
+def gpxq_compute_error_stats(
+        prefix: str,
+        name: str,
+        layer: torch.nn.Module,
+        H: torch.Tensor,
+        G: Optional[torch.Tensor] = None,
+        device: Optional[Union[str, torch.device]] = None) -> Dict[str, float]:
+    # This computation only supports nn.Linear, currently
+    if not isinstance(layer, (qnn.QuantLinear,)):
+        raise NotImplementedError(
+            f"`compute_weight_error` only supports `QuantLinear` layers, but got {type(layer)}.")
+    device = device if device is not None else layer.weight.device
+    dtype = H.dtype
+    quant_weight = layer.quant_weight().value.to(dtype=dtype, device=device)
+    weight = layer.weight_orig.to(dtype=dtype, device=device)
+    H = H.to(device=device).squeeze(0)
+    G = G.to(device=device).squeeze(0) if G is not None else H
+    # Compute relative error between quantized and original weights
+    err = quant_weight - weight
+    weight_rel_err = torch.norm(err, p='fro') / torch.norm(weight, p='fro')
+    # Compute relative error weighted by the Hessian, i.e. (w-q)^T H (w-q) / w^T H w
+    out_rel_err = torch.norm(err @ H @ err.T, p='fro') / torch.norm(weight @ H @ weight.T, p='fro')
+    return {
+        name: {
+            f"{prefix}_rel_weight_err": weight_rel_err.item(),
+            f"{prefix}_rel_out_err": out_rel_err.item(),}}

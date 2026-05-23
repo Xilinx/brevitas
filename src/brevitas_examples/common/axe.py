@@ -201,7 +201,7 @@ class A2GPTQ(_AXE, GPTQ):
         assert self.max_accumulator_bit_width > 2, \
             "Error: accumulator bit width needs to be bigger than 2."
 
-    def single_layer_update(self, percdamp=0.01, c=1e4):
+    def _single_layer_update(self, percdamp=0.01, c=1e4):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPTQ does not support weight quantizers that require quantized inputs."
         if self.quant_metadata is None:
@@ -210,8 +210,6 @@ class A2GPTQ(_AXE, GPTQ):
                 "Make sure that either the input to the model is an IntQuantTensor or the layer has an input quant enabled. "
                 "Also, check if `use_quant_activations=True` in `gptq_mode` when `max_accumulator_bit_width` is specified. "
             )
-        if hasattr(self.layer, "allocate_params"):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
         weight = self.layer.weight.data
@@ -351,9 +349,6 @@ class A2GPTQ(_AXE, GPTQ):
                 weight[group_index, :, perm[i2:]] -= (
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
-        if hasattr(self.layer, "offload_params"):
-            self.layer.offload_params(self.layer)
-
         del thresholds, scales  # memory management
 
 
@@ -388,7 +383,7 @@ class A2GPFQ(_AXE, GPFQ):
         assert self.max_accumulator_bit_width > 2, \
             "Error: accumulator bit width needs to be bigger than 2."
 
-    def single_layer_update(self):
+    def _single_layer_update(self):
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: GPFQ does not support weight quantizers that require quantized inputs."
         if self.quant_metadata is None:
@@ -397,8 +392,6 @@ class A2GPFQ(_AXE, GPFQ):
                 "Make sure that either the input to the model is an IntQuantTensor or the layer has an input quant enabled. "
                 "Also, check if `use_quant_activations=True` in `gpfq_mode` when `max_accumulator_bit_width` is specified. "
             )
-        if hasattr(self.layer, "allocate_params"):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
 

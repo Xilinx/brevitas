@@ -92,14 +92,12 @@ class Qronos(GPFQ):
             current_layer.forward_count = 0
             raise StopFwdException
 
-    def single_layer_update(self, beta: int = 1e4):
+    def _single_layer_update(self, beta: int = 1e4):
         from brevitas.graph.magr import _power_iteration
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: Qronos does not support weight quantizers that require metadata from input quantizers."
         assert hasattr(self.layer, 'weight_orig'), \
             "Error: Qronos requires the original weights to be stored, see `create_weight_orig`."
-        if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer)
         if self.use_intermediate_buffer:
             del self.B  # free memory
 
@@ -262,6 +260,3 @@ class Qronos(GPFQ):
                     error_block[group_index].matmul(self.L[group_index, i1 - 1:i2 - 1,
                                                            i2 - 1:])).to(dtype)
         del self.L  # memory management
-
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)
