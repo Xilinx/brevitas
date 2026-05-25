@@ -520,24 +520,24 @@ def apply_fine_tuning(
         # Trainer use its built-in optimizer.
         optimizers = (None, None)
 
-    # Select trainer class
-    if trainer_cls is None:
-        if training_args.use_distillation_loss:
-            trainer_cls = GeneralizedTrainer
-        else:
-            trainer_cls = Trainer
-
-    teacher_model = copy.deepcopy(model.cpu()) if training_args.use_distillation_loss else None
-
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
-        teacher_model=teacher_model,
         tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,
         data_collator=collate_fn,
         optimizers=optimizers)
+    
+    # Select trainer class
+    if trainer_cls is None:
+        if training_args.use_distillation_loss:
+            trainer_cls = GeneralizedTrainer
+            teacher_model = copy.deepcopy(model.cpu()) if training_args.use_distillation_loss else None
+            trainer_kwargs["teacher_model"] = teacher_model
+        else:
+            trainer_cls = Trainer
+
     if callbacks is not None:
         trainer_kwargs["callbacks"] = callbacks
 
