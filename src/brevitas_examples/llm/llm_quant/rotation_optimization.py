@@ -295,7 +295,8 @@ class GeneralizedTrainer(Trainer):
                 student_logits=outputs.logits,
                 teacher_logits=fp_outputs.logits,
                 temperature=self.temperature,
-                reduction=self.kl_loss_reduction)
+                reduction=self.kl_loss_reduction,
+                topk=self.args.topk)
 
             if (self.args.average_tokens_across_devices and
                 (self.model_accepts_loss_kwargs or self.compute_loss_func) and
@@ -520,7 +521,7 @@ def apply_fine_tuning(
         optimizers = (None, None)
 
     # Select trainer class
-    if trainer_cls is not None:
+    if trainer_cls is None:
         if training_args.use_distillation_loss:
             trainer_cls = GeneralizedTrainer
         else:
