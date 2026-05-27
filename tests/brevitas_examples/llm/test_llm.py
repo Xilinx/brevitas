@@ -715,3 +715,76 @@ def test_rmsnorm_patch_context_manager(caplog):
             f"After context manager: {name} should be restored to original type, got {cls}")
         assert cls is not torch.nn.RMSNorm, (
             f"After context manager: {name} should not be torch.nn.RMSNorm")
+
+
+class _StubChatTokenizer:
+    """Minimal character-level tokenizer with a trivial chat template, used to
+    exercise chat-formatted dataset preprocessing without network access."""
+    bos_token_id = 1
+    eos_token_id = 2
+
+    def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=False):
+        assert not tokenize
+        assert not add_generation_prompt
+        return "".join(f"<{m['role']}>{m['content']}" for m in messages)
+
+    def __call__(self, texts, add_special_tokens=False, **kwargs):
+        return {"input_ids": [[ord(c) for c in text] for text in texts]}
+
+
+def mock_load_raw_tulu3_sft(dataset_name: str, split: str, seed: int = 42) -> Dataset:
+    assert dataset_name == "tulu3_sft"
+    assert split == "train"
+    conversations = [("Hi", "Hello!"), ("2+2?", "4")]
+    messages = [
+        [dict(role="user", content=q), dict(role="assistant", content=a)] for q, a in conversations]
+    return Dataset.from_dict({"id": ["0", "1"], "messages": messages, "source": ["a", "b"]})
+
+
+@pytest.mark.llm
+def test_tulu3_sft_dataset_choice(parser):
+    args = parser.parse_args(["--dataset", "tulu3_sft"])
+    assert args.dataset == "tulu3_sft"
+
+
+@pytest.mark.llm
+def test_render_chat_template():
+    from brevitas_examples.llm.llm_quant.data import render_chat_template
+    example = {"messages": [{"role": "user", "content": "Hi"}]}
+    assert render_chat_template(example, _StubChatTokenizer()) == {"text": "<user>Hi"}
+
+
+@pytest.mark.llm
+@pytest.mark.parametrize("bos_preprocessing", ["document", "sequence"])
+def test_tulu3_sft_rejects_bos_preprocessing(bos_preprocessing):
+    from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_load_raw_tulu3_sft):
+        with pytest.raises(ValueError, match="chat-formatted"):
+            get_dataset_for_model(
+                "tulu3_sft",
+                _StubChatTokenizer(),
+                nsamples=1,
+                seqlen=4,
+                bos_preprocessing=bos_preprocessing)
+
+
+@pytest.mark.llm
+def test_tulu3_sft_get_dataset_for_model():
+    from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
+    tokenizer = _StubChatTokenizer()
+    messages = mock_load_raw_tulu3_sft("tulu3_sft", "train")["messages"]
+    rendered = [tokenizer.apply_chat_template(m) for m in messages]
+    seqlen = 8
+    with patch('brevitas_examples.llm.llm_quant.data_utils.load_raw_dataset',
+               mock_load_raw_tulu3_sft):
+        dataset = get_dataset_for_model(
+            "tulu3_sft", tokenizer, nsamples=-1, seqlen=seqlen, bos_preprocessing=None)
+    assert len(dataset) > 0
+    samples = ["".join(chr(t) for t in ids) for ids in dataset["input_ids"]]
+    # Every sample is a seqlen-long chunk of the chat-template-rendered text, with no BOS added
+    for sample in samples:
+        assert len(sample) == seqlen
+        assert any(sample in text for text in rendered + ["".join(rendered)])
+    # The role markers inserted by the chat template are present in the tokenized data
+    assert any("<user>" in sample or "<assistant>" in sample for sample in samples)
