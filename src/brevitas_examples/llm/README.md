@@ -16,7 +16,7 @@ When using `--optimize-rotations`, the rotation training procedure relies on the
 
 ```bash
 usage: main.py [-h] [--config CONFIG] [--model MODEL] [--custom-quantizer CUSTOM_QUANTIZER] [--dtype {auto,float32,float16,bfloat16}] [--seed SEED] [--nsamples NSAMPLES]
-               [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION] [--seqlen SEQLEN] [--eval] [--eval-top-k EVAL_TOP_K] [--dataset {wikitext2,c4,pile,fineweb}] [--dataset-eval-split {validation,test}]
+               [--nsamples-rot-calibration NSAMPLES_ROT_CALIBRATION] [--seqlen SEQLEN] [--eval] [--eval-top-k EVAL_TOP_K] [--dataset {wikitext2,c4,pile,fineweb,tulu3_sft}] [--dataset-eval-split {validation,test}]
                [--gpxq-block-name GPXQ_BLOCK_NAME] [--gpxq-buffer-device {cpu,same}] [--weight-bit-width WEIGHT_BIT_WIDTH] [--weight-param-method {stats,mse,hqo}]
                [--weight-scale-precision {signed_float_scale,float_scale,po2_scale}] [--weight-quant-rescaling-init WEIGHT_QUANT_RESCALING_INIT] [--weight-narrow-range] [--weight-quant-type {sym,asym}]
                [--weight-quant-format WEIGHT_QUANT_FORMAT] [--weight-quant-granularity {per_channel,per_tensor,per_group}] [--scale-rounding-func-type {round,ceil,floor,midmax}]
@@ -61,7 +61,7 @@ options:
   --eval                Eval model PPL, EAR, and KLD on the chosen dataset.
   --eval-top-k EVAL_TOP_K
                         Number of tokens to evaluate EAR and KLD on. Default: 10.
-  --dataset {wikitext2,c4,pile,fineweb}
+  --dataset {wikitext2,c4,pile,fineweb,tulu3_sft}
                         Dataset to use for quantization (default: wikitext2)
   --dataset-eval-split {validation,test}
                         Specify which split to use for the evaluation dataset (default: validation)

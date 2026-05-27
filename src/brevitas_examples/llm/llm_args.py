@@ -82,7 +82,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikitext2', 'c4', 'pile', 'fineweb'],
+        choices=['wikitext2', 'c4', 'pile', 'fineweb', 'tulu3_sft'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(

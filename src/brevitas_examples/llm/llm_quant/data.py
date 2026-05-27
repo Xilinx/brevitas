@@ -220,6 +220,45 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
             warnings.warn(
                 f"There is no available {split} split for fineweb. Defaulting to wikitext2.")
             data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
+    elif dataset_name == "tulu3_sft":
+        if split == "train":
+            # SFT-style chat corpus (e.g., for quantization-aware distillation
+            # on instruction-tuned models). The downstream loader (data_utils.get_dataset_for_model)
+            # renders each `messages` row through the tokenizer's chat template
+            # before tokenization.
+            data = load_dataset("allenai/tulu-3-sft-mixture", split="train")
+            data = data.shuffle(seed=seed)
+        else:
+            warnings.warn(
+                f"There is no available {split} split for tulu3_sft. Defaulting to wikitext2.")
+            data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")
     return data
+
+
+# Datasets whose rows are chat-formatted message lists rather than raw text.
+# `data_utils.get_dataset_for_model` detects these names and pre-renders each
+# row through `tokenizer.apply_chat_template` before invoking the standard CLM
+# tokenization pipeline.
+SFT_CHAT_DATASETS = {"tulu3_sft"}
+
+
+def render_chat_template(example: Dict[str, Any],
+                         tokenizer: PreTrainedTokenizerBase) -> Dict[str, str]:
+    """Render a chat-formatted dataset row into a single text string.
+
+    Expects ``example["messages"]`` to be a list of ``{"role", "content"}`` dicts
+    (Tulu-3 / ShareGPT-style schema). Returns ``{"text": <rendered string>}``
+    suitable for the existing :func:`get_clm_dataset` pipeline.
+
+    The chat template inserts BOS/EOS markers and role tokens appropriate to the
+    target model, so downstream callers should pass ``bos_preprocessing=None``
+    to avoid double-BOS.
+    """
+    rendered = tokenizer.apply_chat_template(
+        example["messages"],
+        tokenize=False,
+        add_generation_prompt=False,
+    )
+    return {"text": rendered}
