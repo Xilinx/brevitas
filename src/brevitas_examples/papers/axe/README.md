@@ -19,5 +19,5 @@ Please use `benchmark.py` to reproduce the experiments used for the paper, as fo
 ```bash
 python benchmark.py --config benchmark-llama3.yml --results results/ --gpus 0,1
 ```
-where `--gpus` refers to how many gpus to use. If multiple GPUs are specified, each one will be used
-to run an individual experiment.
+where `--gpus` specifies the GPU index. If multiple GPUs are specified, each one will be used
+to run an individual experiment, unless otherwise specified via `--num-gpus-per-process`.

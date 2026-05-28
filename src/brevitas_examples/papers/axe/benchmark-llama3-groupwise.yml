@@ -1,6 +1,8 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+dataset_eval_split:
+- test
 dtype:
 - bfloat16
 eval:
@@ -28,21 +30,26 @@ gpxq_block_name:
 gpxq_buffer_device:
 - same
 gpxq_max_accumulator_bit_width:
+- 10
+- 12
 - 16
-- 32
 gpxq_max_accumulator_tile_size:
-- 128
+- 32  # same as group_size
 gpxq_use_quant_activations:
 - true
 input_bit_width:
 - 8
 - 4
+input_group_size:
+- 32
 input_quant_granularity:
-- per_row
+- per_group
 input_scale_type:
 - dynamic
+input_scale_precision:
+- po2_scale
 input_quant_type:
-- asym
+- sym
 model:
 - meta-llama/Llama-3.2-1B-Instruct
 - meta-llama/Llama-3.2-3B-Instruct
@@ -51,9 +58,13 @@ rotation:
 - layerwise
 weight_bit_width:
 - 4
+weigh_group_size:
+- 32
 weight_param_method:
 - mse
 weight_quant_granularity:
-- per_channel
+- per_group
 weight_quant_type:
 - sym
+weight_scale_precision:
+- po2_scale

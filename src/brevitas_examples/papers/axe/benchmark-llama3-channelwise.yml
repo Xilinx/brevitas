@@ -1,17 +1,26 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+dataset_eval_split:
+- test
 dtype:
 - bfloat16
 eval:
 - true
-gptq:
-- true
-- false
+few_shot_eval:
+- lighteval
+few_shot_tasks:
+- - arc:challenge|0
+  - arc:easy|0
+  - winogrande|0
+  - hellaswag_lm_eval|0
+  - piqa_lm_eval|0
+few_shot_override_batch_size:
+- 128
 gpfq:
 - true
 - false
-qronos:
+gptq:
 - true
 - false
 gpxq_act_order:
@@ -20,23 +29,27 @@ gpxq_block_name:
 - model.layers
 gpxq_buffer_device:
 - same
+gpxq_max_accumulator_bit_width:
+- 16
+- 32
+gpxq_max_accumulator_tile_size:
+- 128
 gpxq_use_quant_activations:
 - true
 input_bit_width:
 - 8
-input_scale_type:
-- dynamic
+- 4
 input_quant_granularity:
 - per_row
+input_scale_type:
+- dynamic
 input_quant_type:
 - asym
-magr:
-- true
-- false
 model:
 - meta-llama/Llama-3.2-1B-Instruct
+- meta-llama/Llama-3.2-3B-Instruct
+- meta-llama/Llama-3.1-8B-Instruct
 rotation:
-- null
 - layerwise
 weight_bit_width:
 - 4
