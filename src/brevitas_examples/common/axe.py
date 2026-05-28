@@ -1,16 +1,18 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
 import math
-from typing import Callable, List, Optional, Union
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Union
 import warnings
 
 import numpy as np
 import torch
 from torch import Tensor
-import torch.nn as nn
 from torch.nn import Module
+import torch.nn as nn
 
 try:
     from torch.linalg import LinAlgError

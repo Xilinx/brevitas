@@ -112,9 +112,7 @@ def apply_gptq(
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     context_manager_kwargs = dict(
-        model=model,
-        act_order=act_order,
-        use_quant_activations=use_quant_activations)
+        model=model, act_order=act_order, use_quant_activations=use_quant_activations)
     context_manager = gptq_mode
     if max_accumulator_bit_width is not None:
         context_manager = a2gptq_mode

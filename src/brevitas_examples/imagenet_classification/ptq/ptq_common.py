@@ -18,8 +18,6 @@ from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
-from brevitas_examples.common.axe import a2gpfq_mode
-from brevitas_examples.common.axe import a2gptq_mode
 from brevitas.graph.qronos import Qronos
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
@@ -71,6 +69,8 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatM
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
+from brevitas_examples.common.axe import a2gpfq_mode
+from brevitas_examples.common.axe import a2gptq_mode
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
@@ -639,10 +639,7 @@ def _dual_optimization_callback(
     See https://arxiv.org/abs/2505.11695 for more!
     """
     context_manager = gpfq_mode
-    context_manager_kwargs = dict(
-        model=model,
-        act_order=act_order,
-        algorithm_impl=algorithm_impl)
+    context_manager_kwargs = dict(model=model, act_order=act_order, algorithm_impl=algorithm_impl)
     if max_accumulator_bit_width is not None:
         context_manager = a2gpfq_mode
         context_manager_kwargs.update(

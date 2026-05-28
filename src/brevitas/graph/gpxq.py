@@ -393,5 +393,3 @@ class GPxQ(ABC):
         # We need to remove the last dim
         q = q.squeeze(2)  # [groups, OC/groups] or [1, OC]
         return q
-
-
