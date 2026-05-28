@@ -11,18 +11,13 @@ from operator import attrgetter
 from typing import List
 from typing import Optional
 from typing import Set
-from typing import Union
 import warnings
 
-import numpy as np
 import torch
-from torch import Tensor
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 import unfoldNd
 
-from brevitas.function.ops import max_int
-from brevitas.function.ops import min_int
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.utils import is_conv_transposed
@@ -30,8 +25,6 @@ from brevitas.graph.utils import is_quant_module
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.quant_utils import _CachedIO
-from brevitas.utils.quant_utils import _CachedIOGroupwiseInt
 
 SUPPORTED_CONV_OP = (
     nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)
@@ -402,158 +395,3 @@ class GPxQ(ABC):
         return q
 
 
-def _get_average_of_nonzero_magnitudes(vec: np.ndarray, radius: float = 1.0):
-    assert radius > 0, "Error: radius needs to be strictly positive."
-    assert vec.ndim == 1, "Error: projection assumes a vector, not a matrix."
-    assert vec.min() >= 0, "Error: assuming a vector of non-negative numbers."
-    n_elems = vec.shape[0]
-    # if we are already within the simplex, then the best projection is itself
-    if vec.sum() <= radius:
-        return 0.0
-    # using algorithm detailed in "Efficient Projections onto the L1-Ball for Learning in High Dimensions"
-    v = vec
-    u = np.sort(v)[::-1]
-    cumsum_u = np.cumsum(u)
-    rho = np.nonzero(u * np.arange(1, n_elems + 1) > (cumsum_u - radius))[0][-1]
-    theta = float(cumsum_u[rho] - radius) / (rho + 1)
-    return theta
-
-
-def calc_average_nonzero_mag(weight: Tensor, lim: Tensor) -> Tensor:
-    thetas = torch.zeros(weight.shape[0], device=weight.device)
-    for i in range(weight.shape[0]):
-        l = lim[i].item() if lim.ndim > 0 else lim.item()
-        w = weight[i].cpu().detach().numpy()
-        t = _get_average_of_nonzero_magnitudes(np.abs(w), l)
-        thetas[i] = t
-    return thetas
-
-
-def pad_tensor_with_zeros(tensor: Tensor, tile_size: int) -> Tensor:
-    pad_size = tile_size - (tensor.shape[1] % tile_size)
-    if pad_size == tile_size:
-        return tensor
-    padding = torch.zeros((tensor.shape[0], pad_size), device=tensor.device)
-    pad_tensor = torch.concat([tensor, padding], axis=1)
-    return pad_tensor
-
-
-class axe_mode_mixin:
-    """
-    Mixin for accumulator-aware quantization for gpxq_mode
-    """
-
-    max_accumulator_bit_width: Optional[int] = None
-    max_accumulator_tile_size: Optional[int] = None
-    a2q_layer_filter_fnc = lambda x: True
-
-    def is_valid_a2q_layer(self, layer) -> bool:
-        """Check if a layer is valid for accumulator-aware quantization (A2Q)"""
-        # We don't apply A2Q if the bit width is not specified (default is None)
-        if self.max_accumulator_bit_width is None:
-            return False
-        # We expose a filter function to enable/disable A2Q based on layer characteristics
-        if not self.a2q_layer_filter_fnc(layer):
-            return False
-        return True
-
-
-class AXEMixin:
-    """
-    Accumulator-aware extensions for greedy path sequential quantization algorithms
-    such as the GPxQ family of algorithms.
-
-    See "Accumulator-Aware Post-Training Quantization" for more details.
-    """
-
-    quant_metadata: Union[_CachedIO, _CachedIOGroupwiseInt] = None
-
-    def __init__(
-            self,
-            max_accumulator_bit_width: Union[int, Tensor],
-            max_accumulator_tile_size: Optional[int] = None):
-
-        if max_accumulator_bit_width is None:
-            raise ValueError("max_accumulator_bit_width is not specified.")
-        if not isinstance(max_accumulator_bit_width, Tensor):
-            max_accumulator_bit_width = torch.tensor(max_accumulator_bit_width)
-        self.max_accumulator_bit_width = max_accumulator_bit_width
-        if self.max_accumulator_bit_width <= 2:
-            raise ValueError(
-                f"accumulator bit width needs to be bigger than 2, received {self.max_accumulator_bit_width}"
-            )
-
-        self.max_accumulator_tile_size = max_accumulator_tile_size
-        if self.max_accumulator_tile_size is None:
-            self.max_accumulator_tile_size = self.columns
-        if self.max_accumulator_tile_size <= 1:
-            raise ValueError(
-                f"accumulator tile size needs to be bigger than 1, received {self.max_accumulator_tile_size}"
-            )
-        if self.layer.weight_quant.is_groupwise:
-            if (self.max_accumulator_tile_size != self.columns) \
-                and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
-                raise ValueError(
-                    "Error: only supporting accumulator-aware groupwise weight quantization"
-                    "when the group size is equal to the accumulator tile size or a monolithic"
-                    "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
-
-    @property
-    def input_min(self):
-        assert self.quant_metadata is not None, "Error: need quantized activations"
-        input_bit_width = self.quant_metadata.bit_width
-        input_is_signed = self.quant_metadata.signed
-        # NOTE: can't get this from cache, so assuming worst-case scenario
-        input_is_narrow = False
-        input_min = min_int(input_is_signed, input_is_narrow, input_bit_width)
-        assert input_min <= 0, f"Error: input_min={input_min}. Should be non-positive."
-        return int(input_min)
-
-    @property
-    def input_max(self):
-        assert self.quant_metadata is not None, "Error: need quantized activations"
-        input_bit_width = self.quant_metadata.bit_width
-        input_is_signed = self.quant_metadata.signed
-        # NOTE: can't get this from cache, so assuming worst-case scenario
-        input_is_narrow = False
-        input_max = max_int(input_is_signed, input_is_narrow, input_bit_width)
-        assert input_max >= 0, f"Error: input_max={input_max}. Should be non-negative."
-        return int(input_max)
-
-    def upper_lim(self, n: Tensor, p: Tensor):
-        p0 = torch.exp2(self.max_accumulator_bit_width - 1.) - 1.
-        p1 = (self.input_max * p) + (self.input_min * n)
-        p2 = (p0 - p1) / self.input_max
-        assert (p2 >= 0).all()
-
-        # for unsigned data types, assuming round-to-nearest
-        if self.input_min == 0:
-            return p2 - 0.5
-
-        n0 = -torch.exp2(self.max_accumulator_bit_width - 1.) + 1.
-        n1 = (self.input_min * p) + (self.input_max * n)
-        n2 = (n0 - n1) / self.input_min
-        assert (n2 >= 0).all()
-
-        # take the most restrictive lower limit (i.e., the smallest one),
-        # note that we are assuming round-to-nearest here
-        return torch.where(p2 < n2, p2, n2) - 0.5
-
-    def lower_lim(self, n: Tensor, p: Tensor):
-        n0 = -torch.exp2(self.max_accumulator_bit_width - 1.) + 1.
-        n1 = (self.input_min * p) + (self.input_max * n)
-        n2 = (n0 - n1) / self.input_max
-        assert (n2 <= 0).all()
-
-        # for unsigned data types, assuming round-to-nearest
-        if self.input_min == 0:
-            return n2 + 0.5
-
-        p0 = torch.exp2(self.max_accumulator_bit_width - 1.) - 1.
-        p1 = (self.input_max * p) + (self.input_min * n)
-        p2 = (p0 - p1) / self.input_min
-        assert (p2 <= 0).all()
-
-        # take the most restrictive lower limit (i.e., the largest one),
-        # note that we are assuming round-to-nearest here
-        return torch.where(p2 > n2, p2, n2) + 0.5

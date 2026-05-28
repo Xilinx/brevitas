@@ -3,7 +3,6 @@
 
 from copy import deepcopy
 import math
-from typing import Callable
 from typing import List
 from typing import Optional
 import warnings
@@ -18,8 +17,6 @@ except:
     LinAlgError = RuntimeError
 
 from brevitas import torch_version
-from brevitas.graph.gpxq import axe_mode_mixin
-from brevitas.graph.gpxq import AXEMixin
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -203,198 +200,9 @@ class GPTQ(GPxQ):
             self.layer.offload_params(self.layer)
 
 
-class A2GPTQ(AXEMixin, GPTQ):
-    """
-    Accumulator-aware GPTQ as proposed in https://arxiv.org/pdf/2409.17092
-    """
-
-    def __init__(
-            self,
-            layer,
-            name,
-            act_order,
-            len_parallel_layers,
-            create_weight_orig,
-            num_blocks,
-            max_accumulator_bit_width,
-            max_accumulator_tile_size) -> None:
-        GPTQ.__init__(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig, num_blocks)
-        AXEMixin.__init__(self, max_accumulator_bit_width, max_accumulator_tile_size)
-
-    def single_layer_update(self, percdamp=0.01, c=1e4):
-        assert not self.layer.weight_quant.requires_quant_input, \
-            "Error: GPTQ does not support weight quantizers that require quantized inputs."
-        if self.quant_metadata is None:
-            raise ValueError(
-                "Expected self.quant_metadata to calculate accumulator bounds, but recevied None. "
-                "Make sure that either the input to the model is an IntQuantTensor or the layer has an input quant enabled. "
-                "Also, check if `use_quant_activations=True` in `gptq_mode` when `max_accumulator_bit_width` is specified. "
-            )
-        if self.use_intermediate_buffer:
-            del self.B  # free memory
-        if hasattr(self.layer, "allocate_params"):
-            self.layer.allocate_params(self.layer)
-        weight = self.layer.weight.data
-        dev = weight.device
-
-        # Store the original dtype of the weights
-        # During computation, everything is converted to float32.
-        # When the weights are updated, we cast everything back to the
-        # original dtype
-        dtype = weight.dtype
-
-        scales = self.layer.quant_weight().scale
-        scales = scales.broadcast_to(weight.shape)
-        if scales.ndim > 0:
-            scales = self.reshape_gpxq_weights(scales)  # [OC, IC]
-        weight = self.reshape_gpxq_weights(weight)  # [OC, IC]
-
-        scales = scales.view(self.groups, -1, weight.shape[-1])
-        weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
-
-        # TODO: currently assuming round-to-nearest; need to handle other
-        # rounding functions
-        rounding_mode = self.layer.weight_quant.rounding_mode
-        if rounding_mode.lower() != "round":
-            raise NotImplementedError(f"{rounding_mode} not yet supported.")
-
-        # List with permutation tensors for the Hessian and weight matrix.
-        # If act_order is False, the tensors will be ordered indexes.
-        # For groupwise convolution, we have one tensor per group,
-        # thus len(permutation_list) is always equal to self.groups.
-        # We do not explicity permute the weight matrix, only the Hessian.
-        permutation_list = []
-        # For groupwise convolution, these operations are groupwise so we iterate
-        for i in range(self.groups):
-            # If a diagonal element on the Hessian is zero, we can set to 0 the corresponding
-            # column in the weight matrix.
-            # The diagonal element is set to 1 to avoid division-by-zero
-            dead = torch.diag(self.H[i, :, :]) == 0
-            self.H[i, dead, dead] = 1
-            # If the diagonal of activations is zero, we set the weight to zero
-            weight[i, :, dead] = 0
-            if self.act_order:
-                # Re-order Hessian so that weights associated to
-                # higher magnitude activations are quantized first
-                perm = torch.argsort(torch.diag(self.H[i, :, :]), descending=True)
-                self.H[i, :, :] = self.H[i, perm, :][:, perm]
-            else:
-                # No permutation, permutation tensor is a ordered index
-                perm = torch.tensor(range(self.H.shape[-1]), device=dev)
-            permutation_list.append(perm)
-
-        # Try/Except in case the inverse Hessian cannot be computed
-        try:
-            for i in range(self.groups):
-                damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
-                diag = torch.arange(self.columns, device=self.device)
-                self.H[i, diag, diag] += damp
-                self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
-                self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
-                # stabilizing the Cholesky decomposition with a fairly large constant, c
-                self.H[i, :, :] = torch.linalg.cholesky(
-                    self.H[i, :, :] * c, upper=True) / math.sqrt(c)
-            h_inv = self.H
-        except LinAlgError:
-            warnings.warn(
-                f'Failed to compute the inverse of the Hessian for layer {self.name} '
-                f'GPTQ will not be applied. '
-                f'Increasing the number of samples might fix this issue')
-            return
-        finally:
-            del self.H
-
-        n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
-        get_block_index = lambda bx: bx // self.max_accumulator_tile_size
-        if self.layer.weight_quant.is_groupwise and isinstance(self.layer, SUPPORTED_CONV_OP):
-            # only supporting groupwise quantization long the input dimension
-            group_dim = 0 if is_conv_transposed(self.layer) else 1
-            assert self.layer.weight_quant.group_dim == group_dim, \
-                f"Error: only group_dim={group_dim} is supported, not {group_dim}"
-            group_size = self.layer.weight_quant.group_size
-            n_tiles = math.prod(self.layer.kernel_size) * \
-                math.ceil(self.layer.in_channels / group_size)
-            get_block_index = lambda bx: bx % n_tiles
-
-        # initialize cumulative l1-norm
-        lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
-        pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
-                                 device=dev,
-                                 dtype=lim_dtype)  # positive limits
-        neg_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
-                                 device=dev,
-                                 dtype=lim_dtype)  # negative limits
-        max_limits = ((2 ** (self.max_accumulator_bit_width.to(lim_dtype) - 1)) - 1)
-
-        for i1 in range(0, self.columns, self.blocksize):
-            i2 = min(i1 + self.blocksize, self.columns)
-            count = i2 - i1
-            error_block = torch.zeros_like(
-                weight[:, :, permutation_list[-1][i1:i2]],
-                dtype=self.dtype)  # [groups, OC/groups, i2-i1]
-            h_inv_block = h_inv[:, i1:i2, i1:i2]
-            for i in range(count):
-                # need to apply soft thresholding and clamping before quantization
-                for group_index in range(self.groups):
-                    perm = permutation_list[group_index]
-                    block_index = get_block_index(perm[i1:i2][i])  # block index
-                    # calculate the q_max and q_min for the right group and right block
-                    n = neg_limits[group_index, block_index]
-                    p = pos_limits[group_index, block_index]
-                    s = scales[group_index, :, perm[i1:i2][i]].to(self.dtype)
-                    q_arg = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
-                    u = self.upper_lim(n, p)
-                    l = self.lower_lim(n, p)
-                    assert (u - l + 1 >= 0).all()
-                    q_max = s * torch.clamp_min(u, 0.0)  # [OC/groups]
-                    q_min = s * torch.clamp_max(l, 0.0)  # [OC/groups]
-                    # TODO: add soft thresholding
-                    q_arg.clamp_(q_min, q_max)  # clamping to bounds
-                    weight[group_index, :, perm[i1:i2][i]] = q_arg.to(dtype)
-                q_groups = self.get_quant_weights(i, i1, permutation_list)  # [Groups, OC/groups]
-                for group_index in range(self.groups):
-                    perm = permutation_list[group_index]
-                    q = q_groups[group_index].to(self.dtype)  # [OC/groups]
-                    w = weight[group_index, :, perm[i1:i2][i]].to(self.dtype)  # [OC/groups]
-                    d = h_inv_block[group_index, i, i]  # [1]
-                    error = (w - q) / d  # [OC/groups]
-                    error_block[group_index, :, i] = error
-                    # We need to update the original weights
-                    weight[group_index, :, perm[i1:i2][i:]] -= (
-                        error.unsqueeze(1).matmul(
-                            h_inv_block[group_index, i, i:].unsqueeze(0).to(dev))).to(dtype)
-                # update the tracking mechanisms
-                for group_index in range(self.groups):
-                    perm = permutation_list[group_index]
-                    block_index = get_block_index(perm[i1:i2][i])
-                    s = scales[group_index, :, perm[i1:i2][i]].to(self.dtype)
-                    q = q_groups[group_index] / s  # [OC/groups]
-                    # increment cumulative l1-norm
-                    pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
-                    neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
-                    assert (pos_limits >= 0).all(), f"pos_limits: {pos_limits}"
-                    assert (neg_limits <= 0).all(), f"neg_limits: {neg_limits}"
-                    pos_max_limit = ((self.input_max * pos_limits) + (self.input_min * neg_limits))
-                    assert (pos_max_limit <= max_limits).all(), \
-                        f"pos_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
-                    neg_max_limit = -((self.input_min * pos_limits) + (self.input_max * neg_limits))
-                    assert (neg_max_limit <= max_limits).all(), \
-                        f"neg_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
-
-            for group_index in range(self.groups):
-                perm = permutation_list[group_index]
-                weight[group_index, :, perm[i2:]] -= (
-                    error_block[group_index].matmul(h_inv[group_index, i1:i2,
-                                                          i2:].to(dev))).to(dtype)
-        if hasattr(self.layer, 'offload_params'):
-            self.layer.offload_params(self.layer)
-
-
-class gptq_mode(axe_mode_mixin, gpxq_mode):
+class gptq_mode(gpxq_mode):
     """
     Apply GPTQ algorithm https://arxiv.org/abs/2210.17323
-    Or accumulator-aware GPTQ (A2GPTQ) algorithm https://arxiv.org/pdf/2409.17092
 
     Args:
         model (Module): The model to quantize with GPTQ
@@ -412,12 +220,6 @@ class gptq_mode(axe_mode_mixin, gpxq_mode):
         gptq_class (GPTQ): The uninitialized class to perform GPTQ. Default: `brevitas.graph.gptq.GPTQ`
         device (str): Device the buffers are stored on. Default: cpu
         dtype (torch.dtype): Datatype the buffers are stored in. Default: torch.float32
-        a2q_layer_filter_fnc (Callable[[Module], bool]): A function that takes a layer and returns True
-            if the layer should be quantized with A2GPTQ. Default: lambda x: True
-        max_accumulator_bit_width (Optional[int]): The maximum bit width of the accumulator. Default: None
-        max_accumulator_tile_size (Optional[int]): The maximum tile size for accumulator-aware quantization.
-            If `None` and `max_accumulator_bit_width` is specified, then a monolithic accumulator is
-            assumed (see `Accumulator-Aware Post-Training Quantization` for more details). Default: None
 
     Example:
         >>> with torch.no_grad():
@@ -442,10 +244,7 @@ class gptq_mode(axe_mode_mixin, gpxq_mode):
             act_order: bool = False,
             gptq_class: GPTQ = GPTQ,
             device: str = 'cpu',
-            dtype: torch.dtype = torch.float32,
-            a2q_layer_filter_fnc: Optional[Callable[[Module], bool]] = lambda x: True,
-            max_accumulator_bit_width: Optional[int] = None,
-            max_accumulator_tile_size: Optional[int] = None) -> None:
+            dtype: torch.dtype = torch.float32) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -462,9 +261,6 @@ class gptq_mode(axe_mode_mixin, gpxq_mode):
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
         self.gptq_class = gptq_class
-        self.max_accumulator_bit_width = max_accumulator_bit_width
-        self.max_accumulator_tile_size = max_accumulator_tile_size
-        self.a2q_layer_filter_fnc = a2q_layer_filter_fnc
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -482,16 +278,6 @@ class gptq_mode(axe_mode_mixin, gpxq_mode):
                 return out
 
     def initialize_module_optimizer(self, layer, name, len_parallel_layers, create_weight_orig):
-        if self.is_valid_a2q_layer(layer):
-            return A2GPTQ(
-                layer=layer,
-                name=name,
-                act_order=self.act_order,
-                len_parallel_layers=len_parallel_layers,
-                create_weight_orig=create_weight_orig,
-                num_blocks=self.num_blocks,
-                max_accumulator_bit_width=self.max_accumulator_bit_width,
-                max_accumulator_tile_size=self.max_accumulator_tile_size)
         return self.gptq_class(
             layer=layer,
             name=name,

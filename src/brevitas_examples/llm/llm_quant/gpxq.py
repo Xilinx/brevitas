@@ -16,6 +16,8 @@ from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas.utils.torch_utils import StopFwdException
+from brevitas_examples.common.axe import a2gpfq_mode
+from brevitas_examples.common.axe import a2gptq_mode
 
 
 def _gpxq_block_optimization_callback(block, gpxq, cached_args, cached_kwargs):
@@ -118,27 +120,24 @@ def apply_gptq(
         max_accumulator_tile_size=None,
         buffer_device='cpu',
         buffer_dtype=torch.float32):
+    context_manager_kwargs = {
+        'act_order': act_order,
+        'group_of_parallel_layers': group_of_parallel_layers,
+        'create_weight_orig': create_weight_orig,
+        'use_quant_activations': use_quant_activations,
+        'device': buffer_device,
+        'dtype': buffer_dtype}
+    context_manager_func = gptq_mode
+    if max_accumulator_bit_width is not None:
+        context_manager_func = a2gptq_mode
+        context_manager_kwargs.update(
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
     if block_name is not None:
-        context_manager_kwargs = {
-            'act_order': act_order,
-            'group_of_parallel_layers': group_of_parallel_layers,
-            'create_weight_orig': create_weight_orig,
-            'use_quant_activations': use_quant_activations,
-            'max_accumulator_bit_width': max_accumulator_bit_width,
-            'max_accumulator_tile_size': max_accumulator_tile_size,
-            'device': buffer_device,
-            'dtype': buffer_dtype}
-        block_optimization(model, dataloader, block_name, gptq_mode, context_manager_kwargs)
+        block_optimization(
+            model, dataloader, block_name, context_manager_func, context_manager_kwargs)
     else:
-        with gptq_mode(model,
-                       use_quant_activations=use_quant_activations,
-                       group_of_parallel_layers=group_of_parallel_layers,
-                       act_order=act_order,
-                       create_weight_orig=create_weight_orig,
-                       max_accumulator_bit_width=max_accumulator_bit_width,
-                       max_accumulator_tile_size=max_accumulator_tile_size,
-                       device=buffer_device,
-                       dtype=buffer_dtype) as gptq:
+        with context_manager_func(model, **context_manager_kwargs) as gptq:
             gptq_model = gptq.model
             for _ in tqdm(range(gptq.num_layers)):
                 for inps in dataloader:
@@ -165,27 +164,24 @@ def _dual_optimization_callback(
 
     See https://arxiv.org/abs/2505.11695 for more!
     """
+    context_manager_kwargs = {
+        'act_order': act_order,
+        'group_of_parallel_layers': group_of_parallel_layers,
+        'create_weight_orig': True,
+        'algorithm_impl': algorithm_impl,
+        'device': device,
+        'dtype': dtype}
+    context_manager_func = gpfq_mode
+    if max_accumulator_bit_width is not None:
+        context_manager_func = a2gpfq_mode
+        context_manager_kwargs.update(
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
     if block_name is not None:
-        context_manager_kwargs = {
-            'act_order': act_order,
-            'group_of_parallel_layers': group_of_parallel_layers,
-            'create_weight_orig': True,
-            'algorithm_impl': algorithm_impl,
-            'max_accumulator_bit_width': max_accumulator_bit_width,
-            'max_accumulator_tile_size': max_accumulator_tile_size,
-            'device': device,
-            'dtype': dtype}
-        block_optimization(model, dataloader, block_name, gpfq_mode, context_manager_kwargs)
+        block_optimization(
+            model, dataloader, block_name, context_manager_func, context_manager_kwargs)
     else:
-        with gpfq_mode(model,
-                       act_order=act_order,
-                       group_of_parallel_layers=group_of_parallel_layers,
-                       create_weight_orig=True,
-                       algorithm_impl=algorithm_impl,
-                       max_accumulator_bit_width=max_accumulator_bit_width,
-                       max_accumulator_tile_size=max_accumulator_tile_size,
-                       device=device,
-                       dtype=dtype) as algo:
+        with context_manager_func(model, **context_manager_kwargs) as algo:
             algo_model = algo.model
             for _ in tqdm(range(algo.num_layers)):
                 for inps in dataloader:

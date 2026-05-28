@@ -16,6 +16,8 @@ from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 import brevitas.nn as qnn
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas_examples.common.axe import a2gpfq_mode
+from brevitas_examples.common.axe import a2gptq_mode
 
 from .equalization_fixtures import *
 
@@ -44,13 +46,19 @@ def _dual_optimization_callback(
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    with gpfq_mode(model,
-                   use_quant_activations=use_quant_activations,
-                   act_order=act_order,
-                   algorithm_impl=algorithm_impl,
-                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
-                   max_accumulator_bit_width=max_accumulator_bit_width,
-                   max_accumulator_tile_size=max_accumulator_tile_size) as algo:
+    context_manager_kwargs = dict(
+        model=model,
+        use_quant_activations=use_quant_activations,
+        act_order=act_order,
+        algorithm_impl=algorithm_impl)
+    context_manager = gpfq_mode
+    if max_accumulator_bit_width is not None:
+        context_manager = a2gpfq_mode
+        context_manager_kwargs.update(
+            a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
+    with context_manager(**context_manager_kwargs) as algo:
         algo_model = algo.model
         for _ in range(algo.num_layers):
             for _, (images, _) in enumerate(calib_loader):
@@ -103,12 +111,18 @@ def apply_gptq(
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    with gptq_mode(model,
-                   act_order=act_order,
-                   a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
-                   use_quant_activations=use_quant_activations,
-                   max_accumulator_bit_width=max_accumulator_bit_width,
-                   max_accumulator_tile_size=max_accumulator_tile_size) as gptq:
+    context_manager_kwargs = dict(
+        model=model,
+        act_order=act_order,
+        use_quant_activations=use_quant_activations)
+    context_manager = gptq_mode
+    if max_accumulator_bit_width is not None:
+        context_manager = a2gptq_mode
+        context_manager_kwargs.update(
+            a2q_layer_filter_fnc=_a2q_layer_filter_fnc,
+            max_accumulator_bit_width=max_accumulator_bit_width,
+            max_accumulator_tile_size=max_accumulator_tile_size)
+    with context_manager(**context_manager_kwargs) as gptq:
         gptq_model = gptq.model
         for _ in range(gptq.num_layers):
             for _, (images, _) in enumerate(calib_loader):
