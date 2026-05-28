@@ -9,7 +9,6 @@ import warnings
 
 from packaging import version
 import torch
-from torch.nn import Module
 
 try:
     from torch.linalg import LinAlgError
@@ -202,7 +201,7 @@ class GPTQ(GPxQ):
 
 class gptq_mode(gpxq_mode):
     """
-    Apply GPTQ algorithm https://arxiv.org/abs/2210.17323
+    Apply GPTQ algorithm https://arxiv.org/abs/2210.17323.
 
     Args:
         model (Module): The model to quantize with GPTQ
@@ -234,7 +233,7 @@ class gptq_mode(gpxq_mode):
 
     def __init__(
             self,
-            model: Module,
+            model,
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             create_weight_orig: bool = True,

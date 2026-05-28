@@ -72,7 +72,8 @@ class AXEMixin:
     Accumulator-aware extensions for greedy path sequential quantization algorithms
     such as the GPxQ family of algorithms.
 
-    See "Accumulator-Aware Post-Training Quantization" for more details.
+    See "Accumulator-Aware Post-Training Quantization for Large Language Models" for more details.
+      https://openreview.net/forum?id=p6l0579yj7
     """
 
     quant_metadata: Union[_CachedIO, _CachedIOGroupwiseInt] = None
@@ -106,6 +107,13 @@ class AXEMixin:
                     "Error: only supporting accumulator-aware groupwise weight quantization"
                     "when the group size is equal to the accumulator tile size or a monolithic"
                     "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
+
+    def reshape_gpxq_weights(self, weight):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if is_conv_transposed(self.layer):
+                weight = weight.transpose(1, 0)  # This performs a view
+            weight = weight.flatten(1)
+        return weight
 
     @property
     def input_min(self):
@@ -226,10 +234,10 @@ class A2GPTQ(AXEMixin, GPTQ):
                 "Make sure that either the input to the model is an IntQuantTensor or the layer has an input quant enabled. "
                 "Also, check if `use_quant_activations=True` in `gptq_mode` when `max_accumulator_bit_width` is specified. "
             )
-        if self.use_intermediate_buffer:
-            del self.B  # free memory
         if hasattr(self.layer, "allocate_params"):
             self.layer.allocate_params(self.layer)
+        if self.use_intermediate_buffer:
+            del self.B  # free memory
         weight = self.layer.weight.data
         dev = weight.device
 
@@ -382,7 +390,7 @@ class A2GPTQ(AXEMixin, GPTQ):
                 weight[group_index, :, perm[i2:]] -= (
                     error_block[group_index].matmul(h_inv[group_index, i1:i2,
                                                           i2:].to(dev))).to(dtype)
-        if hasattr(self.layer, 'offload_params'):
+        if hasattr(self.layer, "offload_params"):
             self.layer.offload_params(self.layer)
 
 
@@ -479,8 +487,8 @@ class A2GPFQ(AXEMixin, GPFQ):
             perm = perm.to(weight.device)
             permutation_list.append(perm)
 
-        Dg = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
-        Dh = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
+        Dg: Tensor = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
+        Dh: Tensor = torch.zeros((self.groups, self.columns), dtype=self.dtype, device=self.device)
         for group_index in range(self.groups):
             Dg[group_index].copy_(self.G[group_index].diag())
             Dh[group_index].copy_(self.H[group_index].diag())

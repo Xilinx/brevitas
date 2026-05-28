@@ -5,8 +5,10 @@ from copy import deepcopy
 import math
 from typing import List
 from typing import Optional
+import warnings
 
 import torch
+from torch import Tensor
 import torch.nn as nn
 
 from brevitas.graph.calibrate import quantization_status_manager
@@ -199,7 +201,7 @@ class GPFQ(GPxQ):
 class gpfq_mode(gpxq_mode):
     """
     Apply GPFQ algorithm, or other algorithms that solve the mismatched objective function,
-    like Qronos.
+    like Qronos or A2GPFQ.
 
     Args:
         model (Module): The model to quantize with GPFQ

@@ -298,13 +298,6 @@ class GPxQ(ABC):
 
         return inp_processed
 
-    def reshape_gpxq_weights(self, weight):
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if is_conv_transposed(self.layer):
-                weight = weight.transpose(1, 0)  # This performs a view
-            weight = weight.flatten(1)
-        return weight
-
     @abstractmethod
     def update_batch(self):
         pass
