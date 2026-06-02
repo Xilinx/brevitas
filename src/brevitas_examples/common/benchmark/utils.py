@@ -147,7 +147,7 @@ def run_args_bucket_process(
                 datetime.timedelta(
                     seconds=int((args_queue.qsize() / num_processes + 1) * mean_running_time)))
         print(
-            f"Job: {job_name}, process: {id}, gpu: {cuda_visible_devices}, remaining combinations: {args_queue.qsize()}, remaining time: {remaining_time}"
+            f"Job: {job_name}, process: {id}, gpu(s): {cuda_visible_devices}, remaining combinations: {args_queue.qsize()}, remaining time: {remaining_time}"
         )
         # Check if a folder for the experiment already exists. In case the
         # experiment was successful before, do not try to run again
