@@ -21,7 +21,7 @@ from brevitas.utils.torch_utils import StopFwdException
 
 class Qronos(GPFQ):
     """
-    Implementation of Qronos as proposed in: https://arxiv.org/pdf/2505.11695
+    Implementation of Qronos as proposed in: https://openreview.net/pdf?id=7axclBCYul
     """
 
     def __init__(
