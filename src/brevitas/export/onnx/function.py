@@ -5,6 +5,25 @@ import torch
 from torch.autograd import Function
 
 
+class DynamoFn:
+    """Dynamo export backend, mirroring ``torch.autograd.Function``.
+
+    Subclasses implement ``symbolic(*args)`` to emit a node via
+    ``torch.onnx.ops`` (no graph argument). This gives the dynamo exporter the
+    same ``apply(*args)`` / ``symbolic(*args)`` interface as the TorchScript
+    ``torch.autograd.Function`` backend, so the two are interchangeable. Eager
+    numerics are not duplicated here: they live in the TorchScript backend.
+    """
+
+    @classmethod
+    def apply(cls, *args):
+        return cls.symbolic(*args)
+
+    @staticmethod
+    def symbolic(*args):
+        raise NotImplementedError
+
+
 class LSTMCellFn(Function):
 
     @staticmethod
