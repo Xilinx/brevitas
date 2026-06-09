@@ -134,7 +134,7 @@ class QONNXDynamoManager(QONNXManager):
             input_t: Optional[Union[Tensor, QuantTensor]],
             disable_warnings,
             **onnx_export_kwargs):
-        assert not parse("2.6") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.6. Current PyTorch version: {str(torch_version)}"
+        assert not parse("2.8") > torch_version, f"QONNX Export with `dynamo=True` only supported for PyTorch>=2.8. Current PyTorch version: {str(torch_version)}"
         assert onnx_export_kwargs["dynamo"]
         key = "optimize"
         wrn_str = f"Optimize=True is recommended with QONNX export with dynamo=True"
