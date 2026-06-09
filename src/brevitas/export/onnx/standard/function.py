@@ -42,8 +42,7 @@ class DequantizeLinearDynamoFn(DynamoFn):
     def symbolic(x, input_scale, input_zero_point, input_axis):
         attrs = {} if input_axis is None else {'axis': input_axis}
         return torch.onnx.ops.symbolic(
-            'DequantizeLinear',
-            (x, input_scale, input_zero_point),
+            'DequantizeLinear', (x, input_scale, input_zero_point),
             attrs,
             dtype=input_scale.dtype,
             shape=x.shape,
@@ -72,8 +71,7 @@ class IntClipDynamoFn(DynamoFn):
     @staticmethod
     def symbolic(int_x, min_int_val, max_int_val):
         return torch.onnx.ops.symbolic(
-            'Clip',
-            (int_x, min_int_val, max_int_val),
+            'Clip', (int_x, min_int_val, max_int_val),
             dtype=int_x.dtype,
             shape=int_x.shape,
             version=None)
@@ -101,12 +99,7 @@ class CastDynamoFn(DynamoFn):
     @staticmethod
     def symbolic(x, dtype):
         return torch.onnx.ops.symbolic(
-            'Cast',
-            (x,),
-            {'to': DATATYPE_DICT[dtype]},
-            dtype=dtype,
-            shape=x.shape,
-            version=None)
+            'Cast', (x,), {'to': DATATYPE_DICT[dtype]}, dtype=dtype, shape=x.shape, version=None)
 
 
 class CastOp:
@@ -139,8 +132,7 @@ class QuantizeLinearDynamoFn(DynamoFn):
     def symbolic(x, output_scale, ouput_zero_point, output_dtype, output_axis):
         attrs = {} if output_axis is None else {'axis': output_axis}
         return torch.onnx.ops.symbolic(
-            'QuantizeLinear',
-            (x, output_scale, ouput_zero_point),
+            'QuantizeLinear', (x, output_scale, ouput_zero_point),
             attrs,
             dtype=output_dtype,
             shape=x.shape,
@@ -173,8 +165,7 @@ class DynamicQuantizeLinearDynamoFn(DynamoFn):
     @staticmethod
     def symbolic(x, output_dtype):
         return torch.onnx.ops.symbolic_multi_out(
-            'DynamicQuantizeLinear',
-            (x,),
+            'DynamicQuantizeLinear', (x,),
             dtypes=(output_dtype, torch.float32, output_dtype),
             shapes=(x.shape, [], []),
             version=None)
