@@ -528,7 +528,7 @@ def apply_fine_tuning(
         eval_dataset=None,
         data_collator=collate_fn,
         optimizers=optimizers)
-    
+
     # Select trainer class
     if trainer_cls is None:
         if training_args.use_distillation_loss:
