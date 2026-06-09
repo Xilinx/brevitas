@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
@@ -10,10 +11,8 @@ from torch.nn import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from brevitas import config
-from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import ScalingImplType
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.utils.torch_utils import compute_channel_view_shape
 
 
@@ -70,115 +69,104 @@ def rename_state_dict_by_postfix(old_postfix, new_postfix, state_dict):
         state_dict[keys_map[old_key]] = state_dict.pop(old_key)
 
 
-class merge_quant_weights:
-    """Context manager that merges quantized weights into model weights.
+def merge_quant_weights(
+        model: torch.nn.Module,
+        example_input: torch.Tensor,
+        preserve_original_weights: bool = False) -> None:
+    """Merge quantized weights into model weights.
 
     This could be useful for example with Learned Round.
     After learned round training, the rounding decision for each weight element is
-    deterministic. This context manager uses forward hooks to discover the association
+    deterministic. This function uses forward hooks to discover the association
     between weight tensors and its quantized counterparts, and update the module's weights.
+    A single forward pass is performed using ``example_input``.
 
     Usage::
 
         model.eval()
-        with merge_learned_round(model):
-            model(sample_input)
+        merge_quant_weights(model, sample_input)
         # Weights are now merged and rounding mode is ROUND.
 
     Args:
         model: A model containing quantised layers with learned round quantisers.
+        example_input: A single example input tensor used to run the forward pass.
+        preserve_original_weights: If ``True``, the original weights are saved to
+            ``m.weight_orig`` before overwriting (default ``False``).
     """
+    # Imported here to avoid a circular import
+    from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 
-    def __init__(
-            self,
-            model: torch.nn.Module,
-            disable_quant: bool = True,
-            preserve_original_weights: bool = False) -> None:
-        self._model = model
-        self._hooks: List[RemovableHandle] = []
-        self._module_tensor_id_mapping = {}
-        self.disable_quant = disable_quant
-        self.hook_check = False
-        self.preserve_original_weights = preserve_original_weights
+    hooks: List[RemovableHandle] = []
+    module_tensor_id_mapping: Dict = {}
 
-    def __enter__(self) -> 'merge_quant_weights':
-        # Imported here to avoid a circular import
-        from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
-
-        def model_hook(module, args, output):
-            if self.hook_check:
-                raise RuntimeError(
-                    "Calling multiple forward pass within the context manager is not supported")
-            self.hook_check = True
-
-        def hook(module, args, output):
-            input_tensor = args[0]
-            with torch.no_grad():
-                for m in module.tracked_module_list:
-                    # We match the module based on its weights and the ID of the tensor to quantize
-                    if id(m.weight.data) == id(input_tensor.data):
-                        if self.preserve_original_weights:
-                            m.weight_orig = m.weight.data.cpu()
-                        m.weight.data = output.value.data
-                        # We track how many modules have been converted
-                        if module not in self._module_tensor_id_mapping:
-                            self._module_tensor_id_mapping[module] = [id(m.weight.data)]
-                        else:
-                            self._module_tensor_id_mapping[module].append(id(m.weight.data))
-
-        # Register Proxy hooks
-        for module in self._model.modules():
-            if not isinstance(module, WeightQuantProxyFromInjectorBase):
-                continue
-            self.change_scale_impl_type(module)
-            handle = module.register_forward_hook(hook)
-            self._hooks.append(handle)
-
-        # Register Model hook
-        handle = self._model.register_forward_hook(model_hook)
-        self._hooks.append(handle)
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        for hook in self._hooks:
-            hook.remove()
-        self._hooks.clear()
-
+    def hook(
+            module: 'WeightQuantProxyFromInjectorBase', args: Tuple[Any, ...], output: Any) -> None:
+        input_tensor = args[0]
         with torch.no_grad():
-            for module in self._module_tensor_id_mapping:
-                self._reset_quantizer(module)
+            for m in module.tracked_module_list:
+                # We match the module based on its weights and the ID of the tensor to quantize
+                if id(m.weight.data) == id(input_tensor.data):
+                    if preserve_original_weights:
+                        m.weight_orig = m.weight.data.cpu()
+                    m.weight.data = output.value.data
+                    # We track how many modules have been converted
+                    if module not in module_tensor_id_mapping:
+                        module_tensor_id_mapping[module] = [id(m.weight.data)]
+                    else:
+                        module_tensor_id_mapping[module].append(id(m.weight.data))
 
-    def change_scale_impl_type(self, proxy) -> None:
-        reinit_on_state_dict = config.REINIT_ON_STATE_DICT_LOAD
-        ignore_missing_key = config.IGNORE_MISSING_KEYS
-        config.REINIT_ON_STATE_DICT_LOAD = False
-        config.IGNORE_MISSING_KEYS = True
-        state_dict = proxy.state_dict()
-        proxy.quant_injector = proxy.quant_injector.let(
-            scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS)
-        proxy.init_tensor_quant()
-        proxy.load_state_dict(state_dict, strict=False)
-        config.IGNORE_MISSING_KEYS = ignore_missing_key
-        config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
+    # Register Proxy hooks
+    for module in model.modules():
+        if not isinstance(module, WeightQuantProxyFromInjectorBase):
+            continue
+        _change_scale_impl_type(module)
+        handle = module.register_forward_hook(hook)
+        hooks.append(handle)
 
-    @staticmethod
-    def _reset_quantizer(proxy) -> None:
-        """Switch a weight quant proxy from LearnedRound back to standard Round."""
-        reinit_on_state_dict = config.REINIT_ON_STATE_DICT_LOAD
-        ignore_missing_key = config.IGNORE_MISSING_KEYS
-        config.REINIT_ON_STATE_DICT_LOAD = False
-        config.IGNORE_MISSING_KEYS = True
-        state_dict = {
-            k: v for k,
-            v in proxy.state_dict().items() if not k.endswith('float_to_int_impl.value')}
+    # Run a single forward pass to trigger the hooks
+    try:
+        model(example_input)
+    finally:
+        # Remove all hooks
+        for h in hooks:
+            h.remove()
+        hooks.clear()
 
-        proxy.quant_injector = proxy.quant_injector.let(
-            float_to_int_impl_type=FloatToIntImplType.ROUND)
-        proxy.init_tensor_quant()
-        proxy.load_state_dict(state_dict, strict=False)
-        config.IGNORE_MISSING_KEYS = ignore_missing_key
-        config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
+    # Reset quantizers from LEARNED_ROUND to ROUND
+    with torch.no_grad():
+        for module in module_tensor_id_mapping:
+            _reset_quantizer(module)
+
+
+def _change_scale_impl_type(proxy) -> None:
+    """Change the scaling implementation type to PARAMETER_FROM_STATS."""
+    reinit_on_state_dict = config.REINIT_ON_STATE_DICT_LOAD
+    ignore_missing_key = config.IGNORE_MISSING_KEYS
+    config.REINIT_ON_STATE_DICT_LOAD = False
+    config.IGNORE_MISSING_KEYS = True
+    state_dict = proxy.state_dict()
+    proxy.quant_injector = proxy.quant_injector.let(
+        scaling_impl_type=ScalingImplType.PARAMETER_FROM_STATS)
+    proxy.init_tensor_quant()
+    proxy.load_state_dict(state_dict, strict=False)
+    config.IGNORE_MISSING_KEYS = ignore_missing_key
+    config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
+
+
+def _reset_quantizer(proxy) -> None:
+    """Switch a weight quant proxy from LearnedRound back to standard Round."""
+    reinit_on_state_dict = config.REINIT_ON_STATE_DICT_LOAD
+    ignore_missing_key = config.IGNORE_MISSING_KEYS
+    config.REINIT_ON_STATE_DICT_LOAD = False
+    config.IGNORE_MISSING_KEYS = True
+    state_dict = {
+        k: v for k, v in proxy.state_dict().items() if not k.endswith('float_to_int_impl.value')}
+
+    proxy.quant_injector = proxy.quant_injector.let(float_to_int_impl_type=FloatToIntImplType.ROUND)
+    proxy.init_tensor_quant()
+    proxy.load_state_dict(state_dict, strict=False)
+    config.IGNORE_MISSING_KEYS = ignore_missing_key
+    config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
 
 
 def check_tensors_same_ptr(tensor_list):

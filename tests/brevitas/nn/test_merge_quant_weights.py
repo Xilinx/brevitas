@@ -62,55 +62,8 @@ def _randomise_learned_round(model):
 
 @pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
 def test_merge_quant_weights_preserves_quantised_weights(learned_round_param):
-    """After merging, standard round should produce the same quantised weights."""
-    torch.manual_seed(SEED)
-    model = QuantLinear(in_features=IN_FEATURES, out_features=OUT_FEATURES, bias=False)
-    model.eval()
-
-    _insert_learned_round(model, learned_round_param)
-    _randomise_learned_round(model)
-    model.eval()
-
-    # Get quantised weights with learned round active
-    quant_before = _get_quant_weights(model)
-
-    # Merge learned round into weights via context manager
-    x = torch.randn(4, IN_FEATURES)
-    with merge_quant_weights(model):
-        model(x)
-
-    # Verify that learned round has been removed
-    for module in model.modules():
-        assert not isinstance(module, LearnedRoundSte), \
-            "LearnedRoundSte should be removed after merge"
-
-    # The quantised outputs should match
-    quant_after = _get_quant_weights(model)
-    for name in quant_before:
-        assert torch.allclose(quant_before[name], quant_after[name], atol=1e-6), \
-            f"Quantised weights differ for {name} after merge"
-
-
-@pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
-def test_merge_quant_weights_errors_on_multiple_forward_passes(learned_round_param):
-    """Multiple forward passes inside merge_quant_weights should raise RuntimeError."""
-    torch.manual_seed(SEED)
-    model = QuantLinear(in_features=IN_FEATURES, out_features=OUT_FEATURES, bias=False)
-    model.eval()
-
-    _insert_learned_round(model, learned_round_param)
-    _randomise_learned_round(model)
-    model.eval()
-
-    x = torch.randn(4, IN_FEATURES)
-    with pytest.raises(RuntimeError), merge_quant_weights(model):
-        for _ in range(3):
-            model(x)
-
-
-@pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
-def test_merge_quant_weights_reset(learned_round_param):
-    """After merging, the rounding mode should be ROUND."""
+    """After merging, standard round should preserve the quantised weights, remove learned
+    round and its forward hooks, and reset the rounding mode to ROUND."""
     torch.manual_seed(SEED)
     model = QuantLinear(in_features=IN_FEATURES, out_features=OUT_FEATURES, bias=False)
     model.eval()
@@ -118,12 +71,36 @@ def test_merge_quant_weights_reset(learned_round_param):
     _insert_learned_round(model, learned_round_param)
     assert model.weight_quant.rounding_mode == "LEARNED_ROUND"
 
+    _randomise_learned_round(model)
+    model.eval()
+
+    # Get quantised weights with learned round active
+    quant_before = _get_quant_weights(model)
+    hooks_before = len(model._forward_hooks)
+
+    # Merge learned round into weights
     x = torch.randn(4, IN_FEATURES)
-    with merge_quant_weights(model):
-        model(x)
+    merge_quant_weights(model, x)
+
+    # Verify that learned round has been removed
+    for module in model.modules():
+        assert not isinstance(module, LearnedRoundSte), \
+            "LearnedRoundSte should be removed after merge"
+
+    # Verify that the merge's forward hooks were cleaned up
+    hooks_after = len(model._forward_hooks)
+    assert hooks_after == hooks_before, "Forward hooks were not cleaned up after merge"
+
+    # Verify that the rounding mode has been reset to standard round
     assert isinstance(
         model.weight_quant.tensor_quant.scaling_impl, ParameterFromStatsFromParameterScaling)
     assert model.weight_quant.rounding_mode == "ROUND"
+
+    # The quantised outputs should match
+    quant_after = _get_quant_weights(model)
+    for name in quant_before:
+        assert torch.allclose(quant_before[name], quant_after[name], atol=1e-6), \
+            f"Quantised weights differ for {name} after merge"
 
 
 @pytest.mark.parametrize("learned_round_param", LEARNED_ROUND_OPTIONS)
@@ -142,8 +119,7 @@ def test_merge_quant_weights_forward_equivalence(learned_round_param):
     with torch.no_grad():
         out_before = model(x).clone()
 
-    with merge_quant_weights(model):
-        model(x)
+    merge_quant_weights(model, x)
 
     with torch.no_grad():
         out_after = model(x)
