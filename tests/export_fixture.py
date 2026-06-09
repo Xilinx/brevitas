@@ -9,6 +9,7 @@ from pytest_cases import fixture
 from pytest_cases import parametrize
 
 from brevitas import torch_version
+from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_qonnx
 
 
@@ -29,6 +30,27 @@ _qonnx_export_fns, _qonnx_export_ids = _get_qonnx_export_modes()
 @fixture
 @parametrize('export_fn', _qonnx_export_fns, ids=_qonnx_export_ids)
 def qonnx_export_fn(export_fn):
+    yield export_fn
+
+
+def _get_qcdq_export_modes():
+    if parse("2.8") > torch_version:
+        export_fns = [export_onnx_qcdq]
+        export_ids = ["torchscript"]
+    else:
+        export_fns = [
+            partial(export_onnx_qcdq, dynamo=False),
+            partial(export_onnx_qcdq, dynamo=True, optimize=True)]
+        export_ids = ["torchscript", "dynamo"]
+    return export_fns, export_ids
+
+
+_qcdq_export_fns, _qcdq_export_ids = _get_qcdq_export_modes()
+
+
+@fixture
+@parametrize('export_fn', _qcdq_export_fns, ids=_qcdq_export_ids)
+def qcdq_export_fn(export_fn):
     yield export_fn
 
 

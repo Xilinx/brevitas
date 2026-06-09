@@ -144,11 +144,11 @@ def is_brevitas_ort_close(
         computed_out = brevitas_output
         scale = 1.
 
-    if tolerance is not None and export_type == 'qcdq':
+    if tolerance is not None and export_type in ('qcdq', 'qcdq_dynamo'):
         tolerance = tolerance * scale  # Float Output, tolerance is +/- output scale
 
     if export_type == 'qonnx':
-        exported_model = export_qonnx(model, input_t, export_path=export_name)
+        exported_model = export_qonnx(model, input_t, export_path=export_name, dynamo=False)
         exported_model = ModelWrapper(exported_model)
         exported_model = exported_model.transform(InferShapes())
         idict = {exported_model.graph.input[0].name: numpy_inference_inp}
@@ -161,9 +161,19 @@ def is_brevitas_ort_close(
                 input_t,
                 export_path=export_name,
                 export_weight_q_node=export_q_weight,
-                opset_version=onnx_opset)
+                opset_version=onnx_opset,
+                dynamo=False)
+        elif export_type == 'qcdq_dynamo':
+            export_onnx_qcdq(
+                model,
+                input_t,
+                export_path=export_name,
+                export_weight_q_node=export_q_weight,
+                opset_version=onnx_opset,
+                dynamo=True,
+                optimize=True)
         elif export_type == 'qonnx_opset14':
-            export_qonnx(model, input_t, opset_version=14, export_path=export_name)
+            export_qonnx(model, input_t, opset_version=14, export_path=export_name, dynamo=False)
         else:
             raise RuntimeError(f"Export type {export_type} not recognized.")
 
