@@ -243,7 +243,12 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
             signed: Tensor):
         y = self.export_op(
-            BrevitasTruncOp, x, scale, zero_point, input_bit_width, signed,
+            BrevitasTruncOp,
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            signed,
             *self.symbolic_kwargs.values())
         return y, self.symbolic_kwargs['output_scale'], zero_point, self.symbolic_kwargs['output_bit_width']
 

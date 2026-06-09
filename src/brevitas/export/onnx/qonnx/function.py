@@ -35,8 +35,7 @@ class BrevitasBinaryQuantDynamoFn(DynamoFn):
     @staticmethod
     def symbolic(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         return torch.onnx.ops.symbolic(
-            f'{DOMAIN_STRING}::BipolarQuant',
-            (x, scale),
+            f'{DOMAIN_STRING}::BipolarQuant', (x, scale),
             dtype=x.dtype,
             shape=x.shape,
             version=DOMAIN_VERSION)
@@ -81,12 +80,8 @@ class BrevitasQuantDynamoFn(DynamoFn):
     @staticmethod
     def symbolic(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         return torch.onnx.ops.symbolic(
-            f'{DOMAIN_STRING}::Quant',
-            (x, scale, zero_point, bit_width),
-            {
-                'rounding_mode': rounding_mode,
-                'signed': int(signed),
-                'narrow': int(narrow_range)},
+            f'{DOMAIN_STRING}::Quant', (x, scale, zero_point, bit_width), {
+                'rounding_mode': rounding_mode, 'signed': int(signed), 'narrow': int(narrow_range)},
             dtype=x.dtype,
             shape=x.shape,
             version=DOMAIN_VERSION)
@@ -238,11 +233,8 @@ class BrevitasTruncDynamoFn(DynamoFn):
             rounding_mode):
         return torch.onnx.ops.symbolic(
             f'{DOMAIN_STRING}::Trunc',
-            (x, scale, zero_point, input_bit_width, output_scale, output_bit_width),
-            {
-                'rounding_mode': rounding_mode,
-                'signed': int(signed),
-                'narrow': int(narrow_range)},
+            (x, scale, zero_point, input_bit_width, output_scale, output_bit_width), {
+                'rounding_mode': rounding_mode, 'signed': int(signed), 'narrow': int(narrow_range)},
             dtype=x.dtype,
             shape=x.shape,
             version=DOMAIN_VERSION)
