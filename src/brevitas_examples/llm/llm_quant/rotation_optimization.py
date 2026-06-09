@@ -533,7 +533,8 @@ def apply_fine_tuning(
     if trainer_cls is None:
         if training_args.use_distillation_loss:
             trainer_cls = GeneralizedTrainer
-            teacher_model = copy.deepcopy(model.cpu()) if training_args.use_distillation_loss else None
+            teacher_model = copy.deepcopy(
+                model.cpu()) if training_args.use_distillation_loss else None
             trainer_kwargs["teacher_model"] = teacher_model
         else:
             trainer_cls = Trainer
