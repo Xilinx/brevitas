@@ -68,7 +68,7 @@ class BrevitasQuantTorchScriptFn(Function):
         quant = IntQuant(
             float_to_int_impl=float_to_int_impl(),
             tensor_clamp_impl=TensorClamp(),
-            input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
+            input_view_impl=Identity(),  #TODO: Update this when QONNX supports Groupwise export
             narrow_range=torch.tensor(int(narrow_range), dtype=x.dtype, device=x.device),
             signed=torch.tensor(int(signed), dtype=x.dtype, device=x.device))
         x = quant(scale, zero_point, bit_width, x)

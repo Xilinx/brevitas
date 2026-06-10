@@ -53,14 +53,13 @@ class DQMixin(ABC):
         # This is a workaround to trick the TorchScript tracer into believing all
         # return values are used. Under torch.export (dynamo) the comparison
         # becomes a data-dependent guard and is both unnecessary and unsupported,
-        # so we skip it.
-        if not torch.jit.is_tracing():
-            return
-        for a in args:
-            bools = a >= 0.
-            if isinstance(bools, torch.Tensor):
-                bools = bools.all()
-            assert bools
+        # so we only run it while tracing.
+        if torch.jit.is_tracing():
+            for a in args:
+                bools = a >= 0.
+                if isinstance(bools, torch.Tensor):
+                    bools = bools.all()
+                assert bools
 
 
 class DQCastMixin(DQMixin, ABC):
