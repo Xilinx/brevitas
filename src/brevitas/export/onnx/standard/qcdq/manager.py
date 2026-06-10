@@ -12,6 +12,7 @@ from brevitas.export.onnx.function import LSTMCellFn
 from brevitas.export.onnx.manager import ONNXDynamoExportMixin
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.proxy import WeightQuantProxyFromInjector
 
 from ..function import DequantizeLinearTorchScriptFn
 from ..function import DynamicQuantizeLinearTorchScriptFn
@@ -84,7 +85,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
 class StdQCDQONNXDynamoManager(ONNXDynamoExportMixin, StdQCDQONNXManager):
 
     @classmethod
-    def _validate_dynamo_supported(cls, module: Module):
+    def _validate_dynamo_supported(cls, module: Module, export_weight_q_node: bool):
         # Integer weight/bias export relies on `data_ptr()`, which is incompatible with
         # torch.export (FakeTensor). Surface a clear error for the configurations that
         # would otherwise fail cryptically deep inside the trace.
@@ -98,17 +99,17 @@ class StdQCDQONNXDynamoManager(ONNXDynamoExportMixin, StdQCDQONNXManager):
                 raise RuntimeError(
                     "QCDQ export with `dynamo=True` does not support quantized bias: integer "
                     "bias export uses data_ptr(), which is unsupported under torch.export.")
+            if (not export_weight_q_node and isinstance(m, WeightQuantProxyFromInjector) and
+                    m.is_quant_enabled):
+                raise RuntimeError(
+                    "QCDQ export with `dynamo=True` requires `export_weight_q_node=True` for "
+                    "quantized weights: integer weight export uses data_ptr(), which is "
+                    "unsupported under torch.export.")
 
     @classmethod
     def export_onnx(cls, *args, export_weight_q_node: bool = True, **onnx_export_kwargs):
         cls._check_dynamo_export_kwargs(onnx_export_kwargs)
-        # Integer weight export relies on `data_ptr()`, which is incompatible with
-        # torch.export (FakeTensor). Require Q-node weight export instead.
-        if not export_weight_q_node:
-            raise RuntimeError(
-                "QCDQ export with `dynamo=True` requires `export_weight_q_node=True`: integer "
-                "weight export uses data_ptr(), which is unsupported under torch.export.")
         if args and isinstance(args[0], Module):
-            cls._validate_dynamo_supported(args[0])
+            cls._validate_dynamo_supported(args[0], export_weight_q_node)
         super(StdQCDQONNXDynamoManager, cls).export_onnx(
             *args, export_weight_q_node=export_weight_q_node, **onnx_export_kwargs)

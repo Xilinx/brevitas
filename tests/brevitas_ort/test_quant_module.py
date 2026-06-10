@@ -96,18 +96,18 @@ def test_ort_wbiol(model, export_type, current_cases):
 
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
+@pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo'])
 @requires_pt_ge('1.10')
-def test_ort_avgpool(model, current_cases):
-    # NOTE: TruncAvgPool / TruncQuant export is not supported under the dynamo
-    # (torch.export) QCDQ path: the handler branches on the (traced) `signed`
-    # tensor, which triggers a data-dependent guard. Kept torchscript-only.
+def test_ort_avgpool(model, export_type, current_cases):
+    if export_type == 'qcdq_dynamo' and torch_version < parse('2.8'):
+        pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
     in_size = (1, IN_CH, FEATURES, FEATURES)
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name = 'qcdq_quant_avgpool.onnx'
+    export_name = f'qcdq_quant_avgpool_{export_type}.onnx'
     assert is_brevitas_ort_close(
-        model, inp, export_name, 'qcdq', tolerance=INT_TOLERANCE, first_output_only=True)
+        model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
     rm_onnx(export_name)
 
 
