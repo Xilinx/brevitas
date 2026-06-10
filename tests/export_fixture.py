@@ -12,6 +12,9 @@ from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_qonnx
 
+# Minimum ONNX opset that supports FP8 (float8) types in QuantizeLinear/DequantizeLinear.
+FP8_MIN_ONNX_OPSET = 19
+
 
 def _get_qonnx_export_modes():
     if parse("2.8") > torch_version:

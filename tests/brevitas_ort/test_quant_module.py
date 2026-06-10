@@ -61,8 +61,6 @@ def test_ort_wbiol(model, export_type, current_cases):
     if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
                                    export_type not in ("qcdq", "qcdq_dynamo")):
         pytest.skip('Dynamic Act Quant supported only for 8bit and QCDQ export')
-    if export_type in ('qonnx', 'qonnx_dynamo') and 'fp8' in quantizer:
-        pytest.skip('FP8 export requires QCDQ')
     if torch_version < parse('2.1') and 'fp8' in quantizer:
         pytest.skip('FP8 requires PyTorch 2.1 or higher')
     elif torch_version >= parse('2.1') and 'fp8' in quantizer:
