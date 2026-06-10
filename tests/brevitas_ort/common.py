@@ -147,8 +147,10 @@ def is_brevitas_ort_close(
     if tolerance is not None and export_type in ('qcdq', 'qcdq_dynamo'):
         tolerance = tolerance * scale  # Float Output, tolerance is +/- output scale
 
-    if export_type == 'qonnx':
-        exported_model = export_qonnx(model, input_t, export_path=export_name, dynamo=False)
+    if export_type in ('qonnx', 'qonnx_dynamo'):
+        dynamo = export_type == 'qonnx_dynamo'
+        export_kwargs = {'dynamo': True, 'optimize': True} if dynamo else {'dynamo': False}
+        exported_model = export_qonnx(model, input_t, export_path=export_name, **export_kwargs)
         exported_model = ModelWrapper(exported_model)
         exported_model = exported_model.transform(InferShapes())
         idict = {exported_model.graph.input[0].name: numpy_inference_inp}

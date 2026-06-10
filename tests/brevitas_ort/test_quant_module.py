@@ -22,7 +22,7 @@ from .quant_module_cases import QuantWBIOLCases
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
-@pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo', 'qonnx'])
+@pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo', 'qonnx', 'qonnx_dynamo'])
 @requires_pt_ge('1.10')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
@@ -51,6 +51,9 @@ def test_ort_wbiol(model, export_type, current_cases):
         # Integer weight export (data_ptr) is unsupported under dynamo; force Q-node weights.
         export_q_weight = True
 
+    if export_type == 'qonnx_dynamo' and torch_version < parse('2.8'):
+        pytest.skip('QONNX dynamo export requires PyTorch >= 2.8')
+
     if 'per_channel' in quantizer and 'asymmetric' in quantizer:
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:
@@ -58,7 +61,7 @@ def test_ort_wbiol(model, export_type, current_cases):
     if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
                                    export_type not in ("qcdq", "qcdq_dynamo")):
         pytest.skip('Dynamic Act Quant supported only for 8bit and QCDQ export')
-    if export_type == 'qonnx' and 'fp8' in quantizer:
+    if export_type in ('qonnx', 'qonnx_dynamo') and 'fp8' in quantizer:
         pytest.skip('FP8 export requires QCDQ')
     if torch_version < parse('2.1') and 'fp8' in quantizer:
         pytest.skip('FP8 requires PyTorch 2.1 or higher')
