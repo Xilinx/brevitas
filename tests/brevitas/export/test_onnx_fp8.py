@@ -25,7 +25,10 @@ def test_simple_fp8_export(request, qcdq_export_fn):
     model = qnn.QuantLinear(3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat)
     outfile = f'weight_fp8_{request.node.callspec.id}.onnx'
     qcdq_export_fn(
-        model, torch.randn(1, 3), outfile, export_weight_q_node=True,
+        model,
+        torch.randn(1, 3),
+        outfile,
+        export_weight_q_node=True,
         opset_version=FP8_MIN_ONNX_OPSET)
     rm_onnx(outfile)
     assert True
@@ -52,7 +55,10 @@ def test_fp8_export_activation(request, qcdq_export_fn):
     model = qnn.QuantLinear(3, 16, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = f'act_fp8_{request.node.callspec.id}.onnx'
     qcdq_export_fn(
-        model, torch.randn(1, 3), outfile, export_weight_q_node=True,
+        model,
+        torch.randn(1, 3),
+        outfile,
+        export_weight_q_node=True,
         opset_version=FP8_MIN_ONNX_OPSET)
     rm_onnx(outfile)
     assert True
@@ -67,7 +73,10 @@ def test_fp8_export_export_activation(request, qcdq_export_fn):
         3, 16, weight_quant=Fp8e4m3OCPWeightPerTensorFloat, input_quant=Fp8e4m3OCPActPerTensorFloat)
     outfile = f'weight_act_fp8_{request.node.callspec.id}.onnx'
     qcdq_export_fn(
-        model, torch.randn(1, 3), outfile, export_weight_q_node=True,
+        model,
+        torch.randn(1, 3),
+        outfile,
+        export_weight_q_node=True,
         opset_version=FP8_MIN_ONNX_OPSET)
     rm_onnx(outfile)
     assert True

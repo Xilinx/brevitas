@@ -54,8 +54,9 @@ def test_ort_wbiol(model, export_type, current_cases):
         if torch_version < parse('2.8'):
             pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
         if rounding != 'round':
-            pytest.skip('Dynamo QCDQ exports weights as a Q-node; QuantizeLinear supports only '
-                        'round-to-nearest-even, so non-round weight rounding is unsupported.')
+            pytest.skip(
+                'Dynamo QCDQ exports weights as a Q-node; QuantizeLinear supports only '
+                'round-to-nearest-even, so non-round weight rounding is unsupported.')
         if 'fp8' not in quantizer and 'dynamic' not in quantizer:
             pytest.skip('QCDQ dynamo export does not support quantized bias (data_ptr export).')
 

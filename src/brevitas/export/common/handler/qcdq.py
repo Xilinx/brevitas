@@ -811,10 +811,14 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
             signed = module.retrieve_attribute('signed')
             output_bit_width = module.bit_width()
             self.symbolic_kwargs = {
-                'narrow_range': module.is_narrow_range,
-                'output_scale': module.scale(),
-                'output_bit_width': output_bit_width,
-                'signed': signed,
+                'narrow_range':
+                    module.is_narrow_range,
+                'output_scale':
+                    module.scale(),
+                'output_bit_width':
+                    output_bit_width,
+                'signed':
+                    signed,
                 'zero_point_dtype':
                     self.zero_point_with_dtype(signed, output_bit_width, torch.zeros(1)).dtype,
                 'clip_symbolic_kwargs':
