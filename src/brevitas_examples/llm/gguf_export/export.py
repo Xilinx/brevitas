@@ -54,6 +54,8 @@ def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
     tmp_work_dir = Path(os.path.join(output_dir, 'tmp_dir'))
     tokenizer.save_pretrained(tmp_work_dir)
     config.save_pretrained(tmp_work_dir)
+    if getattr(model, 'generation_config', None) is not None:
+        model.generation_config.save_pretrained(tmp_work_dir)
 
     with torch.no_grad():
         hparams = ModelBase.load_hparams(tmp_work_dir)
