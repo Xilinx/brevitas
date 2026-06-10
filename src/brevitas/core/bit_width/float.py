@@ -11,30 +11,41 @@ from brevitas.function import compute_max_mantissa
 
 class StaticMaxMantissa(torch.nn.Module):
     """
-    Module that returns a pre-computed maximum mantissa value.
+    Module that returns a maximum mantissa value computed once at initialization.
 
     Args:
-        compute_max_mantissa (torch.Tensor): Pre-computed maximum mantissa tensor.
+        mantissa_bit_width: the number of mantissa bits used to compute the maximum mantissa value.
+        max_mantissa_round_impl (torch.nn.Module, optional): Module used to round the integer max
+            mantissa value during the computation. Defaults to None, in which case
+            compute_max_mantissa falls back to its previous closed-form implementation without
+            applying any rounding function.
+        device: Device on which to create the tensor. Default: None.
+        dtype: Data type of the tensor. Default: None.
 
     Examples:
-        >>> max_mantissa = torch.tensor(7.0)
-        >>> static_max = StaticMaxMantissa(max_mantissa)
+        >>> static_max = StaticMaxMantissa(3)
         >>> static_max(torch.randn(2))
-        tensor(7.)
+        tensor(1.8750)
 
     Note:
-        The pre-computed mantissa value is stored using StatelessBuffer, meaning it won't be saved as part of
-        a checkpoint but will be properly handled during device transfers and dtype conversions.
+        The maximum mantissa value is computed once during initialization and stored using
+        StatelessBuffer, meaning it won't be saved as part of a checkpoint but will be properly
+        handled during device transfers and dtype conversions. The rounding function used by
+        compute_max_mantissa can be customized through dependency injection via
+        max_mantissa_round_impl.
     """
 
     def __init__(
             self,
-            compute_max_mantissa: torch.Tensor,
+            mantissa_bit_width,
+            max_mantissa_round_impl: Optional[torch.nn.Module] = None,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None):
         super().__init__()
-        self.compute_max_mantissa = StatelessBuffer(
-            torch.tensor(compute_max_mantissa, device=device, dtype=dtype))
+        max_mantissa = compute_max_mantissa(
+            torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype),
+            max_mantissa_round_impl)
+        self.compute_max_mantissa = StatelessBuffer(max_mantissa)
 
     def forward(self, x):
         return self.compute_max_mantissa()

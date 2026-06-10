@@ -22,7 +22,6 @@ from brevitas.core.scaling import ScalingImplType
 from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
 from brevitas.core.stats.stats_op import SIGNEDNESS_STATS
-from brevitas.function.ops import compute_max_mantissa
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
 from brevitas.inject.enum import LearnedRoundImplType
@@ -137,12 +136,12 @@ class MantissaBitWidthClass(ExtendedInjector):
 
     @value
     def compute_max_mantissa(mantissa_bit_width_impl_type, bit_width, max_mantissa_round_impl=None):
-        round_impl = max_mantissa_round_impl() if max_mantissa_round_impl is not None else None
+        # max_mantissa_round_impl is already resolved by dependency injection: it is either None
+        # (default, falling back to the previous implementation) or an instantiated rounding module.
         if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
-            return StaticMaxMantissa(
-                compute_max_mantissa(torch.tensor(float(bit_width)), round_impl))
+            return StaticMaxMantissa(bit_width, max_mantissa_round_impl=max_mantissa_round_impl)
         else:
-            return ComputeMaxMantissa(max_mantissa_round_impl=round_impl)
+            return ComputeMaxMantissa(max_mantissa_round_impl=max_mantissa_round_impl)
 
 
 class SolveFloatBitWidthImplFromEnum(ExtendedInjector):
