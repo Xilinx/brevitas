@@ -27,16 +27,23 @@ from .quant_module_cases import QuantWBIOLCases
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
-    rounding = case_id.split('-')[0]
-    impl = case_id.split('-')[
-        -3]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
+    # case_id has the form
+    # 'quant_wbiol-{quantizer}-o#-w#-i#-{impl}-rtype_{round|floor}-{export_type}', so the
+    # fields are indexed from the end: export_type=-1, rounding=-2, impl=-3, i_bit=-4,
+    # w_bit=-5, o_bit=-6, quantizer=-7.
+    rounding = case_id.split('-')[-2].replace('rtype_', '')
+    impl = case_id.split('-')[-3]
     quantizer = case_id.split('-')[-7]
     o_bit_width = case_id.split('-')[-6]
     i_bit_width = case_id.split('-')[-4]
     onnx_opset = 14
     export_q_weight = False
 
-    if rounding == 'round':
+    # Round weights can be faithfully exported as a Q-node (QuantizeLinear); non-round
+    # (floor) weights can only be represented via integer-initializer export. A2Q
+    # (accumulator-aware) weight quant always requires integer-initializer export, so it is
+    # excluded from Q-node export.
+    if rounding == 'round' and 'a2q' not in quantizer:
         export_q_weight = True
 
     if export_type == 'qcdq_dynamo':
@@ -46,10 +53,11 @@ def test_ort_wbiol(model, export_type, current_cases):
         # and dynamic-activation quantizers, so we limit dynamo coverage to those.
         if torch_version < parse('2.8'):
             pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
+        if rounding != 'round':
+            pytest.skip('Dynamo QCDQ exports weights as a Q-node; QuantizeLinear supports only '
+                        'round-to-nearest-even, so non-round weight rounding is unsupported.')
         if 'fp8' not in quantizer and 'dynamic' not in quantizer:
             pytest.skip('QCDQ dynamo export does not support quantized bias (data_ptr export).')
-        # Integer weight export (data_ptr) is unsupported under dynamo; force Q-node weights.
-        export_q_weight = True
 
     if export_type == 'qonnx_dynamo' and torch_version < parse('2.8'):
         pytest.skip('QONNX dynamo export requires PyTorch >= 2.8')
