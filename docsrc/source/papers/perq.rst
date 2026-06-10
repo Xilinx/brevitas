@@ -7,8 +7,7 @@ capabilities of block Hadamard rotations. Prior to rotation, PeRQ inserts calibr
 permutations to redistribute activation mass within permutation-equivariant regions of the graph.
 The permutations are calibrated once offline using activation statistics and then merged into
 surrounding weight tensors before deployment so they do not incur additional inference overhead.
-See the paper (`OpenReview <https://openreview.net/pdf?id=nvehxSdMqg>`_,
- `arXiv <https://arxiv.org/pdf/2601.22347>`_) for the full theoretical treatment!
+See the paper, either on `arXiv <https://arxiv.org/pdf/2601.22347>`_ or `OpenReview <https://openreview.net/pdf?id=nvehxSdMqg>`_, for the full theoretical treatment!
 
 .. raw:: html
 
