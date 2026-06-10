@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import re
+
 import numpy as np
 import onnxruntime as ort
 import pytest
@@ -122,6 +124,12 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
         return (brevitas_output - ort_output == 0).all()
 
 
+def _opset_version_from_export_type(export_type, default=None):
+    # Detect an `opset<N>` substring in the export_type (e.g. 'qonnx_opset14') and return N.
+    match = re.search(r'opset(\d+)', export_type)
+    return int(match.group(1)) if match is not None else default
+
+
 def is_brevitas_ort_close(
         model,
         np_input,
@@ -144,41 +152,45 @@ def is_brevitas_ort_close(
         computed_out = brevitas_output
         scale = 1.
 
-    if tolerance is not None and export_type in ('qcdq', 'qcdq_dynamo'):
+    # Decompose the export_type string into its independent components:
+    # the exporter family ('qcdq' vs 'qonnx'), whether to use the dynamo (torch.export)
+    # path, and an optional explicit ONNX opset (e.g. 'qonnx_opset14').
+    if 'qcdq' not in export_type and 'qonnx' not in export_type:
+        raise RuntimeError(f"Export type {export_type} not recognized.")
+    use_qonnx = 'qonnx' in export_type
+    dynamo = 'dynamo' in export_type
+    export_opset = _opset_version_from_export_type(export_type)
+    # QONNX graphs carry custom Quant ops and are executed by the qonnx reference runtime.
+    # An explicit opset (e.g. 'qonnx_opset14') signals a standard-op graph (e.g. float LSTM)
+    # that ORT can run directly instead.
+    use_qonnx_runtime = use_qonnx and export_opset is None
+
+    if tolerance is not None and not use_qonnx:
         tolerance = tolerance * scale  # Float Output, tolerance is +/- output scale
 
-    if export_type in ('qonnx', 'qonnx_dynamo'):
-        dynamo = export_type == 'qonnx_dynamo'
-        export_kwargs = {'dynamo': True, 'optimize': True} if dynamo else {'dynamo': False}
+    export_kwargs = {'dynamo': dynamo}
+    if dynamo:
+        export_kwargs['optimize'] = True
+    if use_qonnx:
+        if export_opset is not None:
+            export_kwargs['opset_version'] = export_opset
         exported_model = export_qonnx(model, input_t, export_path=export_name, **export_kwargs)
+    else:
+        exported_model = export_onnx_qcdq(
+            model,
+            input_t,
+            export_path=export_name,
+            export_weight_q_node=export_q_weight,
+            opset_version=onnx_opset,
+            **export_kwargs)
+
+    if use_qonnx_runtime:
         exported_model = ModelWrapper(exported_model)
         exported_model = exported_model.transform(InferShapes())
         idict = {exported_model.graph.input[0].name: numpy_inference_inp}
         odict = oxe.execute_onnx(exported_model, idict, True)
         ort_output = odict[exported_model.graph.output[0].name]
     else:
-        if export_type == 'qcdq':
-            export_onnx_qcdq(
-                model,
-                input_t,
-                export_path=export_name,
-                export_weight_q_node=export_q_weight,
-                opset_version=onnx_opset,
-                dynamo=False)
-        elif export_type == 'qcdq_dynamo':
-            export_onnx_qcdq(
-                model,
-                input_t,
-                export_path=export_name,
-                export_weight_q_node=export_q_weight,
-                opset_version=onnx_opset,
-                dynamo=True,
-                optimize=True)
-        elif export_type == 'qonnx_opset14':
-            export_qonnx(model, input_t, opset_version=14, export_path=export_name, dynamo=False)
-        else:
-            raise RuntimeError(f"Export type {export_type} not recognized.")
-
         ort_output = compute_ort(export_name, numpy_inference_inp)
 
     if first_output_only:
