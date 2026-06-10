@@ -1,17 +1,18 @@
 Pushing the Limits of Block Rotations in Post-Training Quantization
 ===================================================================
 
-PeRQ is a post-training quantization (PTQ) technique that improves the outlier suppression
+PeRQ (Permute, Rotate, then Quantize) is a post-training quantization (PTQ) technique, presented 
+at `ICML 2026 <https://icml.cc/virtual/2026/poster/61670>`_, that improves the outlier suppression
 capabilities of block Hadamard rotations. Prior to rotation, PeRQ inserts calibrated
 permutations to redistribute activation mass within permutation-equivariant regions of the graph.
 The permutations are calibrated once offline using activation statistics and then merged into
 surrounding weight tensors before deployment so they do not incur additional inference overhead.
-See the `paper <https://arxiv.org/abs/2601.22347>`_ for the full theoretical treatment!
+See the `paper <https://openreview.net/forum?id=nvehxSdMqg>`_ for the full theoretical treatment!
 
 .. raw:: html
 
     <div align="center">
-        <a href="https://arxiv.org/abs/2601.22347">📄 Paper</a>&nbsp
+        <a href="https://openreview.net/forum?id=nvehxSdMqg">📄 Paper</a>&nbsp
         <a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
         <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">🧪 Examples</a>
     </div>
@@ -254,14 +255,12 @@ Citation
 
 .. code:: bibtex
 
-   @article{sanjeet2026perq,
-     title   = {Pushing the Limits of Block Rotations in Post-Training Quantization},
-     author  = {Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser},
-     year    = {2026},
-     eprint  = {2601.22347},
-     archivePrefix = {arXiv},
-     primaryClass  = {cs.LG},
-     url     = {https://arxiv.org/abs/2601.22347},
+   @inproceedings{sanjeet2026perq,
+      title={Pushing the Limits of Block Rotations in Post-Training Quantization},
+      author={Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser},
+      booktitle={Forty-third International Conference on Machine Learning},
+      year={2026},
+      url={https://openreview.net/forum?id=nvehxSdMqg}
    }
 
 Note that this page is not intended to reproduce all experiments from the original paper.
@@ -273,6 +272,6 @@ References
 
 [1] Egiazarian, V., et al. *Bridging the gap between promise and performance for microscaling FP4 quantization.* ICLR (2026).
 
-[2] Shao, Y., et al. *Block rotation is all you need for MXFP4 quantization.* arXiv preprint (2025).
+[2] Shao, Y., et al. *Block rotation is all you need for MXFP4 quantization.* ICML (2026).
 
 [3] Zhang, S., et al. *Qronos: Correcting the past by shaping the future... in post-training quantization.* ICLR (2026).
