@@ -48,6 +48,8 @@ def test_ort_wbiol(model, export_type, current_cases):
             pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
         if 'fp8' not in quantizer and 'dynamic' not in quantizer:
             pytest.skip('QCDQ dynamo export does not support quantized bias (data_ptr export).')
+        # Integer weight export (data_ptr) is unsupported under dynamo; force Q-node weights.
+        export_q_weight = True
 
     if 'per_channel' in quantizer and 'asymmetric' in quantizer:
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
