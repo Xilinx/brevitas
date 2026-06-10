@@ -231,6 +231,11 @@ class ONNXDynamoExportMixin:
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
+        # NOTE: this QuantTensor-disabling logic is not ONNX-specific and could be hoisted
+        # into a generic (backend-agnostic) DynamoExportMixin shared with other
+        # torch.export-based exporters. Deferred for now because such a mixin must import
+        # QuantizationStatusManager (brevitas.graph.calibrate) and _override_create_quant_tensor
+        # (brevitas.export.inference.manager) without introducing an import cycle.
         super().set_export_mode(model=model, enabled=enabled)
         # torch.export cannot trace QuantTensor objects, so we disable their creation
         # during export and restore the original behaviour afterwards.
