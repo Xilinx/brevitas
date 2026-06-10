@@ -44,6 +44,12 @@ class ComputeMaxMantissa(torch.nn.Module):
     """
     Module that computes the maximum mantissa value dynamically from input tensor.
 
+    Args:
+        max_mantissa_round_impl (torch.nn.Module, optional): Module used to round the integer max
+            mantissa value during the computation. Defaults to None, in which case
+            compute_max_mantissa falls back to its previous closed-form implementation without
+            applying any rounding function.
+
     Examples:
         >>> compute_max = ComputeMaxMantissa()
         >>> input_tensor = torch.randn(2, 3)
@@ -51,14 +57,16 @@ class ComputeMaxMantissa(torch.nn.Module):
 
     Note:
         This module computes the maximum mantissa on-the-fly using the compute_max_mantissa
-        function from brevitas.function.
+        function from brevitas.function. The rounding function used by compute_max_mantissa can
+        be customized through dependency injection via max_mantissa_round_impl.
     """
 
-    def __init__(self):
+    def __init__(self, max_mantissa_round_impl: Optional[torch.nn.Module] = None):
         super().__init__()
+        self.max_mantissa_round_impl = max_mantissa_round_impl
 
     def forward(self, x):
-        x = compute_max_mantissa(x)
+        x = compute_max_mantissa(x, self.max_mantissa_round_impl)
         return x
 
 

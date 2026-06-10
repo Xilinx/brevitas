@@ -136,11 +136,13 @@ class MantissaBitWidthClass(ExtendedInjector):
         return solve_bit_width_impl_from_enum(mantissa_bit_width_impl_type)
 
     @value
-    def compute_max_mantissa(mantissa_bit_width_impl_type, bit_width):
+    def compute_max_mantissa(mantissa_bit_width_impl_type, bit_width, max_mantissa_round_impl=None):
+        round_impl = max_mantissa_round_impl() if max_mantissa_round_impl is not None else None
         if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
-            return StaticMaxMantissa(compute_max_mantissa(torch.tensor(float(bit_width))))
+            return StaticMaxMantissa(
+                compute_max_mantissa(torch.tensor(float(bit_width)), round_impl))
         else:
-            return ComputeMaxMantissa
+            return ComputeMaxMantissa(max_mantissa_round_impl=round_impl)
 
 
 class SolveFloatBitWidthImplFromEnum(ExtendedInjector):
