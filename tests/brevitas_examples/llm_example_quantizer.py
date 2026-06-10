@@ -16,7 +16,7 @@ class ExampleInt8WeightQuantizer(BaseQuantizer):
 class ExampleModelAdjuster(BaseQuantizer):
 
     @classmethod
-    def modify_quantized_model(cls, model: nn.Module) -> nn.Module:
+    def post_process_quant_model(cls, model: nn.Module) -> nn.Module:
         model.example_model_adjuster_applied = True
         return model
 
@@ -27,7 +27,7 @@ class ExampleQuantAndModelAdjuster(BaseQuantizer):
     linear_input_quant = Int8ActPerTensorFloat
 
     @classmethod
-    def modify_quantized_model(cls, model: nn.Module) -> nn.Module:
+    def post_process_quant_model(cls, model: nn.Module) -> nn.Module:
         model.example_quant_and_model_adjuster_applied = True
         for m in model.model.layers:
             # Tie input_quant

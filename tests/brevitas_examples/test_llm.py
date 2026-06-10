@@ -200,14 +200,14 @@ def test_small_models_quant_layer_types_count(caplog, args_and_layer_types_count
 
 
 @pytest.mark.llm
-def test_custom_quantizer_can_modify_quantized_model(caplog, default_run_args, main):
+def test_custom_quantizer_post_process(caplog, default_run_args, main):
     caplog.set_level(logging.INFO)
 
     @Registry.register(QUANTIZERS_REGISTRY, "example_inline_model_adjuster")
     class ExampleInlineModelAdjuster(BaseQuantizer):
 
         @classmethod
-        def modify_quantized_model(cls, model: nn.Module) -> nn.Module:
+        def post_process_quant_model(cls, model: nn.Module) -> nn.Module:
             model.example_inline_model_adjuster_applied = True
             return model
 
@@ -221,8 +221,7 @@ def test_custom_quantizer_can_modify_quantized_model(caplog, default_run_args, m
 
 
 @pytest.mark.llm
-def test_custom_quantizer_file_can_override_quantizers_and_modify_quantized_model(
-        caplog, default_run_args, main):
+def test_custom_quantizer_file_override_and_post_process(caplog, default_run_args, main):
     caplog.set_level(logging.INFO)
 
     args = default_run_args

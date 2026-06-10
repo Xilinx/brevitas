@@ -77,7 +77,7 @@ class BaseQuantizer:
         return quantizers_dict
 
     @classmethod
-    def modify_quantized_model(cls: "BaseQuantizer", model: nn.Module) -> nn.Module:
+    def post_process_quant_model(cls: "BaseQuantizer", model: nn.Module) -> nn.Module:
         return model
 
 

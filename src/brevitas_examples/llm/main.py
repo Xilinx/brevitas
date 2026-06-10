@@ -4,7 +4,7 @@
 from contextlib import nullcontext
 from copy import deepcopy
 import functools
-import importlib.util
+import importlib
 import os
 from pathlib import Path
 import pprint
@@ -534,7 +534,7 @@ def quantize_llm(args, extra_args=None):
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
 
         if custom_quantizer is not None:
-            model = custom_quantizer.modify_quantized_model(model)
+            model = custom_quantizer.post_process_quant_model(model)
 
         # Just to be sure
         model.eval()
