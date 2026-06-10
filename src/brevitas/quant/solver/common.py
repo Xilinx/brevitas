@@ -135,13 +135,15 @@ class MantissaBitWidthClass(ExtendedInjector):
         return solve_bit_width_impl_from_enum(mantissa_bit_width_impl_type)
 
     @value
-    def compute_max_mantissa(mantissa_bit_width_impl_type, bit_width, max_mantissa_round_impl=None):
-        # max_mantissa_round_impl is already resolved by dependency injection: it is either None
-        # (default, falling back to the previous implementation) or an instantiated rounding module.
+    def compute_max_mantissa(mantissa_bit_width_impl_type):
+        # The selected class is instantiated by dependency injection within this scope, which
+        # resolves its __init__ arguments (e.g. bit_width, max_mantissa_round_impl) by name.
+        # max_mantissa_round_impl is not provided here, so it falls back to the constructor default
+        # None (i.e. the previous implementation without any rounding function).
         if mantissa_bit_width_impl_type == BitWidthImplType.CONST or mantissa_bit_width_impl_type == BitWidthImplType.STATEFUL_CONST:
-            return StaticMaxMantissa(bit_width, max_mantissa_round_impl=max_mantissa_round_impl)
+            return StaticMaxMantissa
         else:
-            return ComputeMaxMantissa(max_mantissa_round_impl=max_mantissa_round_impl)
+            return ComputeMaxMantissa
 
 
 class SolveFloatBitWidthImplFromEnum(ExtendedInjector):

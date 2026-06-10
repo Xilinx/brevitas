@@ -14,7 +14,7 @@ class StaticMaxMantissa(torch.nn.Module):
     Module that returns a maximum mantissa value computed once at initialization.
 
     Args:
-        mantissa_bit_width: the number of mantissa bits used to compute the maximum mantissa value.
+        bit_width: the number of mantissa bits used to compute the maximum mantissa value.
         max_mantissa_round_impl (torch.nn.Module, optional): Module used to round the integer max
             mantissa value during the computation. Defaults to None, in which case
             compute_max_mantissa falls back to its previous closed-form implementation without
@@ -37,14 +37,13 @@ class StaticMaxMantissa(torch.nn.Module):
 
     def __init__(
             self,
-            mantissa_bit_width,
+            bit_width,
             max_mantissa_round_impl: Optional[torch.nn.Module] = None,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None):
         super().__init__()
         max_mantissa = compute_max_mantissa(
-            torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype),
-            max_mantissa_round_impl)
+            torch.tensor(float(bit_width), device=device, dtype=dtype), max_mantissa_round_impl)
         self.compute_max_mantissa = StatelessBuffer(max_mantissa)
 
     def forward(self, x):

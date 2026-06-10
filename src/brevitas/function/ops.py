@@ -208,10 +208,9 @@ def compute_max_mantissa(mantissa_bit_width: Tensor, round_func=None):
     Args:
         mantissa_bit_width (Tensor): the number of mantissa bits.
         round_func (Callable, optional): function used to round the integer max mantissa value
-            ``2 ** (mantissa_bit_width + 1) - 1`` before scaling, enabling dependency injection of
-            a custom rounding (e.g. a straight-through estimator). Defaults to ``None``, in which
-            case the closed-form previous implementation ``2 * (1 - 2 ** (-mantissa_bit_width - 1))``
-            is used and no rounding function is applied.
+            ``2 ** (mantissa_bit_width + 1) - 1`` before scaling, enabling the use of a custom rounding.
+            Defaults to ``None``, in which case the closed-form implementation
+            ``2 * (1 - 2 ** (-mantissa_bit_width - 1))`` is used and no rounding function is applied.
 
     Returns:
         Tensor: the maximum representable mantissa value.
