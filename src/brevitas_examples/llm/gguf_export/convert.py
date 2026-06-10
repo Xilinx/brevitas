@@ -56,9 +56,13 @@ from transformers import AutoConfig
 
 from brevitas.core.restrict_val import QuantRestrictValue
 from brevitas.core.zero_point import _ScaleShiftQuantZeroPoint
+from brevitas.nn.quant_embedding import QuantEmbedding
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
+
+BREVITAS_QUANT_MODULES = (QuantWBIOL, QuantEmbedding)
 
 logger = setup_logger(__name__)
 TORCH_GGUF_MAPPING = {
@@ -368,8 +372,21 @@ class ModelBase:
             logging.info(f"Module not found {e}, falling back to {fallback_gguf_dtype}")
             return data, fallback_gguf_dtype
 
-        # If the layer is not quantized, no quantization
+        # If the layer is not quantized by Brevitas, route through gguf.quants
+        # for real qtypes; otherwise pass through at the source dtype.
         if not hasattr(module, "weight_quant") or not module.weight_quant.is_quant_enabled:
+            if data_qtype not in (
+                    gguf.GGMLQuantizationType.F32,
+                    gguf.GGMLQuantizationType.F16,
+                    gguf.GGMLQuantizationType.BF16,
+            ):
+                try:
+                    data = gguf.quants.quantize(data, data_qtype)
+                    return data, data_qtype
+                except Exception as e:
+                    logging.info(
+                        f"gguf quantize fallback failed for {name}: {e}; using {fallback_gguf_dtype}"
+                    )
             return data, fallback_gguf_dtype
         quant_weight = module.quant_weight()
         weight_quant = module.weight_quant
@@ -424,6 +441,16 @@ class ModelBase:
             data = ggml_quant(quant_data, data_qtype, scale, zp)
 
         return data, data_qtype
+
+    def _is_brevitas_quantized(self, name: str) -> bool:
+        suffix = '.weight'
+        if not name.endswith(suffix):
+            return False
+        try:
+            module = recurse_getattr(self.model, name[:-len(suffix)])
+        except Exception:
+            return False
+        return isinstance(module, BREVITAS_QUANT_MODULES)
 
     def prepare_tensors(self):
         max_name_len = max(len(s) for _, s in self.tensor_map.mapping.values()) + len(".weight,")
@@ -484,6 +511,9 @@ class ModelBase:
                                                 )) or not new_name.endswith(".weight")):
                     data_qtype = gguf.GGMLQuantizationType.F32
 
+                # High-impact tensor bump for token_embd / output, mirroring
+                # llama.cpp's llama_tensor_get_type_impl. Brevitas-quantized
+                # sources are skipped to defer to the calibrated qtype.
                 if data_qtype is False and any(self.match_model_tensor_name(new_name, key, bid)
                                                for key in (
                                                    gguf.MODEL_TENSOR.TOKEN_EMBD,
@@ -493,11 +523,13 @@ class ModelBase:
                             gguf.LlamaFileType.MOSTLY_TQ1_0,
                             gguf.LlamaFileType.MOSTLY_TQ2_0,
                     ):
-                        # TODO: use Q4_K and Q6_K
                         data_qtype = gguf.GGMLQuantizationType.F16
+                    elif not self._is_brevitas_quantized(name):
+                        data_qtype = gguf.GGMLQuantizationType.Q6_K
 
                 # No override (data_qtype is False), or wants to be quantized (data_qtype is True)
-                data_qtype = GGUF_FILE_QUANTIZATION_MAPPING[self.ftype]
+                if isinstance(data_qtype, bool):
+                    data_qtype = GGUF_FILE_QUANTIZATION_MAPPING[self.ftype]
 
                 data, data_qtype = self.quantize(name, data, data_qtype, old_dtype, bid)
 
