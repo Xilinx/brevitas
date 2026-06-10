@@ -56,7 +56,7 @@ accumulated rounding error. To do so efficiently, Qronos benefits from the same 
 to scale GPTQ to increasingly large models (e.g., Cholesky decomposition and lazy batch 
 updates), and consistently produces quantized models with better accuracy!
 
-🔍 Check out the `paper <https://arxiv.org/pdf/2505.11695>`_ for formalized objective 
+🔍 Check out the `paper <https://openreview.net/pdf?id=7axclBCYul>`_ for formalized objective 
 functions, derivations, and analyses!
 
 
