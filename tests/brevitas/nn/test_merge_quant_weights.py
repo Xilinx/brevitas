@@ -11,6 +11,8 @@ from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn import QuantLinear
 from brevitas.nn.utils import merge_quant_weights
 from brevitas.quant_tensor import QuantTensor
+from brevitas_examples.common.learned_round.learned_round_method import \
+    insert_learned_round_quantizers
 from tests.conftest import SEED
 
 IN_FEATURES = 8
@@ -18,27 +20,6 @@ OUT_FEATURES = 16
 
 LEARNED_ROUND_OPTIONS = [
     LearnedRoundImplType.HARD_SIGMOID, LearnedRoundImplType.SIGMOID, LearnedRoundImplType.IDENTITY]
-
-
-def _insert_learned_round(model, learned_round_param):
-    """Insert learned round quantisers into a model (simplified version for testing)."""
-    from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-    for module in model.modules():
-        if isinstance(module, QuantWBIOL):
-            # Compute init value for the learned round parameter
-            if learned_round_param in (LearnedRoundImplType.HARD_SIGMOID,
-                                       LearnedRoundImplType.SIGMOID):
-                floor_weight = torch.floor(module.weight.data / module.quant_weight().scale)
-                delta = (module.weight.data / module.quant_weight().scale) - floor_weight
-                value = -torch.log((1.1 - (-0.1)) / (delta - (-0.1)) - 1)
-            else:
-                value = torch.zeros_like(module.weight.data)
-
-            module.weight_quant.quant_injector = module.weight_quant.quant_injector.let(
-                float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-                learned_round_impl_type=learned_round_param,
-                learned_round_init=value)
-            module.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
 def _get_quant_weights(model):
@@ -67,8 +48,7 @@ def test_merge_quant_weights_preserves_quantised_weights(learned_round_param):
     torch.manual_seed(SEED)
     model = QuantLinear(in_features=IN_FEATURES, out_features=OUT_FEATURES, bias=False)
     model.eval()
-
-    _insert_learned_round(model, learned_round_param)
+    insert_learned_round_quantizers(model, learned_round_param)
     assert model.weight_quant.rounding_mode == "LEARNED_ROUND"
 
     _randomise_learned_round(model)
@@ -110,7 +90,7 @@ def test_merge_quant_weights_forward_equivalence(learned_round_param):
     model = QuantLinear(in_features=IN_FEATURES, out_features=OUT_FEATURES, bias=True)
     model.eval()
 
-    _insert_learned_round(model, learned_round_param)
+    insert_learned_round_quantizers(model, learned_round_param)
     _randomise_learned_round(model)
 
     model.eval()
