@@ -99,8 +99,7 @@ def merge_quant_weights(
     hooks: List[RemovableHandle] = []
     module_tensor_id_mapping: Dict = {}
 
-    def hook(
-            module: WeightQuantProxyFromInjectorBase, args: Tuple[Any, ...], output: Any) -> None:
+    def hook(module: WeightQuantProxyFromInjectorBase, args: Tuple[Any, ...], output: Any) -> None:
         input_tensor = args[0]
         with torch.no_grad():
             for m in module.tracked_module_list:
