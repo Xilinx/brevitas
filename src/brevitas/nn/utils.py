@@ -97,23 +97,25 @@ def merge_quant_weights(
     from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 
     hooks: List[RemovableHandle] = []
-    module_tensor_id_mapping: Dict = {}
+    proxy_list: List[WeightQuantProxyFromInjectorBase] = []
 
     def hook(module: WeightQuantProxyFromInjectorBase, args: Tuple[Any, ...], output: Any) -> None:
+        module_tensor_id_mapping: Dict = {}
         input_tensor = args[0]
         with torch.no_grad():
             for m in module.tracked_module_list:
                 # We match the module based on its weights and the ID of the tensor to quantize
                 if id(m.weight.data) == id(input_tensor.data):
-                    if preserve_original_weights:
-                        m.weight_orig = m.weight.data.cpu()
-                    m.weight.data = output.value.data
                     # We track how many modules have been converted
-                    if module not in module_tensor_id_mapping:
-                        module_tensor_id_mapping[module] = [id(m.weight.data)]
-                    else:
-                        module_tensor_id_mapping[module].append(id(m.weight.data))
-
+                    module_tensor_id_mapping[m] = [output.value.data]
+            
+            if len(module_tensor_id_mapping == len(module.tracked_module_list)):
+                for quant_module, new_weights in module_tensor_id_mapping:
+                    quant_module.weight.data = output.value.data
+                proxy_list.append(module)
+            else:
+                warnings.warn("Could not match all the modules to their weights, skipping quantizer")
+            
     # Register Proxy hooks
     for module in model.modules():
         if not isinstance(module, WeightQuantProxyFromInjectorBase):
@@ -133,7 +135,7 @@ def merge_quant_weights(
 
     # Reset quantizers from LEARNED_ROUND to ROUND
     with torch.no_grad():
-        for module in module_tensor_id_mapping:
+        for module in proxy_list:
             _reset_quantizer(module)
 
 
