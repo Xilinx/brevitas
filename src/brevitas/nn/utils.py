@@ -108,15 +108,15 @@ def merge_quant_weights(
                 if id(m.weight.data) == id(input_tensor.data):
                     # We track how many modules have been converted
                     module_tensor_id_mapping[m] = [output.value.data]
-            
+
             if len(module_tensor_id_mapping) == len(module.tracked_module_list):
-                for quant_module, new_weights in module_tensor_id_mapping:
+                for quant_module, new_weights in module_tensor_id_mapping.items():
                     quant_module.weight.data = output.value.data
                 proxy_list.append(module)
             else:
                 warnings.warn(
                     "Could not match all the modules to their weights, skipping quantizer")
-            
+
     # Register Proxy hooks
     for module in model.modules():
         if not isinstance(module, WeightQuantProxyFromInjectorBase):
