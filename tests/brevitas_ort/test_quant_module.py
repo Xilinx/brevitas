@@ -39,10 +39,8 @@ def test_ort_wbiol(model, export_type, current_cases):
     onnx_opset = 14
     export_q_weight = False
 
-    # Round weights can be faithfully exported as a Q-node (QuantizeLinear); non-round
-    # (floor) weights can only be represented via integer-initializer export. A2Q
-    # (accumulator-aware) weight quant always requires integer-initializer export, so it is
-    # excluded from Q-node export.
+    # Round weights can be exported as a Q-node (QuantizeLinear); floor weights and A2Q require
+    # integer-initializer export instead, so they are excluded from Q-node export.
     if rounding == 'round' and 'a2q' not in quantizer:
         export_q_weight = True
 

@@ -87,24 +87,20 @@ class StdQCDQONNXDynamoManager(ONNXDynamoExportMixin, StdQCDQONNXManager):
     @classmethod
     def _validate_dynamo_supported(cls, module: Module, export_weight_q_node: bool):
         # Integer weight/bias export relies on `data_ptr()`, which is incompatible with
-        # torch.export (FakeTensor). Surface a clear error for the configurations that
-        # would otherwise fail cryptically deep inside the trace.
+        # torch.export (FakeTensor).
         for m in module.modules():
             if isinstance(m, DecoupledWeightQuantWithInputProxyFromInjector) and m.is_quant_enabled:
                 raise RuntimeError(
                     "QCDQ export with `dynamo=True` does not support input-aware decoupled "
-                    "weight quantization (e.g. A2Q): integer weight export uses data_ptr(), "
-                    "which is unsupported under torch.export.")
+                    "weight quantization (e.g. A2Q).")
             if isinstance(m, BiasQuantProxyFromInjector) and m.is_quant_enabled:
                 raise RuntimeError(
-                    "QCDQ export with `dynamo=True` does not support quantized bias: integer "
-                    "bias export uses data_ptr(), which is unsupported under torch.export.")
+                    "QCDQ export with `dynamo=True` does not support quantized bias.")
             if (not export_weight_q_node and isinstance(m, WeightQuantProxyFromInjector) and
                     m.is_quant_enabled):
                 raise RuntimeError(
                     "QCDQ export with `dynamo=True` requires `export_weight_q_node=True` for "
-                    "quantized weights: integer weight export uses data_ptr(), which is "
-                    "unsupported under torch.export.")
+                    "quantized weights.")
 
     @classmethod
     def export_onnx(cls, *args, export_weight_q_node: bool = True, **onnx_export_kwargs):

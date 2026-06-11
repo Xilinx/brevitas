@@ -50,10 +50,8 @@ class DQMixin(ABC):
         pass
 
     def assert_ge_zero(self, *args):
-        # This is a workaround to trick the TorchScript tracer into believing all
-        # return values are used. Under torch.export (dynamo) the comparison
-        # becomes a data-dependent guard and is both unnecessary and unsupported,
-        # so we only run it while tracing.
+        # Workaround to make the TorchScript tracer treat all return values as used.
+        # Skipped under torch.export (dynamo), where it would be a data-dependent guard.
         if torch.jit.is_tracing():
             for a in args:
                 bools = a >= 0.
@@ -802,12 +800,9 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
         if module.is_quant_enabled:
             assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
-            # Signedness and bit-width are propagated through the input QuantTensor; reading
-            # them during tracing yields data-dependent `.item()` calls that torch.export
-            # (dynamo) cannot guard on. Resolve everything that branches on them here
-            # (before tracing) into concrete values / precomputed kwargs, so that
-            # symbolic_execution only applies tensor ops. This mirrors how the activation
-            # and weight QCDQ handlers precompute their quantize/clip/dequantize kwargs.
+            # Resolve everything that branches on signedness/bit-width here (before tracing)
+            # into concrete values / precomputed kwargs, so symbolic_execution only applies
+            # tensor ops and avoids data-dependent `.item()` guards under torch.export.
             signed = module.retrieve_attribute('signed')
             output_bit_width = module.bit_width()
             self.symbolic_kwargs = {
