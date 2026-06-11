@@ -98,25 +98,23 @@ def merge_quant_weights(
 
     hooks: List[RemovableHandle] = []
     proxy_list: List[WeightQuantProxyFromInjectorBase] = []
+    module_tensor_id_mapping: Dict = {}
 
     def hook(module: WeightQuantProxyFromInjectorBase, args: Tuple[Any, ...], output: Any) -> None:
-        module_tensor_id_mapping: Dict = {}
         input_tensor = args[0]
         with torch.no_grad():
             for m in module.tracked_module_list:
                 # We match the module based on its weights and the ID of the tensor to quantize
                 if id(m.weight.data) == id(input_tensor.data):
-                    # We track how many modules have been converted
-                    module_tensor_id_mapping[m] = [output.value.data]
-
-            if len(module_tensor_id_mapping) == len(module.tracked_module_list):
-                for quant_module, new_weights in module_tensor_id_mapping.items():
                     quant_module.weight.data = output.value.data
-                proxy_list.append(module)
-            else:
-                warnings.warn(
-                    "Could not match all the modules to their weights, skipping quantizer")
+                    # We track how many modules have been converted
+                    if module not in module_tensor_id_mapping:
+                        module_tensor_id_mapping[module] = 1
+                    else:
+                        module_tensor_id_mapping[module] += 1
+            proxy_list.append(module)
 
+    
     # Register Proxy hooks
     for module in model.modules():
         if not isinstance(module, WeightQuantProxyFromInjectorBase):
@@ -133,10 +131,13 @@ def merge_quant_weights(
         for h in hooks:
             h.remove()
         hooks.clear()
+    
 
     # Reset quantizers from LEARNED_ROUND to ROUND
     with torch.no_grad():
         for module in proxy_list:
+            if module_tensor_id_mapping[module] < len(module.tracked_module_list):
+                raise RuntimeError("Not all weights associated to this quantizer were replaced")
             _reset_quantizer(module)
 
 
