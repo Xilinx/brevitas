@@ -396,9 +396,9 @@ class ModelBase:
                     data = gguf.quants.quantize(data, data_qtype)
                     return data, data_qtype
                 except Exception as e:
-                    logging.info(
-                        f"gguf quantize fallback failed for {name}: {e}; using {fallback_gguf_dtype}"
-                    )
+                    logging.warning(
+                        f"No encoder for {data_qtype.name} on pass-through tensor {name} "
+                        f"({e}); falling back to {fallback_gguf_dtype.name}")
             return data, fallback_gguf_dtype
         quant_weight = module.quant_weight()
         weight_quant = module.weight_quant
