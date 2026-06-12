@@ -114,7 +114,6 @@ def merge_quant_weights(
                         module_tensor_id_mapping[module] += 1
             proxy_list.append(module)
 
-    
     # Register Proxy hooks
     for module in model.modules():
         if not isinstance(module, WeightQuantProxyFromInjectorBase):
@@ -131,7 +130,6 @@ def merge_quant_weights(
         for h in hooks:
             h.remove()
         hooks.clear()
-    
 
     # Reset quantizers from LEARNED_ROUND to ROUND
     with torch.no_grad():
