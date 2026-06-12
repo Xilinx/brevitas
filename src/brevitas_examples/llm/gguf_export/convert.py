@@ -44,7 +44,6 @@ from typing import Iterator
 from typing import Literal
 from typing import Optional
 from typing import Sequence
-from typing import TYPE_CHECKING
 from typing import TypeVar
 from typing import Union
 
