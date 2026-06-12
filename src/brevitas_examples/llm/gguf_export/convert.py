@@ -81,6 +81,14 @@ GGUF_FILE_QUANTIZATION_MAPPING = {
     gguf.LlamaFileType.MOSTLY_TQ1_0: gguf.GGMLQuantizationType.TQ1_0,
     gguf.LlamaFileType.MOSTLY_TQ2_0: gguf.GGMLQuantizationType.TQ2_0,}
 
+# Default set of model tensors whose qtype is overridden at export to the
+# precision passed to ModelBase. Matches the tensors llama.cpp's quantizer
+# (llama_tensor_get_type_impl) treats as high-impact.
+GGUF_OVERRIDE_MODEL_TENSORS = (
+    gguf.MODEL_TENSOR.TOKEN_EMBD,
+    gguf.MODEL_TENSOR.OUTPUT,
+)
+
 _TENSOR_SUFFIXES_TO_SKIP = (
     ".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq", ".value")
 ###### MODEL DEFINITIONS ######
@@ -149,7 +157,9 @@ class ModelBase:
             dry_run: bool = False,
             small_first_shard: bool = False,
             hparams: Optional[dict[str, Any]] = None,
-            remote_hf_model_id: Optional[str] = None):
+            remote_hf_model_id: Optional[str] = None,
+            override_model_tensors: tuple = GGUF_OVERRIDE_MODEL_TENSORS,
+            override_qtype: gguf.GGMLQuantizationType = gguf.GGMLQuantizationType.Q6_K):
         if type(self) is ModelBase or \
                 type(self) is TextModel or \
                 type(self) is MmprojModel:
@@ -158,6 +168,9 @@ class ModelBase:
         self.model = model
         self.dir_model = dir_model
         self.ftype = ftype
+        # Tensors whose qtype is overridden to override_qtype
+        self.override_model_tensors = override_model_tensors
+        self.override_qtype = override_qtype
         self.fname_out = fname_out
         self.is_big_endian = is_big_endian
         self.endianess = gguf.GGUFEndian.BIG if is_big_endian else gguf.GGUFEndian.LITTLE
@@ -511,21 +524,18 @@ class ModelBase:
                                                 )) or not new_name.endswith(".weight")):
                     data_qtype = gguf.GGMLQuantizationType.F32
 
-                # High-impact tensor bump for token_embd / output, mirroring
-                # llama.cpp's llama_tensor_get_type_impl. Brevitas-quantized
-                # sources are skipped to defer to the calibrated qtype.
+                # Override the qtype for the tensors in override_model_tensors,
+                # mirroring llama.cpp's llama_tensor_get_type_impl. Brevitas-
+                # quantized sources are skipped to defer to the calibrated qtype.
                 if data_qtype is False and any(self.match_model_tensor_name(new_name, key, bid)
-                                               for key in (
-                                                   gguf.MODEL_TENSOR.TOKEN_EMBD,
-                                                   gguf.MODEL_TENSOR.OUTPUT,
-                                               )):
+                                               for key in self.override_model_tensors):
                     if self.ftype in (
                             gguf.LlamaFileType.MOSTLY_TQ1_0,
                             gguf.LlamaFileType.MOSTLY_TQ2_0,
                     ):
                         data_qtype = gguf.GGMLQuantizationType.F16
                     elif not self._is_brevitas_quantized(name):
-                        data_qtype = gguf.GGMLQuantizationType.Q6_K
+                        data_qtype = self.override_qtype
 
                 # No override (data_qtype is False), or wants to be quantized (data_qtype is True)
                 if isinstance(data_qtype, bool):

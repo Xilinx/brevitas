@@ -25,6 +25,7 @@ import torch
 
 from brevitas.utils.logging import setup_logger
 
+from .convert import GGUF_OVERRIDE_MODEL_TENSORS
 from .convert import ModelBase
 
 logger = setup_logger(__name__)
@@ -56,7 +57,13 @@ def _resolve_model_name(name_or_path: str) -> str:
     return parts[-1] if parts else name_or_path
 
 
-def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
+def save_quantized_as_gguf(
+        output_dir,
+        model,
+        tokenizer,
+        backend="gguf:q4_0",
+        override_model_tensors=GGUF_OVERRIDE_MODEL_TENSORS,
+        override_qtype=gguf.GGMLQuantizationType.Q6_K):
     """Export the model to gguf format."""
     st = time.time()
 
@@ -93,7 +100,9 @@ def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
             split_max_tensors=False,
             split_max_size=0,
             dry_run=False,
-            small_first_shard=False)
+            small_first_shard=False,
+            override_model_tensors=override_model_tensors,
+            override_qtype=override_qtype)
         model_instance.write()
         rt = time.time() - st
         logger.info(f"Model successfully exported to {model_instance.fname_out}, running time={rt}")
