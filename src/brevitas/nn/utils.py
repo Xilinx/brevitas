@@ -106,7 +106,7 @@ def merge_quant_weights(
             for m in module.tracked_module_list:
                 # We match the module based on its weights and the ID of the tensor to quantize
                 if id(m.weight.data) == id(input_tensor.data):
-                    quant_module.weight.data = output.value.data
+                    m.weight.data = output.value.data
                     # We track how many modules have been converted
                     if module not in module_tensor_id_mapping:
                         module_tensor_id_mapping[module] = 1
