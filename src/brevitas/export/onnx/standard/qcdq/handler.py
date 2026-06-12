@@ -23,6 +23,7 @@ from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMi
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
+from brevitas.export.onnx.handler import ONNXExportOpMixin
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 from brevitas.inject.enum import ScalingPerOutputType
 
@@ -33,7 +34,7 @@ from ..function import IntClipOp
 from ..function import QuantizeLinearOp
 
 
-class StdDQCastONNXMixin(DQCastMixin, ABC):
+class StdDQCastONNXMixin(DQCastMixin, ONNXExportOpMixin, ABC):
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         return self.export_op(DequantizeLinearOp, x, scale, zero_point, axis)

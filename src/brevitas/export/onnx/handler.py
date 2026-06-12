@@ -17,8 +17,19 @@ from .function import LSTMCellFn
 __all__ = [
     'Kernel1dApplHandlerMixin',
     'Kernel2dApplHandlerMixin',
+    'ONNXExportOpMixin',
     'ONNXBaseHandler',
     'QuantLSTMLayerHandler']
+
+
+class ONNXExportOpMixin(ABC):
+    # Interface for emitting an ONNX op via the active export backend (TorchScript or
+    # dynamo). Declared as an abstract contract so mixins that rely on ``export_op`` (e.g.
+    # the standard QCDQ handler mixins) carry it in their MRO; the concrete implementation
+    # is provided by ``ONNXBaseHandler``.
+    @abstractmethod
+    def export_op(self, op, *args):
+        ...
 
 
 class Kernel1dApplHandlerMixin(ABC):
@@ -120,7 +131,7 @@ class Kernel3dApplHandlerMixin(ABC):
             return list(module.kernel_size)
 
 
-class ONNXBaseHandler(BaseHandler, ABC):
+class ONNXBaseHandler(ONNXExportOpMixin, BaseHandler, ABC):
 
     def __init__(self):
         super().__init__()

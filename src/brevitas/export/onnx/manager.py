@@ -225,6 +225,7 @@ class ONNXBaseManager(BaseManager, ABC):
 
 class ONNXDynamoExportMixin:
     # Shared configuration and helpers for the torch.export (dynamo) ONNX managers.
+    # Must be mixed with an ONNXBaseManager that provides set_export_mode (chained via super()).
     run_onnx_passes = False  # keep ONNX metadata; skip the onnxoptimizer step
     onnx_passes = ["eliminate_unused_initializer"]
     custom_fns = []
