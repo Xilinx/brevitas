@@ -19,6 +19,7 @@
 import gguf
 import gguf.quants as _gguf_quants
 import numpy as np
+import torch
 
 QK_K = 256
 K_SCALE_SIZE = 12
@@ -40,50 +41,115 @@ def _np_roundf(n: np.ndarray) -> np.ndarray:
     return np.sign(n) * b
 
 
-def _make_qx_quants(x: np.ndarray, nmax: int, rmse_type: int = 1) -> np.ndarray:
-    # vectorized port of ggml-quants.c:make_qx_quants; returns per-block scale
+def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
+    """Per-block symmetric scale search (ggml-quants.c:make_qx_quants, rmse_type=1).
+
+    For every block (the last axis of ``x``) returns the scale ``s`` that minimizes
+    the weighted reconstruction error of ``x ~= s * round(x / s)`` with importance
+    weights ``w = x**2``. All-zero blocks get scale 0. Used for Q6_K sub-blocks.
+    """
+    # Anchor on the largest-magnitude element; its sign sets the scale sign.
     amax_idx = np.abs(x).argmax(axis=-1, keepdims=True)
     max_val = np.take_along_axis(x, amax_idx, axis=-1).squeeze(-1).astype(np.float32)
-    amax = np.abs(max_val)
-    nonzero = amax >= GROUP_MAX_EPS
+    nonzero = np.abs(max_val) >= GROUP_MAX_EPS
     safe_max = np.where(nonzero, max_val, np.float32(1.0))
+    w = (x * x).astype(np.float32)  # importance weights (rmse_type=1)
 
-    if rmse_type == 1:
-        w = (x * x).astype(np.float32)
-    elif rmse_type == 2:
-        w = np.ones_like(x, dtype=np.float32)
-    elif rmse_type == 3:
-        w = np.abs(x).astype(np.float32)
-    else:
-        w = np.sqrt(np.abs(x)).astype(np.float32)
-
-    def _eval(iscale_):
-        L = _np_roundf(iscale_[..., None] * x).clip(-nmax, nmax - 1).astype(np.float32)
-        sumlx = (w * x * L).sum(axis=-1)
-        suml2 = (w * L * L).sum(axis=-1)
+    def _fit(iscale):
+        # Quantize x to fixed integer codes L with the trial inverse-scale, then
+        # solve for the continuous scale s that minimizes the weighted error
+        #   E(s) = sum_i w_i (x_i - s * L_i)^2.
+        # dE/ds = 0 gives the closed-form least-squares optimum s = sumlx / suml2,
+        # so the residual (x - s*L) is never formed explicitly. Return the two
+        # sufficient statistics; the resulting error reduction is sumlx^2 / suml2.
+        L = _np_roundf(iscale[..., None] * x).clip(-nmax, nmax - 1).astype(np.float32)
+        sumlx = (w * x * L).sum(axis=-1)  # sum w * x * L
+        suml2 = (w * L * L).sum(axis=-1)  # sum w * L^2
         return sumlx, suml2
 
-    iscale0 = np.where(nonzero, -np.float32(nmax) / safe_max, np.float32(0.0))
-    sumlx, suml2 = _eval(iscale0)
-    safe_l2 = np.where(suml2 != 0, suml2, np.float32(1.0))
-    scale = np.where(suml2 != 0, sumlx / safe_l2, np.float32(0.0))
-    best = scale * sumlx
+    # Step 1: initial guess maps the max-magnitude element to the range edge.
+    sumlx, suml2 = _fit(np.where(nonzero, -np.float32(nmax) / safe_max, np.float32(0.0)))
+    scale = np.where(suml2 != 0, sumlx / np.where(suml2 != 0, suml2, 1.0), np.float32(0.0))
+    best = scale * sumlx  # error reduction sumlx^2/suml2; maximizing it minimizes E
 
+    # Step 2: try a small grid; keep the one with the largest error reduction per block.
+    #  The test sumlx^2 > best*suml2 is that comparison cross-multiplied to avoid a division.
     for is_val in range(-9, 10):
         if is_val == 0:
             continue
-        iscale_try = np.where(
+        iscale = np.where(
             nonzero, -(np.float32(nmax) + np.float32(0.1) * is_val) / safe_max, np.float32(0.0))
-        sumlx_t, suml2_t = _eval(iscale_try)
-        better = (suml2_t > 0) & (sumlx_t * sumlx_t > best * suml2_t)
-        new_scale = np.where(
-            suml2_t != 0,
-            sumlx_t / np.where(suml2_t != 0, suml2_t, np.float32(1.0)),
-            np.float32(0.0))
+        sumlx, suml2 = _fit(iscale)
+        better = (suml2 > 0) & (sumlx * sumlx > best * suml2)
+        new_scale = np.where(suml2 != 0, sumlx / np.where(suml2 != 0, suml2, 1.0), np.float32(0.0))
         scale = np.where(better, new_scale, scale)
-        best = np.where(better, new_scale * sumlx_t, best)
+        best = np.where(better, new_scale * sumlx, best)
 
     return np.where(nonzero, scale, np.float32(0.0)).astype(np.float32)
+
+
+def _make_qkx2_quants(x: np.ndarray, nmax: int):
+    """Per-block asymmetric scale+min search (ggml-quants.c:make_qkx2_quants).
+
+    For every block (row of ``x``) returns the scale ``s`` and ``the_min = -min``
+    that minimize the weighted error of ``x ~= s * L + min`` with codes
+    ``L in [0, nmax]`` and importance weights ``w = avg(|x|) + |x|``. Used for
+    Q4_K sub-blocks. The integer codes are recomputed by the caller from the
+    quantized scales (as llama.cpp does), so they are not returned here.
+    """
+    # llama.cpp search grid: nstep+1 trial inverse-scales spaced around nmax/span.
+    rmin, rdelta, nstep = np.float32(-1.0), np.float32(0.1), 20
+    n = x.shape[1]
+    av_x = np.sqrt((x * x).sum(1) / n)
+    w = av_x[:, None] + np.abs(x)  # importance weights (q4_k convention)
+    xmax = x.max(1)
+    # In x ~= scale * L + min the offset is stored as an unsigned magnitude and
+    # subtracted at dequant (y = d*q - dmin*m, with dmin >= 0 and m an unsigned
+    # code), so the offset can only be negative. Clamp min to <= 0 (llama.cpp:
+    # `if (min > 0) min = 0`); all-positive blocks then map over [0, max].
+    minv = np.minimum(x.min(1), np.float32(0.0))
+    degenerate = (xmax - minv) == 0  # all-equal block: nothing to quantize
+    sum_w = w.sum(1)
+    sum_x = (w * x).sum(1)
+
+    def _span(m):
+        s = xmax - m
+        return np.where(s != 0, s, np.float32(1.0))
+
+    # Step 1: initial fit mapping [min, max] linearly onto [0, nmax].
+    iscale = nmax / _span(minv)
+    scale = np.float32(1.0) / iscale
+    L = np.clip(_np_roundf(iscale[:, None] * (x - minv[:, None])), 0, nmax)
+    best_err = (w * (scale[:, None] * L + minv[:, None] - x) ** 2).sum(1)
+
+    # Step 2: for each trial inverse-scale, weighted-least-squares-fit (scale, min)
+    # from the resulting codes and keep the fit wherever it lowers the error.
+    for is_ in range(nstep + 1):
+        iscale_t = (rmin + rdelta * is_ + nmax) / _span(minv)
+        Laux = np.clip(_np_roundf(iscale_t[:, None] * (x - minv[:, None])), 0, nmax)
+        sum_l = (w * Laux).sum(1)
+        sum_l2 = (w * Laux * Laux).sum(1)
+        sum_xl = (w * Laux * x).sum(1)
+        # Closed-form weighted least squares for (scale, min) over fixed codes Laux.
+        D = sum_w * sum_l2 - sum_l * sum_l
+        ok = D > 0
+        safe_D = np.where(ok, D, np.float32(1.0))
+        this_scale = (sum_w * sum_xl - sum_x * sum_l) / safe_D
+        this_min = (sum_l2 * sum_x - sum_l * sum_xl) / safe_D
+        # min is constrained <= 0; if the fit makes it positive, pin it to 0 and
+        # refit the scale alone.
+        pos = this_min > 0
+        safe_l2 = np.where(sum_l2 != 0, sum_l2, np.float32(1.0))
+        this_scale = np.where(pos, sum_xl / safe_l2, this_scale)
+        this_min = np.where(pos, np.float32(0.0), this_min)
+        cur_err = (w * (this_scale[:, None] * Laux + this_min[:, None] - x) ** 2).sum(1)
+        better = ok & (cur_err < best_err) & ~degenerate
+        scale = np.where(better, this_scale, scale)
+        minv = np.where(better, this_min, minv)
+        best_err = np.where(better, cur_err, best_err)
+
+    scale = np.where(degenerate, np.float32(0.0), scale)
+    return scale.astype(np.float32), (-minv).astype(np.float32)
 
 
 GGML_QUANT_BLOCK = {}
@@ -100,7 +166,7 @@ def register_block(name):
 
 def ggml_quant(
         data: np.array, ggml_type, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
-    import torch
+
     data = data.squeeze().cpu().detach().numpy() if isinstance(data, torch.Tensor) else data
 
     if scale.dtype not in (torch.float16, torch.float32):
@@ -116,13 +182,12 @@ def ggml_quant(
     d_wmin_m = d_wmin_m.detach().numpy() if isinstance(d_wmin_m, torch.Tensor) else d_wmin_m
     block_size, type_size = GGML_QUANT_SIZES[ggml_type]
 
-    # data = data.astype(np.float32, copy=False)
     shape = data.shape
     n_blocks = data.size // block_size
     blocks = data.reshape((n_blocks, block_size))
 
     quant_func = GGML_QUANT_BLOCK[ggml_type]
-    if ggml_type == gguf.gguf.GGMLQuantizationType.Q4_K:
+    if ggml_type == gguf.GGMLQuantizationType.Q4_K:
         new_data = quant_func(blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
     else:
         new_data = quant_func(blocks, scale, zp)
@@ -144,130 +209,176 @@ def bf16_quant_block(blocks: np.array, scale=None, zp=None):
     return n.astype(np.uint16).view(np.uint8)
 
 
+"""
+GGML few-bit quant-block encoders for the LLM GGUF export.
+
+Each ``*_quant_block`` turns one quant type's blocks into its packed on-disk
+byte layout and is registered in ``GGML_QUANT_BLOCK``. Every encoder supports
+two modes:
+
+* ``scale=None`` -- ``blocks`` are raw float weights; the encoder derives the
+  scale(s) and quantizes (the algorithms below are, at least initially, numpy
+  adaptations of the matching ``ggml-quants.c:quantize_row_*_ref`` reference encoders).
+* ``scale`` given -- ``blocks`` are pre-quantized integer codes; the encoder
+  packs them with the supplied scale(s). This is the path Brevitas-quantized
+  modules use, feeding ``quant_weight.int()`` plus the calibrated scales.
+
+The K-quants (Q4_K/Q6_K) use a two-level scale: a per-256-block fp16 super-block
+scale times per-sub-block integer scale codes. ``GGML_QUANT_SIZES`` maps each
+type to ``(block_size, packed_byte_size)``.
+"""
+
+
 @register_block(gguf.GGMLQuantizationType.Q4_0)
 def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
-    if scale is not None:
-        d = scale.reshape((-1, 1))
-    else:
-        imax = abs(blocks).argmax(axis=-1, keepdims=True)
-        max = np.take_along_axis(blocks, imax, axis=-1)
-        d = max / -8
-
     n_blocks = blocks.shape[0]
     block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_0][0]
-    blocks = (blocks.astype(np.float32) + np.float32(8)).astype(np.uint8).clip(0, 15)
-    blocks = blocks.reshape((n_blocks, 2, block_size // 2))
-    blocks = blocks[..., 0, :] | (blocks[..., 1, :] << np.uint8(4))
+    if scale is not None:
+        # blocks are pre-quantized signed codes in [-8, 7]
+        d = scale.reshape((-1, 1))
+        q = blocks.astype(np.float32) + np.float32(8)
+    else:
+        # blocks are raw floats: derive scale and quantize (llama.cpp q4_0_ref)
+        imax = abs(blocks).argmax(axis=-1, keepdims=True)
+        amax = np.take_along_axis(blocks, imax, axis=-1)
+        d = amax / -8
+        inv_d = np.where(d == 0, np.float32(0), np.float32(1) / d)
+        q = np.floor(blocks.astype(np.float32) * inv_d + np.float32(8.5))
+    q = q.clip(0, 15).astype(np.uint8)
+    q = q.reshape((n_blocks, 2, block_size // 2))
+    q = q[..., 0, :] | (q[..., 1, :] << np.uint8(4))
     d = d.astype(np.float16).view(np.uint8)
-    return np.concatenate([d, blocks], axis=-1)
+    return np.concatenate([d, q], axis=-1)
 
 
 @register_block(gguf.GGMLQuantizationType.Q4_1)
 def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
-    if scale is not None:
-        d = scale.reshape((-1, 1))
-        min = zp.reshape((-1, 1)) * d * -1
-    else:
-        max = blocks.max(axis=-1, keepdims=True)
-        min = blocks.min(axis=-1, keepdims=True)
-        d = (max - min) / 15
-    with np.errstate(divide="ignore"):
-        id = np.where(d == 0, 0, 1 / d)
-
     n_blocks = blocks.shape[0]
     block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_1][0]
-    blocks = blocks.reshape((n_blocks, 2, block_size // 2))
-    blocks = blocks[..., 0, :] | (blocks[..., 1, :] << np.uint8(4))
-
+    if scale is not None:
+        # blocks are pre-quantized codes in [0, 15]
+        d = scale.reshape((-1, 1))
+        m = zp.reshape((-1, 1)) * d * -1
+        q = blocks.astype(np.float32)
+    else:
+        # blocks are raw floats: derive scale/min and quantize (llama.cpp q4_1_ref)
+        m = blocks.min(axis=-1, keepdims=True)
+        d = (blocks.max(axis=-1, keepdims=True) - m) / 15
+        inv_d = np.where(d == 0, np.float32(0), np.float32(1) / d)
+        q = np.floor((blocks.astype(np.float32) - m) * inv_d + np.float32(0.5))
+    q = q.clip(0, 15).astype(np.uint8)
+    q = q.reshape((n_blocks, 2, block_size // 2))
+    q = q[..., 0, :] | (q[..., 1, :] << np.uint8(4))
     d = d.astype(np.float16).view(np.uint8)
-    m = min.astype(np.float16).view(np.uint8)
-    return np.concatenate([d, m, blocks], axis=-1)
+    m = m.astype(np.float16).view(np.uint8)
+    return np.concatenate([d, m, q], axis=-1)
 
 
 @register_block(gguf.GGMLQuantizationType.Q8_0)
 def q8_0_quant_block(blocks: np.array, scale=None, zp=None) -> np.ndarray:
     if scale is not None:
+        # blocks are pre-quantized int8 codes
         d = scale.reshape((-1, 1))
+        q = blocks.astype(np.int8)
     else:
+        # blocks are raw floats: derive scale and quantize (llama.cpp q8_0_ref)
         d = abs(blocks).max(axis=1, keepdims=True) / 127
-    with np.errstate(divide="ignore"):
-        id = np.where(d == 0, 0, 1 / d)
-
-    # (n_blocks, 2)
+        inv_d = np.where(d == 0, np.float32(0), np.float32(1) / d)
+        q = _np_roundf(blocks.astype(np.float32) * inv_d).clip(-127, 127).astype(np.int8)
     d = d.astype(np.float16).view(np.uint8)
-    # (n_blocks, block_size)
-    blocks = blocks.astype(np.int8).view(np.uint8)
+    q = q.view(np.uint8)
+    return np.concatenate([d, q], axis=1)
 
-    return np.concatenate([d, blocks], axis=1)
+
+def _q4_k_pack(q_scales, q_mins, output_d, output_dmin, codes):
+    # q_scales/q_mins: (nb, 8) uint8 6-bit; output_d/output_dmin: (nb, 1) float32;
+    # codes: (nb, 8, 32) uint8 4-bit. Packs to the block_q4_K byte layout
+    # (the get_scale_min_k4 6-bit interleave + nibble-packed quants).
+    nb = codes.shape[0]
+    output_scale = np.empty((nb, K_SCALE_SIZE), dtype=np.uint8)
+    output_scale[:, :4] = q_scales[:, :4]
+    output_scale[:, 4:8] = q_mins[:, :4]
+    output_scale[:, 8:] = (q_scales[:, 4:] & 0xF) | ((q_mins[:, 4:] & 0xF) << 4)
+    output_scale[:, :4] |= ((q_scales[:, 4:] >> 4) << 6)
+    output_scale[:, 4:8] |= ((q_mins[:, 4:] >> 4) << 6)
+
+    output_qs = (codes[:, ::2] | (codes[:, 1::2] << 4)).reshape(nb, QK_K // 2)
+    d_bytes = output_d.reshape(-1, 1).astype(np.float16).view(np.uint8)
+    dmin_bytes = output_dmin.reshape(-1, 1).astype(np.float16).view(np.uint8)
+
+    # [d, dmin, scale, qs]
+    return np.concatenate([d_bytes, dmin_bytes, output_scale, output_qs], axis=-1)
 
 
 @register_block(gguf.GGMLQuantizationType.Q4_K)
 def q4_k_quant_block(
         blocks: np.array, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
+    # Adaptation of ggml-quants.c:quantize_row_q4_K_ref.
+    #   scale is None -> blocks are raw floats; derive the 8 sub-block scales/mins.
+    #   scale given   -> blocks are pre-quantized codes in [0, 15], and scale/wmin_m
+    #                    hold the 8 sub-block scales/mins with super-scales
+    #                    d_scale/d_wmin_m (i.e., two-level quantization).
     nb = blocks.shape[0]
-    blocks = blocks.reshape(nb, QK_K // 32, 32)  # (nb, 8, 32)
+    if scale is None:
+        sub = blocks.reshape(nb, QK_K // 32, 32).astype(np.float32)
+        # Step 1: per-sub-block asymmetric scale + min (8 sub-blocks of 32).
+        scales, mins = _make_qkx2_quants(sub.reshape(-1, 32), nmax=15)
+        scales = scales.reshape(nb, QK_K // 32)
+        mins = mins.reshape(nb, QK_K // 32)
+        # Step 2: quantize the 8 scales and 8 mins to 6-bit codes (held in uint8),
+        # with fp16 super-block scales (output_d, output_dmin) anchored on the
+        # per-block maxima.
+        max_scale = scales.max(axis=1, keepdims=True)
+        max_min = mins.max(axis=1, keepdims=True)
+        output_d = np.where(max_scale > 0, max_scale / np.float32(63.0), np.float32(0.0))
+        output_dmin = np.where(max_min > 0, max_min / np.float32(63.0), np.float32(0.0))
+        inv_scale = np.where(
+            max_scale > 0, np.float32(63.0) / np.where(max_scale > 0, max_scale, 1.0), 0.0)
+        inv_min = np.where(max_min > 0, np.float32(63.0) / np.where(max_min > 0, max_min, 1.0), 0.0)
+        q_scales = np.minimum(63, _np_roundf(inv_scale * scales)).astype(np.uint8)
+        q_mins = np.minimum(63, _np_roundf(inv_min * mins)).astype(np.uint8)
+        # Step 3: recompute the 4-bit codes from the quantized fp16 scales/mins
+        # (l = round((x + dm) / d)), matching llama.cpp's two-pass quantization.
+        d_eff = output_d.astype(np.float16).astype(np.float32) * q_scales.astype(np.float32)
+        dm_eff = output_dmin.astype(np.float16).astype(np.float32) * q_mins.astype(np.float32)
+        inv = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
+        codes = _np_roundf((sub + dm_eff[:, :, None]) * inv[:, :, None]).clip(0, 15)
+        codes = np.where((d_eff != 0)[:, :, None], codes, 0).astype(np.uint8)
+    else:
+        scales = scale.reshape(-1, QK_K // 32)
+        mins = wmin_m.reshape(-1, QK_K // 32)
+        output_d = d_scale.reshape(-1, 1).astype(np.float32)
+        output_dmin = d_wmin_m.reshape(-1, 1).astype(np.float32)
+        inv_scale_scales = np.where(output_d == 0, 0, 1 / output_d)
+        inv_scale_mins = np.where(output_dmin == 0, 0, 1 / output_dmin)
+        q_scales = np.round(inv_scale_scales * scales).astype(np.uint8).clip(0, 63)
+        q_mins = np.round(inv_scale_mins * mins).astype(np.uint8).clip(0, 63)
+        codes = blocks.reshape(nb, QK_K // 32, 32).astype(np.uint8)
 
-    output_scale = np.empty((nb, K_SCALE_SIZE), dtype=np.uint8)
-    output_qs = np.empty((nb, QK_K // 64, 32), dtype=np.uint8)
-
-    scales = scale.reshape(-1, QK_K // 32)
-    mins = wmin_m.reshape(-1, QK_K // 32)
-    output_d = d_scale.reshape(-1, 1).astype(np.float32)
-    output_dmin = d_wmin_m.reshape(-1, 1).astype(np.float32)
-    inv_scale_scales = np.where(output_d == 0, 0, 1 / output_d)
-    inv_scale_mins = np.where(output_dmin == 0, 0, 1 / output_dmin)
-
-    # 6-bit quant for miniblock scales and zp
-    q_scales = np.round(inv_scale_scales * scales).astype(np.uint8).clip(0, 63)
-    q_mins = np.round(inv_scale_mins * mins).astype(np.uint8).clip(0, 63)
-
-    output_scale[:, :4] = q_scales[:, :4]
-    output_scale[:, 4:8] = q_mins[:, :4]
-
-    output_scale[:, 8:] = (q_scales[:, 4:] & 0xF) | ((q_mins[:, 4:] & 0xF) << 4)
-    output_scale[:, :4] |= ((q_scales[:, 4:] >> 4) << 6)
-    output_scale[:, 4:8] |= ((q_mins[:, 4:] >> 4) << 6)
-
-    output_qs = blocks[:, ::2] | (blocks[:, 1::2] << 4)
-
-    output_d = output_d.reshape(-1, 1).astype(np.float16).view(np.uint8)
-    output_dmin = output_dmin.reshape(-1, 1).astype(np.float16).view(np.uint8)
-    output_qs = output_qs.reshape(nb, QK_K // 2)
-
-    # [d, dmin, scale, qs]
-    return np.concatenate([output_d, output_dmin, output_scale, output_qs], axis=-1)
+    return _q4_k_pack(q_scales, q_mins, output_d, output_dmin, codes)
 
 
-@register_block(gguf.GGMLQuantizationType.Q6_K)
-def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
-    # port of ggml-quants.c:quantize_row_q6_K_ref; always self-derives scales
-    nb = blocks.shape[0]
-    sub = blocks.reshape(nb, QK_K // 16, 16).astype(np.float32)
-    sub_scales = _make_qx_quants(sub, nmax=32, rmse_type=1)
-
+def _q6_k_quantize_scales(sub_scales: np.ndarray):
+    # Quantize the 16 per-sub-block scales to the Q6_K format: an fp16 super-block
+    # scale d plus 16 int8 codes, with the max-magnitude scale anchored at -128.
     abs_scales = np.abs(sub_scales)
-    max_abs = abs_scales.max(axis=-1)
-    nonzero = max_abs >= GROUP_MAX_EPS
+    nonzero = abs_scales.max(axis=-1) >= GROUP_MAX_EPS
     imax = abs_scales.argmax(axis=-1, keepdims=True)
     max_scale = np.take_along_axis(sub_scales, imax, axis=-1).squeeze(-1)
     safe_max_scale = np.where(max_scale != 0, max_scale, np.float32(1.0))
     iscale = np.where(nonzero, np.float32(-128.0) / safe_max_scale, np.float32(0.0))
     safe_iscale = np.where(iscale != 0, iscale, np.float32(1.0))
     d = np.where(nonzero, np.float32(1.0) / safe_iscale, np.float32(0.0))
-
-    # 8-bit quant for sub-block scales
     q_scales = np.clip(_np_roundf(iscale[:, None] * sub_scales), -128, 127).astype(np.int8)
     q_scales = np.where(nonzero[:, None], q_scales, np.int8(0))
+    return d, q_scales, nonzero
 
-    # 6-bit quant per element using d * sub_scale
-    d_eff = d[:, None].astype(np.float32) * q_scales.astype(np.float32)
-    safe_d_eff = np.where(d_eff != 0, d_eff, np.float32(1.0))
-    inv_d_eff = np.where(d_eff != 0, np.float32(1.0) / safe_d_eff, np.float32(0.0))
-    L = _np_roundf(sub * inv_d_eff[:, :, None]).clip(-32, 31).astype(np.int32) + 32
-    L = np.where(nonzero[:, None, None], L, 0).astype(np.uint8).reshape(nb, QK_K)
 
-    # Pack into ql (128B) and qh (64B), interleaving four 32-elem groups per half-block.
+def _q6_k_pack(L: np.ndarray, q_scales: np.ndarray, d: np.ndarray, nonzero: np.ndarray):
+    # Pack codes L (uint8, [0,63]) into ql (128B) and qh (64B), interleaving four
+    # 32-elem groups per 128-elem half-block, then the int8 scales and fp16 d.
     # See ggml-quants.c:quantize_row_q6_K_ref for the bit layout.
+    nb = L.shape[0]
     ql = np.empty((nb, QK_K // 2), dtype=np.uint8)
     qh = np.empty((nb, QK_K // 4), dtype=np.uint8)
     for half in range(2):
@@ -287,6 +398,33 @@ def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
 
     # [ql, qh, scales, d]
     return np.concatenate([ql, qh, scales_bytes, d_bytes], axis=-1)
+
+
+@register_block(gguf.GGMLQuantizationType.Q6_K)
+def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
+    # Adaptation of ggml-quants.c:quantize_row_q6_K_ref.
+    #   scale is None -> blocks are raw floats; derive the 16 sub-block scales.
+    #   scale given   -> blocks are pre-quantized codes in [-32, 31] and scale holds
+    #                    the 16 per-sub-block scales (flattenable to (nb, QK_K/16)).
+    nb = blocks.shape[0]
+    if scale is None:
+        sub = blocks.reshape(nb, QK_K // 16, 16).astype(np.float32)
+        # Step 1: per-sub-block symmetric scale (16 sub-blocks of 16).
+        sub_scales = _make_qx_quants(sub, nmax=32)
+        # Step 2: quantize the 16 scales to int8 + an fp16 super-block scale d.
+        d, q_scales, nonzero = _q6_k_quantize_scales(sub_scales)
+        # Step 3: recompute the 6-bit codes from the quantized scale d * q_scales
+        # (stored as L + 32 in [0, 63]), matching llama.cpp's two-pass quantization.
+        d_eff = d[:, None].astype(np.float32) * q_scales.astype(np.float32)
+        inv_d_eff = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
+        L = _np_roundf(sub * inv_d_eff[:, :, None]).clip(-32, 31).astype(np.int32) + 32
+        L = np.where(nonzero[:, None, None], L, 0).astype(np.uint8).reshape(nb, QK_K)
+    else:
+        sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
+        d, q_scales, nonzero = _q6_k_quantize_scales(sub_scales)
+        L = (blocks.astype(np.int32) + 32).clip(0, 63).astype(np.uint8).reshape(nb, QK_K)
+
+    return _q6_k_pack(L, q_scales, d, nonzero)
 
 
 # Route gguf.quants.quantize(data, Q6_K) through our encoder; gguf-py ships
