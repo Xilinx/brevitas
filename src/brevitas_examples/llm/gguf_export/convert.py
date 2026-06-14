@@ -82,8 +82,8 @@ GGUF_FILE_QUANTIZATION_MAPPING = {
     gguf.LlamaFileType.MOSTLY_TQ2_0: gguf.GGMLQuantizationType.TQ2_0,}
 
 # Default set of model tensors whose qtype is overridden at export to the
-# precision passed to ModelBase. Matches the tensors llama.cpp's quantizer
-# (llama_tensor_get_type_impl) treats as high-impact.
+# precision passed to ModelBase. Matches the tensors that llama.cpp's
+# quantizer (llama_tensor_get_type_impl) treats as high-impact.
 GGUF_OVERRIDE_MODEL_TENSORS = (
     gguf.MODEL_TENSOR.TOKEN_EMBD,
     gguf.MODEL_TENSOR.OUTPUT,
@@ -92,8 +92,7 @@ GGUF_OVERRIDE_MODEL_TENSORS = (
 
 def _has_quantize_blocks(cls: _gguf_quants.__Quant) -> bool:
     # gguf's base __Quant.quantize_blocks raises NotImplementedError; an implemented
-    # encoder (native or monkey-patched above) instead breaks on this probe input,
-    # which we treat as "implemented".
+    # encoder instead breaks on this probe input, which we treat as "implemented".
     try:
         cls.quantize_blocks(None)
     except NotImplementedError:
