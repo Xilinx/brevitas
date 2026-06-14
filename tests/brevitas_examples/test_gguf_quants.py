@@ -25,8 +25,6 @@ Q4_1 = gguf.GGMLQuantizationType.Q4_1
 Q8_0 = gguf.GGMLQuantizationType.Q8_0
 Q4_K = gguf.GGMLQuantizationType.Q4_K
 Q6_K = gguf.GGMLQuantizationType.Q6_K
-# block_q6_K (ggml-common.h): ql[QK_K/2] + qh[QK_K/4] + scales[QK_K/16] + d(fp16)
-Q6_K_TYPE_SIZE = QK_K // 2 + QK_K // 4 + QK_K // 16 + 2
 
 
 def fp16(a):
@@ -57,41 +55,58 @@ MODEL_TENSORS = {
     "zero": np.zeros((2, QK_K), dtype=np.float32),
     "outlier": _outlier(),}
 
-
-@pytest.mark.llm
-def test_q6_k_block_size_matches_format():
-    # The numpy adaptation must agree with the on-disk block_q6_K size, and the
-    # encoder must emit exactly that many bytes per 256-element block.
-    assert GGML_QUANT_SIZES[Q6_K] == (QK_K, Q6_K_TYPE_SIZE)
-    q = q6_k_quant_block(_normal(0, 5))
-    assert q.dtype == np.uint8
-    assert q.shape == (5, Q6_K_TYPE_SIZE)
+KQUANT_ENCODERS = {"q4_k": (q4_k_quant_block, Q4_K), "q6_k": (q6_k_quant_block, Q6_K)}
 
 
 @pytest.mark.llm
-@pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-def test_q6_k_quant_error(x):
-    # Quantize then decode; this test verifies that every element is within one Q6_K
-    # step. The 64 signed levels span [-amax, amax], so the step is amax/32 and the
-    # round-to-nearest floor is amax/64; one extra full step (2x) absorbs possible
-    # quantization error from the 8-bit scale, the fp16 super-block scale, and the
-    # scale search.
-    x_hat = gguf_quants.dequantize(q6_k_quant_block(x), Q6_K)
-    amax = np.abs(x).max()
-    assert np.abs(x - x_hat).max() <= amax / 32
+class TestKQuantMonkeyPatch:
+    """gguf ships no K-quant quantizer, so the export module monkey-patches
+    gguf.quants.{Q4_K,Q6_K}.quantize_blocks with our numpy encoders. These tests
+    cover the dispatch wiring and the patched encoders' block size and accuracy."""
 
+    @pytest_cases.parametrize("fn,qtype", KQUANT_ENCODERS.values(), ids=KQUANT_ENCODERS.keys())
+    def test_dispatch(self, fn, qtype):
+        """gguf.quants.quantize(data, qtype) routes through our patched encoder.
 
-@pytest.mark.llm
-@pytest_cases.parametrize(
-    "fn,qtype", [(q4_k_quant_block, Q4_K), (q6_k_quant_block, Q6_K)], ids=["q4_k", "q6_k"])
-def test_kquant_monkey_patch_dispatch(fn, qtype):
-    # gguf ships no K-quant encoder, so the module monkey-patches quantize_blocks.
-    # Verify gguf.quants.quantize(data, qtype) routes through our encoder; without
-    # this the convert.py pass-through path would regress these qtypes to F32.
-    x = _normal(5, 4)
-    via_gguf = gguf_quants.quantize(x, qtype)
-    type_size = GGML_QUANT_SIZES[qtype][1]
-    np.testing.assert_array_equal(via_gguf.reshape(-1, type_size), fn(x))
+        Without the patch the convert.py pass-through path would regress these
+        K-quant targets to F32."""
+        x = _normal(5, 4)
+        via_gguf = gguf_quants.quantize(x, qtype)
+        type_size = GGML_QUANT_SIZES[qtype][1]
+        np.testing.assert_array_equal(via_gguf.reshape(-1, type_size), fn(x))
+
+    @pytest_cases.parametrize("fn,qtype", KQUANT_ENCODERS.values(), ids=KQUANT_ENCODERS.keys())
+    def test_block_size(self, fn, qtype):
+        """The encoder emits exactly the on-disk block size from GGML_QUANT_SIZES."""
+        _, type_size = GGML_QUANT_SIZES[qtype]
+        q = fn(_normal(0, 5))
+        assert q.dtype == np.uint8
+        assert q.shape == (5, type_size)
+
+    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
+    def test_q6_k_error(self, x):
+        """Quantize then decode; every element lands within one Q6_K step.
+
+        The 64 signed levels span [-amax, amax], so the step is roughly amax/2^5
+        and the round-to-nearest floor is s / 2; we bound by one extra full step (2x)
+        to account for the possible deviation induced from scale search or error from
+        scale quantization, which gives us s = amax / 32"""
+        x_hat = gguf_quants.dequantize(q6_k_quant_block(x), Q6_K)
+        amax = np.abs(x).max()
+        assert np.abs(x - x_hat).max() <= amax / 32
+
+    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
+    def test_q4_k_error(self, x):
+        """Quantize then decode; every element lands within one Q4_K step.
+
+        Each 32-element sub-block maps its own [min, max] onto 16 levels, so the
+        sub-block holding the global extreme spans at most 2*amax and its step is at
+        most 2*amax/(2^4 - 1); round-to-nearest would give us an s / 2 maximum error,
+        so we bound by one extra step (2x) to account for the possible error from
+        scale/min quantization and scale search deviation."""
+        x_hat = gguf_quants.dequantize(q4_k_quant_block(x), Q4_K)
+        amax = np.abs(x).max()
+        assert np.abs(x - x_hat).max() <= 2 * amax / 15
 
 
 @pytest.mark.llm
@@ -107,23 +122,8 @@ def test_override_qtype_encodes(qtype):
 
 
 @pytest.mark.llm
-@pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-def test_q4_k_quant_error(x):
-    # Quantize then decode natively; this tests that every element is within one Q4_K
-    # step. Each 32-element sub-block maps its own [min, max] onto 16 levels, so the
-    # sub-block holding the global extreme spans at most 2*amax and its step is at most
-    # 2*amax/15; one extra step (2x the amax/15 round-to-nearest floor) absorbs the
-    # 6-bit scale/min quantization and the fp16 super-block scales.
-    x_hat = gguf_quants.dequantize(q4_k_quant_block(x), Q4_K)
-    amax = np.abs(x).max()
-    assert np.abs(x - x_hat).max() <= 2 * amax / 15
-
-
-@pytest.mark.llm
 def test_q4_0_pack():
-    # Pack mode: blocks are pre-quantized signed 4-bit codes and scale is the fp16
-    # per-block scale d. Packing only lays out bytes, so it is lossless: a native
-    # decode must return exactly code * d (hence atol=0).
+    """Lossless pack: signed 4-bit codes + fp16 scale d decode to exactly code * d."""
     rng = np.random.default_rng(0)
     codes = rng.integers(-8, 8, size=(8, 32)).astype(np.float32)  # signed [-8, 7]
     d = (np.abs(rng.standard_normal((8, 1))) + 0.1).astype(np.float32)
@@ -133,8 +133,7 @@ def test_q4_0_pack():
 
 @pytest.mark.llm
 def test_q8_0_pack():
-    # Pack mode: pre-quantized int8 codes plus the fp16 per-block scale d. Lossless
-    # byte layout, so a native decode must return exactly code * d.
+    """Lossless pack: int8 codes + fp16 scale d decode to exactly code * d."""
     rng = np.random.default_rng(1)
     codes = rng.integers(-127, 128, size=(8, 32)).astype(np.float32)
     d = (np.abs(rng.standard_normal((8, 1))) + 0.1).astype(np.float32)
@@ -144,9 +143,7 @@ def test_q8_0_pack():
 
 @pytest.mark.llm
 def test_q4_1_pack():
-    # Pack mode for the asymmetric quant: pre-quantized unsigned 4-bit codes, with
-    # scale d and zero-point zp, where q4_1 stores the offset as min = -zp * d.
-    # Lossless byte layout, so a native decode must return exactly code * d + min.
+    """Lossless pack: codes + scale d and zero-point zp decode to exactly code * d + min."""
     rng = np.random.default_rng(2)
     codes = rng.integers(0, 16, size=(8, 32)).astype(np.float32)  # unsigned [0, 15]
     d = (np.abs(rng.standard_normal((8, 1))) + 0.1).astype(np.float32)
@@ -158,10 +155,8 @@ def test_q4_1_pack():
 
 @pytest.mark.llm
 def test_q4_k_pack():
-    # Pack mode for the two-level K-quant: pre-quantized 4-bit codes plus the 8
-    # sub-block scales/mins and their fp16 super-scales (d_scale, d_wmin). Packing
-    # 6-bit-quantizes the sub-block scales/mins against the super-scales, so a native
-    # decode returns exactly d_scale*qs*code - d_wmin*qm; assert that reconstruction.
+    """Lossless pack: codes + sub-block scales/mins and fp16 super-scales decode to
+    exactly d_scale*qs*code - d_wmin*qm."""
     rng = np.random.default_rng(3)
     nb = 4
     codes = rng.integers(0, 16, size=(nb, QK_K)).astype(np.float32)
@@ -181,9 +176,8 @@ def test_q4_k_pack():
 
 @pytest.mark.llm
 def test_q6_k_pack():
-    # Pack mode: pre-quantized signed 6-bit codes plus the 16 per-sub-block scales.
-    # Packing quantizes those scales to int8 codes against an fp16 super-block scale
-    # d, so a native decode returns exactly (d * q_scale) * code; assert that.
+    """Lossless pack: signed 6-bit codes + sub-block scales (int8, fp16 super-d) decode
+    to exactly (d*q_scale)*code."""
     rng = np.random.default_rng(4)
     nb = 4
     codes = rng.integers(-32, 32, size=(nb, QK_K)).astype(np.float32)  # signed [-32, 31]
