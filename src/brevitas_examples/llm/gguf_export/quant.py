@@ -17,28 +17,24 @@
 # limitations under the License.
 
 import gguf
+from gguf import GGML_QUANT_SIZES
+from gguf import QK_K
 import gguf.quants as _gguf_quants
 import numpy as np
 import torch
 
-QK_K = 256
-K_SCALE_SIZE = 12
 GROUP_MAX_EPS = 1e-30
-GGML_QUANT_SIZES = {
-    gguf.GGMLQuantizationType.BF16: (1, 2),
-    gguf.GGMLQuantizationType.Q4_0: (32, 2 + 16),
-    gguf.GGMLQuantizationType.Q4_1: (32, 2 + 2 + 16),
-    gguf.GGMLQuantizationType.Q4_K: (256, 2 + 2 + QK_K // 2 + 12),
-    gguf.GGMLQuantizationType.Q6_K: (256, QK_K // 2 + QK_K // 4 + QK_K // 16 + 2),
-    gguf.GGMLQuantizationType.Q8_0: (32, 2 + 32)}
 
-
-def _np_roundf(n: np.ndarray) -> np.ndarray:
-    # round half away from zero, matching C nearest_int
-    a = np.abs(n)
-    floored = np.floor(a)
-    b = floored + np.floor(2 * (a - floored))
-    return np.sign(n) * b
+# qtypes valid as override_qtype: those that can directly quantize a raw F32 tensor via
+# gguf.quants.quantize -- gguf's native encoders (Q4_0/Q4_1/Q8_0) plus the K-quant
+# encoders this module monkey-patches in (Q4_K/Q6_K). ModelBase asserts against this.
+SUPPORTED_OVERRIDE_QTYPES = (
+    gguf.GGMLQuantizationType.Q4_0,
+    gguf.GGMLQuantizationType.Q4_1,
+    gguf.GGMLQuantizationType.Q8_0,
+    gguf.GGMLQuantizationType.Q4_K,
+    gguf.GGMLQuantizationType.Q6_K,
+)
 
 
 def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
@@ -62,7 +58,7 @@ def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
         # dE/ds = 0 gives the closed-form least-squares optimum s = sumlx / suml2,
         # so the residual (x - s*L) is never formed explicitly. Return the two
         # sufficient statistics; the resulting error reduction is sumlx^2 / suml2.
-        L = _np_roundf(iscale[..., None] * x).clip(-nmax, nmax - 1).astype(np.float32)
+        L = _gguf_quants.np_roundf(iscale[..., None] * x).clip(-nmax, nmax - 1).astype(np.float32)
         sumlx = (w * x * L).sum(axis=-1)  # sum w * x * L
         suml2 = (w * L * L).sum(axis=-1)  # sum w * L^2
         return sumlx, suml2
@@ -119,14 +115,14 @@ def _make_qkx2_quants(x: np.ndarray, nmax: int):
     # Step 1: initial fit mapping [min, max] linearly onto [0, nmax].
     iscale = nmax / _span(minv)
     scale = np.float32(1.0) / iscale
-    L = np.clip(_np_roundf(iscale[:, None] * (x - minv[:, None])), 0, nmax)
+    L = np.clip(_gguf_quants.np_roundf(iscale[:, None] * (x - minv[:, None])), 0, nmax)
     best_err = (w * (scale[:, None] * L + minv[:, None] - x) ** 2).sum(1)
 
     # Step 2: for each trial inverse-scale, weighted-least-squares-fit (scale, min)
     # from the resulting codes and keep the fit wherever it lowers the error.
     for is_ in range(nstep + 1):
         iscale_t = (rmin + rdelta * is_ + nmax) / _span(minv)
-        Laux = np.clip(_np_roundf(iscale_t[:, None] * (x - minv[:, None])), 0, nmax)
+        Laux = np.clip(_gguf_quants.np_roundf(iscale_t[:, None] * (x - minv[:, None])), 0, nmax)
         sum_l = (w * Laux).sum(1)
         sum_l2 = (w * Laux * Laux).sum(1)
         sum_xl = (w * Laux * x).sum(1)
@@ -209,42 +205,15 @@ def bf16_quant_block(blocks: np.array, scale=None, zp=None):
     return n.astype(np.uint16).view(np.uint8)
 
 
-"""
-GGML few-bit quant-block encoders for the LLM GGUF export.
-
-Each ``*_quant_block`` turns one quant type's blocks into its packed on-disk
-byte layout and is registered in ``GGML_QUANT_BLOCK``. Every encoder supports
-two modes:
-
-* ``scale=None`` -- ``blocks`` are raw float weights; the encoder derives the
-  scale(s) and quantizes (the algorithms below are, at least initially, numpy
-  adaptations of the matching ``ggml-quants.c:quantize_row_*_ref`` reference encoders).
-* ``scale`` given -- ``blocks`` are pre-quantized integer codes; the encoder
-  packs them with the supplied scale(s). This is the path Brevitas-quantized
-  modules use, feeding ``quant_weight.int()`` plus the calibrated scales.
-
-The K-quants (Q4_K/Q6_K) use a two-level scale: a per-256-block fp16 super-block
-scale times per-sub-block integer scale codes. ``GGML_QUANT_SIZES`` maps each
-type to ``(block_size, packed_byte_size)``.
-"""
-
-
 @register_block(gguf.GGMLQuantizationType.Q4_0)
 def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
+    # Pack pre-quantized signed codes in [-8, 7] with the given fp16 scale d.
+    # Self-quantizing raw floats is left to gguf's native Q4_0 encoder.
+    assert scale is not None
     n_blocks = blocks.shape[0]
     block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_0][0]
-    if scale is not None:
-        # blocks are pre-quantized signed codes in [-8, 7]
-        d = scale.reshape((-1, 1))
-        q = blocks.astype(np.float32) + np.float32(8)
-    else:
-        # blocks are raw floats: derive scale and quantize (llama.cpp q4_0_ref)
-        imax = abs(blocks).argmax(axis=-1, keepdims=True)
-        amax = np.take_along_axis(blocks, imax, axis=-1)
-        d = amax / -8
-        inv_d = np.where(d == 0, np.float32(0), np.float32(1) / d)
-        q = np.floor(blocks.astype(np.float32) * inv_d + np.float32(8.5))
-    q = q.clip(0, 15).astype(np.uint8)
+    d = scale.reshape((-1, 1))
+    q = (blocks.astype(np.float32) + np.float32(8)).clip(0, 15).astype(np.uint8)
     q = q.reshape((n_blocks, 2, block_size // 2))
     q = q[..., 0, :] | (q[..., 1, :] << np.uint8(4))
     d = d.astype(np.float16).view(np.uint8)
@@ -253,20 +222,14 @@ def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
 
 @register_block(gguf.GGMLQuantizationType.Q4_1)
 def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
+    # Pack pre-quantized codes in [0, 15] with scale d and zero-point zp; q4_1
+    # stores the offset as min = -zp * d. Native Q4_1 handles raw floats.
+    assert scale is not None and zp is not None
     n_blocks = blocks.shape[0]
     block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_1][0]
-    if scale is not None:
-        # blocks are pre-quantized codes in [0, 15]
-        d = scale.reshape((-1, 1))
-        m = zp.reshape((-1, 1)) * d * -1
-        q = blocks.astype(np.float32)
-    else:
-        # blocks are raw floats: derive scale/min and quantize (llama.cpp q4_1_ref)
-        m = blocks.min(axis=-1, keepdims=True)
-        d = (blocks.max(axis=-1, keepdims=True) - m) / 15
-        inv_d = np.where(d == 0, np.float32(0), np.float32(1) / d)
-        q = np.floor((blocks.astype(np.float32) - m) * inv_d + np.float32(0.5))
-    q = q.clip(0, 15).astype(np.uint8)
+    d = scale.reshape((-1, 1))
+    m = zp.reshape((-1, 1)) * d * -1
+    q = blocks.astype(np.float32).clip(0, 15).astype(np.uint8)
     q = q.reshape((n_blocks, 2, block_size // 2))
     q = q[..., 0, :] | (q[..., 1, :] << np.uint8(4))
     d = d.astype(np.float16).view(np.uint8)
@@ -276,17 +239,11 @@ def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
 
 @register_block(gguf.GGMLQuantizationType.Q8_0)
 def q8_0_quant_block(blocks: np.array, scale=None, zp=None) -> np.ndarray:
-    if scale is not None:
-        # blocks are pre-quantized int8 codes
-        d = scale.reshape((-1, 1))
-        q = blocks.astype(np.int8)
-    else:
-        # blocks are raw floats: derive scale and quantize (llama.cpp q8_0_ref)
-        d = abs(blocks).max(axis=1, keepdims=True) / 127
-        inv_d = np.where(d == 0, np.float32(0), np.float32(1) / d)
-        q = _np_roundf(blocks.astype(np.float32) * inv_d).clip(-127, 127).astype(np.int8)
-    d = d.astype(np.float16).view(np.uint8)
-    q = q.view(np.uint8)
+    # Pack pre-quantized int8 codes with the given fp16 scale d. Native Q8_0
+    # handles raw floats.
+    assert scale is not None
+    d = scale.reshape((-1, 1)).astype(np.float16).view(np.uint8)
+    q = blocks.astype(np.int8).view(np.uint8)
     return np.concatenate([d, q], axis=1)
 
 
@@ -295,7 +252,7 @@ def _q4_k_pack(q_scales, q_mins, output_d, output_dmin, codes):
     # codes: (nb, 8, 32) uint8 4-bit. Packs to the block_q4_K byte layout
     # (the get_scale_min_k4 6-bit interleave + nibble-packed quants).
     nb = codes.shape[0]
-    output_scale = np.empty((nb, K_SCALE_SIZE), dtype=np.uint8)
+    output_scale = np.empty((nb, _gguf_quants.Q4_K.K_SCALE_SIZE), dtype=np.uint8)
     output_scale[:, :4] = q_scales[:, :4]
     output_scale[:, 4:8] = q_mins[:, :4]
     output_scale[:, 8:] = (q_scales[:, 4:] & 0xF) | ((q_mins[:, 4:] & 0xF) << 4)
@@ -335,16 +292,17 @@ def q4_k_quant_block(
         inv_scale = np.where(
             max_scale > 0, np.float32(63.0) / np.where(max_scale > 0, max_scale, 1.0), 0.0)
         inv_min = np.where(max_min > 0, np.float32(63.0) / np.where(max_min > 0, max_min, 1.0), 0.0)
-        q_scales = np.minimum(63, _np_roundf(inv_scale * scales)).astype(np.uint8)
-        q_mins = np.minimum(63, _np_roundf(inv_min * mins)).astype(np.uint8)
+        q_scales = np.minimum(63, _gguf_quants.np_roundf(inv_scale * scales)).astype(np.uint8)
+        q_mins = np.minimum(63, _gguf_quants.np_roundf(inv_min * mins)).astype(np.uint8)
         # Step 3: recompute the 4-bit codes from the quantized fp16 scales/mins
         # (l = round((x + dm) / d)), matching llama.cpp's two-pass quantization.
         d_eff = output_d.astype(np.float16).astype(np.float32) * q_scales.astype(np.float32)
         dm_eff = output_dmin.astype(np.float16).astype(np.float32) * q_mins.astype(np.float32)
         inv = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
-        codes = _np_roundf((sub + dm_eff[:, :, None]) * inv[:, :, None]).clip(0, 15)
+        codes = _gguf_quants.np_roundf((sub + dm_eff[:, :, None]) * inv[:, :, None]).clip(0, 15)
         codes = np.where((d_eff != 0)[:, :, None], codes, 0).astype(np.uint8)
     else:
+        assert wmin_m is not None and d_scale is not None and d_wmin_m is not None
         scales = scale.reshape(-1, QK_K // 32)
         mins = wmin_m.reshape(-1, QK_K // 32)
         output_d = d_scale.reshape(-1, 1).astype(np.float32)
@@ -369,7 +327,8 @@ def _q6_k_quantize_scales(sub_scales: np.ndarray):
     iscale = np.where(nonzero, np.float32(-128.0) / safe_max_scale, np.float32(0.0))
     safe_iscale = np.where(iscale != 0, iscale, np.float32(1.0))
     d = np.where(nonzero, np.float32(1.0) / safe_iscale, np.float32(0.0))
-    q_scales = np.clip(_np_roundf(iscale[:, None] * sub_scales), -128, 127).astype(np.int8)
+    q_scales = np.clip(_gguf_quants.np_roundf(iscale[:, None] * sub_scales), -128,
+                       127).astype(np.int8)
     q_scales = np.where(nonzero[:, None], q_scales, np.int8(0))
     return d, q_scales, nonzero
 
@@ -417,7 +376,7 @@ def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
         # (stored as L + 32 in [0, 63]), matching llama.cpp's two-pass quantization.
         d_eff = d[:, None].astype(np.float32) * q_scales.astype(np.float32)
         inv_d_eff = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
-        L = _np_roundf(sub * inv_d_eff[:, :, None]).clip(-32, 31).astype(np.int32) + 32
+        L = _gguf_quants.np_roundf(sub * inv_d_eff[:, :, None]).clip(-32, 31).astype(np.int32) + 32
         L = np.where(nonzero[:, None, None], L, 0).astype(np.uint8).reshape(nb, QK_K)
     else:
         sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
@@ -427,8 +386,10 @@ def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
     return _q6_k_pack(L, q_scales, d, nonzero)
 
 
-# Route gguf.quants.quantize(data, Q6_K) through our encoder; gguf-py ships
-# only the K-family dequantizer, so without this the convert.py fallback
-# silently regresses Q6_K targets back to F32.
+# gguf ships only the K-family dequantizer, so route gguf.quants.quantize for
+# the K-quants we support through our encoders; without this the convert.py
+# pass-through path would regress these qtypes back to F32.
+_gguf_quants.Q4_K.quantize_blocks = classmethod(
+    lambda cls, blocks: q4_k_quant_block(blocks, scale=None))
 _gguf_quants.Q6_K.quantize_blocks = classmethod(
-    lambda cls, blocks: q6_k_quant_block(blocks, scale=None, zp=None))
+    lambda cls, blocks: q6_k_quant_block(blocks, scale=None))

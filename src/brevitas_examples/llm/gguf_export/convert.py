@@ -60,6 +60,7 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
+from brevitas_examples.llm.gguf_export.quant import SUPPORTED_OVERRIDE_QTYPES
 
 BREVITAS_QUANT_MODULES = (QuantWBIOL, QuantEmbedding)
 
@@ -168,6 +169,9 @@ class ModelBase:
         self.dir_model = dir_model
         self.ftype = ftype
         # Tensors whose qtype is overridden to override_qtype
+        assert override_qtype in SUPPORTED_OVERRIDE_QTYPES, (
+            f"override_qtype {override_qtype.name} is not supported; choose from "
+            f"{[t.name for t in SUPPORTED_OVERRIDE_QTYPES]}")
         self.override_model_tensors = override_model_tensors
         self.override_qtype = override_qtype
         self.fname_out = fname_out

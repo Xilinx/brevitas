@@ -8,16 +8,17 @@ import pytest_cases
 pytest.importorskip("gguf")
 
 import gguf
+from gguf import GGML_QUANT_SIZES
+from gguf import QK_K
 import gguf.quants as gguf_quants
 
 from brevitas_examples.llm.gguf_export.quant import _q6_k_quantize_scales
-from brevitas_examples.llm.gguf_export.quant import GGML_QUANT_SIZES
 from brevitas_examples.llm.gguf_export.quant import q4_0_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_1_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q6_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q8_0_quant_block
-from brevitas_examples.llm.gguf_export.quant import QK_K
+from brevitas_examples.llm.gguf_export.quant import SUPPORTED_OVERRIDE_QTYPES
 
 Q4_0 = gguf.GGMLQuantizationType.Q4_0
 Q4_1 = gguf.GGMLQuantizationType.Q4_1
@@ -56,12 +57,6 @@ MODEL_TENSORS = {
     "zero": np.zeros((2, QK_K), dtype=np.float32),
     "outlier": _outlier(),}
 
-# (encoder, qtype) for the quants that gguf ships
-NATIVE_GGUF_QUANTIZERS = {
-    "q4_0": (q4_0_quant_block, Q4_0),
-    "q4_1": (q4_1_quant_block, Q4_1),
-    "q8_0": (q8_0_quant_block, Q8_0),}
-
 
 @pytest.mark.llm
 def test_q6_k_block_size_matches_format():
@@ -87,25 +82,29 @@ def test_q6_k_quant_error(x):
 
 
 @pytest.mark.llm
-def test_q6_k_gguf_quantize_dispatch():
-    # Importing the export module monkey-patches gguf.quants.Q6_K.quantize_blocks
-    # so gguf.quants.quantize(data, Q6_K) routes through our encoder. Without
-    # this, the convert.py fallback would silently regress Q6_K targets to F32.
+@pytest_cases.parametrize(
+    "fn,qtype", [(q4_k_quant_block, Q4_K), (q6_k_quant_block, Q6_K)], ids=["q4_k", "q6_k"])
+def test_kquant_monkey_patch_dispatch(fn, qtype):
+    # gguf ships no K-quant encoder, so the module monkey-patches quantize_blocks.
+    # Verify gguf.quants.quantize(data, qtype) routes through our encoder; without
+    # this the convert.py pass-through path would regress these qtypes to F32.
     x = _normal(5, 4)
-    via_gguf = gguf_quants.quantize(x, Q6_K)
-    np.testing.assert_array_equal(via_gguf.reshape(-1, Q6_K_TYPE_SIZE), q6_k_quant_block(x))
+    via_gguf = gguf_quants.quantize(x, qtype)
+    type_size = GGML_QUANT_SIZES[qtype][1]
+    np.testing.assert_array_equal(via_gguf.reshape(-1, type_size), fn(x))
 
 
 @pytest.mark.llm
 @pytest_cases.parametrize(
-    "fn,qtype", list(NATIVE_GGUF_QUANTIZERS.values()), ids=list(NATIVE_GGUF_QUANTIZERS))
-def test_self_quantize_matches_native(fn, qtype):
-    # If scale=None, then our quantization path must match the native gguf quantization
-    # byte-for-byte. This is done at export (e.g., override_model_tensors)
-    x = _normal(0, 64, block=32)
-    ours = fn(x.copy(), scale=None)
-    native = gguf_quants.quantize(x, qtype).reshape(ours.shape)
-    np.testing.assert_array_equal(ours, native)
+    "qtype", list(SUPPORTED_OVERRIDE_QTYPES), ids=[t.name for t in SUPPORTED_OVERRIDE_QTYPES])
+def test_override_qtype_encodes(qtype):
+    # Every qtype advertised in SUPPORTED_OVERRIDE_QTYPES must have a raw-float encoder
+    # reachable through gguf.quants.quantize (native for Q4_0/Q4_1/Q8_0, our
+    # monkey-patched encoders for Q4_K/Q6_K). This guards the registry that ModelBase
+    # asserts override_qtype against.
+    x = _normal(0, 8)
+    x_hat = gguf_quants.dequantize(gguf_quants.quantize(x, qtype), qtype).reshape(x.shape)
+    assert np.isfinite(x_hat).all()
 
 
 @pytest.mark.llm
