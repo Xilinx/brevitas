@@ -55,58 +55,44 @@ MODEL_TENSORS = {
     "zero": np.zeros((2, QK_K), dtype=np.float32),
     "outlier": _outlier(),}
 
-KQUANT_ENCODERS = {"q4_k": (q4_k_quant_block, Q4_K), "q6_k": (q6_k_quant_block, Q6_K)}
-
 
 @pytest.mark.llm
-class TestKQuantMonkeyPatch:
-    """gguf ships no K-quant quantizer, so the export module monkey-patches
-    gguf.quants.{Q4_K,Q6_K}.quantize_blocks with our numpy encoders. These tests
-    cover the dispatch wiring and the patched encoders' block size and accuracy."""
+class TestQ6KQuant:
+    """gguf ships no Q6_K quantizer, so the export module monkey-patches
+    gguf.quants.Q6_K.quantize_blocks with our numpy encoder. These tests cover the
+    dispatch wiring and the encoder's block size and accuracy."""
 
-    @pytest_cases.parametrize("fn,qtype", KQUANT_ENCODERS.values(), ids=KQUANT_ENCODERS.keys())
-    def test_dispatch(self, fn, qtype):
-        """gguf.quants.quantize(data, qtype) routes through our patched encoder.
+    encoder = staticmethod(q6_k_quant_block)
+    qtype = Q6_K
 
-        Without the patch the convert.py pass-through path would regress these
-        K-quant targets to F32."""
+    def test_dispatch(self):
+        """gguf.quants.quantize(data, Q6_K) routes through our patched encoder.
+
+        Without the patch the convert.py pass-through path would regress Q6_K
+        targets to F32."""
         x = _normal(5, 4)
-        via_gguf = gguf_quants.quantize(x, qtype)
-        type_size = GGML_QUANT_SIZES[qtype][1]
-        np.testing.assert_array_equal(via_gguf.reshape(-1, type_size), fn(x))
+        via_gguf = gguf_quants.quantize(x, self.qtype)
+        type_size = GGML_QUANT_SIZES[self.qtype][1]
+        np.testing.assert_array_equal(via_gguf.reshape(-1, type_size), self.encoder(x))
 
-    @pytest_cases.parametrize("fn,qtype", KQUANT_ENCODERS.values(), ids=KQUANT_ENCODERS.keys())
-    def test_block_size(self, fn, qtype):
+    def test_block_size(self):
         """The encoder emits exactly the on-disk block size from GGML_QUANT_SIZES."""
-        _, type_size = GGML_QUANT_SIZES[qtype]
-        q = fn(_normal(0, 5))
+        _, type_size = GGML_QUANT_SIZES[self.qtype]
+        q = self.encoder(_normal(0, 5))
         assert q.dtype == np.uint8
         assert q.shape == (5, type_size)
 
     @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-    def test_q6_k_error(self, x):
+    def test_quant_error(self, x):
         """Quantize then decode; every element lands within one Q6_K step.
 
         The 64 signed levels span [-amax, amax], so the step is roughly amax/2^5
         and the round-to-nearest floor is s / 2; we bound by one extra full step (2x)
         to account for the possible deviation induced from scale search or error from
         scale quantization, which gives us s = amax / 32"""
-        x_hat = gguf_quants.dequantize(q6_k_quant_block(x), Q6_K)
+        x_hat = gguf_quants.dequantize(self.encoder(x), self.qtype)
         amax = np.abs(x).max()
         assert np.abs(x - x_hat).max() <= amax / 32
-
-    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-    def test_q4_k_error(self, x):
-        """Quantize then decode; every element lands within one Q4_K step.
-
-        Each 32-element sub-block maps its own [min, max] onto 16 levels, so the
-        sub-block holding the global extreme spans at most 2*amax and its step is at
-        most 2*amax/(2^4 - 1); round-to-nearest would give us an s / 2 maximum error,
-        so we bound by one extra step (2x) to account for the possible error from
-        scale/min quantization and scale search deviation."""
-        x_hat = gguf_quants.dequantize(q4_k_quant_block(x), Q4_K)
-        amax = np.abs(x).max()
-        assert np.abs(x - x_hat).max() <= 2 * amax / 15
 
 
 @pytest.mark.llm

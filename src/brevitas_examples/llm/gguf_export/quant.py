@@ -73,70 +73,6 @@ def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
     return np.where(nonzero, scale, np.float32(0.0)).astype(np.float32)
 
 
-def _make_qkx2_quants(x: np.ndarray, nmax: int):
-    """Per-block asymmetric scale+min search (ggml-quants.c:make_qkx2_quants).
-
-    For every block (row of ``x``), return the scale ``s`` and ``the_min = -min``
-    that minimize the weighted error of ``x ~= s * L + min`` with codes
-    ``L in [0, nmax]`` and importance weights ``w = avg(|x|) + |x|``. Used for
-    Q4_K sub-blocks. The integer codes are recomputed by the caller from the
-    quantized scales (as llama.cpp does), so they are not returned here.
-    """
-    # llama.cpp search grid: nstep+1 trial inverse-scales spaced around nmax/span.
-    rmin, rdelta, nstep = np.float32(-1.0), np.float32(0.1), 20
-    n = x.shape[1]
-    av_x = np.sqrt((x * x).sum(1) / n)
-    w = av_x[:, None] + np.abs(x)  # importance weights (q4_k convention)
-    xmax = x.max(1)
-    # In x ~= scale * L + min the offset is stored as an unsigned magnitude and
-    # subtracted at dequant (y = d*q - dmin*m, with dmin >= 0 and m an unsigned
-    # code), so the offset can only be negative. Clamp min to <= 0 (llama.cpp:
-    # `if (min > 0) min = 0`); all-positive blocks then map over [0, max].
-    minv = np.minimum(x.min(1), np.float32(0.0))
-    degenerate = (xmax - minv) == 0  # all-equal block: nothing to quantize
-    sum_w = w.sum(1)
-    sum_x = (w * x).sum(1)
-
-    def _span(m):
-        s = xmax - m
-        return np.where(s != 0, s, np.float32(1.0))
-
-    # Step 1: initial fit mapping [min, max] linearly onto [0, nmax].
-    iscale = nmax / _span(minv)
-    scale = np.float32(1.0) / iscale
-    L = np.clip(_gguf_quants.np_roundf(iscale[:, None] * (x - minv[:, None])), 0, nmax)
-    best_err = (w * (scale[:, None] * L + minv[:, None] - x) ** 2).sum(1)
-
-    # Step 2: for each trial inverse-scale, weighted-least-squares-fit (scale, min)
-    # from the resulting codes and keep the fit wherever it lowers the error.
-    for is_ in range(nstep + 1):
-        iscale_t = (rmin + rdelta * is_ + nmax) / _span(minv)
-        Laux = np.clip(_gguf_quants.np_roundf(iscale_t[:, None] * (x - minv[:, None])), 0, nmax)
-        sum_l = (w * Laux).sum(1)
-        sum_l2 = (w * Laux * Laux).sum(1)
-        sum_xl = (w * Laux * x).sum(1)
-        # Closed-form weighted least squares for (scale, min) over fixed codes Laux.
-        D = sum_w * sum_l2 - sum_l * sum_l
-        ok = D > 0
-        safe_D = np.where(ok, D, np.float32(1.0))
-        this_scale = (sum_w * sum_xl - sum_x * sum_l) / safe_D
-        this_min = (sum_l2 * sum_x - sum_l * sum_xl) / safe_D
-        # min is constrained <= 0; if the fit makes it positive, pin it to 0 and
-        # refit the scale alone.
-        pos = this_min > 0
-        safe_l2 = np.where(sum_l2 != 0, sum_l2, np.float32(1.0))
-        this_scale = np.where(pos, sum_xl / safe_l2, this_scale)
-        this_min = np.where(pos, np.float32(0.0), this_min)
-        cur_err = (w * (this_scale[:, None] * Laux + this_min[:, None] - x) ** 2).sum(1)
-        better = ok & (cur_err < best_err) & ~degenerate
-        scale = np.where(better, this_scale, scale)
-        minv = np.where(better, this_min, minv)
-        best_err = np.where(better, cur_err, best_err)
-
-    scale = np.where(degenerate, np.float32(0.0), scale)
-    return scale.astype(np.float32), (-minv).astype(np.float32)
-
-
 GGML_QUANT_BLOCK = {}
 
 
@@ -259,49 +195,19 @@ def _q4_k_pack(q_scales, q_mins, output_d, output_dmin, codes):
 @register_block(gguf.GGMLQuantizationType.Q4_K)
 def q4_k_quant_block(
         blocks: np.array, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
-    # Adaptation of ggml-quants.c:quantize_row_q4_K_ref.
-    #   scale is None -> blocks are raw floats; derive the 8 sub-block scales/mins.
-    #   scale given   -> blocks are pre-quantized codes in [0, 15], and scale/wmin_m
-    #                    hold the 8 sub-block scales/mins with super-scales
-    #                    d_scale/d_wmin_m (i.e., two-level quantization).
+    # Pack pre-quantized codes in [0, 15] with the 8 sub-block scales/mins and their
+    # fp16 super-scales d_scale/d_wmin_m.
+    assert scale is not None and wmin_m is not None and d_scale is not None and d_wmin_m is not None
     nb = blocks.shape[0]
-    if scale is None:
-        sub = blocks.reshape(nb, QK_K // 32, 32).astype(np.float32)
-        # Step 1: per-sub-block asymmetric scale + min (8 sub-blocks of 32).
-        scales, mins = _make_qkx2_quants(sub.reshape(-1, 32), nmax=15)
-        scales = scales.reshape(nb, QK_K // 32)
-        mins = mins.reshape(nb, QK_K // 32)
-        # Step 2: quantize the 8 scales and 8 mins to 6-bit codes (held in uint8),
-        # with fp16 super-block scales (output_d, output_dmin) anchored on the
-        # per-block maxima.
-        max_scale = scales.max(axis=1, keepdims=True)
-        max_min = mins.max(axis=1, keepdims=True)
-        output_d = np.where(max_scale > 0, max_scale / np.float32(63.0), np.float32(0.0))
-        output_dmin = np.where(max_min > 0, max_min / np.float32(63.0), np.float32(0.0))
-        inv_scale = np.where(
-            max_scale > 0, np.float32(63.0) / np.where(max_scale > 0, max_scale, 1.0), 0.0)
-        inv_min = np.where(max_min > 0, np.float32(63.0) / np.where(max_min > 0, max_min, 1.0), 0.0)
-        q_scales = np.minimum(63, _gguf_quants.np_roundf(inv_scale * scales)).astype(np.uint8)
-        q_mins = np.minimum(63, _gguf_quants.np_roundf(inv_min * mins)).astype(np.uint8)
-        # Step 3: recompute the 4-bit codes from the quantized fp16 scales/mins
-        # (l = round((x + dm) / d)), matching llama.cpp's two-pass quantization.
-        d_eff = output_d.astype(np.float16).astype(np.float32) * q_scales.astype(np.float32)
-        dm_eff = output_dmin.astype(np.float16).astype(np.float32) * q_mins.astype(np.float32)
-        inv = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
-        codes = _gguf_quants.np_roundf((sub + dm_eff[:, :, None]) * inv[:, :, None]).clip(0, 15)
-        codes = np.where((d_eff != 0)[:, :, None], codes, 0).astype(np.uint8)
-    else:
-        assert wmin_m is not None and d_scale is not None and d_wmin_m is not None
-        scales = scale.reshape(-1, QK_K // 32)
-        mins = wmin_m.reshape(-1, QK_K // 32)
-        output_d = d_scale.reshape(-1, 1).astype(np.float32)
-        output_dmin = d_wmin_m.reshape(-1, 1).astype(np.float32)
-        inv_scale_scales = np.where(output_d == 0, 0, 1 / output_d)
-        inv_scale_mins = np.where(output_dmin == 0, 0, 1 / output_dmin)
-        q_scales = np.round(inv_scale_scales * scales).astype(np.uint8).clip(0, 63)
-        q_mins = np.round(inv_scale_mins * mins).astype(np.uint8).clip(0, 63)
-        codes = blocks.reshape(nb, QK_K // 32, 32).astype(np.uint8)
-
+    scales = scale.reshape(-1, QK_K // 32)
+    mins = wmin_m.reshape(-1, QK_K // 32)
+    output_d = d_scale.reshape(-1, 1).astype(np.float32)
+    output_dmin = d_wmin_m.reshape(-1, 1).astype(np.float32)
+    inv_scale_scales = np.where(output_d == 0, 0, 1 / output_d)
+    inv_scale_mins = np.where(output_dmin == 0, 0, 1 / output_dmin)
+    q_scales = np.round(inv_scale_scales * scales).astype(np.uint8).clip(0, 63)
+    q_mins = np.round(inv_scale_mins * mins).astype(np.uint8).clip(0, 63)
+    codes = blocks.reshape(nb, QK_K // 32, 32).astype(np.uint8)
     return _q4_k_pack(q_scales, q_mins, output_d, output_dmin, codes)
 
 
@@ -375,10 +281,8 @@ def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
     return _q6_k_pack(L, q_scales, d, nonzero)
 
 
-# gguf ships only the K-family dequantizer, so route gguf.quants.quantize for
-# the K-quants we support through our encoders; without this the convert.py
-# pass-through path would regress these qtypes back to F32.
-_gguf_quants.Q4_K.quantize_blocks = classmethod(
-    lambda cls, blocks: q4_k_quant_block(blocks, scale=None))
+# gguf ships only the K-family dequantizer, so route gguf.quants.quantize(data, Q6_K)
+# through our encoder; without this the convert.py pass-through path (the token_embd /
+# output bump) would regress Q6_K targets back to F32.
 _gguf_quants.Q6_K.quantize_blocks = classmethod(
     lambda cls, blocks: q6_k_quant_block(blocks, scale=None))
