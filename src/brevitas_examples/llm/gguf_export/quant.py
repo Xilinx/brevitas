@@ -29,7 +29,7 @@ GROUP_MAX_EPS = 1e-30
 def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
     """Per-block symmetric scale search (ggml-quants.c:make_qx_quants, rmse_type=1).
 
-    For every block (the last axis of ``x``) returns the scale ``s`` that minimizes
+    For every block (the last axis of ``x``), return the scale ``s`` that minimizes
     the weighted reconstruction error of ``x ~= s * round(x / s)`` with importance
     weights ``w = x**2``. All-zero blocks get scale 0. Used for Q6_K sub-blocks.
     """
@@ -76,7 +76,7 @@ def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
 def _make_qkx2_quants(x: np.ndarray, nmax: int):
     """Per-block asymmetric scale+min search (ggml-quants.c:make_qkx2_quants).
 
-    For every block (row of ``x``) returns the scale ``s`` and ``the_min = -min``
+    For every block (row of ``x``), return the scale ``s`` and ``the_min = -min``
     that minimize the weighted error of ``x ~= s * L + min`` with codes
     ``L in [0, nmax]`` and importance weights ``w = avg(|x|) + |x|``. Used for
     Q4_K sub-blocks. The integer codes are recomputed by the caller from the
@@ -197,7 +197,7 @@ def bf16_quant_block(blocks: np.array, scale=None, zp=None):
 @register_block(gguf.GGMLQuantizationType.Q4_0)
 def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
     # Pack pre-quantized signed codes in [-8, 7] with the given fp16 scale d.
-    # Self-quantizing raw floats is left to gguf's native Q4_0 encoder.
+    # gguf's native Q4_0 handles raw floats
     assert scale is not None
     n_blocks = blocks.shape[0]
     block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_0][0]
@@ -212,7 +212,7 @@ def q4_0_quant_block(blocks: np.array, scale=None, zp=None):
 @register_block(gguf.GGMLQuantizationType.Q4_1)
 def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
     # Pack pre-quantized codes in [0, 15] with scale d and zero-point zp; q4_1
-    # stores the offset as min = -zp * d. Native Q4_1 handles raw floats.
+    # stores the offset as min = -zp * d. gguf's native Q4_1 handles raw floats.
     assert scale is not None and zp is not None
     n_blocks = blocks.shape[0]
     block_size = GGML_QUANT_SIZES[gguf.GGMLQuantizationType.Q4_1][0]
@@ -228,8 +228,8 @@ def q4_1_quant_block(blocks: np.array, scale=None, zp=None):
 
 @register_block(gguf.GGMLQuantizationType.Q8_0)
 def q8_0_quant_block(blocks: np.array, scale=None, zp=None) -> np.ndarray:
-    # Pack pre-quantized int8 codes with the given fp16 scale d. Native Q8_0
-    # handles raw floats.
+    # Pack pre-quantized int8 codes with the given fp16 scale d.
+    # gguf's native Q8_0 handles raw floats
     assert scale is not None
     d = scale.reshape((-1, 1)).astype(np.float16).view(np.uint8)
     q = blocks.astype(np.int8).view(np.uint8)
