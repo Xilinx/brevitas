@@ -48,6 +48,7 @@ from typing import TypeVar
 from typing import Union
 
 import gguf
+import gguf.quants as _gguf_quants
 import numpy as np
 import torch
 from torch import Tensor
@@ -60,7 +61,6 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
-from brevitas_examples.llm.gguf_export.quant import SUPPORTED_OVERRIDE_QTYPES
 
 BREVITAS_QUANT_MODULES = (QuantWBIOL, QuantEmbedding)
 
@@ -88,6 +88,29 @@ GGUF_OVERRIDE_MODEL_TENSORS = (
     gguf.MODEL_TENSOR.TOKEN_EMBD,
     gguf.MODEL_TENSOR.OUTPUT,
 )
+
+
+def _has_quantize_blocks(cls: _gguf_quants.__Quant) -> bool:
+    # gguf's base __Quant.quantize_blocks raises NotImplementedError; an implemented
+    # encoder (native or monkey-patched above) instead breaks on this probe input,
+    # which we treat as "implemented".
+    try:
+        cls.quantize_blocks(None)
+    except NotImplementedError:
+        return False
+    except Exception:
+        pass
+    return True
+
+
+# qtypes valid as override_qtype: everything gguf (or the monkey-patches in quant.py) can
+# encode, plus pass-through qtypes. Derived from gguf's registry so natively supported quants
+# (e.g. Q5_0) are picked up automatically. ModelBase asserts override_qtype against this.
+SUPPORTED_OVERRIDE_QTYPES = tuple(
+    qtype for qtype, cls in _gguf_quants._type_traits.items() if _has_quantize_blocks(cls))
+# appending F32 and F16 as valid override qtypes, they don't have (or need) a quantizer
+SUPPORTED_OVERRIDE_QTYPES = (
+    gguf.GGMLQuantizationType.F32, gguf.GGMLQuantizationType.F16, *SUPPORTED_OVERRIDE_QTYPES)
 
 _TENSOR_SUFFIXES_TO_SKIP = (
     ".attention.masked_bias", ".attention.bias", ".rotary_emb.inv_freq", ".value")
@@ -388,21 +411,17 @@ class ModelBase:
             logging.info(f"Module not found {e}, falling back to {fallback_gguf_dtype}")
             return data, fallback_gguf_dtype
 
-        # If the layer is not quantized by Brevitas, route through gguf.quants
-        # for real qtypes; otherwise pass through at the source dtype.
+        # If the layer is not quantized by Brevitas, encode via gguf.quants (which
+        # handles quant types, float casts, and our monkey-patched K-quants); on
+        # failure, pass through at the source dtype.
         if not hasattr(module, "weight_quant") or not module.weight_quant.is_quant_enabled:
-            if data_qtype not in (
-                    gguf.GGMLQuantizationType.F32,
-                    gguf.GGMLQuantizationType.F16,
-                    gguf.GGMLQuantizationType.BF16,
-            ):
-                try:
-                    data = gguf.quants.quantize(data, data_qtype)
-                    return data, data_qtype
-                except Exception as e:
-                    logging.warning(
-                        f"No encoder for {data_qtype.name} on pass-through tensor {name} "
-                        f"({e}); falling back to {fallback_gguf_dtype.name}")
+            try:
+                data = gguf.quants.quantize(data, data_qtype)
+                return data, data_qtype
+            except Exception as e:
+                logging.warning(
+                    f"No encoder for {data_qtype.name} on pass-through tensor {name} "
+                    f"({e}); falling back to {fallback_gguf_dtype.name}")
             return data, fallback_gguf_dtype
         quant_weight = module.quant_weight()
         weight_quant = module.weight_quant

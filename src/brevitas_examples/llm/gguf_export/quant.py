@@ -25,17 +25,6 @@ import torch
 
 GROUP_MAX_EPS = 1e-30
 
-# qtypes valid as override_qtype: those that can directly quantize a raw F32 tensor via
-# gguf.quants.quantize -- gguf's native encoders (Q4_0/Q4_1/Q8_0) plus the K-quant
-# encoders this module monkey-patches in (Q4_K/Q6_K). ModelBase asserts against this.
-SUPPORTED_OVERRIDE_QTYPES = (
-    gguf.GGMLQuantizationType.Q4_0,
-    gguf.GGMLQuantizationType.Q4_1,
-    gguf.GGMLQuantizationType.Q8_0,
-    gguf.GGMLQuantizationType.Q4_K,
-    gguf.GGMLQuantizationType.Q6_K,
-)
-
 
 def _make_qx_quants(x: np.ndarray, nmax: int) -> np.ndarray:
     """Per-block symmetric scale search (ggml-quants.c:make_qx_quants, rmse_type=1).

@@ -12,13 +12,13 @@ from gguf import GGML_QUANT_SIZES
 from gguf import QK_K
 import gguf.quants as gguf_quants
 
+from brevitas_examples.llm.gguf_export.convert import SUPPORTED_OVERRIDE_QTYPES
 from brevitas_examples.llm.gguf_export.quant import _q6_k_quantize_scales
 from brevitas_examples.llm.gguf_export.quant import q4_0_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_1_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q6_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q8_0_quant_block
-from brevitas_examples.llm.gguf_export.quant import SUPPORTED_OVERRIDE_QTYPES
 
 Q4_0 = gguf.GGMLQuantizationType.Q4_0
 Q4_1 = gguf.GGMLQuantizationType.Q4_1
@@ -98,10 +98,9 @@ def test_kquant_monkey_patch_dispatch(fn, qtype):
 @pytest_cases.parametrize(
     "qtype", list(SUPPORTED_OVERRIDE_QTYPES), ids=[t.name for t in SUPPORTED_OVERRIDE_QTYPES])
 def test_override_qtype_encodes(qtype):
-    # Every qtype advertised in SUPPORTED_OVERRIDE_QTYPES must have a raw-float encoder
-    # reachable through gguf.quants.quantize (native for Q4_0/Q4_1/Q8_0, our
-    # monkey-patched encoders for Q4_K/Q6_K). This guards the registry that ModelBase
-    # asserts override_qtype against.
+    # Every override qtype must round-trip through gguf.quants.quantize -- via a native
+    # encoder (Q4_0/Q4_1/Q8_0), a float cast (F32/F16), or one of our monkey-patched
+    # K-quant encoders (Q4_K/Q6_K). Guards the registry ModelBase asserts against.
     x = _normal(0, 8)
     x_hat = gguf_quants.dequantize(gguf_quants.quantize(x, qtype), qtype).reshape(x.shape)
     assert np.isfinite(x_hat).all()
