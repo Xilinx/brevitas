@@ -102,7 +102,7 @@ def _has_quantize_blocks(cls: _gguf_quants.__Quant) -> bool:
     return True
 
 
-# qtypes valid as override_qtype: everything gguf (or the monkey-patches in quant.py) can
+# qtypes valid as override_qtype: everything gguf (or our monkey patches in quant.py) can
 # encode, plus pass-through qtypes. Derived from gguf's registry so natively supported quants
 # (e.g. Q5_0) are picked up automatically. ModelBase asserts override_qtype against this.
 SUPPORTED_OVERRIDE_QTYPES = tuple(
@@ -410,8 +410,7 @@ class ModelBase:
             logging.info(f"Module not found {e}, falling back to {fallback_gguf_dtype}")
             return data, fallback_gguf_dtype
 
-        # If the layer is not quantized by Brevitas, encode via gguf.quants (which
-        # handles quant types, float casts, and our monkey-patched K-quants); on
+        # If the layer is not quantized by Brevitas, encode via gguf.quants; on
         # failure, pass through at the source dtype.
         if not hasattr(module, "weight_quant") or not module.weight_quant.is_quant_enabled:
             try:
