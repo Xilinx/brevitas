@@ -34,12 +34,34 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 
-# Registries for out-of-source customization of the training process.
-# Users can register custom trainers, training argument classes, and
-# optimizer/scheduler/param configurations via a plugin .py file.
-TRAINER_REGISTRY = Registry[type](registry_name="TrainerRegistry")
-TRAINING_ARGS_REGISTRY = Registry[type](registry_name="TrainingArgsRegistry")
-OPTIMIZER_CONFIG_REGISTRY = Registry[type](registry_name="OptimizerConfigRegistry")
+
+@dataclass
+class TrainerSetup:
+    """Bundle of the components needed to customise the training process.
+
+    A single :data:`TRAINER_SETUP_REGISTRY` entry returns one of these,
+    grouping together everything a plugin may want to override:
+
+    * ``trainer_cls`` (**required**) -- the :class:`~transformers.Trainer`
+      subclass to instantiate.
+    * ``training_args_cls`` (optional) -- a
+      :class:`~transformers.TrainingArguments` subclass. When ``None`` the
+      built-in :class:`TrainingArguments` is used.
+    * ``optimizer_setup`` (optional) -- the optimizer/scheduler/param
+      configuration. Either a list of optimizer-config dicts (see
+      :func:`_build_optimizers_from_configs`) or a zero-argument callable
+      returning such a list (deferred construction). When ``None`` the
+      default optimizer-building behaviour is used.
+    """
+    trainer_cls: Type[Trainer]
+    training_args_cls: Optional[Type[transformers.TrainingArguments]] = None
+    optimizer_setup: Optional[Any] = None
+
+
+# Single registry for out-of-source customization of the training process.
+# Users register a TrainerSetup (custom trainer, and optionally training
+# argument class and optimizer setup) under a config name via a plugin .py file.
+TRAINER_SETUP_REGISTRY = Registry[TrainerSetup](registry_name="TrainerSetupRegistry")
 
 
 class MultiOptimizer(torch.optim.Optimizer):
@@ -216,14 +238,14 @@ class TrainingArguments(transformers.TrainingArguments):
     ### Multi-optimizer/scheduler kwargs
     # Order-matched list of dicts.  Entry *i* supplies ``optimizer_kwargs``
     # and optionally ``scheduler_kwargs`` for the *i*-th optimizer config
-    # registered via ``OPTIMIZER_CONFIG_REGISTRY``.
+    # provided by the registered ``TrainerSetup.optimizer_setup``.
     optimizer_scheduler_args: Optional[List[Dict[str, Any]]] = field(
         default=None,
         metadata={
             "help":
                 "List of dicts, each containing 'optimizer_kwargs' and optionally "
                 "'scheduler_kwargs', order-matched to the optimizer configs "
-                "registered via OPTIMIZER_CONFIG_REGISTRY."})
+                "provided by the registered TrainerSetup.optimizer_setup."})
 
     ### Distillation Loss args
     use_distillation_loss: bool = field(
@@ -266,6 +288,14 @@ class GeneralizedTrainer(Trainer):
         if topk > 0:
             teacher_log_probs, indices = teacher_log_probs.topk(topk, dim=-1, sorted=False)
             student_log_probs = student_log_probs.gather(-1, indices)
+            # After selecting the top-k entries, the log-probabilities no longer
+            # sum to one over the truncated vocabulary. Renormalize them via
+            # logsumexp so they form valid log-probability distributions over
+            # the selected subset, consistent with the log_target=True KL below.
+            student_log_probs = student_log_probs - torch.logsumexp(
+                student_log_probs, dim=-1, keepdim=True)
+            teacher_log_probs = teacher_log_probs - torch.logsumexp(
+                teacher_log_probs, dim=-1, keepdim=True)
 
         loss = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
         if reduction == "none":
@@ -343,11 +373,7 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
-def _prepare_train_dataset(train_dataset: Dataset) -> Dataset:
-    return train_dataset
-
-
-def _build_default_optimizers(model: torch.nn.Module, training_args: TrainingArguments) -> tuple:
+def _build_rotation_optimizers(model: torch.nn.Module, training_args: TrainingArguments) -> tuple:
     """Build the default (CaileySGD, None) optimizer/scheduler pair.
 
     Returns a tuple ``(optimizer_or_multi, scheduler_or_none)`` ready to
@@ -466,8 +492,8 @@ def apply_fine_tuning(
         The training dataset.
     training_args : transformers.TrainingArguments
         HuggingFace-compatible training arguments.  May be the built-in
-        ``TrainingArguments`` or a custom subclass registered via the
-        ``TRAINING_ARGS_REGISTRY``.  When *optimizer_configs* is
+        ``TrainingArguments`` or a custom subclass supplied via a
+        registered ``TrainerSetup``.  When *optimizer_configs* is
         provided, the ``optimizer_scheduler_args`` field on the
         training args supplies the order-matched ``optimizer_kwargs``
         and ``scheduler_kwargs`` for each entry.
@@ -495,8 +521,7 @@ def apply_fine_tuning(
         contains trainable rotation matrices (see above).
     """
 
-    # Prepare dataset and model for training
-    train_dataset = _prepare_train_dataset(train_dataset)
+    # Prepare model for training
     model = _prepare_model(model)
     # Enable skipping training
     if training_args.max_steps <= 0:
@@ -514,7 +539,7 @@ def apply_fine_tuning(
         optimizers = _build_optimizers_from_configs(model, training_args, optimizer_configs)
     elif extract_trainable_rotation_matrices(model):
         # Backward-compatible default: CaileySGD on rotation matrices
-        optimizers = _build_default_optimizers(model, training_args)
+        optimizers = _build_rotation_optimizers(model, training_args)
     else:
         # No custom configs and no rotation matrices — let the HF
         # Trainer use its built-in optimizer.

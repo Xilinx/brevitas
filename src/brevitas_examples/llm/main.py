@@ -72,10 +72,8 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_com
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
-from brevitas_examples.llm.llm_quant.rotation_optimization import OPTIMIZER_CONFIG_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
-from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
-from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINING_ARGS_REGISTRY
+from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_SETUP_REGISTRY
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 
@@ -318,19 +316,18 @@ def quantize_llm(args, extra_args=None):
 
         if args.custom_trainer is not None:
             custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
-            # Look up registered overrides by config name.  Each registry
-            # lookup is optional -- the user only needs to register what
-            # they want to customise.
-            if custom_trainer_config_name in TRAINER_REGISTRY.get_registered_keys():
-                custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
-            if custom_trainer_config_name in TRAINING_ARGS_REGISTRY.get_registered_keys():
-                custom_training_args_cls = TRAINING_ARGS_REGISTRY.get(custom_trainer_config_name)
-            if custom_trainer_config_name in OPTIMIZER_CONFIG_REGISTRY.get_registered_keys():
-                custom_optimizer_configs = OPTIMIZER_CONFIG_REGISTRY.get(custom_trainer_config_name)
-                # The registered value can be a callable that returns the
-                # list of configs (deferred construction), or a list directly.
-                if callable(custom_optimizer_configs):
-                    custom_optimizer_configs = custom_optimizer_configs()
+            # Look up the registered TrainerSetup by config name.  It bundles
+            # the (required) trainer class with the optional training-args
+            # class and optimizer setup -- the user only needs to populate
+            # what they want to customise.
+            trainer_setup = TRAINER_SETUP_REGISTRY.get(custom_trainer_config_name)
+            custom_trainer_cls = trainer_setup.trainer_cls
+            custom_training_args_cls = trainer_setup.training_args_cls
+            custom_optimizer_configs = trainer_setup.optimizer_setup
+            # The optimizer setup can be a callable that returns the list of
+            # configs (deferred construction), or a list directly.
+            if callable(custom_optimizer_configs):
+                custom_optimizer_configs = custom_optimizer_configs()
 
         # Extra arguments should be used as training arguments
         training_args = parse_rotation_optimization_args(
