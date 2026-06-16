@@ -6,6 +6,7 @@ Implementation of various core operations often performed as part of quantizatio
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
 
+from typing import Optional
 from typing import Union
 
 import torch
@@ -201,7 +202,7 @@ def min_int(
     return value
 
 
-def compute_max_mantissa(mantissa_bit_width: Tensor, round_func=None):
+def compute_max_mantissa(mantissa_bit_width: Tensor, round_func: Optional[torch.nn.Module] = None):
     """
     Computes the maximum representable mantissa value for a given mantissa bit width.
 

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import Optional
+from typing import Union
 
 import torch
 
@@ -37,7 +38,7 @@ class StaticMaxMantissa(torch.nn.Module):
 
     def __init__(
             self,
-            bit_width,
+            bit_width: Union[int, float],
             max_mantissa_round_impl: Optional[torch.nn.Module] = None,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None):
@@ -46,7 +47,7 @@ class StaticMaxMantissa(torch.nn.Module):
             torch.tensor(float(bit_width), device=device, dtype=dtype), max_mantissa_round_impl)
         self.compute_max_mantissa = StatelessBuffer(max_mantissa)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         return self.compute_max_mantissa()
 
 
@@ -75,7 +76,7 @@ class ComputeMaxMantissa(torch.nn.Module):
         super().__init__()
         self.max_mantissa_round_impl = max_mantissa_round_impl
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         x = compute_max_mantissa(x, self.max_mantissa_round_impl)
         return x
 

@@ -135,7 +135,7 @@ class MantissaBitWidthClass(ExtendedInjector):
         return solve_bit_width_impl_from_enum(mantissa_bit_width_impl_type)
 
     @value
-    def compute_max_mantissa(mantissa_bit_width_impl_type):
+    def compute_max_mantissa(mantissa_bit_width_impl_type: BitWidthImplType):
         # The selected class is instantiated by dependency injection within this scope, which
         # resolves its __init__ arguments (e.g. bit_width, max_mantissa_round_impl) by name.
         # max_mantissa_round_impl is not provided here, so it falls back to the constructor default
