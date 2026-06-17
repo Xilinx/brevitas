@@ -111,7 +111,7 @@ def _maybe_patch_dynamo_export():
     OutputGraph._get_stack_values_to_restore = _get_stack_values_to_restore
 
 
-_maybe_patch_dynamo_export_for_torch_2_10_2_11()
+_maybe_patch_dynamo_export()
 
 
 def dynamo_export_ctx():
