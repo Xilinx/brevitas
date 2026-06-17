@@ -6,8 +6,8 @@ from typing import Union
 
 import torch
 
+import brevitas
 from brevitas.core.utils import StatelessBuffer
-from brevitas.function import compute_max_mantissa
 
 
 class StaticMaxMantissa(torch.nn.Module):
@@ -43,42 +43,50 @@ class StaticMaxMantissa(torch.nn.Module):
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None):
         super().__init__()
-        max_mantissa = compute_max_mantissa(
-            torch.tensor(float(bit_width), device=device, dtype=dtype), max_mantissa_round_impl)
+        # Reuse ComputeMaxMantissa so that the formula (and the optional rounding) lives in a
+        # single place. The value is computed once here, eagerly, and cached in a StatelessBuffer.
+        max_mantissa = ComputeMaxMantissa(max_mantissa_round_impl)(
+            torch.tensor(float(bit_width), device=device, dtype=dtype))
         self.compute_max_mantissa = StatelessBuffer(max_mantissa)
 
     def forward(self, x: torch.Tensor):
         return self.compute_max_mantissa()
 
 
-class ComputeMaxMantissa(torch.nn.Module):
+class ComputeMaxMantissa(brevitas.jit.ScriptModule):
     """
-    Module that computes the maximum mantissa value dynamically from input tensor.
+    Module that computes the maximum mantissa value dynamically from the input mantissa bit width.
 
     Args:
         max_mantissa_round_impl (torch.nn.Module, optional): Module used to round the integer max
-            mantissa value during the computation. Defaults to None, in which case
-            compute_max_mantissa falls back to its previous closed-form implementation without
-            applying any rounding function.
+            mantissa value ``2 ** (mantissa_bit_width + 1) - 1`` before scaling, enabling support
+            for continuous (fractional) mantissa bit-widths (e.g. via a straight-through estimator).
+            Defaults to None, in which case the closed-form implementation
+            ``2 * (1 - 2 ** (-mantissa_bit_width - 1))`` is used and no rounding is applied.
 
     Examples:
         >>> compute_max = ComputeMaxMantissa()
-        >>> input_tensor = torch.randn(2, 3)
-        >>> max_mantissa = compute_max(input_tensor)
+        >>> compute_max(torch.tensor(3.))
+        tensor(1.8750)
 
     Note:
-        This module computes the maximum mantissa on-the-fly using the compute_max_mantissa
-        function from brevitas.function. The rounding function used by compute_max_mantissa can
-        be customized through dependency injection via max_mantissa_round_impl.
+        The rounding implementation is held as a submodule (rather than passed to a free function),
+        so that this module remains compatible with the TorchScript JIT: TorchScript supports
+        calling submodules but does not support ``torch.nn.Module`` values as function arguments.
+        When ``max_mantissa_round_impl`` is None the previous closed-form behaviour is preserved
+        and no rounding implementation is required.
     """
 
     def __init__(self, max_mantissa_round_impl: Optional[torch.nn.Module] = None):
         super().__init__()
         self.max_mantissa_round_impl = max_mantissa_round_impl
 
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        x = compute_max_mantissa(x, self.max_mantissa_round_impl)
-        return x
+        if self.max_mantissa_round_impl is not None:
+            return self.max_mantissa_round_impl(torch.exp2(x + 1) - 1) * torch.exp2(-x)
+        # No rounding implementation: fall back to the previous closed-form computation.
+        return 2 * (1 - 2 ** (-x - 1))
 
 
 class StaticExponentBias(torch.nn.Module):

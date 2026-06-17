@@ -119,9 +119,17 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
                 bit_width = submodule.msb_clamp_bit_width_impl()
                 self.threshold = submodule.int_scaling_impl(bit_width)
             else:
+                exponent_bit_width = submodule.exponent_bit_width_impl()
+                mantissa_bit_width = submodule.mantissa_bit_width_impl()
+                # The export path relies on the closed-form compute_max_mantissa, which is only
+                # valid for integer mantissa/exponent bit-widths.
+                assert torch.equal(mantissa_bit_width, mantissa_bit_width.round()), \
+                    "Export requires an integer mantissa bit-width."
+                assert torch.equal(exponent_bit_width, exponent_bit_width.round()), \
+                    "Export requires an integer exponent bit-width."
                 self.threshold = submodule.float_scaling_impl(
-                    submodule.exponent_bit_width_impl(),
-                    compute_max_mantissa(submodule.mantissa_bit_width_impl()),
+                    exponent_bit_width,
+                    compute_max_mantissa(mantissa_bit_width),
                     submodule.exponent_bias_impl())
             self.scaling_restriction = type(
                 submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl)
@@ -421,6 +429,12 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
                 self.max_available_float = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl.max_available_float
 
+            # The export path relies on the closed-form compute_max_mantissa, which is only
+            # valid for integer mantissa/exponent bit-widths.
+            assert torch.equal(self.mantissa_bit_width, self.mantissa_bit_width.round()), \
+                "Export requires an integer mantissa bit-width."
+            assert torch.equal(self.exponent_bit_width, self.exponent_bit_width.round()), \
+                "Export requires an integer exponent bit-width."
             self.pre_compute_max_mantissa = compute_max_mantissa(self.mantissa_bit_width)
             self.max_clamp = max_float(
                 self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)

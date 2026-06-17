@@ -6,7 +6,6 @@ Implementation of various core operations often performed as part of quantizatio
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
 
-from typing import Optional
 from typing import Union
 
 import torch
@@ -202,23 +201,24 @@ def min_int(
     return value
 
 
-def compute_max_mantissa(mantissa_bit_width: Tensor, round_func: Optional[torch.nn.Module] = None):
+def compute_max_mantissa(mantissa_bit_width: Tensor):
     """
-    Computes the maximum representable mantissa value for a given mantissa bit width.
+    Computes the maximum representable mantissa value for a given (integer) mantissa bit width.
 
     Args:
         mantissa_bit_width (Tensor): the number of mantissa bits.
-        round_func (Callable, optional): function used to round the integer max mantissa value
-            ``2 ** (mantissa_bit_width + 1) - 1`` before scaling, enabling the use of a custom rounding.
-            Defaults to ``None``, in which case the closed-form implementation
-            ``2 * (1 - 2 ** (-mantissa_bit_width - 1))`` is used and no rounding function is applied.
 
     Returns:
         Tensor: the maximum representable mantissa value.
+
+    Note:
+        This is the closed-form implementation ``2 * (1 - 2 ** (-mantissa_bit_width - 1))`` and is
+        kept free of any rounding function so that it remains compatible with the TorchScript JIT.
+        Rounding of continuous (fractional) mantissa bit-widths is handled by
+        :class:`brevitas.core.bit_width.float.ComputeMaxMantissa`, which accepts a rounding
+        implementation as a submodule at init time.
     """
-    if round_func is None:
-        return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
-    return round_func(torch.exp2(mantissa_bit_width + 1) - 1) * torch.exp2(-mantissa_bit_width)
+    return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
 
 
 @brevitas.jit.ignore
