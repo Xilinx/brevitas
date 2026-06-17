@@ -16,7 +16,6 @@ from brevitas.core.quant.float import FloatQuant
 from brevitas.core.quant.float import min_internal_scale
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
-from brevitas.function.ops import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.utils.torch_utils import float_internal_scale
 from brevitas.utils.torch_utils import torch_dtype
@@ -140,7 +139,7 @@ def test_float_to_quant_float(inp, minifloat_format):
             input_view_impl=Identity(),
             signed=signed,
             float_clamp_impl=float_clamp)
-        max_mantissa = compute_max_mantissa(torch.tensor(mantissa_bit_width, dtype=torch.float))
+        max_mantissa = ComputeMaxMantissa()(torch.tensor(mantissa_bit_width, dtype=torch.float))
         expected_out, *_ = float_quant(inp)
         scale = float_quant.scaling_impl(inp)
         out_quant, scale = float_quant.quantize(inp, scale)
@@ -254,7 +253,7 @@ def test_inner_scale(inp, minifloat_format, scale):
 
         # scale inp manually
         scaled_inp = inp / scale
-        max_mantissa = compute_max_mantissa(torch.tensor(float(mantissa_bit_width)))
+        max_mantissa = ComputeMaxMantissa()(torch.tensor(float(mantissa_bit_width)))
         max_val = max_float(
             torch.tensor(exponent_bit_width), max_mantissa, torch.tensor(exponent_bias))
         max_available_float = float_clamp.max_available_float

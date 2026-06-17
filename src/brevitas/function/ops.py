@@ -201,26 +201,6 @@ def min_int(
     return value
 
 
-def compute_max_mantissa(mantissa_bit_width: Tensor):
-    """
-    Computes the maximum representable mantissa value for a given (integer) mantissa bit width.
-
-    Args:
-        mantissa_bit_width (Tensor): the number of mantissa bits.
-
-    Returns:
-        Tensor: the maximum representable mantissa value.
-
-    Note:
-        This is the closed-form implementation ``2 * (1 - 2 ** (-mantissa_bit_width - 1))`` and is
-        kept free of any rounding function so that it remains compatible with the TorchScript JIT.
-        Rounding of continuous (fractional) mantissa bit-widths is handled by
-        :class:`brevitas.core.bit_width.float.ComputeMaxMantissa`, which accepts a rounding
-        implementation as a submodule at init time.
-    """
-    return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
-
-
 @brevitas.jit.ignore
 def max_float(exponent_bit_width: Tensor, max_mantissa: Tensor, exponent_bias: Tensor):
     max_exponent = (2. ** exponent_bit_width) - 1. - exponent_bias

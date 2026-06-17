@@ -13,11 +13,11 @@ from torch import Tensor
 import torch.nn as nn
 
 import brevitas.config as config
+from brevitas.core.bit_width.float import ComputeMaxMantissa as ComputeMaxMantissaModule
 from brevitas.core.function_wrapper.shape import dynamic_over_sub_channel_block_view
 from brevitas.core.function_wrapper.shape import DynamicOverSubChannelBlockView
 from brevitas.core.restrict_val import FloatToIntImplType
 from brevitas.core.restrict_val import RestrictValueType
-from brevitas.function import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
@@ -121,15 +121,13 @@ class DynamicScaleZeroPointMixin(torch.nn.Module, ABC):
             else:
                 exponent_bit_width = submodule.exponent_bit_width_impl()
                 mantissa_bit_width = submodule.mantissa_bit_width_impl()
-                # The export path relies on the closed-form compute_max_mantissa, which is only
-                # valid for integer mantissa/exponent bit-widths.
                 assert torch.equal(mantissa_bit_width, mantissa_bit_width.round()), \
                     "Export requires an integer mantissa bit-width."
                 assert torch.equal(exponent_bit_width, exponent_bit_width.round()), \
                     "Export requires an integer exponent bit-width."
                 self.threshold = submodule.float_scaling_impl(
                     exponent_bit_width,
-                    compute_max_mantissa(mantissa_bit_width),
+                    ComputeMaxMantissaModule()(mantissa_bit_width),
                     submodule.exponent_bias_impl())
             self.scaling_restriction = type(
                 submodule.scaling_impl.restrict_clamp_scaling.restrict_value_impl)
@@ -429,13 +427,11 @@ class FloatInferenceHandlerBase(InferenceHandler, FloatToIntMixin):
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
                 self.max_available_float = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl.max_available_float
 
-            # The export path relies on the closed-form compute_max_mantissa, which is only
-            # valid for integer mantissa/exponent bit-widths.
             assert torch.equal(self.mantissa_bit_width, self.mantissa_bit_width.round()), \
                 "Export requires an integer mantissa bit-width."
             assert torch.equal(self.exponent_bit_width, self.exponent_bit_width.round()), \
                 "Export requires an integer exponent bit-width."
-            self.pre_compute_max_mantissa = compute_max_mantissa(self.mantissa_bit_width)
+            self.pre_compute_max_mantissa = ComputeMaxMantissaModule()(self.mantissa_bit_width)
             self.max_clamp = max_float(
                 self.exponent_bit_width, self.pre_compute_max_mantissa, self.exponent_bias)
             self.max_clamp = self.max_clamp if self.max_available_float is None else torch.min(

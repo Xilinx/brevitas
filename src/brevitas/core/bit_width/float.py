@@ -17,9 +17,9 @@ class StaticMaxMantissa(torch.nn.Module):
     Args:
         bit_width: the number of mantissa bits used to compute the maximum mantissa value.
         max_mantissa_round_impl (torch.nn.Module, optional): Module used to round the integer max
-            mantissa value during the computation. Defaults to None, in which case
-            compute_max_mantissa falls back to its previous closed-form implementation without
-            applying any rounding function.
+            mantissa value during the computation. Forwarded to :class:`ComputeMaxMantissa`.
+            Defaults to None, in which case the closed-form implementation is used and no rounding
+            is applied.
         device: Device on which to create the tensor. Default: None.
         dtype: Data type of the tensor. Default: None.
 
@@ -29,11 +29,10 @@ class StaticMaxMantissa(torch.nn.Module):
         tensor(1.8750)
 
     Note:
-        The maximum mantissa value is computed once during initialization and stored using
-        StatelessBuffer, meaning it won't be saved as part of a checkpoint but will be properly
-        handled during device transfers and dtype conversions. The rounding function used by
-        compute_max_mantissa can be customized through dependency injection via
-        max_mantissa_round_impl.
+        The maximum mantissa value is computed once during initialization via
+        :class:`ComputeMaxMantissa` and stored using StatelessBuffer, meaning it won't be saved as
+        part of a checkpoint but will be properly handled during device transfers and dtype
+        conversions.
     """
 
     def __init__(
