@@ -193,7 +193,14 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 task="text-generation-with-past",
                 do_validation=False)
     elif 'gguf' in args.export_target:
-        save_quantized_as_gguf('.', model, tokenizer, args.export_target)
+        import gguf
+        # High-impact tensors (token_embd/output) default to Q6_K, but we
+        # do not downgrade the Q8_0 export below the nominal precision.
+        override_qtype = gguf.GGMLQuantizationType.Q6_K
+        if args.export_target.split(":")[-1].lower() == 'q8_0':
+            override_qtype = gguf.GGMLQuantizationType.Q8_0
+        save_quantized_as_gguf(
+            '.', model, tokenizer, args.export_target, override_qtype=override_qtype)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
