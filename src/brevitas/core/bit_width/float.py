@@ -8,18 +8,18 @@ import torch
 
 import brevitas
 from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops import compute_max_mantissa
 
 
 class StaticMaxMantissa(torch.nn.Module):
     """
     Module that returns a maximum mantissa value computed once at initialization.
 
+    Used when the mantissa bit-width is constant (CONST or STATEFUL_CONST), in which case it is
+    always a discrete integer value and no rounding is needed.
+
     Args:
-        bit_width: the number of mantissa bits used to compute the maximum mantissa value.
-        max_mantissa_round_impl (torch.nn.Module, optional): Module used to round the integer max
-            mantissa value during the computation. Forwarded to :class:`ComputeMaxMantissa`.
-            Defaults to None, in which case the closed-form implementation is used and no rounding
-            is applied.
+        bit_width: the integer number of mantissa bits used to compute the maximum mantissa value.
         device: Device on which to create the tensor. Default: None.
         dtype: Data type of the tensor. Default: None.
 
@@ -29,24 +29,19 @@ class StaticMaxMantissa(torch.nn.Module):
         tensor(1.8750)
 
     Note:
-        The maximum mantissa value is computed once during initialization via
-        :class:`ComputeMaxMantissa` and stored using StatelessBuffer, meaning it won't be saved as
-        part of a checkpoint but will be properly handled during device transfers and dtype
-        conversions.
+        The maximum mantissa value is computed once during initialization and stored using
+        StatelessBuffer, meaning it won't be saved as part of a checkpoint but will be properly
+        handled during device transfers and dtype conversions.
     """
 
     def __init__(
             self,
             bit_width: Union[int, float],
-            max_mantissa_round_impl: Optional[torch.nn.Module] = None,
             device: Optional[torch.device] = None,
             dtype: Optional[torch.dtype] = None):
         super().__init__()
-        # Reuse ComputeMaxMantissa so that the formula (and the optional rounding) lives in a
-        # single place. The value is computed once here, eagerly, and cached in a StatelessBuffer.
-        max_mantissa = ComputeMaxMantissa(max_mantissa_round_impl)(
-            torch.tensor(float(bit_width), device=device, dtype=dtype))
-        self.compute_max_mantissa = StatelessBuffer(max_mantissa)
+        self.compute_max_mantissa = StatelessBuffer(
+            compute_max_mantissa(torch.tensor(float(bit_width), device=device, dtype=dtype)))
 
     def forward(self, x: torch.Tensor):
         return self.compute_max_mantissa()
@@ -84,8 +79,7 @@ class ComputeMaxMantissa(brevitas.jit.ScriptModule):
     def forward(self, x: torch.Tensor):
         if self.max_mantissa_round_impl is not None:
             return self.max_mantissa_round_impl(torch.exp2(x + 1) - 1) * torch.exp2(-x)
-        # No rounding implementation: fall back to the previous closed-form computation.
-        return 2 * (1 - 2 ** (-x - 1))
+        return compute_max_mantissa(x)
 
 
 class StaticExponentBias(torch.nn.Module):

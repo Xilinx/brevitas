@@ -5,7 +5,7 @@ from hypothesis import given
 import pytest
 import torch
 
-from brevitas.core.bit_width.float import ComputeMaxMantissa
+from brevitas.function.ops import compute_max_mantissa
 from brevitas.function.ops import max_float
 from brevitas.quant.float import *
 from brevitas.quant.float_quant_fnuz import *
@@ -50,7 +50,7 @@ def test_max_value(minifloat, expected_max_val):
     minifloat = minifloat.let(tracked_parameter_list=[torch.nn.Parameter(torch.randn(1, 5))])
     # Instantiate quantizer to check that init is correct
     obj = minifloat.tensor_quant
-    max_mantissa = ComputeMaxMantissa()(
+    max_mantissa = compute_max_mantissa(
         torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32))
     max_val = max_float(
         torch.tensor(minifloat.exponent_bit_width, dtype=torch.float32),
@@ -86,7 +86,7 @@ def test_min_value(minifloat, expected_min_val):
 
 @given(inp=float_tensor_random_shape_st())
 def test_float_clamp(inp, fp8_clamp):
-    max_mantissa = ComputeMaxMantissa()(
+    max_mantissa = compute_max_mantissa(
         torch.tensor(fp8_clamp.mantissa_bit_width, dtype=torch.float32))
     max_val = max_float(
         torch.tensor(fp8_clamp.exponent_bit_width, dtype=torch.float32),

@@ -201,6 +201,11 @@ def min_int(
     return value
 
 
+@brevitas.jit.script
+def compute_max_mantissa(mantissa_bit_width: Tensor) -> Tensor:
+    return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
+
+
 @brevitas.jit.ignore
 def max_float(exponent_bit_width: Tensor, max_mantissa: Tensor, exponent_bias: Tensor):
     max_exponent = (2. ** exponent_bit_width) - 1. - exponent_bias
