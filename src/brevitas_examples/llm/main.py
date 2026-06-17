@@ -85,7 +85,7 @@ except:
     logging.debug("Shark-AI not installed, cannot export to Shark")
 
 
-def _maybe_patch_dynamo_export_for_torch_2_10_2_11():
+def _maybe_patch_dynamo_export():
     # torch._dynamo.export in torch 2.10 and 2.11 can crash with
     # "'NoneType' object has no attribute 'is_tensor'" when a raw None is left on
     # Dynamo's symbolic stack: OutputGraph.compile_subgraph calls x.is_tensor()
