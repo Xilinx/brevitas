@@ -5,8 +5,6 @@ import numpy as np
 import pytest
 import pytest_cases
 
-pytest.importorskip("gguf")
-
 import gguf
 from gguf import GGML_QUANT_SIZES
 from gguf import QK_K
