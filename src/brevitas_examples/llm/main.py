@@ -11,8 +11,6 @@ import pprint
 import sys
 import warnings
 
-from brevitas_example.common.dynamo_utils import dynamo_export_ctx
-from brevitas_example.common.dynamo_utils import patch_dynamo_export
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -37,6 +35,8 @@ from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
+from brevitas_examples.common.dynamo_utils import dynamo_export_ctx
+from brevitas_examples.common.dynamo_utils import patch_dynamo_export
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
