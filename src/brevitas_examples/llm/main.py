@@ -194,6 +194,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 do_validation=False)
     elif 'gguf' in args.export_target:
         import gguf
+
         # High-impact tensors (token_embd/output) default to Q6_K, but we
         # do not downgrade the Q8_0 export below the nominal precision.
         override_qtype = gguf.GGMLQuantizationType.Q6_K

@@ -1,14 +1,13 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
-import pytest
-import pytest_cases
-
 import gguf
 from gguf import GGML_QUANT_SIZES
 from gguf import QK_K
 import gguf.quants as gguf_quants
+import numpy as np
+import pytest
+import pytest_cases
 
 from brevitas_examples.llm.gguf_export.convert import SUPPORTED_OVERRIDE_QTYPES
 from brevitas_examples.llm.gguf_export.quant import _q6_k_quantize_scales
