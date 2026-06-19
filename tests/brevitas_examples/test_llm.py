@@ -60,7 +60,7 @@ RTOL_ACC = 1e-5
 
 def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     assert dataset_name == "c4", f"Expected dataset_name to be c4 but got {dataset_name} instead"
-    assert split in ["train", "validation"], f"Expected split to be 'train' or 'validation' but got "
+    assert split in ["train", "validation"], f"Expected split to be 'train' or 'validation' but got {split}"
     # Contains information from allenai/c4 (https://huggingface.co/datasets/allenai/c4) which is made available under the ODC Attribution License.
     C4_TEXTS = [
         "Luxembourg's professional networking group for women will host a discussion about promoting Luxembourg abroad.\n(JB) Luxembourg's female only professional networking group will host a discussion about promoting Luxembourg abroad.\nSpeaker Carole Tompers, who is responsible for promoting the Made in Luxembourg products and services to foreign markets, will take guests on a whistle stop tour of the country's key assets.\nHer speech will explore the Nations Brand Index 2010, delve into what makes a Luxembourg brand and suggest ways of strengthening and promoting existing brands abroad.\nMs Tompers has a strong track record in marketing and communications. She currently serves as Secretary General at Luxembourg for Business.\nShe has previously worked on promotional projects with various ministries, the Chamber of Commerce, the Office Ducroire, the National Credit and Investment Corporation, the Chamber of Crafts and Luxembourg's Business Federation.\nThe event is organised by the Network at the Sofitel Kirchberg on November 16, from 7.30pm."
@@ -152,6 +152,7 @@ def default_run_args(parser: ArgumentParser, request):
     args.seqlen = 2
     args.model = "hf-internal-testing/tiny-random-MistralForCausalLM"
     args.dataset = "c4"
+    args.dataset_eval_split = "validation"
     args.eval = True
     #args.checkpoint = ptid2pathname(request.node.nodeid) + ".pth" # Example filename which won't clash
     args.export_prefix = ptid2pathname(request.node.nodeid)

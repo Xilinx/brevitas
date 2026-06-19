@@ -7,6 +7,7 @@ bias_corr: false
 checkpoint_name: null
 convert_layernorm_to_rmsnorm: false
 dataset: wikitext2
+dataset_eval_split: validation
 disable_create_weight_orig: false
 eval: false
 export_prefix: null
