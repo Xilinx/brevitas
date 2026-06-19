@@ -195,10 +195,11 @@ def model_export(model, tokenizer, ref_input, args, config=None):
     elif 'gguf' in args.export_target:
         import gguf
 
-        # High-impact tensors (token_embd/output) default to Q6_K, but we
-        # do not downgrade the Q8_0 export below the nominal precision.
-        override_qtype = gguf.GGMLQuantizationType.Q6_K
-        if args.export_target.split(":")[-1].lower() == 'q8_0':
+        # High-impact tensors (token_embd/output) are quantized
+        # to either Q8_0 or Q6_K, based on the GGUF format.
+        if args.export_target.split(":")[-1].lower() in ('q4_0', 'q4_1'):
+            override_qtype = gguf.GGMLQuantizationType.Q6_K
+        else:
             override_qtype = gguf.GGMLQuantizationType.Q8_0
         save_quantized_as_gguf(
             '.', model, tokenizer, args.export_target, override_qtype=override_qtype)
