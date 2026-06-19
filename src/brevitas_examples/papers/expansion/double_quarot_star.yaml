@@ -12,6 +12,8 @@ convert_layernorm_to_rmsnorm:
 - false
 dataset:
 - wikitext2
+dataset_eval_split:
+- validation
 dtype:
 - bfloat16
 eval:

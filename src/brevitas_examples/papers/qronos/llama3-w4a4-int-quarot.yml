@@ -14,6 +14,7 @@ few_shot_tasks:
 - leaderboard|winogrande|0|0
 - leaderboard|hellaswag|0|0
 few_shot_zeroshot: true
+dataset_eval_split: validation
 # enables ordering by diagonal of H
 gpxq_act_order: true
 gpxq_block_name: model.layers

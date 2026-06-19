@@ -16,6 +16,8 @@ nsamples:
 - 512
 dataset:
 - pile
+dataset_eval_split:
+- validation
 # adds a BOS token to the beginning of each sequence
 bos_preprocessing:
 - sequence
