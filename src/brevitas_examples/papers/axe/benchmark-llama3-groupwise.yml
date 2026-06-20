@@ -58,7 +58,7 @@ rotation:
 - layerwise
 weight_bit_width:
 - 4
-weigh_group_size:
+weight_group_size:
 - 32
 weight_param_method:
 - mse
