@@ -143,7 +143,6 @@ class AXEMixin:
         p2 = (p0 - p1) / self.input_max
         assert (p2 >= 0).all()
 
-        # for unsigned data types, assuming round-to-nearest
         if self.input_min == 0:
             return p2
 
@@ -152,8 +151,7 @@ class AXEMixin:
         n2 = (n0 - n1) / self.input_min
         assert (n2 >= 0).all()
 
-        # take the most restrictive lower limit (i.e., the smallest one),
-        # note that we are assuming round-to-nearest here
+        # take the most restrictive upper limit (i.e., the smallest one)
         return torch.where(p2 < n2, p2, n2)
 
     def lower_lim(self, n: Tensor, p: Tensor):
@@ -162,7 +160,6 @@ class AXEMixin:
         n2 = (n0 - n1) / self.input_max
         assert (n2 <= 0).all()
 
-        # for unsigned data types, assuming round-to-nearest
         if self.input_min == 0:
             return n2
 
@@ -171,8 +168,7 @@ class AXEMixin:
         p2 = (p0 - p1) / self.input_min
         assert (p2 <= 0).all()
 
-        # take the most restrictive lower limit (i.e., the largest one),
-        # note that we are assuming round-to-nearest here
+        # take the most restrictive lower limit (i.e., the largest one)
         return torch.where(p2 > n2, p2, n2)
 
     def get_thresholds(self, weight: Tensor, scales: Tensor, n_tiles: int) -> Tensor:
