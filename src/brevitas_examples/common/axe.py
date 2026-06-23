@@ -175,6 +175,25 @@ class AXEMixin:
         # note that we are assuming round-to-nearest here
         return torch.where(p2 > n2, p2, n2) + 0.5
 
+    def get_thresholds(self, weight: Tensor, scales: Tensor, n_tiles: int) -> Tensor:
+        # weight, scales: [Groups, OC/Groups, IC]
+        # returns thresholds: [Groups, n_tiles, OC/Groups] in float domain
+        Z = (torch.exp2(self.max_accumulator_bit_width) -
+             2) / float(self.input_max - self.input_min)
+        w_int = (weight / scales).to(torch.float32)  # [Groups, OC/Groups, IC]
+        wT = pad_tensor_with_zeros(
+            w_int.flatten(0, 1),  # [Groups*OC/Groups, IC]
+            self.max_accumulator_tile_size,
+        ).view(-1, self.max_accumulator_tile_size)  # [Groups*OC/Groups*n_tiles, tile_size]
+        thresholds = calc_average_nonzero_mag(
+            wT - wT.mean(dim=1, keepdim=True), Z)  # [Groups*OC/Groups*n_tiles]
+        thresholds = thresholds.view(self.groups, -1,
+                                     n_tiles).transpose(1, 2)  # [Groups, n_tiles, OC/Groups]
+        # scale back to float domain: one scale per (group, tile, OC) — take first IC in each tile
+        s_per_tile = scales[:, :, ::self.max_accumulator_tile_size]  # [Groups, OC/Groups, n_tiles]
+        thresholds *= s_per_tile.permute(0, 2, 1)  # [Groups, n_tiles, OC/Groups]
+        return thresholds
+
 
 class axe_mode_mixin:
     """
@@ -320,6 +339,8 @@ class A2GPTQ(AXEMixin, GPTQ):
                 math.ceil(self.layer.in_channels / group_size)
             get_block_index = lambda bx: bx % n_tiles
 
+        thresholds = self.get_thresholds(weight, scales, n_tiles)  # [Groups, n_tiles, OC/Groups]
+
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
         pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
@@ -352,7 +373,9 @@ class A2GPTQ(AXEMixin, GPTQ):
                     assert (u - l + 1 >= 0).all()
                     q_max = s * torch.clamp_min(u, 0.0)  # [OC/groups]
                     q_min = s * torch.clamp_max(l, 0.0)  # [OC/groups]
-                    # TODO: add soft thresholding
+                    # soft thresholding then clamping
+                    q_arg = q_arg.sign() * torch.relu(
+                        q_arg.abs() - thresholds[group_index, block_index])
                     q_arg.clamp_(q_min, q_max)  # clamping to bounds
                     weight[group_index, :, perm[i1:i2][i]] = q_arg.to(dtype)
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [Groups, OC/groups]
@@ -520,6 +543,8 @@ class A2GPFQ(AXEMixin, GPFQ):
                 math.ceil(self.layer.in_channels / group_size)
             get_block_index = lambda bx: bx % n_tiles
 
+        thresholds = self.get_thresholds(weight, scales, n_tiles)  # [Groups, n_tiles, OC/Groups]
+
         # initialize cumulative l1-norm
         lim_dtype = torch.int32 if self.max_accumulator_bit_width < 33 else torch.int64
         pos_limits = torch.zeros((self.groups, n_tiles, weight.shape[1]),
@@ -555,7 +580,9 @@ class A2GPFQ(AXEMixin, GPFQ):
                 assert (u - l + 1 >= 0).all()
                 q_max = s * torch.clamp_min(u, 0.0)  # [OC/groups]
                 q_min = s * torch.clamp_max(l, 0.0)  # [OC/groups]
-                # TODO: soft thresholding then clamping
+                # soft thresholding then clamping
+                q_arg = q_arg.sign() * torch.relu(
+                    q_arg.abs() - thresholds[group_index, block_index])
                 q_arg.clamp_(q_min, q_max)  # clamping to bounds
 
                 weight[group_index, :, i] = q_arg.to(dtype)
