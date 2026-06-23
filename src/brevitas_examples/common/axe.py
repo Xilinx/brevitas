@@ -145,7 +145,7 @@ class AXEMixin:
 
         # for unsigned data types, assuming round-to-nearest
         if self.input_min == 0:
-            return p2 - 0.5
+            return p2
 
         n0 = -torch.exp2(self.max_accumulator_bit_width - 1.) + 1.
         n1 = (self.input_min * p) + (self.input_max * n)
@@ -154,7 +154,7 @@ class AXEMixin:
 
         # take the most restrictive lower limit (i.e., the smallest one),
         # note that we are assuming round-to-nearest here
-        return torch.where(p2 < n2, p2, n2) - 0.5
+        return torch.where(p2 < n2, p2, n2)
 
     def lower_lim(self, n: Tensor, p: Tensor):
         n0 = -torch.exp2(self.max_accumulator_bit_width - 1.) + 1.
@@ -164,7 +164,7 @@ class AXEMixin:
 
         # for unsigned data types, assuming round-to-nearest
         if self.input_min == 0:
-            return n2 + 0.5
+            return n2
 
         p0 = torch.exp2(self.max_accumulator_bit_width - 1.) - 1.
         p1 = (self.input_max * p) + (self.input_min * n)
@@ -173,7 +173,7 @@ class AXEMixin:
 
         # take the most restrictive lower limit (i.e., the largest one),
         # note that we are assuming round-to-nearest here
-        return torch.where(p2 > n2, p2, n2) + 0.5
+        return torch.where(p2 > n2, p2, n2)
 
     def get_thresholds(self, weight: Tensor, scales: Tensor, n_tiles: int) -> Tensor:
         # weight, scales: [Groups, OC/Groups, IC]
@@ -371,8 +371,8 @@ class A2GPTQ(AXEMixin, GPTQ):
                     u = self.upper_lim(n, p)
                     l = self.lower_lim(n, p)
                     assert (u - l + 1 >= 0).all()
-                    q_max = s * torch.clamp_min(u, 0.0)  # [OC/groups]
-                    q_min = s * torch.clamp_max(l, 0.0)  # [OC/groups]
+                    q_max = s * torch.clamp_min(u, 0.0).floor()  # [OC/groups]
+                    q_min = s * torch.clamp_max(l, 0.0).ceil()  # [OC/groups]
                     # soft thresholding then clamping
                     q_arg = q_arg.sign() * torch.relu(
                         q_arg.abs() - thresholds[group_index, block_index])
@@ -578,8 +578,8 @@ class A2GPFQ(AXEMixin, GPFQ):
                 u = self.upper_lim(n, p)
                 l = self.lower_lim(n, p)
                 assert (u - l + 1 >= 0).all()
-                q_max = s * torch.clamp_min(u, 0.0)  # [OC/groups]
-                q_min = s * torch.clamp_max(l, 0.0)  # [OC/groups]
+                q_max = s * torch.clamp_min(u, 0.0).floor()  # [OC/groups]
+                q_min = s * torch.clamp_max(l, 0.0).ceil()  # [OC/groups]
                 # soft thresholding then clamping
                 q_arg = q_arg.sign() * torch.relu(
                     q_arg.abs() - thresholds[group_index, block_index])
