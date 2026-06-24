@@ -401,6 +401,7 @@ document.write(`
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Qronos</a></li>
 <li class="toctree-l1"><a class="reference internal" href="post_training_expansion.html">Post Training Model Expansion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="perq.html">PeRQ</a></li>
 </ul>
 </div>
 </nav></div>
@@ -460,7 +461,7 @@ document.write(`
                   
   <section id="post-training-quantization-with-qronos">
 <h1>Post-Training Quantization with Qronos<a class="headerlink" href="#post-training-quantization-with-qronos" title="Permalink to this heading">#</a></h1>
-<p>Qronos is a new post-training quantization (PTQ) algorithm that sequentially rounds
+<p>Qronos (presented at <a class="reference external" href="https://iclr.cc/virtual/2026/poster/10011286">ICLR 2026</a>) is a post-training quantization (PTQ) algorithm that sequentially rounds
 and updates neural network weights to explicitly address quantization errors that
 have been introduced in both the weights and activations of previous layers. At each
 iteration, Qronos first selects the quantized weight that optimally corrects the current
@@ -468,7 +469,7 @@ approximation error while holding the remaining weights fixed. It then updates t
 (yet-to-be quantized) weights to optimally compensate for the rounding error. Let’s dive
 into the Qronos algorithm and how to use it with Brevitas!</p>
 <div align="center">
-       <a href="https://arxiv.org/pdf/2505.11695">📄 Paper</a>&nbsp
+       <a href="https://openreview.net/pdf?id=7axclBCYul">📄 Paper</a>&nbsp
             <a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py">💻 Code</a>
 </div><nav class="contents local" id="table-of-contents">
 <p class="topic-title">Table of Contents</p>
@@ -519,7 +520,7 @@ by Lybrand and Saab [2]), which explicitly addresses these questions via</p>
 accumulated rounding error. To do so efficiently, Qronos benefits from the same techniques used
 to scale GPTQ to increasingly large models (e.g., Cholesky decomposition and lazy batch
 updates), and consistently produces quantized models with better accuracy!</p>
-<p>🔍 Check out the <a class="reference external" href="https://arxiv.org/pdf/2505.11695">paper</a> for formalized objective
+<p>🔍 Check out the <a class="reference external" href="https://openreview.net/pdf?id=7axclBCYul">paper</a> for formalized objective
 functions, derivations, and analyses!</p>
 </section>
 <section id="getting-started">
@@ -867,14 +868,12 @@ baseline.</p>
 </section>
 <section id="citation">
 <h2><a class="toc-backref" href="#id13" role="doc-backlink">Citation</a><a class="headerlink" href="#citation" title="Permalink to this heading">#</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@article</span><span class="p">{</span><span class="n">zhang2025qronos</span><span class="p">,</span>
-      <span class="n">title</span><span class="o">=</span><span class="p">{</span><span class="n">Qronos</span><span class="p">:</span> <span class="n">Correcting</span> <span class="n">the</span> <span class="n">Past</span> <span class="n">by</span> <span class="n">Shaping</span> <span class="n">the</span> <span class="n">Future</span><span class="o">...</span> <span class="ow">in</span> <span class="n">Post</span><span class="o">-</span><span class="n">Training</span> <span class="n">Quantization</span><span class="p">},</span>
-      <span class="n">author</span><span class="o">=</span><span class="p">{</span><span class="n">Shihao</span> <span class="n">Zhang</span> <span class="ow">and</span> <span class="n">Haoyu</span> <span class="n">Zhang</span> <span class="ow">and</span> <span class="n">Ian</span> <span class="n">Colbert</span> <span class="ow">and</span> <span class="n">Rayan</span> <span class="n">Saab</span><span class="p">},</span>
-      <span class="n">year</span><span class="o">=</span><span class="p">{</span><span class="mi">2025</span><span class="p">},</span>
-      <span class="n">eprint</span><span class="o">=</span><span class="p">{</span><span class="mf">2505.11695</span><span class="p">},</span>
-      <span class="n">archivePrefix</span><span class="o">=</span><span class="p">{</span><span class="n">arXiv</span><span class="p">},</span>
-      <span class="n">primaryClass</span><span class="o">=</span><span class="p">{</span><span class="n">cs</span><span class="o">.</span><span class="n">LG</span><span class="p">},</span>
-      <span class="n">url</span><span class="o">=</span><span class="p">{</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">arxiv</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="nb">abs</span><span class="o">/</span><span class="mf">2505.11695</span><span class="p">},</span>
+<div class="highlight-bibtex notranslate"><div class="highlight"><pre><span></span><span class="nc">@inproceedings</span><span class="p">{</span><span class="nl">zhang2026qronos</span><span class="p">,</span>
+<span class="w">      </span><span class="na">title</span><span class="p">=</span><span class="s">{Qronos: Correcting the Past by Shaping the Future... in Post-Training Quantization}</span><span class="p">,</span>
+<span class="w">      </span><span class="na">author</span><span class="p">=</span><span class="s">{Shihao Zhang and Haoyu Zhang and Ian Colbert and Rayan Saab}</span><span class="p">,</span>
+<span class="w">      </span><span class="na">booktitle</span><span class="p">=</span><span class="s">{The Fourteenth International Conference on Learning Representations}</span><span class="p">,</span>
+<span class="w">      </span><span class="na">year</span><span class="p">=</span><span class="s">{2026}</span><span class="p">,</span>
+<span class="w">      </span><span class="na">url</span><span class="p">=</span><span class="s">{https://openreview.net/forum?id=7axclBCYul}</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -886,8 +885,8 @@ paper. To more accurately reproduce experiments from the paper, please see <a cl
 <p>[1] Frantar, Elias, et al. “OPTQ: Accurate post-training quantization for generative pre-trained transformers.” 11th International Conference on Learning Representations. 2023.</p>
 <p>[2] Lybrand, Eric, and Rayan Saab. “A greedy algorithm for quantizing neural networks.” Journal of Machine Learning Research 22.156 (2021): 1-38.</p>
 <p>[3] Ashkboos, Saleh, et al. “QuaRot: Outlier-free 4-bit inference in rotated LLMs.” Advances in Neural Information Processing Systems 37 (2024): 100213-100240.</p>
-<p>[4] Zhang, Aozhong, et al. “MagR: Weight magnitude reduction for enhancing post-training quantization.” arXiv preprint arXiv:2406.00800 (2024).</p>
-<p>[5] Liu, Zechun, et al. “SpinQuant: LLM quantization with learned rotations.” arXiv preprint arXiv:2405.16406 (2024).</p>
+<p>[4] Zhang, Aozhong, et al. “MagR: Weight magnitude reduction for enhancing post-training quantization.” Advances in neural information processing systems 37 (2024): 85109-85130.</p>
+<p>[5] Liu, Zechun, et al. “SpinQuant: LLM quantization with learned rotations.” 13th International Conference on Learning Representations. 2025.</p>
 </section>
 </section>
 

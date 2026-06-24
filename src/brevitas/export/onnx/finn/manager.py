@@ -1,7 +1,6 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import torch
 from torch.nn import Module
 
 from brevitas.export.onnx.qonnx.manager import QONNXDynamoManager
@@ -9,11 +8,9 @@ from brevitas.export.onnx.qonnx.manager import QONNXManager
 from brevitas.nn.target.finn import PWPolyFActivation
 from brevitas.utils.logging import setup_logger
 
-from .custom_ops import DOMAIN_STRING as FINN_DOMAIN_STRING
-from .custom_ops import DOMAIN_VERSION as FINN_DOMAIN_VERSION
-from .custom_ops import pwpolyf_wrapper
-from .function import FINNPWPolyFFn
-from .handler import FINNPWPolyFDynamoHandler
+from .function import DOMAIN_STRING as FINN_DOMAIN_STRING
+from .function import DOMAIN_VERSION as FINN_DOMAIN_VERSION
+from .function import FINNPWPolyFTorchScriptFn
 from .handler import FINNPWPolyFHandler
 
 __all__ = [
@@ -49,7 +46,7 @@ def _set_finn_custom_opset(onnx_export_kwargs):
 
 class FINNONNXManager(QONNXManager):
     handlers = QONNXManager.handlers + [FINNPWPolyFHandler]
-    custom_fns = QONNXManager.custom_fns + [FINNPWPolyFFn]
+    custom_fns = QONNXManager.custom_fns + [FINNPWPolyFTorchScriptFn]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
@@ -67,17 +64,8 @@ class FINNONNXManager(QONNXManager):
         return super(FINNONNXManager, cls).export_onnx(*args, **onnx_export_kwargs)
 
 
-try:
-    _dynamo_custom_translation_table = QONNXDynamoManager.custom_translation_table.copy()
-    _dynamo_custom_translation_table[torch.ops.finn.pwpolyf.default] = pwpolyf_wrapper
-except AttributeError:
-    # Older PyTorch versions do not expose torch.library custom ops via torch.ops.
-    _dynamo_custom_translation_table = {}
-
-
 class FINNONNXDynamoManager(QONNXDynamoManager):
-    handlers = QONNXDynamoManager.handlers + [FINNPWPolyFDynamoHandler]
-    custom_translation_table = _dynamo_custom_translation_table
+    handlers = QONNXDynamoManager.handlers + [FINNPWPolyFHandler]
     custom_fns = []
 
     @classmethod

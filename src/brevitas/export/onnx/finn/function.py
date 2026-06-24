@@ -1,14 +1,17 @@
 # Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import torch
 from torch.autograd import Function
 
+from brevitas.export.onnx.function import DynamoFn
 from brevitas.nn.target.finn import PWPolyFEager
 
-from .custom_ops import DOMAIN_STRING
+DOMAIN_STRING = "finn.pwpolyf"
+DOMAIN_VERSION = 1
 
 
-class FINNPWPolyFFn(Function):
+class FINNPWPolyFTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, coeffs, func, K, degree):
@@ -25,3 +28,21 @@ class FINNPWPolyFFn(Function):
     def forward(ctx, x, coeffs, func, K, degree):
         eager_impl = PWPolyFEager(func, int(K), int(degree))
         return eager_impl.evaluate(x, coeffs)
+
+
+class FINNPWPolyFDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, coeffs, func, K, degree):
+        return torch.onnx.ops.symbolic(
+            f"{DOMAIN_STRING}::PWPolyF",
+            (x,),
+            {"func": func, "K": int(K), "degree": int(degree)},
+            dtype=x.dtype,
+            shape=x.shape,
+            version=DOMAIN_VERSION)
+
+
+class FINNPWPolyFOp:
+    torchscript = FINNPWPolyFTorchScriptFn
+    dynamo = FINNPWPolyFDynamoFn

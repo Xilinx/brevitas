@@ -1,18 +1,16 @@
-# Pushing the Limits of Block Rotations in Post-Training Quantization
+# Pushing the Limits of Block Rotations in Post-Training Quantization [ICML 2026]
 
-📄 [Paper](https://arxiv.org/pdf/2601.22347)
-💻 [Code](https://github.com/Xilinx/brevitas/pull/1448)
+📄 [Paper](https://openreview.net/pdf?id=nvehxSdMqg)
+💻 [Code](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py)
 💡 [Docs](https://xilinx.github.io/brevitas/dev/papers/perq.html)
 
-```
-@article{sanjeet2026perq,
+```bibtex
+@inproceedings{sanjeet2026perq,
       title={Pushing the Limits of Block Rotations in Post-Training Quantization},
       author={Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser},
+      booktitle={Forty-third International Conference on Machine Learning},
       year={2026},
-      eprint={2601.22347},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2601.22347},
+      url={https://openreview.net/forum?id=nvehxSdMqg}
 }
 ```
 

@@ -6,8 +6,7 @@ from torch import Tensor
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.nn.target.finn import PWPolyFActivation
 
-from .custom_ops import pwpolyf
-from .function import FINNPWPolyFFn
+from .function import FINNPWPolyFOp
 
 
 class FINNPWPolyFHandler(ONNXBaseHandler):
@@ -20,10 +19,4 @@ class FINNPWPolyFHandler(ONNXBaseHandler):
         self.degree = module.degree
 
     def symbolic_execution(self, x: Tensor):
-        return FINNPWPolyFFn.apply(x, self.coeffs, self.func, self.K, self.degree)
-
-
-class FINNPWPolyFDynamoHandler(FINNPWPolyFHandler):
-
-    def symbolic_execution(self, x: Tensor):
-        return pwpolyf(x, self.func, self.K, self.degree)
+        return self.export_op(FINNPWPolyFOp, x, self.coeffs, self.func, self.K, self.degree)

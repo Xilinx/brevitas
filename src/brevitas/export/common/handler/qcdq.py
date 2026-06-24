@@ -50,11 +50,14 @@ class DQMixin(ABC):
         pass
 
     def assert_ge_zero(self, *args):
-        for a in args:
-            bools = a >= 0.
-            if isinstance(bools, torch.Tensor):
-                bools = bools.all()
-            assert bools
+        # Workaround to make the TorchScript tracer treat all return values as used.
+        # Skipped under torch.export (dynamo), where it would be a data-dependent guard.
+        if torch.jit.is_tracing():
+            for a in args:
+                bools = a >= 0.
+                if isinstance(bools, torch.Tensor):
+                    bools = bools.all()
+                assert bools
 
 
 class DQCastMixin(DQMixin, ABC):
@@ -797,17 +800,39 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
         if module.is_quant_enabled:
             assert not self.export_fake_quantized, "Activation quantization does not support fake quantization export"
             self.validate(module)
+            # Resolve everything that branches on signedness/bit-width here (before tracing)
+            # into concrete values / precomputed kwargs, so symbolic_execution only applies
+            # tensor ops and avoids data-dependent `.item()` guards under torch.export.
+            signed = module.retrieve_attribute('signed')
+            output_bit_width = module.bit_width()
             self.symbolic_kwargs = {
-                'narrow_range': module.is_narrow_range,
-                'output_scale': module.scale(),
-                'output_bit_width': module.bit_width()}
+                'narrow_range':
+                    module.is_narrow_range,
+                'output_scale':
+                    module.scale(),
+                'output_bit_width':
+                    output_bit_width,
+                'signed':
+                    signed,
+                'zero_point_dtype':
+                    self.zero_point_with_dtype(signed, output_bit_width, torch.zeros(1)).dtype,
+                'clip_symbolic_kwargs':
+                    self.int_clip_symbolic_kwargs(module.is_narrow_range, signed, output_bit_width)}
 
     def symbolic_execution(
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
             signed: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
-        narrow_range = self.symbolic_kwargs['narrow_range']
+        # Use values resolved at export-preparation time (concrete bool / precomputed
+        # kwargs) rather than the ones propagated through the traced QuantTensor, which
+        # would be data-dependent under torch.export (see prepare_for_export).
+        signed = self.symbolic_kwargs['signed']
+        zero_point_dtype = self.symbolic_kwargs['zero_point_dtype']
+        clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
+        # Workaround to trick the TorchScript tracer into believing the (constant)
+        # output bit-width is used (no-op under torch.export, see assert_ge_zero).
+        self.assert_ge_zero(output_bit_width)
         dtype = self.int8_dtype() if signed else self.uint8_dtype()
         scale = self.symbolic_kwargs['output_scale']  # Input scale is ignored
         # If original dtype of scale is (b)float16, store the original scale dtype
@@ -818,11 +843,8 @@ class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
         if x.dtype == torch.bfloat16 or x.dtype == torch.float16:
             x = self.cast_fn(x, torch.float32)
         flat_scale = to_0dim_if_scalar(scale.flatten())
-        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
-        zp = self.zero_point_with_dtype(signed, output_bit_width, zp)
+        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale).type(zero_point_dtype)
         x = self.quantize_fn(x, flat_scale, zp, dtype, self.quant_axis(scale))
-        clip_symbolic_kwargs = self.int_clip_symbolic_kwargs(
-            signed=signed, narrow=self.symbolic_kwargs['narrow_range'], bit_width=output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))

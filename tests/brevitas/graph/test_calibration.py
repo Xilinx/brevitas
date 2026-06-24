@@ -27,7 +27,7 @@ from brevitas.inject.enum import RestrictValueType
 import brevitas.nn as qnn
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant import Int8ActPerTensorFixedPoint
-from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat

@@ -23,7 +23,7 @@ def create_args_parser() -> ArgumentParser:
         type=str,
         default=None,
         help=
-        'Override the quantization list with custom user defined quantizers. This must be a .py file with a list of seven quantizers. Default: None.'
+        'Override the quantization list and/or post-process the quantized model with a user-defined quantization plugin. The plugin can be a registered name or a .py file path followed by :plugin_name. Default: None.'
     )
     parser.add_argument(
         '--dtype',
@@ -37,7 +37,8 @@ def create_args_parser() -> ArgumentParser:
         '--nsamples',
         type=int,
         default=128,
-        help='Number of calibration data samples. Default: 128.')
+        help=
+        'Number of calibration data samples. Set to -1 to load the entire dataset. Default: 128.')
     parser.add_argument(
         '--nsamples-rot-calibration',
         type=int,
@@ -172,6 +173,10 @@ def create_args_parser() -> ArgumentParser:
         default='asym',
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
+    parser.add_argument(
+        '--input-narrow-range',
+        action="store_true",
+        help='Use narrow range for input quantization. Default: False.')
     parser.add_argument(
         '--input-quant-granularity',
         type=str,

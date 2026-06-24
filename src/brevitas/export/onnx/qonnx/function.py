@@ -3,16 +3,20 @@
 
 import torch
 from torch.autograd import Function
-from torch.onnx.symbolic_helper import _get_tensor_sizes
+import torch.onnx
 
-from .custom_ops import bipolar_quant
-from .custom_ops import DOMAIN_STRING
-from .custom_ops import float_quant
-from .custom_ops import int_quant
-from .custom_ops import trunc_quant
+from brevitas.core.function_wrapper.clamp import TensorClamp
+from brevitas.core.function_wrapper.misc import Identity
+from brevitas.core.quant import IntQuant
+from brevitas.export.onnx.function import DynamoFn
+from brevitas.function import binary_sign
+from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
+
+DOMAIN_STRING = "qonnx.custom_op.general"
+DOMAIN_VERSION = 2
 
 
-class BrevitasBinaryQuantFn(Function):
+class BrevitasBinaryQuantTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
@@ -22,11 +26,27 @@ class BrevitasBinaryQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        x = bipolar_quant(x, scale)
+        x = binary_sign(x) * scale
         return x
 
 
-class BrevitasQuantFn(Function):
+class BrevitasBinaryQuantDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+        return torch.onnx.ops.symbolic(
+            f'{DOMAIN_STRING}::BipolarQuant', (x, scale),
+            dtype=x.dtype,
+            shape=x.shape,
+            version=DOMAIN_VERSION)
+
+
+class BrevitasBinaryQuantOp:
+    torchscript = BrevitasBinaryQuantTorchScriptFn
+    dynamo = BrevitasBinaryQuantDynamoFn
+
+
+class BrevitasQuantTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
@@ -44,18 +64,35 @@ class BrevitasQuantFn(Function):
 
     @staticmethod
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
-        y = int_quant(
-            x,
-            scale,
-            zero_point,
-            bit_width,
-            int(narrow_range),
-            signed=int(signed),
-            rounding_mode=rounding_mode)
-        return y
+        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+        quant = IntQuant(
+            float_to_int_impl=float_to_int_impl(),
+            tensor_clamp_impl=TensorClamp(),
+            input_view_impl=Identity(),  #TODO: Update this when QONNX supports Groupwise export
+            narrow_range=torch.tensor(int(narrow_range), dtype=x.dtype, device=x.device),
+            signed=torch.tensor(int(signed), dtype=x.dtype, device=x.device))
+        x = quant(scale, zero_point, bit_width, x)
+        return x
 
 
-class BrevitasFloatQuantFn(Function):
+class BrevitasQuantDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+        return torch.onnx.ops.symbolic(
+            f'{DOMAIN_STRING}::Quant', (x, scale, zero_point, bit_width), {
+                'rounding_mode': rounding_mode, 'signed': int(signed), 'narrow': int(narrow_range)},
+            dtype=x.dtype,
+            shape=x.shape,
+            version=DOMAIN_VERSION)
+
+
+class BrevitasQuantOp:
+    torchscript = BrevitasQuantTorchScriptFn
+    dynamo = BrevitasQuantDynamoFn
+
+
+class BrevitasFloatQuantTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(
@@ -89,7 +126,7 @@ class BrevitasFloatQuantFn(Function):
 
     @staticmethod
     def forward(
-            g,
+            ctx,
             x,
             scale,
             exponent_bit_width,
@@ -101,21 +138,44 @@ class BrevitasFloatQuantFn(Function):
             has_subnormal,
             rounding_mode,
             max_val):
-        return float_quant(
+        return x.clone()
+
+
+class BrevitasFloatQuantDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(
             x,
             scale,
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
-            max_val,
-            int(has_inf),
-            int(has_nan),
-            int(has_subnormal),
+            has_inf,
+            has_nan,
+            saturating,
+            has_subnormal,
             rounding_mode,
-            int(saturating))
+            max_val):
+        return torch.onnx.ops.symbolic(
+            f'{DOMAIN_STRING}::FloatQuant',
+            (x, scale, exponent_bit_width, mantissa_bit_width, exponent_bias, max_val),
+            {
+                'has_inf': int(has_inf),
+                'has_nan': int(has_nan),
+                'has_subnormal': int(has_subnormal),
+                'rounding_mode': rounding_mode,
+                'saturation': int(saturating)},
+            dtype=x.dtype,
+            shape=x.shape,
+            version=DOMAIN_VERSION)
 
 
-class BrevitasTruncFn(Function):
+class BrevitasFloatQuantOp:
+    torchscript = BrevitasFloatQuantTorchScriptFn
+    dynamo = BrevitasFloatQuantDynamoFn
+
+
+class BrevitasTruncTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(
@@ -155,16 +215,34 @@ class BrevitasTruncFn(Function):
             output_scale,
             output_bit_width,
             rounding_mode):
-        return trunc_quant(
+        return x.clone()
+
+
+class BrevitasTruncDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(
             x,
             scale,
             zero_point,
             input_bit_width,
+            signed,
+            narrow_range,
             output_scale,
             output_bit_width,
-            rounding_mode,
-            int(signed),
-            int(narrow_range))
+            rounding_mode):
+        return torch.onnx.ops.symbolic(
+            f'{DOMAIN_STRING}::Trunc',
+            (x, scale, zero_point, input_bit_width, output_scale, output_bit_width), {
+                'rounding_mode': rounding_mode, 'signed': int(signed), 'narrow': int(narrow_range)},
+            dtype=x.dtype,
+            shape=x.shape,
+            version=DOMAIN_VERSION)
+
+
+class BrevitasTruncOp:
+    torchscript = BrevitasTruncTorchScriptFn
+    dynamo = BrevitasTruncDynamoFn
 
 
 class BrevitasQuantLSTMCellFn(Function):

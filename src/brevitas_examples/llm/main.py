@@ -35,6 +35,8 @@ from brevitas.utils.python_utils import hooked_on_a_function
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 from brevitas_examples.common.accelerate_utils.accelerate import update_internal_dict
+from brevitas_examples.common.dynamo_utils import dynamo_export_ctx
+from brevitas_examples.common.dynamo_utils import patch_dynamo_export
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
@@ -82,6 +84,9 @@ except:
     SharkManager = None
     logging.debug("Shark-AI not installed, cannot export to Shark")
 
+# We need to patch this before anything else is executed
+patch_dynamo_export()
+
 
 def filter_results(results, tasks):
     # filter out what we actually want to track
@@ -99,7 +104,7 @@ def filter_results(results, tasks):
 def fused_rotation_no_fx(model, calibration_loader, args):
     with torch.no_grad(), rmsnorm_patch(model, model.config) as patcher:
         rmsnorm_classes = patcher.rmsnorm_classes
-        with make_dynamo_compatible(model) as dynamo_comp:
+        with make_dynamo_compatible(model) as dynamo_comp, dynamo_export_ctx():
             fx_model, guards = torch._dynamo.export(dynamo_comp.model)(**next(iter(calibration_loader)))
     if hasattr(model, str(torch.nn.functional.scaled_dot_product_attention)):
         m_to_add = getattr(model, str(torch.nn.functional.scaled_dot_product_attention))
@@ -193,7 +198,16 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 task="text-generation-with-past",
                 do_validation=False)
     elif 'gguf' in args.export_target:
-        save_quantized_as_gguf('.', model, tokenizer, args.export_target)
+        import gguf
+
+        # High-impact tensors (token_embd/output) are quantized
+        # to either Q8_0 or Q6_K, based on the GGUF format.
+        if args.export_target.split(":")[-1].lower() in ('q4_0', 'q4_1'):
+            override_qtype = gguf.GGMLQuantizationType.Q6_K
+        else:
+            override_qtype = gguf.GGMLQuantizationType.Q8_0
+        save_quantized_as_gguf(
+            '.', model, tokenizer, args.export_target, override_qtype=override_qtype)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
@@ -351,7 +365,7 @@ def quantize_llm(args, extra_args=None):
     if require_fx:
         with torch.no_grad(), rmsnorm_patch(model, model.config, enabled=args.replace_rmsnorm) as patcher:
             rmsnorm_classes = patcher.rmsnorm_classes
-            with make_dynamo_compatible(model) as dynamo_comp:
+            with make_dynamo_compatible(model) as dynamo_comp, dynamo_export_ctx():
                 model, guards = torch._dynamo.export(model)(**next(iter(calibration_loader)))
         # Blockwise optimization does not work with FX at the moment
         args.gpxq_block_name = None
@@ -456,6 +470,7 @@ def quantize_llm(args, extra_args=None):
 
     if not args.no_quantize:
         name_blacklist = []
+        custom_quantizer = None
         print("Applying model quantization...")
         # When AWQ is enabled, the scaling_impl_type for the weights needs to be 'stats', as the
         # scaling factor that multiplies the weights is optimized
@@ -470,6 +485,9 @@ def quantize_llm(args, extra_args=None):
                     'zero_point_affine_rescaling_init': args.weight_quant_rescaling_init}}
         if args.weight_narrow_range:
             weight_kwargs = {**weight_kwargs, **{'narrow_range': args.weight_narrow_range}}
+        input_kwargs = {}
+        if args.input_narrow_range:
+            input_kwargs = {**input_kwargs, **{'narrow_range': args.input_narrow_range}}
         quantizers_dict = generate_quantizers(
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
@@ -502,7 +520,8 @@ def quantize_llm(args, extra_args=None):
             scale_rounding_func_type=args.scale_rounding_func_type,
             quant_attn_mode='sdpa',
             scaling_min_val=args.scaling_min_val,
-            weight_kwargs=weight_kwargs)
+            weight_kwargs=weight_kwargs,
+            input_kwargs=input_kwargs)
         if args.custom_quantizer is not None:
             quantizer_name = parse_custom_quantizer(args.custom_quantizer)
             custom_quantizer = QUANTIZERS_REGISTRY.get(quantizer_name)
@@ -531,6 +550,9 @@ def quantize_llm(args, extra_args=None):
 
         model = layerwise_quantize(
             model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+
+        if custom_quantizer is not None:
+            model = custom_quantizer.post_process_quant_model(model)
 
         # Just to be sure
         model.eval()

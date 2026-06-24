@@ -1,6 +1,6 @@
 accelerate
 datasets
-gguf==0.17.0
+gguf==0.18.0
 numexpr<2.14.0
 onnx
 onnxruntime<1.21

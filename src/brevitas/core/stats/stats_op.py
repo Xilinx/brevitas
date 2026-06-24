@@ -359,7 +359,7 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
-        sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
+        sigma = self.value.view(self.value.shape)  # trick to get a tensor type
         out = self.impl(x, sigma)
         return out
 

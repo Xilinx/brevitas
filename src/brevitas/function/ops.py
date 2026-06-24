@@ -201,7 +201,8 @@ def min_int(
     return value
 
 
-def compute_max_mantissa(mantissa_bit_width: Tensor):
+@brevitas.jit.script
+def compute_max_mantissa(mantissa_bit_width: Tensor) -> Tensor:
     return 2 * (1 - 2 ** (-mantissa_bit_width - 1))
 
 

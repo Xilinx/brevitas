@@ -17,8 +17,33 @@ from .function import LSTMCellFn
 __all__ = [
     'Kernel1dApplHandlerMixin',
     'Kernel2dApplHandlerMixin',
+    'ONNXExportOpMixin',
     'ONNXBaseHandler',
     'QuantLSTMLayerHandler']
+
+
+class ONNXExportOpMixin(ABC):
+    # Emits an ONNX op through whichever export backend is currently active. Lives in its own
+    # mixin (rather than on ONNXBaseHandler) so the handler mixins that rely on ``export_op``
+    # (e.g. the standard QCDQ handler mixins) carry it in their MRO.
+    def export_op(self, op, *args):
+        """Emit ``op`` through whichever export backend is currently active.
+
+        Both backends expose the same ``apply(*args)`` interface, so this method
+        only has to select between them:
+
+        * during dynamo tracing (``torch.export``) -> the ``DynamoFn`` backend,
+          which emits the node via ``torch.onnx.ops``;
+        * otherwise (eager, the initial shape-caching forward, and the legacy
+          TorchScript exporter) -> the ``torch.autograd.Function`` backend,
+          whose ``symbolic`` builds the node via ``g.op`` and whose ``forward``
+          provides the eager numerics.
+        """
+        if torch.onnx.is_in_onnx_export() and not torch.jit.is_tracing():
+            fn = op.dynamo
+        else:
+            fn = op.torchscript
+        return fn.apply(*args)
 
 
 class Kernel1dApplHandlerMixin(ABC):
@@ -120,7 +145,7 @@ class Kernel3dApplHandlerMixin(ABC):
             return list(module.kernel_size)
 
 
-class ONNXBaseHandler(BaseHandler, ABC):
+class ONNXBaseHandler(ONNXExportOpMixin, BaseHandler, ABC):
 
     def __init__(self):
         super().__init__()

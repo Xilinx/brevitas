@@ -10,7 +10,7 @@ import torch
 
 from brevitas import torch_version
 from brevitas.export import export_finn_onnx
-from brevitas.export.onnx.finn.custom_ops import DOMAIN_STRING as FINN_PWPOLYF_DOMAIN
+from brevitas.export.onnx.finn.function import DOMAIN_STRING as FINN_PWPOLYF_DOMAIN
 from brevitas.nn import QuantIdentity
 from brevitas.nn.target.finn import PWPolyFActivation
 
@@ -104,7 +104,7 @@ def test_export_finn_onnx_pwpolyf_after_quant_tensor_producer():
     _assert_pwpolyf_opset(onnx_model)
 
 
-@pytest.mark.skipif(parse("2.6") > torch_version, reason="Dynamo export requires PyTorch>=2.6")
+@pytest.mark.skipif(parse("2.8") > torch_version, reason="Dynamo export requires PyTorch>=2.8")
 def test_export_finn_onnx_pwpolyf_dynamo_marker():
     onnx_model = _export_pwpolyf(dynamo=True)
     _assert_pwpolyf_contract(_get_pwpolyf_node(onnx_model))

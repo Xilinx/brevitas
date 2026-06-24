@@ -105,11 +105,12 @@ def get_clm_dataset(
         tokenizer: PreTrainedTokenizerBase,
         nsamples: int,
         seqlen: int,
+        seed: int,
         filter_empty_sequences: bool = True,
         bos_preprocessing: Optional[str] = None,
         add_eos_token: bool = False,
         fuse_documents: bool = False,
-        dataset_processing_num_proc_per_process: int = 1,
+        dataset_processing_num_proc_per_process: int = 8,
         text_column_name: str = "text") -> Dataset:
     """
     Methods group_texts, tokenize_and_group_texts and get_clm_dataset are adapted from
@@ -149,12 +150,9 @@ def get_clm_dataset(
         load_from_cache_file=True,
         desc=f"Grouping texts in chunks of {seqlen}",
     )
-    # Retrieve a random subset of sequences
-    random_indices = [i for i in range(len(dataset))]
-    random.shuffle(random_indices)
-    random_indices = random_indices[:nsamples]
-    # Retrive random slice of dataset
-    dataset = dataset.select(random_indices)
+    # Retrieve a random subset of sequences (nsamples == -1 means use all)
+    if nsamples != -1:
+        dataset = dataset.shuffle(seed=seed).select(range(nsamples))
     return dataset
 
 
@@ -177,17 +175,19 @@ def get_wikitext2(
     input_ids = tokenizer(
         "\n\n".join(raw_dataset['text']), return_attention_mask=False)["input_ids"]
     tokenized_data = []
-    if split == 'train':
+    # Condition is extra verbose but more readable
+    if split in ['test', 'validation'] or (split == 'train' and nsamples == -1):
+        # Load all non-overlapping sequences
+        nsamples = len(input_ids) // seqlen
+        for i in tqdm(range(nsamples)):
+            inp = sequence_process_fn(input_ids[(i * seqlen):((i + 1) * seqlen)])
+            tokenized_data.append({'input_ids': inp})
+    else:
         for _ in tqdm(range(nsamples)):
             i = random.randint(0, len(input_ids) - seqlen - 1)
             j = i + seqlen
             inp = sequence_process_fn(input_ids[i:j])
             tokenized_data.append({'input_ids': inp})
-    elif split in ['test', 'validation']:
-        nsamples = len(input_ids) // seqlen
-        for i in tqdm(range(nsamples)):
-            batch = sequence_process_fn(input_ids[(i * seqlen):((i + 1) * seqlen)])
-            tokenized_data.append({'input_ids': batch})
     return Dataset.from_list(tokenized_data)
 
 
@@ -205,18 +205,15 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
                 "allenai/c4",
                 split="validation",
                 data_files={"validation": "en/c4-validation.00000-of-00008.json.gz"})
-        data = data.shuffle(seed=seed).select(range(10000))  # c4 is too big.
     elif dataset_name == "pile":
         if split == "train":
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
-            data = data.shuffle(seed=seed).select(range(10000))
         else:
             warnings.warn(f"There is no available {split} split for pile. Defaulting to wikitext2.")
             data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "fineweb":
         if split == "train":
             data = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")
-            data = data.shuffle(seed=seed).select(range(10000))
         else:
             warnings.warn(
                 f"There is no available {split} split for fineweb. Defaulting to wikitext2.")

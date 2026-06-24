@@ -19,8 +19,8 @@ import torch
 from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.nn.quant_linear import QuantLinear
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
 from tests.brevitas.hyp_helper import float_tensor_nz_st
 
 torch.manual_seed(0)
