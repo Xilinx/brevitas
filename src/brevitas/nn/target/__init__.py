@@ -3,3 +3,4 @@
 
 from .flexml import FlexMLQuantAvgPool2d
 from .flexml import FlexMLQuantLeakyReLU
+from .finn import PWPolyFActivation

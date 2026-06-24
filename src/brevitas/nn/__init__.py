@@ -35,3 +35,4 @@ from .quant_upsample import QuantUpsample
 from .quant_upsample import QuantUpsamplingBilinear2d
 from .quant_upsample import QuantUpsamplingNearest2d
 from .target import flexml
+from .target import finn
