@@ -34,8 +34,6 @@ class PWPolyFFunctionSpec:
 
 
 class PWPolyFEager:
-    """Configured eager PWPolyF coefficient generation and evaluation."""
-
     def __init__(self, func, K, degree, fit_samples=1000, geometry=None, function_specs=None):
         self.geometry = geometry if geometry is not None else PWPolyFGeometry()
         self.function_specs = (
@@ -94,7 +92,7 @@ class PWPolyFEager:
         return bounds
 
     def fit_coefficients(self):
-        """Fit coefficient tables using the same segmentation as FINN PWPolyF RTL."""
+        # fit coefficient tables using the same segmentation as FINN PWPolyF RTL
         bounds = self._segment_boundaries()
         coeffs = np.zeros((len(bounds), self.degree + 1), dtype=np.float64)
 
@@ -157,8 +155,6 @@ class PWPolyFEager:
 
 
 class PWPolyFActivation(nn.Module, ExportMixin, LayerProtocol):
-    """FINN-compatible PWPolyF activation approximation."""
-
     def __init__(self, func="gelu", K=3, degree=2):
         nn.Module.__init__(self)
         ExportMixin.__init__(self)
