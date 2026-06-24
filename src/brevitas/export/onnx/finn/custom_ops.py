@@ -6,7 +6,7 @@ from onnxscript import FLOAT
 import torch
 
 import brevitas.library
-from brevitas.nn.target.finn import pwpolyf_eager_from_attrs
+from brevitas.nn.target.finn import PWPolyFEager
 
 __all__ = [
     "DOMAIN_STRING",
@@ -24,7 +24,8 @@ finn_op = onnxscript.values.Opset(domain=DOMAIN_STRING, version=DOMAIN_VERSION)
 
 @brevitas.library.custom_op(f"{LIBRARY_STRING}::pwpolyf", mutates_args=())
 def pwpolyf(x: torch.Tensor, func: str, K: int, degree: int) -> torch.Tensor:
-    return pwpolyf_eager_from_attrs(x, func, K, degree)
+    eager_impl = PWPolyFEager(func, K, degree)
+    return eager_impl.evaluate(x, eager_impl.fit_coefficients())
 
 
 @pwpolyf.register_fake

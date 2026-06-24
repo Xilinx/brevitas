@@ -3,7 +3,7 @@
 
 from torch.autograd import Function
 
-from brevitas.nn.target.finn import pwpolyf_eager
+from brevitas.nn.target.finn import PWPolyFEager
 
 from .custom_ops import DOMAIN_STRING
 
@@ -23,4 +23,5 @@ class FINNPWPolyFFn(Function):
 
     @staticmethod
     def forward(ctx, x, coeffs, func, K, degree):
-        return pwpolyf_eager(x, coeffs, func, int(K), int(degree))
+        eager_impl = PWPolyFEager(func, int(K), int(degree))
+        return eager_impl.evaluate(x, coeffs)

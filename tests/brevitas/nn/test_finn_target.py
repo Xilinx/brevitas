@@ -3,20 +3,13 @@
 
 import pytest
 import torch
-import torch.nn.functional as F
 
+from brevitas.nn.target.finn import PWPolyFEager
 from brevitas.nn.target.finn import PWPolyFActivation
-from brevitas.nn.target.finn import SUPPORTED_PWPOLYF_FUNCS
 from brevitas.quant_tensor import IntQuantTensor
 
-REFERENCE_FUNCS = {
-    "gelu": lambda x: F.gelu(x),
-    "silu": lambda x: F.silu(x),
-    "sigmoid": lambda x: torch.sigmoid(x),
-    "tanh": lambda x: torch.tanh(x),}
 
-
-@pytest.mark.parametrize("func", SUPPORTED_PWPOLYF_FUNCS)
+@pytest.mark.parametrize("func", PWPolyFEager.supported_funcs())
 def test_pwpolyf_activation_forward_shape(func):
     mod = PWPolyFActivation(func=func, K=2, degree=2)
     inp = torch.randn(2, 3, 4)
@@ -28,13 +21,13 @@ def test_pwpolyf_activation_forward_shape(func):
     assert torch.isfinite(out).all().item()
 
 
-@pytest.mark.parametrize("func", SUPPORTED_PWPOLYF_FUNCS)
+@pytest.mark.parametrize("func", PWPolyFEager.supported_funcs())
 def test_pwpolyf_activation_approximates_reference(func):
     mod = PWPolyFActivation(func=func, K=3, degree=2)
     inp = torch.linspace(-4.0, 4.0, steps=65)
 
     out = mod(inp)
-    ref = REFERENCE_FUNCS[func](inp)
+    ref = mod.eager_impl.function_spec.reference_impl(inp)
 
     assert torch.allclose(out, ref, atol=1e-1)
 
