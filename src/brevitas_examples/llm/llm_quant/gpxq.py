@@ -11,6 +11,7 @@ from tqdm import tqdm
 from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gptaq import GPTAQ
 from brevitas.graph.gptq import GPTQ
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.magr import magr_mode
@@ -250,6 +251,30 @@ def apply_qronos(
         block_name=block_name,
         group_of_parallel_layers=group_of_parallel_layers,
         algorithm_impl=partial(Qronos, alpha=alpha),
+        device=buffer_device,
+        dtype=buffer_dtype)
+
+
+@torch.no_grad()
+def apply_gptaq(
+        model,
+        dataloader,
+        act_order=True,
+        group_of_parallel_layers=None,
+        block_name=None,
+        alpha=0.25,
+        buffer_device='cpu',
+        buffer_dtype=torch.float32):
+    assert alpha > 0, "Error: alpha needs to be strictly positive"
+    # We use the dual optimization callback, which uses two forward passes to correct
+    # quantization error in both the weights and activations from previous layers
+    _dual_optimization_callback(
+        model,
+        dataloader,
+        act_order=act_order,
+        block_name=block_name,
+        group_of_parallel_layers=group_of_parallel_layers,
+        algorithm_impl=partial(GPTAQ, alpha=alpha),
         device=buffer_device,
         dtype=buffer_dtype)
 

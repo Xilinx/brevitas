@@ -277,6 +277,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument('--qronos', action='store_true', help='Apply Qronos.')
     parser.add_argument(
         '--qronos-alpha', default=1e-6, type=float, help='Alpha for Qronos. Default: 1e-6')
+    parser.add_argument('--gptaq', action='store_true', help='Apply GPTAQ.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
     parser.add_argument('--gpfq', action='store_true', help='Apply GPFQ.')
     parser.add_argument(
