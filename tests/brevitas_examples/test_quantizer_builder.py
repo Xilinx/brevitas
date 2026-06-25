@@ -4,12 +4,10 @@
 import pytest
 import torch
 
-from brevitas.core.stats import NegativeMinOrZero
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
-from brevitas.inject.enum import StatsOp
 from brevitas.nn import QuantLinear
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
@@ -21,7 +19,9 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantizerBuilder
+from brevitas_examples.common.quantizer_builder import QuantParamType
 
 # Keep the model small and deterministic so that weight-quant outputs are
 # directly comparable between the reference quantizer and the builder.
@@ -47,18 +47,19 @@ SCALING_MIN_VAL = 1e-10
 # first-class builder parameters but are required to match the reference
 # quantizer (e.g. the proxy class).
 #
-# Signedness, narrow range and zero-point handling are now driven by the
-# builder's sym/asym mixins: a symmetric quantizer is the default, while an
-# asymmetric one is selected by passing ``zero_point_stats_impl`` to the
-# builder (which wires in IntAsymMixin / the zero-point implementation).
+# Signedness, narrow range, the scaling stats op and zero-point handling are
+# now driven by the builder's sym/asym mixins, selected via ``quant_param_type``
+# (QuantParamType.SYM / QuantParamType.ASYM). The mixins set scaling_stats_op
+# (MAX for sym, MIN_MAX for asym) and wire the zero-point implementation, so
+# those no longer need to be passed explicitly.
 BUILDER_SPECS = {
     "int_per_tensor_sym": {
         "ref": Int8WeightPerTensorFloat,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
             "bit_width": BIT_WIDTH,
             "scaling_impl_type": ScalingImplType.STATS,
-            "scaling_stats_op": StatsOp.MAX,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
@@ -69,13 +70,12 @@ BUILDER_SPECS = {
         "ref": ShiftedUint8WeightPerTensorFloat,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
             "bit_width": BIT_WIDTH,
             "scaling_impl_type": ScalingImplType.STATS,
-            "scaling_stats_op": StatsOp.MIN_MAX,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "zero_point_stats_impl": NegativeMinOrZero,
             "kwargs": {
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
@@ -83,9 +83,9 @@ BUILDER_SPECS = {
         "ref": Int8WeightPerChannelFloat,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
             "bit_width": BIT_WIDTH,
             "scaling_impl_type": ScalingImplType.STATS,
-            "scaling_stats_op": StatsOp.MAX,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
@@ -96,13 +96,12 @@ BUILDER_SPECS = {
         "ref": ShiftedUint8WeightPerChannelFloat,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
             "bit_width": BIT_WIDTH,
             "scaling_impl_type": ScalingImplType.STATS,
-            "scaling_stats_op": StatsOp.MIN_MAX,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "zero_point_stats_impl": NegativeMinOrZero,
             "kwargs": {
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
@@ -110,9 +109,9 @@ BUILDER_SPECS = {
         "ref": IntWeightSymmetricGroupQuant,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
             "bit_width": BIT_WIDTH,
             "scaling_impl_type": ScalingImplType.STATS,
-            "scaling_stats_op": StatsOp.MAX,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
@@ -125,13 +124,12 @@ BUILDER_SPECS = {
         "ref": ShiftedUint8WeightGroupQuantFloat,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
             "bit_width": BIT_WIDTH,
             "scaling_impl_type": ScalingImplType.STATS,
-            "scaling_stats_op": StatsOp.MIN_MAX,
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "zero_point_stats_impl": NegativeMinOrZero,
             "kwargs": {
                 "group_size": GROUP_SIZE,
                 "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
@@ -152,10 +150,9 @@ BUILDER_SPECS = {
         "ref": Int8WeightPerTensorFloatMSE,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
             "bit_width": BIT_WIDTH,
-            "scaling_param_method": "mse",
-            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
-            "scaling_stats_op": StatsOp.MAX,
+            "scaling_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
@@ -166,10 +163,9 @@ BUILDER_SPECS = {
         "ref": Int8WeightPerChannelFloatMSE,
         "builder_args": {
             "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
             "bit_width": BIT_WIDTH,
-            "scaling_param_method": "mse",
-            "scaling_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
-            "scaling_stats_op": StatsOp.MAX,
+            "scaling_param_method": ParamMethod.MSE,
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
