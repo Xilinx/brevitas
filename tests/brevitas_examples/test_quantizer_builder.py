@@ -5,9 +5,6 @@ import pytest
 import torch
 
 from brevitas.core.stats import NegativeMinOrZero
-from brevitas.core.zero_point import StatsFromParameterZeroPoint
-from brevitas.core.zero_point import ZeroZeroPoint
-from brevitas.inject import this
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
@@ -38,7 +35,6 @@ BIT_WIDTH = 8
 # through MaxStatsScaling / MinMaxStatsScaling (brevitas.quant.base).
 SCALING_MIN_VAL = 1e-10
 
-
 # A builder spec describes how to reproduce a given reference quantizer class
 # from WEIGHT_QUANT_MAP['int']['float_scale']['stats'] through the generic
 # QuantizerBuilder. Each spec carries:
@@ -48,27 +44,13 @@ SCALING_MIN_VAL = 1e-10
 #     (e.g. group_size for groupwise quantization)
 #
 # The ``kwargs`` entry of ``builder_args`` carries the directives that are not
-# (yet) first-class builder parameters but are required to match the reference
-# quantizer: signedness, narrow range, zero-point handling and proxy class.
-def _sym_kwargs():
-    return {
-        "signed": True,
-        "narrow_range": True,
-        "zero_point_impl": ZeroZeroPoint,}
-
-
-def _asym_kwargs():
-    return {
-        "signed": False,
-        "narrow_range": False,
-        "quantize_zero_point": True,
-        "zero_point_impl": StatsFromParameterZeroPoint,
-        "zero_point_stats_impl": NegativeMinOrZero,
-        "zero_point_shape": this.scaling_shape,
-        "zero_point_stats_input_view_shape_impl": this.scaling_stats_input_view_shape_impl,
-        "zero_point_stats_input_concat_dim": this.scaling_stats_input_concat_dim,}
-
-
+# first-class builder parameters but are required to match the reference
+# quantizer (e.g. the proxy class).
+#
+# Signedness, narrow range and zero-point handling are now driven by the
+# builder's sym/asym mixins: a symmetric quantizer is the default, while an
+# asymmetric one is selected by passing ``zero_point_stats_impl`` to the
+# builder (which wires in IntAsymMixin / the zero-point implementation).
 BUILDER_SPECS = {
     "int_per_tensor_sym": {
         "ref": Int8WeightPerTensorFloat,
@@ -81,7 +63,6 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                **_sym_kwargs(),
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
     "int_per_tensor_asym": {
@@ -94,8 +75,8 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
+            "zero_point_stats_impl": NegativeMinOrZero,
             "kwargs": {
-                **_asym_kwargs(),
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
     "int_per_channel_sym": {
@@ -109,7 +90,6 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                **_sym_kwargs(),
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
     "int_per_channel_asym": {
@@ -122,8 +102,8 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
+            "zero_point_stats_impl": NegativeMinOrZero,
             "kwargs": {
-                **_asym_kwargs(),
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
     "int_per_group_sym": {
@@ -137,7 +117,6 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                **_sym_kwargs(),
                 "group_size": GROUP_SIZE,
                 "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
         "layer_kwargs": {
@@ -152,8 +131,8 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.GROUP,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
+            "zero_point_stats_impl": NegativeMinOrZero,
             "kwargs": {
-                **_asym_kwargs(),
                 "group_size": GROUP_SIZE,
                 "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
         "layer_kwargs": {
@@ -181,7 +160,6 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                **_sym_kwargs(),
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},
     "int_per_channel_sym_mse": {
@@ -196,7 +174,6 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                **_sym_kwargs(),
                 "proxy_class": WeightQuantProxyFromInjector,},},
         "layer_kwargs": {},},}
 
