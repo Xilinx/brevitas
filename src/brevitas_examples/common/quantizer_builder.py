@@ -11,6 +11,7 @@ from typing import Optional
 from typing import Type
 from typing import TypeVar
 from typing import Union
+import warnings
 
 from dependencies import this
 from dependencies import value
@@ -18,7 +19,8 @@ from torch import nn
 
 from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from brevitas.core.stats import MSE
-from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
+from brevitas.core.zero_point import ParameterZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
@@ -29,7 +31,7 @@ from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
-from brevitas.quant.solver.common import solve_scaling_stats_impl
+from brevitas.quant.solver.common import solve_stats_impl
 from brevitas.quant.solver.common import SolveBitWidthImplFromEnum
 from brevitas.quant.solver.common import SolveIntScalingImplFromEnum
 from brevitas.quant.solver.common import SolveRestrictScalingImplFromEnum
@@ -78,10 +80,9 @@ class MSESubInjectorMixin(ExtendedInjector):
         return (this << 1).restrict_scale_positive
 
 
-class IntSymMixin(ExtendedInjector):
-    signed = True
-    narrow_range = True
+class SymMixin(ExtendedInjector):
     zero_point_impl = ZeroZeroPoint
+    scaling_stats_op = StatsOp.MAX
 
 
 class ZeroPointImplType(AutoName):
@@ -92,40 +93,34 @@ class ZeroPointImplType(AutoName):
     PARAMETER_FROM_RUNTIME = auto()  # ParameterFromRuntimeZeroPoint  (optional, activations)
 
 
-class IntAsymMixin(ExtendedInjector):
-    signed = False
-    narrow_range = False
-    quantize_zero_point = True
-    zero_point_impl_type = ZeroPointImplType.STATS
-    zero_point_stats_impl = NegativeMinOrZero
+class AsymMixin(ExtendedInjector):
+    scaling_stats_op = StatsOp.MIN_MAX
+    zero_point_stats_op = StatsOp.NEG_MIN_OR_ZERO
     zero_point_shape = this.scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
     zero_point_stats_input_concat_dim = this.scaling_stats_input_concat_dim
 
     @value
+    def zero_point_stats_impl(zero_point_stats_op=None):
+        return solve_stats_impl(zero_point_stats_op)
+
+    # TODO (pml): The following is a quite opinionated choice, and should be made configurable
+    @value
     def zero_point_impl(
-            zero_point_impl_type: EnumType[ZeroPointImplType] = None) -> Optional[Type[nn.Module]]:
-
-        from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
-        from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
-        from brevitas.core.zero_point import ParameterZeroPoint
-        from brevitas.core.zero_point import StatsFromParameterZeroPoint
-        from brevitas.core.zero_point import ZeroZeroPoint
-
-        if zero_point_impl_type is None:
-            return None
-        elif zero_point_impl_type == ZeroPointImplType.ZERO:
-            return ZeroZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.STATS:
-            return StatsFromParameterZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
+            scaling_impl_type: EnumType[ScalingImplType] = None) -> Optional[Type[nn.Module]]:
+        if scaling_impl_type == ScalingImplType.PARAMETER:
             return ParameterZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_STATS:
+        elif scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
             return ParameterFromStatsFromParameterZeroPoint
-        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_RUNTIME:
-            return ParameterFromRuntimeZeroPoint
+        elif scaling_impl_type == ScalingImplType.STATS:
+            return StatsFromParameterZeroPoint
+        elif scaling_impl_type == ScalingImplType.AFFINE_STATS:
+            return StatsFromParameterZeroPoint
         else:
-            raise ValueError(f"zero_point_impl_type {zero_point_impl_type} not recognized.")
+            warnings.warn(
+                f"Defaulting to ZeroZeroPoint for unrecognized scaling_impl_type {scaling_impl_type}."
+            )
+            return ZeroZeroPoint
 
 
 @value
@@ -148,6 +143,12 @@ class ParamMethod(AutoName):
     MSE = auto()
 
 
+# TODO: Come up with a better name for this enum
+class QuantParamType(AutoName):
+    SYM = auto()
+    ASYM = auto()
+
+
 def _make_mse_injector(target: MSETarget = MSETarget.SCALE) -> Type[ExtendedInjector]:
     MSESubInjector = type(
         f'MSE{target.capitalize()}SubInjector', (MSESubInjectorMixin,), {
@@ -163,7 +164,7 @@ def _make_mse_injector(target: MSETarget = MSETarget.SCALE) -> Type[ExtendedInje
             scaling_stats_op: EnumType[StatsOp] = None,
             restrict_scaling_type: EnumType[RestrictValueType] = None,
         ) -> nn.Module:
-            return solve_scaling_stats_impl(scaling_stats_op, restrict_scaling_type)
+            return solve_stats_impl(scaling_stats_op, restrict_scaling_type)
 
         init_op.__name__ = f"{prefix}_mse_init_op"
         return init_op
@@ -182,7 +183,7 @@ def _make_mse_injector(target: MSETarget = MSETarget.SCALE) -> Type[ExtendedInje
 # Scale sub-injector: init op is derived at the *parent* (MSEInjectorMixin)
 # level from the requested enums, and pulled in here via `(this << 1)`. The
 # zero-point sub-injector (added later) will instead use a fixed init op.
-MSEInjectorMixin = _make_mse_injector(target=MSETarget.SCALE)
+MSEScaleInjectorMixin = _make_mse_injector(target=MSETarget.SCALE)
 
 
 class BaseQuantSolver(SolveStatsReduceDimFromEnum,
@@ -236,33 +237,30 @@ class QuantizerBuilder:
     def __init__(
         self,
         quant_type: Union[str, QuantType],
+        quant_param_type: Union[str, QuantParamType] = QuantParamType.SYM,
         # General quantization parameters
         bit_width: int = 8,
         bit_width_impl_type: Union[str, BitWidthImplType] = BitWidthImplType.CONST,
         float_to_int_impl_type: Union[str, FloatToIntImplType] = FloatToIntImplType.ROUND,
         # Scaling parameters
         scaling_impl_type: Union[str, ScalingImplType] = ScalingImplType.STATS,
-        scaling_stats_op: Union[str, StatsOp] = StatsOp.MAX,
         scaling_per_output_type: Union[str, ScalingPerOutputType] = ScalingPerOutputType.TENSOR,
         restrict_scaling_type: Union[str, RestrictValueType] = RestrictValueType.FP,
         scaling_min_val: Optional[float] = None,
         scaling_param_method: Union[str, ParamMethod] = ParamMethod.STATS,
-        # Zero-point parameters
-        zero_point_stats_impl: Optional[Union[str, StatsOp]] = None,
         # Additional kwargs to be injected into the quantizer injector
         kwargs: Optional[Dict[str, Any]] = None
     ) -> None:
         self.quant_type = quant_type
+        self.quant_param_type = quant_param_type
         self.bit_width = bit_width
         self.bit_width_impl_type = bit_width_impl_type
         self.float_to_int_impl_type = float_to_int_impl_type
         self.scaling_impl_type = scaling_impl_type
-        self.scaling_stats_op = scaling_stats_op
         self.scaling_per_output_type = scaling_per_output_type
         self.restrict_scaling_type = restrict_scaling_type
         self.scaling_min_val = scaling_min_val
         self.scaling_param_method = scaling_param_method
-        self.zero_point_stats_impl = zero_point_stats_impl
         self.kwargs = kwargs
 
     def build_quant_injector(
@@ -285,10 +283,22 @@ class QuantizerBuilder:
         namespace['float_to_int_impl_type'] = self.float_to_int_impl_type
 
         namespace['scaling_impl_type'] = self.scaling_impl_type
-        namespace['scaling_stats_op'] = self.scaling_stats_op
         namespace['scaling_per_output_type'] = self.scaling_per_output_type
         namespace['restrict_scaling_type'] = self.restrict_scaling_type
         namespace['scaling_min_val'] = self.scaling_min_val
+
+        # Relevant parameters depending on the type of quantization (symmetric vs asymmetric)
+        if self.quant_param_type == QuantParamType.SYM:
+            if self.quant_type in [QuantType.INT]:
+                namespace['signed'] = True
+                namespace['narrow_range'] = True
+        elif self.quant_param_type == QuantParamType.ASYM:
+            if self.quant_type in [QuantType.INT]:
+                namespace['signed'] = False
+                namespace['narrow_range'] = False
+                namespace['quantize_zero_point'] = True
+        else:
+            raise RuntimeError(f"Unrecognized quant_param_type {self.quant_param_type}")
 
         # Insert value_solve_fns into the injector if provided
         if value_solve_fns:
@@ -302,13 +312,13 @@ class QuantizerBuilder:
         base_classes = (WeightQuantSolver,)
 
         # If zero point is enabled, the appropiate asym mixin is provided
-        if self.zero_point_stats_impl is not None:
-            base_classes += (IntAsymMixin,)
-        else:
-            base_classes += (IntSymMixin,)
+        if self.quant_param_type == QuantParamType.ASYM:
+            base_classes += (AsymMixin,)
+        elif self.quant_param_type == QuantParamType.SYM:
+            base_classes += (SymMixin,)
 
         if self.scaling_param_method == ParamMethod.MSE:
-            base_classes = (MSEInjectorMixin,) + base_classes
+            base_classes = (MSEScaleInjectorMixin,) + base_classes
             # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using MSE
             del namespace['scaling_impl_type']
 
