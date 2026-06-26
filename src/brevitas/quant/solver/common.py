@@ -290,7 +290,7 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
             return reduce_dim
 
     @value
-    def keepdim(scaling_per_output):
+    def keepdim(scaling_per_output, mse_scale=None):
         if scaling_per_output == ScalingPerOutputType.GROUP:
             return True
         else:
