@@ -1,0 +1,35 @@
+#################################################
+# General settings
+#################################################
+model: meta-llama/Llama-3.2-1B
+seed: 0
+seqlen: 2048
+nsamples: 512
+dataset: pile
+dtype: float32
+eval: true
+gpxq_block_name: model.layers
+
+#################################################
+# Learned round configuration
+#################################################
+learned_round: identity
+learned_round_fast_update: true
+learned_round_iters: 500
+learned_round_lr: 0.005
+learned_round_scale: true
+learned_round_scale_lr: 0.001
+learned_round_scale_momentum: 0.1
+
+#################################################
+# Weight-only 2-bit per-group (128g) quantization
+#################################################
+scaling_min_val: 0.0001
+weight_bit_width: 2
+weight_group_dim: null
+weight_group_size: 2
+weight_param_method: stats
+weight_quant_format: int
+weight_quant_granularity: per_group
+weight_quant_type: sym
+weight_scale_precision: signed_float_scale

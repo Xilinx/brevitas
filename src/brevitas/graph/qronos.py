@@ -16,12 +16,13 @@ import warnings
 from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.graph.utils import power_iteration
 from brevitas.utils.torch_utils import StopFwdException
 
 
 class Qronos(GPFQ):
     """
-    Implementation of Qronos as proposed in: https://arxiv.org/pdf/2505.11695
+    Implementation of Qronos as proposed in: https://openreview.net/pdf?id=7axclBCYul
     """
 
     def __init__(
@@ -62,7 +63,7 @@ class Qronos(GPFQ):
         if not is_quant_enabled:
             # Computing the normalized G matrix
             self.G *= (self.nsamples - batch_size) / self.nsamples
-            inp_processed /= math.sqrt(
+            inp_processed = inp_processed / math.sqrt(
                 self.nsamples)  # NOTE: quant_input is normalized before, in the H update
             if self.use_intermediate_buffer:
                 self.B.copy_(inp_processed.bmm(self.quant_input.transpose(2, 1)))
@@ -74,7 +75,7 @@ class Qronos(GPFQ):
             # Computing the normalized H matrix
             self.nsamples += batch_size  # NOTE: only increment with quant inputs
             self.H *= (self.nsamples - batch_size) / self.nsamples
-            inp_processed /= math.sqrt(self.nsamples)
+            inp_processed = inp_processed / math.sqrt(self.nsamples)
             if self.use_intermediate_buffer:
                 self.B.copy_(inp_processed.bmm(inp_processed.transpose(2, 1)))
                 self.H += self.B
@@ -93,7 +94,6 @@ class Qronos(GPFQ):
             raise StopFwdException
 
     def single_layer_update(self, beta: int = 1e4):
-        from brevitas.graph.magr import _power_iteration
         assert not self.layer.weight_quant.requires_quant_input, \
             "Error: Qronos does not support weight quantizers that require metadata from input quantizers."
         assert hasattr(self.layer, 'weight_orig'), \
@@ -166,7 +166,7 @@ class Qronos(GPFQ):
         try:
             for group_index in range(self.groups):
                 # using power iteration to estimate the maximum singular value
-                damp[group_index] = self.alpha * _power_iteration(self.H[group_index], 30)
+                damp[group_index] = self.alpha * power_iteration(self.H[group_index], 30)
                 self.iH[group_index, diag, diag] += damp[group_index]
                 self.iH[group_index] = torch.linalg.cholesky(self.iH[group_index])
                 self.iH[group_index] = torch.cholesky_inverse(self.iH[group_index])

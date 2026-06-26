@@ -9,11 +9,15 @@ from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.function import LSTMCellFn
+from brevitas.export.onnx.manager import ONNXDynamoExportMixin
+from brevitas.proxy import BiasQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.proxy import WeightQuantProxyFromInjector
 
-from ..function import DequantizeLinearFn
-from ..function import DynamicQuantizeLinearFn
-from ..function import IntClipFn
-from ..function import QuantizeLinearFn
+from ..function import DequantizeLinearTorchScriptFn
+from ..function import DynamicQuantizeLinearTorchScriptFn
+from ..function import IntClipTorchScriptFn
+from ..function import QuantizeLinearTorchScriptFn
 from ..manager import StdONNXBaseManager
 from .handler import StdCDQCastONNXBiasQuantProxyHandler
 from .handler import StdDynamicQDQCastONNXActQuantProxyHandler
@@ -50,10 +54,10 @@ class StdQCDQONNXManager(StdONNXBaseManager):
 
     custom_fns = [
         DebugMarkerFunction,
-        QuantizeLinearFn,
-        DynamicQuantizeLinearFn,
-        DequantizeLinearFn,
-        IntClipFn,
+        QuantizeLinearTorchScriptFn,
+        DynamicQuantizeLinearTorchScriptFn,
+        DequantizeLinearTorchScriptFn,
+        IntClipTorchScriptFn,
         LSTMCellFn,]
 
     @classmethod
@@ -76,3 +80,32 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         for handler in cls.handlers:
             if hasattr(handler, '_export_q_node'):
                 handler._export_q_node = export_weight_q_node
+
+
+class StdQCDQONNXDynamoManager(ONNXDynamoExportMixin, StdQCDQONNXManager):
+
+    @classmethod
+    def _validate_dynamo_supported(cls, module: Module, export_weight_q_node: bool):
+        # Integer weight/bias export relies on `data_ptr()`, which is incompatible with
+        # torch.export (FakeTensor).
+        for m in module.modules():
+            if isinstance(m, DecoupledWeightQuantWithInputProxyFromInjector) and m.is_quant_enabled:
+                raise RuntimeError(
+                    "QCDQ export with `dynamo=True` does not support input-aware decoupled "
+                    "weight quantization (e.g. A2Q).")
+            if isinstance(m, BiasQuantProxyFromInjector) and m.is_quant_enabled:
+                raise RuntimeError(
+                    "QCDQ export with `dynamo=True` does not support quantized bias.")
+            if (not export_weight_q_node and isinstance(m, WeightQuantProxyFromInjector) and
+                    m.is_quant_enabled):
+                raise RuntimeError(
+                    "QCDQ export with `dynamo=True` requires `export_weight_q_node=True` for "
+                    "quantized weights.")
+
+    @classmethod
+    def export_onnx(cls, *args, export_weight_q_node: bool = True, **onnx_export_kwargs):
+        cls._check_dynamo_export_kwargs(onnx_export_kwargs)
+        if args and isinstance(args[0], Module):
+            cls._validate_dynamo_supported(args[0], export_weight_q_node)
+        super(StdQCDQONNXDynamoManager, cls).export_onnx(
+            *args, export_weight_q_node=export_weight_q_node, **onnx_export_kwargs)

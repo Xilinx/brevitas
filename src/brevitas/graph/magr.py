@@ -14,6 +14,7 @@ from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
+from brevitas.graph.utils import power_iteration
 
 
 def _project_onto_l1_ball(x, eps=1.0):
@@ -53,19 +54,6 @@ def _project_onto_l1_ball(x, eps=1.0):
     proj = (torch.abs(x) - theta.unsqueeze(1)).clamp(min=0)
     x = mask * x + (1 - mask) * proj * torch.sign(x)
     return x
-
-
-def _power_iteration(H, steps: int, eps: float = 1e-12):
-    """
-    Power iteration to compute the maximum singular value for the Hessian.
-    """
-    b_k = torch.rand(H.shape[1], device=H.device)
-    for _ in range(steps):
-        b_k1 = torch.mv(H, b_k)  # Calculate the matrix-by-vector product H*b_k
-        b_k1_norm = torch.norm(b_k1)  # Calculate the norm
-        b_k = b_k1 / (b_k1_norm + eps)  # Re normalize the vector
-    max_singular_value = torch.dot(b_k, torch.mv(H, b_k))
-    return max_singular_value
 
 
 class MagR(GPTQ):
@@ -139,7 +127,7 @@ class MagR(GPTQ):
         self.H = self.H.to(dev)
         for group_index in range(self.groups):
             # approximate maximum singular value (ie, matrix L2 norm)
-            eta = 1. / _power_iteration(self.H[group_index], steps=self.power_steps)
+            eta = 1. / power_iteration(self.H[group_index], steps=self.power_steps)
             alpha = self.alpha / (eta * torch.linalg.norm(self.H[group_index], ord=1))
             wk = weight[group_index].to(self.dtype)
             gk = weight_orig[group_index].to(self.dtype)  # ground

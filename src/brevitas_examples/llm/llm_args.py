@@ -23,7 +23,7 @@ def create_args_parser() -> ArgumentParser:
         type=str,
         default=None,
         help=
-        'Override the quantization list with custom user defined quantizers. This must be a .py file with a list of seven quantizers. Default: None.'
+        'Override the quantization list and/or post-process the quantized model with a user-defined quantization plugin. The plugin can be a registered name or a .py file path followed by :plugin_name. Default: None.'
     )
     parser.add_argument(
         '--dtype',
@@ -37,7 +37,8 @@ def create_args_parser() -> ArgumentParser:
         '--nsamples',
         type=int,
         default=128,
-        help='Number of calibration data samples. Default: 128.')
+        help=
+        'Number of calibration data samples. Set to -1 to load the entire dataset. Default: 128.')
     parser.add_argument(
         '--nsamples-rot-calibration',
         type=int,
@@ -59,10 +60,11 @@ def create_args_parser() -> ArgumentParser:
         help='Specify which split to use for the evaluation dataset (default: %(default)s)')
     parser.add_argument(
         '--gpxq-block-name',
+        '--block-name',
         type=str,
         default=None,
         help=
-        'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
+        'Attribute for model blocks. Used for faster GPxQ optimization (if FX is not needed) and learned round (default: %(default)s)'
     )
     parser.add_argument(
         '--gpxq-buffer-device',
@@ -171,6 +173,10 @@ def create_args_parser() -> ArgumentParser:
         default='asym',
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
+    parser.add_argument(
+        '--input-narrow-range',
+        action="store_true",
+        help='Use narrow range for input quantization. Default: False.')
     parser.add_argument(
         '--input-quant-granularity',
         type=str,
@@ -409,6 +415,7 @@ def create_args_parser() -> ArgumentParser:
         default=None,
         choices=[
             None,
+            'vllm',
             'shark',
             'onnx_qcdq',
             'gguf:q8_0',
@@ -437,7 +444,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--learned-round',
         default=None,
-        choices=[None, 'linear_round'],
+        choices=[None, 'identity'],
         help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     parser.add_argument(
         '--learned-round-fast-update',
@@ -551,8 +558,6 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
 
-        if args.export_target is not None and args.input_bit_width is not None:
-            assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."

@@ -1,7 +1,7 @@
 Post-Training Quantization with Qronos
 =================================================================
 
-Qronos is a new post-training quantization (PTQ) algorithm that sequentially rounds 
+Qronos (presented at `ICLR 2026 <https://iclr.cc/virtual/2026/poster/10011286>`_) is a post-training quantization (PTQ) algorithm that sequentially rounds
 and updates neural network weights to explicitly address quantization errors that 
 have been introduced in both the weights and activations of previous layers. At each
 iteration, Qronos first selects the quantized weight that optimally corrects the current
@@ -12,7 +12,7 @@ into the Qronos algorithm and how to use it with Brevitas!
 .. raw:: html
 
     <div align="center">
-	   <a href="https://arxiv.org/pdf/2505.11695">📄 Paper</a>&nbsp
+	   <a href="https://openreview.net/pdf?id=7axclBCYul">📄 Paper</a>&nbsp
 		<a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py">💻 Code</a>
     </div>
 
@@ -56,7 +56,7 @@ accumulated rounding error. To do so efficiently, Qronos benefits from the same 
 to scale GPTQ to increasingly large models (e.g., Cholesky decomposition and lazy batch 
 updates), and consistently produces quantized models with better accuracy!
 
-🔍 Check out the `paper <https://arxiv.org/pdf/2505.11695>`_ for formalized objective 
+🔍 Check out the `paper <https://openreview.net/pdf?id=7axclBCYul>`_ for formalized objective 
 functions, derivations, and analyses!
 
 
@@ -344,16 +344,14 @@ baseline.
 Citation
 --------
 
-::
+.. code:: bibtex
 
-   @article{zhang2025qronos,
-         title={Qronos: Correcting the Past by Shaping the Future... in Post-Training Quantization}, 
+   @inproceedings{zhang2026qronos,
+         title={Qronos: Correcting the Past by Shaping the Future... in Post-Training Quantization},
          author={Shihao Zhang and Haoyu Zhang and Ian Colbert and Rayan Saab},
-         year={2025},
-         eprint={2505.11695},
-         archivePrefix={arXiv},
-         primaryClass={cs.LG},
-         url={https://arxiv.org/abs/2505.11695}, 
+         booktitle={The Fourteenth International Conference on Learning Representations},
+         year={2026},
+         url={https://openreview.net/forum?id=7axclBCYul},
    }
 
 Note that this tutorial is not intended to reproduce all the experiments from the original 
@@ -368,7 +366,7 @@ References
 
 [3] Ashkboos, Saleh, et al. "QuaRot: Outlier-free 4-bit inference in rotated LLMs." Advances in Neural Information Processing Systems 37 (2024): 100213-100240.
 
-[4] Zhang, Aozhong, et al. "MagR: Weight magnitude reduction for enhancing post-training quantization." arXiv preprint arXiv:2406.00800 (2024).
+[4] Zhang, Aozhong, et al. "MagR: Weight magnitude reduction for enhancing post-training quantization." Advances in neural information processing systems 37 (2024): 85109-85130.
 
-[5] Liu, Zechun, et al. "SpinQuant: LLM quantization with learned rotations." arXiv preprint arXiv:2405.16406 (2024).
+[5] Liu, Zechun, et al. "SpinQuant: LLM quantization with learned rotations." 13th International Conference on Learning Representations. 2025.
 

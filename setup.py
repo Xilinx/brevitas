@@ -28,7 +28,7 @@ setup(
     author="AMD Research and Advanced Development",
     author_email="brevitas-external@amd.com",
     url="https://github.com/Xilinx/brevitas",
-    python_requires=">=3.10, <3.13",
+    python_requires=">=3.10",
     install_requires=read_requirements('requirements.txt'),
     extras_require={
         "numpy": read_requirements('requirements-numpy.txt'),
@@ -41,6 +41,7 @@ setup(
         "tts": read_requirements('requirements-tts.txt'),
         "stt": read_requirements('requirements-stt.txt'),
         "llm": read_requirements('requirements-llm.txt'),
+        "lighteval": read_requirements('requirements-lighteval.txt'),
         "diffusion": read_requirements('requirements-diffusion.txt'),
         "vision": read_requirements('requirements-vision.txt'),
         "finn_integration": read_requirements('requirements-finn-integration.txt'),

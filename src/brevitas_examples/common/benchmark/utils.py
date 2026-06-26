@@ -116,6 +116,7 @@ def run_args_bucket_process(
         args_queue: Queue):
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+    os.environ["HIP_VISIBLE_DEVICES"] = cuda_visible_devices
     # Imports are deferred to ensure that CUDA is not initialized
     # in the main process
     from brevitas import __version__ as brevitas_version
@@ -138,11 +139,16 @@ def run_args_bucket_process(
                 break
         except Exception:
             break
-        print(
-            f"Process: {id}, remaining combinations: {args_queue.qsize()}, remaining time: {'unknown' if num_runs == 0 else str(datetime.timedelta(seconds=int((args_queue.qsize() / num_processes + 1)*mean_running_time)))}"
-        )
         job_name = f"{hashlib.md5(_dict_to_bytes(args_dict)).hexdigest()}"
         job_folder = f"{results_folder}/{job_name}"
+        remaining_time = 'unknown'
+        if num_runs != 0:
+            remaining_time = str(
+                datetime.timedelta(
+                    seconds=int((args_queue.qsize() / num_processes + 1) * mean_running_time)))
+        print(
+            f"Job: {job_name}, process: {id}, gpu(s): {cuda_visible_devices}, remaining combinations: {args_queue.qsize()}, remaining time: {remaining_time}"
+        )
         # Check if a folder for the experiment already exists. In case the
         # experiment was successful before, do not try to run again
         if os.path.isdir(job_folder):

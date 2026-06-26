@@ -1,0 +1,1075 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Learned Round &#8212; Brevitas Documentation - dev</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/learned_round';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'dev';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Settings" href="../settings.html" />
+    <link rel="prev" title="Shark-AI Export" href="export_shark.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - dev - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - dev - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../papers/index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compile.html">Brevitas and Compile</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rotations.html">Hadamard Rotations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_gguf.html">GGUF Export</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_vllm.html">vLLM Export</a></li>
+<li class="toctree-l1"><a class="reference internal" href="export_shark.html">Shark-AI Export</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Learned Round</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guides</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Learned Round</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="learned-round">
+<h1>Learned Round<a class="headerlink" href="#learned-round" title="Permalink to this heading">#</a></h1>
+<p>Learned Round is a <strong>post-training quantization (PTQ)</strong> technique that improves quantization quality by <strong>learning per-weight
+rounding decisions</strong>, instead of relying on fixed round-to-nearest (RTN). It unifies methods such as <strong>AdaRound</strong> <a class="footnote-reference brackets" href="#id12" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> and
+<strong>SignRound</strong> <a class="footnote-reference brackets" href="#id13" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> under a single, configurable framework integrated into Brevitas’ PTQ pipelines.</p>
+<div align="center">
+            <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round">💻 Examples</a>
+</div><nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#about-the-algorithm" id="id20">About the Algorithm</a></p>
+<ul>
+<li><p><a class="reference internal" href="#motivation" id="id21">Motivation</a></p></li>
+<li><p><a class="reference internal" href="#rounding-optimization" id="id22">Rounding Optimization</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#learned-round-in-brevitas" id="id23">Learned Round in Brevitas</a></p>
+<ul>
+<li><p><a class="reference internal" href="#implementation-overview" id="id24">Implementation Overview</a></p></li>
+<li><p><a class="reference internal" href="#entrypoint-integration" id="id25">Entrypoint Integration</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#extending-learned-round" id="id26">Extending Learned Round</a></p>
+<ul>
+<li><p><a class="reference internal" href="#rounding-parameterizations" id="id27">Rounding Parameterizations</a></p></li>
+<li><p><a class="reference internal" href="#extending-to-custom-models-or-datasets" id="id28">Extending to Custom Models or Datasets</a></p>
+<ul>
+<li><p><a class="reference internal" href="#model-and-blocks" id="id29">1. Model and blocks</a></p></li>
+<li><p><a class="reference internal" href="#cache" id="id30">2. Cache</a></p></li>
+<li><p><a class="reference internal" href="#forward-functions" id="id31">3. Forward functions</a></p></li>
+<li><p><a class="reference internal" href="#block-extraction-function" id="id32">4. Block extraction function</a></p></li>
+<li><p><a class="reference internal" href="#putting-it-all-together" id="id33">Putting it all together</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#next-steps" id="id34">Next Steps</a></p></li>
+<li><p><a class="reference internal" href="#references" id="id35">References</a></p></li>
+</ul>
+</nav>
+<section id="about-the-algorithm">
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">About the Algorithm</a><a class="headerlink" href="#about-the-algorithm" title="Permalink to this heading">#</a></h2>
+<section id="motivation">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Motivation</a><a class="headerlink" href="#motivation" title="Permalink to this heading">#</a></h3>
+<p>Quantization mappings generally <strong>require a rounding operator</strong>, for which <strong>round‑to‑nearest (RTN)</strong> is the standard choice.</p>
+<p>For example, in symmetric integer quantization the mapping is typically written as:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{Q}(W) := s \cdot \left(
+\text{clip}\left(
+    \left\lceil \frac{W}{s} \right\rfloor + z,
+    \min \mathcal{A}, \max \mathcal{A}
+\right) - z
+\right).\]</div>
+<p>RTN is optimal when minimizing the <strong>weight reconstruction error</strong></p>
+<div class="math notranslate nohighlight">
+\[\lVert W - \mathcal{Q}(W) \rVert_2,\]</div>
+<p>but this optimality does not generally hold when considering the <strong>layer (or block‑wise) output reconstruction loss</strong></p>
+<div class="math notranslate nohighlight">
+\[\lVert XW - X\mathcal{Q}(W) \rVert_2,\]</div>
+<p>which is commonly used as a proxy for downstream accuracy degradation in PTQ.</p>
+<p>This observation motivates <strong>learned rounding</strong>, where each weight is allowed to round <strong>up or down</strong> in a data‑driven way.</p>
+</section>
+<section id="rounding-optimization">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Rounding Optimization</a><a class="headerlink" href="#rounding-optimization" title="Permalink to this heading">#</a></h3>
+<p>Methods such as <strong>AdaRound</strong> <a class="footnote-reference brackets" href="#id12" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> and <strong>SignRound</strong> <a class="footnote-reference brackets" href="#id13" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> formulate rounding as a <strong>binary optimization problem</strong>, selecting
+either the floor or the ceiling of the quantization grid for each weight. Although the resulting discrete problem is
+NP‑hard, it can be relaxed into a <strong>continuous optimization</strong> by introducing learnable parameters inside the rounding
+operator and optimizing them using calibration data.</p>
+<p>In contrast to greedy solvers such as <strong>GPTQ</strong> <a class="footnote-reference brackets" href="#id14" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> and <strong>Qronos</strong> <a class="footnote-reference brackets" href="#id15" id="id6" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>, which typically solve closed‑form layer‑wise
+objectives sequentially, learned rounding methods:</p>
+<ul class="simple">
+<li><p>jointly optimize rounding decisions (per layer or per block),</p></li>
+<li><p>rely on gradient‑based optimization over calibration data,</p></li>
+<li><p>restrict the search space to a limited subset of quantization grid points.</p></li>
+</ul>
+<p>By jointly correcting quantization error across all weights within a block
+in a constrained manner, this approach more effectively reduces block output error
+while mitigating overfitting to calibration data. However, compared to <strong>GPTQ</strong> and <strong>Qronos</strong>,
+learned rounding typically requires greater compute and hyperparameter tuning.</p>
+</section>
+</section>
+<section id="learned-round-in-brevitas">
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">Learned Round in Brevitas</a><a class="headerlink" href="#learned-round-in-brevitas" title="Permalink to this heading">#</a></h2>
+<p>In Brevitas, these approaches are unified under the name <strong>Learned Round</strong>, providing:</p>
+<ul class="simple">
+<li><p>a common abstraction for learned rounding,</p></li>
+<li><p>flexible choices of rounding parameterization and optimization strategy,</p></li>
+<li><p>seamless integration with existing PTQ pipelines (LLM and ImageNet entrypoints).</p></li>
+</ul>
+<p>Learned Round is compatible with <strong>all quantized data types currently supported by Brevitas</strong>, including:</p>
+<ul class="simple">
+<li><p>integer quantization (e.g. INT2 / INT4 / INT8),</p></li>
+<li><p>weight‑only, weight‑and‑activation, and KV‑cache quantization,</p></li>
+<li><p>advanced formats such as <strong>MXFP4</strong>.</p></li>
+</ul>
+<p>It is also composable with other PTQ techniques, including <strong>QuaRot</strong> <a class="footnote-reference brackets" href="#id16" id="id7" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a>, <strong>SpinQuant</strong> <a class="footnote-reference brackets" href="#id17" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></a>, and <strong>MagR</strong> <a class="footnote-reference brackets" href="#id18" id="id9" role="doc-noteref"><span class="fn-bracket">[</span>7<span class="fn-bracket">]</span></a>.</p>
+<section id="implementation-overview">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Implementation Overview</a><a class="headerlink" href="#implementation-overview" title="Permalink to this heading">#</a></h3>
+<p>At a high level, Learned Round performs <strong>block‑wise post‑training optimization</strong> of rounding decisions,
+following these steps:</p>
+<ol class="arabic simple">
+<li><p>Prepare the model (optional preprocessing, e.g. disabling internal caches).</p></li>
+<li><p>Insert learnable rounding parameters into the quantization operators.</p></li>
+<li><p>Decompose the model into blocks.</p></li>
+<li><p>For each block:
+a. Cache block inputs (and reference outputs) using calibration data.
+b. Optimize rounding parameters (and optionally scales) via a local reconstruction loss.
+c. Freeze the optimized rounding decisions.</p></li>
+<li><p>Optionally reuse cached activations to accelerate block‑to‑block optimization.</p></li>
+<li><p>Restore the original model configuration for inference.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">LearnedRoundTrainer</span></code> orchestrates this block‑wise optimization by wiring together:</p>
+<ul class="simple">
+<li><p>a learned rounding parameterization (e.g. <code class="docutils literal notranslate"><span class="pre">LearnedRoundIdentity</span></code>),</p></li>
+<li><p>block‑level reconstruction losses (e.g. <code class="docutils literal notranslate"><span class="pre">MSELoss</span></code>, <code class="docutils literal notranslate"><span class="pre">RoundRegularisationLoss</span></code>),</p></li>
+<li><p>optimizers and learning‑rate schedulers,</p></li>
+<li><p>training configuration (batch size, iterations, AMP settings, etc.).</p></li>
+</ul>
+<p>Following, an example configuration matching the <strong>SignRound</strong> <a class="footnote-reference brackets" href="#id13" id="id10" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> setup (without scale optimization) is provided:</p>
+<div class="literal-block-wrapper docutils container" id="id19">
+<div class="code-block-caption"><span class="caption-text"><cite>brevitas_examples/common/learned_round/learned_round_trainer.py</cite></span><a class="headerlink" href="#id19" title="Permalink to this code">#</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span> <span class="n">learned_round_trainer</span> <span class="o">=</span> <span class="n">LearnedRoundTrainer</span><span class="p">(</span>
+     <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span>
+         <span class="n">trainer</span><span class="o">=</span><span class="n">TrainerConfig</span><span class="p">(</span>
+             <span class="n">training_args</span><span class="o">=</span><span class="n">TrainingArgs</span><span class="p">(</span>
+                 <span class="n">optimizers_args</span><span class="o">=</span><span class="p">[</span>
+                     <span class="n">OptimizerArgs</span><span class="p">(</span>
+                         <span class="n">target_params</span><span class="o">=</span><span class="s2">&quot;learned_round&quot;</span><span class="p">,</span>
+                         <span class="n">optimizer_cls</span><span class="o">=</span><span class="s2">&quot;SignSGD&quot;</span><span class="p">,</span>
+                         <span class="n">lr</span><span class="o">=</span><span class="mf">5e-3</span><span class="p">,</span>
+                         <span class="n">lr_scheduler_args</span><span class="o">=</span><span class="n">LRSchedulerArgs</span><span class="p">(</span>
+                             <span class="n">lr_scheduler_cls</span><span class="o">=</span><span class="s2">&quot;LinearLR&quot;</span><span class="p">,</span>
+                             <span class="n">lr_scheduler_kwargs</span><span class="o">=</span><span class="p">{</span>
+                                 <span class="s2">&quot;start_factor&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+                                 <span class="s2">&quot;end_factor&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                                 <span class="s2">&quot;total_iters&quot;</span><span class="p">:</span> <span class="mi">200</span><span class="p">}))],</span>
+                 <span class="n">batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+                 <span class="n">iters</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+                 <span class="n">losses_args</span><span class="o">=</span><span class="p">[</span><span class="n">LossArgs</span><span class="p">(</span><span class="bp">cls</span><span class="o">=</span><span class="s2">&quot;mse&quot;</span><span class="p">)],</span>
+                 <span class="n">loss_scaling_factor</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span>
+                 <span class="n">use_best_model</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">use_amp</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">amp_dtype</span><span class="o">=</span><span class="s2">&quot;float16&quot;</span><span class="p">,</span>
+                 <span class="n">fast_update</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+             <span class="n">training_handlers</span><span class="o">=</span><span class="p">[</span>
+                 <span class="n">HandlerSpec</span><span class="p">(</span>
+                     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;learned_round&quot;</span><span class="p">,</span>
+                     <span class="n">config</span><span class="o">=</span><span class="n">LearnedRoundArgs</span><span class="p">(</span>
+                         <span class="n">learned_round_param</span><span class="o">=</span><span class="n">LearnedRoundImplType</span><span class="o">.</span><span class="n">IDENTITY</span><span class="p">))])))</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="entrypoint-integration">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Entrypoint Integration</a><a class="headerlink" href="#entrypoint-integration" title="Permalink to this heading">#</a></h3>
+<p>Learned Round is built into Brevitas’ LLM and ImageNet PTQ entrypoints. When using these entrypoints,
+caches, block forward functions, and block extraction logic are handled internally so you only need to
+pass the appropriate CLI flags.</p>
+<p><strong>LLM entrypoint.</strong> The <code class="docutils literal notranslate"><span class="pre">brevitas_ptq_llm</span></code> command enables learned round through the
+<code class="docutils literal notranslate"><span class="pre">--learned-round</span></code> flag (currently accepts <code class="docutils literal notranslate"><span class="pre">identity</span></code>). The <code class="docutils literal notranslate"><span class="pre">--gpxq-block-name</span></code> flag must be set
+to the transformer block attribute path (e.g., <code class="docutils literal notranslate"><span class="pre">model.model.layers</span></code> for Qwen and LLaMA‑family
+models). The following example applies SignRound‑style learned round to a Qwen model:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brevitas_ptq_llm<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--model<span class="w"> </span>Qwen/Qwen3-1.7B<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round<span class="w"> </span>identity<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--gpxq-block-name<span class="w"> </span>model.model.layers<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round-iters<span class="w"> </span><span class="m">200</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round-lr<span class="w"> </span>5e-3<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--weight-bit-width<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--weight-quant-granularity<span class="w"> </span>per_group<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--weight-group-size<span class="w"> </span><span class="m">128</span>
+</pre></div>
+</div>
+<p><strong>ImageNet entrypoint.</strong> The <code class="docutils literal notranslate"><span class="pre">brevitas_ptq_imagenet_val</span></code> command supports learned round through the
+<code class="docutils literal notranslate"><span class="pre">--learned-round</span></code> flag, which accepts <code class="docutils literal notranslate"><span class="pre">identity</span></code>, <code class="docutils literal notranslate"><span class="pre">sigmoid</span></code>, or <code class="docutils literal notranslate"><span class="pre">hard_sigmoid</span></code>. The
+<code class="docutils literal notranslate"><span class="pre">--target-backend</span> <span class="pre">layerwise</span></code> flag is required. The loss function can be set with
+<code class="docutils literal notranslate"><span class="pre">--learned-round-loss</span></code> (choices: <code class="docutils literal notranslate"><span class="pre">regularised_mse</span></code>, <code class="docutils literal notranslate"><span class="pre">mse</span></code>; default: <code class="docutils literal notranslate"><span class="pre">regularised_mse</span></code>).
+The following example uses an AdaRound‑style configuration with sigmoid rounding and regularized MSE:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brevitas_ptq_imagenet_val<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--calibration-dir<span class="w"> </span>/path/to/imagenet/train<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--validation-dir<span class="w"> </span>/path/to/imagenet/val<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round<span class="w"> </span>sigmoid<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--target-backend<span class="w"> </span>layerwise<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round-mode<span class="w"> </span>layerwise<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round-loss<span class="w"> </span>regularised_mse<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round-iters<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learned-round-lr<span class="w"> </span>1e-3
+</pre></div>
+</div>
+<p>When using <code class="docutils literal notranslate"><span class="pre">regularised_mse</span></code>, the loss combines MSE with AdaRound’s <a class="footnote-reference brackets" href="#id12" id="id11" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> round regularization term
+(defaults: weight <code class="docutils literal notranslate"><span class="pre">0.01</span></code>, temperature annealing from <code class="docutils literal notranslate"><span class="pre">20</span></code> to <code class="docutils literal notranslate"><span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">20%</span></code> warmup).</p>
+<p>More examples on how to use learned round through the LLM entrypoint are provided in
+<a class="reference external" href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/learned_round">LLM Learned Round Examples</a>.</p>
+</section>
+</section>
+<section id="extending-learned-round">
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">Extending Learned Round</a><a class="headerlink" href="#extending-learned-round" title="Permalink to this heading">#</a></h2>
+<p>Learned Round is designed to be extensible, supporting:</p>
+<ul class="simple">
+<li><p>custom learned‑round parameterizations,</p></li>
+<li><p>optimization of additional parameters (e.g. scales),</p></li>
+<li><p>integration with custom models and datasets.</p></li>
+</ul>
+<p>This section targets advanced users.</p>
+<section id="rounding-parameterizations">
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Rounding Parameterizations</a><a class="headerlink" href="#rounding-parameterizations" title="Permalink to this heading">#</a></h3>
+<p>Learned Round expresses rounding as:</p>
+<div class="math notranslate nohighlight">
+\[\text{round}(w) = \mathcal{R}(f(w; p)) + g(p), \quad
+\mathcal{R} \in \{\lfloor \cdot \rceil,\ \lfloor \cdot \rfloor,\ \lceil \cdot \rceil\},\]</div>
+<p>where <span class="math notranslate nohighlight">\(p\)</span> denotes learnable parameters controlling the rounding behavior
+(typically only one of <span class="math notranslate nohighlight">\(f\)</span> or <span class="math notranslate nohighlight">\(g\)</span> is used).</p>
+<p>Brevitas provides several implementations in
+<code class="docutils literal notranslate"><span class="pre">brevitas/core/function_wrapper/learned_round.py</span></code>, including:</p>
+<ul>
+<li><p><strong>Sigmoid</strong> (AdaRound‑style):</p>
+<div class="math notranslate nohighlight">
+\[\text{round}(p; w, T) = \lfloor w \rfloor + \sigma(p / T)\]</div>
+</li>
+<li><p><strong>Identity</strong> (SignRound‑style):</p>
+<div class="math notranslate nohighlight">
+\[\text{round}(p; w)
+= \left\lfloor w + \text{clip}(p, -0.5, 0.5) \right\rceil\]</div>
+</li>
+</ul>
+<p>To add a custom rounding parameterization:</p>
+<ol class="arabic simple">
+<li><p>Define a class implementing <code class="docutils literal notranslate"><span class="pre">forward</span></code> and <code class="docutils literal notranslate"><span class="pre">round_forward</span></code> similarly to existing implementations in
+<code class="docutils literal notranslate"><span class="pre">brevitas/core/function_wrapper/learned_round.py</span></code>.</p></li>
+<li><p>Register the implementation in:
+- <code class="docutils literal notranslate"><span class="pre">LearnedRoundImplType</span></code> (<code class="docutils literal notranslate"><span class="pre">brevitas/inject/enum.py</span></code>)
+- <code class="docutils literal notranslate"><span class="pre">learned_round_impl</span></code> (<code class="docutils literal notranslate"><span class="pre">brevitas/quant/solver/common.py</span></code>)</p></li>
+</ol>
+</section>
+<section id="extending-to-custom-models-or-datasets">
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Extending to Custom Models or Datasets</a><a class="headerlink" href="#extending-to-custom-models-or-datasets" title="Permalink to this heading">#</a></h3>
+<p>To use Learned Round with custom models or datasets outside of the supported entrypoints,
+four components need to be defined. The following walks through each one and illustrates
+them with a self-contained MLP example on synthetic data.</p>
+<section id="model-and-blocks">
+<h4><a class="toc-backref" href="#id29" role="doc-backlink">1. Model and blocks</a><a class="headerlink" href="#model-and-blocks" title="Permalink to this heading">#</a></h4>
+<p>Learned Round optimizes the model one <strong>block</strong> at a time. A block is the <strong>unit of
+optimization</strong>: a repeated structural pattern in the network architecture. Typical
+examples include a ResNet block (conv‑bn‑relu‑conv‑bn) in vision models, an
+Attention+MLP layer in transformer‑based LLMs, or even an individual layer when
+fine‑grained per‑layer optimization is preferred. Blocks must be accessible as named
+submodules so they can be extracted programmatically.</p>
+<p>The model below is a 3‑block quantized MLP for regression. Each block contains two
+<code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> layers with a <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> activation, named <code class="docutils literal notranslate"><span class="pre">block_0</span></code> through
+<code class="docutils literal notranslate"><span class="pre">block_2</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">brevitas.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">qnn</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantBlock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_features</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">out_features</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">in_features</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">out_features</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantMLP</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_features</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">out_features</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_0</span> <span class="o">=</span> <span class="n">QuantBlock</span><span class="p">(</span><span class="n">in_features</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_1</span> <span class="o">=</span> <span class="n">QuantBlock</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_2</span> <span class="o">=</span> <span class="n">QuantBlock</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">out_features</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_0</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+</pre></div>
+</div>
+</section>
+<section id="cache">
+<h4><a class="toc-backref" href="#id30" role="doc-backlink">2. Cache</a><a class="headerlink" href="#cache" title="Permalink to this heading">#</a></h4>
+<p>A <strong>cache</strong> captures block inputs and reference outputs during a calibration forward pass
+so they can be replayed during optimization. It must inherit from <code class="docutils literal notranslate"><span class="pre">Cache</span></code> (a <code class="docutils literal notranslate"><span class="pre">Dataset</span></code>
+subclass defined in <code class="docutils literal notranslate"><span class="pre">learned_round_utils.py</span></code>) and implement <code class="docutils literal notranslate"><span class="pre">store_inputs</span></code>,
+<code class="docutils literal notranslate"><span class="pre">store_output</span></code>, <code class="docutils literal notranslate"><span class="pre">reset_cache</span></code>, <code class="docutils literal notranslate"><span class="pre">__getitem__</span></code>, <code class="docutils literal notranslate"><span class="pre">__len__</span></code>, and <code class="docutils literal notranslate"><span class="pre">collate_fn</span></code>.
+Inputs are typically split along the batch dimension so each sample is stored individually.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.common.learned_round.learned_round_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cache</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CacheMLP</span><span class="p">(</span><span class="n">Cache</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outputs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">store_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">store_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputs</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">collate_fn</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">batch</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">batch</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="forward-functions">
+<h4><a class="toc-backref" href="#id31" role="doc-backlink">3. Forward functions</a><a class="headerlink" href="#forward-functions" title="Permalink to this heading">#</a></h4>
+<p>Two forward functions are needed:</p>
+<ul class="simple">
+<li><p>A <strong>model forward function</strong> (<code class="docutils literal notranslate"><span class="pre">ModelForwardFn</span></code> protocol) that runs the full model on
+a calibration batch. This is used to populate the cache. Note that it receives raw
+batches from the <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code> — for example, <code class="docutils literal notranslate"><span class="pre">TensorDataset</span></code> yields a list of
+tensors, so the input must be unpacked.</p></li>
+<li><p>A <strong>block forward function</strong> (<code class="docutils literal notranslate"><span class="pre">BlockForwardFn</span></code> protocol) that runs a single block
+on cached inputs and returns its output, used during per‑block optimization.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">accelerate.utils.operations</span><span class="w"> </span><span class="kn">import</span> <span class="n">send_to_device</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">mlp_forward</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">device</span>
+    <span class="c1"># TensorDataset yields [tensor], so unpack the first element</span>
+    <span class="n">model</span><span class="p">(</span><span class="n">send_to_device</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">device</span><span class="p">))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">mlp_block_forward</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">device</span>
+    <span class="k">return</span> <span class="n">block</span><span class="p">(</span><span class="n">send_to_device</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">device</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="block-extraction-function">
+<h4><a class="toc-backref" href="#id32" role="doc-backlink">4. Block extraction function</a><a class="headerlink" href="#block-extraction-function" title="Permalink to this heading">#</a></h4>
+<p>A <strong>block extraction function</strong> returns the ordered list of blocks (units of optimization)
+from the model. It typically delegates to <code class="docutils literal notranslate"><span class="pre">get_blocks</span></code> with a check function that
+identifies blocks by name or type. The blocks are optimized sequentially in the order
+returned.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.common.learned_round.learned_round_trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_blocks</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_mlp_blocks</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">get_blocks</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">module</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;block_&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="putting-it-all-together">
+<h4><a class="toc-backref" href="#id33" role="doc-backlink">Putting it all together</a><a class="headerlink" href="#putting-it-all-together" title="Permalink to this heading">#</a></h4>
+<p>With the four components defined, create a calibration <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code>, configure the
+trainer with <code class="docutils literal notranslate"><span class="pre">TrainerConfig</span></code>, and call <code class="docutils literal notranslate"><span class="pre">trainer.train()</span></code> to run block‑wise
+optimization. The configuration below uses SignSGD with a linear LR decay, MSE loss, and
+the identity (SignRound‑style) rounding parameterization.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">TensorDataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.common.learned_round.learned_round_trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">LearnedRoundTrainer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.common.learned_round.learned_round_args</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HandlerSpec</span><span class="p">,</span> <span class="n">LossArgs</span><span class="p">,</span> <span class="n">LRSchedulerArgs</span><span class="p">,</span> <span class="n">OptimizerArgs</span><span class="p">,</span>
+    <span class="n">TrainerConfig</span><span class="p">,</span> <span class="n">TrainingArgs</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas_examples.common.learned_round.learned_round_method</span><span class="w"> </span><span class="kn">import</span> <span class="n">LearnedRoundArgs</span>
+
+<span class="c1"># Synthetic calibration data</span>
+<span class="n">calib_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">TensorDataset</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">8</span><span class="p">)),</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># Model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">QuantMLP</span><span class="p">(</span><span class="n">in_features</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># Trainer configuration</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">TrainerConfig</span><span class="p">(</span>
+    <span class="n">training_args</span><span class="o">=</span><span class="n">TrainingArgs</span><span class="p">(</span>
+        <span class="n">optimizers_args</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">OptimizerArgs</span><span class="p">(</span>
+                <span class="n">target_params</span><span class="o">=</span><span class="s2">&quot;learned_round&quot;</span><span class="p">,</span>
+                <span class="n">optimizer_cls</span><span class="o">=</span><span class="s2">&quot;SignSGD&quot;</span><span class="p">,</span>
+                <span class="n">lr</span><span class="o">=</span><span class="mf">5e-3</span><span class="p">,</span>
+                <span class="n">lr_scheduler_args</span><span class="o">=</span><span class="n">LRSchedulerArgs</span><span class="p">(</span>
+                    <span class="n">lr_scheduler_cls</span><span class="o">=</span><span class="s2">&quot;LinearLR&quot;</span><span class="p">,</span>
+                    <span class="n">lr_scheduler_kwargs</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">&quot;start_factor&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+                        <span class="s2">&quot;end_factor&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="s2">&quot;total_iters&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">}))],</span>
+        <span class="n">batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">iters</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">losses_args</span><span class="o">=</span><span class="p">[</span><span class="n">LossArgs</span><span class="p">(</span><span class="bp">cls</span><span class="o">=</span><span class="s2">&quot;mse&quot;</span><span class="p">)],</span>
+        <span class="n">loss_scaling_factor</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">),</span>
+    <span class="n">training_handlers</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">HandlerSpec</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;learned_round&quot;</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">LearnedRoundArgs</span><span class="p">(</span><span class="n">learned_round_param</span><span class="o">=</span><span class="s2">&quot;identity&quot;</span><span class="p">))])</span>
+
+<span class="c1"># Run learned round optimization</span>
+<span class="n">trainer</span> <span class="o">=</span> <span class="n">LearnedRoundTrainer</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+    <span class="n">model_forward</span><span class="o">=</span><span class="n">mlp_forward</span><span class="p">,</span>
+    <span class="n">block_forward</span><span class="o">=</span><span class="n">mlp_block_forward</span><span class="p">,</span>
+    <span class="n">data_loader</span><span class="o">=</span><span class="n">calib_loader</span><span class="p">,</span>
+    <span class="n">cache</span><span class="o">=</span><span class="n">CacheMLP</span><span class="p">(),</span>
+    <span class="n">get_blocks_fn</span><span class="o">=</span><span class="n">get_mlp_blocks</span><span class="p">,</span>
+    <span class="n">keep_gpu</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="next-steps">
+<h2><a class="toc-backref" href="#id34" role="doc-backlink">Next Steps</a><a class="headerlink" href="#next-steps" title="Permalink to this heading">#</a></h2>
+<p>Learned Round has been evaluated in the LLM entrypoint across multiple quantization scenarios, including weight-only and weight-and-activation PTQ,
+and in combination with outlier suppression techniques. For detailed results, as well as instructions on how to reproduce them, see <code class="docutils literal notranslate"><span class="pre">brevitas_examples/papers/learned_round/README.md</span></code>.</p>
+</section>
+<section id="references">
+<h2><a class="toc-backref" href="#id35" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Permalink to this heading">#</a></h2>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id12" role="note">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id1">1</a>,<a role="doc-backlink" href="#id3">2</a>,<a role="doc-backlink" href="#id11">3</a>)</span>
+<p>Nagel, M., Amjad, R. A., Van Baalen, M., Louizos, C., &amp; Blankevoort, T. (2020, November). Up or down? adaptive rounding for post-training quantization. In International conference on machine learning (pp. 7197-7206). PMLR.</p>
+</aside>
+<aside class="footnote brackets" id="id13" role="note">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id2">1</a>,<a role="doc-backlink" href="#id4">2</a>,<a role="doc-backlink" href="#id10">3</a>)</span>
+<p>Cheng, W., Zhang, W., Shen, H., Cai, Y., He, X., Kaokao, L., &amp; Liu, Y. (2024, November). Optimize weight rounding via signed gradient descent for the quantization of llms. In Findings of the Association for Computational Linguistics: EMNLP 2024 (pp. 11332-11350).</p>
+</aside>
+<aside class="footnote brackets" id="id14" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">3</a><span class="fn-bracket">]</span></span>
+<p>Frantar, E., Ashkboos, S., Hoefler, T., &amp; Alistarh, D. (2022). Gptq: Accurate post-training quantization for generative pre-trained transformers. arXiv preprint arXiv:2210.17323.</p>
+</aside>
+<aside class="footnote brackets" id="id15" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id6">4</a><span class="fn-bracket">]</span></span>
+<p>Zhang, S., Zhang, H., Colbert, I., &amp; Saab, R. (2025). Qronos: Correcting the Past by Shaping the Future… in Post-Training Quantization. arXiv preprint arXiv:2505.11695.</p>
+</aside>
+<aside class="footnote brackets" id="id16" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id7">5</a><span class="fn-bracket">]</span></span>
+<p>Ashkboos, S., Mohtashami, A., Croci, M. L., Li, B., Cameron, P., Jaggi, M., … &amp; Hensman, J. (2024). Quarot: Outlier-free 4-bit inference in rotated llms. Advances in Neural Information Processing Systems, 37, 100213-100240.</p>
+</aside>
+<aside class="footnote brackets" id="id17" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">6</a><span class="fn-bracket">]</span></span>
+<p>Liu, Z., Zhao, C., Fedorov, I., Soran, B., Choudhary, D., Krishnamoorthi, R., … &amp; Blankevoort, T. (2024). Spinquant: Llm quantization with learned rotations. arXiv preprint arXiv:2405.16406.</p>
+</aside>
+<aside class="footnote brackets" id="id18" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id9">7</a><span class="fn-bracket">]</span></span>
+<p>Zhang, A., Wang, N., Deng, Y., Li, X., Yang, Z., &amp; Yin, P. (2024). Magr: Weight magnitude reduction for enhancing post-training quantization. Advances in neural information processing systems, 37, 85109-85130.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="export_shark.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Shark-AI Export</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../settings.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Settings</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#about-the-algorithm">About the Algorithm</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#motivation">Motivation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rounding-optimization">Rounding Optimization</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#learned-round-in-brevitas">Learned Round in Brevitas</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-overview">Implementation Overview</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#entrypoint-integration">Entrypoint Integration</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#extending-learned-round">Extending Learned Round</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rounding-parameterizations">Rounding Parameterizations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extending-to-custom-models-or-datasets">Extending to Custom Models or Datasets</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#model-and-blocks">1. Model and blocks</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#cache">2. Cache</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#forward-functions">3. Forward functions</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#block-extraction-function">4. Block extraction function</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/user_guide/learned_round.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

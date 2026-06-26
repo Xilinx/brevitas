@@ -13,8 +13,7 @@ import torch
 
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import tokenize_and_group_texts
-from brevitas_examples.llm.llm_quant.data_utils import collate_fn
-from brevitas_examples.llm.llm_quant.data_utils import DatasetToDevice
+from brevitas_examples.llm.llm_quant.data_utils import llm_collate
 
 # Identifiers for the special tokens of DummyTokenizer
 BOS_TOKEN_ID = 0
@@ -31,6 +30,10 @@ class DummyBatchEncoding:
     def __getitem__(self, item) -> torch.Tensor:
         assert item == "input_ids"
         return self.input_ids
+
+
+def flatten_list(v):
+    return [item for sublist in v for item in sublist]
 
 
 # Sample tokenizer which maps to each character in a string to its integer representation
@@ -53,10 +56,10 @@ class DummyTokenizer:
                           list(map(ord, text)) for text in texts]}
 
     def __call__(self, text: str, **kwargs) -> torch.Tensor:
-        return DummyBatchEncoding(
-            torch.tensor(
-                self.batch_encode_plus([text], add_special_tokens=False)["input_ids"],
-                dtype=torch.int64))
+        output = self.batch_encode_plus([text], add_special_tokens=False)
+
+        flat_list = {k: flatten_list(v) for k, v in output.items()}
+        return flat_list
 
 
 # Expected results for test_clm_tokenization. The nesting order corresponds to bos_preprocessing,
@@ -125,10 +128,7 @@ def test_clm_tokenization(
         fuse_documents: bool,
         add_eos_token: bool):
     texts = ["", "a", "", "bbb"]
-    tokenizer = DummyTokenizer(
-        bos_token_id=bos_token_id,
-        eos_token_id=eos_token_id,
-    )
+    tokenizer = DummyTokenizer(bos_token_id=bos_token_id, eos_token_id=eos_token_id)
     expected_tokenized_text = EXPECTED_CLM_TOKENIZED_TEXTS[
         "none" if bos_token_id is None or bos_preprocessing is None else bos_preprocessing][
             fuse_documents][add_eos_token and eos_token_id is not None]
@@ -138,8 +138,7 @@ def test_clm_tokenization(
         sequence_length=2,
         bos_preprocessing=bos_preprocessing,
         fuse_documents=fuse_documents,
-        add_eos_token=add_eos_token,
-    )["input_ids"]
+        add_eos_token=add_eos_token)["input_ids"]
     assert all(map(lambda x: np.array_equal(*x), zip(expected_tokenized_text, tokenized_text)))
 
 
@@ -154,18 +153,12 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
     tokenizer = DummyTokenizer(bos_token_id=BOS_TOKEN_ID,)
     expected_tokenized_texts = {
         "train": {
-            False: [
-                torch.tensor([[61, 97, 61, 10, 10]], dtype=torch.int64),
-                torch.tensor([[10, 10, 10, 98, 98]], dtype=torch.int64)],
-            True: [
-                torch.tensor([[BOS_TOKEN_ID, 61, 97, 61, 10]], dtype=torch.int64),
-                torch.tensor([[BOS_TOKEN_ID, 10, 10, 10, 98]], dtype=torch.int64)]},
+            False: [[[61, 97, 61, 10, 10]], [[10, 10, 10, 98, 98]]],
+            True: [[[BOS_TOKEN_ID, 61, 97, 61, 10]], [[BOS_TOKEN_ID, 10, 10, 10, 98]]]},
         "validation": {
-            False: [torch.tensor([[61, 97, 61, 10, 10]], dtype=torch.int64)],
-            True: [
-                torch.tensor([[BOS_TOKEN_ID, 61, 97, 61, 10]], dtype=torch.int64),
-                torch.tensor([[BOS_TOKEN_ID, 10, 10, 10, 98]],
-                             dtype=torch.int64)]}}[split][add_bos_token]
+            False: [[[61, 97, 61, 10, 10]]],
+            True: [[[BOS_TOKEN_ID, 61, 97, 61, 10]], [[BOS_TOKEN_ID, 10, 10, 10,
+                                                       98]]]}}[split][add_bos_token]
     with patch('brevitas_examples.llm.llm_quant.data.random.randint', side_effect=[0, 4]):
         tokenized_texts = get_wikitext2(
             raw_dataset=raw_dataset,
@@ -173,29 +166,28 @@ def test_wikitext2_tokenization(add_bos_token: bool, split: str):
             seqlen=5,
             nsamples=2,
             split=split,
-            add_bos_token=add_bos_token,
-        )
+            add_bos_token=add_bos_token)
     for tokenized_text, expected_tokenized_text in zip(tokenized_texts, expected_tokenized_texts):
-        assert torch.equal(tokenized_text["input_ids"], expected_tokenized_text)
+        assert np.equal(tokenized_text["input_ids"], expected_tokenized_text).all()
 
 
 def test_llm_dataloader():
     data = [{
-        'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64),
-        'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64),},
-            {
-                'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64),
-                'attention_mask': torch.tensor([[1, 0, 1, 0]], dtype=torch.int64),}]
-    dataset2device = DatasetToDevice(data, device='cpu')
+        'input_ids': torch.tensor([[1, 2, 3, 4]], dtype=torch.int64)}, {
+            'input_ids': torch.tensor([[5, 6, 7, 8]], dtype=torch.int64)}]
+    expected_attention_mask = [{
+        'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64)}, {
+            'attention_mask': torch.tensor([[1, 1, 1, 1]], dtype=torch.int64)}]
+    dataset2device = Dataset.from_list(data)
 
     # create dataloader with batch size 1 (default)
+    collate_fn = llm_collate(model_name_or_path='', require_fx=False)
     data_loader = torch.utils.data.DataLoader(dataset=dataset2device, collate_fn=collate_fn)
     assert len(data_loader) == 2, 'data loader has length != num_samples/batch_size'
-
     for idx, batch in enumerate(data_loader):
         assert torch.allclose(batch['input_ids'], data[idx]['input_ids']), 'input_ids mismatch'
-        assert torch.allclose(batch['attention_mask'], data[idx]['attention_mask']), 'attention_mask mismatch'
-        assert set(batch.keys()) == set(['input_ids', 'attention_mask']), 'unexpected keys in dataloader'
+        assert torch.allclose(batch['attention_mask'], expected_attention_mask[idx]['attention_mask']), 'attention_mask mismatch'
+        assert set(batch.keys()) == set(['input_ids', 'labels', 'attention_mask']), 'unexpected keys in dataloader'
 
     # create dataloader with batch size 2
     data_loader = data_loader = torch.utils.data.DataLoader(
@@ -206,6 +198,6 @@ def test_llm_dataloader():
         assert torch.allclose(batch['input_ids'][1], data[1]['input_ids']), 'input_ids mismatch'
         assert batch['input_ids'].shape[0] == 2, 'wrong number of input_ids'
 
-        assert torch.allclose(batch['attention_mask'][0], data[0]['attention_mask']), 'attention_mask mismatch'
-        assert torch.allclose(batch['attention_mask'][1], data[1]['attention_mask']), 'attention_mask mismatch'
+        assert torch.allclose(batch['attention_mask'][0], expected_attention_mask[0]['attention_mask']), 'attention_mask mismatch'
+        assert torch.allclose(batch['attention_mask'][1], expected_attention_mask[1]['attention_mask']), 'attention_mask mismatch'
         assert batch['attention_mask'].shape[0] == 2, 'wrong number of attention_mask'

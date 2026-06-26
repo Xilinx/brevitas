@@ -1,0 +1,936 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Pushing the Limits of Block Rotations in Post-Training Quantization &#8212; Brevitas Documentation - dev</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'papers/perq';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.15.3';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://xilinx.github.io/brevitas/dev/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = 'dev';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner = false;
+        </script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="User Guides" href="../user_guide/index.html" />
+    <link rel="prev" title="Post-Training Quantization with Model Expansion" href="post_training_expansion.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas Documentation - dev - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas Documentation - dev - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+            <li class="nav-item dropdown pst-header-nav-item">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link dropdown-item nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav class="navbar-nav">
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../setup.html">
+    Setup
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../tutorials/index.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Papers
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../user_guide/index.html">
+    User Guides
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../settings.html">
+    Settings
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../faq.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../api_reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item pst-header-nav-item">
+  <a class="nav-link nav-internal" href="../about.html">
+    About
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="qronos.html">Qronos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="post_training_expansion.html">Post Training Model Expansion</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">PeRQ</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Papers</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Pushing the...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="pushing-the-limits-of-block-rotations-in-post-training-quantization">
+<h1>Pushing the Limits of Block Rotations in Post-Training Quantization<a class="headerlink" href="#pushing-the-limits-of-block-rotations-in-post-training-quantization" title="Permalink to this heading">#</a></h1>
+<p>PeRQ (Permute, Rotate, then Quantize) is a post-training quantization (PTQ) technique, presented
+at <a class="reference external" href="https://icml.cc/virtual/2026/poster/61670">ICML 2026</a>, that improves the outlier suppression
+capabilities of block Hadamard rotations. Prior to rotation, PeRQ inserts calibrated
+permutations to redistribute activation mass within permutation-equivariant regions of the graph.
+The permutations are calibrated once offline using activation statistics and then merged into
+surrounding weight tensors before deployment so they do not incur additional inference overhead.
+See the paper, either on <a class="reference external" href="https://arxiv.org/pdf/2601.22347">arXiv</a> or <a class="reference external" href="https://openreview.net/pdf?id=nvehxSdMqg">OpenReview</a>, for the full theoretical treatment!</p>
+<div align="center">
+    <a href="https://openreview.net/pdf?id=nvehxSdMqg">📄 Paper</a>&nbsp
+    <a href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py">💻 Code</a>&nbsp
+    <a href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">🧪 Examples</a>
+</div><nav class="contents local" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#about-the-algorithm" id="id4">About the Algorithm</a></p>
+<ul>
+<li><p><a class="reference internal" href="#permutation-equivariant-regions" id="id5">Permutation-equivariant regions</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#implementation-overview" id="id6">Implementation Overview</a></p>
+<ul>
+<li><p><a class="reference internal" href="#permutation-strategies" id="id7">Permutation strategies</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#results" id="id8">Results</a></p>
+<ul>
+<li><p><a class="reference internal" href="#perq-block-rotations-massdiff-qronos" id="id9">PeRQ* (block rotations + MassDiff + Qronos)</a></p></li>
+<li><p><a class="reference internal" href="#perq-learned-rotations-massdiff-rtn" id="id10">PeRQ† (learned rotations + MassDiff + RTN)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#citation" id="id11">Citation</a></p></li>
+<li><p><a class="reference internal" href="#references" id="id12">References</a></p></li>
+</ul>
+</nav>
+<section id="about-the-algorithm">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">About the Algorithm</a><a class="headerlink" href="#about-the-algorithm" title="Permalink to this heading">#</a></h2>
+<p>In few-bit PTQ, activation outliers inflate the dynamic range, often decreasing the resolution of
+the quantizer and increasing its resulting rounding error. Rotation-based PTQ methods reduce
+dynamic range by diffusing large values across vector coordinates before quantization.</p>
+<p>Recent methods [1,2] use block rotations, which apply independent Hadamard transformations to
+fixed-size partitions of an activation vector. For hidden dimension <span class="math notranslate nohighlight">\(d = nb\)</span> with <span class="math notranslate nohighlight">\(n\)</span>
+blocks of size <span class="math notranslate nohighlight">\(b\)</span>, block rotations reduce the compute requirements from
+<span class="math notranslate nohighlight">\(O(d \log d)\)</span> to <span class="math notranslate nohighlight">\(O(d \log b)\)</span>, which can materially reduce inference overhead.</p>
+<p>However, the outlier suppression behavior changes under block structure, as seen below.</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="https://github.com/user-attachments/assets/9f01f26d-9f96-4fc2-a6e8-b52c7e7f4fca"><img alt="Input activation distributions vs block rotation size." src="https://github.com/user-attachments/assets/9f01f26d-9f96-4fc2-a6e8-b52c7e7f4fca" style="width: 100%;" /></a>
+<figcaption>
+<p><span class="caption-text">Input activation distributions sampled from 2048 tokens of WikiText2 at the third down
+projection layer in Llama3 1B under four configurations: (a) original model, (b) block
+Hadamard rotation with <span class="math notranslate nohighlight">\(b = 32\)</span>, (c) block Hadamard rotation with <span class="math notranslate nohighlight">\(b = 128\)</span>,
+and (d) full-vector rotation. As <span class="math notranslate nohighlight">\(b \to d\)</span>, the activation range decreases, showing
+smaller blocks can be less effective at suppressing outliers.</span><a class="headerlink" href="#id2" title="Permalink to this image">#</a></p>
+</figcaption>
+</figure>
+<p>The core issue is that when outlier channels are concentrated within the same block, a block
+rotation cannot diffuse them effectively — they stay within that block rather than spreading
+across the full hidden dimension. PeRQ shows that
+worst-case post-rotation outliers are governed by the maximum per-block <span class="math notranslate nohighlight">\(\ell_1\)</span> mass,
+which tightens as block mass becomes more balanced.</p>
+<p>PeRQ addresses this by inserting a permutation <span class="math notranslate nohighlight">\(P\)</span> before rotation to explicitly
+balance the per-block <span class="math notranslate nohighlight">\(\ell_1\)</span> mass across blocks. The default calibration algorithm,
+MassDiff (Algorithm 1 in the paper), is a greedy assignment that:</p>
+<ol class="arabic simple">
+<li><p>Computes an average magnitude score for each channel</p></li>
+<li><p>Processes channels in descending order of score</p></li>
+<li><p>Assigns each channel to the block whose accumulated <span class="math notranslate nohighlight">\(\ell_1\)</span> mass would increase the least</p></li>
+<li><p>Continues until all blocks reach size <span class="math notranslate nohighlight">\(b\)</span></p></li>
+</ol>
+<p>The result is a permutation that spreads high-magnitude channels evenly across blocks,
+improving outlier suppression for a fixed block size and at no inference cost. The permutation
+itself is never applied at runtime — it is absorbed into adjacent weight tensors during
+calibration, as described in the next section.</p>
+<section id="permutation-equivariant-regions">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Permutation-equivariant regions</a><a class="headerlink" href="#permutation-equivariant-regions" title="Permalink to this heading">#</a></h3>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="https://github.com/user-attachments/assets/fba5f64b-71b6-4f85-b443-2f1e134485bb"><img alt="Example quantization graph architecture for a standard transformer block." src="https://github.com/user-attachments/assets/fba5f64b-71b6-4f85-b443-2f1e134485bb" style="width: 100%;" /></a>
+<figcaption>
+<p><span class="caption-text">An illustration of a quantization graph architecture for a standard transformer block,
+merging rotations and permutations wherever possible and quantizing the weights and
+activations for all linear layers.</span><a class="headerlink" href="#id3" title="Permalink to this image">#</a></p>
+</figcaption>
+</figure>
+<p>The key to zero inference overhead is that permutations can be fused into weights wherever
+the surrounding graph is permutation-equivariant, i.e., wherever the subgraph <span class="math notranslate nohighlight">\(\Phi\)</span>
+commutes with feature-wise permutations:</p>
+<div class="math notranslate nohighlight">
+\[\Phi(X W_1) W_2 = \Phi(X W_1 P)\, P^T W_2.\]</div>
+<p>In transformer blocks, this includes compositions of linear layers with elementwise activations
+(SiLU, GELU), elementwise multiplications (e.g., SwiGLU gating), and residual additions where
+both branches share the same permutation. Brevitas automatically detects these regions and
+absorbs the permutation into adjacent weights, so no explicit permutation operator remains in
+the inference graph.</p>
+</section>
+</section>
+<section id="implementation-overview">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Implementation Overview</a><a class="headerlink" href="#implementation-overview" title="Permalink to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">rotate_permute_mode</span></code> context manager in
+<a class="reference external" href="https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/permute.py">brevitas.graph.permute</a>
+encapsulates the full PeRQ workflow:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.graph.equalize</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphRotationEqualization</span><span class="p">,</span> <span class="n">apply_rewriters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.graph.permute</span><span class="w"> </span><span class="kn">import</span> <span class="n">rotate_permute_mode</span>
+
+<span class="n">block_size</span> <span class="o">=</span> <span class="mi">32</span>
+
+<span class="c1"># Finds regions for rotations; delay_rewriters and return_rewriters</span>
+<span class="c1"># are required by rotate_permute_mode</span>
+<span class="n">rotation</span> <span class="o">=</span> <span class="n">GraphRotationEqualization</span><span class="p">(</span>
+    <span class="n">orphan_sink</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>       <span class="c1"># enables online rotations for residual sinks</span>
+    <span class="n">rotation_block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">,</span>
+    <span class="n">delay_rewriters</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">return_rewriters</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">rotate_permute_mode</span><span class="p">(</span>
+        <span class="n">model</span><span class="p">,</span>
+        <span class="n">rotation</span><span class="o">=</span><span class="n">rotation</span><span class="p">,</span>
+        <span class="n">permute_fn</span><span class="o">=</span><span class="s1">&#39;massdiff&#39;</span><span class="p">,</span>
+        <span class="n">block_size</span><span class="o">=</span><span class="n">block_size</span><span class="p">)</span> <span class="k">as</span> <span class="n">rpm</span><span class="p">:</span>
+    <span class="c1"># on __enter__: rotation regions are identified; permutation hooks are set up</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">rpm</span><span class="o">.</span><span class="n">model</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+            <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># collects per-region activation statistics</span>
+    <span class="n">rewriters</span> <span class="o">=</span> <span class="n">rpm</span><span class="o">.</span><span class="n">rewriters</span>
+    <span class="c1"># on __exit__: permutations are calibrated and fused into weights</span>
+
+<span class="c1"># apply the delayed rotation rewriters to the original model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">apply_rewriters</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">rewriters</span><span class="p">)</span>
+
+<span class="c1"># continue with the rest of the PTQ pipeline</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">apply_qronos</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>On entry, <code class="docutils literal notranslate"><span class="pre">rotate_permute_mode</span></code> calls <code class="docutils literal notranslate"><span class="pre">GraphRotationEqualization.apply()</span></code> on a traced FX
+graph to identify rotation regions and build the delayed rotation rewriters. It then registers
+forward hooks on the sink modules of each permutation-equivariant region to collect activation
+statistics during the calibration pass. On exit, it runs the calibration algorithm to produce
+one permutation per region and fuses each permutation directly into the surrounding weights.</p>
+<p><code class="docutils literal notranslate"><span class="pre">GraphPermutationEqualization</span></code> handles the graph walk and permutation application. It reuses
+the same region-walk logic as used for rotation equalization to find permutation-equivariant regions.</p>
+<p>The PeRQ pipeline is accessible via the <code class="docutils literal notranslate"><span class="pre">brevitas_ptq_llm</span></code> entrypoint. Key flags:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--rotation-block-size</span></code> — block size <span class="math notranslate nohighlight">\(b\)</span> for online Hadamard rotations (e.g. <code class="docutils literal notranslate"><span class="pre">32</span></code>).
+Omit for full-vector rotations (permutations are not applied in that case).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--permute-fn</span></code> — permutation strategy (<code class="docutils literal notranslate"><span class="pre">massdiff</span></code>, <code class="docutils literal notranslate"><span class="pre">zigzag</span></code>, <code class="docutils literal notranslate"><span class="pre">absmax</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code>).
+Omit or set to <code class="docutils literal notranslate"><span class="pre">null</span></code> to disable permutations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--disable-block-rotation-for-fused</span></code> — apply block rotations only to online (orphan-sink)
+rotations; keep fused rotations as full-vector. This is the setting used by PeRQ*.</p></li>
+</ul>
+<p>A minimal example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brevitas_ptq_llm<span class="w"> </span>--model<span class="w"> </span>meta-llama/Llama-3.2-1B<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--rotation-block-size<span class="w"> </span><span class="m">32</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--permute-fn<span class="w"> </span>massdiff<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--disable-block-rotation-for-fused
+</pre></div>
+</div>
+<p>See the <a class="reference external" href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">README</a>
+for full configuration details and benchmarking instructions.</p>
+<section id="permutation-strategies">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Permutation strategies</a><a class="headerlink" href="#permutation-strategies" title="Permalink to this heading">#</a></h3>
+<p>Four strategies are currently available, all registered via <code class="docutils literal notranslate"><span class="pre">&#64;register_permutation_method</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">massdiff</span></code> <em>(default, recommended)</em> — greedy assignment minimizing maximum per-block
+<span class="math notranslate nohighlight">\(\ell_1\)</span> mass. The core loop:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scores</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>        <span class="c1"># average magnitude per channel</span>
+<span class="n">_</span><span class="p">,</span> <span class="n">indexes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">descending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">block_norm</span> <span class="o">=</span> <span class="o">...</span>                          <span class="c1"># initialize with top-n channels</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indexes</span><span class="p">[</span><span class="n">num_blocks</span><span class="p">:]:</span>
+    <span class="c1"># assign channel i to the block that minimizes the increase in l1 norm</span>
+    <span class="n">norms_after</span> <span class="o">=</span> <span class="n">block_norm</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">min_block</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">norms_after</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">block_norm</span><span class="p">[:,</span> <span class="n">min_block</span><span class="p">]</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+</pre></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zigzag</span></code> — sorts channels by magnitude then interleaves them in a zigzag pattern
+across blocks, alternating direction each row to balance adjacent-block norms.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">absmax</span></code> — sorts channels by absolute maximum and assigns them in descending order
+(no block-awareness; simpler baseline).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random</span></code> — random shuffling; useful as a lower-bound baseline.</p></li>
+</ul>
+<p>Furthermore, custom strategies can be registered:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.graph.permute</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_permutation_method</span>
+
+<span class="nd">@register_permutation_method</span><span class="p">(</span><span class="s2">&quot;my_permute&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">my_permute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">block_size</span><span class="p">):</span>
+    <span class="c1"># x: [tokens, channels], block_size: int</span>
+    <span class="c1"># return: index tensor of shape [channels]</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="results">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Results</a><a class="headerlink" href="#results" title="Permalink to this heading">#</a></h2>
+<p>The results below use Llama-3.2 Instruct models with INT4 weight-activation quantization.
+See the <a class="reference external" href="https://github.com/Xilinx/brevitas/tree/dev/src/brevitas_examples/papers/perq">README</a>
+for instructions on how to reproduce. Below are the versions used; different versions
+may yield different results.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">python==3.12</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">torch==2.6.0+rocm6.1</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">transformers==4.57.3</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lighteval==0.13.0</span></code></p></li>
+</ul>
+<section id="perq-block-rotations-massdiff-qronos">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">PeRQ* (block rotations + MassDiff + Qronos)</a><a class="headerlink" href="#perq-block-rotations-massdiff-qronos" title="Permalink to this heading">#</a></h3>
+<p>Full-vector Hadamard rotations where mergeable (R1, R2), online block Hadamard rotations with
+block size 32 (R3), MassDiff permutations (P3), and <a class="reference external" href="https://xilinx.github.io/brevitas/dev/papers/qronos.html">Qronos</a> rounding [3].</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>float_ppl</p></th>
+<th class="head"><p>quant_ppl</p></th>
+<th class="head"><p>ARC-C</p></th>
+<th class="head"><p>ARC-E</p></th>
+<th class="head"><p>HellaS</p></th>
+<th class="head"><p>PIQA</p></th>
+<th class="head"><p>WinoG</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1B</p></td>
+<td><p>11.7</p></td>
+<td><p>17.0</p></td>
+<td><p>27.5</p></td>
+<td><p>52.5</p></td>
+<td><p>38.9</p></td>
+<td><p>67.1</p></td>
+<td><p>52.5</p></td>
+</tr>
+<tr class="row-odd"><td><p>3B</p></td>
+<td><p>9.9</p></td>
+<td><p>13.3</p></td>
+<td><p>32.9</p></td>
+<td><p>61.7</p></td>
+<td><p>45.2</p></td>
+<td><p>71.8</p></td>
+<td><p>54.5</p></td>
+</tr>
+<tr class="row-even"><td><p>8B</p></td>
+<td><p>6.5</p></td>
+<td><p>8.5</p></td>
+<td><p>43.2</p></td>
+<td><p>74.0</p></td>
+<td><p>51.4</p></td>
+<td><p>74.9</p></td>
+<td><p>59.0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="perq-learned-rotations-massdiff-rtn">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">PeRQ† (learned rotations + MassDiff + RTN)</a><a class="headerlink" href="#perq-learned-rotations-massdiff-rtn" title="Permalink to this heading">#</a></h3>
+<p>Learnable mergeable rotations via CayleySGD (R1, R2), online block Hadamard rotations with
+block size 32 (R3), MassDiff permutations (P3), and round-to-nearest rounding.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>float_ppl</p></th>
+<th class="head"><p>quant_ppl</p></th>
+<th class="head"><p>ARC-C</p></th>
+<th class="head"><p>ARC-E</p></th>
+<th class="head"><p>HellaS</p></th>
+<th class="head"><p>PIQA</p></th>
+<th class="head"><p>WinoG</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1B</p></td>
+<td><p>11.7</p></td>
+<td><p>15.8</p></td>
+<td><p>25.9</p></td>
+<td><p>47.5</p></td>
+<td><p>39.3</p></td>
+<td><p>65.3</p></td>
+<td><p>51.6</p></td>
+</tr>
+<tr class="row-odd"><td><p>3B</p></td>
+<td><p>9.9</p></td>
+<td><p>10.9</p></td>
+<td><p>33.6</p></td>
+<td><p>62.0</p></td>
+<td><p>46.8</p></td>
+<td><p>68.7</p></td>
+<td><p>53.7</p></td>
+</tr>
+<tr class="row-even"><td><p>8B</p></td>
+<td><p>6.5</p></td>
+<td><p>8.38</p></td>
+<td><p>43.2</p></td>
+<td><p>71.3</p></td>
+<td><p>53.4</p></td>
+<td><p>74.1</p></td>
+<td><p>58.8</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="citation">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Citation</a><a class="headerlink" href="#citation" title="Permalink to this heading">#</a></h2>
+<div class="highlight-bibtex notranslate"><div class="highlight"><pre><span></span><span class="nc">@inproceedings</span><span class="p">{</span><span class="nl">sanjeet2026perq</span><span class="p">,</span>
+<span class="w">   </span><span class="na">title</span><span class="p">=</span><span class="s">{Pushing the Limits of Block Rotations in Post-Training Quantization}</span><span class="p">,</span>
+<span class="w">   </span><span class="na">author</span><span class="p">=</span><span class="s">{Sai Sanjeet and Ian Colbert and Pablo Monteagudo-Lago and Giuseppe Franco and Yaman Umuroglu and Nicholas J. Fraser}</span><span class="p">,</span>
+<span class="w">   </span><span class="na">booktitle</span><span class="p">=</span><span class="s">{Forty-third International Conference on Machine Learning}</span><span class="p">,</span>
+<span class="w">   </span><span class="na">year</span><span class="p">=</span><span class="s">{2026}</span><span class="p">,</span>
+<span class="w">   </span><span class="na">url</span><span class="p">=</span><span class="s">{https://openreview.net/forum?id=nvehxSdMqg}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that this page is not intended to reproduce all experiments from the original paper.
+To more accurately reproduce the paper’s experiments, please see
+<a class="reference external" href="https://github.com/i-colbert/brevitas/tree/permutations/src/brevitas_examples/papers/perq">this branch</a>.</p>
+</section>
+<section id="references">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">References</a><a class="headerlink" href="#references" title="Permalink to this heading">#</a></h2>
+<p>[1] Egiazarian, V., et al. <em>Bridging the gap between promise and performance for microscaling FP4 quantization.</em> ICLR (2026).</p>
+<p>[2] Shao, Y., et al. <em>Block rotation is all you need for MXFP4 quantization.</em> ICML (2026).</p>
+<p>[3] Zhang, S., et al. <em>Qronos: Correcting the past by shaping the future… in post-training quantization.</em> ICLR (2026).</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="post_training_expansion.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Post-Training Quantization with Model Expansion</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../user_guide/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">User Guides</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#about-the-algorithm">About the Algorithm</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#permutation-equivariant-regions">Permutation-equivariant regions</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation-overview">Implementation Overview</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#permutation-strategies">Permutation strategies</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#results">Results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#perq-block-rotations-massdiff-qronos">PeRQ* (block rotations + MassDiff + Qronos)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#perq-learned-rotations-massdiff-rtn">PeRQ† (learned rotations + MassDiff + RTN)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#citation">Citation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/papers/perq.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025 - Advanced Micro Devices, Inc..
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button id="pst-version-switcher-button-2"
+      type="button"
+      class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-haspopup="listbox"
+      aria-controls="pst-version-switcher-list-2"
+      aria-label="Version switcher list"
+    >
+      Choose version  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div id="pst-version-switcher-list-2"
+      class="version-switcher__menu dropdown-menu list-group-flush py-0"
+      role="listbox" aria-labelledby="pst-version-switcher-button-2">
+      <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
