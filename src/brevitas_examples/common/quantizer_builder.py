@@ -36,6 +36,8 @@ from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
+from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.quant.solver.common import solve_stats_impl
 from brevitas.quant.solver.common import SolveBitWidthImplFromEnum
 from brevitas.quant.solver.common import SolveIntScalingImplFromEnum
@@ -363,6 +365,12 @@ class QuantizerBuilder:
         namespace['scaling_per_output_type'] = self.scaling_per_output_type
         namespace['restrict_scaling_type'] = self.restrict_scaling_type
         namespace['scaling_min_val'] = self.scaling_min_val
+
+        # Insert the appropriate proxy class into the injector depending on the scaling_per_output_type
+        if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
+            namespace['proxy_class'] = GroupwiseWeightQuantProxyFromInjector
+        else:
+            namespace['proxy_class'] = WeightQuantProxyFromInjector
 
         # Relevant parameters depending on the type of quantization (symmetric vs asymmetric)
         if self.quant_param_type == QuantParamType.SYM:

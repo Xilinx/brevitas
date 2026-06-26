@@ -10,8 +10,6 @@ from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantLinear
-from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
@@ -60,14 +58,15 @@ SCALING_MIN_VAL = 1e-10
 #     (e.g. group_size for groupwise quantization)
 #
 # The ``kwargs`` entry of ``builder_args`` carries the directives that are not
-# first-class builder parameters but are required to match the reference
-# quantizer (e.g. the proxy class).
+# first-class builder parameters but are still required to match the reference
+# quantizer (e.g. narrow_range / quantize_zero_point overrides for MX).
 #
 # Signedness, narrow range, the scaling stats op and zero-point handling are
 # now driven by the builder's sym/asym mixins, selected via ``quant_param_type``
 # (QuantParamType.SYM / QuantParamType.ASYM). The mixins set scaling_stats_op
 # (MAX for sym, MIN_MAX for asym) and wire the zero-point implementation, so
-# those no longer need to be passed explicitly.
+# those no longer need to be passed explicitly. The proxy class is also derived
+# automatically by the builder from ``scaling_per_output_type``.
 BUILDER_SPECS = {
     "int_per_tensor_sym": {
         "ref": Int8WeightPerTensorFloat,
@@ -79,8 +78,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym": {
         "ref": ShiftedUint8WeightPerTensorFloat,
@@ -92,8 +90,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym": {
         "ref": Int8WeightPerChannelFloat,
@@ -105,8 +102,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_asym": {
         "ref": ShiftedUint8WeightPerChannelFloat,
@@ -118,8 +114,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_group_sym": {
         "ref": IntWeightSymmetricGroupQuant,
@@ -132,8 +127,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     "int_per_group_asym": {
@@ -147,8 +141,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     # ----------------------------------------------------------------------
@@ -168,8 +161,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym_mse": {
         "ref": Int8WeightPerChannelFloatMSE,
@@ -181,8 +173,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym_mse": {
         "ref": ShiftedUint8WeightPerTensorFloatMSE,
@@ -195,8 +186,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_asym_mse": {
         "ref": ShiftedUint8WeightPerChannelFloatMSE,
@@ -209,8 +199,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     # ----------------------------------------------------------------------
     # HQO param method: WEIGHT_QUANT_MAP['int']['float_scale']['hqo'].
@@ -233,8 +222,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_channel_sym_hqo": {
         "ref": Int8WeightPerChannelFloatHQO,
@@ -246,8 +234,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_per_tensor_asym_hqo": {
         "ref": ShiftedUint8WeightPerTensorFloatHQO,
@@ -260,8 +247,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                "quantize_zero_point": False,
-                "proxy_class": WeightQuantProxyFromInjector,},},
+                "quantize_zero_point": False,},},
         "layer_kwargs": {},},
     "int_per_channel_asym_hqo": {
         "ref": ShiftedUint8WeightPerChannelFloatHQO,
@@ -274,8 +260,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.FP,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                "quantize_zero_point": False,
-                "proxy_class": WeightQuantProxyFromInjector,},},
+                "quantize_zero_point": False,},},
         "layer_kwargs": {},},
     "int_per_group_asym_hqo": {
         "ref": ShiftedUint8WeightPerGroupFloatHQO,
@@ -289,8 +274,7 @@ BUILDER_SPECS = {
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "quantize_zero_point": False,
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     # ----------------------------------------------------------------------
@@ -309,8 +293,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_po2_per_channel_sym": {
         "ref": Int8WeightPerChannelFixedPoint,
@@ -321,8 +304,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_po2_per_tensor_sym_mse": {
         "ref": Int8WeightPerTensorFixedPointMSE,
@@ -334,8 +316,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},
     "int_po2_per_channel_sym_mse": {
         "ref": Int8WeightPerChannelFixedPointMSE,
@@ -347,8 +328,7 @@ BUILDER_SPECS = {
             "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
-            "kwargs": {
-                "proxy_class": WeightQuantProxyFromInjector,},},
+            "kwargs": {},},
         "layer_kwargs": {},},  # MX (groupwise po2) quantizers:
     # WEIGHT_QUANT_MAP['int']['po2_scale'][...]['per_group'].
     "int_po2_per_group_sym": {
@@ -364,8 +344,7 @@ BUILDER_SPECS = {
                 # MX int uses IntQuant (narrow_range=False), unlike the
                 # NarrowIntQuant-based per_tensor/per_channel sym quantizers.
                 "narrow_range": False,
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     "int_po2_per_group_asym": {
@@ -378,8 +357,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     "int_po2_per_group_sym_mse": {
@@ -395,8 +373,7 @@ BUILDER_SPECS = {
             "kwargs": {
                 # MX int uses IntQuant (narrow_range=False).
                 "narrow_range": False,
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},},
     "int_po2_per_group_asym_mse": {
@@ -412,8 +389,7 @@ BUILDER_SPECS = {
             "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
-                "group_size": GROUP_SIZE,
-                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+                "group_size": GROUP_SIZE,},},
         "layer_kwargs": {
             "weight_group_size": GROUP_SIZE},
         # The reference brevitas quantizer ShiftedMXUInt8WeightMSE is itself
