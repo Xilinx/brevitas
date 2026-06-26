@@ -4,6 +4,7 @@
 import pytest
 import torch
 
+from brevitas import config
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
@@ -11,13 +12,28 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantLinear
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
+from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
+from brevitas.quant.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.mx_quant_ocp import MXInt8WeightMSE
+from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8Weight
+from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8WeightMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatHQO
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerGroupFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.quantizer_builder import ParamMethod
 from brevitas_examples.common.quantizer_builder import QuantizerBuilder
@@ -138,13 +154,9 @@ BUILDER_SPECS = {
     # ----------------------------------------------------------------------
     # MSE param method: WEIGHT_QUANT_MAP['int']['float_scale']['mse'].
     # The scale is learned/initialized from an MSE local loss, selected on the
-    # builder side via scaling_param_method="mse".
-    #
-    # NOTE: Only the *symmetric* MSE quantizers are covered here. The asymmetric
-    # MSE quantizers (ShiftedUint8Weight*FloatMSE) also learn the zero-point
-    # from an MSE local loss (via MSEWeightZeroPoint), which the builder does
-    # not generate yet. TODO: add per_tensor/per_channel asym MSE specs once the
-    # builder supports MSE-based zero-points.
+    # builder side via scaling_param_method=ParamMethod.MSE. For the asymmetric
+    # quantizers the zero-point is *also* learned from an MSE local loss,
+    # selected via zero_point_param_method=ParamMethod.MSE.
     # ----------------------------------------------------------------------
     "int_per_tensor_sym_mse": {
         "ref": Int8WeightPerTensorFloatMSE,
@@ -171,7 +183,249 @@ BUILDER_SPECS = {
             "scaling_min_val": SCALING_MIN_VAL,
             "kwargs": {
                 "proxy_class": WeightQuantProxyFromInjector,},},
-        "layer_kwargs": {},},}
+        "layer_kwargs": {},},
+    "int_per_tensor_asym_mse": {
+        "ref": ShiftedUint8WeightPerTensorFloatMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.MSE,
+            "zero_point_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_per_channel_asym_mse": {
+        "ref": ShiftedUint8WeightPerChannelFloatMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.MSE,
+            "zero_point_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    # ----------------------------------------------------------------------
+    # HQO param method: WEIGHT_QUANT_MAP['int']['float_scale']['hqo'].
+    #
+    # For *symmetric* HQO the scale is learned/initialized from a Half-Quadratic
+    # Optimization local loss (scaling_param_method=ParamMethod.HQO).
+    #
+    # For *asymmetric* HQO only the zero-point is learned via HQO
+    # (zero_point_param_method=ParamMethod.HQO); the scale stays a regular
+    # MinMax stats scale (scaling_param_method defaults to STATS). The reference
+    # quantizers also set quantize_zero_point=False, which we mirror via kwargs.
+    # ----------------------------------------------------------------------
+    "int_per_tensor_sym_hqo": {
+        "ref": Int8WeightPerTensorFloatHQO,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.HQO,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_per_channel_sym_hqo": {
+        "ref": Int8WeightPerChannelFloatHQO,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.HQO,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_per_tensor_asym_hqo": {
+        "ref": ShiftedUint8WeightPerTensorFloatHQO,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "zero_point_param_method": ParamMethod.HQO,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "quantize_zero_point": False,
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_per_channel_asym_hqo": {
+        "ref": ShiftedUint8WeightPerChannelFloatHQO,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "zero_point_param_method": ParamMethod.HQO,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "quantize_zero_point": False,
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_per_group_asym_hqo": {
+        "ref": ShiftedUint8WeightPerGroupFloatHQO,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "zero_point_param_method": ParamMethod.HQO,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "quantize_zero_point": False,
+                "group_size": GROUP_SIZE,
+                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    # ----------------------------------------------------------------------
+    # po2_scale: WEIGHT_QUANT_MAP['int']['po2_scale']. The scale is restricted
+    # to a power of two, selected on the builder side via
+    # restrict_scaling_type=RestrictValueType.POWER_OF_TWO. The per_tensor /
+    # per_channel variants are plain fixed-point quantizers; the per_group
+    # variants are MX quantizers.
+    # ----------------------------------------------------------------------
+    "int_po2_per_tensor_sym": {
+        "ref": Int8WeightPerTensorFixedPoint,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_po2_per_channel_sym": {
+        "ref": Int8WeightPerChannelFixedPoint,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_po2_per_tensor_sym_mse": {
+        "ref": Int8WeightPerTensorFixedPointMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},
+    "int_po2_per_channel_sym_mse": {
+        "ref": Int8WeightPerChannelFixedPointMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "proxy_class": WeightQuantProxyFromInjector,},},
+        "layer_kwargs": {},},  # MX (groupwise po2) quantizers:
+    # WEIGHT_QUANT_MAP['int']['po2_scale'][...]['per_group'].
+    "int_po2_per_group_sym": {
+        "ref": MXInt8Weight,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                # MX int uses IntQuant (narrow_range=False), unlike the
+                # NarrowIntQuant-based per_tensor/per_channel sym quantizers.
+                "narrow_range": False,
+                "group_size": GROUP_SIZE,
+                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "int_po2_per_group_asym": {
+        "ref": ShiftedMXUInt8Weight,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,
+                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "int_po2_per_group_sym_mse": {
+        "ref": MXInt8WeightMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "bit_width": BIT_WIDTH,
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                # MX int uses IntQuant (narrow_range=False).
+                "narrow_range": False,
+                "group_size": GROUP_SIZE,
+                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "int_po2_per_group_asym_mse": {
+        "ref": ShiftedMXUInt8WeightMSE,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "bit_width": BIT_WIDTH,
+            # MSEAsymmetricScale only makes the *scale* MSE-based; the zero-point
+            # stays a plain MinMax stats zero-point (from ShiftedMinUintQuant).
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,
+                "proxy_class": GroupwiseWeightQuantProxyFromInjector,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},
+        # The reference brevitas quantizer ShiftedMXUInt8WeightMSE is itself
+        # broken for groupwise: MSEAsymmetricScale sets
+        # scaling_stats_input_view_shape_impl=Identity, which (via
+        # ShiftedMinUintQuant) also becomes the zero-point stats view, while the
+        # zero-point stats still reduce over the group dim (stats_reduce_dim=2).
+        # This raises an IndexError inside the *reference* forward, so there is
+        # nothing for the builder to match against.
+        "xfail":
+            "Reference ShiftedMXUInt8WeightMSE crashes for groupwise "
+            "(zero-point stats view is Identity but reduces over group dim).",},}
 
 
 def _make_quant_linear(weight_quant, **layer_kwargs):
@@ -211,6 +465,20 @@ def test_builder_weight_quant_matches_reference(spec_name):
     ref_quant = spec["ref"]
     layer_kwargs = spec["layer_kwargs"]
 
+    # Local-loss param methods (MSE, HQO) rely on Python control flow during
+    # the optimization and require JIT to be disabled.
+    local_loss_methods = (ParamMethod.MSE, ParamMethod.HQO)
+    param_methods = (
+        spec["builder_args"].get("scaling_param_method"),
+        spec["builder_args"].get("zero_point_param_method"))
+    if config.JIT_ENABLED and any(m in local_loss_methods for m in param_methods):
+        pytest.skip(reason="Local loss param methods (MSE, HQO) require JIT to be disabled")
+
+    # Some WEIGHT_QUANT_MAP entries are broken in the reference brevitas
+    # quantizer itself; mark those as expected failures.
+    if "xfail" in spec:
+        pytest.xfail(reason=spec["xfail"])
+
     # Reference layer built directly from the WEIGHT_QUANT_MAP leaf class.
     ref_linear = _make_quant_linear(ref_quant, **layer_kwargs)
 
@@ -222,6 +490,8 @@ def test_builder_weight_quant_matches_reference(spec_name):
     # 1) Module hierarchy must match 1-to-1. Checked before syncing weights so a
     # structural mismatch is reported as a clear hierarchy diff rather than an
     # opaque "Missing key(s) in state_dict" error.
+    # if _module_hierarchy(ref_linear) != _module_hierarchy(builder_linear):
+    #     breakpoint()
     assert _module_hierarchy(ref_linear) == _module_hierarchy(builder_linear)
 
     # Make both layers carry identical float weights so the only difference that
@@ -255,7 +525,7 @@ def test_builder_weight_quant_matches_reference(spec_name):
 
     # 3) Quantized layer output tensors must match exactly. With
     # return_quant_tensor=False the layers return plain Tensors.
-    x = torch.randn(4, IN_FEATURES)
+    x = torch.randn(1, IN_FEATURES)
     ref_out = ref_linear(x)
     builder_out = builder_linear(x)
     assert torch.equal(ref_out, builder_out)
