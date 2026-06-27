@@ -391,7 +391,10 @@ class A2GPTQ(AXEMixin, GPTQ):
                     perm = permutation_list[group_index]
                     block_index = get_block_index(perm[i1:i2][i])
                     s = scales[group_index, :, perm[i1:i2][i]].to(self.dtype)
-                    q = q_groups[group_index] / s  # [OC/groups]
+                    # round before the integer cast: q_groups is the dequantized weight in
+                    # the model dtype (e.g. bf16), so q_groups / s is not exactly integer and
+                    # a direct int cast would truncate, undercounting the accumulator l1-norm
+                    q = (q_groups[group_index].to(self.dtype) / s).round()  # [OC/groups]
                     # increment cumulative l1-norm
                     pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
                     neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
@@ -588,7 +591,11 @@ class A2GPFQ(AXEMixin, GPFQ):
             for group_index in range(self.groups):
                 i = permutation_list[group_index][t]
                 block_index = get_block_index(i)  # block index
-                q = q_groups[group_index] / scales[group_index, :, i]  # [OC/groups]
+                s = scales[group_index, :, i].to(self.dtype)
+                # round before the integer cast: q_groups is the dequantized weight in
+                # the model dtype (e.g. bf16), so q_groups / s is not exactly integer and
+                # a direct int cast would truncate, undercounting the accumulator l1-norm
+                q = (q_groups[group_index].to(self.dtype) / s).round()  # [OC/groups]
                 # increment cumulative l1-norm
                 pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
                 neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
