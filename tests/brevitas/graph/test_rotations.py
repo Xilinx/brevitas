@@ -197,7 +197,7 @@ def test_compute_rotations(
         region_dict in zip(mask, RESIDUAL_MODEL_REGION_DICTS) if mask_element]
     # Use FX model if requested
     if use_fx:
-        graph_model, _ = torch._dynamo.export(model)(sample_inputs)
+        graph_model = symbolic_trace(model)
         # The module names in the original model need to be mapped to the ones
         # in graph_model
         map_model_graph = {}
