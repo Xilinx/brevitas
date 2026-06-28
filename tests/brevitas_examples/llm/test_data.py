@@ -58,11 +58,15 @@ class DummyTokenizer:
                            (self.bos_token_id is not None and add_special_tokens) else []) +
                           list(map(ord, text)) for text in texts]}
 
-    def __call__(self, text: str, **kwargs) -> torch.Tensor:
-        output = self.batch_encode_plus([text], add_special_tokens=False)
-
-        flat_list = {k: flatten_list(v) for k, v in output.items()}
-        return flat_list
+    def __call__(self, text, add_special_tokens: bool = False, **kwargs):
+        # Mimics PreTrainedTokenizerBase.__call__, which (in transformers 5.x) replaces
+        # the removed `batch_encode_plus`. It accepts either a single string or a list
+        # of strings, returning batched outputs for the latter and flattened (single
+        # sequence) outputs for the former.
+        if isinstance(text, (list, tuple)):
+            return self.batch_encode_plus(list(text), add_special_tokens=add_special_tokens)
+        output = self.batch_encode_plus([text], add_special_tokens=add_special_tokens)
+        return {k: flatten_list(v) for k, v in output.items()}
 
 
 # Expected results for test_clm_tokenization. The nesting order corresponds to bos_preprocessing,

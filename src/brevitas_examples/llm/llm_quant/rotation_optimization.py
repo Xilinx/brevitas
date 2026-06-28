@@ -200,7 +200,9 @@ def apply_fine_tuning(
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
-        tokenizer=tokenizer,
+        # `tokenizer` was renamed to `processing_class` in transformers 4.46 and the old
+        # alias was removed in 5.x.
+        processing_class=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=None,

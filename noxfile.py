@@ -161,8 +161,8 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
-    cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
-    session.install('-e', '.[test, llm, export]', 'optimum[onnxruntime]', *cmd)
+    cmd += install_torchvision_cmd(pytorch)
+    session.install('-e', '.[test, llm, export]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-m', 'onnx_export', 'tests/brevitas_examples/llm/test_llm.py')
 
@@ -192,9 +192,9 @@ def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
-    session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval')
-    session.run(
-        'pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
+    # lm_eval >= 0.4.10 is required for compatibility with transformers >= 5.0
+    session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval>=0.4.10')
+    session.run('pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/llm/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)

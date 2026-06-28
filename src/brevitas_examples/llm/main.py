@@ -10,8 +10,10 @@ import sys
 import warnings
 
 import numpy as np
+from packaging import version
 import torch
 from torch.utils.data import DataLoader
+from transformers import __version__ as transformers_version
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
@@ -181,22 +183,62 @@ def set_seed(seed):
 
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
-        # Local import to allow for optional install
-        from optimum.exporters.onnx import onnx_export_from_model
-
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
 
-        print(f"Exporting the model in ./{args.export_prefix}")
-        with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
-            onnx_export_from_model(
-                model,
-                f"./{args.export_prefix}",
-                task="text-generation-with-past",
-                do_validation=False)
+        export_dir = f"./{args.export_prefix}"
+        os.makedirs(export_dir, exist_ok=True)
+        export_path = os.path.join(export_dir, "model.onnx")
+        print(f"Exporting the model in {export_dir}")
+
+        # optimum's ONNX exporter does not support transformers >= 5.0, so we export
+        # directly with torch.onnx while `brevitas_proxy_export_mode` injects the QCDQ
+        # representation. We disable the KV-cache so the traced graph has a simple
+        # (input_ids -> logits) signature that ONNX can represent.
+        prev_use_cache = getattr(model.config, "use_cache", None)
+        model.config.use_cache = False
+        # Consolidate the (potentially device-offloaded) model on a single device so that
+        # tracing does not hit cross-device tensor mismatches. When the model has been
+        # offloaded with accelerate, parameters may live on CPU while the cached activation
+        # quantization metadata (needed for QCDQ export) lives on the execution device. We
+        # therefore align the whole model to the device of those cached tensors.
+        export_device = None
+        for m in model.modules():
+            cached_act = getattr(m, "_cached_act", None)
+            if cached_act is not None and getattr(cached_act, "scale", None) is not None:
+                export_device = cached_act.scale.device
+                break
+        if export_device is None:
+            export_device = next(model.parameters()).device
+        model = model.to(export_device)
+        input_ids = ref_input["input_ids"].to(export_device)
+        # Passing an explicit attention mask avoids the packed-sequence detection path in
+        # transformers >= 5.0 (which relies on `torch.diff`, unsupported by the ONNX tracer).
+        attention_mask = torch.ones_like(input_ids)
+        try:
+            with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
+                torch.onnx.export(
+                    model,
+                    (input_ids, attention_mask),
+                    export_path,
+                    # opset >= 14 is required to export `scaled_dot_product_attention`
+                    # used by transformers >= 5.0 attention implementations.
+                    opset_version=14,
+                    input_names=["input_ids", "attention_mask"],
+                    output_names=["logits"],
+                    dynamic_axes={
+                        "input_ids": {
+                            0: "batch_size", 1: "sequence_length"},
+                        "attention_mask": {
+                            0: "batch_size", 1: "sequence_length"},
+                        "logits": {
+                            0: "batch_size", 1: "sequence_length"}})
+        finally:
+            if prev_use_cache is not None:
+                model.config.use_cache = prev_use_cache
     elif 'gguf' in args.export_target:
         import gguf
 
@@ -258,7 +300,11 @@ def quantize_llm(args, extra_args=None):
 
     # Whether to quantize SDPA with FX
 
-    kwargs = {"torch_dtype": args.dtype}
+    # `torch_dtype` was renamed to `dtype` in transformers 4.56 and the old alias is
+    # removed in 5.x. Pick the right kwarg name to stay compatible with transformers >=4.52.
+    dtype_kwarg = "dtype" if version.parse(transformers_version) >= version.parse(
+        "4.56.0") else "torch_dtype"
+    kwargs = {dtype_kwarg: args.dtype}
     if args.quant_sdpa:
         kwargs["attn_implementation"] = "sdpa"
 
