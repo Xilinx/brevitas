@@ -183,28 +183,29 @@ def set_seed(seed):
 
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
+        # `optimum` is only required for ONNX QCDQ export and is an optional dependency
+        # (it currently constrains `transformers` to < 4.58). It is therefore imported
+        # lazily here, behind the export flag, with a clear error message if missing.
+        try:
+            from optimum.exporters.onnx import onnx_export_from_model
+        except ImportError as e:
+            raise ImportError(
+                "ONNX QCDQ export of LLMs requires `optimum`, which is an optional "
+                "dependency. Install it with `pip install brevitas[llm_onnx_export]` "
+                "(note: this currently constrains `transformers` to < 4.58).") from e
+
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
         else:
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
 
-        export_dir = f"./{args.export_prefix}"
-        os.makedirs(export_dir, exist_ok=True)
-        export_path = os.path.join(export_dir, "model.onnx")
-        print(f"Exporting the model in {export_dir}")
-
-        # optimum's ONNX exporter does not support transformers >= 5.0, so we export
-        # directly with torch.onnx while `brevitas_proxy_export_mode` injects the QCDQ
-        # representation. We disable the KV-cache so the traced graph has a simple
-        # (input_ids -> logits) signature that ONNX can represent.
-        prev_use_cache = getattr(model.config, "use_cache", None)
-        model.config.use_cache = False
         # Consolidate the (potentially device-offloaded) model on a single device so that
         # tracing does not hit cross-device tensor mismatches. When the model has been
         # offloaded with accelerate, parameters may live on CPU while the cached activation
-        # quantization metadata (needed for QCDQ export) lives on the execution device. We
-        # therefore align the whole model to the device of those cached tensors.
+        # quantization metadata (needed for QCDQ export) lives on the execution device, and
+        # `.to()` does not move those cached tensors. We align the whole model to the device
+        # of those cached tensors. This is a no-op when the model is on a single device.
         export_device = None
         for m in model.modules():
             cached_act = getattr(m, "_cached_act", None)
@@ -214,31 +215,16 @@ def model_export(model, tokenizer, ref_input, args, config=None):
         if export_device is None:
             export_device = next(model.parameters()).device
         model = model.to(export_device)
-        input_ids = ref_input["input_ids"].to(export_device)
-        # Passing an explicit attention mask avoids the packed-sequence detection path in
-        # transformers >= 5.0 (which relies on `torch.diff`, unsupported by the ONNX tracer).
-        attention_mask = torch.ones_like(input_ids)
-        try:
-            with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
-                torch.onnx.export(
-                    model,
-                    (input_ids, attention_mask),
-                    export_path,
-                    # opset >= 14 is required to export `scaled_dot_product_attention`
-                    # used by transformers >= 5.0 attention implementations.
-                    opset_version=14,
-                    input_names=["input_ids", "attention_mask"],
-                    output_names=["logits"],
-                    dynamic_axes={
-                        "input_ids": {
-                            0: "batch_size", 1: "sequence_length"},
-                        "attention_mask": {
-                            0: "batch_size", 1: "sequence_length"},
-                        "logits": {
-                            0: "batch_size", 1: "sequence_length"}})
-        finally:
-            if prev_use_cache is not None:
-                model.config.use_cache = prev_use_cache
+
+        print(f"Exporting the model in ./{args.export_prefix}")
+        with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
+            onnx_export_from_model(
+                model,
+                f"./{args.export_prefix}",
+                task="text-generation-with-past",
+                do_validation=False,
+                # Match optimum's traced dummy inputs to the (consolidated) model device.
+                device=str(export_device))
     elif 'gguf' in args.export_target:
         import gguf
 

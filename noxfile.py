@@ -161,8 +161,10 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     cmd = []
     cmd += install_pytorch_cmd(pytorch)
-    cmd += install_torchvision_cmd(pytorch)
-    session.install('-e', '.[test, llm, export]', *cmd)
+    cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
+    # ONNX QCDQ export relies on `optimum`, installed via the `llm_onnx_export` extra.
+    # Note: optimum currently constrains transformers to < 4.58.
+    session.install('-e', '.[test, llm, export, llm_onnx_export]', *cmd)
     session.run(
         'pytest', '-n', 'logical', '-m', 'onnx_export', 'tests/brevitas_examples/llm/test_llm.py')
 
