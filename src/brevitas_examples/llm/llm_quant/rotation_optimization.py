@@ -78,11 +78,11 @@ class OptimizerConfig:
         # A single callable selects one group -> wrap into a one-element list.
         if callable(params):
             return [params]
-        if not isinstance(params, (list, tuple)):
+        # Multiple groups must be provided as a list (never a tuple).
+        if not isinstance(params, list):
             raise TypeError(
                 "OptimizerConfig.params must be a callable or a list of "
                 "callables (one per parameter group).")
-        params = list(params)
         if len(params) == 0:
             raise ValueError("OptimizerConfig.params must not be empty.")
         if not all(callable(element) for element in params):
@@ -317,8 +317,8 @@ class GeneralizedTrainer(Trainer):
     # at their defaults (``training_args_cls`` is the built-in
     # ``TrainingArguments`` and ``optimizer_setup`` is ``None``), the default
     # behaviour of the LLM example is used.
-    training_args_cls: Optional[Type[transformers.TrainingArguments]] = TrainingArguments
-    optimizer_setup: Optional[Any] = None
+    training_args_cls: Type[transformers.TrainingArguments] = TrainingArguments
+    optimizer_setup: Optional[Callable[[], List["OptimizerConfig"]]] = None
 
     def __init__(self, args: TrainingArguments = None, teacher_model=None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
@@ -520,15 +520,15 @@ def _build_optimizers_from_configs(
     * ``scheduler_cls`` – optional LR scheduler class *name* (str).
     * ``scheduler_kwargs`` – optional dict of kwargs for the scheduler.
 
-    If ``training_args.optimizer_scheduler_args`` is ``None`` or shorter
-    than *optimizer_configs*, this fails.
+    If ``training_args.optimizer_scheduler_args`` is ``None`` or its length does
+    not match *optimizer_configs*, this fails.
     """
     optimizers: List[torch.optim.Optimizer] = []
     schedulers: List[Optional[Any]] = []
 
     os_args: Optional[List[Dict[str,
                                 Any]]] = getattr(training_args, "optimizer_scheduler_args", None)
-    if os_args is None or len(os_args) < len(optimizer_configs):
+    if os_args is None or len(os_args) != len(optimizer_configs):
         raise RuntimeError("Scheduler/Optimizer arguments do not match the configs")
 
     for i, config in enumerate(optimizer_configs):
@@ -590,8 +590,7 @@ def apply_fine_tuning(
     is ``None``, the function inspects the model:
 
     * If trainable rotation matrices are found, a ``CaileySGD`` optimizer
-      is built for them (backward-compatible rotation-optimization
-      behaviour).
+      is built for them (the default rotation-optimization behaviour).
     * Otherwise, ``(None, None)`` is passed to the Trainer so that it
       uses its built-in optimizer (AdamW by default).
 
@@ -618,11 +617,10 @@ def apply_fine_tuning(
         the trainer.
     optimizer_configs : list of OptimizerConfig, optional
         A list of :class:`OptimizerConfig` instances. Each one carries only
-        ``params`` – a callable ``(model, training_args) -> List[Parameter]``,
+        ``params`` – a callable ``(model, training_args) -> List[Parameter]`` or
         a list of such callables (multiple parameter groups handled by a single
-        optimizer), or a plain list of parameters. The optimizer/scheduler
-        class names and their kwargs are read from
-        ``training_args.optimizer_scheduler_args[i]`` (see
+        optimizer). The optimizer/scheduler class names and their kwargs are
+        read from ``training_args.optimizer_scheduler_args[i]`` (see
         :func:`_build_optimizers_from_configs`).
 
         When multiple configs are provided, a ``MultiOptimizer`` /
@@ -648,7 +646,8 @@ def apply_fine_tuning(
     if optimizer_configs is not None:
         optimizers = _build_optimizers_from_configs(model, training_args, optimizer_configs)
     elif extract_trainable_rotation_matrices(model):
-        # Backward-compatible default: CaileySGD on rotation matrices
+        # Default when no configs are given but rotations are present:
+        # CaileySGD on the rotation matrices.
         optimizers = _build_rotation_optimizers(model, training_args)
     else:
         # No custom configs and no rotation matrices — let the HF
