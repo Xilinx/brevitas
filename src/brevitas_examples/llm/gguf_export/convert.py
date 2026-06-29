@@ -190,10 +190,16 @@ class ModelBase:
         self.model = model
         self.dir_model = dir_model
         self.ftype = ftype
-        # Tensors whose qtype is overridden to override_qtype
-        assert override_qtype in SUPPORTED_OVERRIDE_QTYPES, (
-            f"override_qtype {override_qtype.name} is not supported; choose from "
-            f"{[t.name for t in SUPPORTED_OVERRIDE_QTYPES]}")
+        # Tensors whose qtype is overridden to override_qtype. When either is None,
+        # no tensor qtype is overridden at export time and every tensor follows the
+        # quantization it already has (or the file type otherwise).
+        if override_model_tensors is None or override_qtype is None:
+            override_model_tensors = ()
+            override_qtype = None
+        else:
+            assert override_qtype in SUPPORTED_OVERRIDE_QTYPES, (
+                f"override_qtype {override_qtype.name} is not supported; choose from "
+                f"{[t.name for t in SUPPORTED_OVERRIDE_QTYPES]}")
         self.override_model_tensors = override_model_tensors
         self.override_qtype = override_qtype
         self.fname_out = fname_out
@@ -463,6 +469,22 @@ class ModelBase:
                 wmin_m=zp,
                 d_scale=scale_scale,
                 d_wmin_m=scale_zp)
+
+        elif data_qtype == gguf.GGMLQuantizationType.Q6_K:
+            # Q6_K is symmetric with a nested ("double") scale: the per-sub-block
+            # scales are quantized to int8 against a per-super-block fp16 factor d.
+            # Use Brevitas' calibrated quantized scale (quant_scale) and its super-
+            # block factor (scale_scale) so the written block matches calibration.
+            quant_scale_module = None
+            for m in weight_quant.modules():
+                if isinstance(m, QuantRestrictValue):
+                    quant_scale_module = m
+                    break
+            quant_scale, scale_scale, *_ = quant_scale_module.float_to_int_impl(scale)
+            scale = quant_scale
+            _, scale_scale = self.modify_tensors(scale_scale, name, bid)[0]
+            _, scale = self.modify_tensors(scale, name, bid)[0]
+            data = ggml_quant(quant_data, data_qtype, scale, zp, d_scale=scale_scale)
 
         else:
             _, scale = self.modify_tensors(scale, name, bid)[0]

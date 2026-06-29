@@ -25,7 +25,9 @@ import torch
 
 from brevitas.utils.logging import setup_logger
 
-from .convert import GGUF_OVERRIDE_MODEL_TENSORS
+# Imported for its side effect: registers the GGUF custom quantizers (gguf_q4_0,
+# gguf_q4_k, ...) in QUANTIZERS_REGISTRY so they are selectable via --custom-quantizer.
+from . import custom_quantizers  # noqa: F401
 from .convert import ModelBase
 
 logger = setup_logger(__name__)
@@ -62,9 +64,14 @@ def save_quantized_as_gguf(
         model,
         tokenizer,
         backend="gguf:q4_0",
-        override_model_tensors=GGUF_OVERRIDE_MODEL_TENSORS,
-        override_qtype=gguf.GGMLQuantizationType.Q6_K):
-    """Export the model to gguf format."""
+        override_model_tensors=None,
+        override_qtype=None):
+    """Export the model to gguf format.
+
+    When ``override_model_tensors``/``override_qtype`` are None, no tensor qtype is
+    overridden at export time: every tensor follows the quantization it already
+    has (or the file type otherwise).
+    """
     st = time.time()
 
     config = model.config

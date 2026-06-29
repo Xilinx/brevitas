@@ -110,6 +110,8 @@ def ggml_quant(
     quant_func = GGML_QUANT_BLOCK[ggml_type]
     if ggml_type == gguf.GGMLQuantizationType.Q4_K:
         new_data = quant_func(blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
+    elif ggml_type == gguf.GGMLQuantizationType.Q6_K:
+        new_data = quant_func(blocks, scale, zp, d_scale=d_scale)
     else:
         new_data = quant_func(blocks, scale, zp)
 
@@ -255,11 +257,17 @@ def _q6_k_pack(L: np.ndarray, q_scales: np.ndarray, d: np.ndarray, nonzero: np.n
 
 
 @register_block(gguf.GGMLQuantizationType.Q6_K)
-def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
+def q6_k_quant_block(blocks: np.array, scale=None, zp=None, d_scale=None):
     # Adaptation of ggml-quants.c:quantize_row_q6_K_ref.
-    #   scale is None -> blocks are raw floats; derive the 16 sub-block scales.
-    #   scale given   -> blocks are pre-quantized codes in [-32, 31] and scale holds
-    #                    the 16 per-sub-block scales (flattenable to (nb, QK_K/16)).
+    #   scale is None  -> blocks are raw floats; derive the 16 sub-block scales.
+    #   scale given,
+    #     d_scale None -> blocks are pre-quantized codes in [-32, 31] and scale holds
+    #                     the 16 per-sub-block float scales; quantize them here.
+    #     d_scale given -> use Brevitas' nested scale as-is: ``scale`` is the 16
+    #                      per-sub-block scales d_eff = q_scale * d_scale and
+    #                      ``d_scale`` the per-super-block fp16 factor, so the int8
+    #                      sub-scales are scale / d_scale. This keeps the written
+    #                      block bit-consistent with the calibrated quantization.
     nb = blocks.shape[0]
     if scale is None:
         sub = blocks.reshape(nb, QK_K // 16, 16).astype(np.float32)
@@ -273,9 +281,19 @@ def q6_k_quant_block(blocks: np.array, scale=None, zp=None):
         inv_d_eff = np.where(d_eff != 0, np.float32(1.0) / np.where(d_eff != 0, d_eff, 1.0), 0.0)
         L = _gguf_quants.np_roundf(sub * inv_d_eff[:, :, None]).clip(-32, 31).astype(np.int32) + 32
         L = np.where(nonzero[:, None, None], L, 0).astype(np.uint8).reshape(nb, QK_K)
-    else:
+    elif d_scale is None:
         sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
         d, q_scales, nonzero = _q6_k_quantize_scales(sub_scales)
+        L = (blocks.astype(np.int32) + 32).clip(0, 63).astype(np.uint8).reshape(nb, QK_K)
+    else:
+        # Use the Brevitas-calibrated nested scale directly (no re-quantization).
+        sub_scales = scale.reshape(nb, QK_K // 16).astype(np.float32)
+        d = d_scale.reshape(nb).astype(np.float32)
+        nonzero = np.abs(sub_scales).max(axis=-1) >= GROUP_MAX_EPS
+        inv_d = np.where(d != 0, np.float32(1.0) / np.where(d != 0, d, 1.0), np.float32(0.0))
+        q_scales = np.clip(_gguf_quants.np_roundf(inv_d[:, None] * sub_scales), -128,
+                           127).astype(np.int8)
+        q_scales = np.where(nonzero[:, None], q_scales, np.int8(0))
         L = (blocks.astype(np.int32) + 32).clip(0, 63).astype(np.uint8).reshape(nb, QK_K)
 
     return _q6_k_pack(L, q_scales, d, nonzero)
