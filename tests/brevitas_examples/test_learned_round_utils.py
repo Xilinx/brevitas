@@ -18,8 +18,8 @@ import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_args import _parse_lr_scheduler_class
-from brevitas_examples.common.learned_round.learned_round_args import _parse_optimizer_class
+from brevitas_examples.common.learned_round.learned_round_args import parse_lr_scheduler_class
+from brevitas_examples.common.learned_round.learned_round_args import parse_optimizer_class
 from brevitas_examples.common.learned_round.learned_round_method import \
     insert_learned_round_quantizers
 from brevitas_examples.common.learned_round.learned_round_method import \
@@ -327,11 +327,11 @@ class TestLearnedRound:
         "optimizer_str, optimizer", [("SignSGD", SignSGD), ("Adam", torch.optim.Adam),
                                      ("SGD", torch.optim.SGD)])
     def test_parse_optimizer_class(self, optimizer_str, optimizer):
-        assert optimizer == _parse_optimizer_class(optimizer_str)
+        assert optimizer == parse_optimizer_class(optimizer_str)
 
     @pytest.mark.parametrize(
         "lr_scheduler_str, lr_scheduler",
         [("LinearLR", torch.optim.lr_scheduler.LinearLR),
          ("CosineAnnealingLR", torch.optim.lr_scheduler.CosineAnnealingLR)])
     def test_parse_lr_scheduler_class(self, lr_scheduler_str, lr_scheduler):
-        assert lr_scheduler == _parse_lr_scheduler_class(lr_scheduler_str)
+        assert lr_scheduler == parse_lr_scheduler_class(lr_scheduler_str)

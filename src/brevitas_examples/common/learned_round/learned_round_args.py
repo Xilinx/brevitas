@@ -26,7 +26,7 @@ OPTIMIZER_NAMESPACES = [torch.optim, optim]
 LR_SCHEDULER_NAMESPACES = [torch.optim.lr_scheduler]
 
 
-def _parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
+def parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
     optimizer_class = None
     for namespace in OPTIMIZER_NAMESPACES:
         if (optimizer_class := getattr(namespace, optimizer_str, None)) is not None:
@@ -40,7 +40,7 @@ def _parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
     return optimizer_class
 
 
-def _parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
+def parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
     lr_scheduler_class = None
     for namespace in LR_SCHEDULER_NAMESPACES:
         if (lr_scheduler_class := getattr(namespace, lr_scheduler_str, None)) is not None:
@@ -74,7 +74,7 @@ class LRSchedulerArgs:
         parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
         # Parse string to learning rate scheduler class if needed
         self.lr_scheduler_cls = (
-            _parse_lr_scheduler_class(self.lr_scheduler_cls) if isinstance(
+            parse_lr_scheduler_class(self.lr_scheduler_cls) if isinstance(
                 self.lr_scheduler_cls, str) else self.lr_scheduler_cls)
 
 
@@ -110,7 +110,7 @@ class OptimizerArgs:
         parse_dataclass_dicts(self, self._DICT_ATTRIBUTES)
         # Parse optimizer name to class
         self.optimizer_cls = (
-            _parse_optimizer_class(self.optimizer_cls)
+            parse_optimizer_class(self.optimizer_cls)
             if isinstance(self.optimizer_cls, str) else self.optimizer_cls)
         # Initialize the target parametrizations
         self.target_params = (

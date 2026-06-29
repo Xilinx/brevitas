@@ -8,7 +8,7 @@ from pathlib import Path
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
-from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_SETUP_REGISTRY
+from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
 
 logging = setup_logger(__name__)
 
@@ -64,4 +64,4 @@ def _load_plugin(name: str, registry: Registry, module_name: str = "custom_plugi
 parse_custom_quantizer = partial(
     _load_plugin, registry=QUANTIZERS_REGISTRY, module_name="custom_quant")
 parse_custom_trainer = partial(
-    _load_plugin, registry=TRAINER_SETUP_REGISTRY, module_name="custom_trainer")
+    _load_plugin, registry=TRAINER_REGISTRY, module_name="custom_trainer")

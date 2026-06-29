@@ -8,8 +8,7 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import GeneralizedTrainer
-from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_SETUP_REGISTRY
-from brevitas_examples.llm.llm_quant.rotation_optimization import TrainerSetup
+from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import TrainingArguments
 
 
@@ -68,11 +67,7 @@ class RegisteredExampleTrainingArguments(ExampleTrainingArguments):
 
 
 class RegisteredExampleTrainer(ExampleTrainer):
-    pass
+    training_args_cls = RegisteredExampleTrainingArguments
 
 
-TRAINER_SETUP_REGISTRY.register("minimal_trainer")(
-    TrainerSetup(
-        trainer_cls=RegisteredExampleTrainer,
-        training_args_cls=RegisteredExampleTrainingArguments,
-    ))
+TRAINER_REGISTRY.register("minimal_trainer")(RegisteredExampleTrainer)

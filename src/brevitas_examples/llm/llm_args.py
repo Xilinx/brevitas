@@ -358,9 +358,10 @@ def create_args_parser() -> ArgumentParser:
         default=None,
         help='Path to a custom training plugin, in the format '
         '"path/to/plugin.py:config_name". The plugin .py file should register a '
-        'TrainerSetup (a required trainer class plus an optional training args '
-        'class and optimizer setup) into the TRAINER_SETUP_REGISTRY. Implies '
-        '--fine-tune. Default: None.',
+        'custom Trainer class into the TRAINER_REGISTRY. The Trainer class may '
+        'expose "training_args_cls" and "optimizer_setup" class attributes to '
+        'customise the training arguments and optimizer setup; otherwise the LLM '
+        'example defaults are used. Implies --fine-tune. Default: None.',
     )
     parser.add_argument(
         '--rotation-mode',
