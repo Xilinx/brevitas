@@ -92,6 +92,31 @@ class OptimizerConfig:
         return params
 
 
+# User-facing parameter-selection spec for a single optimizer: either one
+# selection callable (single parameter group) or a list of callables (one per
+# parameter group). Users return a list of these (one per optimizer) from a
+# trainer's ``optimizer_setup``; they are wrapped into :class:`OptimizerConfig`
+# internally (see :func:`_to_optimizer_configs`).
+OptimizerParamsSpec = Union[ParamsFn, List[ParamsFn]]
+
+
+def _to_optimizer_configs(optimizer_setup: List[OptimizerParamsSpec]) -> List[OptimizerConfig]:
+    """Wrap a user-provided optimizer setup into a list of ``OptimizerConfig``.
+
+    ``optimizer_setup`` is a list with one entry per optimizer; each entry is a
+    parameter-selection callable or a list of such callables (one per parameter
+    group). An entry that is already an :class:`OptimizerConfig` is passed
+    through unchanged.
+    """
+    if not isinstance(optimizer_setup, list):
+        raise TypeError(
+            "optimizer_setup must be a list with one entry per optimizer, got "
+            f"{type(optimizer_setup)}.")
+    return [
+        entry if isinstance(entry, OptimizerConfig) else OptimizerConfig(params=entry)
+        for entry in optimizer_setup]
+
+
 # Single registry for out-of-source customization of the training process.
 # Users register a custom Trainer class under a config name via a plugin .py
 # file. The Trainer class may expose ``training_args_cls`` and
@@ -274,13 +299,13 @@ class TrainingArguments(transformers.TrainingArguments):
 
     ### Multi-optimizer/scheduler args
     # Order-matched list of dicts.  Entry *i* fully describes the *i*-th
-    # optimizer (and its optional scheduler) for the *i*-th ``OptimizerConfig``
-    # provided by the trainer's ``optimizer_setup``.  Each dict may contain:
+    # optimizer (and its optional scheduler) for the *i*-th entry of the
+    # trainer's ``optimizer_setup``.  Each dict may contain:
     #   * 'optimizer_cls'    : optimizer class *name* (str), resolved against
     #                          the optimizer namespaces. Defaults to CaileySGD.
     #   * 'optimizer_kwargs' : a list of dicts, one per parameter group of the
-    #                          matching ``OptimizerConfig.params`` (always a list,
-    #                          even for a single group; a bare dict is rejected).
+    #                          matching optimizer (always a list, even for a
+    #                          single group; a bare dict is rejected).
     #   * 'scheduler_cls'    : optional LR scheduler class *name* (str).
     #   * 'scheduler_kwargs' : optional dict of kwargs for the scheduler.
     optimizer_scheduler_args: Optional[List[Dict[str, Any]]] = field(
@@ -288,10 +313,10 @@ class TrainingArguments(transformers.TrainingArguments):
         metadata={
             "help":
                 "List of dicts describing each optimizer/scheduler, order-matched "
-                "to the OptimizerConfig list from the trainer's optimizer_setup. "
-                "Each dict may contain 'optimizer_cls' (str), 'optimizer_kwargs' "
-                "(list of dicts, one per parameter group), 'scheduler_cls' (str) "
-                "and 'scheduler_kwargs' (dict)."})
+                "to the trainer's optimizer_setup entries. Each dict may contain "
+                "'optimizer_cls' (str), 'optimizer_kwargs' (list of dicts, one "
+                "per parameter group), 'scheduler_cls' (str) and "
+                "'scheduler_kwargs' (dict)."})
 
     ### Distillation Loss args
     use_distillation_loss: bool = field(
@@ -318,7 +343,7 @@ class GeneralizedTrainer(Trainer):
     # ``TrainingArguments`` and ``optimizer_setup`` is ``None``), the default
     # behaviour of the LLM example is used.
     training_args_cls: Type[transformers.TrainingArguments] = TrainingArguments
-    optimizer_setup: Optional[Callable[[], List["OptimizerConfig"]]] = None
+    optimizer_setup: Optional[Callable[[], List["OptimizerParamsSpec"]]] = None
 
     def __init__(self, args: TrainingArguments = None, teacher_model=None, **kwargs) -> None:
         super().__init__(args=args, **kwargs)
@@ -583,10 +608,10 @@ def apply_fine_tuning(
         collate_fn: Callable,
         trainer_cls: Optional[Type[Trainer]] = None,
         callbacks: Optional[List[Any]] = None,
-        optimizer_configs: Optional[List["OptimizerConfig"]] = None) -> None:
+        optimizer_setup: Optional[List["OptimizerParamsSpec"]] = None) -> None:
     """Fine-tune model weights and/or rotation matrices.
 
-    This is the unified training entry point.  When *optimizer_configs*
+    This is the unified training entry point.  When *optimizer_setup*
     is ``None``, the function inspects the model:
 
     * If trainable rotation matrices are found, a ``CaileySGD`` optimizer
@@ -605,7 +630,7 @@ def apply_fine_tuning(
     training_args : transformers.TrainingArguments
         HuggingFace-compatible training arguments.  May be the built-in
         ``TrainingArguments`` or a custom subclass exposed via a
-        registered trainer's ``training_args_cls``.  When *optimizer_configs* is
+        registered trainer's ``training_args_cls``.  When *optimizer_setup* is
         provided, the ``optimizer_scheduler_args`` field on the
         training args supplies the order-matched optimizer/scheduler class
         names and kwargs for each entry.
@@ -615,15 +640,16 @@ def apply_fine_tuning(
     callbacks : list, optional
         A list of HuggingFace ``TrainerCallback`` instances to attach to
         the trainer.
-    optimizer_configs : list of OptimizerConfig, optional
-        A list of :class:`OptimizerConfig` instances. Each one carries only
-        ``params`` – a callable ``(model, training_args) -> List[Parameter]`` or
-        a list of such callables (multiple parameter groups handled by a single
-        optimizer). The optimizer/scheduler class names and their kwargs are
-        read from ``training_args.optimizer_scheduler_args[i]`` (see
+    optimizer_setup : list, optional
+        A list with one entry per optimizer. Each entry is a parameter-selection
+        callable ``(model, training_args) -> List[Parameter]`` or a list of such
+        callables (multiple parameter groups handled by a single optimizer).
+        Entries are wrapped into :class:`OptimizerConfig` internally. The
+        optimizer/scheduler class names and their kwargs are read from
+        ``training_args.optimizer_scheduler_args[i]`` (see
         :func:`_build_optimizers_from_configs`).
 
-        When multiple configs are provided, a ``MultiOptimizer`` /
+        When multiple entries are provided, a ``MultiOptimizer`` /
         ``MultiScheduler`` is built automatically.  When ``None``
         (the default), the behaviour depends on whether the model
         contains trainable rotation matrices (see above).
@@ -643,7 +669,9 @@ def apply_fine_tuning(
         param.requires_grad = False
 
     # Build optimizer / scheduler pair
-    if optimizer_configs is not None:
+    if optimizer_setup is not None:
+        # Wrap the user-provided selection callables into OptimizerConfig.
+        optimizer_configs = _to_optimizer_configs(optimizer_setup)
         optimizers = _build_optimizers_from_configs(model, training_args, optimizer_configs)
     elif extract_trainable_rotation_matrices(model):
         # Default when no configs are given but rotations are present:

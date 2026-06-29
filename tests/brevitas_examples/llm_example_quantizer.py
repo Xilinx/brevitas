@@ -9,7 +9,6 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import GeneralizedTrainer
-from brevitas_examples.llm.llm_quant.rotation_optimization import OptimizerConfig
 from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import TrainingArguments
 
@@ -78,9 +77,11 @@ TRAINER_REGISTRY.register("minimal_trainer")(RegisteredExampleTrainer)
 # ---------------------------------------------------------------------------
 # Example trainer with a single optimizer handling two parameter groups.
 #
-# ``OptimizerConfig.params`` is a list of two selection callables (one per
-# parameter group), and the matching ``optimizer_scheduler_args`` entry provides
-# one optimizer with a per-group ``optimizer_kwargs`` list of the same length.
+# ``optimizer_setup`` returns one entry per optimizer; here that single entry is
+# a list of two selection callables (one per parameter group). The matching
+# ``optimizer_scheduler_args`` entry provides one optimizer with a per-group
+# ``optimizer_kwargs`` list of the same length. The callables are wrapped into
+# an ``OptimizerConfig`` internally.
 # ---------------------------------------------------------------------------
 def _select_q_proj_params(model, training_args):
     return [p for name, p in model.named_parameters() if "q_proj" in name]
@@ -91,10 +92,10 @@ def _select_non_q_proj_params(model, training_args):
 
 
 def _build_two_group_optimizer_setup():
-    # A single OptimizerConfig with two parameter-selection callables -> a single
-    # optimizer with two parameter groups: the q_proj parameters and everything
-    # else.
-    return [OptimizerConfig(params=[_select_q_proj_params, _select_non_q_proj_params])]
+    # One optimizer with two parameter groups: the q_proj parameters and
+    # everything else. A single optimizer entry whose value is a list of two
+    # selection callables.
+    return [[_select_q_proj_params, _select_non_q_proj_params]]
 
 
 @dataclass
@@ -108,7 +109,7 @@ class TwoGroupExampleTrainingArguments(TrainingArguments):
         super().__post_init__()
         if self.optimizer_scheduler_args is None:
             # One optimizer (AdamW) with two parameter groups, each with its own
-            # kwargs (order-matched to OptimizerConfig.params).
+            # kwargs (order-matched to the two selection callables above).
             self.optimizer_scheduler_args = [
                 {
                     "optimizer_cls": "AdamW",

@@ -311,7 +311,7 @@ def quantize_llm(args, extra_args=None):
         custom_trainer_config_name = None
         custom_trainer_cls = None
         custom_callbacks = None
-        custom_optimizer_configs = None
+        custom_optimizer_setup = None
         custom_training_args_cls = None
 
         if args.custom_trainer is not None:
@@ -323,11 +323,13 @@ def quantize_llm(args, extra_args=None):
             # example are used downstream.
             custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
             custom_training_args_cls = getattr(custom_trainer_cls, "training_args_cls", None)
-            custom_optimizer_configs = getattr(custom_trainer_cls, "optimizer_setup", None)
-            # The optimizer setup can be a callable that returns the list of
-            # configs (deferred construction), or a list directly.
-            if callable(custom_optimizer_configs):
-                custom_optimizer_configs = custom_optimizer_configs()
+            custom_optimizer_setup = getattr(custom_trainer_cls, "optimizer_setup", None)
+            # The optimizer setup may be a callable returning the list (deferred
+            # construction), or the list directly. Each list entry is a parameter
+            # selection callable, or a list of such callables (one per parameter
+            # group), one entry per optimizer.
+            if callable(custom_optimizer_setup):
+                custom_optimizer_setup = custom_optimizer_setup()
 
         # Extra arguments should be used as training arguments
         training_args = parse_rotation_optimization_args(
@@ -623,7 +625,7 @@ def quantize_llm(args, extra_args=None):
                 collate_fn=collate_fn,
                 trainer_cls=custom_trainer_cls,
                 callbacks=custom_callbacks,
-                optimizer_configs=custom_optimizer_configs)
+                optimizer_setup=custom_optimizer_setup)
             # Remove hooks from training
             remove_hooks(model)
             model = offload_model(model)
