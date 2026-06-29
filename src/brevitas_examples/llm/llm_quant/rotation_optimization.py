@@ -467,27 +467,23 @@ def _resolve_params(
 
 def _build_optimizer_param_groups(
         config: "OptimizerConfig",
-        optimizer_kwargs: Optional[List[Optional[Dict[str, Any]]]],
+        optimizer_kwargs: List[Dict[str, Any]],
         model: torch.nn.Module,
         training_args: transformers.TrainingArguments) -> List[Dict[str, Any]]:
     """Build the list of PyTorch parameter groups for a single optimizer.
 
     ``config.params`` is always a list of parameter selectors (one per group;
-    see :class:`OptimizerConfig`). *optimizer_kwargs* must be ``None`` or an
-    order-matched list of per-group kwargs dicts of the same length (``None``
-    entries are treated as empty). A bare dict is rejected: callers must always
-    pass a list.
+    see :class:`OptimizerConfig`). *optimizer_kwargs* is the order-matched list
+    of per-group kwargs dicts of the same length. Every parameter group requires
+    its own kwargs: each entry must be a non-empty dict.
     """
     params = config.params
-    # 'optimizer_kwargs' must always be a list (or None). A single dict is a
-    # misconfiguration: per-group kwargs are expressed as a list, even for a
-    # single parameter group.
-    if optimizer_kwargs is None:
-        optimizer_kwargs = [None] * len(params)
-    elif not isinstance(optimizer_kwargs, (list, tuple)):
+    # 'optimizer_kwargs' is always a list with one non-empty dict per parameter
+    # group. A single dict (or None) is a misconfiguration.
+    if not isinstance(optimizer_kwargs, list):
         raise RuntimeError(
-            "'optimizer_kwargs' must be a list of per-group kwargs dicts (one "
-            f"per parameter group), or None, got {type(optimizer_kwargs)}.")
+            "'optimizer_kwargs' must be a list with one kwargs dict per "
+            f"parameter group, got {type(optimizer_kwargs)}.")
     if len(optimizer_kwargs) != len(params):
         raise RuntimeError(
             f"Number of parameter groups ({len(params)}) does not match the "
@@ -495,8 +491,12 @@ def _build_optimizer_param_groups(
 
     param_groups = []
     for params_fn, group_kwargs in zip(params, optimizer_kwargs):
+        if not isinstance(group_kwargs, dict) or len(group_kwargs) == 0:
+            raise RuntimeError(
+                "Each entry in 'optimizer_kwargs' must be a non-empty dict; "
+                f"got {group_kwargs!r}.")
         group_params = _resolve_params(params_fn, model, training_args)
-        param_groups.append({"params": group_params, **(group_kwargs or {})})
+        param_groups.append({"params": group_params, **group_kwargs})
     return param_groups
 
 
@@ -514,9 +514,9 @@ def _build_optimizers_from_configs(
 
     * ``optimizer_cls`` – optimizer class *name* (str), resolved against the
       optimizer namespaces (default: ``"CaileySGD"``).
-    * ``optimizer_kwargs`` – a list of per-group kwargs dicts, order-matched to
-      ``OptimizerConfig.params`` (``None`` entries, or a ``None`` value, are
-      treated as empty). It must always be a list, not a bare dict.
+    * ``optimizer_kwargs`` – a list with one non-empty kwargs dict per parameter
+      group, order-matched to ``OptimizerConfig.params``. Every group requires
+      its own kwargs: a bare dict, ``None``, or empty/None entries are rejected.
     * ``scheduler_cls`` – optional LR scheduler class *name* (str).
     * ``scheduler_kwargs`` – optional dict of kwargs for the scheduler.
 
