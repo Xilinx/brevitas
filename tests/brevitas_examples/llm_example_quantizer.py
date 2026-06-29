@@ -9,8 +9,8 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import GeneralizedTrainer
-from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import TrainingArguments
+from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "example_int4_weight_quant")

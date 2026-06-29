@@ -73,9 +73,9 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
 from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
-from brevitas_examples.llm.llm_quant.rotation_optimization import TRAINER_REGISTRY
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
+from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 
 logging = setup_logger(__name__)
 
