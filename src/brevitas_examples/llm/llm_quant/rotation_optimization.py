@@ -282,12 +282,10 @@ class TrainingArguments(transformers.TrainingArguments):
     #   * 'optimizer_cls'    : optimizer class *name* (str), resolved against
     #                          the optimizer namespaces. Defaults to CaileySGD.
     #   * 'optimizer_kwargs' : a list of dicts, one per parameter group of the
-    #                          matching ``OptimizerConfig.params``. A single dict
-    #                          may be passed for convenience and is normalised to
-    #                          a one-element list.
+    #                          matching ``OptimizerConfig.params`` (always a list,
+    #                          even for a single group; a bare dict is rejected).
     #   * 'scheduler_cls'    : optional LR scheduler class *name* (str).
     #   * 'scheduler_kwargs' : optional dict of kwargs for the scheduler.
-    # After ``__post_init__`` every entry's 'optimizer_kwargs' is a list.
     optimizer_scheduler_args: Optional[List[Dict[str, Any]]] = field(
         default=None,
         metadata={
@@ -295,9 +293,8 @@ class TrainingArguments(transformers.TrainingArguments):
                 "List of dicts describing each optimizer/scheduler, order-matched "
                 "to the OptimizerConfig list from the trainer's optimizer_setup. "
                 "Each dict may contain 'optimizer_cls' (str), 'optimizer_kwargs' "
-                "(list of dicts, one per parameter group; a single dict is "
-                "accepted and wrapped), 'scheduler_cls' (str) and "
-                "'scheduler_kwargs' (dict)."})
+                "(list of dicts, one per parameter group), 'scheduler_cls' (str) "
+                "and 'scheduler_kwargs' (dict)."})
 
     ### Distillation Loss args
     use_distillation_loss: bool = field(
@@ -313,35 +310,6 @@ class TrainingArguments(transformers.TrainingArguments):
         metadata={"help": "Consider the first K logits when computing distillation loss"})
     kl_loss_reduction: str = field(
         default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.optimizer_scheduler_args = _normalize_optimizer_scheduler_args(
-            self.optimizer_scheduler_args)
-
-
-def _normalize_optimizer_scheduler_args(
-        optimizer_scheduler_args: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
-    """Normalise per-entry 'optimizer_kwargs' to always be a list.
-
-    ``optimizer_scheduler_args`` itself is left as ``None`` when unset. For each
-    entry, a single 'optimizer_kwargs' dict (or ``None``) is wrapped into a
-    one-element list so that downstream code always sees a list of per-group
-    kwargs (order-matched to ``OptimizerConfig.params``).
-    """
-    if optimizer_scheduler_args is None:
-        return None
-    for entry in optimizer_scheduler_args:
-        optimizer_kwargs = entry.get("optimizer_kwargs", None)
-        if optimizer_kwargs is None or isinstance(optimizer_kwargs, dict):
-            entry["optimizer_kwargs"] = [optimizer_kwargs]
-        elif isinstance(optimizer_kwargs, (list, tuple)):
-            entry["optimizer_kwargs"] = list(optimizer_kwargs)
-        else:
-            raise TypeError(
-                "'optimizer_kwargs' must be a dict, a list of dicts, or None, "
-                f"got {type(optimizer_kwargs)}.")
-    return optimizer_scheduler_args
 
 
 class GeneralizedTrainer(Trainer):
@@ -509,15 +477,21 @@ def _build_optimizer_param_groups(
     """Build the list of PyTorch parameter groups for a single optimizer.
 
     ``config.params`` is always a list of parameter selectors (one per group;
-    see :class:`OptimizerConfig`). *optimizer_kwargs* is the order-matched list
-    of per-group kwargs dicts (``None`` entries are treated as empty). Both must
-    have the same length.
+    see :class:`OptimizerConfig`). *optimizer_kwargs* must be ``None`` or an
+    order-matched list of per-group kwargs dicts of the same length (``None``
+    entries are treated as empty). A bare dict is rejected: callers must always
+    pass a list.
     """
     params = config.params
-    # optimizer_kwargs is always normalised to a list (see
-    # _normalize_optimizer_scheduler_args); default to one empty dict per group.
+    # 'optimizer_kwargs' must always be a list (or None). A single dict is a
+    # misconfiguration: per-group kwargs are expressed as a list, even for a
+    # single parameter group.
     if optimizer_kwargs is None:
         optimizer_kwargs = [None] * len(params)
+    elif not isinstance(optimizer_kwargs, (list, tuple)):
+        raise RuntimeError(
+            "'optimizer_kwargs' must be a list of per-group kwargs dicts (one "
+            f"per parameter group), or None, got {type(optimizer_kwargs)}.")
     if len(optimizer_kwargs) != len(params):
         raise RuntimeError(
             f"Number of parameter groups ({len(params)}) does not match the "
@@ -545,8 +519,8 @@ def _build_optimizers_from_configs(
     * ``optimizer_cls`` – optimizer class *name* (str), resolved against the
       optimizer namespaces (default: ``"CaileySGD"``).
     * ``optimizer_kwargs`` – a list of per-group kwargs dicts, order-matched to
-      ``OptimizerConfig.params`` (``None`` entries are treated as empty). After
-      ``TrainingArguments.__post_init__`` this is always a list.
+      ``OptimizerConfig.params`` (``None`` entries, or a ``None`` value, are
+      treated as empty). It must always be a list, not a bare dict.
     * ``scheduler_cls`` – optional LR scheduler class *name* (str).
     * ``scheduler_kwargs`` – optional dict of kwargs for the scheduler.
 
@@ -560,10 +534,6 @@ def _build_optimizers_from_configs(
                                 Any]]] = getattr(training_args, "optimizer_scheduler_args", None)
     if os_args is None or len(os_args) < len(optimizer_configs):
         raise RuntimeError("Scheduler/Optimizer arguments do not match the configs")
-    # Defensively normalise so each entry's 'optimizer_kwargs' is always a list,
-    # even when the training args were constructed without going through
-    # TrainingArguments.__post_init__ (e.g. a raw namespace in tests).
-    os_args = _normalize_optimizer_scheduler_args(os_args)
 
     for i, config in enumerate(optimizer_configs):
         # Look up the args from the order-matched training args list
