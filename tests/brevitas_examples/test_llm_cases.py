@@ -407,7 +407,7 @@ class LLMQuantLayerTypeCases:
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",},},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
-            "quantize_last_layer": True,
+            "quantize_first_last_layer": True,
             "exp_layer_types": {
                 "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},
         },  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
@@ -571,7 +571,7 @@ class LLMQuantLayerCountCases:
                 "<class 'transformers.models.llama.modeling_llama.LlamaRMSNorm'>": 5,}},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
-            "quantize_last_layer": True,
+            "quantize_first_last_layer": True,
             "exp_layer_types_count": {
                 "<class 'brevitas.nn.quant_linear.QuantLinear'>": 15,
             }},  # LM Head + Q/K/V/O projs + Up/Gate/Down projs
@@ -579,7 +579,7 @@ class LLMQuantLayerCountCases:
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "ln_affine_merge": True,
             "replace_rmsnorm": True,
-            "quantize_last_layer": True,
+            "quantize_first_last_layer": True,
             "no_quantize": True,
             "rotation_orphan_sink": True,
             "convert_layernorm_to_rmsnorm": True,
@@ -595,7 +595,7 @@ class LLMQuantLayerCountCases:
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "ln_affine_merge": True,
             "replace_rmsnorm": True,
-            "quantize_last_layer": True,
+            "quantize_first_last_layer": True,
             "no_quantize": True,
             "rotation_orphan_sink": False,
             "convert_layernorm_to_rmsnorm": True,
@@ -609,7 +609,7 @@ class LLMQuantLayerCountCases:
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "ln_affine_merge": True,
             "replace_rmsnorm": True,
-            "quantize_last_layer": True,
+            "quantize_first_last_layer": True,
             "no_quantize": True,
             "rotation_orphan_sink": True,
             "convert_layernorm_to_rmsnorm": True,

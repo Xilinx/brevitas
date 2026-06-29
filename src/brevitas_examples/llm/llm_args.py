@@ -270,7 +270,12 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
     parser.add_argument(
-        '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
+        '--quantize-first-last-layer',
+        action='store_true',
+        help=
+        'Quantize the first (embedding) and last nn.Linear layer. When not set, the embedding is '
+        'left unquantized and the last layer weight quantizer is forced to None, overriding any '
+        'definition from a custom quantizer.')
     parser.add_argument('--magr', action='store_true', help='Apply MagR.')
     parser.add_argument(
         '--magr-alpha', type=float, default=0.01, help='Alpha for MagR. Default: 0.01.')
