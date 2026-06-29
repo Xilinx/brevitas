@@ -56,43 +56,40 @@ class OptimizerConfig:
 
     Parameters
     ----------
-    params : callable, list of parameters, or list of either
-        Each element selects one parameter group handled by the optimizer.
-        An element is either a callable
-        ``(model, training_args) -> List[Parameter]`` or an already
-        materialised list of parameters. A single optimizer may handle multiple
-        parameter groups, each with its own per-group ``optimizer_kwargs`` entry
-        in ``TrainingArguments.optimizer_scheduler_args``.
+    params : callable or list of callables
+        Each callable ``(model, training_args) -> List[Parameter]`` selects the
+        parameters of one parameter group handled by the optimizer. The
+        parameters are selected lazily, after the model has been prepared for
+        fine-tuning. A single optimizer may handle multiple parameter groups,
+        each with its own per-group ``optimizer_kwargs`` entry in
+        ``TrainingArguments.optimizer_scheduler_args``.
 
-        For convenience a single selector (a callable or a list of parameters)
-        may be passed directly; it is normalised to a one-element list. After
-        ``__post_init__`` ``params`` is always a list with at least one element.
+        For convenience a single callable may be passed directly; it is
+        normalised to a one-element list. After ``__post_init__`` ``params`` is
+        always a list of callables with at least one element.
     """
-    params: Union[ParamsFn,
-                  List[torch.nn.Parameter],
-                  List[Union[ParamsFn, List[torch.nn.Parameter]]]]
+    params: Union[ParamsFn, List[ParamsFn]]
 
     def __post_init__(self) -> None:
         self.params = self._normalize_params(self.params)
 
     @staticmethod
-    def _normalize_params(params: Any) -> List[Union[ParamsFn, List[torch.nn.Parameter]]]:
-        # A callable is a single selector -> wrap into a one-element list.
+    def _normalize_params(params: Any) -> List[ParamsFn]:
+        # A single callable selects one group -> wrap into a one-element list.
         if callable(params):
             return [params]
         if not isinstance(params, (list, tuple)):
             raise TypeError(
-                "OptimizerConfig.params must be a callable, a list of "
-                "parameters, or a list of such selectors.")
+                "OptimizerConfig.params must be a callable or a list of "
+                "callables (one per parameter group).")
         params = list(params)
         if len(params) == 0:
             raise ValueError("OptimizerConfig.params must not be empty.")
-        # A list whose elements are all selectors (callables or lists of
-        # parameters) is already a per-group list. Otherwise it is a single
-        # group expressed as a flat list of parameters -> wrap it.
-        is_group_list = all(
-            callable(element) or isinstance(element, (list, tuple)) for element in params)
-        return params if is_group_list else [params]
+        if not all(callable(element) for element in params):
+            raise TypeError(
+                "OptimizerConfig.params must be a callable or a list of "
+                "callables (one per parameter group).")
+        return params
 
 
 # Single registry for out-of-source customization of the training process.
@@ -449,17 +446,16 @@ def _build_rotation_optimizers(model: torch.nn.Module, training_args: TrainingAr
 
 
 def _resolve_params(
-        params_fn: Any, model: torch.nn.Module,
+        params_fn: ParamsFn, model: torch.nn.Module,
         training_args: transformers.TrainingArguments) -> List[torch.nn.Parameter]:
-    """Resolve a single parameter-selection entry into a list of parameters.
+    """Resolve a single parameter-selection callable into a list of parameters.
 
-    *params_fn* is either a callable ``(model, training_args) -> List[Parameter]``
-    or an already-materialised list of parameters.  The selected parameters have
-    ``requires_grad`` enabled.  Raises ``RuntimeError`` if no parameters are
-    selected, since an empty parameter group is always a misconfiguration.
+    *params_fn* is a callable ``(model, training_args) -> List[Parameter]``. The
+    selected parameters have ``requires_grad`` enabled.  Raises ``RuntimeError``
+    if no parameters are selected, since an empty parameter group is always a
+    misconfiguration.
     """
-    params = params_fn(model, training_args) if callable(params_fn) else params_fn
-    params = list(params)
+    params = list(params_fn(model, training_args))
     if len(params) == 0:
         raise RuntimeError(
             "A parameter-selection function returned no parameters. Each "
