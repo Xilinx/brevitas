@@ -56,15 +56,43 @@ class OptimizerConfig:
 
     Parameters
     ----------
-    params : callable, list of callables, or list of parameters
-        * A single callable ``(model, training_args) -> List[Parameter]``
-          (or a plain list of parameters) selects a single parameter group.
-        * A **list of callables** selects multiple parameter groups handled by
-          a single optimizer. Each group is order-matched to the per-group
-          ``optimizer_kwargs`` entry in
-          ``TrainingArguments.optimizer_scheduler_args``.
+    params : callable, list of parameters, or list of either
+        Each element selects one parameter group handled by the optimizer.
+        An element is either a callable
+        ``(model, training_args) -> List[Parameter]`` or an already
+        materialised list of parameters. A single optimizer may handle multiple
+        parameter groups, each with its own per-group ``optimizer_kwargs`` entry
+        in ``TrainingArguments.optimizer_scheduler_args``.
+
+        For convenience a single selector (a callable or a list of parameters)
+        may be passed directly; it is normalised to a one-element list. After
+        ``__post_init__`` ``params`` is always a list with at least one element.
     """
-    params: Union[ParamsFn, List[ParamsFn], List[torch.nn.Parameter]]
+    params: Union[ParamsFn,
+                  List[torch.nn.Parameter],
+                  List[Union[ParamsFn, List[torch.nn.Parameter]]]]
+
+    def __post_init__(self) -> None:
+        self.params = self._normalize_params(self.params)
+
+    @staticmethod
+    def _normalize_params(params: Any) -> List[Union[ParamsFn, List[torch.nn.Parameter]]]:
+        # A callable is a single selector -> wrap into a one-element list.
+        if callable(params):
+            return [params]
+        if not isinstance(params, (list, tuple)):
+            raise TypeError(
+                "OptimizerConfig.params must be a callable, a list of "
+                "parameters, or a list of such selectors.")
+        params = list(params)
+        if len(params) == 0:
+            raise ValueError("OptimizerConfig.params must not be empty.")
+        # A list whose elements are all selectors (callables or lists of
+        # parameters) is already a per-group list. Otherwise it is a single
+        # group expressed as a flat list of parameters -> wrap it.
+        is_group_list = all(
+            callable(element) or isinstance(element, (list, tuple)) for element in params)
+        return params if is_group_list else [params]
 
 
 # Single registry for out-of-source customization of the training process.
@@ -253,12 +281,13 @@ class TrainingArguments(transformers.TrainingArguments):
     # provided by the trainer's ``optimizer_setup``.  Each dict may contain:
     #   * 'optimizer_cls'    : optimizer class *name* (str), resolved against
     #                          the optimizer namespaces. Defaults to CaileySGD.
-    #   * 'optimizer_kwargs' : a dict of kwargs for a single parameter group,
-    #                          OR a list of dicts (one per parameter group) when
-    #                          the matching ``OptimizerConfig.params`` is a list
-    #                          of parameter-selection functions.
+    #   * 'optimizer_kwargs' : a list of dicts, one per parameter group of the
+    #                          matching ``OptimizerConfig.params``. A single dict
+    #                          may be passed for convenience and is normalised to
+    #                          a one-element list.
     #   * 'scheduler_cls'    : optional LR scheduler class *name* (str).
     #   * 'scheduler_kwargs' : optional dict of kwargs for the scheduler.
+    # After ``__post_init__`` every entry's 'optimizer_kwargs' is a list.
     optimizer_scheduler_args: Optional[List[Dict[str, Any]]] = field(
         default=None,
         metadata={
@@ -266,8 +295,9 @@ class TrainingArguments(transformers.TrainingArguments):
                 "List of dicts describing each optimizer/scheduler, order-matched "
                 "to the OptimizerConfig list from the trainer's optimizer_setup. "
                 "Each dict may contain 'optimizer_cls' (str), 'optimizer_kwargs' "
-                "(dict or list of dicts for multiple parameter groups), "
-                "'scheduler_cls' (str) and 'scheduler_kwargs' (dict)."})
+                "(list of dicts, one per parameter group; a single dict is "
+                "accepted and wrapped), 'scheduler_cls' (str) and "
+                "'scheduler_kwargs' (dict)."})
 
     ### Distillation Loss args
     use_distillation_loss: bool = field(
@@ -283,6 +313,35 @@ class TrainingArguments(transformers.TrainingArguments):
         metadata={"help": "Consider the first K logits when computing distillation loss"})
     kl_loss_reduction: str = field(
         default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.optimizer_scheduler_args = _normalize_optimizer_scheduler_args(
+            self.optimizer_scheduler_args)
+
+
+def _normalize_optimizer_scheduler_args(
+        optimizer_scheduler_args: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
+    """Normalise per-entry 'optimizer_kwargs' to always be a list.
+
+    ``optimizer_scheduler_args`` itself is left as ``None`` when unset. For each
+    entry, a single 'optimizer_kwargs' dict (or ``None``) is wrapped into a
+    one-element list so that downstream code always sees a list of per-group
+    kwargs (order-matched to ``OptimizerConfig.params``).
+    """
+    if optimizer_scheduler_args is None:
+        return None
+    for entry in optimizer_scheduler_args:
+        optimizer_kwargs = entry.get("optimizer_kwargs", None)
+        if optimizer_kwargs is None or isinstance(optimizer_kwargs, dict):
+            entry["optimizer_kwargs"] = [optimizer_kwargs]
+        elif isinstance(optimizer_kwargs, (list, tuple)):
+            entry["optimizer_kwargs"] = list(optimizer_kwargs)
+        else:
+            raise TypeError(
+                "'optimizer_kwargs' must be a dict, a list of dicts, or None, "
+                f"got {type(optimizer_kwargs)}.")
+    return optimizer_scheduler_args
 
 
 class GeneralizedTrainer(Trainer):
@@ -444,49 +503,31 @@ def _resolve_params(
 
 def _build_optimizer_param_groups(
         config: "OptimizerConfig",
-        optimizer_kwargs: Union[Dict[str, Any], List[Dict[str, Any]], None],
+        optimizer_kwargs: Optional[List[Optional[Dict[str, Any]]]],
         model: torch.nn.Module,
         training_args: transformers.TrainingArguments) -> List[Dict[str, Any]]:
     """Build the list of PyTorch parameter groups for a single optimizer.
 
-    When ``config.params`` is a single callable / list of parameters, a single
-    parameter group is produced and *optimizer_kwargs* (a dict, possibly empty)
-    is applied to it.  When ``config.params`` is a **list** of selection
-    functions, one parameter group is produced per function and
-    *optimizer_kwargs* must be an order-matched list of per-group kwargs dicts
-    of the same length.
+    ``config.params`` is always a list of parameter selectors (one per group;
+    see :class:`OptimizerConfig`). *optimizer_kwargs* is the order-matched list
+    of per-group kwargs dicts (``None`` entries are treated as empty). Both must
+    have the same length.
     """
     params = config.params
-    # A non-empty list of callables denotes multiple parameter groups handled by
-    # a single optimizer. A bare list of parameters is treated as a single
-    # group (and an empty list is left to _resolve_params, which raises).
-    is_multi_group = (
-        isinstance(params, (list, tuple)) and len(params) > 0 and all(callable(p) for p in params))
-
-    if is_multi_group:
-        if not isinstance(optimizer_kwargs, (list, tuple)):
-            raise RuntimeError(
-                "OptimizerConfig.params is a list of parameter-selection "
-                "functions, so 'optimizer_kwargs' must be a list of per-group "
-                "kwargs dicts of the same length.")
-        if len(optimizer_kwargs) != len(params):
-            raise RuntimeError(
-                f"Number of parameter-selection functions ({len(params)}) does "
-                f"not match the number of per-group 'optimizer_kwargs' "
-                f"({len(optimizer_kwargs)}).")
-        param_groups = []
-        for params_fn, group_kwargs in zip(params, optimizer_kwargs):
-            group_params = _resolve_params(params_fn, model, training_args)
-            param_groups.append({"params": group_params, **(group_kwargs or {})})
-        return param_groups
-
-    # Single parameter group.
-    if isinstance(optimizer_kwargs, (list, tuple)):
+    # optimizer_kwargs is always normalised to a list (see
+    # _normalize_optimizer_scheduler_args); default to one empty dict per group.
+    if optimizer_kwargs is None:
+        optimizer_kwargs = [None] * len(params)
+    if len(optimizer_kwargs) != len(params):
         raise RuntimeError(
-            "OptimizerConfig.params is a single parameter-selection function, "
-            "so 'optimizer_kwargs' must be a single dict, not a list.")
-    group_params = _resolve_params(params, model, training_args)
-    return [{"params": group_params, **(optimizer_kwargs or {})}]
+            f"Number of parameter groups ({len(params)}) does not match the "
+            f"number of per-group 'optimizer_kwargs' ({len(optimizer_kwargs)}).")
+
+    param_groups = []
+    for params_fn, group_kwargs in zip(params, optimizer_kwargs):
+        group_params = _resolve_params(params_fn, model, training_args)
+        param_groups.append({"params": group_params, **(group_kwargs or {})})
+    return param_groups
 
 
 def _build_optimizers_from_configs(
@@ -503,9 +544,9 @@ def _build_optimizers_from_configs(
 
     * ``optimizer_cls`` – optimizer class *name* (str), resolved against the
       optimizer namespaces (default: ``"CaileySGD"``).
-    * ``optimizer_kwargs`` – a dict of kwargs for a single parameter group, or a
-      list of per-group dicts when ``OptimizerConfig.params`` is a list of
-      selection functions.
+    * ``optimizer_kwargs`` – a list of per-group kwargs dicts, order-matched to
+      ``OptimizerConfig.params`` (``None`` entries are treated as empty). After
+      ``TrainingArguments.__post_init__`` this is always a list.
     * ``scheduler_cls`` – optional LR scheduler class *name* (str).
     * ``scheduler_kwargs`` – optional dict of kwargs for the scheduler.
 
@@ -519,6 +560,10 @@ def _build_optimizers_from_configs(
                                 Any]]] = getattr(training_args, "optimizer_scheduler_args", None)
     if os_args is None or len(os_args) < len(optimizer_configs):
         raise RuntimeError("Scheduler/Optimizer arguments do not match the configs")
+    # Defensively normalise so each entry's 'optimizer_kwargs' is always a list,
+    # even when the training args were constructed without going through
+    # TrainingArguments.__post_init__ (e.g. a raw namespace in tests).
+    os_args = _normalize_optimizer_scheduler_args(os_args)
 
     for i, config in enumerate(optimizer_configs):
         # Look up the args from the order-matched training args list
