@@ -19,7 +19,9 @@ TORCHVISION_VERSION_DICT = {
     '2.6.0': '0.21.0',
     '2.7.1': '0.22.1',
     '2.8.0': '0.23.0',
-    '2.9.0': '0.24.0'}
+    '2.9.0': '0.24.0',
+    '2.9.1': '0.24.1',
+    '2.10.0': '0.25.0'}
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 BASE_YML_REDUCED_TEMPLATE = 'base_reduced.yml.template'
@@ -66,7 +68,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
     'jit_disabled',])])
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-ALL_SUPPORTED_PYTHON_VERSIONS = ('3.9', '3.10', '3.11', '3.12')
+ALL_SUPPORTED_PYTHON_VERSIONS = ('3.10', '3.11', '3.12')
 
 ALL_SUPPORTED_PYTORCH_VERSIONS = (
     '1.12.1',
@@ -80,11 +82,9 @@ ALL_SUPPORTED_PYTORCH_VERSIONS = (
     '2.6.0',
     '2.7.1',
     '2.8.0',
-    '2.9.0')
+    '2.9.1',
+    '2.10.0')
 ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
-    [['python_version', [
-        '3.9',]], ['pytorch_version', [
-            '2.9.0',]]],
     [['python_version', [
         '3.11',]], ['pytorch_version', ['1.12.1', '1.13.1']]],
     [['python_version', [
