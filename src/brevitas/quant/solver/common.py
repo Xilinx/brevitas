@@ -193,6 +193,8 @@ def solve_stats_impl(stats_op=None, restrict_type=None):
         scaling_stats_impl = SignedAbsMax
     elif stats_op == StatsOp.NEG_MIN_OR_ZERO:
         scaling_stats_impl = NegativeMinOrZero
+    elif stats_op == StatsOp.NEG_PERCENTILE_OR_ZERO:
+        scaling_stats_impl = NegativePercentileOrZero
     else:
         raise RuntimeError(f"{stats_op} not recognized.")
 

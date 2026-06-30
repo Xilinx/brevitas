@@ -2,12 +2,16 @@
 Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
+from abc import ABC
+from abc import abstractmethod
 from enum import auto
+import re
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Type
 from typing import TypeVar
 from typing import Union
@@ -22,8 +26,10 @@ from brevitas.core.function_wrapper.ops_ste import FloorSte
 from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.core.stats import MSE
+from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
+from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.core.zero_point import ParameterZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
@@ -36,8 +42,18 @@ from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
+from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_parameter_quant import \
+    GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.quant.float_base import ScaledFloatActBase
+from brevitas.quant.float_base import ScaledFloatWeightBase
+from brevitas.quant.float_quant_fnuz import FpFNUZMixin
+from brevitas.quant.float_quant_ocp import FpOCPMixin
+from brevitas.quant.solver.act import ActQuantSolver
 from brevitas.quant.solver.common import solve_stats_impl
 from brevitas.quant.solver.common import SolveBitWidthImplFromEnum
 from brevitas.quant.solver.common import SolveIntScalingImplFromEnum
@@ -180,6 +196,46 @@ class QuantParamType(AutoName):
     ASYM = auto()
 
 
+class ScaleType(AutoName):
+    # Input/activation-only axis (maps to INPUT_QUANT_MAP keys).
+    STATIC = auto()  # scale computed from runtime stats, stored as a parameter
+    DYNAMIC = auto()  # scale recomputed per-forward
+    NO_SCALE = auto()  # no scale (float only, e.g. Fp8e4m3Act)
+
+
+class FloatFormat(AutoName):
+    # Maps to WEIGHT_QUANT_MAP keys 'float' / 'float_ocp' / 'float_fnuz'.
+    FLOAT = auto()  # plain FP (brevitas ScaledFloatWeightBase)
+    OCP = auto()  # FpOCPMixin (inf/nan values, max_available_float)
+    FNUZ = auto()  # FpFNUZMixin (exponent_bias = 2 ** (e - 1))
+
+
+# Mapping from FloatFormat to the brevitas format mixin to compose with the
+# float weight base. FLOAT requires no extra mixin.
+FLOAT_FORMAT_MIXIN_MAP = {
+    FloatFormat.OCP.value: FpOCPMixin,
+    FloatFormat.FNUZ.value: FpFNUZMixin,}
+
+_FLOAT_QUANT_FORMAT_RE = re.compile(r'^e([1-8])m([1-8])$')
+
+
+def parse_float_quant_format(float_quant_format: str) -> Tuple[int, int, int]:
+    """Parse a float format string such as ``"e4m3"`` into bit widths.
+
+    Returns ``(exponent_bit_width, mantissa_bit_width, bit_width)`` where
+    ``bit_width = 1 (sign) + exponent_bit_width + mantissa_bit_width``.
+    """
+    match = _FLOAT_QUANT_FORMAT_RE.match(float_quant_format)
+    if match is None:
+        raise ValueError(
+            f"Unrecognized float_quant_format {float_quant_format!r}; expected e.g. 'e4m3'.")
+    exponent_bit_width = int(match.group(1))
+    mantissa_bit_width = int(match.group(2))
+    # +1 for the sign bit (float weight quantizers are signed).
+    bit_width = 1 + exponent_bit_width + mantissa_bit_width
+    return exponent_bit_width, mantissa_bit_width, bit_width
+
+
 @value
 def scale_init_op(
     scaling_stats_op: EnumType[StatsOp] = None,
@@ -194,12 +250,12 @@ def zero_point_init_op(zero_point_stats_op: EnumType[StatsOp] = None,) -> Option
 
 
 def _make_mse_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
-    MSESubInjector = type(
-        f'MSE{target.capitalize()}SubInjector', (MSESubInjectorMixin,), {
-            "mse_init_op": getattr(this << 1, f"{target}_mse_init_op"),})
     prefix = {
         Target.SCALE.value: "scaling",
         Target.ZERO_POINT.value: "zero_point",}[target.value]
+    MSESubInjector = type(
+        f'MSE{target.capitalize()}SubInjector', (MSESubInjectorMixin,), {
+            "mse_init_op": getattr(this << 1, f"{prefix}_mse_init_op"),})
 
     def _make_scaling_init_op(prefix: str) -> Callable:
         # The scale init op derives from scaling_stats_op (AbsMax / AbsMinMax /
@@ -214,7 +270,7 @@ def _make_mse_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
         f"{prefix}_impl_type": ScalingImplType.PARAMETER_FROM_STATS,
         f"{prefix}_stats_input_view_shape_impl": nn.Identity(),
         f"{prefix}_stats_impl": getattr(this, f"mse_{target}").stats_impl,
-        f"{target}_mse_init_op": _make_scaling_init_op(prefix),
+        f"{prefix}_mse_init_op": _make_scaling_init_op(prefix),
         "inner_stats_input_view_shape_impl": inner_stats_input_view_shape_impl,}
     mse_injector = type(f'MSE{target.capitalize()}Injector', (ExtendedInjector,), namespace)
     return mse_injector
@@ -252,9 +308,9 @@ def _make_hqo_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
     return hqo_injector
 
 
-# Scale sub-injector: init op is derived at the *parent* (MSEInjectorMixin)
-# level from the requested enums, and pulled in here via `(this << 1)`. The
-# zero-point sub-injector (added later) will instead use a fixed init op.
+# The init op is derived at the parent injector level from the requested enums
+# (scaling_stats_op / zero_point_stats_op) and pulled into the sub-injector via
+# `(this << 1)`, with a distinct name per target to avoid the mse_init_op clash.
 MSEScaleInjectorMixin = _make_mse_injector(target=Target.SCALE)
 MSEZeroPointInjectorMixin = _make_mse_injector(target=Target.ZERO_POINT)
 
@@ -293,7 +349,7 @@ implement a generic quantizer builder.
 """
 
 
-class QuantizerBuilder:
+class BaseQuantizerBuilder(ABC):
     """Builds Brevitas quantizer injectors programmatically.
 
     This is intended to eventually replace the static ``WEIGHT_QUANT_MAP`` and
@@ -312,10 +368,8 @@ class QuantizerBuilder:
 
     def __init__(
         self,
-        quant_type: Union[str, QuantType],
         quant_param_type: Union[str, QuantParamType] = QuantParamType.SYM,
         # General quantization parameters
-        bit_width: int = 8,
         bit_width_impl_type: Union[str, BitWidthImplType] = BitWidthImplType.CONST,
         float_to_int_impl_type: Union[str, FloatToIntImplType] = FloatToIntImplType.ROUND,
         # Scaling parameters
@@ -329,9 +383,7 @@ class QuantizerBuilder:
         # Additional kwargs to be injected into the quantizer injector
         kwargs: Optional[Dict[str, Any]] = None
     ) -> None:
-        self.quant_type = quant_type
         self.quant_param_type = quant_param_type
-        self.bit_width = bit_width
         self.bit_width_impl_type = bit_width_impl_type
         self.float_to_int_impl_type = float_to_int_impl_type
         self.scaling_impl_type = scaling_impl_type
@@ -344,7 +396,7 @@ class QuantizerBuilder:
 
     def build_quant_injector(
             self,
-            quant_injector: Type[ExtendedInjector] = ExtendedInjector,
+            base_classes: Optional[Tuple[Type, ...]] = None,
             value_solve_fns: Optional[List[Callable]] = None) -> Any:
         """Return the customized quantizer injector.
 
@@ -353,46 +405,27 @@ class QuantizerBuilder:
         ``brevitas_examples.common.generative.quantize.generate_quantizers``
         for the same set of quantization arguments.
         """
-        namespace: Dict[str, Any] = {}
+        if base_classes is None:
+            base_classes = tuple()
 
-        # Insert quant_type into the injector
-        namespace['quant_type'] = self.quant_type
-        namespace['bit_width'] = self.bit_width
-        namespace['bit_width_impl_type'] = self.bit_width_impl_type
-        namespace['float_to_int_impl_type'] = self.float_to_int_impl_type
+        # Append the solver / quantizer base classes (weight vs activation,
+        # int vs float). Concrete builders provide these via a hook so the
+        # input builders can cooperatively swap weight bases for activation ones.
+        base_classes = base_classes + self._solver_base_classes()
 
-        namespace['scaling_impl_type'] = self.scaling_impl_type
-        namespace['scaling_per_output_type'] = self.scaling_per_output_type
-        namespace['restrict_scaling_type'] = self.restrict_scaling_type
-        namespace['scaling_min_val'] = self.scaling_min_val
+        namespace: Dict[str, Any] = self._build_base_namespace()
+        base_classes = self._build_proxy_class(namespace, base_classes)
 
-        # Insert the appropriate proxy class into the injector depending on the scaling_per_output_type
-        if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
-            namespace['proxy_class'] = GroupwiseWeightQuantProxyFromInjector
-        else:
-            namespace['proxy_class'] = WeightQuantProxyFromInjector
+        # Enable the scaling parameter method (MSE / HQO) if specified
+        base_classes = self._build_scaling_param_method(namespace, base_classes)
+        # Build the restrict scaling method if specified
+        base_classes = self._build_restrict_param_method(namespace, base_classes)
 
-        # Relevant parameters depending on the type of quantization (symmetric vs asymmetric)
-        if self.quant_param_type == QuantParamType.SYM:
-            if self.quant_type in [QuantType.INT]:
-                namespace['signed'] = True
-                namespace['narrow_range'] = True
-        elif self.quant_param_type == QuantParamType.ASYM:
-            if self.quant_type in [QuantType.INT]:
-                namespace['signed'] = False
-                namespace['narrow_range'] = False
-                namespace['quantize_zero_point'] = True
-        else:
-            raise RuntimeError(f"Unrecognized quant_param_type {self.quant_param_type}")
-
-        # The MSE init op (e.g. AbsMax) must reduce *without* keepdim so its output
-        # shape matches the per-group MSE loss (e.g. (out, n_groups)) during the
-        # grid search. Groupwise quantizers set keepdim=True for the standalone
-        # scaling stats, but brevitas' MSE sub-injectors instantiate the init op
-        # with keepdim=False; we mirror that here to avoid a shape mismatch in
-        # mse_grid_search for groupwise (MX) MSE quantizers.
-        if (self.scaling_param_method == ParamMethod.MSE):
-            namespace['keepdim'] = False
+        # If zero point is enabled, the appropiate asym mixin is provided
+        if self.quant_param_type == QuantParamType.ASYM:
+            base_classes = self._build_asymmmetric_quantizer(namespace, base_classes)
+        elif self.quant_param_type == QuantParamType.SYM:
+            base_classes = self._build_symmmetric_quantizer(namespace, base_classes)
 
         # Insert value_solve_fns into the injector if provided
         if value_solve_fns:
@@ -403,9 +436,66 @@ class QuantizerBuilder:
         # Add additional kwargs
         namespace.update(self.kwargs or {})
 
-        base_classes = (WeightQuantSolver,)
+        return type("QuantInjector", base_classes, namespace)
 
-        # Handle restrict_scaling_type
+    def _build_base_namespace(self) -> Dict[str, Any]:
+        namespace: Dict[str, Any] = {}
+        namespace['bit_width_impl_type'] = self.bit_width_impl_type
+        namespace['float_to_int_impl_type'] = self.float_to_int_impl_type
+
+        namespace['scaling_impl_type'] = self.scaling_impl_type
+        namespace['scaling_per_output_type'] = self.scaling_per_output_type
+        namespace['restrict_scaling_type'] = self.restrict_scaling_type
+        namespace['scaling_min_val'] = self.scaling_min_val
+        return namespace
+
+    def _build_scaling_param_method(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        """Prepend the scale param-method mixin (MSE / HQO) and adjust namespace."""
+        # The MSE init op (e.g. AbsMax) must reduce *without* keepdim so its
+        # output shape matches the per-group MSE loss (e.g. (out, n_groups))
+        # during the grid search. Groupwise quantizers set keepdim=True for the
+        # standalone scaling stats, but brevitas' MSE sub-injectors instantiate
+        # the init op with keepdim=False; we mirror that here to avoid a shape
+        # mismatch in mse_grid_search for groupwise (MX) MSE quantizers.
+        if self.scaling_param_method == ParamMethod.MSE:
+            namespace['keepdim'] = False
+            base_classes = (MSEScaleInjectorMixin,) + base_classes
+            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using MSE
+            namespace.pop('scaling_impl_type', None)
+        elif self.scaling_param_method == ParamMethod.HQO:
+            base_classes = (HQOScaleInjectorMixin,) + base_classes
+            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using HQO
+            namespace.pop('scaling_impl_type', None)
+        return base_classes
+
+    def _build_zero_point_param_method(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        """Prepend the zero_point param-method mixin (MSE / HQO) and adjust namespace."""
+        if self.zero_point_param_method == ParamMethod.MSE:
+            base_classes = (MSEZeroPointInjectorMixin,) + base_classes
+        elif self.zero_point_param_method == ParamMethod.HQO:
+            base_classes = (HQOZeroPointInjectorMixin,) + base_classes
+
+        return base_classes
+
+    def _build_symmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        if self.zero_point_param_method is not None and self.quant_param_type == QuantParamType.SYM:
+            raise ValueError(
+                "Zero point parameter method is not applicable for symmetric quantization.")
+        base_classes += (SymMixin,)
+        return base_classes
+
+    def _build_asymmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        # Enable asymmetric quantization by adding the AsymMixin to the base classes
+        base_classes += (AsymMixin,)
+        base_classes = self._build_zero_point_param_method(namespace, base_classes)
+        return base_classes
+
+    def _build_restrict_param_method(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
         if self.restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
             if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
                 base_classes += (GroupwisePoTMixin,)
@@ -413,29 +503,278 @@ class QuantizerBuilder:
                 # TODO (pml): Switch to FloatToIntImplType.FLOOR_STE when adding
                 # the solve function
                 namespace['restrict_value_float_to_int_impl'] = CeilSte
+        return base_classes
 
-        # If zero point is enabled, the appropiate asym mixin is provided
-        if self.quant_param_type == QuantParamType.ASYM:
-            base_classes += (AsymMixin,)
-        elif self.quant_param_type == QuantParamType.SYM:
-            base_classes += (SymMixin,)
+    @abstractmethod
+    def _build_proxy_class(self, namespace: Dict[str, Any],
+                           base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        pass
 
-        if self.scaling_param_method == ParamMethod.MSE:
-            base_classes = (MSEScaleInjectorMixin,) + base_classes
-            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using MSE
-            del namespace['scaling_impl_type']
-        elif self.scaling_param_method == ParamMethod.HQO:
-            base_classes = (HQOScaleInjectorMixin,) + base_classes
-            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using HQO
-            del namespace['scaling_impl_type']
+    @abstractmethod
+    def _solver_base_classes(self) -> Tuple[Type, ...]:
+        """Return the solver / quantizer base classes (e.g. WeightQuantSolver)."""
+        pass
 
-        if self.zero_point_param_method is not None and self.quant_param_type == QuantParamType.SYM:
+
+# ----------------------------------------------------------------------
+# Kind axis: weight vs input/activation.
+# ----------------------------------------------------------------------
+class WeightQuantizerBuilder(BaseQuantizerBuilder):
+    """Kind axis: quantizes *weights*."""
+
+
+class InputQuantizerBuilder(BaseQuantizerBuilder):
+    """Kind axis: quantizes *inputs/activations*.
+
+    Adds the activation-specific ``scale_type`` axis and the static runtime
+    percentile scaling. Currently only ``ScaleType.STATIC`` is implemented.
+    """
+
+    def __init__(
+            self, *, scale_type: Union[str, ScaleType] = ScaleType.STATIC, **kwargs: Any) -> None:
+        self.scale_type: Union[str, ScaleType] = scale_type
+        if ScaleType(self.scale_type) != ScaleType.STATIC:
+            raise NotImplementedError(
+                f"Input quantization scale_type {self.scale_type} is not supported yet.")
+        super().__init__(**kwargs)
+
+    def _build_base_namespace(self) -> Dict[str, Any]:
+        namespace: Dict[str, Any] = super()._build_base_namespace()
+        # Static activation scaling uses runtime percentile statistics stored as
+        # a learned parameter.
+        if ScaleType(self.scale_type) == ScaleType.STATIC:
+            # TODO (pml): Verify if other scale types (DYNAMIC, NO_SCALE) can
+            # share some of these attributes.
+            namespace['scaling_impl_type'] = ScalingImplType.PARAMETER_FROM_STATS
+            namespace['high_percentile_q'] = 99.999
+            namespace['collect_stats_steps'] = 300
+        return namespace
+
+    def _build_symmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        base_classes = super()._build_symmmetric_quantizer(namespace, base_classes)
+        # Activations use IntQuant (non-narrow), unlike NarrowIntQuant weights.
+        namespace['narrow_range'] = False
+        return base_classes
+
+
+# ----------------------------------------------------------------------
+# Format axis: int vs float. The solver / proxy / float base are deferred to
+# kind-specific hooks (``_quant_solver`` / ``_proxy_class`` / ``_scaled_float_base``)
+# implemented by the concrete leaf builders.
+# ----------------------------------------------------------------------
+class IntQuantizerBuilder(BaseQuantizerBuilder):
+    """Format axis: integer quantization."""
+
+    def __init__(self, *, bit_width: int = 8, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.bit_width: int = bit_width
+
+    def _build_base_namespace(self) -> Dict[str, Any]:
+        namespace: Dict[str, Any] = super()._build_base_namespace()
+        namespace['quant_type'] = QuantType.INT
+        namespace['bit_width'] = self.bit_width
+        return namespace
+
+    def _build_proxy_class(self, namespace: Dict[str, Any],
+                           base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        namespace['proxy_class'] = self._proxy_class()
+        return base_classes
+
+    def _build_symmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        namespace['signed'] = True
+        namespace['narrow_range'] = True
+        return super()._build_symmmetric_quantizer(namespace, base_classes)
+
+    def _build_asymmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        namespace['signed'] = False
+        namespace['narrow_range'] = False
+        namespace['quantize_zero_point'] = True
+        return super()._build_asymmmetric_quantizer(namespace, base_classes)
+
+    def _solver_base_classes(self) -> Tuple[Type, ...]:
+        return (self._quant_solver(),)
+
+
+class FloatQuantizerBuilder(BaseQuantizerBuilder):
+    """Format axis: float quantization."""
+
+    def __init__(
+        self,
+        *,
+        float_quant_format: str,
+        float_format: Union[str, FloatFormat] = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.float_format: Optional[Union[str, FloatFormat]] = float_format
+        self.float_quant_format: Optional[str] = float_quant_format
+
+        # TODO (pml): Remove or refactor
+        if self.quant_param_type != QuantParamType.SYM:
+            raise ValueError("Float quantizers only support symmetric quantization.")
+        if self.zero_point_param_method is not None:
+            raise ValueError("Float quantizers do not support a zero-point param method.")
+        # Power-of-two scaled groupwise float (MX) is only defined for the OCP
+        # format: it relies on FpOCPMixin's inf/nan values to compute
+        # midmax_mantissa_bit_bias.
+        # TODO (pml): Double check if this should be the case
+        if (self.restrict_scaling_type == RestrictValueType.POWER_OF_TWO and
+                self.scaling_per_output_type == ScalingPerOutputType.GROUP and
+                FloatFormat(self.float_format) != FloatFormat.OCP):
             raise ValueError(
-                "Zero point parameter method is not applicable for symmetric quantization.")
+                "Groupwise power-of-two scaled float quantizers (MX) are only "
+                "supported for FloatFormat.OCP.")
 
-        if self.zero_point_param_method == ParamMethod.MSE:
-            base_classes = (MSEZeroPointInjectorMixin,) + base_classes
-        elif self.zero_point_param_method == ParamMethod.HQO:
-            base_classes = (HQOZeroPointInjectorMixin,) + base_classes
+    def _solver_base_classes(self) -> Tuple[Type, ...]:
+        # The format mixin (OCP / FNUZ) is composed first so its overrides
+        # (inf/nan values, exponent_bias) take precedence over the float base.
+        base_classes: Tuple[Type, ...] = ()
+        format_mixin = FLOAT_FORMAT_MIXIN_MAP.get(FloatFormat(self.float_format).value)
+        if format_mixin is not None:
+            base_classes = (format_mixin,) + base_classes
+        base_classes = base_classes + (self._scaled_float_base(),)
+        return base_classes
 
-        return type("QuantInjector", base_classes, namespace)
+    def _build_proxy_class(self, namespace: Dict[str, Any],
+                           base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        namespace['proxy_class'] = self._proxy_class()
+        return base_classes
+
+    def _build_base_namespace(self) -> Dict[str, Any]:
+        exponent_bit_width, mantissa_bit_width, bit_width = parse_float_quant_format(
+            self.float_quant_format)
+
+        namespace: Dict[str, Any] = super()._build_base_namespace()
+
+        namespace['quant_type'] = QuantType.FP
+        namespace['bit_width'] = bit_width
+        namespace['exponent_bit_width'] = exponent_bit_width
+        namespace['mantissa_bit_width'] = mantissa_bit_width
+        # All FloatFormat mixins set saturating=True; set it for the plain FLOAT
+        # format too (the reference Fp8e4m3Mixin sets it).
+        namespace['saturating'] = True
+
+        return namespace
+
+
+# ----------------------------------------------------------------------
+# Concrete builders: one "kind" x one "format".
+# ----------------------------------------------------------------------
+class WeightIntQuantizerBuilder(WeightQuantizerBuilder, IntQuantizerBuilder):
+    """Integer weight quantizer builder."""
+
+    def _quant_solver(self) -> Type:
+        return WeightQuantSolver
+
+    def _proxy_class(self) -> Type:
+        if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return GroupwiseWeightQuantProxyFromInjector
+        return WeightQuantProxyFromInjector
+
+
+class WeightFloatQuantizerBuilder(WeightQuantizerBuilder, FloatQuantizerBuilder):
+    """Float weight quantizer builder."""
+
+    def _scaled_float_base(self) -> Type:
+        return ScaledFloatWeightBase
+
+    def _proxy_class(self) -> Type:
+        if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return GroupwiseWeightFloatQuantProxyFromInjector
+        return WeightFloatQuantProxyFromInjector
+
+
+class InputIntQuantizerBuilder(InputQuantizerBuilder, IntQuantizerBuilder):
+    """Integer input/activation quantizer builder (static scaling only)."""
+
+    def _quant_solver(self) -> Type:
+        return ActQuantSolver
+
+    def _proxy_class(self) -> Type:
+        # Groupwise activation int proxy is not supported yet.
+        return ActQuantProxyFromInjector
+
+    def _build_symmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        # One-sided percentile scale for symmetric static activations.
+        namespace['scaling_stats_op'] = StatsOp.PERCENTILE
+        return super()._build_symmmetric_quantizer(namespace, base_classes)
+
+    def _build_asymmmetric_quantizer(
+            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        # Interval percentile scale + runtime-percentile zero-point for
+        # asymmetric static activations (mirrors brevitas
+        # ShiftedParamFromPercentileUintQuant).
+        base_classes = super()._build_asymmmetric_quantizer(namespace, base_classes)
+        # Override the weight AsymMixin defaults with the activation ones. The
+        # weight zero_point_stats_input_concat_dim (added by AsymMixin) is left
+        # unresolved: ParameterFromRuntimeZeroPoint never requests it.
+        namespace['zero_point_impl'] = ParameterFromRuntimeZeroPoint
+        namespace['zero_point_stats_op'] = StatsOp.NEG_PERCENTILE_OR_ZERO
+        namespace['low_percentile_q'] = 0.001
+        namespace['scaling_stats_op'] = StatsOp.PERCENTILE_INTERVAL
+        return base_classes
+
+
+class InputFloatQuantizerBuilder(InputQuantizerBuilder, FloatQuantizerBuilder):
+    """Float input/activation quantizer builder (static scaling only)."""
+
+    def _scaled_float_base(self) -> Type:
+        return ScaledFloatActBase
+
+    def _proxy_class(self) -> Type:
+        # Groupwise activation float proxy is not supported yet.
+        return ActFloatQuantProxyFromInjector
+
+    def _build_base_namespace(self) -> Dict[str, Any]:
+        namespace: Dict[str, Any] = super()._build_base_namespace()
+        # ScaledFloatActBase already sets scaling_impl_type=parameter_from_stats
+        # (with collect_stats_steps); the percentile/static attributes set by the
+        # int path do not apply to float activations.
+        namespace.pop('scaling_impl_type', None)
+        namespace.pop('high_percentile_q', None)
+        return namespace
+
+
+# Maps a quant_type to the concrete *weight* builder responsible for it.
+_QUANT_TYPE_BUILDER_MAP = {
+    QuantType.INT.value: WeightIntQuantizerBuilder,
+    QuantType.FP.value: WeightFloatQuantizerBuilder,}
+
+# Maps a quant_type to the concrete *input* builder responsible for it.
+_INPUT_QUANT_TYPE_BUILDER_MAP = {
+    QuantType.INT.value: InputIntQuantizerBuilder,
+    QuantType.FP.value: InputFloatQuantizerBuilder,}
+
+
+def build_weight_quantizer(
+        quant_type: Union[str, QuantType], *args: Any, **kwargs: Any) -> BaseQuantizerBuilder:
+    """Factory returning the appropriate *weight* quantizer builder for ``quant_type``.
+
+    Dispatches to :class:`WeightIntQuantizerBuilder` (``QuantType.INT``) or
+    :class:`WeightFloatQuantizerBuilder` (``QuantType.FP``). ``quant_type`` is
+    only used to select the builder; the remaining arguments are forwarded
+    unchanged to the selected builder's constructor.
+    """
+    builder_cls = _QUANT_TYPE_BUILDER_MAP.get(QuantType(quant_type).value)
+    if builder_cls is None:
+        raise ValueError(f"No quantizer builder available for quant_type {quant_type!r}.")
+    return builder_cls(*args, **kwargs)
+
+
+def build_input_quantizer(
+        quant_type: Union[str, QuantType], *args: Any, **kwargs: Any) -> BaseQuantizerBuilder:
+    """Factory returning the appropriate *input* quantizer builder for ``quant_type``.
+
+    Dispatches to :class:`InputIntQuantizerBuilder` (``QuantType.INT``) or
+    :class:`InputFloatQuantizerBuilder` (``QuantType.FP``). ``quant_type`` is
+    only used to select the builder; the remaining arguments are forwarded
+    unchanged to the selected builder's constructor.
+    """
+    builder_cls = _INPUT_QUANT_TYPE_BUILDER_MAP.get(QuantType(quant_type).value)
+    if builder_cls is None:
+        raise ValueError(f"No input quantizer builder available for quant_type {quant_type!r}.")
+    return builder_cls(*args, **kwargs)
