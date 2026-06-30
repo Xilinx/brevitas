@@ -30,17 +30,10 @@ from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
-# Optimizer/scheduler building and trainer plumbing live in trainer_utils. They
-# are re-exported here for backward-compatible imports.
+# Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
 from brevitas_examples.llm.llm_quant.trainer_utils import _to_optimizer_configs
-from brevitas_examples.llm.llm_quant.trainer_utils import DEFAULT_OPTIMIZER_CLS
-from brevitas_examples.llm.llm_quant.trainer_utils import MultiOptimizer
-from brevitas_examples.llm.llm_quant.trainer_utils import MultiScheduler
-from brevitas_examples.llm.llm_quant.trainer_utils import OptimizerConfig
 from brevitas_examples.llm.llm_quant.trainer_utils import OptimizerParamsSpec
-from brevitas_examples.llm.llm_quant.trainer_utils import ParamsFn
-from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 
 
 @dataclass
