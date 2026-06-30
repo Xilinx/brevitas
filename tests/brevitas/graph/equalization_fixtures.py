@@ -390,7 +390,19 @@ RESNET_18_REGIONS = [
     [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
 
 
-input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", [(None, Int8WeightPerTensorFloat), (Int8ActPerTensorFloat, Int8WeightPerTensorFloat), (MXInt8Act, MXInt8Weight), (MXFloat8e4m3Act, MXFloat8e4m3Weight)])
+def _process_weight_quant_for_gpxq(weight_quant):
+    weight_quant = weight_quant.let(scaling_impl_type='parameter_from_stats')
+    return weight_quant
+
+
+list_of_quant_fixtures = [
+    (None, _process_weight_quant_for_gpxq(Int8WeightPerTensorFloat)),
+    (Int8ActPerTensorFloat, _process_weight_quant_for_gpxq(Int8WeightPerTensorFloat)),
+    (MXInt8Act, _process_weight_quant_for_gpxq(MXInt8Weight)),
+    (MXFloat8e4m3Act, MXFloat8e4m3Weight)]
+
+
+input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", list_of_quant_fixtures)
 
 
 @pytest_cases.fixture

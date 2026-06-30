@@ -101,12 +101,23 @@ class AXEMixin:
                 f"accumulator tile size needs to be bigger than 1, received {self.max_accumulator_tile_size}"
             )
         if self.layer.weight_quant.is_groupwise:
+            # AXE constrains the weights against a target accumulator for a full dot product, and
+            # the math assumes one scale per dot product. A dot product can be split into tiles
+            # (partial dot products) with one scale each, so with groupwise scales we require the
+            # group size to equal the tile size (or a monolithic accumulator spanning the row).
             if (self.max_accumulator_tile_size != self.columns) \
                 and (self.max_accumulator_tile_size != self.layer.weight_quant.group_size):
                 raise ValueError(
                     "Error: only supporting accumulator-aware groupwise weight quantization"
                     "when the group size is equal to the accumulator tile size or a monolithic"
                     "accumulator is assumed (i.e., `max_accumulator_tile_size=None`).")
+            # GPxQ (and AXE) unroll a convolution into a single dot product, but Brevitas' MX
+            # implementation currently forms groups only along the input-channel dimension, which
+            # no longer maps onto that unrolled dot product. We leave resolving this to the future.
+            if isinstance(self.layer, SUPPORTED_CONV_OP):
+                raise ValueError(
+                    "Error: accumulator-aware quantization with groupwise weight scales is not "
+                    "supported for convolutions.")
 
     def reshape_gpxq_weights(self, weight):
         if isinstance(self.layer, SUPPORTED_CONV_OP):
@@ -172,10 +183,16 @@ class AXEMixin:
         return torch.where(p2 > n2, p2, n2)
 
     def get_thresholds(self, weight: Tensor, scales: Tensor, n_tiles: int) -> Tensor:
-        # weight, scales: [Groups, OC/Groups, IC]
-        # returns thresholds: [Groups, n_tiles, OC/Groups] in float domain
-        Z = (torch.exp2(self.max_accumulator_bit_width) -
-             2) / float(self.input_max - self.input_min)
+        """
+        Per-tile soft-thresholding radius: the largest magnitude that can be shrunk to zero
+        while keeping each accumulator tile within budget. Computed in the integer domain via
+        an L1-ball projection, then mapped back to the float domain.
+
+        weight, scales: [Groups, OC/Groups, IC]
+        returns thresholds: [Groups, n_tiles, OC/Groups] in float domain
+        """
+        Z = (torch.exp2(self.max_accumulator_bit_width) - 2) / float(
+            self.input_max - self.input_min)  # L1 radius (accumulator budget)
         w_int = (weight / scales).to(torch.float32)  # [Groups, OC/Groups, IC]
         wT = pad_tensor_with_zeros(
             w_int.flatten(0, 1),  # [Groups*OC/Groups, IC]
@@ -325,15 +342,6 @@ class A2GPTQ(AXEMixin, GPTQ):
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
         get_block_index = lambda bx: bx // self.max_accumulator_tile_size
-        if self.layer.weight_quant.is_groupwise and isinstance(self.layer, SUPPORTED_CONV_OP):
-            # only supporting groupwise quantization long the input dimension
-            group_dim = 0 if is_conv_transposed(self.layer) else 1
-            assert self.layer.weight_quant.group_dim == group_dim, \
-                f"Error: only group_dim={group_dim} is supported, not {group_dim}"
-            group_size = self.layer.weight_quant.group_size
-            n_tiles = math.prod(self.layer.kernel_size) * \
-                math.ceil(self.layer.in_channels / group_size)
-            get_block_index = lambda bx: bx % n_tiles
 
         thresholds = self.get_thresholds(weight, scales, n_tiles)  # [Groups, n_tiles, OC/Groups]
 
@@ -532,15 +540,6 @@ class A2GPFQ(AXEMixin, GPFQ):
 
         n_tiles = math.ceil(weight.shape[-1] / self.max_accumulator_tile_size)
         get_block_index = lambda bx: bx // self.max_accumulator_tile_size
-        if self.layer.weight_quant.is_groupwise and isinstance(self.layer, SUPPORTED_CONV_OP):
-            # only supporting groupwise quantization long the input dimension
-            group_dim = 0 if is_conv_transposed(self.layer) else 1
-            assert self.layer.weight_quant.group_dim == group_dim, \
-                f"Error: only group_dim={group_dim} is supported, not {group_dim}"
-            group_size = self.layer.weight_quant.group_size
-            n_tiles = math.prod(self.layer.kernel_size) * \
-                math.ceil(self.layer.in_channels / group_size)
-            get_block_index = lambda bx: bx % n_tiles
 
         thresholds = self.get_thresholds(weight, scales, n_tiles)  # [Groups, n_tiles, OC/Groups]
 

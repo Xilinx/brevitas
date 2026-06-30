@@ -12,6 +12,7 @@ from brevitas.graph.gpfq import GPFQ
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import gpxq_mode
+from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.magr import magr_mode
 from brevitas.graph.qronos import Qronos
 import brevitas.nn as qnn
@@ -92,6 +93,8 @@ def apply_qronos(
         use_quant_activations: bool,
         max_accumulator_bit_width: int = None,
         max_accumulator_tile_size: int = None):
+    assert max_accumulator_bit_width is None
+    assert max_accumulator_tile_size is None
     _dual_optimization_callback(
         calib_loader=calib_loader,
         model=model,
@@ -288,12 +291,26 @@ def test_toy_quant_models(
     dataset = TensorDataset(inp, inp)
     calib_loader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
 
-    if (max_accumulator_bit_width is not None) and (input_quant == 'None' or
-                                                    not use_quant_activations):
-        # AXE (or A2GPxQ) requires that the quant activations are used. A2GPxQ.single_layer_update
-        # will raise a ValueError if AXE.quant_metadata is None (also see GPxQ.process_input). This
-        # will happen when `use_quant_activations=False` or when the input to a model is not quantized
-        # and `a2q_layer_filter_fnc` does not properly handle it.
+    def _is_value_error_expected():
+        # The conditions below only matter for AXE (A2GPxQ); plain GPxQ has no such constraints
+        if max_accumulator_bit_width is None:
+            return False
+        # AXE needs quantized activation metadata to compute the accumulator bounds. With no input
+        # quantizer, AXE.quant_metadata is None and A2GPxQ.single_layer_update raises the exception
+        if input_quant == 'None':
+            return True
+        # Same failure for a different reason: leaving activations unquantized during GPxQ means the
+        # quantized input metadata is never captured, so AXE.quant_metadata is None
+        if not use_quant_activations:
+            return True
+        # AXE only supports groupwise weight scales for linear layers; the AXEMixin constructor
+        # rejects groupwise weight quantization on convolutions
+        for mod in gpxq_layers:
+            if mod.weight_quant.is_groupwise and isinstance(mod, SUPPORTED_CONV_OP):
+                return True
+        return False
+
+    if _is_value_error_expected():
         with pytest.raises(ValueError):
             apply_gpxq(
                 calib_loader=calib_loader,
