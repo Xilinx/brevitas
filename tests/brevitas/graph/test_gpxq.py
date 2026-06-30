@@ -19,6 +19,7 @@ import brevitas.nn as qnn
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas_examples.common.axe import a2gpfq_mode
 from brevitas_examples.common.axe import a2gptq_mode
+from brevitas_examples.common.axe import AXEMixin
 
 from .equalization_fixtures import *
 
@@ -33,6 +34,28 @@ def _a2q_layer_filter_fnc(layer: nn.Module) -> bool:
     if isinstance(layer, nn.ConvTranspose2d):
         return False
     return gpxq_mode._is_module_supported(None, layer)
+
+
+def _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width):
+    # Independently recompute the worst-case signed integer accumulator from the final quantized
+    # weights and assert it fits the budget. This is the inference-time guarantee AXE exists to
+    # provide, checked without relying on AXE's internal accumulator tracking. We reuse the AXE
+    # instance's own input bounds and weight unrolling so we check against exactly what it
+    # constrained against.
+    max_limit = 2 ** (max_accumulator_bit_width - 1) - 1
+    input_max, input_min = gpxq_impl.input_max, gpxq_impl.input_min
+    tile_size = gpxq_impl.max_accumulator_tile_size
+    # weights as integers, unrolled to [OC, columns] the same way AXE does
+    weight = gpxq_impl.reshape_gpxq_weights(gpxq_impl.layer.quant_weight().int().float())
+    columns = weight.shape[1]
+    for i in range(0, columns, tile_size):
+        tile = weight[:, i:i + tile_size]
+        pos = torch.clamp_min(tile, 0).sum(dim=1)  # [OC]
+        neg = torch.clamp_max(tile, 0).sum(dim=1)  # [OC]
+        pos_acc = (input_max * pos + input_min * neg).max().item()
+        neg_acc = (-(input_min * pos + input_max * neg)).max().item()
+        assert pos_acc <= max_limit, f"positive accumulator {pos_acc} exceeds {max_limit}"
+        assert neg_acc <= max_limit, f"negative accumulator {neg_acc} exceeds {max_limit}"
 
 
 @torch.no_grad()
@@ -67,6 +90,12 @@ def _dual_optimization_callback(
                 images = images.to(dtype)
                 algo_model(images)
             algo.update()
+        if max_accumulator_bit_width is not None:
+            # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
+            # back to the base class); only the AXE instances carry accumulator constraints.
+            for gpxq_impl in algo.gpxq_layers.values():
+                if isinstance(gpxq_impl, AXEMixin):
+                    _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width)
 
 
 def apply_gpfq(
@@ -131,6 +160,12 @@ def apply_gptq(
                 images = images.to(dtype)
                 gptq_model(images)
             gptq.update()
+        if max_accumulator_bit_width is not None:
+            # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
+            # back to the base class); only the AXE instances carry accumulator constraints.
+            for gpxq_impl in gptq.gpxq_layers.values():
+                if isinstance(gpxq_impl, AXEMixin):
+                    _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width)
 
 
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": apply_qronos}
