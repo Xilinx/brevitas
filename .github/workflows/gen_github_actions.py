@@ -80,7 +80,11 @@ ALL_SUPPORTED_PYTORCH_VERSIONS = (
     '2.6.0',
     '2.7.1',
     '2.8.0',
-    '2.9.0')
+    '2.9.0',
+    '2.10.0',
+    '2.11.0',
+    '2.12.1')
+
 ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
     [['python_version', [
         '3.9',]], ['pytorch_version', [
