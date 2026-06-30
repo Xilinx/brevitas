@@ -93,9 +93,13 @@ def _dual_optimization_callback(
         if max_accumulator_bit_width is not None:
             # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
             # back to the base class); only the AXE instances carry accumulator constraints.
+            n_verified = 0
             for gpxq_impl in algo.gpxq_layers.values():
                 if isinstance(gpxq_impl, AXEMixin):
                     _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width)
+                    n_verified += 1
+            # guard against silently verifying nothing (e.g. if no layer became an AXE instance)
+            assert n_verified > 0, "AXE was enabled but no layer was accumulator-constrained"
 
 
 def apply_gpfq(
@@ -163,9 +167,13 @@ def apply_gptq(
         if max_accumulator_bit_width is not None:
             # gpxq_layers mixes AXE and plain GPxQ instances (layers failing the a2q filter fall
             # back to the base class); only the AXE instances carry accumulator constraints.
+            n_verified = 0
             for gpxq_impl in gptq.gpxq_layers.values():
                 if isinstance(gpxq_impl, AXEMixin):
                     _verify_accumulator_constraints(gpxq_impl, max_accumulator_bit_width)
+                    n_verified += 1
+            # guard against silently verifying nothing (e.g. if no layer became an AXE instance)
+            assert n_verified > 0, "AXE was enabled but no layer was accumulator-constrained"
 
 
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq, "qronos": apply_qronos}
