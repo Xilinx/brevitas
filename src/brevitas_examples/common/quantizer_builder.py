@@ -438,6 +438,12 @@ class BaseQuantizerBuilder(ABC):
 
         return type("QuantInjector", base_classes, namespace)
 
+    def describe_quantizer(self, resolve: bool = True) -> None:
+        """Build the quant injector and print its attributes, dependency kinds,
+        and (for ``@value`` functions) the args they require and resolve to."""
+        from brevitas_examples.common.injector_utils import describe_injector
+        describe_injector(self.build_quant_injector(), resolve=resolve)
+
     def _build_base_namespace(self) -> Dict[str, Any]:
         namespace: Dict[str, Any] = {}
         namespace['bit_width_impl_type'] = self.bit_width_impl_type
