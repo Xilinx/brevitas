@@ -171,3 +171,111 @@ def test_q6_k_pack():
     eff = fp16(d)[:, None] * q_scales.astype(np.float32)  # effective per-sub-block scale
     expected = eff[:, :, None] * codes.reshape(nb, QK_K // 16, 16)
     np.testing.assert_allclose(x_hat, expected, rtol=0, atol=0)
+
+
+def _custom_q6_k_export(weight: np.ndarray) -> np.ndarray:
+    """Quantize ``weight`` with the Brevitas custom Q6_K quantizer and pack it to a
+    GGUF Q6_K block exactly as brevitas_examples...convert.ModelBase.quantize does.
+
+    Returns the packed uint8 block (one row of blocks per weight row).
+    """
+    import torch
+
+    from brevitas.core.restrict_val import QuantRestrictValue
+    import brevitas.nn as qnn
+    from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ6_KWeightQuant
+    from brevitas_examples.llm.gguf_export.quant import ggml_quant
+
+    out_features, in_features = weight.shape
+    layer = qnn.QuantLinear(in_features, out_features, bias=False, weight_quant=GGUFQ6_KWeightQuant)
+    layer.weight.data = torch.from_numpy(weight.copy())
+    quant_weight = layer.quant_weight()
+    quant_data = quant_weight.int()
+    # scale_ holds the (out, n_sub, 1) per-sub-block float scales.
+    scale = quant_weight.scale_ if hasattr(quant_weight, 'scale_') else quant_weight.scale
+    zp = quant_weight.zero_point
+    # Pull the calibrated nested scale (quantized sub-scales + fp16 super-block d)
+    # off the QuantRestrictValue, mirroring convert.py's Q6_K branch.
+    restrict = next(m for m in layer.weight_quant.modules() if isinstance(m, QuantRestrictValue))
+    quant_scale, scale_scale, *_ = restrict.float_to_int_impl(scale)
+    block = ggml_quant(quant_data, Q6_K, quant_scale, zp, d_scale=scale_scale)
+    # ggml_quant squeezes singleton dims; normalize to (n_rows, type_size).
+    _, type_size = GGML_QUANT_SIZES[Q6_K]
+    return block.reshape(out_features, type_size)
+
+
+@pytest.mark.llm
+class TestQ6KCustomVsReference:
+    """Compare the Brevitas custom Q6_K quantizer against the python reference
+    implementation in quant.py (``q6_k_quant_block`` with ``scale=None``, an
+    adaptation of llama.cpp's quantize_row_q6_K_ref)."""
+
+    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
+    def test_same_block_layout(self, x):
+        """The custom quantizer produces a byte block of the same Q6_K size/shape as
+        the reference encoder."""
+        _, type_size = GGML_QUANT_SIZES[Q6_K]
+        ref = q6_k_quant_block(x.copy(), scale=None)
+        custom = _custom_q6_k_export(x)
+        assert custom.dtype == ref.dtype == np.uint8
+        assert custom.shape == ref.shape == (x.shape[0], type_size)
+
+    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
+    def test_export_is_bit_consistent_with_calibration(self, x):
+        """Decoding the exported block reproduces Brevitas' own reconstruction.
+
+        The custom quantizer divides the weights by ``q_scale * d``; GGUF stores
+        ``d`` as fp16 and reconstructs as ``code * (q_scale * fp16(d))``. The
+        exported block must decode back to exactly that, i.e. the export uses the
+        Brevitas-computed nested scales rather than re-deriving its own."""
+        import torch
+
+        from brevitas.core.restrict_val import QuantRestrictValue
+        import brevitas.nn as qnn
+        from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ6_KWeightQuant
+
+        layer = qnn.QuantLinear(
+            x.shape[1], x.shape[0], bias=False, weight_quant=GGUFQ6_KWeightQuant)
+        layer.weight.data = torch.from_numpy(x.copy())
+        quant_weight = layer.quant_weight()
+        codes = quant_weight.int().detach().numpy().astype(np.float32)
+        # Effective per-sub-block scale exactly as stored on disk: the int8 sub-scale
+        # times the fp16-rounded super-block d (q_scale * fp16(d)).
+        restrict = next(
+            m for m in layer.weight_quant.modules() if isinstance(m, QuantRestrictValue))
+        quant_scale, scale_scale, *_ = restrict.float_to_int_impl(quant_weight.scale_)
+        quant_scale = quant_scale.detach().numpy().astype(np.float32).reshape(x.shape[0], -1)
+        scale_scale = scale_scale.detach().numpy().astype(np.float32).reshape(x.shape[0], -1)
+        int_sub_scale = np.round(quant_scale / scale_scale)
+        eff_scale = int_sub_scale * fp16(scale_scale)  # (out, n_sub)
+        recon_brevitas = (codes.reshape(x.shape[0], QK_K // 16, 16) *
+                          eff_scale[:, :, None]).reshape(x.shape)
+
+        block = _custom_q6_k_export(x)
+        recon_gguf = gguf_quants.dequantize(block, Q6_K).reshape(x.shape)
+        np.testing.assert_allclose(recon_gguf, recon_brevitas, rtol=0, atol=0)
+
+    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
+    def test_accuracy_comparable_to_reference(self, x):
+        """The custom quantizer's reconstruction error is comparable to the python
+        reference. The reference uses llama.cpp's grid scale search, so the custom
+        (max-based) quantizer can be slightly worse, but must stay within one full
+        Q6_K step (amax / 16) of both the source and the reference error."""
+        ref_hat = gguf_quants.dequantize(q6_k_quant_block(x.copy(), scale=None),
+                                         Q6_K).reshape(x.shape)
+        custom_hat = gguf_quants.dequantize(_custom_q6_k_export(x), Q6_K).reshape(x.shape)
+        amax = np.abs(x).max()
+        if amax == 0.0:
+            # All-zero tensors must quantize losslessly for both paths.
+            assert np.abs(ref_hat).max() == 0.0
+            assert np.abs(custom_hat).max() == 0.0
+            return
+        ref_err = np.abs(x - ref_hat).max()
+        custom_err = np.abs(x - custom_hat).max()
+        # The reference uses llama.cpp's grid scale search, so it stays within half
+        # a Q6_K step (amax / 32) of the source.
+        assert ref_err <= amax / 32
+        # The custom (max-based) quantizer has no grid search, so allow up to a full
+        # step (amax / 16), but it must not be meaningfully worse than the reference.
+        assert custom_err <= amax / 16
+        assert custom_err <= ref_err + amax / 16
