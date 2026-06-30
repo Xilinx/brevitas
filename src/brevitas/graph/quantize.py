@@ -59,7 +59,12 @@ if torch_version >= version.parse('1.12'):
     from brevitas.quant_tensor import _unpack_quant_tensor
     from brevitas.quant_tensor import QuantTensor
 
-    QuantSpecType = Union[Optional[Type], Tuple[Optional[Type], ...]]
+    # A lambda/callable that resolves a quantizer class at runtime from the current
+    # module instance, its module name, and the per-(module, func) call index.
+    QuantResolver = Callable[[nn.Module, str, int], Optional[Type]]
+    # A single spec element is either a quantizer class, a resolver callable, or None.
+    QuantSpecElement = Optional[Union[Type, QuantResolver]]
+    QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
 
     class _FunctionalQuantModuleBase(nn.Module):
         """Base shim used to preserve op metadata for functional quantization.
@@ -166,23 +171,38 @@ if torch_version >= version.parse('1.12'):
         Args:
             model: The nn.Module whose forward pass will be intercepted.
             quant_map: A mapping from torch functions (e.g. torch.nn.functional.linear)
-                to either:
-                - A brevitas quantizer class for the first input tensor (or None to
-                  skip first-input quantization while still tracking the function), or
-                - A tuple of quantizer classes, one per positional argument.
-                  Each element may be None to skip quantization of that argument.
-                - For binary functions, a 3-element tuple can also be provided with
-                  the form ``(arg0_runtime_quant, arg1_runtime_quant,
-                  arg1_weight_quant)``. In that case, the second argument uses the
-                  runtime quantizer when it is a regular tensor and the weight
-                  quantizer when it is a parameter.
-                  For arguments at index >= 1:
+                to a spec. A spec is either a single spec element or a tuple of spec
+                elements (one per positional argument). A spec element is one of:
+                - A brevitas quantizer class, or
+                - None, to skip quantization of that argument while still tracking
+                  the function, or
+                - A resolver callable with signature
+                  ``(module, module_name, index) -> Optional[Type]`` that returns a
+                  quantizer class (or None to skip). ``module`` is the current
+                  nn.Module instance, ``module_name`` is its name, and ``index`` is
+                  the per-(module, func) call index. Resolvers may appear in any
+                  position, mixed with quantizer classes and None. The quantizer
+                  returned by a resolver is created once on first encounter and
+                  reused on subsequent forwards (resolvers should be deterministic).
+                The supported spec shapes are:
+                - A single spec element for the first input tensor.
+                - A tuple of spec elements, one per positional argument.
+                - For binary functions (called with exactly two positional tensor
+                  arguments), a 3-element tuple with the form
+                  ``(arg0_runtime_quant, arg1_runtime_quant, arg1_weight_quant)``.
+                  In that case, the second argument uses the runtime quantizer when
+                  it is a regular tensor and the weight quantizer when it is a
+                  parameter. This dispatch only applies when the call has exactly two
+                  positional arguments; otherwise the tuple is interpreted
+                  positionally (e.g. query/key/value for
+                  ``scaled_dot_product_attention``).
+                For arguments at index >= 1:
                     - If the argument is a parameter, a weight-style quantizer is
                       registered as a persistent parametrization.
                     - If the argument is a regular tensor (not a parameter and not
                       already quantized), a QuantIdentity activation quantizer is
-                      created using the explicit class (or falling back to the first
-                      non-None quantizer class in the tuple).
+                      created using the explicit spec element (or falling back to the
+                      first non-None spec element in the tuple).
             enabled: Whether quantization is active. Defaults to True.
         """
 
@@ -211,8 +231,9 @@ if torch_version >= version.parse('1.12'):
 
             # Set of all functions we should intercept
             self._quant_map: Dict[Callable, QuantSpecType] = {}
-            # Per-function list of quantizer classes per positional arg (may contain None)
-            self._arg_quant_map: Dict[Callable, List[Optional[Type]]] = {}
+            # Per-function list of spec elements per positional arg. Each element is a
+            # quantizer class, a resolver callable, or None.
+            self._arg_quant_map: Dict[Callable, List[QuantSpecElement]] = {}
             for func, spec in quant_map.items():
                 self._quant_map[func] = spec
                 if isinstance(spec, tuple):
@@ -442,36 +463,61 @@ if torch_version >= version.parse('1.12'):
             """Check if a value is already a QuantTensor."""
             return isinstance(t, QuantTensor)
 
-        def _fallback_quant_class(self, func: Callable) -> Optional[Type]:
-            """Return the first non-None quantizer class in the arg list for ``func``."""
-            for qc in self._arg_quant_map.get(func, []):
-                if qc is not None:
-                    return qc
+        def _resolve_spec_element(
+                self, elem: 'QuantSpecElement', module: nn.Module, module_name: str,
+                index: int) -> Optional[Type]:
+            """Resolve a spec element to a concrete quantizer class.
+
+            A spec element is either ``None``, a quantizer class, or a resolver
+            callable. Resolver callables are invoked as
+            ``elem(module, module_name, index)`` and must return a quantizer class
+            (or ``None`` to skip quantization of the argument). Quantizer classes
+            are returned unchanged.
+            """
+            if elem is None:
+                return None
+            # Quantizer classes are types; resolver lambdas are not.
+            if isinstance(elem, type):
+                return elem
+            if callable(elem):
+                return elem(module, module_name, index)
+            return elem
+
+        def _fallback_spec_element(self, func: Callable) -> 'QuantSpecElement':
+            """Return the first non-None spec element in the arg list for ``func``."""
+            for spec_element in self._arg_quant_map.get(func, []):
+                if spec_element is not None:
+                    return spec_element
             return None
 
-        def _effective_quant_class(
+        def _effective_spec_element(
                 self, func: Callable, arg_idx: int, num_args: int,
-                is_param: bool) -> Optional[Type]:
-            """Resolve the quantizer class to use for a positional argument.
+                is_param: bool) -> 'QuantSpecElement':
+            """Select the spec element to use for a positional argument.
 
             By default, quantizer specs are positional. For binary functions only,
             a 3-element spec is also supported with the layout
             ``(arg0_runtime_quant, arg1_runtime_quant, arg1_weight_quant)`` so that
             the second argument can use a different quantizer depending on whether it
             is a runtime tensor or a parameter.
+
+            The returned value is a raw spec element (quantizer class, resolver
+            callable, or ``None``); use ``_resolve_spec_element`` to obtain a
+            concrete quantizer class.
             """
-            quant_classes = self._arg_quant_map.get(func, [])
-            if arg_idx >= len(quant_classes):
+            spec_elements = self._arg_quant_map.get(func, [])
+            if arg_idx >= len(spec_elements):
                 return None
-            if num_args == 2 and len(quant_classes) == 3 and arg_idx == 1:
-                return quant_classes[2] if is_param else quant_classes[1]
-            return quant_classes[arg_idx]
+            if num_args == 2 and len(spec_elements) == 3 and arg_idx == 1:
+                return spec_elements[2] if is_param else spec_elements[1]
+            return spec_elements[arg_idx]
 
         def _quantize_arg(
                 self,
                 args: List[Any],
                 arg_idx: int,
                 func: Callable,
+                current_module: nn.Module,
                 current_module_name: str,
                 index: int) -> None:
             """Quantize a single positional argument in-place within *args*.
@@ -480,6 +526,10 @@ if torch_version >= version.parse('1.12'):
             For ``arg_idx >= 1`` the argument is handled according to its runtime type:
             existing ``QuantTensor`` instances are skipped, parameters use persistent weight
             parametrization, and regular tensors use activation quantization.
+
+            Spec elements may be resolver callables; they are resolved to a concrete
+            quantizer class via ``_resolve_spec_element`` using the current module
+            instance, its name, and the call index.
             """
             if arg_idx >= len(args):
                 return
@@ -490,7 +540,9 @@ if torch_version >= version.parse('1.12'):
                 return
 
             is_param = isinstance(arg, nn.Parameter) or arg.data_ptr() in self._param_to_module
-            quant_class = self._effective_quant_class(func, arg_idx, len(args), is_param)
+            spec_element = self._effective_spec_element(func, arg_idx, len(args), is_param)
+            quant_class = self._resolve_spec_element(
+                spec_element, current_module, current_module_name, index)
 
             if arg_idx == 0:
                 # First argument: always use an activation quantizer
@@ -520,10 +572,14 @@ if torch_version >= version.parse('1.12'):
                 elif not is_param:
                     # Arg is a regular tensor (not a parameter).
                     # Use the explicit quantizer class if provided,
-                    # otherwise fall back to the first non-None class.
+                    # otherwise fall back to the first non-None spec element.
                     effective_class = quant_class
                     if effective_class is None:
-                        effective_class = self._fallback_quant_class(func)
+                        effective_class = self._resolve_spec_element(
+                            self._fallback_spec_element(func),
+                            current_module,
+                            current_module_name,
+                            index)
                     if effective_class is not None:
                         quantizer = self._get_or_create_act_quantizer(
                             current_module_name, func, index, arg_idx, effective_class, arg)
@@ -542,7 +598,7 @@ if torch_version >= version.parse('1.12'):
                 return func(*args, **kwargs)
 
             # Identify the current (innermost) module
-            current_module_name, _ = self._module_stack[-1]
+            current_module_name, current_module = self._module_stack[-1]
 
             # Get and increment the call counter for this (module, func) pair
             index = self._counters[current_module_name][func]
@@ -553,7 +609,7 @@ if torch_version >= version.parse('1.12'):
             # Quantize each positional argument that has a quantizer spec
             num_quant_args = len(self._arg_quant_map.get(func, []))
             for arg_idx in range(min(num_quant_args, len(args))):
-                self._quantize_arg(args, arg_idx, func, current_module_name, index)
+                self._quantize_arg(args, arg_idx, func, current_module, current_module_name, index)
 
             return func(*tuple(args), **kwargs)
 

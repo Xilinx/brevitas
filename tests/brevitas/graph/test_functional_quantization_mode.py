@@ -9,6 +9,7 @@ from torch.nn.utils.parametrize import is_parametrized
 
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
+from brevitas.nn import QuantIdentity
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
@@ -703,3 +704,100 @@ class TestFunctionalQuantizationMode:
         # Quantizer key should not contain dots
         for key in ctx._quantizers:
             assert '.' not in key, f"Quantizer key should not contain dots: {key}"
+
+    def test_lambda_spec_returns_quantizer_class(self):
+        """Test that a lambda spec element resolves to a quantizer class and is applied."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: lambda module, name, index: Int8ActPerTensorFloat}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 3)
+        # A first-arg activation quantizer should have been created via the lambda
+        assert len(ctx._quantizers) == 1
+        quantizer = next(iter(ctx._quantizers.values()))
+        assert isinstance(quantizer, QuantIdentity)
+
+    def test_lambda_receives_module_name_and_index(self):
+        """Test that the lambda receives the current module instance, name, and index."""
+        model = ModelWithMultiLinear(4, 3, 2)
+        received = []
+
+        def resolver(module, name, index):
+            received.append((module, name, index))
+            return Int8ActPerTensorFloat
+
+        quant_map = {F.linear: resolver}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            model(x)
+
+        # Two F.linear calls in the same 'block' module -> indices 0 and 1
+        assert len(received) == 2
+        names = [name for _, name, _ in received]
+        indices = [index for _, _, index in received]
+        modules = [module for module, _, _ in received]
+        assert names == ['block', 'block']
+        assert indices == [0, 1]
+        # The module instance passed must be the actual current nn.Module
+        assert all(m is model.block for m in modules)
+
+    def test_lambda_in_tuple_mixed_with_class_and_none(self):
+        """Test that a lambda can be mixed with a quantizer class and None in a tuple."""
+        model = SimpleLinearModel(4, 3)
+        # First arg uses a lambda activation quantizer; weight uses a class.
+        quant_map = {
+            F.linear: (lambda module, name, index: Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            assert is_parametrized(model.linear, 'weight')
+        assert out.shape == (2, 3)
+        act_quantizers = [
+            m for k,
+            m in ctx._quantizers.items() if '_wq' not in k and isinstance(m, QuantIdentity)]
+        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        assert len(act_quantizers) == 1
+        assert len(weight_quantizers) == 1
+
+    def test_lambda_returns_none_skips_arg(self):
+        """Test that a lambda returning None skips quantization of that argument."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: lambda module, name, index: None}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 3)
+        # No quantizer should be created because the resolver returned None
+        assert len(ctx._quantizers) == 0
+
+    def test_lambda_in_binary_three_quantizer_weight_slot(self):
+        """Test that a lambda can be used in the weight slot of a binary 3-quantizer spec."""
+        model = MatmulWeightModel()
+        quant_map = {
+            torch.matmul: (
+                Int8ActPerTensorFloat,
+                Int8ActPerTensorFloat,
+                lambda module,
+                name,
+                index: Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        with ctx:
+            out = model(x)
+            assert is_parametrized(model, 'weight')
+        assert out.shape == (2, 3)
+        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        runtime_second_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
+        assert len(weight_quantizers) == 1
+        assert len(runtime_second_quantizers) == 0
+        assert not is_parametrized(model, 'weight')
