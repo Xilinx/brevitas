@@ -72,7 +72,6 @@ from brevitas_examples.llm.llm_quant.prepare_for_quantize import make_dynamo_com
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import \
     replace_sdpa_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.rotation_optimization import apply_fine_tuning
-from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
 from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
@@ -307,33 +306,16 @@ def quantize_llm(args, extra_args=None):
     validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
     if args.fine_tune:
-        # Load custom training plugin if specified
-        custom_trainer_config_name = None
+        # Load custom training plugin if specified. The registered Trainer class
+        # carries its own ``training_args_cls`` and ``optimizer_setup`` class
+        # attributes, both consumed inside apply_fine_tuning.
         custom_trainer_cls = None
         custom_callbacks = None
-        custom_optimizer_setup = None
-        custom_training_args_cls = None
 
         if args.custom_trainer is not None:
             custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
-            # Look up the registered Trainer class by config name. The training
-            # arguments class and optimizer setup are read from the trainer's
-            # ``training_args_cls`` and ``optimizer_setup`` class attributes.
-            # When these are not defined (``None``), the defaults of the LLM
-            # example are used downstream.
             custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
-            custom_training_args_cls = getattr(custom_trainer_cls, "training_args_cls", None)
-            custom_optimizer_setup = getattr(custom_trainer_cls, "optimizer_setup", None)
-            # The optimizer setup may be a callable returning the list (deferred
-            # construction), or the list directly. Each list entry is a parameter
-            # selection callable, or a list of such callables (one per parameter
-            # group), one entry per optimizer.
-            if callable(custom_optimizer_setup):
-                custom_optimizer_setup = custom_optimizer_setup()
 
-        # Extra arguments should be used as training arguments
-        training_args = parse_rotation_optimization_args(
-            extra_args=extra_args, training_args_cls=custom_training_args_cls)
         # Load the data for training
         train_dataset = get_dataset_for_model(
             bos_preprocessing=args.bos_preprocessing,
@@ -615,17 +597,19 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
+            fine_tune_extra_args = list(extra_args) if extra_args is not None else []
             if args.load_checkpoint:
-                training_args.max_steps = 0
+                # Skip training when loading from a checkpoint by forcing
+                # max_steps to 0 through the training arguments.
+                fine_tune_extra_args += ["--max_steps", "0"]
             apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
                 train_dataset=train_dataset,
-                training_args=training_args,
                 collate_fn=collate_fn,
-                trainer_cls=custom_trainer_cls,
-                callbacks=custom_callbacks,
-                optimizer_setup=custom_optimizer_setup)
+                custom_trainer_cls=custom_trainer_cls,
+                extra_args=fine_tune_extra_args,
+                callbacks=custom_callbacks)
             # Remove hooks from training
             remove_hooks(model)
             model = offload_model(model)

@@ -14,44 +14,14 @@ from typing import Union
 import torch
 from torch.optim.optimizer import Optimizer
 
-from brevitas import optim
 from brevitas.utils.python_utils import parse_dataclass_dicts
 from brevitas_examples.common.learned_round.learned_round_method import BLOCK_LOSS_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import BlockLoss
 from brevitas_examples.common.learned_round.learned_round_method import LearnedRoundArgs
 from brevitas_examples.common.learned_round.learned_round_method import TARGET_PARAM_FN_REGISTRY
 from brevitas_examples.common.learned_round.learned_round_method import TargetParamFn
-
-OPTIMIZER_NAMESPACES = [torch.optim, optim]
-LR_SCHEDULER_NAMESPACES = [torch.optim.lr_scheduler]
-
-
-def parse_optimizer_class(optimizer_str: str) -> Type[Optimizer]:
-    optimizer_class = None
-    for namespace in OPTIMIZER_NAMESPACES:
-        if (optimizer_class := getattr(namespace, optimizer_str, None)) is not None:
-            # Stop on first match
-            break
-
-    if optimizer_class is None:
-        raise ValueError(
-            f"{optimizer_str} is not a valid optimizer in namespaces {[_namespace.__name__ for _namespace in OPTIMIZER_NAMESPACES]}."
-        )
-    return optimizer_class
-
-
-def parse_lr_scheduler_class(lr_scheduler_str: str) -> Type:
-    lr_scheduler_class = None
-    for namespace in LR_SCHEDULER_NAMESPACES:
-        if (lr_scheduler_class := getattr(namespace, lr_scheduler_str, None)) is not None:
-            # Stop on first match
-            break
-
-    if lr_scheduler_class is None:
-        raise ValueError(
-            f"{lr_scheduler_str} is not a valid learning rate scheduler in namespaces {[_namespace.__name__ for _namespace in LR_SCHEDULER_NAMESPACES]}."
-        )
-    return lr_scheduler_class
+from brevitas_examples.common.trainer_utils import parse_lr_scheduler_class
+from brevitas_examples.common.trainer_utils import parse_optimizer_class
 
 
 @dataclass

@@ -80,8 +80,7 @@ TRAINER_REGISTRY.register("minimal_trainer")(RegisteredExampleTrainer)
 # ``optimizer_setup`` returns one entry per optimizer; here that single entry is
 # a list of two selection callables (one per parameter group). The matching
 # ``optimizer_scheduler_args`` entry provides one optimizer with a per-group
-# ``optimizer_kwargs`` list of the same length. The callables are wrapped into
-# an ``OptimizerConfig`` internally.
+# ``optimizer_kwargs`` list of the same length.
 # ---------------------------------------------------------------------------
 def _select_q_proj_params(model, training_args):
     return [p for name, p in model.named_parameters() if "q_proj" in name]

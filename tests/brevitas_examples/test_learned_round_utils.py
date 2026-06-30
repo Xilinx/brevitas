@@ -18,8 +18,6 @@ import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_args import parse_lr_scheduler_class
-from brevitas_examples.common.learned_round.learned_round_args import parse_optimizer_class
 from brevitas_examples.common.learned_round.learned_round_method import \
     insert_learned_round_quantizers
 from brevitas_examples.common.learned_round.learned_round_method import \
@@ -27,6 +25,8 @@ from brevitas_examples.common.learned_round.learned_round_method import \
 from brevitas_examples.common.learned_round.learned_round_trainer import Cache
 from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
 from brevitas_examples.common.learned_round.learned_round_trainer import save_inputs_output
+from brevitas_examples.common.trainer_utils import parse_lr_scheduler_class
+from brevitas_examples.common.trainer_utils import parse_optimizer_class
 
 
 class QuantBlock(nn.Module):
