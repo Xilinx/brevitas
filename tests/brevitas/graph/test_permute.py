@@ -5,6 +5,7 @@ import pytest
 import pytest_cases
 import torch
 
+from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import GraphRotationEqualization
 from brevitas.graph.permute import GraphPermutationEqualization
 from brevitas.graph.permute import rotate_permute_mode
@@ -52,7 +53,7 @@ def _setup_test_model(rotation_model, device='cpu'):
 
     # Convert to FX graph
     with torch.no_grad():
-        fx_model, _ = torch._dynamo.export(model)(sample_inputs)
+        fx_model = symbolic_trace(model)
 
     return fx_model, sample_inputs
 
