@@ -96,6 +96,7 @@ class StatsOp(AutoName):
     PERCENTILE_INTERVAL = auto()
     SIGNED_MAX = auto()
     NEG_MIN_OR_ZERO = auto()
+    NEG_PERCENTILE_OR_ZERO = auto()
 
 
 class TruncScalingImplType(AutoName):

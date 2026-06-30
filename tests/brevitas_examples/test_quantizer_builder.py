@@ -14,6 +14,16 @@ from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
+from brevitas.quant.float import Fp8e4m3WeightPerChannelFloat
+from brevitas.quant.float import Fp8e4m3WeightPerChannelFloatMSE
+from brevitas.quant.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
+from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloatMSE
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3WeightMSE
 from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.mx_quant_ocp import MXInt8WeightMSE
 from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8Weight
@@ -32,9 +42,13 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerGroupFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
+from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
+from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.quantizer_builder import build_weight_quantizer
+from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
-from brevitas_examples.common.quantizer_builder import QuantizerBuilder
 from brevitas_examples.common.quantizer_builder import QuantParamType
 
 # Keep the model small and deterministic so that weight-quant outputs are
@@ -401,7 +415,197 @@ BUILDER_SPECS = {
         # nothing for the builder to match against.
         "xfail":
             "Reference ShiftedMXUInt8WeightMSE crashes for groupwise "
-            "(zero-point stats view is Identity but reduces over group dim).",},}
+            "(zero-point stats view is Identity but reduces over group dim).",},
+    # ----------------------------------------------------------------------
+    # float / float_scale: WEIGHT_QUANT_MAP['float']['float_scale'].
+    # FP8 e4m3 weight quantizers (signed, symmetric). Selected on the builder
+    # side via quant_type=QuantType.FP, float_format=FloatFormat.FLOAT and
+    # float_quant_format='e4m3'.
+    # ----------------------------------------------------------------------
+    "float_per_tensor_sym": {
+        "ref": Fp8e4m3WeightPerTensorFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.FLOAT,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    "float_per_channel_sym": {
+        "ref": Fp8e4m3WeightPerChannelFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.FLOAT,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    "float_per_group_sym": {
+        "ref": Fp8e4m3WeightSymmetricGroupQuant,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.FLOAT,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "float_per_channel_sym_mse": {
+        "ref": Fp8e4m3WeightPerChannelFloatMSE,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.FLOAT,
+            "float_quant_format": "e4m3",
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    # ----------------------------------------------------------------------
+    # float_ocp / float_scale: WEIGHT_QUANT_MAP['float_ocp']['float_scale'].
+    # ----------------------------------------------------------------------
+    "float_ocp_per_tensor_sym": {
+        "ref": Fp8e4m3OCPWeightPerTensorFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    "float_ocp_per_channel_sym": {
+        "ref": Fp8e4m3OCPWeightPerChannelFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    "float_ocp_per_group_sym": {
+        "ref": Fp8e4m3OCPWeightSymmetricGroupQuant,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "float_ocp_per_channel_sym_mse": {
+        "ref": Fp8e4m3OCPWeightPerChannelFloatMSE,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    # ----------------------------------------------------------------------
+    # float_ocp / po2_scale (MX float):
+    # WEIGHT_QUANT_MAP['float_ocp']['po2_scale']. MX float is OCP-only and uses
+    # a power-of-two group scale; on the builder side selected via
+    # quant_type=FP, float_format=OCP and restrict_scaling_type=POWER_OF_TWO.
+    # ----------------------------------------------------------------------
+    "float_ocp_po2_per_group_sym": {
+        "ref": MXFloat8e4m3Weight,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "float_ocp_po2_per_group_sym_mse": {
+        "ref": MXFloat8e4m3WeightMSE,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.GROUP,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {
+                "group_size": GROUP_SIZE,},},
+        "layer_kwargs": {
+            "weight_group_size": GROUP_SIZE},},
+    "float_ocp_po2_per_channel_sym_mse": {
+        "ref": Fp8e4m3OCPWeightPerChannelFixedPointMSE,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.OCP,
+            "float_quant_format": "e4m3",
+            "scaling_param_method": ParamMethod.MSE,
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.POWER_OF_TWO,
+            "scaling_min_val": SCALING_MIN_VAL,
+            # Per-channel power-of-two scaled float: the reference uses the int
+            # PerChannelPoTScaling8bit mixin layered on a float quant. The
+            # generic builder path reproduces it; any attribute that resolves
+            # differently from the reference is overridden here.
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    # ----------------------------------------------------------------------
+    # float_fnuz / float_scale: WEIGHT_QUANT_MAP['float_fnuz']['float_scale'].
+    # ----------------------------------------------------------------------
+    "float_fnuz_per_tensor_sym": {
+        "ref": Fp8e4m3FNUZWeightPerTensorFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.FNUZ,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},
+    "float_fnuz_per_channel_sym": {
+        "ref": Fp8e4m3FNUZWeightPerChannelFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "float_format": FloatFormat.FNUZ,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.CHANNEL,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},
+        "layer_kwargs": {},},}
 
 
 def _make_quant_linear(weight_quant, **layer_kwargs):
@@ -459,7 +663,7 @@ def test_builder_weight_quant_matches_reference(spec_name):
     ref_linear = _make_quant_linear(ref_quant, **layer_kwargs)
 
     # Builder layer built from the generic QuantizerBuilder.
-    builder = QuantizerBuilder(**spec["builder_args"])
+    builder = build_weight_quantizer(**spec["builder_args"])
     builder_quant = builder.build_quant_injector()
     builder_linear = _make_quant_linear(builder_quant, **layer_kwargs)
 
@@ -497,7 +701,13 @@ def test_builder_weight_quant_matches_reference(spec_name):
     assert (ref_weight.zero_point is None) == (builder_weight.zero_point is None)
     if ref_weight.zero_point is not None:
         assert torch.equal(ref_weight.zero_point, builder_weight.zero_point)
-    assert torch.equal(ref_weight.bit_width, builder_weight.bit_width)
+    # Int quant tensors expose `bit_width`; float quant tensors instead expose
+    # `exponent_bit_width` / `mantissa_bit_width`.
+    if hasattr(ref_weight, "bit_width"):
+        assert torch.equal(ref_weight.bit_width, builder_weight.bit_width)
+    else:
+        assert torch.equal(ref_weight.exponent_bit_width, builder_weight.exponent_bit_width)
+        assert torch.equal(ref_weight.mantissa_bit_width, builder_weight.mantissa_bit_width)
 
     # 3) Quantized layer output tensors must match exactly. With
     # return_quant_tensor=False the layers return plain Tensors.
