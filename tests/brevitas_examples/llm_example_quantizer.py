@@ -9,8 +9,8 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_quant.rotation_optimization import GeneralizedTrainer
-from brevitas_examples.llm.llm_quant.rotation_optimization import TrainingArguments
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
+from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "example_int4_weight_quant")
@@ -77,10 +77,9 @@ TRAINER_REGISTRY.register("minimal_trainer")(RegisteredExampleTrainer)
 # ---------------------------------------------------------------------------
 # Example trainer with a single optimizer handling two parameter groups.
 #
-# ``optimizer_setup`` returns one entry per optimizer; here that single entry is
-# a list of two selection callables (one per parameter group). The matching
-# ``optimizer_scheduler_args`` entry provides one optimizer with a per-group
-# ``optimizer_kwargs`` list of the same length.
+# The single ``optimizer_scheduler_args`` entry describes one optimizer whose
+# ``param_setup`` holds two per-group dicts (q_proj params and everything else),
+# each with its own ``get_param_fn`` and ``optimizer_kwargs``.
 # ---------------------------------------------------------------------------
 def _select_q_proj_params(model, training_args):
     return [p for name, p in model.named_parameters() if "q_proj" in name]
@@ -88,13 +87,6 @@ def _select_q_proj_params(model, training_args):
 
 def _select_non_q_proj_params(model, training_args):
     return [p for name, p in model.named_parameters() if "q_proj" not in name]
-
-
-def _build_two_group_optimizer_setup():
-    # One optimizer with two parameter groups: the q_proj parameters and
-    # everything else. A single optimizer entry whose value is a list of two
-    # selection callables.
-    return [[_select_q_proj_params, _select_non_q_proj_params]]
 
 
 @dataclass
@@ -108,20 +100,24 @@ class TwoGroupExampleTrainingArguments(TrainingArguments):
         super().__post_init__()
         if self.optimizer_scheduler_args is None:
             # One optimizer (AdamW) with two parameter groups, each with its own
-            # kwargs (order-matched to the two selection callables above).
+            # selector and kwargs.
             self.optimizer_scheduler_args = [
                 {
-                    "optimizer_cls": "AdamW",
-                    "optimizer_kwargs": [
+                    "optimizer_cls":
+                        "AdamW",
+                    "param_setup": [
                         {
-                            "lr": self.q_proj_lr},
+                            "get_param_fn": _select_q_proj_params,
+                            "optimizer_kwargs": {
+                                "lr": self.q_proj_lr}},
                         {
-                            "lr": self.non_q_proj_lr},],},]
+                            "get_param_fn": _select_non_q_proj_params,
+                            "optimizer_kwargs": {
+                                "lr": self.non_q_proj_lr}},],},]
 
 
 class TwoGroupExampleTrainer(GeneralizedTrainer):
     training_args_cls = TwoGroupExampleTrainingArguments
-    optimizer_setup = staticmethod(_build_two_group_optimizer_setup)
 
 
 TRAINER_REGISTRY.register("two_group_optimizer_trainer")(TwoGroupExampleTrainer)

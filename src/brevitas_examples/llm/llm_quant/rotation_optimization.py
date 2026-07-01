@@ -3,22 +3,17 @@
 
 import copy
 from dataclasses import dataclass
-from dataclasses import field
-import os
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Tuple
 from typing import Type
 
 from accelerate.utils import DistributedType
 from datasets import Dataset
 import torch
 import torch.nn.functional as F
-from torch.optim.lr_scheduler import LRScheduler
-from torch.optim.optimizer import Optimizer
 import transformers
 from transformers import Trainer
 
@@ -29,77 +24,22 @@ except:
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from brevitas.graph.calibrate import quantization_status_manager
-from brevitas.optim.cailey_sgd import CaileySGD
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
 from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
-from brevitas_examples.llm.llm_quant.trainer_utils import OptimizerParamsSpec
-
-
-@dataclass
-class TrainingArguments(transformers.TrainingArguments):
-    # By default, arguments are saved in the current working directory
-    output_dir: Optional[str] = field(default=os.getcwd())
-    # NOTE: Currently, there is no infrastructure to resume training
-    # from a checkpoint, so related files are not save by default
-    save_strategy: Optional[str] = field(default="no")
-
-    ### Optimizer args
-    optimizer_dtype: Optional[str] = field(
-        default=None,
-        metadata={
-            "help":
-                "Data type for CaileySGD optimizer computations. None means use parameter dtype."})
-
-    ### Multi-optimizer/scheduler args
-    # Order-matched list of dicts.  Entry *i* fully describes the *i*-th
-    # optimizer (and its optional scheduler) for the *i*-th entry of the
-    # trainer's ``optimizer_setup``.  Each dict may contain:
-    #   * 'optimizer_cls'    : optimizer class *name* (str), resolved against
-    #                          the optimizer namespaces. Defaults to CaileySGD.
-    #   * 'optimizer_kwargs' : a list of dicts, one per parameter group of the
-    #                          matching optimizer (always a list, even for a
-    #                          single group; a bare dict is rejected).
-    #   * 'scheduler_cls'    : optional LR scheduler class *name* (str).
-    #   * 'scheduler_kwargs' : optional dict of kwargs for the scheduler.
-    optimizer_scheduler_args: Optional[List[Dict[str, Any]]] = field(
-        default=None,
-        metadata={
-            "help":
-                "List of dicts describing each optimizer/scheduler, order-matched "
-                "to the trainer's optimizer_setup entries. Each dict may contain "
-                "'optimizer_cls' (str), 'optimizer_kwargs' (list of dicts, one "
-                "per parameter group), 'scheduler_cls' (str) and "
-                "'scheduler_kwargs' (dict)."})
-
-    ### Distillation Loss args
-    use_distillation_loss: bool = field(
-        default=False, metadata={"help": "Whether to compute the distillation loss."})
-    gamma: float = field(
-        default=1., metadata={"help": "Gamma balances CE loss (gamma) vs KD loss (1-gamma)."})
-    temperature: float = field(
-        default=1.0, metadata={"help": "Softmax temperature for the soft targets"})
-    # Considering the huge vocabulary size of LLMs, it could be better selecting only the first K
-    # labels when using the distillation loss
-    topk: int = field(
-        default=-1,
-        metadata={"help": "Consider the first K logits when computing distillation loss"})
-    kl_loss_reduction: str = field(
-        default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
+from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
 
 
 class GeneralizedTrainer(Trainer):
 
-    # Class attributes consumed by the LLM entrypoint when this trainer is
-    # registered via ``--custom-trainer``. Subclasses may override them to
-    # customise the training arguments and optimizer/scheduler setup. When left
-    # at their defaults (``training_args_cls`` is the built-in
-    # ``TrainingArguments`` and ``optimizer_setup`` is ``None``), the default
-    # behaviour of the LLM example is used.
+    # Training-arguments class consumed by the LLM entrypoint when this trainer
+    # is registered via ``--custom-trainer``. Subclasses may override it to
+    # customise the training arguments (including the optimizer/scheduler setup
+    # exposed through ``optimizer_scheduler_args``). When left at the built-in
+    # ``TrainingArguments``, the default behaviour of the LLM example is used.
     training_args_cls: Type[transformers.TrainingArguments] = TrainingArguments
-    optimizer_setup: Optional[Callable[[], List[OptimizerParamsSpec]]] = None
 
     def __init__(
             self,
@@ -177,6 +117,47 @@ class GeneralizedTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
+@dataclass
+class RotationTrainingArguments(TrainingArguments):
+    """Training arguments for the default rotation-optimization flow.
+
+    Expresses the CaileySGD-on-rotation-matrices default through the standard
+    ``optimizer_scheduler_args`` mechanism: a single optimizer whose (single)
+    parameter group is optimized with ``CaileySGD`` on the Stiefel manifold.
+    """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.optimizer_scheduler_args is None:
+            self.optimizer_scheduler_args = [{
+                "optimizer_cls":
+                    "CaileySGD",
+                "param_setup": [{
+                    "get_param_fn": _select_rotation_params,
+                    "optimizer_kwargs": {
+                        "lr": self.learning_rate,
+                        "stiefel": True,
+                        "dtype": self.optimizer_dtype,},}],}]
+
+
+def _select_rotation_params(
+        model: torch.nn.Module,
+        training_args: transformers.TrainingArguments) -> List[torch.nn.Parameter]:
+    """Return the model's trainable rotation matrices (one parameter group)."""
+    return extract_trainable_rotation_matrices(model)
+
+
+class RotationTrainer(GeneralizedTrainer):
+    """Default trainer for rotation optimization.
+
+    Uses :class:`RotationTrainingArguments`, whose ``optimizer_scheduler_args``
+    expresses CaileySGD on the trainable rotation matrices (selected via
+    ``param_setup``). Selected automatically by :func:`apply_fine_tuning` when
+    the model has trainable rotation matrices and no custom trainer is provided.
+    """
+    training_args_cls: Type[transformers.TrainingArguments] = RotationTrainingArguments
+
+
 def parse_rotation_optimization_args(
     extra_args: Optional[List[str]] = None,
     training_args_cls: Optional[Type[transformers.TrainingArguments]] = None,
@@ -225,26 +206,6 @@ def _prepare_model(model: torch.nn.Module) -> torch.nn.Module:
     return model
 
 
-def _build_rotation_optimizers(
-    model: torch.nn.Module,
-    training_args: TrainingArguments,
-) -> Tuple[Optimizer, Optional[LRScheduler]]:
-    """Build the default (CaileySGD, None) optimizer/scheduler pair.
-
-    Returns a tuple ``(optimizer, scheduler_or_none)`` ready to be passed to the
-    Trainer ``optimizers`` argument.
-    """
-    trainable_rotations = extract_trainable_rotation_matrices(model)
-    for rot_mat in trainable_rotations:
-        rot_mat.requires_grad = True
-    optimizer = CaileySGD(
-        trainable_rotations,
-        lr=training_args.learning_rate,
-        stiefel=True,
-        dtype=training_args.optimizer_dtype)
-    return optimizer, None
-
-
 def apply_fine_tuning(
         model: torch.nn.Module,
         tokenizer: PreTrainedTokenizerBase,
@@ -257,14 +218,14 @@ def apply_fine_tuning(
 
     The training arguments are parsed from *extra_args* via
     :func:`parse_rotation_optimization_args`, using
-    ``custom_trainer_cls.training_args_cls`` when available. The optimizer setup
-    is read from ``custom_trainer_cls.optimizer_setup``. When that setup is
-    ``None``, the function inspects the model:
+    ``custom_trainer_cls.training_args_cls`` when available. The optimizer(s) and
+    scheduler(s) are built from ``training_args.optimizer_scheduler_args``. When
+    that is ``None``:
 
-    * If trainable rotation matrices are found, a ``CaileySGD`` optimizer
-      is built for them (the default rotation-optimization behaviour).
-    * Otherwise, ``(None, None)`` is passed to the Trainer so that it
-      uses its built-in optimizer (AdamW by default).
+    * If trainable rotation matrices are found, :class:`RotationTrainer` is used
+      by default (CaileySGD on the rotations, via ``optimizer_scheduler_args``).
+    * Otherwise, ``(None, None)`` is passed to the Trainer so that it uses its
+      built-in optimizer (AdamW by default).
 
     Parameters
     ----------
@@ -278,10 +239,10 @@ def apply_fine_tuning(
         The data collator passed to the Trainer.
     custom_trainer_cls : Type[Trainer], optional
         A custom Trainer class, typically resolved from ``TRAINER_REGISTRY``.
-        Its ``training_args_cls`` and ``optimizer_setup`` class attributes
-        customise the training arguments and optimizer setup. When ``None``
-        (the default), ``GeneralizedTrainer`` (or the built-in ``Trainer``) is
-        used and the optimizer setup defaults apply.
+        Its ``training_args_cls`` class attribute customises the training
+        arguments (including the optimizer/scheduler setup through
+        ``optimizer_scheduler_args``). When ``None`` (the default),
+        ``GeneralizedTrainer`` (or the built-in ``Trainer``) is used.
     extra_args : list of str, optional
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
@@ -289,16 +250,16 @@ def apply_fine_tuning(
         A list of HuggingFace ``TrainerCallback`` instances to attach to
         the trainer.
     """
+    # When no custom trainer is given but the model has trainable rotation
+    # matrices, default to RotationTrainer (CaileySGD on the rotations, expressed
+    # through the standard optimizer_scheduler_args mechanism).
+    if custom_trainer_cls is None and extract_trainable_rotation_matrices(model):
+        custom_trainer_cls = RotationTrainer
+
     # Parse the training arguments, resolving the training-args class from the
-    # custom trainer when provided.
+    # (possibly defaulted) trainer.
     training_args = parse_rotation_optimization_args(
         extra_args=extra_args, trainer_cls=custom_trainer_cls)
-
-    # Read the optimizer setup from the custom trainer (if any). It may be a
-    # callable returning the list (deferred construction) or the list directly.
-    optimizer_setup = getattr(custom_trainer_cls, "optimizer_setup", None)
-    if callable(optimizer_setup):
-        optimizer_setup = optimizer_setup()
 
     # Prepare model for training
     model = _prepare_model(model)
@@ -313,16 +274,12 @@ def apply_fine_tuning(
     for param in model.parameters():
         param.requires_grad = False
 
-    # Build optimizer / scheduler pair
-    if optimizer_setup is not None:
-        optimizers = _build_optimizers_from_configs(model, training_args, optimizer_setup)
-    elif extract_trainable_rotation_matrices(model):
-        # Default when no configs are given but rotations are present:
-        # CaileySGD on the rotation matrices.
-        optimizers = _build_rotation_optimizers(model, training_args)
+    # Build optimizer / scheduler pair from the training args. When no
+    # optimizer_scheduler_args are provided (no custom trainer and no rotations),
+    # pass (None, None) so the HF Trainer uses its built-in optimizer.
+    if training_args.optimizer_scheduler_args is not None:
+        optimizers = _build_optimizers_from_configs(model, training_args)
     else:
-        # No custom configs and no rotation matrices — let the HF
-        # Trainer use its built-in optimizer.
         optimizers = (None, None)
 
     trainer_kwargs: Dict[str, Any] = dict(
@@ -334,15 +291,18 @@ def apply_fine_tuning(
         data_collator=collate_fn,
         optimizers=optimizers)
 
-    # Select trainer class
+    # Select trainer class: fall back to GeneralizedTrainer (when distillation is
+    # requested) or the built-in Trainer.
     trainer_cls = custom_trainer_cls
     if trainer_cls is None:
-        if getattr(training_args, 'use_distillation_loss', False):
-            trainer_cls = GeneralizedTrainer
-            teacher_model = copy.deepcopy(model.cpu())
-            trainer_kwargs["teacher_model"] = teacher_model
-        else:
-            trainer_cls = Trainer
+        trainer_cls = GeneralizedTrainer if getattr(
+            training_args, 'use_distillation_loss', False) else Trainer
+
+    # Wire the teacher model whenever the selected trainer is a
+    # GeneralizedTrainer subclass and distillation loss is enabled.
+    if issubclass(trainer_cls, GeneralizedTrainer) and getattr(
+            training_args, 'use_distillation_loss', False):
+        trainer_kwargs["teacher_model"] = copy.deepcopy(model.cpu())
 
     if callbacks is not None:
         trainer_kwargs["callbacks"] = callbacks

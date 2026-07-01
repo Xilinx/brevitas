@@ -307,8 +307,9 @@ def quantize_llm(args, extra_args=None):
 
     if args.fine_tune:
         # Load custom training plugin if specified. The registered Trainer class
-        # carries its own ``training_args_cls`` and ``optimizer_setup`` class
-        # attributes, both consumed inside apply_fine_tuning.
+        # carries its own ``training_args_cls`` class attribute (which in turn
+        # defines the optimizer setup via ``optimizer_scheduler_args``), consumed
+        # inside apply_fine_tuning.
         custom_trainer_cls = None
         custom_callbacks = None
 
@@ -600,7 +601,9 @@ def quantize_llm(args, extra_args=None):
             fine_tune_extra_args = list(extra_args) if extra_args is not None else []
             if args.load_checkpoint:
                 # Skip training when loading from a checkpoint by forcing
-                # max_steps to 0 through the training arguments.
+                # max_steps to 0 through the training arguments. Appended last so
+                # that it overrides any user-provided --max_steps (the argument
+                # parser keeps the last value for a repeated flag).
                 fine_tune_extra_args += ["--max_steps", "0"]
             apply_fine_tuning(
                 model=model,
