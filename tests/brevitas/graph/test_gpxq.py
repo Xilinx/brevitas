@@ -1,6 +1,8 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -413,3 +415,132 @@ def test_magr(toy_model, request):
     dataloader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
 
     apply_magr(model, dataloader)
+
+
+class _MockAXEMixin(AXEMixin):
+    # Minimal AXEMixin host that exposes get_thresholds without a real layer or context manager.
+    # We bypass AXEMixin.__init__ (which needs a layer) and set only what get_thresholds reads.
+    def __init__(self, max_accumulator_bit_width, max_accumulator_tile_size, input_bit_width):
+        self.max_accumulator_bit_width = torch.tensor(float(max_accumulator_bit_width))
+        self.max_accumulator_tile_size = max_accumulator_tile_size
+        self.groups = 1
+        self._input_max = 2 ** (input_bit_width - 1) - 1
+        self._input_min = -2 ** (input_bit_width - 1)
+
+    @property
+    def input_max(self):
+        return self._input_max
+
+    @property
+    def input_min(self):
+        return self._input_min
+
+    @property
+    def radius(self):
+        # L1-ball radius (the per-tile accumulator budget in the integer domain)
+        return (2 ** self.max_accumulator_bit_width - 2) / float(self.input_max - self.input_min)
+
+
+class TestAXEThresholds:
+    # get_thresholds must project the zero-centered integer-domain weights (w / s) onto an L1 ball
+    # of the accumulator budget radius, per tile, then rescale into the float domain. Each test
+    # builds weights/scales with a known closed-form oracle and compares against get_thresholds.
+    #
+    # Monolithic 16-bit accumulator, 8-bit signed input -> radius = (2**16 - 2) / 255 ~= 257.
+    accumulator_bit_width = 16
+    input_bit_width = 8
+    eps = 1e-8
+
+    @property
+    def radius(self):
+        return (2 ** self.accumulator_bit_width - 2) / (2 ** self.input_bit_width - 1)
+
+    @staticmethod
+    def _l1_ball_threshold(a, n, radius):
+        # Closed-form soft-threshold for a vector of `n` EQUAL nonzero magnitudes `a` projected
+        # onto an L1 ball: 0 if already inside (n * a <= radius), else a - radius / n.
+        if n * a <= radius:
+            return 0.0
+        return a - radius / n
+
+    @staticmethod
+    def _expand_group_scales(tile_scales, tile_size, in_features):
+        # Expand one scale per tile [OC, n_tiles] to per-input-channel [OC, in_features], mirroring
+        # how Brevitas expands a compact groupwise scale back to the weight shape: repeat each
+        # group's scale across the group, then slice off the padding down to the real in_features
+        # (see brevitas.utils.quant_utils.groupwise_dequant_expand).
+        out_features, n_tiles = tile_scales.shape
+        scales = tile_scales.unsqueeze(-1).expand(out_features, n_tiles, tile_size)
+        return scales.reshape(out_features, n_tiles * tile_size)[:, :in_features]
+
+    def _build_equal_magnitude_case(self, out_features, in_features, tile_size, alpha):
+        # Every element has integer-domain magnitude |alpha| (constant), alternating sign for zero
+        # mean per tile. Each tile gets its own random positive scale (groupwise along the input
+        # dim); the float weight is (integer * scale) so get_thresholds recovers |alpha| after w / s.
+        # The last tile may be short (ragged), which get_thresholds pads internally. Returns
+        # weight/scales [OC, IC] and the closed-form oracle thresholds [1, n_tiles, OC].
+        n_tiles = math.ceil(in_features / tile_size)
+        last_tile_size = tile_size if in_features % tile_size == 0 else in_features % tile_size
+        assert tile_size % 2 == 0 and last_tile_size % 2 == 0, \
+            "each tile needs an even width for the alternating-sign zero mean to hold"
+
+        tile_scales = torch.rand(out_features, n_tiles) + self.eps
+        scales = self._expand_group_scales(tile_scales, tile_size, in_features)
+
+        int_weight = torch.full((out_features, in_features), float(alpha))
+        int_weight[:, 1::2] *= -1  # alternating sign -> zero mean within every (even-width) tile
+        weight = int_weight * scales
+
+        expected = self._l1_ball_threshold(alpha, tile_size, self.radius) * tile_scales.clone()
+        # the (possibly ragged) last tile has fewer real elements, so its threshold differs
+        expected[:,
+                 -1] = self._l1_ball_threshold(alpha, last_tile_size, self.radius) * tile_scales[:,
+                                                                                                 -1]
+
+        expected = expected.transpose(0, 1).unsqueeze(0)  # [1, n_tiles, OC]
+        return weight, scales, expected
+
+    def _run(self, weight, scales, tile_size, expected):
+        axe = _MockAXEMixin(self.accumulator_bit_width, tile_size, self.input_bit_width)
+        n_tiles = math.ceil(weight.shape[-1] / tile_size)
+        # get_thresholds expects [groups, OC/groups, IC]; groups=1 so add a leading singleton dim
+        thresholds = axe.get_thresholds(weight.unsqueeze(0), scales.unsqueeze(0), n_tiles)
+        assert thresholds.shape == expected.shape
+        assert torch.allclose(thresholds, expected, atol=1e-5, rtol=1e-4)
+
+    # in_features covers a single tile (16), a ragged/padded last tile (24 -> 16 + 8), and multiple
+    # full tiles (32 -> 16 + 16). Per-tile random scales exercise the groupwise scale mapping.
+    @pytest.mark.parametrize("in_features", [16, 24, 32])
+    def test_outside_ball(self, in_features, out_features=2, tile_size=16, offset=10):
+        # every tile outside the ball (n * alpha > radius for all tile widths n) -> theta > 0.
+        # size alpha off the smallest tile so the short/ragged tile is outside too.
+        n = tile_size if in_features % tile_size == 0 else in_features % tile_size
+        alpha = self.radius / n + offset
+        weight, scales, expected = self._build_equal_magnitude_case(
+            out_features, in_features, tile_size, alpha)
+        assert (expected > 0).all()  # confirm we actually exercised the projection
+        self._run(weight, scales, tile_size, expected)
+
+    @pytest.mark.parametrize("in_features", [16, 24, 32])
+    def test_inside_ball(self, in_features, out_features=2, tile_size=16):
+        # every tile inside the ball (n * alpha <= radius for all tile widths n) -> theta == 0
+        alpha = self.radius / (2 * tile_size)
+        weight, scales, expected = self._build_equal_magnitude_case(
+            out_features, in_features, tile_size, alpha)
+        assert (expected == 0).all()  # confirm the no-shrinkage branch
+        self._run(weight, scales, tile_size, expected)
+
+    def test_unequal_magnitudes(self):
+        # hand-solved oracle exercising the sort/threshold-search path that equal magnitudes cannot.
+        # accumulator_bit_width=5, input_bit_width=2 -> radius = (2**5 - 2) / (2**2 - 1) = 30/3 = 10.
+        # tile (w / s) = [8, 4, -1, -11], mean 0, |v| = [8, 4, 1, 11]. Projecting onto radius 10
+        # keeps the top two {11, 8}: theta = (11 + 8 - 10) / 2 = 4.5.
+        accumulator_bit_width, input_bit_width, tile_size = 5, 2, 4
+        s = 0.25
+        weight = (torch.tensor([8.0, 4.0, -1.0, -11.0]) * s).view(1, 4)  # [OC=1, IC=4]
+        scales = torch.full((1, 4), s)
+        expected = torch.tensor(4.5 * s).view(1, 1, 1)  # [1, n_tiles=1, OC=1]
+        axe = _MockAXEMixin(accumulator_bit_width, tile_size, input_bit_width)
+        thresholds = axe.get_thresholds(weight.unsqueeze(0), scales.unsqueeze(0), 1)
+        assert thresholds.shape == expected.shape
+        assert torch.allclose(thresholds, expected, atol=1e-5, rtol=1e-4)
