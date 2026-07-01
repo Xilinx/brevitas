@@ -1,11 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest
 import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.parametrize import is_parametrized
+from torch.utils.checkpoint import checkpoint
 
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
@@ -102,6 +104,30 @@ class FunctionalConvTranspose1dModel(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return F.conv_transpose1d(x, self.weight)
+
+
+class CheckpointedTwoLinearModel(nn.Module):
+    """Two-block model whose blocks are run through gradient checkpointing.
+
+    Each block calls ``F.linear`` once. With gradient checkpointing the block
+    forward is executed once during the outer forward and recomputed again during
+    the backward pass, so the quantization hooks/counters and the
+    TorchFunctionMode interception are exercised twice per training step.
+
+    When ``context_fn`` is provided it is forwarded to ``torch.utils.checkpoint``
+    so that quantization can be re-applied during the backward recompute.
+    """
+
+    def __init__(self, in_features: int, hidden: int, out_features: int) -> None:
+        super().__init__()
+        self.block1 = nn.Linear(in_features, hidden)
+        self.block2 = nn.Linear(hidden, out_features)
+
+    def forward(self, x: Tensor, context_fn=None, use_reentrant: bool = False) -> Tensor:
+        kwargs = {} if context_fn is None else {'context_fn': context_fn}
+        x = checkpoint(self.block1, x, use_reentrant=use_reentrant, **kwargs)
+        x = checkpoint(self.block2, x, use_reentrant=use_reentrant, **kwargs)
+        return x
 
 
 @requires_pt_ge('1.12')
@@ -801,3 +827,112 @@ class TestFunctionalQuantizationMode:
         assert len(weight_quantizers) == 1
         assert len(runtime_second_quantizers) == 0
         assert not is_parametrized(model, 'weight')
+
+    def test_gradient_checkpointing_without_context_fn_is_unsupported(self):
+        """Without a context_fn, checkpointing is incompatible with the mode.
+
+        Gradient checkpointing recomputes the checkpointed forward during backward
+        inside checkpoint's own ``recompute_context``, which is isolated from the
+        active ``TorchFunctionMode``. The recompute therefore runs unquantized
+        while the original forward is quantized, and ``torch.utils.checkpoint``
+        raises because a different number of tensors is saved in each pass.
+        """
+        from torch.utils.checkpoint import CheckpointError
+
+        model = CheckpointedTwoLinearModel(4, 3, 2)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4, requires_grad=True)
+
+        with functional_quantization_mode(model, quant_map) as cm:
+            with torch.no_grad():
+                model(x)  # calibration (no recompute under no_grad)
+            out = model(x, use_reentrant=False)
+            with pytest.raises(CheckpointError):
+                out.sum().backward()
+
+    def test_gradient_checkpointing_with_context_fn(self):
+        """checkpoint_context_fn re-applies quantization during the recompute.
+
+        Passing ``cm.checkpoint_context_fn()`` to ``torch.utils.checkpoint`` makes
+        the interception fire during the backward recompute, so the saved-tensor
+        counts match and the backward completes. We verify that gradients flow, the
+        recompute does not create duplicate (mismatched-index) quantizers, and the
+        outer context manager's hooks/parametrizations survive the step.
+        """
+        model = CheckpointedTwoLinearModel(4, 3, 2)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4, requires_grad=True)
+
+        with functional_quantization_mode(model, quant_map) as cm:
+            # Calibrate first so the checkpointed forward is already steady-state.
+            with torch.no_grad():
+                model(x)
+            num_hooks = len(cm._hook_handles)
+
+            out = model(x, context_fn=cm.checkpoint_context_fn(), use_reentrant=False)
+            out.sum().backward()
+
+            # Each block calls F.linear exactly once, so counter alignment between
+            # forward and recompute must keep every quantizer at call index 0: no
+            # duplicate quantizers at index >= 1 should be created by the recompute.
+            for key in cm._quantizers:
+                assert '_linear_1' not in key, f"Unexpected duplicated quantizer: {key}"
+            # The outer manager still owns its hooks and parametrizations.
+            assert len(cm._hook_handles) == num_hooks
+            assert is_parametrized(model.block1, 'weight')
+            assert is_parametrized(model.block2, 'weight')
+
+        assert out.shape == (2, 2)
+        # Gradients must reach the model weights through the recomputed graph.
+        assert model.block1.weight.grad is not None
+        assert model.block2.weight.grad is not None
+        # After exit, parametrizations are removed.
+        assert not is_parametrized(model.block1, 'weight')
+        assert not is_parametrized(model.block2, 'weight')
+
+    def test_gradient_checkpointing_matches_non_checkpointed(self):
+        """Checkpointed and non-checkpointed runs produce the same output.
+
+        Re-applying quantization during the recompute must not change the
+        quantized result, so the numerical output of the checkpointed model must
+        match an equivalent plain model sharing the same weights.
+        """
+        torch.manual_seed(0)
+        ckpt_model = CheckpointedTwoLinearModel(4, 3, 2)
+
+        # Build a plain model sharing the exact same weights.
+        plain_model = TwoLinearModel(4, 3, 2)
+        plain_model.linear1.load_state_dict(ckpt_model.block1.state_dict())
+        plain_model.linear2.load_state_dict(ckpt_model.block2.state_dict())
+
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4, requires_grad=True)
+
+        with functional_quantization_mode(ckpt_model, quant_map) as cm:
+            with torch.no_grad():
+                ckpt_model(x)  # calibration
+            ckpt_out = ckpt_model(x, context_fn=cm.checkpoint_context_fn(), use_reentrant=False)
+            ckpt_out.sum().backward()
+
+        with torch.no_grad():
+            with functional_quantization_mode(plain_model, quant_map):
+                plain_model(x)  # calibration
+                plain_out = plain_model(x)
+
+        assert torch.allclose(ckpt_out.detach(), plain_out, atol=1e-6)
+
+    def test_gradient_checkpointing_inference_no_grad(self):
+        """A checkpointed forward under no_grad works without a context_fn.
+
+        Under ``torch.no_grad()`` there is no backward pass and therefore no
+        recompute, so the interception during the single forward is sufficient.
+        """
+        model = CheckpointedTwoLinearModel(4, 3, 2)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        with functional_quantization_mode(model, quant_map):
+            with torch.no_grad():
+                model(x)  # calibration
+                out = model(x, use_reentrant=False)
+        assert out.shape == (2, 2)

@@ -1,11 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import contextlib
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Set
 from typing import Tuple
 from typing import Type
 from typing import Union
@@ -228,6 +230,9 @@ if torch_version >= version.parse('1.12'):
             self._param_to_module: Dict[int, Tuple[nn.Module, str]] = {}
             # Track parametrizations we registered so we can remove them on exit
             self._registered_parametrizations: List[Tuple[nn.Module, str]] = []
+            # (module_name, func, arg_idx) slots that already have a weight
+            # parametrization, so recompute passes do not re-quantize them.
+            self._parametrized_slots: Set[Tuple[str, Callable, int]] = set()
 
             # Set of all functions we should intercept
             self._quant_map: Dict[Callable, QuantSpecType] = {}
@@ -402,12 +407,21 @@ if torch_version >= version.parse('1.12'):
                 if is_parametrized(owner_module, param_name):
                     remove_parametrizations(owner_module, param_name, leave_parametrized=True)
             self._registered_parametrizations.clear()
+            self._parametrized_slots.clear()
 
         def _pre_hook(self, module_name: str) -> Callable:
-            """Create a forward pre-hook that pushes the module onto the stack."""
+            """Create a forward pre-hook that pushes the module onto the stack.
+
+            The per-module call counter is reset every time the module is entered.
+            This keeps the call ``index`` a function of how many times ``func`` is
+            called within this specific module invocation only, which makes the
+            original forward and a gradient-checkpointing recompute of the same
+            region produce identical indices (and therefore reuse the same
+            quantizers/parametrizations)."""
 
             def hook(module: nn.Module, args: Tuple[Any, ...]) -> None:
                 self._module_stack.append((module_name, module))
+                self._counters[module_name].clear()
 
             return hook
 
@@ -555,7 +569,15 @@ if torch_version >= version.parse('1.12'):
                 wq_suffix = f'_arg{arg_idx}_wq' if arg_idx > 1 else '_wq'
                 wq_key = self._make_quantizer_key(
                     current_module_name, func, index, suffix=wq_suffix)
-                already_parametrized = wq_key in self._quantizers
+                # A weight parametrization for this (module, func, arg position) is
+                # registered at most once. Once registered, the owning module's
+                # parameter is quantized by the parametrization itself, so this
+                # argument must not be quantized again. This check is
+                # index-independent so that a gradient-checkpointing recompute
+                # (which may see a different call index, or a non-parameter tensor
+                # that is actually the parametrized weight) does not re-quantize it.
+                param_slot = (current_module_name, func, arg_idx)
+                already_parametrized = param_slot in self._parametrized_slots
                 if already_parametrized:
                     # The parametrization has already quantized this tensor
                     pass
@@ -567,6 +589,7 @@ if torch_version >= version.parse('1.12'):
                     # parametrization handles it automatically.
                     self._register_weight_parametrization(
                         arg, func, current_module_name, index, arg_idx, quant_class)
+                    self._parametrized_slots.add(param_slot)
                     weight_quant_proxy = self._quantizers[wq_key]
                     args[arg_idx] = weight_quant_proxy(arg)
                 elif not is_param:
@@ -612,6 +635,79 @@ if torch_version >= version.parse('1.12'):
                 self._quantize_arg(args, arg_idx, func, current_module, current_module_name, index)
 
             return func(*tuple(args), **kwargs)
+
+        def checkpoint_context_fn(self) -> Callable[[], Tuple[Any, Any]]:
+            """Return a ``context_fn`` for ``torch.utils.checkpoint.checkpoint``.
+
+            Gradient (activation) checkpointing recomputes the checkpointed forward
+            during the backward pass inside checkpoint's own ``recompute_context``,
+            which is isolated from the ``TorchFunctionMode`` entered by this context
+            manager. As a result, the recompute would run *unquantized* while the
+            original forward is quantized, and ``torch.utils.checkpoint`` raises
+            because a different number of tensors is saved in each pass.
+
+            Passing the returned ``context_fn`` to ``checkpoint`` re-applies this
+            mode's quantization during the recompute::
+
+                with functional_quantization_mode(model, quant_map) as cm:
+                    # Calibrate first: no recompute happens under no_grad, so the
+                    # quantizers are created once here.
+                    with torch.no_grad():
+                        model(calibration_batch)
+                    out = torch.utils.checkpoint.checkpoint(
+                        block, x, use_reentrant=False,
+                        context_fn=cm.checkpoint_context_fn())
+                    out.sum().backward()
+
+            The ``context_fn`` returns ``(forward_context, recompute_context)``. The
+            forward is already intercepted by this context manager (which is active
+            for the whole ``with`` block), so the ``forward_context`` is a no-op to
+            avoid double interception; only the ``recompute_context`` re-applies
+            quantization. The recompute interceptor delegates to this instance, so
+            it reuses the same module stack, call counters, quantizers, and
+            parametrizations created during the forward. It intentionally does not
+            manage hooks or parametrizations: that lifecycle is owned by this
+            context manager for the whole duration of the ``with`` block.
+
+            For HuggingFace models, forward it via the checkpointing kwargs::
+
+                model.gradient_checkpointing_enable(
+                    gradient_checkpointing_kwargs={
+                        'use_reentrant': False,
+                        'context_fn': cm.checkpoint_context_fn()})
+            """
+
+            def context_fn() -> Tuple[Any, '_FunctionalQuantInterceptor']:
+                return contextlib.nullcontext(), _FunctionalQuantInterceptor(self)
+
+            return context_fn
+
+    class _FunctionalQuantInterceptor(TorchFunctionMode):
+        """Lightweight ``TorchFunctionMode`` that re-applies a parent
+        :class:`functional_quantization_mode`'s quantization.
+
+        Used as the ``recompute_context`` for ``torch.utils.checkpoint`` so that
+        quantization is applied during the checkpoint recompute (the original
+        forward is already intercepted by the parent context manager). Unlike
+        :class:`functional_quantization_mode`,
+        entering/exiting this mode only pushes/pops the torch-function mode; it
+        does not attach hooks, build the parameter map, or register/remove
+        parametrizations, because that state is owned by the parent and remains
+        alive for the whole training step.
+        """
+
+        def __init__(self, parent: 'functional_quantization_mode') -> None:
+            super().__init__()
+            self._parent = parent
+
+        def __torch_function__(
+                self,
+                func: Callable,
+                types: Tuple[Type, ...],
+                args: Tuple[Any, ...] = (),
+                kwargs: Optional[Dict[str, Any]] = None) -> Any:
+            return functional_quantization_mode.__torch_function__(
+                self._parent, func, types, args, kwargs)
 
 else:
     functional_quantization_mode = object()
