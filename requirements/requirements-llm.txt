@@ -8,4 +8,4 @@ optimum
 pandas
 torch>=2.3
 tqdm
-transformers[sentencepiece]==4.50.0
+transformers[sentencepiece]==5.3.0
