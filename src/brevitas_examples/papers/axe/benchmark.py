@@ -13,6 +13,7 @@ class AXEBenchmark(LLMBenchmarkUtils):
     def validate(args, extra_args=None):
         super(LLMBenchmarkUtils, AXEBenchmark).validate(args, extra_args)
         assert (int(args.gptq) + int(args.gpfq) + int(args.qronos)) == 1
+        assert args.weight_scale_precision == args.input_scale_precision
 
 
 if __name__ == "__main__":

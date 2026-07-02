@@ -7,6 +7,16 @@ dtype:
 - bfloat16
 eval:
 - true
+few_shot_eval:
+- lighteval
+few_shot_tasks:
+- - arc:challenge|0
+  - arc:easy|0
+  - winogrande|0
+  - hellaswag_lm_eval|0
+  - piqa_lm_eval|0
+few_shot_override_batch_size:
+- 128
 gpfq:
 - true
 - false
@@ -34,11 +44,10 @@ input_quant_granularity:
 input_scale_type:
 - dynamic
 input_quant_type:
+- asym
 - sym
 model:
 - meta-llama/Llama-3.2-1B-Instruct
-- meta-llama/Llama-3.2-3B-Instruct
-- meta-llama/Llama-3.1-8B-Instruct
 rotation:
 - layerwise
 weight_bit_width:
