@@ -491,12 +491,10 @@ class TestAXEThresholds:
         int_weight[:, 1::2] *= -1  # alternating sign -> zero mean within every (even-width) tile
         weight = int_weight * scales
 
-        expected = self._l1_ball_threshold(alpha, tile_size, self.radius) * tile_scales.clone()
+        expected = tile_scales.clone() * self._l1_ball_threshold(alpha, tile_size, self.radius)
         # the (possibly ragged) last tile has fewer real elements, so its threshold differs
-        expected[:,
-                 -1] = self._l1_ball_threshold(alpha, last_tile_size, self.radius) * tile_scales[:,
-                                                                                                 -1]
-
+        expected[:, -1] = tile_scales[:, -1] * self._l1_ball_threshold(
+            alpha, last_tile_size, self.radius)
         expected = expected.transpose(0, 1).unsqueeze(0)  # [1, n_tiles, OC]
         return weight, scales, expected
 
@@ -540,6 +538,21 @@ class TestAXEThresholds:
         weight = (torch.tensor([8.0, 4.0, -1.0, -11.0]) * s).view(1, 4)  # [OC=1, IC=4]
         scales = torch.full((1, 4), s)
         expected = torch.tensor(4.5 * s).view(1, 1, 1)  # [1, n_tiles=1, OC=1]
+        axe = _MockAXEMixin(accumulator_bit_width, tile_size, input_bit_width)
+        thresholds = axe.get_thresholds(weight.unsqueeze(0), scales.unsqueeze(0), 1)
+        assert thresholds.shape == expected.shape
+        assert torch.allclose(thresholds, expected, atol=1e-5, rtol=1e-4)
+
+    def test_nonzero_mean(self):
+        # hand-solved oracle exercising the zero-centering step (every other case has mean 0).
+        # accumulator_bit_width=5, input_bit_width=2 -> radius = (2**5 - 2) / (2**2 - 1) = 30/3 = 10.
+        # tile (w / s) = [10, 6, 2, 2], mean 5 -> centered [5, 1, -3, -3], |v| = [5, 1, 3, 3], sum 12
+        # > 10. All four survive: theta = (12 - 10) / 4 = 0.5.
+        accumulator_bit_width, input_bit_width, tile_size = 5, 2, 4
+        s = 0.25
+        weight = (torch.tensor([10.0, 6.0, 2.0, 2.0]) * s).view(1, 4)  # [OC=1, IC=4]
+        scales = torch.full((1, 4), s)
+        expected = torch.tensor(0.5 * s).view(1, 1, 1)  # [1, n_tiles=1, OC=1]
         axe = _MockAXEMixin(accumulator_bit_width, tile_size, input_bit_width)
         thresholds = axe.get_thresholds(weight.unsqueeze(0), scales.unsqueeze(0), 1)
         assert thresholds.shape == expected.shape
