@@ -11,9 +11,9 @@ class selects a GGUF base weight quantizer for the linear layers.
 First/last-layer handling follows llama.cpp's ``llama_tensor_get_type_impl``
 (see src/llama-quant.cpp): the high-impact ``token_embd`` (embedding) and
 ``output`` (lm_head) tensors are kept at a higher precision than the rest of the
-model. For the 4-bit recipes (Q4_0/Q4_1/Q4_K) llama.cpp bumps the output tensor
-(and tied token embeddings) to Q6_K, so we do the same here. For Q6_K and Q8_0
-the whole model is already at that precision, so no separate bump is applied.
+model. For the low-bit recipes (Q4_0/Q4_1/Q4_K/Q5_K) llama.cpp bumps the output
+tensor (and tied token embeddings) to Q6_K, so we do the same here. For Q6_K and
+Q8_0 the whole model is already at that precision, so no separate bump is applied.
 
 The embedding/last-layer quantizers are only used when the entry point is run
 with ``--quantize-first-last-layer``; otherwise those layers are left
@@ -29,6 +29,7 @@ from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from .base_quantizers import GGUFQ4_0WeightQuant
 from .base_quantizers import GGUFQ4_1WeightQuant
 from .base_quantizers import GGUFQ4_KWeightQuant
+from .base_quantizers import GGUFQ5_KWeightQuant
 from .base_quantizers import GGUFQ6_KWeightQuant
 from .base_quantizers import GGUFQ8_0WeightQuant
 
@@ -74,6 +75,12 @@ class GGUFQ4_1(BaseQuantizer):
 class GGUFQ4_K(BaseQuantizer):
     """GGUF Q4_K: 4-bit super-blocks with nested scales/mins; first/last at Q6_K."""
     weight_quant = _high_precision_for(GGUFQ4_KWeightQuant, GGUFQ6_KWeightQuant)
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q5_k")
+class GGUFQ5_K(BaseQuantizer):
+    """GGUF Q5_K: 5-bit super-blocks with nested scales/mins; first/last at Q6_K."""
+    weight_quant = _high_precision_for(GGUFQ5_KWeightQuant, GGUFQ6_KWeightQuant)
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q6_k")

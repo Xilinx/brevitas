@@ -449,6 +449,7 @@ def create_args_parser() -> ArgumentParser:
             'gguf:q8_0',
             'gguf:q4_0',
             'gguf:q4_1',
+            'gguf:q5_k',
             'sharded_torchmlir_group_weight',
             'sharded_packed_torchmlir_group_weight'],
         help='Model export.')

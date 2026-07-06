@@ -108,7 +108,7 @@ def ggml_quant(
     blocks = data.reshape((n_blocks, block_size))
 
     quant_func = GGML_QUANT_BLOCK[ggml_type]
-    if ggml_type == gguf.GGMLQuantizationType.Q4_K:
+    if ggml_type in (gguf.GGMLQuantizationType.Q4_K, gguf.GGMLQuantizationType.Q5_K):
         new_data = quant_func(blocks, scale, zp, wmin_m=wmin_m, d_scale=d_scale, d_wmin_m=d_wmin_m)
     elif ggml_type == gguf.GGMLQuantizationType.Q6_K:
         new_data = quant_func(blocks, scale, zp, d_scale=d_scale)
@@ -211,6 +211,59 @@ def q4_k_quant_block(
     q_mins = np.round(inv_scale_mins * mins).astype(np.uint8).clip(0, 63)
     codes = blocks.reshape(nb, QK_K // 32, 32).astype(np.uint8)
     return _q4_k_pack(q_scales, q_mins, output_d, output_dmin, codes)
+
+
+def _q5_k_pack(q_scales, q_mins, output_d, output_dmin, codes):
+    # q_scales/q_mins: (nb, 8) uint8 6-bit; output_d/output_dmin: (nb, 1) float32;
+    # codes: (nb, 8, 32) uint8 5-bit in [0, 31]. Packs to the block_q5_K byte layout:
+    # [d, dmin, scales(12, the get_scale_min_k4 6-bit interleave), qh(QK_K/8), qs(QK_K/2)].
+    # Q5_K is Q4_K plus a 5th bit per code: the low 4 bits go into qs (nibble-packed,
+    # two sub-blocks per byte), the 5th bit goes into qh (one bit per element, bit s
+    # holds sub-block s).
+    nb = codes.shape[0]
+    output_scale = np.empty((nb, _gguf_quants.Q4_K.K_SCALE_SIZE), dtype=np.uint8)
+    output_scale[:, :4] = q_scales[:, :4]
+    output_scale[:, 4:8] = q_mins[:, :4]
+    output_scale[:, 8:] = (q_scales[:, 4:] & 0xF) | ((q_mins[:, 4:] & 0xF) << 4)
+    output_scale[:, :4] |= ((q_scales[:, 4:] >> 4) << 6)
+    output_scale[:, 4:8] |= ((q_mins[:, 4:] >> 4) << 6)
+
+    # Low 4 bits -> qs: sub-block 2g in the low nibble, 2g+1 in the high nibble of
+    # the same 32-byte group (matches gguf's qs.reshape(nb, -1, 1, 32) >> [0, 4]).
+    low = (codes & 0x0F).reshape(nb, QK_K // 32, 32)
+    output_qs = (low[:, ::2] | (low[:, 1::2] << 4)).reshape(nb, QK_K // 2)
+
+    # 5th bit -> qh: bit s of qh[:, e] holds sub-block s's element e (matches gguf's
+    # qh.reshape(nb, -1, 1, 32) >> range(8)).
+    high = ((codes >> 4) & 0x01).reshape(nb, QK_K // 32, 32)
+    output_qh = np.zeros((nb, QK_K // 8), dtype=np.uint8)
+    for s in range(QK_K // 32):
+        output_qh |= (high[:, s] << np.uint8(s))
+
+    d_bytes = output_d.reshape(-1, 1).astype(np.float16).view(np.uint8)
+    dmin_bytes = output_dmin.reshape(-1, 1).astype(np.float16).view(np.uint8)
+
+    # [d, dmin, scale, qh, qs]
+    return np.concatenate([d_bytes, dmin_bytes, output_scale, output_qh, output_qs], axis=-1)
+
+
+@register_block(gguf.GGMLQuantizationType.Q5_K)
+def q5_k_quant_block(
+        blocks: np.array, scale=None, zp=None, wmin_m=None, d_scale=None, d_wmin_m=None):
+    # Pack pre-quantized codes in [0, 31] with the 8 sub-block scales/mins and their
+    # fp16 super-scales d_scale/d_wmin_m. Q5_K mirrors Q4_K but with 5-bit codes.
+    assert scale is not None and wmin_m is not None and d_scale is not None and d_wmin_m is not None
+    nb = blocks.shape[0]
+    scales = scale.reshape(-1, QK_K // 32)
+    mins = wmin_m.reshape(-1, QK_K // 32)
+    output_d = d_scale.reshape(-1, 1).astype(np.float32)
+    output_dmin = d_wmin_m.reshape(-1, 1).astype(np.float32)
+    inv_scale_scales = np.where(output_d == 0, 0, 1 / output_d)
+    inv_scale_mins = np.where(output_dmin == 0, 0, 1 / output_dmin)
+    q_scales = np.round(inv_scale_scales * scales).astype(np.uint8).clip(0, 63)
+    q_mins = np.round(inv_scale_mins * mins).astype(np.uint8).clip(0, 63)
+    codes = blocks.reshape(nb, QK_K // 32, 32).astype(np.uint8)
+    return _q5_k_pack(q_scales, q_mins, output_d, output_dmin, codes)
 
 
 def _q6_k_quantize_scales(sub_scales: np.ndarray):

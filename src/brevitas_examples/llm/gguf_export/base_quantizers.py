@@ -54,6 +54,11 @@ Q6_K_GROUP_SIZE = 16  # 16 sub-blocks of 16 per 256-element super-block
 Q4_K_SUB_SCALE_BIT_WIDTH = 6
 Q4_K_SUB_ZP_BIT_WIDTH = 6
 Q6_K_SUB_SCALE_BIT_WIDTH = 8
+# Q5_K shares Q4_K's super-block structure (8 sub-blocks of 32, 6-bit unsigned
+# nested scales/mins, fp16 d/dmin); only the weight code bit-width differs (5 vs 4).
+Q5_K_GROUP_SIZE = 32
+Q5_K_SUB_SCALE_BIT_WIDTH = 6
+Q5_K_SUB_ZP_BIT_WIDTH = 6
 
 
 class GGUFQ4_0WeightQuant(Int8WeightPerChannelFloat):
@@ -189,6 +194,17 @@ class GGUFQ4_KWeightQuant(ShiftedUint8WeightPerTensorFloat):
         if scaling_per_output_type == ScalingPerOutputType.GROUP:
             return zero_point_shape
         return None
+
+
+class GGUFQ5_KWeightQuant(GGUFQ4_KWeightQuant):
+    """Asymmetric unsigned 5-bit Q5_K super-block quantizer with nested scales/mins.
+
+    Identical to :class:`GGUFQ4_KWeightQuant` (same 8 sub-blocks of 32, 6-bit nested
+    scales/mins, fp16 ``d`` / ``dmin``) except the weight codes use 5 bits ([0, 31])
+    instead of 4. Reuses the same nested scale/zero-point sub-injectors.
+    """
+    group_size = Q5_K_GROUP_SIZE
+    bit_width = 5
 
 
 class _GGUFQ6KScalingInt(Int8WeightPerChannelFloat, _GGUFKQuantShapeMixin):
