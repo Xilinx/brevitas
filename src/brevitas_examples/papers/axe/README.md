@@ -95,7 +95,7 @@ Per-channel BF16 scales for weights; dynamic per-row activations.
 | W4A8      | 128×16b | sym       | 12.9  |  31.9 |  64.3 |  55.1 |   43.7 | 72.1 | 53.4 |
 | W4A4      | 128×16b | sym       | 15.8  |  29.0 |  59.8 |  53.5 |   39.9 | 68.7 | 50.2 |
 
-### Groupwise scales
+### Groupwise scaling
 
 Per-group scales for weights; symmetric dynamic per-group activations (group size 32).
 Scales are quantized to a power of 2 (PO2).
