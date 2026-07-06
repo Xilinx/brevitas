@@ -657,12 +657,13 @@ def test_layerwise_param_method_mse(simple_model, quant_granularity):
             assert torch.isclose(diff_mse, orig_mse) or (diff_mse > orig_mse)
 
 
+@pytest.mark.parametrize("weight_quant_type", ["sym", "asym"])
 @pytest.mark.parametrize("quant_granularity", ["per_tensor", "per_channel"])
 @jit_disabled_for_local_loss()
-def test_layerwise_stats_vs_mse(simple_model, quant_granularity):
+def test_layerwise_stats_vs_mse(simple_model, quant_granularity, weight_quant_type):
     """
     We test layerwise quantization, with the weight and activation quantization `mse` parameter
-    methods.
+    methods, for both symmetric and asymmetric weight quantization.
 
     We test:
     - Recostruction error of MSE should be smaller or equal to stats
@@ -677,6 +678,7 @@ def test_layerwise_stats_vs_mse(simple_model, quant_granularity):
         act_bit_width=act_bit_width,
         bias_bit_width=bias_bit_width if bias_bit_width > 0 else None,
         weight_quant_granularity=quant_granularity,
+        weight_quant_type=weight_quant_type,
         act_quant_type='asym',
         act_quant_percentile=99.9,  # Unused
         scale_factor_type='float_scale',
@@ -691,6 +693,7 @@ def test_layerwise_stats_vs_mse(simple_model, quant_granularity):
         act_bit_width=act_bit_width,
         bias_bit_width=bias_bit_width if bias_bit_width > 0 else None,
         weight_quant_granularity=quant_granularity,
+        weight_quant_type=weight_quant_type,
         act_quant_type='asym',
         act_quant_percentile=99.9,  # Unused
         scale_factor_type='float_scale',
