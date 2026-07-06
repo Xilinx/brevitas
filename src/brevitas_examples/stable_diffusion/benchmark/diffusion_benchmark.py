@@ -11,14 +11,14 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-from brevitas_examples.common.benchmark.utils import benchmark
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
-from brevitas_examples.common.benchmark.utils import GridSearchMixin
+from brevitas_examples.common.benchmark.utils import EntryPointUtils
+from brevitas_examples.common.benchmark.utils import GridSearchUtils
 from brevitas_examples.stable_diffusion.stable_diffusion_args import create_args_parser
 from brevitas_examples.stable_diffusion.stable_diffusion_args import validate as validate_args
 
 
-class SDBenchmarkUtilsBase(BenchmarkUtils):
+class SDEntryPointUtils(EntryPointUtils):
 
     argument_parser: ArgumentParser = create_args_parser()
     eval_metrics: List[str] = ["torchmetrics_fid", "clean_fid"]
@@ -53,9 +53,10 @@ class SDBenchmarkUtilsBase(BenchmarkUtils):
         return quantize_sd(args=args, extra_args=extra_args)
 
 
-class SDBenchmarkUtils(SDBenchmarkUtilsBase, GridSearchMixin):
-    pass
+class SDGridBenchmark(BenchmarkUtils):
+    entry_point_utils = SDEntryPointUtils
+    search_utils = GridSearchUtils
 
 
 if __name__ == "__main__":
-    benchmark(SDBenchmarkUtils, sys.argv[1:])
+    SDGridBenchmark.run(sys.argv[1:])

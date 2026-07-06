@@ -3,11 +3,12 @@
 
 import sys
 
-from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtils
+from brevitas_examples.common.benchmark.utils import BenchmarkUtils
+from brevitas_examples.common.benchmark.utils import GridSearchUtils
+from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
 
 
-class LearnedRoundBenchmark(LLMBenchmarkUtils):
+class LearnedRoundEntryPointUtils(LLMEntryPointUtils):
 
     @staticmethod
     def validate(args, extra_args=None):
@@ -25,5 +26,10 @@ class LearnedRoundBenchmark(LLMBenchmarkUtils):
             assert args.weight_bit_width == 4, "When per_channel only bit_width=4 is allowed"
 
 
+class LearnedRoundBenchmark(BenchmarkUtils):
+    entry_point_utils = LearnedRoundEntryPointUtils
+    search_utils = GridSearchUtils
+
+
 if __name__ == "__main__":
-    benchmark(LearnedRoundBenchmark, sys.argv[1:])
+    LearnedRoundBenchmark.run(sys.argv[1:])

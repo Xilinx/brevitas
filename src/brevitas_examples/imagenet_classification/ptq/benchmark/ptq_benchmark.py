@@ -11,15 +11,15 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-from brevitas_examples.common.benchmark.utils import benchmark
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
-from brevitas_examples.common.benchmark.utils import GridSearchMixin
+from brevitas_examples.common.benchmark.utils import EntryPointUtils
+from brevitas_examples.common.benchmark.utils import GridSearchUtils
 from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import create_args_parser
 from brevitas_examples.imagenet_classification.ptq.ptq_imagenet_args import \
     validate as validate_args
 
 
-class ImagenetPTQBenchmarkUtilsBase(BenchmarkUtils):
+class ImagenetPTQEntryPointUtils(EntryPointUtils):
 
     argument_parser: ArgumentParser = create_args_parser()
     eval_metrics: List[str] = ["quant_top1"]
@@ -47,9 +47,10 @@ class ImagenetPTQBenchmarkUtilsBase(BenchmarkUtils):
         return quantize_ptq_imagenet(args=args, extra_args=extra_args)
 
 
-class ImagenetPTQBenchmarkUtils(BenchmarkUtils, GridSearchMixin):
-    pass
+class ImagenetPTQGridBenchmark(BenchmarkUtils):
+    entry_point_utils = ImagenetPTQEntryPointUtils
+    search_utils = GridSearchUtils
 
 
 if __name__ == "__main__":
-    benchmark(ImagenetPTQBenchmarkUtils, sys.argv[1:])
+    ImagenetPTQGridBenchmark.run(sys.argv[1:])

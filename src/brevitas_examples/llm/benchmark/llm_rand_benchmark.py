@@ -3,14 +3,15 @@
 
 import sys
 
-from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.common.benchmark.utils import RandomSearchMixin
-from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtilsBase
+from brevitas_examples.common.benchmark.utils import BenchmarkUtils
+from brevitas_examples.common.benchmark.utils import RandomSearchUtils
+from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
 
 
-class LLMRandomSearchBenchmarkUtils(LLMBenchmarkUtilsBase, RandomSearchMixin):
-    pass
+class LLMRandomBenchmark(BenchmarkUtils):
+    entry_point_utils = LLMEntryPointUtils
+    search_utils = RandomSearchUtils
 
 
 if __name__ == "__main__":
-    benchmark(LLMRandomSearchBenchmarkUtils, sys.argv[1:])
+    LLMRandomBenchmark.run(sys.argv[1:])

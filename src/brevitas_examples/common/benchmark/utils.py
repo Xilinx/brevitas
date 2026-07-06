@@ -34,7 +34,14 @@ import pandas as pd
 import yaml
 
 
-class BenchmarkUtils(ABC):
+class EntryPointUtils(ABC):
+    """Encapsulates everything specific to a benchmark entry point.
+
+    An entry point knows how to run a single experiment (`entrypoint_main`),
+    validate an argument combination (`validate`), parse metrics out of a job log
+    (`parse_log`), and it exposes the argument parser for the underlying script
+    (`argument_parser`) as well as the metrics it produces (`eval_metrics`).
+    """
 
     @staticmethod
     @abstractmethod
@@ -64,21 +71,23 @@ class BenchmarkUtils(ABC):
         pass
 
 
-class BenchmarkSearchMixin(ABC):
+class SearchUtils(ABC):
+    """Encapsulates a search strategy over the entry point's argument space.
 
-    @property
-    @abstractmethod
-    def argument_parser() -> ArgumentParser:
-        pass
+    A search strategy does not know anything about a specific entry point. Any
+    data it needs from the entry point (its argument parser and its validation
+    function) is passed in explicitly by the :class:`BenchmarkUtils` coordinator.
+    """
 
     @classmethod
-    def standardize_args(cls, script_args: Namespace) -> Dict[str, Any]:
+    def standardize_args(cls, script_args: Namespace,
+                         entrypoint_parser: ArgumentParser) -> Dict[str, Any]:
         # Construct a full set of arguments where each argument is contained into a list
         if script_args.config is not None:
             with open(script_args.config, 'r') as f:
                 args_dict = yaml.safe_load(f)
             # Add defaults if only a subset of keys are specified
-            for action in cls.argument_parser._actions:
+            for action in entrypoint_parser._actions:
                 if action.dest not in args_dict:
                     args_dict[action.dest] = cls._default_action_handler(action)
         else:
@@ -91,7 +100,7 @@ class BenchmarkSearchMixin(ABC):
         pass
 
     @classmethod
-    def parser(cls) -> ArgumentParser:
+    def script_parser(cls) -> ArgumentParser:
         parser = ArgumentParser()
         parser.add_argument(
             '--config',
@@ -133,17 +142,23 @@ class BenchmarkSearchMixin(ABC):
 
     @classmethod
     @abstractmethod
-    def gen_search_space(cls, args_dict: Dict[str, Any],
-                         script_args: Namespace) -> List[Dict[str, Any]]:
+    def gen_search_space(
+            cls,
+            args_dict: Dict[str, Any],
+            script_args: Namespace,
+            entrypoint_parser: ArgumentParser,
+            validate_fn: Callable[[Namespace, List[str]], None]) -> List[Dict[str, Any]]:
         pass
 
     @classmethod
     @abstractmethod
-    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+    def print_benchmark_summary(
+            cls, args_queue: List[Dict], script_args: Namespace,
+            entrypoint_parser: ArgumentParser) -> None:
         pass
 
 
-class GridSearchMixin(BenchmarkSearchMixin):
+class GridSearchUtils(SearchUtils):
 
     @classmethod
     def _default_action_handler(cls, action: Action) -> List[Any]:
@@ -151,8 +166,8 @@ class GridSearchMixin(BenchmarkSearchMixin):
         return [action.default]
 
     @classmethod
-    def parser(cls) -> ArgumentParser:
-        parser = super().parser()
+    def script_parser(cls) -> ArgumentParser:
+        parser = super().script_parser()
         parser.add_argument(
             '--start-index',
             type=int,
@@ -178,12 +193,16 @@ class GridSearchMixin(BenchmarkSearchMixin):
 
     @classmethod
     def gen_search_space(
-            cls, args_dict: Dict[str, Any],
-            script_args: Namespace) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+        cls,
+        args_dict: Dict[str, Any],
+        script_args: Namespace,
+        entrypoint_parser: ArgumentParser,
+        validate_fn: Callable[[Namespace, List[str]], None]
+    ) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
         # Generate combinations of arguments
         args_keys, args_values = zip(*args_dict.items())
         # Extract the keys that are known to the argument parser
-        parser_keys = set(action.dest for action in cls.argument_parser._actions)
+        parser_keys = set(action.dest for action in entrypoint_parser._actions)
         # Retrieve argument combinations that are valid for the entrypoint
         exp_queue = []
         for v in itertools.product(*args_values):
@@ -200,7 +219,7 @@ class GridSearchMixin(BenchmarkSearchMixin):
                         extra_args += [f"--{key.replace('_', '-')}", str(value)]
                 args = SimpleNamespace(**args)
                 # Only keep valid configurations
-                cls.validate(args, extra_args)
+                validate_fn(args, extra_args)
                 exp_queue.append((args, extra_args, args_dict))
             except AssertionError:
                 # Invalid configuration
@@ -214,7 +233,9 @@ class GridSearchMixin(BenchmarkSearchMixin):
         return exp_queue
 
     @classmethod
-    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+    def print_benchmark_summary(
+            cls, args_queue: List[Dict], script_args: Namespace,
+            entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
         _print_indented_dict("Benchmark args.:", vars(script_args))
         # Return if there are not valid combination
@@ -230,7 +251,7 @@ class GridSearchMixin(BenchmarkSearchMixin):
                 args_combinations[key].add(value)
         # Retrieve defaults of argument parser
         args_parser_defaults = {
-            action.dest: action.default for action in cls.argument_parser._actions}
+            action.dest: action.default for action in entrypoint_parser._actions}
         args_keys = list(args_combinations.keys())
         # Iterate over the keys removing entries with a length of 1 that are set to the default value
         for key in args_keys:
@@ -294,7 +315,7 @@ class RandomArgNode:
         return id_str
 
 
-class RandomSearchMixin(BenchmarkSearchMixin):
+class RandomSearchUtils(SearchUtils):
 
     @classmethod
     def _default_action_handler(cls, action: Action) -> Dict[str, Any]:
@@ -302,8 +323,8 @@ class RandomSearchMixin(BenchmarkSearchMixin):
         return {"rand_type": "const", "rand_values": action.default}
 
     @classmethod
-    def parser(cls) -> ArgumentParser:
-        parser = super().parser()
+    def script_parser(cls) -> ArgumentParser:
+        parser = super().script_parser()
         parser.add_argument(
             '--num-experiments',
             type=int,
@@ -325,11 +346,15 @@ class RandomSearchMixin(BenchmarkSearchMixin):
 
     @classmethod
     def gen_search_space(
-            cls, args_dict: Dict[str, Any],
-            script_args: Namespace) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+        cls,
+        args_dict: Dict[str, Any],
+        script_args: Namespace,
+        entrypoint_parser: ArgumentParser,
+        validate_fn: Callable[[Namespace, List[str]], None]
+    ) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
         generator_dict = {k: RandomArgNode(**v) for k, v in args_dict.items()}
         # Extract the keys that are known to the argument parser
-        parser_keys = set(action.dest for action in cls.argument_parser._actions)
+        parser_keys = set(action.dest for action in entrypoint_parser._actions)
         # Retrieve argument combinations that are valid for the entrypoint
         exp_queue = []
         for i in range(script_args.max_experimental_configs):
@@ -348,7 +373,7 @@ class RandomSearchMixin(BenchmarkSearchMixin):
                         extra_args += [f"--{key.replace('_', '-')}", str(value)]
                 args = SimpleNamespace(**args)
                 # Only keep valid configurations
-                cls.validate(args, extra_args)
+                validate_fn(args, extra_args)
                 exp_queue.append((args, extra_args, args_dict))
             except AssertionError:
                 # Invalid configuration
@@ -356,7 +381,9 @@ class RandomSearchMixin(BenchmarkSearchMixin):
         return exp_queue
 
     @classmethod
-    def print_benchmark_summary(cls, args_queue: List[Dict], script_args: Namespace) -> None:
+    def print_benchmark_summary(
+            cls, args_queue: List[Dict], script_args: Namespace,
+            entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
         _print_indented_dict("Benchmark args.:", vars(script_args))
         # Return if there are not valid combination
@@ -365,10 +392,11 @@ class RandomSearchMixin(BenchmarkSearchMixin):
         # Retrieve the arguments that are not set to non-default values
         # Reconstruct the dictionary of random args
         args_combinations = {
-            k: RandomArgNode(**v) for k, v in cls.standardize_args(script_args).items()}
+            k: RandomArgNode(**v) for k,
+            v in cls.standardize_args(script_args, entrypoint_parser).items()}
         # Retrieve defaults of argument parser
         args_parser_defaults = {
-            action.dest: action.default for action in cls.argument_parser._actions}
+            action.dest: action.default for action in entrypoint_parser._actions}
         args_keys = list(args_combinations.keys())
         # Iterate over the keys removing entries which are rand_type="const" and the default value
         for key in args_keys:
@@ -535,7 +563,7 @@ def run_args_bucket_process(
                 break
 
 
-def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.DataFrame:
+def parse_results(entry_point_utils: Type[EntryPointUtils], results_folder: str) -> pd.DataFrame:
     row_data_list = []
     job_config = None
     for entry in os.scandir(results_folder):
@@ -562,7 +590,7 @@ def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.D
                 with open(f"{results_folder}/{job_name}/stdout.out", 'r') as f:
                     job_log = f.read()
                     # Parse results from log
-                    job_log_results = entrypoint_utils.parse_log(job_log)
+                    job_log_results = entry_point_utils.parse_log(job_log)
                 # Manually populate the results
                 job_results = {
                     "elapsed_time": job_results["elapsed_time"],
@@ -579,7 +607,7 @@ def parse_results(entrypoint_utils: BenchmarkUtils, results_folder: str) -> pd.D
         # for instance, some jobs might have crashed before completing the LM eval
         common_keys = ["job_id"] + list(job_config.keys()) + [
             "elapsed_time", "status", "retry_number", "brevitas_version", "torch_version"
-        ] + entrypoint_utils.eval_metrics
+        ] + entry_point_utils.eval_metrics
         common_keys_set = set(common_keys)
         columns = common_keys + list(
             reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
@@ -603,59 +631,81 @@ def maybe_sort_values(values):
     return sorted_values
 
 
-def benchmark(entrypoint_utils: BenchmarkUtils, args: List[str]) -> None:
-    # A CUDA error message is issued when changing CUDA_VISIBLE_DEVICES
-    # if processes are started in fork mode
-    multiprocessing.set_start_method('spawn')
-    # Parse benchmark arguments
-    script_args = entrypoint_utils.parser().parse_args(args)
-    # Retrieve the argument parser for the entrypoint
-    entrypoint_parser = entrypoint_utils.argument_parser
-    # Instantiate directory for storing the results
-    if not script_args.dry_run and not os.path.exists(script_args.results_folder):
-        os.makedirs(script_args.results_folder)
-    # If a benchmark YAML is passed, use that to retrieve argument combinations,
-    # otherwise generate all possible combinations of arguments from the
-    # entrypoint_parser
-    args_dict = entrypoint_utils.standardize_args(script_args)
-    # Generate a list of experiments
-    exp_queue = entrypoint_utils.gen_search_space(args_dict, script_args)
-    # Show a summary of the configuration to be run in the benchmark execution
-    entrypoint_utils.print_benchmark_summary(exp_queue, script_args)
-    # In the case of a dry-run, just stop after the output of the benchmark summary
-    if script_args.dry_run:
-        exit()
-    # Prepare the shared queue for the processes
-    args_queue = Queue()
-    for args_tuple in exp_queue:
-        args_queue.put(args_tuple)
-    # Map the comma-separated string of GPU ids to a list
-    cuda_available_devices = list(map(int, script_args.gpus.split(",")))
-    # Number of argument combinations
-    num_processes = len(cuda_available_devices) // script_args.num_gpus_per_process
-    # Instantiate processes to run the argument combinations
-    processes = []
-    for i in range(num_processes):
-        cuda_visible_devices = ",".join(
-            map(str, cuda_available_devices[i:i + script_args.num_gpus_per_process]))
-        process = multiprocessing.Process(
-            target=run_args_bucket_process,
-            args=(
-                entrypoint_utils.entrypoint_main,
-                i,
-                num_processes,
-                cuda_visible_devices,
-                script_args.results_folder,
-                script_args.max_num_retries,
-                args_queue,
-            ),
-        )
-        process.start()
-        processes.append(process)
+class BenchmarkUtils:
+    """Coordinator composing an :class:`EntryPointUtils` and a :class:`SearchUtils`.
 
-    # Wait for all processes to complete
-    for process in processes:
-        process.join()
-    # Parse results
-    df = parse_results(entrypoint_utils, script_args.results_folder)
-    df.to_csv(f"{script_args.results_folder}/results.csv", index=False)
+    Subclasses provide the two members as class attributes::
+
+        class LLMGridBenchmark(BenchmarkUtils):
+            entry_point_utils = LLMEntryPointUtils
+            search_utils = GridSearchUtils
+
+    ``BenchmarkUtils`` owns the interaction between the two members: it extracts
+    the data the search needs from the entry point (its argument parser and its
+    validation function) and feeds the resulting experiment queue back into the
+    entry point for execution.
+    """
+
+    entry_point_utils: Type[EntryPointUtils] = None
+    search_utils: Type[SearchUtils] = None
+
+    @classmethod
+    def run(cls, args: List[str]) -> None:
+        entry_point_utils = cls.entry_point_utils
+        search_utils = cls.search_utils
+        # A CUDA error message is issued when changing CUDA_VISIBLE_DEVICES
+        # if processes are started in fork mode
+        multiprocessing.set_start_method('spawn')
+        # Parse benchmark arguments
+        script_args = search_utils.script_parser().parse_args(args)
+        # Retrieve the argument parser for the entrypoint
+        entrypoint_parser = entry_point_utils.argument_parser
+        # Instantiate directory for storing the results
+        if not script_args.dry_run and not os.path.exists(script_args.results_folder):
+            os.makedirs(script_args.results_folder)
+        # If a benchmark YAML is passed, use that to retrieve argument combinations,
+        # otherwise generate all possible combinations of arguments from the
+        # entrypoint_parser
+        args_dict = search_utils.standardize_args(script_args, entrypoint_parser)
+        # Generate a list of experiments
+        exp_queue = search_utils.gen_search_space(
+            args_dict, script_args, entrypoint_parser, entry_point_utils.validate)
+        # Show a summary of the configuration to be run in the benchmark execution
+        search_utils.print_benchmark_summary(exp_queue, script_args, entrypoint_parser)
+        # In the case of a dry-run, just stop after the output of the benchmark summary
+        if script_args.dry_run:
+            exit()
+        # Prepare the shared queue for the processes
+        args_queue = Queue()
+        for args_tuple in exp_queue:
+            args_queue.put(args_tuple)
+        # Map the comma-separated string of GPU ids to a list
+        cuda_available_devices = list(map(int, script_args.gpus.split(",")))
+        # Number of argument combinations
+        num_processes = len(cuda_available_devices) // script_args.num_gpus_per_process
+        # Instantiate processes to run the argument combinations
+        processes = []
+        for i in range(num_processes):
+            cuda_visible_devices = ",".join(
+                map(str, cuda_available_devices[i:i + script_args.num_gpus_per_process]))
+            process = multiprocessing.Process(
+                target=run_args_bucket_process,
+                args=(
+                    entry_point_utils.entrypoint_main,
+                    i,
+                    num_processes,
+                    cuda_visible_devices,
+                    script_args.results_folder,
+                    script_args.max_num_retries,
+                    args_queue,
+                ),
+            )
+            process.start()
+            processes.append(process)
+
+        # Wait for all processes to complete
+        for process in processes:
+            process.join()
+        # Parse results
+        df = parse_results(entry_point_utils, script_args.results_folder)
+        df.to_csv(f"{script_args.results_folder}/results.csv", index=False)

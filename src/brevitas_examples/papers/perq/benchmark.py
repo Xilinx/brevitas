@@ -3,13 +3,15 @@
 
 import sys
 
-from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtils
+from brevitas_examples.common.benchmark.utils import BenchmarkUtils
+from brevitas_examples.common.benchmark.utils import GridSearchUtils
+from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
 
 
-class PeRQBenchmark(LLMBenchmarkUtils):
-    pass
+class PeRQBenchmark(BenchmarkUtils):
+    entry_point_utils = LLMEntryPointUtils
+    search_utils = GridSearchUtils
 
 
 if __name__ == "__main__":
-    benchmark(PeRQBenchmark, sys.argv[1:])
+    PeRQBenchmark.run(sys.argv[1:])

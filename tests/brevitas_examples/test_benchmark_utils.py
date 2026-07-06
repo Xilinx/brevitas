@@ -17,11 +17,11 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from brevitas_examples.common.benchmark.utils import benchmark
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
-from brevitas_examples.common.benchmark.utils import GridSearchMixin
+from brevitas_examples.common.benchmark.utils import EntryPointUtils
+from brevitas_examples.common.benchmark.utils import GridSearchUtils
 from brevitas_examples.common.benchmark.utils import RandomArgNode
-from brevitas_examples.common.benchmark.utils import RandomSearchMixin
+from brevitas_examples.common.benchmark.utils import RandomSearchUtils
 from brevitas_examples.common.benchmark.utils import run_args_bucket_process
 from tests.brevitas_examples.common import MockProcess
 from tests.marker import skip_on_macos_nox
@@ -52,7 +52,7 @@ def _mock_entrypoint_main(
     return {"metric_a": 1.0, "metric_b": 2.0}, None
 
 
-class MockGridBenchmarkUtils(BenchmarkUtils, GridSearchMixin):
+class MockEntryPointUtils(EntryPointUtils):
     argument_parser: ArgumentParser = _create_mock_parser()
     eval_metrics: List[str] = ["metric_a", "metric_b"]
 
@@ -72,24 +72,14 @@ class MockGridBenchmarkUtils(BenchmarkUtils, GridSearchMixin):
         return _mock_entrypoint_main(args, extra_args, job_folder)
 
 
-class MockRandomBenchmarkUtils(BenchmarkUtils, RandomSearchMixin):
-    argument_parser: ArgumentParser = _create_mock_parser()
-    eval_metrics: List[str] = ["metric_a", "metric_b"]
+class MockGridBenchmark(BenchmarkUtils):
+    entry_point_utils = MockEntryPointUtils
+    search_utils = GridSearchUtils
 
-    @staticmethod
-    def parse_log(job_log: str) -> Dict[str, Any]:
-        return {}
 
-    @staticmethod
-    def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
-        _mock_validate(args, extra_args)
-
-    @staticmethod
-    def entrypoint_main(
-            args: Namespace,
-            extra_args: Optional[List[str]] = None,
-            job_folder: Optional[str] = None) -> Tuple[Dict, Any]:
-        return _mock_entrypoint_main(args, extra_args, job_folder)
+class MockRandomBenchmark(BenchmarkUtils):
+    entry_point_utils = MockEntryPointUtils
+    search_utils = RandomSearchUtils
 
 
 # ============================= RandomArgNode ==============================
@@ -137,10 +127,10 @@ class TestRandomArgNode:
             node.value()
 
 
-# ============================= GridSearchMixin ============================
+# ============================= GridSearchUtils ============================
 
 
-class TestGridSearchMixin:
+class TestGridSearchUtils:
 
     def test_standardize_args_from_yaml(self, tmp_path):
         config = {
@@ -150,7 +140,8 @@ class TestGridSearchMixin:
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
         script_args = Namespace(config=yaml_path, results_folder=str(tmp_path))
-        args_dict = MockGridBenchmarkUtils.standardize_args(script_args)
+        args_dict = GridSearchUtils.standardize_args(
+            script_args, MockEntryPointUtils.argument_parser)
         # Provided keys should be preserved
         assert args_dict["model"] == ["model_a", "model_b"]
         assert args_dict["bit_width"] == [4, 8]
@@ -161,7 +152,7 @@ class TestGridSearchMixin:
     def test_standardize_args_no_config_raises(self):
         script_args = Namespace(config=None, results_folder="./")
         with pytest.raises(ValueError, match="Config file not specified"):
-            MockGridBenchmarkUtils.standardize_args(script_args)
+            GridSearchUtils.standardize_args(script_args, MockEntryPointUtils.argument_parser)
 
     def test_gen_search_space_cartesian_product(self):
         args_dict = {
@@ -169,7 +160,11 @@ class TestGridSearchMixin:
             "bit_width": [4, 8],
             "method": ["qat"],}
         script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
-        exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_queue = GridSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         # 2 models * 2 bit_widths * 1 method = 4 combos, minus invalid (qat+4-bit) = 4
         assert len(exp_queue) == 4
         # Each entry is (args, extra_args, args_dict)
@@ -185,7 +180,11 @@ class TestGridSearchMixin:
             "bit_width": [4, 8],
             "method": ["ptq", "qat"],}
         script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
-        exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_queue = GridSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         # 1 * 2 * 2 = 4 total, but ptq+4-bit is invalid => 3 valid
         assert len(exp_queue) == 3
         for args, _, _ in exp_queue:
@@ -198,7 +197,11 @@ class TestGridSearchMixin:
             "bit_width": [4, 8],
             "method": ["qat"],}
         script_args = Namespace(start_index=1, end_index=3, shuffle_seed=None)
-        exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_queue = GridSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         # Slice [1:3] of 4 valid combos = 2
         assert len(exp_queue) == 2
 
@@ -208,8 +211,16 @@ class TestGridSearchMixin:
             "bit_width": [4, 8],
             "method": ["qat"],}
         script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=123)
-        exp_a = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
-        exp_b = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_a = GridSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
+        exp_b = GridSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         # Same seed should produce same order
         for (a_args, _, a_dict), (b_args, _, b_dict) in zip(exp_a, exp_b):
             assert a_dict == b_dict
@@ -223,18 +234,22 @@ class TestGridSearchMixin:
             "unknown_param": ["value1"],}
         script_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
         # Validation rejects extra_args for the mock, so we patch validate to allow it
-        with patch.object(MockGridBenchmarkUtils, 'validate', lambda *a, **kw: None):
-            exp_queue = MockGridBenchmarkUtils.gen_search_space(args_dict, script_args)
+        with patch.object(MockEntryPointUtils, 'validate', lambda *a, **kw: None):
+            exp_queue = GridSearchUtils.gen_search_space(
+                args_dict,
+                script_args,
+                MockEntryPointUtils.argument_parser,
+                MockEntryPointUtils.validate)
         assert len(exp_queue) == 1
         _, extra_args, _ = exp_queue[0]
         assert "--unknown-param" in extra_args
         assert "value1" in extra_args
 
 
-# ============================ RandomSearchMixin ===========================
+# ============================ RandomSearchUtils ===========================
 
 
-class TestRandomSearchMixin:
+class TestRandomSearchUtils:
 
     def test_standardize_args_from_yaml(self, tmp_path):
         config = {
@@ -246,7 +261,8 @@ class TestRandomSearchMixin:
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
         script_args = Namespace(config=yaml_path, results_folder=str(tmp_path))
-        args_dict = MockRandomBenchmarkUtils.standardize_args(script_args)
+        args_dict = RandomSearchUtils.standardize_args(
+            script_args, MockEntryPointUtils.argument_parser)
         # Provided keys preserved
         assert args_dict["model"]["rand_type"] == "choices"
         assert args_dict["bit_width"]["rand_type"] == "const"
@@ -270,7 +286,11 @@ class TestRandomSearchMixin:
             config=None,
             results_folder="./",
         )
-        exp_queue = MockRandomBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_queue = RandomSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         assert len(exp_queue) == 5
 
     def test_gen_search_space_validation_filtering(self):
@@ -289,7 +309,11 @@ class TestRandomSearchMixin:
             config=None,
             results_folder="./",
         )
-        exp_queue = MockRandomBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_queue = RandomSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         # ptq + 4-bit is always invalid, so no valid configs
         assert len(exp_queue) == 0
 
@@ -309,12 +333,20 @@ class TestRandomSearchMixin:
             results_folder="./",
         )
         # gen_search_space does not seed internally -- it relies on caller
-        # The benchmark() function itself doesn't seed either for RandomSearchMixin;
+        # The run() method itself doesn't seed either for RandomSearchUtils;
         # we test that given the same initial random state, we get the same results.
         random.seed(42)
-        exp_a = MockRandomBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_a = RandomSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         random.seed(42)
-        exp_b = MockRandomBenchmarkUtils.gen_search_space(args_dict, script_args)
+        exp_b = RandomSearchUtils.gen_search_space(
+            args_dict,
+            script_args,
+            MockEntryPointUtils.argument_parser,
+            MockEntryPointUtils.validate)
         for (_, _, dict_a), (_, _, dict_b) in zip(exp_a, exp_b):
             assert dict_a == dict_b
 
@@ -468,16 +500,13 @@ class TestBenchmarkOrchestrator:
                        "multiprocessing.set_start_method",
                        lambda *a,
                        **kw: None):
-                benchmark(
-                    MockGridBenchmarkUtils,
-                    [
-                        "--config",
-                        yaml_path,
-                        "--results-folder",
-                        results_folder,
-                        "--gpus",
-                        "0",],
-                )
+                MockGridBenchmark.run([
+                    "--config",
+                    yaml_path,
+                    "--results-folder",
+                    results_folder,
+                    "--gpus",
+                    "0",],)
 
         # Check that results.csv was created
         csv_path = os.path.join(results_folder, "results.csv")
@@ -496,15 +525,12 @@ class TestBenchmarkOrchestrator:
             with patch("brevitas_examples.common.benchmark.utils.multiprocessing.set_start_method",
                        lambda *a,
                        **kw: None):
-                benchmark(
-                    MockGridBenchmarkUtils,
-                    [
-                        "--config",
-                        yaml_path,
-                        "--results-folder",
-                        results_folder,
-                        "--dry-run",],
-                )
+                MockGridBenchmark.run([
+                    "--config",
+                    yaml_path,
+                    "--results-folder",
+                    results_folder,
+                    "--dry-run",],)
 
         # results folder should not have been populated with CSV
         csv_path = os.path.join(results_folder, "results.csv")
@@ -529,18 +555,15 @@ class TestBenchmarkOrchestrator:
                        "multiprocessing.set_start_method",
                        lambda *a,
                        **kw: None):
-                benchmark(
-                    MockRandomBenchmarkUtils,
-                    [
-                        "--config",
-                        yaml_path,
-                        "--results-folder",
-                        results_folder,
-                        "--gpus",
-                        "0",
-                        "--num-experiments",
-                        "3",],
-                )
+                MockRandomBenchmark.run([
+                    "--config",
+                    yaml_path,
+                    "--results-folder",
+                    results_folder,
+                    "--gpus",
+                    "0",
+                    "--num-experiments",
+                    "3",],)
 
         csv_path = os.path.join(results_folder, "results.csv")
         assert os.path.exists(csv_path)

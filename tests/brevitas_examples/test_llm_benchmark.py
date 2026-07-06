@@ -13,10 +13,11 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from brevitas_examples.common.benchmark.utils import benchmark
-from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtils
-from brevitas_examples.llm.benchmark.llm_benchmark import LLMBenchmarkUtilsBase
-from brevitas_examples.llm.benchmark.llm_rand_benchmark import LLMRandomSearchBenchmarkUtils
+from brevitas_examples.common.benchmark.utils import GridSearchUtils
+from brevitas_examples.common.benchmark.utils import RandomSearchUtils
+from brevitas_examples.llm.benchmark.llm_benchmark import LLMEntryPointUtils
+from brevitas_examples.llm.benchmark.llm_benchmark import LLMGridBenchmark
+from brevitas_examples.llm.benchmark.llm_rand_benchmark import LLMRandomBenchmark
 from tests.brevitas_examples.common import MockProcess
 from tests.marker import skip_on_macos_nox
 
@@ -57,10 +58,10 @@ def _mock_entrypoint_main(
     return {"float_ppl": 10.0, "quant_ppl": 15.0}, None
 
 
-# ====================== LLMBenchmarkUtilsBase: parse_log ==================
+# ====================== LLMEntryPointUtils: parse_log =====================
 
 
-class TestLLMBenchmarkUtilsBase:
+class TestLLMEntryPointUtils:
 
     @pytest.mark.llm
     def test_parse_log_float_and_quant_ppl(self):
@@ -69,14 +70,14 @@ class TestLLMBenchmarkUtilsBase:
             "Float perplexity (wikitext2): 25.123\n"
             "Running quantization...\n"
             "Quantized perplexity (wikitext2): 30.456\n")
-        result = LLMBenchmarkUtilsBase.parse_log(log)
+        result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] == pytest.approx(25.123)
         assert result["quant_ppl"] == pytest.approx(30.456)
 
     @pytest.mark.llm
     def test_parse_log_missing_ppl(self):
         log = "Loading model...\nDone.\n"
-        result = LLMBenchmarkUtilsBase.parse_log(log)
+        result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] is None
         assert result["quant_ppl"] is None
 
@@ -86,7 +87,7 @@ class TestLLMBenchmarkUtilsBase:
             "Float perplexity (wikitext2): 25.0\n"
             "Quantized perplexity (wikitext2): 30.0\n"
             "Few-shot results: {'task_a': 0.85, 'task_b': 0.72}\n")
-        result = LLMBenchmarkUtilsBase.parse_log(log)
+        result = LLMEntryPointUtils.parse_log(log)
         assert result["float_ppl"] == pytest.approx(25.0)
         assert result["quant_ppl"] == pytest.approx(30.0)
         assert result["task_a"] == pytest.approx(0.85)
@@ -95,32 +96,33 @@ class TestLLMBenchmarkUtilsBase:
     @pytest.mark.llm
     def test_validate_valid_default_args(self):
         """Default args from the parser should be valid."""
-        parser = LLMBenchmarkUtilsBase.argument_parser
+        parser = LLMEntryPointUtils.argument_parser
         default_args = parser.parse_args([])
         # Should not raise
-        LLMBenchmarkUtilsBase.validate(default_args)
+        LLMEntryPointUtils.validate(default_args)
 
     @pytest.mark.llm
     def test_validate_invalid_gptq_and_gpfq(self):
         """Enabling GPTQ and GPFQ together should fail validation."""
-        parser = LLMBenchmarkUtilsBase.argument_parser
+        parser = LLMEntryPointUtils.argument_parser
         default_args = parser.parse_args([])
         default_args.gptq = True
         default_args.gpfq = True
         default_args.no_quantize = False
         with pytest.raises(AssertionError):
-            LLMBenchmarkUtilsBase.validate(default_args)
+            LLMEntryPointUtils.validate(default_args)
 
 
-# =================== LLMBenchmarkUtils (Grid Search) ======================
+# ==================== LLMGridBenchmark (Grid Search) ======================
 
 
-class TestLLMBenchmarkUtils:
+class TestLLMGridBenchmark:
 
     @pytest.mark.llm
     def test_standardize_args_from_test_yaml(self):
         script_args = Namespace(config=_GRID_YAML, results_folder="./")
-        args_dict = LLMBenchmarkUtils.standardize_args(script_args)
+        args_dict = GridSearchUtils.standardize_args(
+            script_args, LLMEntryPointUtils.argument_parser)
         # Keys from the YAML should be preserved as lists
         assert args_dict["model"] == ["facebook/opt-125m"]
         assert args_dict["weight_bit_width"] == [4, 8]
@@ -133,7 +135,8 @@ class TestLLMBenchmarkUtils:
     @pytest.mark.llm
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_GRID_YAML, results_folder="./")
-        args_dict = LLMBenchmarkUtils.standardize_args(script_args)
+        args_dict = GridSearchUtils.standardize_args(
+            script_args, LLMEntryPointUtils.argument_parser)
         # Every value should be a list
         for key, value in args_dict.items():
             assert isinstance(value, list), f"Key '{key}' should be a list, got {type(value)}"
@@ -141,9 +144,11 @@ class TestLLMBenchmarkUtils:
     @pytest.mark.llm
     def test_gen_search_space_small_config(self):
         script_args = Namespace(config=_GRID_YAML, results_folder="./")
-        args_dict = LLMBenchmarkUtils.standardize_args(script_args)
+        args_dict = GridSearchUtils.standardize_args(
+            script_args, LLMEntryPointUtils.argument_parser)
         grid_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
-        exp_queue = LLMBenchmarkUtils.gen_search_space(args_dict, grid_args)
+        exp_queue = GridSearchUtils.gen_search_space(
+            args_dict, grid_args, LLMEntryPointUtils.argument_parser, LLMEntryPointUtils.validate)
         # 1 model * 2 bit_widths * (all other single-value defaults) = 2 combos
         # Some combos might be filtered by validate, but with simple defaults most pass
         assert len(exp_queue) >= 1
@@ -158,23 +163,20 @@ class TestLLMBenchmarkUtils:
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
-        with patch.object(LLMBenchmarkUtilsBase, "entrypoint_main", _mock_entrypoint_main):
+        with patch.object(LLMEntryPointUtils, "entrypoint_main", _mock_entrypoint_main):
             with patch("brevitas_examples.common.benchmark.utils.multiprocessing.Process",
                        MockProcess):
                 with patch("brevitas_examples.common.benchmark.utils."
                            "multiprocessing.set_start_method",
                            lambda *a,
                            **kw: None):
-                    benchmark(
-                        LLMBenchmarkUtils,
-                        [
-                            "--config",
-                            _GRID_YAML,
-                            "--results-folder",
-                            results_folder,
-                            "--gpus",
-                            "0",],
-                    )
+                    LLMGridBenchmark.run([
+                        "--config",
+                        _GRID_YAML,
+                        "--results-folder",
+                        results_folder,
+                        "--gpus",
+                        "0",],)
 
         csv_path = os.path.join(results_folder, "results.csv")
         assert os.path.exists(csv_path)
@@ -190,15 +192,16 @@ class TestLLMBenchmarkUtils:
         assert all(df["quant_ppl"] == 15.0)
 
 
-# ============= LLMRandomSearchBenchmarkUtils (Random Search) ==============
+# ================= LLMRandomBenchmark (Random Search) =====================
 
 
-class TestLLMRandomSearchBenchmarkUtils:
+class TestLLMRandomBenchmark:
 
     @pytest.mark.llm
     def test_standardize_args_from_test_yaml(self):
         script_args = Namespace(config=_RAND_YAML, results_folder="./")
-        args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
+        args_dict = RandomSearchUtils.standardize_args(
+            script_args, LLMEntryPointUtils.argument_parser)
         # Keys from the YAML should be preserved as dicts with rand_type/rand_values
         assert args_dict["model"]["rand_type"] == "const"
         assert args_dict["model"]["rand_values"] == "facebook/opt-125m"
@@ -213,7 +216,8 @@ class TestLLMRandomSearchBenchmarkUtils:
     @pytest.mark.llm
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_RAND_YAML, results_folder="./")
-        args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
+        args_dict = RandomSearchUtils.standardize_args(
+            script_args, LLMEntryPointUtils.argument_parser)
         # Every value should be a dict with rand_type and rand_values
         for key, value in args_dict.items():
             assert isinstance(value, dict), f"Key '{key}' should be a dict, got {type(value)}"
@@ -223,7 +227,8 @@ class TestLLMRandomSearchBenchmarkUtils:
     @pytest.mark.llm
     def test_gen_search_space_small_config(self):
         script_args = Namespace(config=_RAND_YAML, results_folder="./")
-        args_dict = LLMRandomSearchBenchmarkUtils.standardize_args(script_args)
+        args_dict = RandomSearchUtils.standardize_args(
+            script_args, LLMEntryPointUtils.argument_parser)
         search_args = Namespace(
             num_experiments=3,
             max_experimental_configs=1000,
@@ -231,7 +236,8 @@ class TestLLMRandomSearchBenchmarkUtils:
             config=_RAND_YAML,
             results_folder="./",
         )
-        exp_queue = LLMRandomSearchBenchmarkUtils.gen_search_space(args_dict, search_args)
+        exp_queue = RandomSearchUtils.gen_search_space(
+            args_dict, search_args, LLMEntryPointUtils.argument_parser, LLMEntryPointUtils.validate)
         assert len(exp_queue) <= 3
         # Should get at least 1 valid experiment
         assert len(exp_queue) >= 1
@@ -244,25 +250,22 @@ class TestLLMRandomSearchBenchmarkUtils:
     def test_benchmark_e2e(self, tmp_path):
         results_folder = str(tmp_path / "results")
 
-        with patch.object(LLMBenchmarkUtilsBase, "entrypoint_main", _mock_entrypoint_main):
+        with patch.object(LLMEntryPointUtils, "entrypoint_main", _mock_entrypoint_main):
             with patch("brevitas_examples.common.benchmark.utils.multiprocessing.Process",
                        MockProcess):
                 with patch("brevitas_examples.common.benchmark.utils."
                            "multiprocessing.set_start_method",
                            lambda *a,
                            **kw: None):
-                    benchmark(
-                        LLMRandomSearchBenchmarkUtils,
-                        [
-                            "--config",
-                            _RAND_YAML,
-                            "--results-folder",
-                            results_folder,
-                            "--gpus",
-                            "0",
-                            "--num-experiments",
-                            "2",],
-                    )
+                    LLMRandomBenchmark.run([
+                        "--config",
+                        _RAND_YAML,
+                        "--results-folder",
+                        results_folder,
+                        "--gpus",
+                        "0",
+                        "--num-experiments",
+                        "2",],)
 
         csv_path = os.path.join(results_folder, "results.csv")
         assert os.path.exists(csv_path)
