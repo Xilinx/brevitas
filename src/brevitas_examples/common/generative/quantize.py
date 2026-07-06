@@ -3,6 +3,9 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 import re
+from typing import Any
+from typing import Dict
+from typing import Tuple
 
 from dependencies import this
 import torch
@@ -12,34 +15,37 @@ from brevitas import nn as qnn
 from brevitas.core.function_wrapper import CeilSte
 from brevitas.core.function_wrapper import FloorSte
 from brevitas.core.restrict_val import RoundSte
+from brevitas.core.scaling import RoundMidMaxSte
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import StatsOp
 from brevitas.quant.base import ParameterFromRuntimeZeroPoint
-from brevitas.quant.experimental.float import Fp8e4m3Act
-from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
-from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
-from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
-from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3WeightMSE
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8WeightMSE
-from brevitas.quant.experimental.mx_quant_ocp import ShiftedMXUInt8Weight
-from brevitas.quant.experimental.mx_quant_ocp import ShiftedMXUInt8WeightMSE
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
+from brevitas.quant.float import Fp8e4m3Act
+from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.float import Fp8e4m3WeightPerChannelFloat
+from brevitas.quant.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
+from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
+from brevitas.quant.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
+from brevitas.quant.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.mx_quant_ocp import MXFloat8e4m3WeightMSE
+from brevitas.quant.mx_quant_ocp import MXInt8Act
+from brevitas.quant.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.mx_quant_ocp import MXInt8WeightMSE
+from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8Weight
+from brevitas.quant.mx_quant_ocp import ShiftedMXUInt8WeightMSE
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
@@ -69,6 +75,7 @@ from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActP
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFixedPointMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3OCPWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightPerChannelFloatMSE
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFixedPoint
@@ -130,7 +137,10 @@ WEIGHT_QUANT_MAP = {
                 'per_channel': {
                     'sym': Fp8e4m3WeightPerChannelFloat},
                 'per_group': {
-                    'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
+                    'sym': Fp8e4m3WeightSymmetricGroupQuant}},
+            'mse': {
+                'per_channel': {
+                    'sym': Fp8e4m3WeightPerChannelFloatMSE}}}},
     'float_ocp': {
         'float_scale': {
             'stats': {
@@ -243,6 +253,37 @@ INPUT_QUANT_MAP = {
                         'sym': Fp8e4m3FNUZActPerTensorFloat}}}}}}
 
 
+def maybe_inject_signed_scale_kwargs(
+        injector, scale_quant_format: str, quant_kwargs: Dict[str, Any]):
+    if not quant_kwargs.get('signed', False):
+        return injector
+    return injector.let(
+        **{
+            'restrict_scaling_type': RestrictValueType.SIGNED_FP,
+            'scaling_stats_op': StatsOp.SIGNED_MAX,})
+
+
+# Retrive base quantizer, match against custom float format, or return as-is
+def quant_format_from_string(quant_format: str) -> Tuple[str, Dict[str, Any]]:
+    quant_format_re = re.compile(r'e[1-8]m[1-8]')
+    if quant_format_re.findall(quant_format):
+        float_type = quant_format_re.findall(quant_format)[0]
+        quant_format = quant_format.replace('_' + float_type, '')
+        float_format = {
+            'exponent_bit_width': int(float_type[1]), 'mantissa_bit_width': int(float_type[3])}
+    else:
+        float_format = {}
+    return quant_format, float_format
+
+
+def scale_quant_format_from_string(scale_quant_format: str) -> Tuple[str, Dict[str, Any]]:
+    is_signed = False
+    if scale_quant_format.startswith('signed_'):
+        scale_quant_format = scale_quant_format.removeprefix('signed_')
+        is_signed = True
+    return scale_quant_format, {'signed': is_signed}
+
+
 def generate_quantizers(
         weight_bit_width,
         weight_param_method,
@@ -282,20 +323,12 @@ def generate_quantizers(
     Replace float layers with quant layers in the target model
     """
 
-    # Retrive base quantizer, match against custom float format, or return as-is
-    def quant_format_from_string(quant_format):
-        quant_format_re = re.compile(r'e[1-8]m[1-8]')
-        if quant_format_re.findall(quant_format):
-            float_type = quant_format_re.findall(quant_format)[0]
-            quant_format = quant_format.replace('_' + float_type, '')
-            float_format = {
-                'exponent_bit_width': int(float_type[1]), 'mantissa_bit_width': int(float_type[3])}
-        else:
-            float_format = {}
-        return quant_format, float_format
-
     weight_quant_format, weight_float_format = quant_format_from_string(weight_quant_format)
     input_quant_format, input_float_format = quant_format_from_string(input_quant_format)
+
+    # Process scale precision format
+    weight_scale_precision, weight_scale_quant_kwargs = scale_quant_format_from_string(weight_scale_precision)
+    input_scale_precision, input_scale_quant_kwargs = scale_quant_format_from_string(input_scale_precision)
 
     weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
         weight_param_method][weight_quant_granularity][weight_quant_type]
@@ -306,7 +339,8 @@ def generate_quantizers(
         attn_kwargs = dict()
 
     if scale_rounding_func_type is not None:
-        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte}
+        scale_rounding_func_dict = {
+            'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         input_kwargs = {**input_kwargs, **{'restrict_value_float_to_int_impl': scale_type}}
 
@@ -323,6 +357,7 @@ def generate_quantizers(
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
         attn_quant_format, attn_float_format = quant_format_from_string(attn_quant_format) if attn_quant_format is not None else (input_quant_format, input_float_format)
+        attn_scale_precision, attn_scale_quant_kwargs = scale_quant_format_from_string(attn_scale_precision) if attn_scale_precision is not None else (input_scale_precision, input_scale_quant_kwargs)
         attn_scale_type = attn_scale_type if attn_scale_type is not None else input_scale_type
         attn_scale_precision = attn_scale_precision if attn_scale_precision is not None else input_scale_precision
         attn_param_method = attn_param_method if attn_param_method is not None else input_param_method
@@ -342,13 +377,23 @@ def generate_quantizers(
             **attn_kwargs,}
 
         input_quant = input_quant.let(**input_kwargs)
+        # Enable signed scale if specified in the input scale precision format
+        input_quant = maybe_inject_signed_scale_kwargs(
+            input_quant, input_scale_precision, input_scale_quant_kwargs)
+
         linear_input_quant = linear_input_quant.let(**input_kwargs)
+        linear_input_quant = maybe_inject_signed_scale_kwargs(
+            linear_input_quant, input_scale_precision, input_scale_quant_kwargs)
+
         k_transposed_quant = k_transposed_quant.let(
             **input_kwargs
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
         k_transposed_quant = k_transposed_quant.let(
             **attn_override_kwargs
         )  # later we define v_quant=k_transposed_quant, so don't instantiate it here
+        # Enable signed scale if specified in the attention scale precision format
+        k_transposed_quant = maybe_inject_signed_scale_kwargs(
+            k_transposed_quant, attn_scale_precision, attn_scale_quant_kwargs)
         if attn_quant_config == "qkvs" or attn_quant_config == 'qkv':
             q_scaled_quant = k_transposed_quant  # later we define attn_output_weights_quant=q_scaled_quant, so don't instantiate it here
         elif attn_quant_config == "kv":
@@ -371,7 +416,8 @@ def generate_quantizers(
         **weight_float_format)
 
     if scale_rounding_func_type is not None:
-        scale_rounding_func_dict = {'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte}
+        scale_rounding_func_dict = {
+            'ceil': CeilSte, 'floor': FloorSte, 'round': RoundSte, 'midmax': RoundMidMaxSte}
         scale_type = scale_rounding_func_dict[scale_rounding_func_type]
         weight_quant = weight_quant.let(**{'restrict_value_float_to_int_impl': scale_type})
 
@@ -394,6 +440,10 @@ def generate_quantizers(
     # This is done already by default in the per_group quantizer
     if weight_quant_type == 'asym' and weight_scaling_impl_type == 'parameter_from_stats':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+
+    # Enable signed scale if specified in the weight scale precision format
+    weight_quant = maybe_inject_signed_scale_kwargs(
+        weight_quant, weight_scale_precision, weight_scale_quant_kwargs)
 
     if quant_attn_mode == 'sdpa':
         kv_permute_dims = (0, 1, 3, 2)
@@ -461,7 +511,14 @@ def generate_quantizers(
             linear_input_quant = linear_input_quant.let(
                 **{
                     'group_dim': -1, 'group_size': input_group_size})
-    return linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant
+    return {
+        'linear_input_quant': linear_input_quant,
+        'weight_quant': weight_quant,
+        'input_quant': input_quant,
+        'q_scaled_quant': q_scaled_quant,
+        'k_transposed_quant': k_transposed_quant,
+        'v_quant': v_quant,
+        'attn_output_weights_quant': attn_output_weights_quant}
 
 
 def generate_quant_maps(

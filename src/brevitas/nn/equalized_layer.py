@@ -7,6 +7,7 @@ from typing import Optional
 import torch
 
 from brevitas.common import ExportMixin
+from brevitas.graph.base import INPUT_NAMES
 from brevitas.graph.hadamard import find_closest_hadamard_number
 from brevitas.graph.hadamard import get_hadK
 from brevitas.graph.hadamard import matmul_hadU
@@ -19,8 +20,6 @@ try:
     import fast_hadamard_transform
 except:
     fast_hadamard_transform = None
-
-INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
 
 class EqualizedModule(torch.nn.Module, LayerProtocol, ExportMixin):
@@ -73,19 +72,21 @@ class RotatedModule(torch.nn.Module):
             had_mat: Optional[torch.Tensor] = None,
             k: Optional[int] = None,
             expansion_step: int = 1,
-            expand_input: bool = False) -> None:
+            expand_input: bool = False,
+            hidden_dim: Optional[int] = None) -> None:
         super().__init__()
+        device = next(iter(layer.parameters())).device
         if had_mat is not None:
-            self.had_mat = torch.nn.Parameter(had_mat).cpu()
+            self.had_mat = torch.nn.Parameter(had_mat.to(device))
         else:
             self.had_mat = None
         self.layer = layer
         self.k = k
         self.expansion_step = expansion_step
         self.expand_input = expand_input
+        self.hidden_dim = hidden_dim
 
-    def forward(self, inp, **kwargs):
-        is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
+    def rotation_forward(self, inp):
         if self.expand_input:
             # TODO: This only works for Linear layers. We have an assert in equalize.py to check for this
             featured_dim = inp.dim() - 1
@@ -94,7 +95,13 @@ class RotatedModule(torch.nn.Module):
                 num_features, steps=self.expansion_step)
             inp = pad_to_dim(inp, featured_dim, expanded_num_features)
 
-        if is_cuda and fast_hadamard_transform is not None:
+        init_shape = inp.shape
+        if self.hidden_dim is not None:
+            # This allows us to perform hadamard on a subset of the channel dimension
+            # If init_shape[-1] == had_shape, the next reshape+squeeze is a no-op
+            inp = inp.reshape(*init_shape[:-1], init_shape[-1] // self.hidden_dim,
+                              self.hidden_dim).squeeze()
+        if inp.is_cuda and fast_hadamard_transform is not None:
             if self.had_mat is None or self.k is None:
                 had_K, K = get_hadK(inp.shape[-1])
             else:
@@ -103,16 +110,20 @@ class RotatedModule(torch.nn.Module):
             inp = matmul_hadU_cuda(inp, had_K, K)
         else:
             inp = matmul_hadU(inp)
-        o = self.layer(inp)
+        inp = inp.reshape(init_shape)
+        return inp
+
+    def forward(self, inp, **kwargs):
+        inp = self.rotation_forward(inp)
+        o = self.layer(inp, **kwargs)
 
         return o
 
 
 def functional_rotate_input(inp, transpose=False):
-    is_cuda = 'cuda' in str(inp.device) and torch.version.cuda is not None
     if transpose:
         inp = inp.transpose(-2, -1)
-    if is_cuda and fast_hadamard_transform is not None:
+    if inp.is_cuda and fast_hadamard_transform is not None:
         had_K, K = get_hadK(inp.shape[-1])
         inp = matmul_hadU_cuda(inp, had_K, K)
     else:

@@ -22,32 +22,52 @@ from .quant_module_cases import QuantWBIOLCases
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
-@pytest.mark.parametrize('export_type', ['qcdq', 'qonnx'])
+@pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo', 'qonnx', 'qonnx_dynamo'])
 @requires_pt_ge('1.10')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
-    rounding = case_id.split('-')[0]
-    impl = case_id.split('-')[
-        -3]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
+    # case_id has the form
+    # 'quant_wbiol-{quantizer}-o#-w#-i#-{impl}-rtype_{round|floor}-{export_type}', so the
+    # fields are indexed from the end: export_type=-1, rounding=-2, impl=-3, i_bit=-4,
+    # w_bit=-5, o_bit=-6, quantizer=-7.
+    rounding = case_id.split('-')[-2].replace('rtype_', '')
+    impl = case_id.split('-')[-3]
     quantizer = case_id.split('-')[-7]
     o_bit_width = case_id.split('-')[-6]
     i_bit_width = case_id.split('-')[-4]
     onnx_opset = 14
     export_q_weight = False
 
-    if rounding == 'round':
+    # Round weights can be exported as a Q-node (QuantizeLinear); floor weights and A2Q require
+    # integer-initializer export instead, so they are excluded from Q-node export.
+    if rounding == 'round' and 'a2q' not in quantizer:
         export_q_weight = True
+
+    if export_type == 'qcdq_dynamo':
+        # The dynamo (torch.export) QCDQ path only supports configs that don't rely on
+        # data_ptr()-keyed integer export (i.e. quantized bias / integer-initializer
+        # weights). In the WBIOL cases bias is quantized for everything except the fp8
+        # and dynamic-activation quantizers, so we limit dynamo coverage to those.
+        if torch_version < parse('2.8'):
+            pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
+        if rounding != 'round':
+            pytest.skip(
+                'Dynamo QCDQ exports weights as a Q-node; QuantizeLinear supports only '
+                'round-to-nearest-even, so non-round weight rounding is unsupported.')
+        if 'fp8' not in quantizer and 'dynamic' not in quantizer:
+            pytest.skip('QCDQ dynamo export does not support quantized bias (data_ptr export).')
+
+    if export_type == 'qonnx_dynamo' and torch_version < parse('2.8'):
+        pytest.skip('QONNX dynamo export requires PyTorch >= 2.8')
 
     if 'per_channel' in quantizer and 'asymmetric' in quantizer:
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:
         pytest.skip('ORT execution is unreliable and fails randomly on a subset of cases.')
     if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
-                                   export_type != "qcdq"):
+                                   export_type not in ("qcdq", "qcdq_dynamo")):
         pytest.skip('Dynamic Act Quant supported only for 8bit and QCDQ export')
-    if export_type == 'qonnx' and 'fp8' in quantizer:
-        pytest.skip('FP8 export requires QCDQ')
     if torch_version < parse('2.1') and 'fp8' in quantizer:
         pytest.skip('FP8 requires PyTorch 2.1 or higher')
     elif torch_version >= parse('2.1') and 'fp8' in quantizer:
@@ -84,15 +104,18 @@ def test_ort_wbiol(model, export_type, current_cases):
 
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
+@pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo'])
 @requires_pt_ge('1.10')
-def test_ort_avgpool(model, current_cases):
+def test_ort_avgpool(model, export_type, current_cases):
+    if export_type == 'qcdq_dynamo' and torch_version < parse('2.8'):
+        pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
     in_size = (1, IN_CH, FEATURES, FEATURES)
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name = 'qcdq_quant_avgpool.onnx'
+    export_name = f'qcdq_quant_avgpool_{export_type}.onnx'
     assert is_brevitas_ort_close(
-        model, inp, export_name, 'qcdq', tolerance=INT_TOLERANCE, first_output_only=True)
+        model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
     rm_onnx(export_name)
 
 

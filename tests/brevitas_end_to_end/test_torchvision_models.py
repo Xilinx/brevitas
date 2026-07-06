@@ -159,7 +159,7 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, requ
     torchvision_model(inp)
 
     if quantize_fn_name != 'quantize_float':
-        export_onnx_qcdq(torchvision_model, args=inp)
+        export_onnx_qcdq(torchvision_model, args=inp, dynamo=False)
 
 
 def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):

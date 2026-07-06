@@ -3,11 +3,8 @@
 
 import warnings
 
-import pytest
-import torch
 import torch.nn as nn
 
-from brevitas.core.stats.stats_op import AbsMax
 from brevitas.core.stats.view_wrapper import _ViewCatParameterWrapper
 from brevitas.core.stats.view_wrapper import _ViewParameterWrapper
 

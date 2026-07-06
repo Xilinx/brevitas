@@ -18,11 +18,11 @@ from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInject
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
-from .function import BrevitasBinaryQuantFn
-from .function import BrevitasFloatQuantFn
-from .function import BrevitasQuantFn
+from .function import BrevitasBinaryQuantOp
+from .function import BrevitasFloatQuantOp
 from .function import BrevitasQuantLSTMCellFn
-from .function import BrevitasTruncFn
+from .function import BrevitasQuantOp
+from .function import BrevitasTruncOp
 
 
 class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
@@ -65,7 +65,7 @@ class BrevitasFloatQuantProxyHandler(ONNXBaseHandler, ABC):
                 'nan_values': module.nan_values(),}
 
     def symbolic_execution(self, x: Tensor):
-        x = BrevitasFloatQuantFn.apply(x, *self.symbolic_kwargs.values())
+        x = self.export_op(BrevitasFloatQuantOp, x, *self.symbolic_kwargs.values())
         return_args = (x, *self.return_args.values())
         return return_args
 
@@ -141,14 +141,14 @@ class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
                 'narrow_range': module.is_narrow_range,
                 'signed': module.is_signed,
                 'rounding_mode': module.rounding_mode}
-            self.quant_fn = BrevitasBinaryQuantFn if self.symbolic_kwargs[
-                'bit_width'] == 1 else BrevitasQuantFn
+            self.quant_op = BrevitasBinaryQuantOp if self.symbolic_kwargs[
+                'bit_width'] == 1 else BrevitasQuantOp
 
     def symbolic_execution(self, x: Tensor):
         scale = self.symbolic_kwargs['scale']
         zero_point = self.symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
-        x = self.quant_fn.apply(x, *self.symbolic_kwargs.values())
+        x = self.export_op(self.quant_op, x, *self.symbolic_kwargs.values())
         return x, scale, zero_point, bit_width
 
 
@@ -178,8 +178,8 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
                 'signed': first_qweight.signed,
                 # override rounding mode since quantization has been pre-applied
                 'rounding_mode': 'ROUND'}
-            self.quant_fn = BrevitasBinaryQuantFn if self.symbolic_kwargs[
-                'bit_width'] == 1 else BrevitasQuantFn
+            self.quant_op = BrevitasBinaryQuantOp if self.symbolic_kwargs[
+                'bit_width'] == 1 else BrevitasQuantOp
 
     def symbolic_execution(self, x: Tensor):
         return super().symbolic_execution(x)
@@ -220,7 +220,8 @@ class BrevitasBiasQuantProxyHandler(BrevitasQuantProxyHandler):
         if bit_width is None:
             assert input_bit_width is not None, 'Input bit_width required for bias export'
             bit_width = input_bit_width
-        y = BrevitasQuantFn.apply(x, scale, zero_point, bit_width, *symbolic_kwargs.values())
+        y = self.export_op(
+            BrevitasQuantOp, x, scale, zero_point, bit_width, *symbolic_kwargs.values())
         return y, scale, zero_point, bit_width
 
 
@@ -241,8 +242,14 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
     def symbolic_execution(
             self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
             signed: Tensor):
-        y = BrevitasTruncFn.apply(
-            x, scale, zero_point, input_bit_width, signed, *self.symbolic_kwargs.values())
+        y = self.export_op(
+            BrevitasTruncOp,
+            x,
+            scale,
+            zero_point,
+            input_bit_width,
+            signed,
+            *self.symbolic_kwargs.values())
         return y, self.symbolic_kwargs['output_scale'], zero_point, self.symbolic_kwargs['output_bit_width']
 
 

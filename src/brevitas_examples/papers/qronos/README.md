@@ -1,18 +1,16 @@
-# Few-Bit LLM Quantization with Qronos
+# Few-Bit LLM Quantization with Qronos [ICLR 2026]
 
-📄 [Paper](https://arxiv.org/pdf/2505.11695)
+📄 [Paper](https://openreview.net/pdf?id=7axclBCYul)
 💻 [Code](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/qronos.py)
 💡 [Blog](https://xilinx.github.io/brevitas/dev/papers/qronos.html)
 
-```
-@article{zhang2025qronos,
+```bibtex
+@inproceedings{zhang2026qronos,
       title={Qronos: Correcting the Past by Shaping the Future... in Post-Training Quantization},
       author={Shihao Zhang and Haoyu Zhang and Ian Colbert and Rayan Saab},
-      year={2025},
-      eprint={2505.11695},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2505.11695},
+      booktitle={The Fourteenth International Conference on Learning Representations},
+      year={2026},
+      url={https://openreview.net/forum?id=7axclBCYul},
 }
 ```
 

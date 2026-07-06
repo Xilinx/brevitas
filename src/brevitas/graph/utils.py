@@ -5,7 +5,9 @@ from inspect import signature
 from typing import Any
 from typing import Dict
 from typing import Iterable
+from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import torch
 from torch import nn
@@ -20,6 +22,7 @@ __all__ = [
     'replace_all_uses_except',
     'signature_keys',
     'is_subseq',
+    'find_node_for_module',
     'get_module_name_and_parent',
     'set_module',
     'get_module',
@@ -29,7 +32,8 @@ __all__ = [
     'name_from_module',
     'matches_module_pattern',
     'get_output_channels',
-    'get_output_channel_dim']
+    'get_output_channel_dim',
+    'power_iteration']
 
 CONV_TRANSPOSED = (
     nn.ConvTranspose1d,
@@ -90,6 +94,18 @@ def signature_keys(module_class):
 
 def is_subseq(seq, subseq):
     return any(subseq == seq[i:len(subseq) + i] for i in range(len(seq) - len(subseq) + 1))
+
+
+def find_node_for_module(graph_model, target_module) -> Optional[Node]:
+    """
+    Find the graph node corresponding to a module instance by matching its identity.
+    """
+    for node in graph_model.graph.nodes:
+        if node.op == 'call_module':
+            module = get_module(graph_model, node.target)
+            if id(module) == id(target_module):
+                return node
+    return None
 
 
 def get_module_name_and_parent(model, fully_qualified_module_name):
@@ -186,3 +202,31 @@ def remove_weight_orig(model: nn.Module):
     for name, module in model.named_modules():
         if hasattr(module, 'weight_orig'):
             del module.weight_orig
+
+
+def power_iteration(
+        H: torch.Tensor,
+        steps: int,
+        eps: float = 1e-12,
+        device: Union[str, torch.device] = 'cpu',
+        seed: int = 42) -> torch.Tensor:
+    """
+    Power iteration to estimate the dominant eigenvalue of the Hessian.
+    Accuracy improves with `steps`. Several choices below reduce run-to-run variation.
+    """
+    # device='cpu' by default; CPU reductions tend to be more deterministic than on GPU
+    if not isinstance(device, torch.device):
+        device = torch.device(device)
+    # fixing generator mitigates run-to-run variation with negligible impact on convergence
+    g = torch.Generator(device=device).manual_seed(seed)
+    b_k = torch.rand(H.shape[1], device=device, dtype=H.dtype, generator=g)
+    # normalize H by its absmax for numerical stability; rescale the eigenvalue before returning
+    c_k = H.max().abs()
+    H_k = (H / c_k).to(device)
+    for _ in range(steps):
+        b_k1 = torch.mv(H_k, b_k)
+        b_k1_norm = torch.norm(b_k1)
+        b_k = b_k1 / (b_k1_norm + eps)
+    # Rayleigh quotient on the normalized H, then undo the absmax scaling; return on H.device
+    max_eigenval = torch.dot(b_k, torch.mv(H_k, b_k)).to(c_k.device) * c_k
+    return max_eigenval

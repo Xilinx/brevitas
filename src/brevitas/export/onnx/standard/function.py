@@ -4,8 +4,10 @@
 import onnx
 import torch
 from torch.autograd import Function
+import torch.onnx
 
 from brevitas.export.onnx import onnx_export_opset
+from brevitas.export.onnx.function import DynamoFn
 
 AXIS_OPSET = 13
 
@@ -15,7 +17,7 @@ DATATYPE_DICT = {
     torch.bfloat16: onnx.TensorProto.DataType.BFLOAT16}
 
 
-class DequantizeLinearFn(Function):
+class DequantizeLinearTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, input_scale, input_zero_point, input_axis):
@@ -34,7 +36,25 @@ class DequantizeLinearFn(Function):
         return int_x.float()
 
 
-class IntClipFn(Function):
+class DequantizeLinearDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, input_scale, input_zero_point, input_axis):
+        attrs = {} if input_axis is None else {'axis': input_axis}
+        return torch.onnx.ops.symbolic(
+            'DequantizeLinear', (x, input_scale, input_zero_point),
+            attrs,
+            dtype=input_scale.dtype,
+            shape=x.shape,
+            version=None)
+
+
+class DequantizeLinearOp:
+    torchscript = DequantizeLinearTorchScriptFn
+    dynamo = DequantizeLinearDynamoFn
+
+
+class IntClipTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, int_x, min_int_val, max_int_val):
@@ -46,7 +66,23 @@ class IntClipFn(Function):
         return int_x
 
 
-class CastFn(Function):
+class IntClipDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(int_x, min_int_val, max_int_val):
+        return torch.onnx.ops.symbolic(
+            'Clip', (int_x, min_int_val, max_int_val),
+            dtype=int_x.dtype,
+            shape=int_x.shape,
+            version=None)
+
+
+class IntClipOp:
+    torchscript = IntClipTorchScriptFn
+    dynamo = IntClipDynamoFn
+
+
+class CastTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, dtype):
@@ -58,7 +94,20 @@ class CastFn(Function):
         return x.to(dtype)
 
 
-class QuantizeLinearFn(Function):
+class CastDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, dtype):
+        return torch.onnx.ops.symbolic(
+            'Cast', (x,), {'to': DATATYPE_DICT[dtype]}, dtype=dtype, shape=x.shape, version=None)
+
+
+class CastOp:
+    torchscript = CastTorchScriptFn
+    dynamo = CastDynamoFn
+
+
+class QuantizeLinearTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, output_scale, ouput_zero_point, output_dtype, output_axis):
@@ -77,7 +126,25 @@ class QuantizeLinearFn(Function):
         return x.type(output_dtype)
 
 
-class DynamicQuantizeLinearFn(Function):
+class QuantizeLinearDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, output_scale, ouput_zero_point, output_dtype, output_axis):
+        attrs = {} if output_axis is None else {'axis': output_axis}
+        return torch.onnx.ops.symbolic(
+            'QuantizeLinear', (x, output_scale, ouput_zero_point),
+            attrs,
+            dtype=output_dtype,
+            shape=x.shape,
+            version=None)
+
+
+class QuantizeLinearOp:
+    torchscript = QuantizeLinearTorchScriptFn
+    dynamo = QuantizeLinearDynamoFn
+
+
+class DynamicQuantizeLinearTorchScriptFn(Function):
 
     @staticmethod
     def symbolic(g, x, output_dtype):
@@ -91,3 +158,19 @@ class DynamicQuantizeLinearFn(Function):
         scale = torch.empty(1, device=device, dtype=dtype)
         zero_point = torch.empty(1, device=device, dtype=output_dtype)
         return x.type(output_dtype), scale, zero_point
+
+
+class DynamicQuantizeLinearDynamoFn(DynamoFn):
+
+    @staticmethod
+    def symbolic(x, output_dtype):
+        return torch.onnx.ops.symbolic_multi_out(
+            'DynamicQuantizeLinear', (x,),
+            dtypes=(output_dtype, torch.float32, output_dtype),
+            shapes=(x.shape, [], []),
+            version=None)
+
+
+class DynamicQuantizeLinearOp:
+    torchscript = DynamicQuantizeLinearTorchScriptFn
+    dynamo = DynamicQuantizeLinearDynamoFn

@@ -7,6 +7,7 @@ import mock
 import pytest
 import torch
 
+import brevitas
 from brevitas.core.bit_width.float import ComputeMaxMantissa
 from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.function_wrapper import RoundSte
@@ -27,7 +28,7 @@ from tests.brevitas.hyp_helper import random_minifloat_format_and_value
 from tests.marker import jit_disabled_for_mock
 
 
-class BitwidthWrapper(torch.nn.Module):
+class BitwidthWrapper(brevitas.jit.ScriptModule):
 
     def __init__(self, value):
         super().__init__()
@@ -35,26 +36,29 @@ class BitwidthWrapper(torch.nn.Module):
         # This is also done throughout the codebase
         self.value = torch.tensor(float(value))
 
+    @brevitas.jit.script_method
     def forward(self):
         return self.value
 
 
-class ThreeInputScalingWrapper(torch.nn.Module):
+class ThreeInputScalingWrapper(brevitas.jit.ScriptModule):
 
     def __init__(self):
         super().__init__()
 
-    def forward(self, x, y, z):
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor, y: torch.Tensor, z: torch.Tensor):
         return torch.tensor(1.)
 
 
-class TwoInputScalingWrapper(torch.nn.Module):
+class TwoInputScalingWrapper(brevitas.jit.ScriptModule):
 
     def __init__(self, value):
         super().__init__()
         self.value = value
 
-    def forward(self, x, y):
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
         return self.value
 
 

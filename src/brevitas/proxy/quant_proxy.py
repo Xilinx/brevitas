@@ -102,6 +102,10 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         return not self.disable_quant and self.tensor_quant is not None
 
     @property
+    def is_proxy_compiled(self):
+        return False
+
+    @property
     def is_groupwise(self):
         return _is_groupwise(self.quant_injector)
 
@@ -137,8 +141,20 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         # but before the state_dict of tensor_quant is loaded, so in case e.g. there is a value
         # for the parameter already, it's not overwritten
         if config.REINIT_ON_STATE_DICT_LOAD:
+            # When tensor_quant is init, we might lose information about the state (train vs eval)
+            # We keep track of them and restore them post initialization.
+            training_state = self.training
             self.init_tensor_quant()
+            self.train(training_state)
+
         # for retrocompatibility with when it wasn't removed
         zero_hw_sentinel_key = prefix + 'zero_hw_sentinel'
         if zero_hw_sentinel_key in unexpected_keys:
             unexpected_keys.remove(zero_hw_sentinel_key)
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        if config.IGNORE_PROXY_KEYS.get():
+            return dict()
+        output_dict = super(QuantProxyFromInjector, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        return output_dict

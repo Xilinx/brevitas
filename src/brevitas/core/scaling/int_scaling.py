@@ -5,6 +5,7 @@ from typing import Optional
 from typing import Union
 
 import torch
+from torch import nn
 from torch import Tensor
 
 import brevitas

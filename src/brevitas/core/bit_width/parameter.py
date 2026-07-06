@@ -11,6 +11,7 @@ from torch.nn import Parameter
 import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import IntRestrictValue
 from brevitas.function import abs_binary_sign_grad
 
@@ -26,7 +27,7 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
     Args:
         bit_width (int): value to initialize the output learned bit-width.
         min_bit_width (int): lower bound for the output learned bit-width. Default: 2.
-        restrict_bit_width_impl: restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).
+        restrict_clamp_bit_width_impl: restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).
         override_pretrained_bit_width (bool): ignore pretrained bit-width loaded from a state dict. Default: False.
 
     Returns:
@@ -54,6 +55,8 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             bit_width: int,
             min_bit_width: int = MIN_INT_BIT_WIDTH,
             restrict_bit_width_impl: Module = IntRestrictValue(RoundSte()),
+            bit_width_offset_min_val: Optional[int] = None,
+            bit_width_offset_max_val: Optional[int] = None,
             override_pretrained_bit_width: bool = False,
             dtype: Optional[torch.dtype] = None,
             device: Optional[torch.device] = None) -> None:
@@ -72,13 +75,16 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         self.bit_width_offset = Parameter(
             torch.tensor(bit_width_offset_init, dtype=dtype, device=device))
         self.bit_width_base = bit_width_base
-        self.restrict_bit_width_impl = restrict_bit_width_impl
+        self.restrict_clamp_bit_width_impl = _RestrictClampValue(
+            min_val=bit_width_offset_min_val,
+            restrict_value_impl=restrict_bit_width_impl,
+            max_val=bit_width_offset_max_val)
         self.override_pretrained = override_pretrained_bit_width
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
         bit_width = abs_binary_sign_grad(self.bit_width_offset) + self.bit_width_base
-        bit_width = self.restrict_bit_width_impl(bit_width)
+        bit_width = self.restrict_clamp_bit_width_impl(bit_width)
         return bit_width
 
     def _load_from_state_dict(

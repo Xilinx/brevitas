@@ -1,1 +1,6 @@
-numpy<=1.26.4
+# The most recent versions of packages that are compatible with 3.13 (e.g., ml_dtypes) require latest
+# version of numpy.
+# Packages not compatible with latest numpy (e.g., older pytorch versions) are also not compatible
+# with python 3.13
+numpy < 2.0 ; python_version < "3.13"
+numpy ; python_version >= "3.13"

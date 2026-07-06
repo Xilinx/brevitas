@@ -15,8 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas.core.scaling.runtime import StatsFromParameterScaling
-from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
+from brevitas.fx import symbolic_trace
 from brevitas.graph.base import _remove_parametrization_entries_state_dict
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
@@ -292,7 +291,7 @@ def test_quantize_parametrized_modules(kwargs):
     sample_input = kwargs['sample_input']
     model = kwargs["model"]
 
-    graph_model, _ = torch._dynamo.export(model)(sample_input)
+    graph_model = symbolic_trace(model)
     orig_module = recurse_getattr(model, key)
     # Use tied weights to identify equivalent model
     key, module = [(key, module) for key, module in graph_model.named_modules() if hasattr(module, "weight") and module.weight is orig_module.weight][0]

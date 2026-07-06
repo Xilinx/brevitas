@@ -5,6 +5,8 @@
 ScriptModule wrappers of various functions defined in :obj:`~brevitas.function.ops_ste`.
 """
 
+from typing import Optional
+
 import torch
 
 import brevitas
@@ -90,6 +92,23 @@ class ScalarClampMinSte(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return scalar_clamp_min_ste(x, self.min_val)
+
+
+class ScalarClampSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.scalar_clamp_ste`.
+    """
+
+    __constants__ = ['min_val', 'max_val']
+
+    def __init__(self, min_val: float, max_val: float) -> None:
+        super(ScalarClampSte, self).__init__()
+        self.min_val = float(min_val)
+        self.max_val = float(max_val)
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return scalar_clamp_ste(x, self.min_val, self.max_val)
 
 
 class ScalarSignedClampMinSte(brevitas.jit.ScriptModule):

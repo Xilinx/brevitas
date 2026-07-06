@@ -84,7 +84,11 @@ class QuantWeightMixin(QuantProxyMixin):
     def register_parameter(self, name, value):
         super(QuantWeightMixin, self).register_parameter(name, value)
         if hasattr(self, 'weight_quant') and name == 'weight':
+            # When tensor_quant is init, we might lose information about the state (train vs eval)
+            # We keep track of them and restore them post initialization.
+            training_state = self.training
             self.weight_quant.init_tensor_quant()
+            self.weight_quant.train(training_state)
 
 
 class QuantBiasMixin(QuantProxyMixin):
@@ -113,5 +117,8 @@ class QuantBiasMixin(QuantProxyMixin):
     def register_parameter(self, name, value):
         super(QuantBiasMixin, self).register_parameter(name, value)
         if hasattr(self, 'bias_quant') and name == 'bias':
+            # When tensor_quant is init, we might lose information about the state (train vs eval)
+            # We keep track of them and restore them post initialization.
+            training_state = self.training
             self.bias_quant.init_tensor_quant()
-            self.bias_quant.to(self.bias.device)
+            self.bias_quant.train(training_state)

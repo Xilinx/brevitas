@@ -10,6 +10,7 @@ assert ScalingPerOutputType
 from brevitas.core.stats import SCALAR_SHAPE
 
 from .float_scaling import FloatScaling
+from .float_scaling import RoundMidMaxSte
 from .int_scaling import IntScaling
 from .int_scaling import PowerOfTwoIntScaling
 from .pre_scaling import AccumulatorAwareParameterPreScaling

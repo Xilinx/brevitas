@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from contextvars import ContextVar
 from distutils.util import strtobool
 import os
 
@@ -10,7 +11,7 @@ except ImportError:
     from torch.jit._state import _enabled
 
 
-def env_to_bool(name, default):
+def env_to_bool(name: str, default: bool) -> bool:
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
 
 
@@ -21,6 +22,8 @@ JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
 NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', False)
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 LOGGING_LEVEL = os.environ.get('BREVITAS_LOGGING', 'CRITICAL')
+
+IGNORE_PROXY_KEYS = ContextVar("IGNORE_PROXY_KEYS", default=False)
 
 # Internal global variables
 _FULL_STATE_DICT = False

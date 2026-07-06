@@ -38,7 +38,7 @@ SEED = 0
 @pytest.mark.parametrize("pretrained", [True])
 @requires_package_ge('qonnx', MIN_QONNX_VERSION)
 def test_mobilenet_v1_4b(pretrained, qonnx_export_fn, request):
-    finn_onnx = "mobilenet_v1_4b_{request.node.callspec.id}.onnx"
+    finn_onnx = f"mobilenet_v1_4b_{request.node.callspec.id}.onnx"
     mobilenet = quant_mobilenet_v1_4b(pretrained)
     mobilenet.eval()
     #load a random test vector

@@ -23,10 +23,10 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
-from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
-from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
-from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.mx_quant_ocp import MXInt8Act
+from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat

@@ -26,7 +26,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from brevitas.quant.solver.common import *
-from brevitas.quant.solver.common import SolveScaleSignedness
+from brevitas.quant.solver.common import SolveRestrictScaleSign
 
 
 class MinMaxScalingInit:
@@ -188,7 +188,7 @@ class ActQuantSolver(SolveActTensorQuantFromEnum,
                      SolveActScalingPerOutputChannelShape,
                      SolveUpdateStateDictImplFromEnum,
                      SolveInputViewImpl,
-                     SolveScaleSignedness):
+                     SolveRestrictScaleSign):
     """
     Translate enum directives to activation-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

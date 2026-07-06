@@ -14,8 +14,6 @@ from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
-from brevitas import torch_version
-from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 from ...export_fixture import qonnx_export_fn

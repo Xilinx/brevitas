@@ -110,6 +110,10 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
             self.tensor_quant = torch.compile(self.tensor_quant, dynamic=True, fullgraph=fullgraph)
 
     @property
+    def is_proxy_compiled(self):
+        return 'OptimizedModule' in str(type(self.tensor_quant))
+
+    @property
     def input_view_impl(self):
         if self.tensor_quant is not None:
             return self.tensor_quant.int_quant.input_view_impl

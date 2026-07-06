@@ -10,12 +10,12 @@ from packaging import version
 from packaging.version import parse
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
+from gen_github_actions import ALL_SUPPORTED_PYTHON_VERSIONS as PYTHON_VERSIONS
+from gen_github_actions import ALL_SUPPORTED_PYTORCH_VERSIONS as PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_DIFFUSION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import EXAMPLES_VISION_PYTEST_PYTORCH_VERSIONS
 from gen_github_actions import JIT_STATUSES
-from gen_github_actions import PYTHON_VERSIONS
-from gen_github_actions import PYTORCH_VERSIONS
 from gen_github_actions import TORCHVISION_VERSION_DICT
 
 IS_OSX = system() == 'Darwin'
@@ -150,14 +150,12 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
     session.install('-e', '.[test, llm, export]', *cmd)
+    session.run('pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/test_llm.py')
+    session.run('pytest', '-n', 'logical', 'tests/brevitas_examples/test_llm_data.py')
     session.run(
-        'pytest',
-        '-n',
-        'logical',
-        '-m',
-        'llm',
-        'tests/brevitas_examples/test_llm.py',
-        'tests/brevitas_examples/test_llm_benchmark.py')
+        'pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/test_llm_benchmark.py')
+    session.run(
+        'pytest', '-n', 'logical', '-m', 'llm', 'tests/brevitas_examples/test_llm_gguf_quants.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -171,7 +169,7 @@ def tests_brevitas_examples_llm_export(session, pytorch, jit_status):
     cmd += install_torchvision_cmd(pytorch)  # Optimum seems to require torchvision
     session.install('-e', '.[test, llm, export]', 'optimum[onnxruntime]', *cmd)
     session.run(
-        'pytest', '-n', 'logical', '-k', 'onnx_export_llm', 'tests/brevitas_examples/test_llm.py')
+        'pytest', '-n', 'logical', '-m', 'onnx_export', 'tests/brevitas_examples/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -184,9 +182,22 @@ def tests_brevitas_examples_llm_lighteval(session, pytorch, jit_status):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
 
-    session.install('-e', '.[test, llm, export]', *cmd, 'lighteval[math]')
-    session.run(
-        'pytest', '-n', 'logical', '-k', 'lighteval_llm', 'tests/brevitas_examples/test_llm.py')
+    session.install('-e', '.[test, llm, export, lighteval]', *cmd)
+    session.run('pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/test_llm.py')
+
+
+@nox.session(python=PYTHON_VERSIONS)
+@nox.parametrize(
+    "pytorch", EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS, ids=EXAMPLES_LLM_PYTEST_PYTORCH_IDS)
+@nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
+def tests_brevitas_examples_llm_lm_eval(session, pytorch, jit_status):
+    session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
+    cmd = []
+    cmd += install_pytorch_cmd(pytorch)
+    cmd += install_torchvision_cmd(pytorch)  # Optim um seems to require torchvision
+
+    session.install('-e', '.[test, llm, export]', *cmd, 'lm_eval')
+    session.run('pytest', '-n', 'logical', '-m', 'few_shot', 'tests/brevitas_examples/test_llm.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)

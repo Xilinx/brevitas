@@ -7,8 +7,6 @@ from typing import List
 from typing import Optional
 from warnings import warn
 
-import torch
-
 from brevitas_examples.common.parse_utils import create_entrypoint_args_parser
 from brevitas_examples.common.parse_utils import quant_format_validator
 
@@ -21,6 +19,13 @@ def create_args_parser() -> ArgumentParser:
         default="facebook/opt-125m",
         help='HF model name. Default: facebook/opt-125m.')
     parser.add_argument(
+        '--custom-quantizer',
+        type=str,
+        default=None,
+        help=
+        'Override the quantization list and/or post-process the quantized model with a user-defined quantization plugin. The plugin can be a registered name or a .py file path followed by :plugin_name. Default: None.'
+    )
+    parser.add_argument(
         '--dtype',
         type=str,
         default="auto",
@@ -32,7 +37,8 @@ def create_args_parser() -> ArgumentParser:
         '--nsamples',
         type=int,
         default=128,
-        help='Number of calibration data samples. Default: 128.')
+        help=
+        'Number of calibration data samples. Set to -1 to load the entire dataset. Default: 128.')
     parser.add_argument(
         '--nsamples-rot-calibration',
         type=int,
@@ -43,7 +49,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--dataset',
         type=str,
-        choices=['wikitext2', 'c4', 'pile'],
+        choices=['wikitext2', 'c4', 'pile', 'fineweb'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
     parser.add_argument(
@@ -54,10 +60,11 @@ def create_args_parser() -> ArgumentParser:
         help='Specify which split to use for the evaluation dataset (default: %(default)s)')
     parser.add_argument(
         '--gpxq-block-name',
+        '--block-name',
         type=str,
         default=None,
         help=
-        'Block name for faster GPxQ optimization. It works only if FX is not needed (default: %(default)s)'
+        'Attribute for model blocks. Used for faster GPxQ optimization (if FX is not needed) and learned round (default: %(default)s)'
     )
     parser.add_argument(
         '--gpxq-buffer-device',
@@ -79,8 +86,8 @@ def create_args_parser() -> ArgumentParser:
         '--weight-scale-precision',
         type=str,
         default='float_scale',
-        choices=['float_scale', 'po2_scale'],
-        help='Whether scale is a float value or a po2. Default: po2.')
+        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
+        help='Whether scale is a float value or a po2. Default: %(default)s.')
     parser.add_argument(
         '--weight-quant-rescaling-init',
         type=float,
@@ -113,7 +120,7 @@ def create_args_parser() -> ArgumentParser:
         '--scale-rounding-func-type',
         type=str,
         default=None,
-        choices=['round', 'ceil', 'floor'],
+        choices=['round', 'ceil', 'floor', 'midmax'],
         help='Rounding function to use with Po2 scale. Default: None.')
     parser.add_argument(
         '--weight-group-dim',
@@ -152,7 +159,7 @@ def create_args_parser() -> ArgumentParser:
         '--input-scale-precision',
         type=str,
         default='float_scale',
-        choices=['float_scale', 'po2_scale'],
+        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
         help='Whether input scale is a float value or a po2. Default: float.')
     parser.add_argument(
         '--input-scale-type',
@@ -166,6 +173,10 @@ def create_args_parser() -> ArgumentParser:
         default='asym',
         choices=['sym', 'asym'],
         help='Input quantization type. Default: asym.')
+    parser.add_argument(
+        '--input-narrow-range',
+        action="store_true",
+        help='Use narrow range for input quantization. Default: False.')
     parser.add_argument(
         '--input-quant-granularity',
         type=str,
@@ -207,7 +218,7 @@ def create_args_parser() -> ArgumentParser:
         '--attn-scale-precision',
         type=str,
         default=None,
-        choices=['float_scale', 'po2_scale'],
+        choices=['signed_float_scale', 'float_scale', 'po2_scale'],
         help='Whether input scale is a float value or a po2. Default: (same as input).')
     parser.add_argument(
         '--attn-scale-type',
@@ -360,6 +371,15 @@ def create_args_parser() -> ArgumentParser:
         help=
         'When layer expansion is set, decide how much to increase the layer sizes. Default: %(default)s'
     )
+    parser.add_argument(
+        '--rotation-block-size',
+        type=int,
+        default=None,
+        help='Perform blockwise rotations when possible. Default: %(default)s')
+    parser.add_argument(
+        '--disable-block-rotation-for-fused',
+        action='store_true',
+        help='Disable block rotations when using fused rotations. Default: %(default)s')
     parser.add_argument('--svd-quant', action='store_true', help='Apply SVDQuant.')
     parser.add_argument(
         '--svd-quant-rank',
@@ -384,10 +404,18 @@ def create_args_parser() -> ArgumentParser:
         type=float,
         help='If activation equalization is enabled, decide what alpha to use')
     parser.add_argument(
+        '--permute-fn',
+        choices=['absmax', 'massdiff', 'zigzag', 'random'],
+        default=None,
+        help=
+        'Permutation function to use. If None, no permutation is applied. Works with block rotations when both are enabled.'
+    )
+    parser.add_argument(
         '--export-target',
         default=None,
         choices=[
             None,
+            'vllm',
             'shark',
             'onnx_qcdq',
             'gguf:q8_0',
@@ -416,7 +444,7 @@ def create_args_parser() -> ArgumentParser:
     parser.add_argument(
         '--learned-round',
         default=None,
-        choices=[None, 'linear_round'],
+        choices=[None, 'identity'],
         help='Whether to use learned round. If `None`, RTN is used (default: %(default)s)')
     parser.add_argument(
         '--learned-round-fast-update',
@@ -470,7 +498,18 @@ def create_args_parser() -> ArgumentParser:
         "--awq-clip",
         action="store_true",
         help="Whether to apply AWQ clipping (default: %(default)s).")
+
+    parser.add_argument(
+        '--calibration-batch-size',
+        type=int,
+        default=1,
+        help='Batch size for calibration data loader. (default: %(default)s).')
+
     return parser
+
+
+def fx_required(args: Namespace):
+    return args.weight_equalization or args.act_equalization == 'fx' or args.rotation == 'fx' or args.ln_affine_merge or args.convert_layernorm_to_rmsnorm or args.quant_sdpa == 'fx'
 
 
 def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
@@ -482,6 +521,12 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
         assert args.ln_affine_merge, 'Graph rotation requires to merge LN/RMS norm affine parameters'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
         assert args.convert_layernorm_to_rmsnorm, 'Graph rotation requires to replace LayerNorm with RMSNorm'
+        # FX is not compatible with few-shot evaluation
+        assert args.few_shot_eval is None, "FX is not compatible with few shot evaluation, use fused_no_fx"
+    # Otherwise we might end up tracing through dynamo twice and other weird errors.
+    # Fused_no_fx takes care of all the rotations-related transformations
+    if fx_required(args):
+        assert args.rotation != "fused_no_fx", "fused_no_fx is incompatible with any option that requires FX tracing"
     elif args.rotation == 'fused_no_fx':
         assert not args.convert_layernorm_to_rmsnorm, 'LayerNorm is automatically replaced with RMSNorm when running with --rotation=fused_no_fx. Remove the flag --convert-layernorm-to-rmsnorm'
         assert args.replace_rmsnorm, 'Graph rotation requires to replace HF RMSNorm with PyTorch ones (torch 2.4+ require)'
@@ -512,8 +557,6 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
                     assert args.gpxq_max_accumulator_tile_size == args.input_group_size, \
                         "Group size must be equal to tile size with per_group quantization."
 
-        if args.export_target is not None and args.input_bit_width is not None:
-            assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."

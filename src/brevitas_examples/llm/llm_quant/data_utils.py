@@ -24,14 +24,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from functools import partial
 import random
 from typing import Any
+from typing import Callable
+from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Union
 import warnings
 
+from datasets import Dataset
 import numpy as np
 from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
@@ -42,22 +46,58 @@ from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.data import load_raw_dataset
 
 
-class DatasetToDevice(torch.utils.data.Dataset):
+def collate_batch(examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, torch.Tensor]:
+    # Make sure we load only what's necessary, ie we only load a `input_ids` column.
+    if not all(list(example.keys()) == ["input_ids"] for example in examples):
+        raise ValueError("Missing input_ids keys")
 
-    def __init__(self, data: List, device: Optional[Union[str, torch.device]]):
-        super().__init__()
-        self.data = data
-        self.device = device
+    input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
+    input_ids = torch.tensor(input_ids)
+    result: Dict[str, torch.Tensor] = {}
+    # Process inputs: last token is the label
+    result["input_ids"] = input_ids
+    result["labels"] = input_ids
+    result["attention_mask"] = torch.ones_like(input_ids)
 
-    def __getitem__(self, idx):
-        if self.device is not None:
-            return {
-                name: recursive_to_device(val, self.device) for name, val in self.data[idx].items()}
+    return result
+
+
+def collate_batch_fx(examples: List[Dict[str, List[np.ndarray]]], num_kv_heads: int,
+                     head_dim: int) -> Dict[str, torch.Tensor]:
+    result = collate_batch(examples=examples)
+    # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
+    dtype = result["input_ids"].dtype
+    result["past_key_values"] = tuple((
+        torch.zeros((1, num_kv_heads, 0, head_dim), dtype=dtype),
+        torch.zeros((1, num_kv_heads, 0, head_dim), dtype=dtype),
+    ) for _ in range(num_kv_heads))
+
+    return result
+
+
+def llm_collate(
+    model_name_or_path: str,
+    require_fx: bool = False
+) -> Callable[[List[Dict[str, List[np.ndarray]]]], Dict[str, torch.Tensor]]:
+    num_kv_heads = None
+    head_dim = None
+    # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
+    if require_fx:
+        config = AutoConfig.from_pretrained(model_name_or_path)
+
+        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(
+            config.model_type)
+        normalized_config = normalized_config_class(config)
+
+        num_heads = normalized_config.num_attention_heads
+        if hasattr(normalized_config, "num_key_value_heads"):
+            num_kv_heads = normalized_config.num_key_value_heads
         else:
-            return self.data[idx]
+            num_kv_heads = num_heads
+        head_dim = normalized_config.hidden_size // num_heads
+        return partial(collate_batch_fx, num_kv_heads=num_kv_heads, head_dim=head_dim)
 
-    def __len__(self):
-        return len(self.data)
+    return partial(collate_batch)
 
 
 @torch.no_grad()
@@ -79,30 +119,28 @@ def recursive_to_device(tensor_or_iterable: Union[Iterable, torch.Tensor], devic
 
 
 def get_dataset_for_model(
-    model_name_or_path: str,
-    dataset_name: str,
-    tokenizer: Any,
-    nsamples: int = 128,
-    seqlen: int = 2048,
-    seed: int = 0,
-    split: str = "train",
-    bos_preprocessing: Optional[str] = None,
-    add_eos_token: bool = False,
-    fuse_documents: bool = True,
-    require_fx: bool = False,
-    device: Optional[Union[str, torch.device]] = None,
-):
+        dataset_name: str,
+        tokenizer: Any,
+        nsamples: int = 128,
+        seqlen: int = 2048,
+        seed: int = 0,
+        split: str = "train",
+        bos_preprocessing: Optional[str] = None,
+        add_eos_token: bool = False,
+        fuse_documents: bool = True) -> Dataset:
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
 
     test_splits = ["validation", "test"]
+    # Pile and fineweb does not have a test section
+    testless_datasets = ['pile', 'fineweb']
 
     if split not in ["train", *test_splits]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
 
     raw_dataset = load_raw_dataset(dataset_name=dataset_name, split=split, seed=seed)
-    if dataset_name == "wikitext2" or (dataset_name == "pile" and split in test_splits):
+    if dataset_name == "wikitext2" or (dataset_name in testless_datasets and split in test_splits):
         # Document level BOS preprocessing is not supported for Wikitext2 as each row does not belong to
         # a single document
         if bos_preprocessing == "document":
@@ -110,7 +148,7 @@ def get_dataset_for_model(
             warnings.warn(
                 "Wikitext2 does not support document-level BOS. Default to sequence-level.")
         # Wikitext2 preprocessing matches the preprocessing in https://github.com/IST-DASLab/gptq/blob/main/datautils.py
-        data = get_wikitext2(
+        dataset = get_wikitext2(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
             seqlen=seqlen,
@@ -119,49 +157,14 @@ def get_dataset_for_model(
             add_bos_token=(bos_preprocessing == "sequence" and tokenizer.bos_token_id is not None),
             seed=seed)
     else:
-        data = get_clm_dataset(
+        dataset = get_clm_dataset(
             raw_dataset=raw_dataset,
             tokenizer=tokenizer,
             nsamples=nsamples,
             seqlen=seqlen,
+            seed=seed,
             bos_preprocessing=bos_preprocessing,
             add_eos_token=add_eos_token,
             fuse_documents=fuse_documents)
 
-    # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
-    if require_fx:
-        config = AutoConfig.from_pretrained(model_name_or_path)
-
-        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(
-            config.model_type)
-        normalized_config = normalized_config_class(config)
-
-        num_heads = normalized_config.num_attention_heads
-        if hasattr(normalized_config, "num_key_value_heads"):
-            num_kv_heads = normalized_config.num_key_value_heads
-        else:
-            num_kv_heads = num_heads
-        head_dim = normalized_config.hidden_size // num_heads
-        num_layers = normalized_config.num_layers
-
-        for sample in data:
-            sample["past_key_values"] = tuple((
-                torch.zeros(
-                    1,
-                    num_kv_heads,
-                    0,
-                    head_dim,
-                    device=sample["input_ids"].device,
-                    dtype=sample["input_ids"].dtype),
-                torch.zeros(
-                    1,
-                    num_kv_heads,
-                    0,
-                    head_dim,
-                    device=sample["input_ids"].device,
-                    dtype=sample["input_ids"].dtype),
-            ) for _ in range(num_layers))
-
-    data = DatasetToDevice(data, device=device)
-
-    return data
+    return dataset

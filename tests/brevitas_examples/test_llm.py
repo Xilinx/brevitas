@@ -3,7 +3,6 @@
 
 from argparse import ArgumentParser
 from argparse import Namespace
-from contextlib import ExitStack
 import logging
 import os
 import platform
@@ -21,10 +20,17 @@ from packaging import version
 import pytest
 import pytest_cases
 import torch
+from torch import nn
 
 from brevitas import config
 from brevitas import torch_version
+from brevitas.graph.equalize import _compute_rotations
+from brevitas.graph.equalize import Region
+from brevitas.utils.python_utils import Registry
+from brevitas_examples.common.generative.quantizers import BaseQuantizer
+from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
+from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
@@ -40,6 +46,7 @@ from tests.brevitas_examples.test_llm_cases import LLMQuantLayerCountCases
 from tests.brevitas_examples.test_llm_cases import LLMQuantLayerTypeCases
 from tests.brevitas_examples.test_llm_cases import LLMRotationOptimizationCases
 from tests.brevitas_examples.test_llm_cases import LLMRunCases
+from tests.conftest import SEED
 from tests.marker import jit_disabled_for_dynamic_quant_act
 from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
@@ -60,6 +67,30 @@ def mock_load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Data
     ]
     return Dataset.from_dict({
         "text": C4_TEXTS,})
+
+
+def mock_compute_rotations(
+    model: nn.Module,
+    regions: List[Region],
+    full_rotation_method='had',
+    fuse_rotations: bool = True,
+    expansion_step: int = 1,
+    rotation_block_size: Optional[int] = None,
+    disable_block_rotation_for_fused: bool = False,
+    generator: Optional[torch.Generator] = None,
+):
+    generator = torch.Generator()
+    generator.manual_seed(SEED)
+
+    return _compute_rotations(
+        model=model,
+        regions=regions,
+        full_rotation_method=full_rotation_method,
+        fuse_rotations=fuse_rotations,
+        expansion_step=expansion_step,
+        rotation_block_size=rotation_block_size,
+        disable_block_rotation_for_fused=disable_block_rotation_for_fused,
+        generator=generator)
 
 
 def ptid2pathname(string):
@@ -167,6 +198,62 @@ def test_small_models_quant_layer_types_count(caplog, args_and_layer_types_count
     assert_layer_types_count(model, exp_metrics["exp_layer_types_count"])
 
 
+@pytest.mark.llm
+def test_custom_quantizer_post_process(caplog, default_run_args, main):
+    caplog.set_level(logging.INFO)
+
+    @Registry.register(QUANTIZERS_REGISTRY, "example_inline_model_adjuster")
+    class ExampleInlineModelAdjuster(BaseQuantizer):
+
+        @classmethod
+        def post_process_quant_model(cls, model: nn.Module) -> nn.Module:
+            model.example_inline_model_adjuster_applied = True
+            return model
+
+    args = default_run_args
+    args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    args.custom_quantizer = "example_inline_model_adjuster"
+
+    _, model = main(args)
+
+    assert getattr(model, "example_inline_model_adjuster_applied", False)
+
+
+@pytest.mark.llm
+def test_custom_quantizer_file_override_and_post_process(caplog, default_run_args, main):
+    caplog.set_level(logging.INFO)
+
+    args = default_run_args
+    args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    args.custom_quantizer = (
+        "tests/brevitas_examples/llm_example_quantizer.py:example_quant_and_model_adjuster")
+
+    _, model = main(args)
+
+    assert getattr(model, "example_quant_and_model_adjuster_applied", False)
+
+    weight_proxies = []
+    for module in model.modules():
+        if hasattr(module, 'weight_quant') and module.weight_quant is not None:
+            weight_proxies.append(module.weight_quant)
+
+    for m in model.model.layers:
+        # Check input_quant are tied
+        assert id(m.self_attn.q_proj.input_quant) == id(m.self_attn.k_proj.input_quant) == id(
+            m.self_attn.v_proj.input_quant)
+        assert id(m.mlp.up_proj.input_quant) == id(m.mlp.gate_proj.input_quant)
+
+        # Check weight_quant are tied
+        assert id(m.self_attn.q_proj.weight_quant) == id(m.self_attn.k_proj.weight_quant) == id(
+            m.self_attn.v_proj.weight_quant)
+        assert id(m.mlp.up_proj.weight_quant) == id(m.mlp.gate_proj.weight_quant)
+
+    assert weight_proxies
+    assert any(
+        hasattr(proxy, 'bit_width') and proxy.bit_width() is not None and
+        proxy.bit_width().item() == 4 for proxy in weight_proxies)
+
+
 @pytest_cases.fixture(
     ids=[
         "mistral-kv-quant-fx-sdpa",
@@ -268,7 +355,7 @@ def onnx_export_args(default_run_args, request):
     yield process_args_and_metrics(default_run_args, request.param)
 
 
-@pytest.mark.onnx_export_llm
+@pytest.mark.onnx_export
 @jit_disabled_for_export()
 @requires_pt_ge('2.5')
 def test_small_models_onnx_export(caplog, onnx_export_args, main):
@@ -373,7 +460,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
 
 
 @pytest_cases.fixture(
-    ids=["lighteval", "lighteval_rotations"],
+    ids=["lighteval", "lighteval_rotations", "lm_eval", "lm_eval_rotations"],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -381,6 +468,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "eval": False,
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
             "few_shot_tasks": [
                 "arc:challenge|0",
                 "winogrande|0",
@@ -397,6 +485,7 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
             "eval": False,
             "few_shot_eval": "lighteval",
             "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
             "few_shot_tasks": [
                 "arc:challenge|0",
                 "winogrande|0",
@@ -404,6 +493,30 @@ def test_parse_yaml_trainer_arguments(caplog, kwargs):
                 "hellaswag|0",],
             "few_shot_zeroshot": True,
             "imports": ["lighteval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "eval": False,
+            "few_shot_eval": "lm_eval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
+            "few_shot_tasks": ["arc_challenge", "winogrande", "piqa", "hellaswag"],
+            "few_shot_zeroshot": True,
+            "imports": ["lm_eval"],
+            "all_acc": 0.375,},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "no_quantize": True,
+            "rotation": "fused_no_fx",
+            "replace_rmsnorm": True,
+            "eval": False,
+            "few_shot_eval": "lm_eval",
+            "few_shot_override_batch_size": 16,
+            "few_shot_limit": 16,
+            "few_shot_tasks": ["arc_challenge", "winogrande", "piqa", "hellaswag"],
+            "few_shot_zeroshot": True,
+            "imports": ["lm_eval"],
             "all_acc": 0.375,},])
 def few_shot_eval_args(default_run_args, request):
     # Skip cases for which the LM evaluation library has not been installed
@@ -415,29 +528,68 @@ def few_shot_eval_args(default_run_args, request):
         default_run_args, request.param, extra_keys=["imports", "all_acc"])
 
 
-@pytest.mark.lighteval_llm
+@pytest.mark.few_shot
 def test_few_shot_eval(caplog, few_shot_eval_args, main):
     caplog.set_level(logging.INFO)
     args, _, exp_metrics = few_shot_eval_args
 
-    with ExitStack() as ctx_stack:
-        # Patch LM eval calls when needed
-        if args.few_shot_eval == "lighteval":
-            from brevitas_examples.llm.eval_lighteval import run_lighteval
-            max_samples = args.few_shot_override_batch_size
-
-            def mock_run_lighteval(*args, **kwargs):
-                kwargs["max_samples"] = max_samples
-                return run_lighteval(*args, **kwargs)
-
-            # Patch the call to `run_lighteval`
-            ctx_stack.enter_context(
-                patch(
-                    'brevitas_examples.llm.eval_lighteval.run_lighteval',
-                    side_effect=mock_run_lighteval))
-
-        results, _ = main(args)
+    results, _ = main(args)
 
     # Verify that LM eval metrics match. `strict` is set to False, as
     # only a subset of metrics are checked.
     assert_metrics(results, exp_metrics, atol=ATOL_ACC, rtol=RTOL_ACC, strict=False)
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.4')
+def test_rmsnorm_patch_context_manager(caplog):
+    """Test that rmsnorm_patch correctly replaces RMSNorm modules on enter
+    and restores original modules on exit."""
+    from transformers import AutoModelForCausalLM
+
+    caplog.set_level(logging.INFO)
+
+    model_id = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
+    config = model.config
+
+    # Discover what RMSNorm classes the model uses before patching
+    original_rmsnorm_classes = tuple(
+        set(type(m) for m in model.modules() if 'RMS' in type(m).__name__))
+    assert len(original_rmsnorm_classes) > 0, "Model should contain at least one RMSNorm class"
+
+    # Collect original module types for all RMSNorm layers before the context manager
+    rmsnorm_modules_before = {
+        name: type(m) for name, m in model.named_modules() if 'RMS' in type(m).__name__}
+    for name, cls in rmsnorm_modules_before.items():
+        assert cls in original_rmsnorm_classes, (
+            f"Before context manager: {name} should be an original RMSNorm type, got {cls}")
+        assert cls is not torch.nn.RMSNorm, (
+            f"Before context manager: {name} should not be torch.nn.RMSNorm")
+
+    # Enter the context manager and check that modules are replaced with torch.nn.RMSNorm
+    patcher = rmsnorm_patch(model, config, enabled=True)
+    patcher.__enter__()
+    model_during = patcher.model
+
+    rmsnorm_modules_during = {
+        name: type(m) for name, m in model_during.named_modules() if 'RMS' in type(m).__name__}
+    assert len(rmsnorm_modules_during) == len(rmsnorm_modules_before), (
+        "Number of RMSNorm modules should be the same during the context manager")
+    for name, cls in rmsnorm_modules_during.items():
+        assert cls is torch.nn.RMSNorm, (
+            f"During context manager: {name} should be torch.nn.RMSNorm, got {cls}")
+
+    # Exit the context manager and check that original modules are restored
+    patcher.__exit__(None, None, None)
+    model_after = patcher.model
+
+    rmsnorm_modules_after = {
+        name: type(m) for name, m in model_after.named_modules() if 'RMS' in type(m).__name__}
+    assert len(rmsnorm_modules_after) == len(rmsnorm_modules_before), (
+        "Number of RMSNorm modules should be the same after the context manager")
+    for name, cls in rmsnorm_modules_after.items():
+        assert cls in original_rmsnorm_classes, (
+            f"After context manager: {name} should be restored to original type, got {cls}")
+        assert cls is not torch.nn.RMSNorm, (
+            f"After context manager: {name} should not be torch.nn.RMSNorm")

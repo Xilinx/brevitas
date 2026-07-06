@@ -443,23 +443,23 @@ document.write(`
 <span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">brevitas</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">Abs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">InplaceLogTwo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogTwo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">PowerOfTwo</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarClampSte</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScalarSignedClampMinSte</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Abs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.core.function_wrapper.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">InplaceAbs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">FloatToIntImplType</span>  <span class="c1"># retrocompatibility</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">brevitas.inject.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">RestrictValueType</span>
 
@@ -471,29 +471,32 @@ document.write(`
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
-            <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">restrict_value_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">is_unsigned</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">max_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">restrict_value_impl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">_RestrictClampValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">scaling_min_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scaling_min_val</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">scaling_min_val</span><span class="p">)</span>
+        <span class="c1"># If only min_val is defined, then we enforce values to fall outside the range (-min_val, min_val)</span>
+        <span class="c1"># If both min_val and max_val are defined, then this behaves as a normal clamp</span>
+        <span class="c1"># If neither is defined, no clamping is performed</span>
+        <span class="k">if</span> <span class="n">min_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">max_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># When min_val and max_val are defined, we don&#39;t need to have a signed version of</span>
+                <span class="c1"># Clamp</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">clamp_ste</span> <span class="o">=</span> <span class="n">ScalarClampSte</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">clamp_ste</span> <span class="o">=</span> <span class="n">ScalarSignedClampMinSte</span><span class="p">(</span><span class="n">min_val</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">clamp_ste</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
+
         <span class="k">if</span> <span class="n">restrict_value_impl</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span> <span class="o">=</span> <span class="n">restrict_value_impl</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">is_unsigned</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Abs</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
-
     <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_value_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_min_ste</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_ste</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">x</span>
 
 
@@ -528,39 +531,48 @@ document.write(`
         <span class="k">return</span> <span class="n">x</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">_AbsValue</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_unsigned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">_AbsValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">is_unsigned</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Abs</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
-
-    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span>
-
-
 <div class="viewcode-block" id="FloatRestrictValue"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">FloatRestrictValue</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">FloatRestrictValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span><span class="p">:</span> <span class="n">Module</span> <span class="o">=</span> <span class="n">Abs</span><span class="p">()</span>
 
-<div class="viewcode-block" id="FloatRestrictValue.restrict_init_float"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_float</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">x</span></div>
+<div class="viewcode-block" id="FloatRestrictValue.restrict_init_float"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_float</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">fabs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FloatRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">x</span></div>
+<div class="viewcode-block" id="FloatRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="FloatRestrictValue.restrict_init_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_module">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">Identity</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="n">Abs</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="FloatRestrictValue.restrict_init_inplace_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_inplace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">Identity</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="n">InplaceAbs</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="FloatRestrictValue.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.FloatRestrictValue.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span></div></div>
+
+
+<div class="viewcode-block" id="SignedFloatRestrictValue"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.SignedFloatRestrictValue">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">SignedFloatRestrictValue</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SignedFloatRestrictValue</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="SignedFloatRestrictValue.restrict_init_float"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.SignedFloatRestrictValue.restrict_init_float">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_float</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+<div class="viewcode-block" id="SignedFloatRestrictValue.restrict_init_tensor"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.SignedFloatRestrictValue.restrict_init_tensor">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+<div class="viewcode-block" id="SignedFloatRestrictValue.restrict_init_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.SignedFloatRestrictValue.restrict_init_module">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Identity</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SignedFloatRestrictValue.restrict_init_inplace_module"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.SignedFloatRestrictValue.restrict_init_inplace_module">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">restrict_init_inplace_module</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Identity</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SignedFloatRestrictValue.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.restrict_val.SignedFloatRestrictValue.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">x</span></div></div>
 

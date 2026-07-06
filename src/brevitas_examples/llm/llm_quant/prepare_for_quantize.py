@@ -88,7 +88,8 @@ class make_dynamo_compatible:
         return self
 
     def __exit__(self, *args, **kwargs):
-        # Restore configuration
+        # Restore configuration. Always restore cache_implementation: HF's default is None,
+        # so guarding on `is not None` would leak "static" into downstream generation
+        # (which then triggers torch.compile + StaticCache recompiles in lighteval).
         self.model.config = self.model_config
-        if self.model_cache_implementation is not None:
-            self.model.generation_config.cache_implementation = self.model_cache_implementation
+        self.model.generation_config.cache_implementation = self.model_cache_implementation
