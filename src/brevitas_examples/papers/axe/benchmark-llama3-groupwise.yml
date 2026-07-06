@@ -47,7 +47,6 @@ input_scale_type:
 - dynamic
 input_scale_precision:
 - po2_scale
-- float_scale
 input_quant_type:
 - sym
 model:
@@ -66,6 +65,5 @@ weight_quant_type:
 - sym
 weight_scale_precision:
 - po2_scale
-- float_scale
 scale_rounding_func_type:
 - ceil
