@@ -496,7 +496,6 @@ class A2GPFQ(AXEMixin, GPFQ):
 
         # Get the diagonals of the covariance matrices here
         permutation_list = []
-        # For groupwise convolution, these operations are groupwise so we iterate
         for group_index in range(self.groups):
             # If a diagonal element on either covariance matrix is zero, we can set to 0
             # the corresponding column in the weight matrix.
