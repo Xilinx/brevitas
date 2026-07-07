@@ -22,9 +22,9 @@ except:
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.graph.gpfq import GPFQ
-from brevitas.graph.gpfq import gpfq_mode as _gpfq_mode
+from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import GPTQ
-from brevitas.graph.gptq import gptq_mode as _gptq_mode
+from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 from brevitas.graph.utils import is_conv_transposed
 from brevitas.utils.quant_utils import _CachedIO
@@ -610,7 +610,7 @@ class A2GPFQ(AXEMixin, GPFQ):
             self.layer.offload_params(self.layer)
 
 
-class a2gptq_mode(axe_mode_mixin, _gptq_mode):
+class a2gptq_mode(axe_mode_mixin, gptq_mode):
     """
     Accumulator-aware variant of `gptq_mode`. Dispatches to `A2GPTQ` for layers
     that pass `a2q_layer_filter_fnc`; falls back to the configured `gptq_class`
@@ -633,7 +633,7 @@ class a2gptq_mode(axe_mode_mixin, _gptq_mode):
             a2q_layer_filter_fnc: Optional[Callable[[Module], bool]] = lambda x: True,
             max_accumulator_bit_width: Optional[int] = None,
             max_accumulator_tile_size: Optional[int] = None) -> None:
-        _gptq_mode.__init__(
+        gptq_mode.__init__(
             self,
             model=model,
             group_of_parallel_layers=group_of_parallel_layers,
@@ -667,7 +667,7 @@ class a2gptq_mode(axe_mode_mixin, _gptq_mode):
             layer, name, len_parallel_layers, create_weight_orig)
 
 
-class a2gpfq_mode(axe_mode_mixin, _gpfq_mode):
+class a2gpfq_mode(axe_mode_mixin, gpfq_mode):
     """
     Accumulator-aware variant of `gpfq_mode`. Dispatches to `A2GPFQ` for layers
     that pass `a2q_layer_filter_fnc`; falls back to the configured `algorithm_impl`
@@ -689,7 +689,7 @@ class a2gpfq_mode(axe_mode_mixin, _gpfq_mode):
             a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True,
             max_accumulator_bit_width: Optional[int] = None,
             max_accumulator_tile_size: Optional[int] = None) -> None:
-        _gpfq_mode.__init__(
+        gpfq_mode.__init__(
             self,
             model=model,
             group_of_parallel_layers=group_of_parallel_layers,
