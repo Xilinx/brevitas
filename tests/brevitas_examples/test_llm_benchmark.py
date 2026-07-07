@@ -121,8 +121,7 @@ class TestLLMGridBenchmark:
     @pytest.mark.llm
     def test_standardize_args_from_test_yaml(self):
         script_args = Namespace(config=_GRID_YAML, results_folder="./")
-        args_dict = GridSearchUtils.standardize_args(
-            script_args, LLMEntryPointUtils.argument_parser)
+        args_dict = LLMGridBenchmark.standardize_args(script_args)
         # Keys from the YAML should be preserved as lists
         assert args_dict["model"] == ["facebook/opt-125m"]
         assert args_dict["weight_bit_width"] == [4, 8]
@@ -135,8 +134,7 @@ class TestLLMGridBenchmark:
     @pytest.mark.llm
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_GRID_YAML, results_folder="./")
-        args_dict = GridSearchUtils.standardize_args(
-            script_args, LLMEntryPointUtils.argument_parser)
+        args_dict = LLMGridBenchmark.standardize_args(script_args)
         # Every value should be a list
         for key, value in args_dict.items():
             assert isinstance(value, list), f"Key '{key}' should be a list, got {type(value)}"
@@ -144,8 +142,7 @@ class TestLLMGridBenchmark:
     @pytest.mark.llm
     def test_gen_search_space_small_config(self):
         script_args = Namespace(config=_GRID_YAML, results_folder="./")
-        args_dict = GridSearchUtils.standardize_args(
-            script_args, LLMEntryPointUtils.argument_parser)
+        args_dict = LLMGridBenchmark.standardize_args(script_args)
         grid_args = Namespace(start_index=0, end_index=-1, shuffle_seed=None)
         exp_queue = GridSearchUtils.gen_search_space(
             args_dict, grid_args, LLMEntryPointUtils.argument_parser, LLMEntryPointUtils.validate)
@@ -200,8 +197,7 @@ class TestLLMRandomBenchmark:
     @pytest.mark.llm
     def test_standardize_args_from_test_yaml(self):
         script_args = Namespace(config=_RAND_YAML, results_folder="./")
-        args_dict = RandomSearchUtils.standardize_args(
-            script_args, LLMEntryPointUtils.argument_parser)
+        args_dict = LLMRandomBenchmark.standardize_args(script_args)
         # Keys from the YAML should be preserved as dicts with rand_type/rand_values
         assert args_dict["model"]["rand_type"] == "const"
         assert args_dict["model"]["rand_values"] == "facebook/opt-125m"
@@ -216,8 +212,7 @@ class TestLLMRandomBenchmark:
     @pytest.mark.llm
     def test_standardize_args_from_real_template(self):
         script_args = Namespace(config=_REAL_RAND_YAML, results_folder="./")
-        args_dict = RandomSearchUtils.standardize_args(
-            script_args, LLMEntryPointUtils.argument_parser)
+        args_dict = LLMRandomBenchmark.standardize_args(script_args)
         # Every value should be a dict with rand_type and rand_values
         for key, value in args_dict.items():
             assert isinstance(value, dict), f"Key '{key}' should be a dict, got {type(value)}"
@@ -227,8 +222,7 @@ class TestLLMRandomBenchmark:
     @pytest.mark.llm
     def test_gen_search_space_small_config(self):
         script_args = Namespace(config=_RAND_YAML, results_folder="./")
-        args_dict = RandomSearchUtils.standardize_args(
-            script_args, LLMEntryPointUtils.argument_parser)
+        args_dict = LLMRandomBenchmark.standardize_args(script_args)
         search_args = Namespace(
             num_experiments=3,
             max_experimental_configs=1000,

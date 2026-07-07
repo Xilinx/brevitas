@@ -77,22 +77,11 @@ class SearchUtils(ABC):
     A search strategy does not know anything about a specific entry point. Any
     data it needs from the entry point (its argument parser and its validation
     function) is passed in explicitly by the :class:`BenchmarkUtils` coordinator.
-    """
 
-    @classmethod
-    def standardize_args(cls, script_args: Namespace,
-                         entrypoint_parser: ArgumentParser) -> Dict[str, Any]:
-        # Construct a full set of arguments where each argument is contained into a list
-        if script_args.config is not None:
-            with open(script_args.config, 'r') as f:
-                args_dict = yaml.safe_load(f)
-            # Add defaults if only a subset of keys are specified
-            for action in entrypoint_parser._actions:
-                if action.dest not in args_dict:
-                    args_dict[action.dest] = cls._default_action_handler(action)
-        else:
-            raise ValueError("Config file not specified")
-        return args_dict
+    Each search strategy defines how an argument's default value is represented
+    in its config format via :meth:`_default_action_handler`; the actual reading
+    of the config file is owned by the :class:`BenchmarkUtils` coordinator.
+    """
 
     @classmethod
     @abstractmethod
@@ -153,7 +142,7 @@ class SearchUtils(ABC):
     @classmethod
     @abstractmethod
     def print_benchmark_summary(
-            cls, args_queue: List[Dict], script_args: Namespace,
+            cls, args_dict: Dict[str, Any], args_queue: List[Dict], script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         pass
 
@@ -234,7 +223,7 @@ class GridSearchUtils(SearchUtils):
 
     @classmethod
     def print_benchmark_summary(
-            cls, args_queue: List[Dict], script_args: Namespace,
+            cls, args_dict: Dict[str, Any], args_queue: List[Dict], script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
         _print_indented_dict("Benchmark args.:", vars(script_args))
@@ -243,8 +232,8 @@ class GridSearchUtils(SearchUtils):
             return
         # Retrieve the arguments that are not set to non-default values
         args_combinations = defaultdict(set)
-        for _, _, args_dict in args_queue:
-            for key, value in args_dict.items():
+        for _, _, combination_dict in args_queue:
+            for key, value in combination_dict.items():
                 if isinstance(value, list):
                     # Convert lists to tuples to make sure values are hashable
                     value = tuple(value)
@@ -382,7 +371,7 @@ class RandomSearchUtils(SearchUtils):
 
     @classmethod
     def print_benchmark_summary(
-            cls, args_queue: List[Dict], script_args: Namespace,
+            cls, args_dict: Dict[str, Any], args_queue: List[Dict], script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
         _print_indented_dict("Benchmark args.:", vars(script_args))
@@ -390,10 +379,8 @@ class RandomSearchUtils(SearchUtils):
         if len(args_queue) == 0:
             return
         # Retrieve the arguments that are not set to non-default values
-        # Reconstruct the dictionary of random args
-        args_combinations = {
-            k: RandomArgNode(**v) for k,
-            v in cls.standardize_args(script_args, entrypoint_parser).items()}
+        # Reconstruct the dictionary of random args from the standardized args
+        args_combinations = {k: RandomArgNode(**v) for k, v in args_dict.items()}
         # Retrieve defaults of argument parser
         args_parser_defaults = {
             action.dest: action.default for action in entrypoint_parser._actions}
@@ -563,65 +550,6 @@ def run_args_bucket_process(
                 break
 
 
-def parse_results(entry_point_utils: Type[EntryPointUtils], results_folder: str) -> pd.DataFrame:
-    row_data_list = []
-    job_config = None
-    for entry in os.scandir(results_folder):
-        if entry.is_dir() and entry.name not in ["__pycache__"]:
-            # Get the identifier of the job
-            job_name = os.path.basename(entry.path)
-            # Retrieve the configuration from the YAML file
-            with open(f"{results_folder}/{job_name}/config.yaml", 'r') as f:
-                job_config = yaml.safe_load(f)
-            try:
-                with open(f"{results_folder}/{job_name}/run_results.yaml", 'r') as f:
-                    job_results = yaml.safe_load(f)
-            except Exception:
-                # Failsafe if entrypoint failed in a way that brings down the whole process
-                job_results = {
-                    "status": "crashed",
-                    "elapsed_time": -1.,
-                    "retry_number": -1.,
-                    "brevitas_version": -1.,
-                    "torch_version": -1.,}
-            # If the job was not succesful, try parsing the log
-            if job_results["status"] == "crashed":
-                # Load the log file
-                with open(f"{results_folder}/{job_name}/stdout.out", 'r') as f:
-                    job_log = f.read()
-                    # Parse results from log
-                    job_log_results = entry_point_utils.parse_log(job_log)
-                # Manually populate the results
-                job_results = {
-                    "elapsed_time": job_results["elapsed_time"],
-                    "status": job_results["status"],
-                    "retry_number": job_results["retry_number"],
-                    "brevitas_version": job_results["brevitas_version"],
-                    "torch_version": job_results["torch_version"],
-                    **job_log_results,}
-            # Add entry to DataFrame
-            row_data = {"job_id": job_name, **job_config, **job_results}
-            row_data_list.append(row_data)
-    if job_config is not None:
-        # Columns are obtained by computing the union of the sets of keys in row_data_list, since,
-        # for instance, some jobs might have crashed before completing the LM eval
-        common_keys = ["job_id"] + list(job_config.keys()) + [
-            "elapsed_time", "status", "retry_number", "brevitas_version", "torch_version"
-        ] + entry_point_utils.eval_metrics
-        common_keys_set = set(common_keys)
-        columns = common_keys + list(
-            reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
-                                            ]).difference(common_keys_set))
-        # Instantiate DataFrame to store the results
-        df = pd.DataFrame(columns=columns)
-        for row_data in row_data_list:
-            # Fill missing columns with None
-            df.loc[len(df)] = [row_data[key] if key in row_data else None for key in columns]
-    else:
-        raise ValueError(f"No experiments results were found in {results_folder}")
-    return df
-
-
 def maybe_sort_values(values):
     try:
         sorted_values = list(sorted(values))
@@ -650,6 +578,82 @@ class BenchmarkUtils:
     search_utils: Type[SearchUtils] = None
 
     @classmethod
+    def standardize_args(cls, script_args: Namespace) -> Dict[str, Any]:
+        # Read the benchmark config file and construct a full set of arguments,
+        # converting between the entry point's argument space and the search's
+        # config format. The generic reading of the config is owned here, while
+        # the per-argument default representation is delegated to the search.
+        if script_args.config is None:
+            raise ValueError("Config file not specified")
+        with open(script_args.config, 'r') as f:
+            args_dict = yaml.safe_load(f)
+        # Add defaults if only a subset of keys are specified
+        for action in cls.entry_point_utils.argument_parser._actions:
+            if action.dest not in args_dict:
+                args_dict[action.dest] = cls.search_utils._default_action_handler(action)
+        return args_dict
+
+    @classmethod
+    def parse_results(cls, results_folder: str) -> pd.DataFrame:
+        entry_point_utils = cls.entry_point_utils
+        row_data_list = []
+        job_config = None
+        for entry in os.scandir(results_folder):
+            if entry.is_dir() and entry.name not in ["__pycache__"]:
+                # Get the identifier of the job
+                job_name = os.path.basename(entry.path)
+                # Retrieve the configuration from the YAML file
+                with open(f"{results_folder}/{job_name}/config.yaml", 'r') as f:
+                    job_config = yaml.safe_load(f)
+                try:
+                    with open(f"{results_folder}/{job_name}/run_results.yaml", 'r') as f:
+                        job_results = yaml.safe_load(f)
+                except Exception:
+                    # Failsafe if entrypoint failed in a way that brings down the whole process
+                    job_results = {
+                        "status": "crashed",
+                        "elapsed_time": -1.,
+                        "retry_number": -1.,
+                        "brevitas_version": -1.,
+                        "torch_version": -1.,}
+                # If the job was not succesful, try parsing the log
+                if job_results["status"] == "crashed":
+                    # Load the log file
+                    with open(f"{results_folder}/{job_name}/stdout.out", 'r') as f:
+                        job_log = f.read()
+                        # Parse results from log
+                        job_log_results = entry_point_utils.parse_log(job_log)
+                    # Manually populate the results
+                    job_results = {
+                        "elapsed_time": job_results["elapsed_time"],
+                        "status": job_results["status"],
+                        "retry_number": job_results["retry_number"],
+                        "brevitas_version": job_results["brevitas_version"],
+                        "torch_version": job_results["torch_version"],
+                        **job_log_results,}
+                # Add entry to DataFrame
+                row_data = {"job_id": job_name, **job_config, **job_results}
+                row_data_list.append(row_data)
+        if job_config is not None:
+            # Columns are obtained by computing the union of the sets of keys in row_data_list,
+            # since, for instance, some jobs might have crashed before completing the LM eval
+            common_keys = ["job_id"] + list(job_config.keys()) + [
+                "elapsed_time", "status", "retry_number", "brevitas_version", "torch_version"
+            ] + entry_point_utils.eval_metrics
+            common_keys_set = set(common_keys)
+            columns = common_keys + list(
+                reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
+                                                ]).difference(common_keys_set))
+            # Instantiate DataFrame to store the results
+            df = pd.DataFrame(columns=columns)
+            for row_data in row_data_list:
+                # Fill missing columns with None
+                df.loc[len(df)] = [row_data[key] if key in row_data else None for key in columns]
+        else:
+            raise ValueError(f"No experiments results were found in {results_folder}")
+        return df
+
+    @classmethod
     def run(cls, args: List[str]) -> None:
         entry_point_utils = cls.entry_point_utils
         search_utils = cls.search_utils
@@ -666,12 +670,13 @@ class BenchmarkUtils:
         # If a benchmark YAML is passed, use that to retrieve argument combinations,
         # otherwise generate all possible combinations of arguments from the
         # entrypoint_parser
-        args_dict = search_utils.standardize_args(script_args, entrypoint_parser)
+        args_dict = cls.standardize_args(script_args)
         # Generate a list of experiments
         exp_queue = search_utils.gen_search_space(
             args_dict, script_args, entrypoint_parser, entry_point_utils.validate)
         # Show a summary of the configuration to be run in the benchmark execution
-        search_utils.print_benchmark_summary(exp_queue, script_args, entrypoint_parser)
+        search_utils.print_benchmark_summary(
+            args_dict, exp_queue, script_args, entrypoint_parser)
         # In the case of a dry-run, just stop after the output of the benchmark summary
         if script_args.dry_run:
             exit()
@@ -707,5 +712,5 @@ class BenchmarkUtils:
         for process in processes:
             process.join()
         # Parse results
-        df = parse_results(entry_point_utils, script_args.results_folder)
+        df = cls.parse_results(script_args.results_folder)
         df.to_csv(f"{script_args.results_folder}/results.csv", index=False)

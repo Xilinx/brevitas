@@ -140,8 +140,7 @@ class TestGridSearchUtils:
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
         script_args = Namespace(config=yaml_path, results_folder=str(tmp_path))
-        args_dict = GridSearchUtils.standardize_args(
-            script_args, MockEntryPointUtils.argument_parser)
+        args_dict = MockGridBenchmark.standardize_args(script_args)
         # Provided keys should be preserved
         assert args_dict["model"] == ["model_a", "model_b"]
         assert args_dict["bit_width"] == [4, 8]
@@ -152,7 +151,7 @@ class TestGridSearchUtils:
     def test_standardize_args_no_config_raises(self):
         script_args = Namespace(config=None, results_folder="./")
         with pytest.raises(ValueError, match="Config file not specified"):
-            GridSearchUtils.standardize_args(script_args, MockEntryPointUtils.argument_parser)
+            MockGridBenchmark.standardize_args(script_args)
 
     def test_gen_search_space_cartesian_product(self):
         args_dict = {
@@ -261,8 +260,7 @@ class TestRandomSearchUtils:
         with open(yaml_path, "w") as f:
             yaml.dump(config, f)
         script_args = Namespace(config=yaml_path, results_folder=str(tmp_path))
-        args_dict = RandomSearchUtils.standardize_args(
-            script_args, MockEntryPointUtils.argument_parser)
+        args_dict = MockRandomBenchmark.standardize_args(script_args)
         # Provided keys preserved
         assert args_dict["model"]["rand_type"] == "choices"
         assert args_dict["bit_width"]["rand_type"] == "const"
