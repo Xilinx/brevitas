@@ -142,7 +142,10 @@ class SearchUtils(ABC):
     @classmethod
     @abstractmethod
     def print_benchmark_summary(
-            cls, args_dict: Dict[str, Any], args_queue: List[Dict], script_args: Namespace,
+            cls,
+            args_dict: Dict[str, Any],
+            args_queue: List[Dict],
+            script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         pass
 
@@ -223,7 +226,10 @@ class GridSearchUtils(SearchUtils):
 
     @classmethod
     def print_benchmark_summary(
-            cls, args_dict: Dict[str, Any], args_queue: List[Dict], script_args: Namespace,
+            cls,
+            args_dict: Dict[str, Any],
+            args_queue: List[Dict],
+            script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
         _print_indented_dict("Benchmark args.:", vars(script_args))
@@ -330,11 +336,9 @@ class _RangeNode(RandomArgNode):
                 f"'{self.rand_type}' requires rand_values to be a [min, max] pair, "
                 f"got: {rand_values!r}")
         if not (isinstance(low, (int, float)) and isinstance(high, (int, float))):
-            raise ValueError(
-                f"'{self.rand_type}' bounds must be numeric, got: {rand_values!r}")
+            raise ValueError(f"'{self.rand_type}' bounds must be numeric, got: {rand_values!r}")
         if low > high:
-            raise ValueError(
-                f"'{self.rand_type}' requires min <= max, got: min={low}, max={high}")
+            raise ValueError(f"'{self.rand_type}' requires min <= max, got: min={low}, max={high}")
 
     def __str__(self) -> str:
         return f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
@@ -367,8 +371,7 @@ class Exp2Node(_RangeNode):
     rand_type = "exp2"
 
     def value(self) -> float:
-        return float(
-            np.log2(random.uniform(2 ** self.rand_values[0], 2 ** self.rand_values[1])))
+        return float(np.log2(random.uniform(2 ** self.rand_values[0], 2 ** self.rand_values[1])))
 
 
 class RandomSearchUtils(SearchUtils):
@@ -438,7 +441,10 @@ class RandomSearchUtils(SearchUtils):
 
     @classmethod
     def print_benchmark_summary(
-            cls, args_dict: Dict[str, Any], args_queue: List[Dict], script_args: Namespace,
+            cls,
+            args_dict: Dict[str, Any],
+            args_queue: List[Dict],
+            script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
         _print_indented_dict("Benchmark args.:", vars(script_args))
@@ -709,8 +715,9 @@ class BenchmarkUtils:
             ] + entry_point_utils.eval_metrics
             common_keys_set = set(common_keys)
             columns = common_keys + list(
-                reduce(lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
-                                                ]).difference(common_keys_set))
+                reduce(
+                    lambda x, y: x.union(y), [set(row_data.keys()) for row_data in row_data_list
+                                             ]).difference(common_keys_set))
             # Instantiate DataFrame to store the results
             df = pd.DataFrame(columns=columns)
             for row_data in row_data_list:
@@ -742,8 +749,7 @@ class BenchmarkUtils:
         exp_queue = search_utils.gen_search_space(
             args_dict, script_args, entrypoint_parser, entry_point_utils.validate)
         # Show a summary of the configuration to be run in the benchmark execution
-        search_utils.print_benchmark_summary(
-            args_dict, exp_queue, script_args, entrypoint_parser)
+        search_utils.print_benchmark_summary(args_dict, exp_queue, script_args, entrypoint_parser)
         # In the case of a dry-run, just stop after the output of the benchmark summary
         if script_args.dry_run:
             exit()
