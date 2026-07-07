@@ -288,12 +288,6 @@ class A2GPTQ(AXEMixin, GPTQ):
         scales = scales.view(self.groups, -1, weight.shape[-1])
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
 
-        # TODO: currently assuming round-to-nearest; need to handle other
-        # rounding functions
-        rounding_mode = self.layer.weight_quant.rounding_mode
-        if rounding_mode.lower() != "round":
-            raise NotImplementedError(f"{rounding_mode} not yet supported.")
-
         # List with permutation tensors for the Hessian and weight matrix.
         # If act_order is False, the tensors will be ordered indexes.
         # For groupwise convolution, we have one tensor per group,
@@ -479,12 +473,6 @@ class A2GPFQ(AXEMixin, GPFQ):
         weight_orig = weight_orig.view(self.groups, -1, weight.shape[-1])
         scales = scales.view(self.groups, -1, weight.shape[-1])
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
-
-        # TODO: currently assuming round-to-nearest; need to handle other
-        # rounding functions
-        rounding_mode = self.layer.weight_quant.rounding_mode
-        if rounding_mode.lower() != "round":
-            raise NotImplementedError(f"{rounding_mode} not yet supported.")
 
         # Get the diagonals of the covariance matrices here
         permutation_list = []
