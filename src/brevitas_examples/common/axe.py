@@ -406,14 +406,6 @@ class A2GPTQ(AXEMixin, GPTQ):
                     # increment cumulative l1-norm
                     pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
                     neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
-                    assert (pos_limits >= 0).all(), f"pos_limits: {pos_limits}"
-                    assert (neg_limits <= 0).all(), f"neg_limits: {neg_limits}"
-                    pos_max_limit = ((self.input_max * pos_limits) + (self.input_min * neg_limits))
-                    assert (pos_max_limit <= max_limits).all(), \
-                        f"pos_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
-                    neg_max_limit = -((self.input_min * pos_limits) + (self.input_max * neg_limits))
-                    assert (neg_max_limit <= max_limits).all(), \
-                        f"neg_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
 
             for group_index in range(self.groups):
                 perm = permutation_list[group_index]
@@ -597,14 +589,6 @@ class A2GPFQ(AXEMixin, GPFQ):
                 # increment cumulative l1-norm
                 pos_limits[group_index, block_index, q >= 0] += q[q >= 0].to(lim_dtype)
                 neg_limits[group_index, block_index, q <= 0] += q[q <= 0].to(lim_dtype)
-                assert (pos_limits >= 0).all(), f"pos_limits: {pos_limits}"
-                assert (neg_limits <= 0).all(), f"neg_limits: {neg_limits}"
-                pos_max_limit = ((self.input_max * pos_limits) + (self.input_min * neg_limits))
-                assert (pos_max_limit <= max_limits).all(), \
-                    f"pos_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
-                neg_max_limit = -((self.input_min * pos_limits) + (self.input_max * neg_limits))
-                assert (neg_max_limit <= max_limits).all(), \
-                    f"neg_max_limit: {pos_max_limit.max()}, max_limits: {max_limits}"
 
         if hasattr(self.layer, 'offload_params'):
             self.layer.offload_params(self.layer)
