@@ -171,7 +171,7 @@ class TestMSE:
         # Run a forward to initialize the scales
         quant_linear(INPS)
 
-        assert not quant_linear.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.stats.stats_impl.restrict_scale_positive
+        assert quant_linear.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.stats.stats_impl.bipolar_search
         # Verify that scales match the expected values
         assert torch.all(
             torch.abs(quant_linear.weight_quant.tensor_quant.scaling_impl.value -

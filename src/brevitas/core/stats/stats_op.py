@@ -567,7 +567,7 @@ class MSE(torch.nn.Module):
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
             mse_iters: int = 20,
-            restrict_scale_positive: bool = True):
+            bipolar_search: bool = False):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -584,7 +584,7 @@ class MSE(torch.nn.Module):
         self.search_method = mse_search_method
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
-        self.restrict_scale_positive = restrict_scale_positive
+        self.bipolar_search = bipolar_search
 
     def mse_loss_fn(self, x, quant_value):
         loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
@@ -618,14 +618,19 @@ class MSE(torch.nn.Module):
 
     def mse_search(self, x):
         x_view = self.input_view_shape_impl(x)
-        init = torch.abs(self.mse_init_op(x_view)).detach()
+        init = self.mse_init_op(x_view).detach()
         base = init / self.num
+        # _mse_search expects an ascending interval [xl, xr]. init keeps its sign
+        # (e.g. it can be negative for signed scale or zero-point stats), so order
+        # the endpoints explicitly to support both search methods.
+        xl = torch.minimum(base, init)
+        xr = torch.maximum(base, init)
         loss_fn = partial(self.evaluate_loss, x)
-        best_candidate, best_loss = self._mse_search(xl=base, xr=init, loss_fn=loss_fn, num_iter=self.num if self.restrict_scale_positive else self.num // 2)
-        if not self.restrict_scale_positive:
+        best_candidate, best_loss = self._mse_search(xl=xl, xr=xr, loss_fn=loss_fn, num_iter=self.num // 2 if self.bipolar_search else self.num)
+        if self.bipolar_search:
             best_neg_candidate, best_neg_loss = self._mse_search(
-                xl=-init,
-                xr=-base,
+                xl=-xr,
+                xr=-xl,
                 loss_fn=loss_fn,
                 num_iter=self.num // 2,
             )

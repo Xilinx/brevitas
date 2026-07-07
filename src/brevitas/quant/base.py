@@ -513,8 +513,8 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     mse_search_method = 'grid'
 
     @value
-    def restrict_scale_positive():
-        return (this << 1).restrict_scale_positive
+    def bipolar_search():
+        return (this << 1).bipolar_search
 
 
 class MSEAsymmetricScaleSubInjector(ExtendedInjector):
@@ -530,8 +530,8 @@ class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     mse_search_method = 'grid'
 
     @value
-    def restrict_scale_positive():
-        return (this << 1).restrict_scale_positive
+    def bipolar_search():
+        return (this << 1).bipolar_search
 
 
 class MSEZeroPointSubInjector(ExtendedInjector):
