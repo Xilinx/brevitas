@@ -39,6 +39,7 @@ from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
+from brevitas.core.stats.stats_op import MSEUniformStepBase
 from brevitas.core.utils import SingleArgStatelessBuffer
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
@@ -505,6 +506,8 @@ class MSESymmetricScaleSubInjector(ExtendedInjector):
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMax
     stats_impl = MSE
+    mse_iters = 20
+    mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     type = (this << 1).type
@@ -522,6 +525,8 @@ class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMinMax
     stats_impl = MSE
+    mse_iters = 20
+    mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     dtype = (this << 1).dtype
@@ -541,6 +546,8 @@ class MSEZeroPointSubInjector(ExtendedInjector):
     mse_init_op = NegativeMinOrZero
     mse_search_method = 'grid'
     stats_impl = MSE
+    mse_iters = 20
+    mse_base_op = MSEUniformStepBase
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     dtype = (this << 1).dtype

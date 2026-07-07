@@ -574,11 +574,11 @@ class MSE(torch.nn.Module):
             proxy_module,
             mse_init_op,
             inner_stats_input_view_shape_impl: torch.nn.Module,
+            mse_iters: int,
+            mse_base_op: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
-            mse_iters: int = 20,
-            bipolar_search: bool = False,
-            mse_base_op: Optional[torch.nn.Module] = None):
+            bipolar_search: bool = False):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -596,8 +596,6 @@ class MSE(torch.nn.Module):
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
         self.bipolar_search = bipolar_search
-        if mse_base_op is None:
-            mse_base_op = MSEUniformStepBase(mse_iters)
         self.mse_base_op = mse_base_op
 
     def mse_loss_fn(self, x, quant_value):
