@@ -554,10 +554,10 @@ def mse_grid_search(xl, xr, loss_fn, num_iter):
     return best_candidate, best_loss
 
 
-class MSEBase(torch.nn.Module):
+class MSEUniformStepBase(torch.nn.Module):
 
     def __init__(self, mse_iters: int) -> None:
-        super(MSEBase, self).__init__()
+        super(MSEUniformStepBase, self).__init__()
         self.mse_iters = mse_iters
 
     def forward(self, init: Tensor) -> Tensor:
@@ -597,7 +597,7 @@ class MSE(torch.nn.Module):
         self.local_loss_mode: bool = False
         self.bipolar_search = bipolar_search
         if mse_base_op is None:
-            mse_base_op = MSEBase(mse_iters)
+            mse_base_op = MSEUniformStepBase(mse_iters)
         self.mse_base_op = mse_base_op
 
     def mse_loss_fn(self, x, quant_value):
