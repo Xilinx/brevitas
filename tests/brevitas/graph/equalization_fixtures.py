@@ -390,19 +390,22 @@ RESNET_18_REGIONS = [
     [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
 
 
-def _process_weight_quant_for_gpxq(weight_quant):
+def _set_weight_quant_to_param(weight_quant):
+    # Some quantizers default to scaling_impl_type=stats, which recomputes the scale
+    # from the current weights on each forward pass. GPxQ updates weights greedily, so
+    # the scale would shift with every update. Forcing parameter_from_stats fixes the
+    # scale as a stored parameter initialized once from the initial weights.
     weight_quant = weight_quant.let(scaling_impl_type='parameter_from_stats')
     return weight_quant
 
 
-list_of_quant_fixtures = [
-    (None, _process_weight_quant_for_gpxq(Int8WeightPerTensorFloat)),
-    (Int8ActPerTensorFloat, _process_weight_quant_for_gpxq(Int8WeightPerTensorFloat)),
-    (MXInt8Act, _process_weight_quant_for_gpxq(MXInt8Weight)),
-    (MXFloat8e4m3Act, MXFloat8e4m3Weight)]
+list_of_input_weight_quant_tuples = [
+    (None, _set_weight_quant_to_param(Int8WeightPerTensorFloat)),
+    (Int8ActPerTensorFloat, _set_weight_quant_to_param(Int8WeightPerTensorFloat)),
+    (MXInt8Act, _set_weight_quant_to_param(MXInt8Weight)), (MXFloat8e4m3Act, MXFloat8e4m3Weight)]
 
 
-input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", list_of_quant_fixtures)
+input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", list_of_input_weight_quant_tuples)
 
 
 @pytest_cases.fixture
