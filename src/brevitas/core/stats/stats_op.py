@@ -554,6 +554,16 @@ def mse_grid_search(xl, xr, loss_fn, num_iter):
     return best_candidate, best_loss
 
 
+class MSEBase(torch.nn.Module):
+
+    def __init__(self, mse_iters: int) -> None:
+        super(MSEBase, self).__init__()
+        self.mse_iters = mse_iters
+
+    def forward(self, init: Tensor) -> Tensor:
+        return init / self.mse_iters
+
+
 class MSE(torch.nn.Module):
     # References:
     # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
@@ -567,7 +577,8 @@ class MSE(torch.nn.Module):
             stats_reduce_dim: Optional[int] = None,
             mse_search_method: str = 'fibonacci',
             mse_iters: int = 20,
-            bipolar_search: bool = False):
+            bipolar_search: bool = False,
+            mse_base_op: Optional[torch.nn.Module] = None):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -585,6 +596,9 @@ class MSE(torch.nn.Module):
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
         self.bipolar_search = bipolar_search
+        if mse_base_op is None:
+            mse_base_op = MSEBase(mse_iters)
+        self.mse_base_op = mse_base_op
 
     def mse_loss_fn(self, x, quant_value):
         loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
@@ -619,7 +633,7 @@ class MSE(torch.nn.Module):
     def mse_search(self, x):
         x_view = self.input_view_shape_impl(x)
         init = self.mse_init_op(x_view).detach()
-        base = init / self.num
+        base = self.mse_base_op(init)
         # _mse_search expects an ascending interval [xl, xr]. init keeps its sign
         # (e.g. it can be negative for signed scale or zero-point stats), so order
         # the endpoints explicitly to support both search methods.
