@@ -119,6 +119,9 @@ def absmax_permute(x, block_size):
 
 @register_permutation_method("massdiff")
 def massdiff_permute(x, block_size):
+    """
+    Implementation of MassDiff as proposed in: https://openreview.net/pdf?id=nvehxSdMqg
+    """
     if x.shape[-1] == block_size:
         return torch.arange(block_size).to(x.device)
     # initialize the blocks based on absmax scores

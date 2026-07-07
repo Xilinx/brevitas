@@ -70,8 +70,7 @@ def compute_perplexity(
             end_index = min(start_index + sample_length, sample_length - 1)
 
             subsample = {
-                "input_ids": sample["input_ids"][:, start_index:end_index + 1],
-                "attention_mask": sample["attention_mask"][:, start_index:end_index + 1],}
+                key: value[:, start_index:end_index + 1] for (key, value) in sample.items()}
 
             # In case we are using torch.fx, we can not have optional inputs, and we have traced the model with past_key_values inputs, thus we need them here as well.
             if "past_key_values" in sample and isinstance(model, torch.fx.GraphModule):
@@ -87,7 +86,6 @@ def compute_perplexity(
                 device = model._hf_hook.execution_device
                 for name, val in subsample.items():
                     subsample[name] = recursive_to_device(val, device)
-
             lm_logits = model(**subsample)["logits"]
 
             reference_labels = subsample["input_ids"][:, context_length:]
@@ -95,8 +93,8 @@ def compute_perplexity(
             shift_logits = lm_logits[:, context_length - 1:-1]
 
             # Fuse batch and sequence length dimensions.
-            reference_labels = reference_labels.view(reference_labels.shape[-1])
-            shift_logits = shift_logits.view(-1, shift_logits.shape[-1])
+            reference_labels = reference_labels.reshape(-1)
+            shift_logits = shift_logits.reshape(-1, shift_logits.shape[-1])
             shift_logits = shift_logits.to(dtype)
 
             loss = cross_entropy_loss(shift_logits, reference_labels)

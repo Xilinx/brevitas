@@ -23,23 +23,24 @@ from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMi
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
+from brevitas.export.onnx.handler import ONNXExportOpMixin
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 from brevitas.inject.enum import ScalingPerOutputType
 
-from ..function import CastFn
-from ..function import DequantizeLinearFn
-from ..function import DynamicQuantizeLinearFn
-from ..function import IntClipFn
-from ..function import QuantizeLinearFn
+from ..function import CastOp
+from ..function import DequantizeLinearOp
+from ..function import DynamicQuantizeLinearOp
+from ..function import IntClipOp
+from ..function import QuantizeLinearOp
 
 
-class StdDQCastONNXMixin(DQCastMixin, ABC):
+class StdDQCastONNXMixin(DQCastMixin, ONNXExportOpMixin, ABC):
 
     def dequantize_fn(self, x, scale, zero_point, axis):
-        return DequantizeLinearFn.apply(x, scale, zero_point, axis)
+        return self.export_op(DequantizeLinearOp, x, scale, zero_point, axis)
 
     def cast_fn(self, x, dtype):
-        return CastFn.apply(x, dtype)
+        return self.export_op(CastOp, x, dtype)
 
     @property
     def flatten_dequantize_params(self):
@@ -68,7 +69,7 @@ class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
 class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
-        return IntClipFn.apply(x, min_val, max_val)
+        return self.export_op(IntClipOp, x, min_val, max_val)
 
 
 class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
@@ -82,7 +83,7 @@ class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
         super().validate(module)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
-        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
+        return self.export_op(QuantizeLinearOp, x, scale, zero_point, dtype, axis)
 
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
@@ -111,7 +112,7 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
-        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
+        return self.export_op(QuantizeLinearOp, x, scale, zero_point, dtype, axis)
 
 
 class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
@@ -142,7 +143,7 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         assert module.quant_injector.scaling_per_output == ScalingPerOutputType.TENSOR, "Only per tensor scaling supported"
 
     def quantize_fn(self, x, dtype):
-        return DynamicQuantizeLinearFn.apply(x, dtype)
+        return self.export_op(DynamicQuantizeLinearOp, x, dtype)
 
 
 class StdFloatQCDQCastONNXWeightQuantProxyHandler(StdFloatQCDQCastONNXMixin,

@@ -481,7 +481,7 @@ def _get_input_axis(module: nn.Module) -> Optional[int]:
             return 0
         elif module.groups == module.out_channels:
             return 1
-    elif isinstance(module, (nn.LayerNorm, RMSNorm)):
+    elif isinstance(module, (nn.LayerNorm, RMSNorm)) or 'RMSNorm' in type(module).__name__:
         # We assume normalization happens only along the channel dimension
         if len(module.weight.shape) == 1:
             return 0
@@ -509,7 +509,7 @@ def _get_output_axis(module: nn.Module) -> Optional[int]:
     elif isinstance(module,
                     (nn.Embedding, nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         return 1
-    elif isinstance(module, (nn.LayerNorm, RMSNorm)):
+    elif isinstance(module, (nn.LayerNorm, RMSNorm)) or 'RMSNorm' in type(module).__name__:
         # We assume normalization happens only along the channel dimension
         if len(module.weight.shape) == 1:
             return 0
@@ -1542,7 +1542,7 @@ def _apply_ort_device(tensor, ort, *args):
 
 
 # Adapted from https://github.com/facebookresearch/SpinQuant/blob/main/eval_utils/rotation_utils.py#L26
-def random_orthogonal_matrix(size):
+def random_orthogonal_matrix(size, generator: Optional[torch.Generator] = None):
     """
     Generate a random orthogonal matrix of the specified size.
     First, we generate a random matrix with entries from a standard distribution.
@@ -1556,7 +1556,7 @@ def random_orthogonal_matrix(size):
     torch.Tensor: An orthogonal matrix of the specified size.
     """
     torch.cuda.empty_cache()
-    random_matrix = torch.randn(size, size, dtype=torch.float64)
+    random_matrix = torch.randn(size, size, dtype=torch.float64, generator=generator)
     q, r = torch.linalg.qr(random_matrix)
     q *= torch.sign(torch.diag(r)).unsqueeze(0).float()
     return q
@@ -1619,7 +1619,8 @@ def _compute_rotations(
         fuse_rotations: bool = True,
         expansion_step: int = 1,
         rotation_block_size: Optional[int] = None,
-        disable_block_rotation_for_fused: bool = False):
+        disable_block_rotation_for_fused: bool = False,
+        generator: Optional[torch.Generator] = None):
 
     rewriters = []
     # First, rotations on orphan sinks are applied so the order in which rotations are
@@ -1655,14 +1656,14 @@ def _compute_rotations(
                 region.max_shape_sinks, steps=expansion_step)
 
         if not insert_rotation_module and full_rotation_method == 'ort':
-            rot_mat = random_orthogonal_matrix(hidden_dim)
+            rot_mat = random_orthogonal_matrix(hidden_dim, generator=generator)
             rot_func = _apply_ort_device
         elif not insert_rotation_module and not fuse_rotations:
             # If the model is distributed across GPUs, the device will be
             # not be the same for all of the parameters, so explicit moves
             # to the same device as the weights need to be added
             device = next(model.parameters()).device
-            rot_mat = random_hadamard_matrix(hidden_dim, device)
+            rot_mat = random_hadamard_matrix(hidden_dim, device, generator=generator)
             rot_func = _apply_ort_device
         else:
             try:
@@ -1673,7 +1674,7 @@ def _compute_rotations(
                 logging.info(f"Incompatible dim {hidden_dim} for hadamard rotation")
                 if not insert_rotation_module and not region.expand_region and rotation_block_size is None:
                     logging.info("Falling back to orthogonal matrices")
-                    rot_mat = random_orthogonal_matrix(hidden_dim)
+                    rot_mat = random_orthogonal_matrix(hidden_dim, generator=generator)
                     rot_func = _apply_ort_device
                 else:
                     logging.info("Skipping region")

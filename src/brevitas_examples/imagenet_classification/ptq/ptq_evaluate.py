@@ -13,7 +13,6 @@ import warnings
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torchvision
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
@@ -253,15 +252,7 @@ def quantize_ptq_imagenet(args: Namespace, extra_args: Optional[List[str]] = Non
         apply_learned_round(
             model=quant_model,
             calibration_loader=calib_loader,
-            iters=args.learned_round_iters,
-            learned_round=args.learned_round,
-            learned_round_loss=args.learned_round_loss,
-            block_name_attribute=args.learned_round_block_name,
-            optimizer=args.optimizer,
-            lr_scheduler=args.learned_round_lr_scheduler,
-            optimizer_kwargs={'lr': args.learned_round_lr},
-            batch_size=args.learned_round_batch_size,
-            learned_round_mode=args.learned_round_mode,
+            args=args,
         )
 
     if args.calibrate_bn:

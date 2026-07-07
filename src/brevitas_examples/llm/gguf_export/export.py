@@ -17,6 +17,7 @@
 # limitations under the License.
 
 import os
+import re
 import shutil
 import sys
 
@@ -24,6 +25,7 @@ import torch
 
 from brevitas.utils.logging import setup_logger
 
+from .convert import GGUF_OVERRIDE_MODEL_TENSORS
 from .convert import ModelBase
 
 logger = setup_logger(__name__)
@@ -45,7 +47,23 @@ FTYPE_MAP: dict[str, gguf.LlamaFileType] = {
     "auto": gguf.LlamaFileType.GUESSED,}
 
 
-def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
+def _resolve_model_name(name_or_path: str) -> str:
+    # For HF cache snapshot dirs, recover the model id from models--<org>--<model>
+    # so general.name is human-readable rather than the snapshot SHA.
+    m = re.search(r'models--([^/]+)/snapshots/[a-f0-9]{40}', name_or_path)
+    if m:
+        return m.group(1).split('--')[-1]
+    parts = [p for p in name_or_path.split('/') if p]
+    return parts[-1] if parts else name_or_path
+
+
+def save_quantized_as_gguf(
+        output_dir,
+        model,
+        tokenizer,
+        backend="gguf:q4_0",
+        override_model_tensors=GGUF_OVERRIDE_MODEL_TENSORS,
+        override_qtype=gguf.GGMLQuantizationType.Q6_K):
     """Export the model to gguf format."""
     st = time.time()
 
@@ -54,6 +72,8 @@ def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
     tmp_work_dir = Path(os.path.join(output_dir, 'tmp_dir'))
     tokenizer.save_pretrained(tmp_work_dir)
     config.save_pretrained(tmp_work_dir)
+    if getattr(model, 'generation_config', None) is not None:
+        model.generation_config.save_pretrained(tmp_work_dir)
 
     with torch.no_grad():
         hparams = ModelBase.load_hparams(tmp_work_dir)
@@ -64,11 +84,7 @@ def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
             logger.error(f"Model {model_architecture} is not supported")
             sys.exit(1)
         model_class = ModelBase.from_model_architecture(model_architecture)
-        model_name = model.name_or_path.split('/')
-        if len(model_name[-1]) == 0:
-            model_name = model_name[-2]
-        else:
-            model_name = model_name[-1]
+        model_name = _resolve_model_name(model.name_or_path)
 
         output_type = backend.split(":")[-1]
         assert output_type.lower() in FTYPE_MAP, f"{output_type} is not supported"
@@ -84,7 +100,9 @@ def save_quantized_as_gguf(output_dir, model, tokenizer, backend="gguf:q4_0"):
             split_max_tensors=False,
             split_max_size=0,
             dry_run=False,
-            small_first_shard=False)
+            small_first_shard=False,
+            override_model_tensors=override_model_tensors,
+            override_qtype=override_qtype)
         model_instance.write()
         rt = time.time() - st
         logger.info(f"Model successfully exported to {model_instance.fname_out}, running time={rt}")

@@ -2,12 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from typing import Any
-from typing import Union
 
 from accelerate.utils.operations import send_to_device
-from hypothesis import given
 import pytest
-import pytest_cases
 from pytest_cases import fixture
 import torch
 import torch.nn as nn
@@ -15,17 +12,21 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.inject.enum import LearnedRoundImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.optim.sign_sgd import SignSGD
 from brevitas.quant_tensor.base_quant_tensor import QuantTensor
-from brevitas_examples.common.learned_round.learned_round_method import LearnedRound
-from brevitas_examples.common.learned_round.learned_round_optimizer import get_blocks
-from brevitas_examples.common.learned_round.learned_round_optimizer import save_inputs_output
-
-config.IGNORE_MISSING_KEYS = True
+from brevitas_examples.common.learned_round.learned_round_args import _parse_lr_scheduler_class
+from brevitas_examples.common.learned_round.learned_round_args import _parse_optimizer_class
+from brevitas_examples.common.learned_round.learned_round_method import \
+    insert_learned_round_quantizers
+from brevitas_examples.common.learned_round.learned_round_method import \
+    return_learned_round_quantizers
+from brevitas_examples.common.learned_round.learned_round_trainer import Cache
+from brevitas_examples.common.learned_round.learned_round_trainer import get_blocks
+from brevitas_examples.common.learned_round.learned_round_trainer import save_inputs_output
 
 
 class QuantBlock(nn.Module):
@@ -109,7 +110,7 @@ class DummyDataset(Dataset):
         return self.data[idx]
 
 
-class DummyCache:
+class DummyCache(Cache):
 
     def __init__(self) -> None:
         self.args = []
@@ -119,6 +120,9 @@ class DummyCache:
     def __len__(self) -> int:
         return len(self.args)
 
+    def __getitem__(self, index):
+        return (self.args[index], self.kwargs[index]), self.output[index]
+
     def store_inputs(self, args: Any, kwargs: Any) -> None:
         self.args.append(args)
         self.kwargs.append(kwargs)
@@ -126,22 +130,10 @@ class DummyCache:
     def store_output(self, output: Any) -> None:
         self.output.append(output)
 
-    def sample_batch(self, indices: torch.Tensor) -> Union[Any, torch.Tensor]:
+    def reset_cache(self):
         pass
 
-    def initialize_cache(self) -> None:
-        pass
-
-    def clear_cache(self) -> None:
-        pass
-
-    def reset_cache(self) -> None:
-        pass
-
-    def cache_to_dataset(self) -> Dataset:
-        pass
-
-    def collate_fn(self, batch: Any) -> Any:
+    def collate_fn(self, batch):
         pass
 
 
@@ -185,10 +177,9 @@ class TestLearnedRound:
 
         assert expected_layers == layers
 
-    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
     @pytest.mark.parametrize("store_inputs", [True, False])
     @pytest.mark.parametrize("store_output", [True, False])
-    @pytest.mark.parametrize("keep_gpu", [True, False])
+    @pytest.mark.parametrize("keep_gpu", [False, True] if torch.cuda.is_available() else [False])
     @pytest.mark.parametrize("disable_quant", [True, False])
     def test_save_inp_out_data(
             self, model, quant_model, data_loader, store_inputs, store_output, keep_gpu,
@@ -217,13 +208,16 @@ class TestLearnedRound:
             model(**inputs)
 
         # Make sure that the quant and FP models share the same weights
-        quant_model.load_state_dict(model.state_dict())
+        quant_model.load_state_dict(model.state_dict(), strict=False)
 
-        # Prepare models
+        # Prepare models, moving them to GPU if available
         model.eval()
-        model = model.cuda()
         quant_model.eval()
-        quant_model = quant_model.cuda()
+
+        if torch.cuda.is_available():
+            model = model.cuda()
+        if torch.cuda.is_available():
+            quant_model = quant_model.cuda()
 
         device = next(quant_model.parameters()).device
 
@@ -304,13 +298,10 @@ class TestLearnedRound:
             _compare_tensors(cache_output, gt_output, disable_quant, keep_gpu)
 
     @pytest.mark.parametrize(
-        "learned_round",
-        [
-            LearnedRound(learned_round_impl_type=LearnedRoundImplType.IDENTITY),
-            LearnedRound(learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID)])
-    def test_insert_learned_round_quantizers(self, quant_model, learned_round):
+        "learned_round_param", [LearnedRoundImplType.IDENTITY, LearnedRoundImplType.HARD_SIGMOID])
+    def test_insert_learned_round_quantizers(self, quant_model, learned_round_param):
         block = quant_model.in_proj_mlp
-        learned_round.insert_learned_round_quantizers(block)
+        insert_learned_round_quantizers(block, learned_round_param)
 
         for module in block.modules():
             if hasattr(module, "weight_quant"):
@@ -319,18 +310,28 @@ class TestLearnedRound:
                     module.weight_quant.tensor_quant.int_quant.float_to_int_impl, LearnedRoundSte)
 
     @pytest.mark.parametrize(
-        "learned_round",
-        [
-            LearnedRound(learned_round_impl_type=LearnedRoundImplType.IDENTITY),
-            LearnedRound(learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID)])
+        "learned_round_param", [LearnedRoundImplType.IDENTITY, LearnedRoundImplType.HARD_SIGMOID])
     @pytest.mark.parametrize(
         "block_strs, num_round_modules", [([], 0), (["hidden_mlp"], 2),
                                           (["in_proj_mlp", "out_proj_mlp"], 4)])
     def test_return_learned_round_quantizers(
-            self, quant_model, learned_round, block_strs, num_round_modules):
+            self, quant_model, learned_round_param, block_strs, num_round_modules):
         # Inject quantizers in quant model
         for block_str in block_strs:
             block = getattr(quant_model, block_str)
-            learned_round.insert_learned_round_quantizers(block)
-        learned_round_modules = learned_round.return_learned_round_quantizers(quant_model)
+            insert_learned_round_quantizers(block, learned_round_param)
+        learned_round_modules = return_learned_round_quantizers(quant_model)
         assert len(learned_round_modules) == num_round_modules
+
+    @pytest.mark.parametrize(
+        "optimizer_str, optimizer", [("SignSGD", SignSGD), ("Adam", torch.optim.Adam),
+                                     ("SGD", torch.optim.SGD)])
+    def test_parse_optimizer_class(self, optimizer_str, optimizer):
+        assert optimizer == _parse_optimizer_class(optimizer_str)
+
+    @pytest.mark.parametrize(
+        "lr_scheduler_str, lr_scheduler",
+        [("LinearLR", torch.optim.lr_scheduler.LinearLR),
+         ("CosineAnnealingLR", torch.optim.lr_scheduler.CosineAnnealingLR)])
+    def test_parse_lr_scheduler_class(self, lr_scheduler_str, lr_scheduler):
+        assert lr_scheduler == _parse_lr_scheduler_class(lr_scheduler_str)
