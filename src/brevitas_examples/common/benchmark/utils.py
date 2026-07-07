@@ -258,50 +258,117 @@ class GridSearchUtils(SearchUtils):
         _print_indented_dict("Non-default args.:", args_combinations_dict)
 
 
-# A node in a tree of (possibly) dependent arguments
-class RandomArgNode:
+# A node in a tree of (possibly) dependent arguments.
+#
+# Each concrete node type samples a value for a single argument. Node types are
+# identified by a `rand_type` string (as it appears in the benchmark YAML) and
+# are auto-registered into `RandomArgNode._registry` via `__init_subclass__`, so
+# adding a new type only requires defining a new subclass. Instances are built
+# from a parsed YAML entry through `RandomArgNode.from_config`.
+class RandomArgNode(ABC):
+    # Maps a `rand_type` string to its concrete node class. Populated
+    # automatically whenever a subclass sets a (non-None) `rand_type`.
+    _registry: Dict[str, Type["RandomArgNode"]] = {}
+    rand_type: str = None  # Set by each concrete subclass
 
-    def __init__(self, rand_type: str, rand_values: Any) -> None:
-        self.rand_type = rand_type
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        # Only register concrete leaf types; intermediate bases (e.g. _RangeNode)
+        # leave `rand_type` as None and are skipped.
+        if cls.rand_type is not None:
+            RandomArgNode._registry[cls.rand_type] = cls
+
+    def __init__(self, rand_values: Any) -> None:
         self.rand_values = rand_values
 
-    def value(self):
-        # Calculate own argument
-        if self.rand_type == "const":
-            value = self.rand_values
-        elif self.rand_type == "choices":
-            value = random.choice(self.rand_values)
-        elif self.rand_type == "linear":
-            value = random.uniform(self.rand_values[0], self.rand_values[1])
-        elif self.rand_type == "log2":
-            value = float(
-                2 ** random.uniform(np.log2(self.rand_values[0]), np.log2(self.rand_values[1])))
-        elif self.rand_type == "exp2":
-            value = float(
-                np.log2(random.uniform(2 ** self.rand_values[0], 2 ** self.rand_values[1])))
-        else:
-            raise ValueError(
-                f"{self.rand_type} is not a valid random type. Choices are: 'const', 'choices', 'linear', 'log2'"
-            )
+    @abstractmethod
+    def value(self) -> Any:
+        pass
 
-        return value
-
-    def __str__(self):
-        if self.rand_type == "const":
-            id_str = f"type: {self.rand_type}, value: {self.rand_values}"
-        elif self.rand_type == "choices":
-            id_str = f"type: {self.rand_type}, values: {self.rand_values}"
-        elif self.rand_type == "linear":
-            id_str = f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
-        elif self.rand_type == "log2":
-            id_str = f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
-        elif self.rand_type == "exp2":
-            id_str = f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
-        else:
+    @classmethod
+    def from_config(cls, rand_type: str, rand_values: Any) -> "RandomArgNode":
+        # Instantiate the node class matching `rand_type`, validating the type at
+        # construction time (fail fast on malformed YAML).
+        if rand_type not in cls._registry:
             raise ValueError(
-                f"{self.rand_type} is not a valid random type. Choices are: 'const', 'choices', 'linear', 'log2'"
-            )
-        return id_str
+                f"{rand_type} is not a valid random type. "
+                f"Choices are: {sorted(cls._registry)}")
+        return cls._registry[rand_type](rand_values)
+
+
+class ConstNode(RandomArgNode):
+    rand_type = "const"
+
+    def value(self) -> Any:
+        return self.rand_values
+
+    def __str__(self) -> str:
+        return f"type: {self.rand_type}, value: {self.rand_values}"
+
+
+class ChoicesNode(RandomArgNode):
+    rand_type = "choices"
+
+    def value(self) -> Any:
+        return random.choice(self.rand_values)
+
+    def __str__(self) -> str:
+        return f"type: {self.rand_type}, values: {self.rand_values}"
+
+
+# Shared base for range-based node types ([min, max] sampling). Not registered
+# (leaves `rand_type` as None); validates its bounds at construction time.
+class _RangeNode(RandomArgNode):
+
+    def __init__(self, rand_values: Any) -> None:
+        super().__init__(rand_values)
+        # Range types require exactly [min, max] with numeric, ordered bounds.
+        try:
+            low, high = rand_values
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"'{self.rand_type}' requires rand_values to be a [min, max] pair, "
+                f"got: {rand_values!r}")
+        if not (isinstance(low, (int, float)) and isinstance(high, (int, float))):
+            raise ValueError(
+                f"'{self.rand_type}' bounds must be numeric, got: {rand_values!r}")
+        if low > high:
+            raise ValueError(
+                f"'{self.rand_type}' requires min <= max, got: min={low}, max={high}")
+
+    def __str__(self) -> str:
+        return f"type: {self.rand_type}, min: {self.rand_values[0]}, max: {self.rand_values[1]}"
+
+
+class LinearNode(_RangeNode):
+    rand_type = "linear"
+
+    def value(self) -> float:
+        return random.uniform(self.rand_values[0], self.rand_values[1])
+
+
+class Log2Node(_RangeNode):
+    rand_type = "log2"
+
+    def __init__(self, rand_values: Any) -> None:
+        super().__init__(rand_values)
+        # log2 sampling takes np.log2 of both bounds, which requires them > 0.
+        low, high = rand_values
+        if low <= 0 or high <= 0:
+            raise ValueError(
+                f"'{self.rand_type}' requires strictly positive bounds, got: {rand_values!r}")
+
+    def value(self) -> float:
+        return float(
+            2 ** random.uniform(np.log2(self.rand_values[0]), np.log2(self.rand_values[1])))
+
+
+class Exp2Node(_RangeNode):
+    rand_type = "exp2"
+
+    def value(self) -> float:
+        return float(
+            np.log2(random.uniform(2 ** self.rand_values[0], 2 ** self.rand_values[1])))
 
 
 class RandomSearchUtils(SearchUtils):
@@ -341,7 +408,7 @@ class RandomSearchUtils(SearchUtils):
         entrypoint_parser: ArgumentParser,
         validate_fn: Callable[[Namespace, List[str]], None]
     ) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
-        generator_dict = {k: RandomArgNode(**v) for k, v in args_dict.items()}
+        generator_dict = {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in entrypoint_parser._actions)
         # Retrieve argument combinations that are valid for the entrypoint
@@ -380,7 +447,7 @@ class RandomSearchUtils(SearchUtils):
             return
         # Retrieve the arguments that are not set to non-default values
         # Reconstruct the dictionary of random args from the standardized args
-        args_combinations = {k: RandomArgNode(**v) for k, v in args_dict.items()}
+        args_combinations = {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
         # Retrieve defaults of argument parser
         args_parser_defaults = {
             action.dest: action.default for action in entrypoint_parser._actions}

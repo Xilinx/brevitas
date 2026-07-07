@@ -88,12 +88,12 @@ class MockRandomBenchmark(BenchmarkUtils):
 class TestRandomArgNode:
 
     def test_const_value(self):
-        node = RandomArgNode(rand_type="const", rand_values=42)
+        node = RandomArgNode.from_config(rand_type="const", rand_values=42)
         assert node.value() == 42
 
     def test_choices_deterministic(self):
         """Same seed produces same sequence of choices."""
-        node = RandomArgNode(rand_type="choices", rand_values=[1, 2, 3, 4, 5])
+        node = RandomArgNode.from_config(rand_type="choices", rand_values=[1, 2, 3, 4, 5])
         random.seed(42)
         values_a = [node.value() for _ in range(10)]
         random.seed(42)
@@ -102,29 +102,46 @@ class TestRandomArgNode:
 
     def test_linear_value_in_range(self):
         random.seed(0)
-        node = RandomArgNode(rand_type="linear", rand_values=[0.0, 1.0])
+        node = RandomArgNode.from_config(rand_type="linear", rand_values=[0.0, 1.0])
         for _ in range(20):
             v = node.value()
             assert 0.0 <= v <= 1.0
 
     def test_log2_value_in_range(self):
         random.seed(0)
-        node = RandomArgNode(rand_type="log2", rand_values=[1.0, 16.0])
+        node = RandomArgNode.from_config(rand_type="log2", rand_values=[1.0, 16.0])
         for _ in range(20):
             v = node.value()
             assert 1.0 <= v <= 16.0
 
     def test_exp2_value_in_range(self):
         random.seed(0)
-        node = RandomArgNode(rand_type="exp2", rand_values=[0.0, 4.0])
+        node = RandomArgNode.from_config(rand_type="exp2", rand_values=[0.0, 4.0])
         for _ in range(20):
             v = node.value()
             assert 0.0 <= v <= 4.0
 
     def test_invalid_rand_type(self):
-        node = RandomArgNode(rand_type="bad_type", rand_values=[1, 2])
+        # Unknown types are rejected at construction time (fail fast).
         with pytest.raises(ValueError, match="not a valid random type"):
-            node.value()
+            RandomArgNode.from_config(rand_type="bad_type", rand_values=[1, 2])
+
+    def test_range_requires_pair(self):
+        # Range types need exactly [min, max].
+        with pytest.raises(ValueError, match="min, max"):
+            RandomArgNode.from_config(rand_type="linear", rand_values=[1.0])
+
+    def test_range_requires_ordered_bounds(self):
+        with pytest.raises(ValueError, match="min <= max"):
+            RandomArgNode.from_config(rand_type="linear", rand_values=[1.0, 0.0])
+
+    def test_range_requires_numeric_bounds(self):
+        with pytest.raises(ValueError, match="numeric"):
+            RandomArgNode.from_config(rand_type="linear", rand_values=["a", "b"])
+
+    def test_log2_requires_positive_bounds(self):
+        with pytest.raises(ValueError, match="strictly positive"):
+            RandomArgNode.from_config(rand_type="log2", rand_values=[0.0, 16.0])
 
 
 # ============================= GridSearchUtils ============================
