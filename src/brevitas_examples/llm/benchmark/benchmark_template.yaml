@@ -30,6 +30,8 @@ bias_corr:
 - false
 bos_preprocessing:
 - null
+calibration_batch_size:
+- 1
 checkpoint_name:
 - null
 compile_eval:
@@ -38,8 +40,14 @@ compile_ptq:
 - false
 convert_layernorm_to_rmsnorm:
 - false
+custom_quantizer:
+- null
 dataset:
 - wikitext2
+dataset_eval_split:
+- validation
+disable_block_rotation_for_fused:
+- false
 disable_create_weight_orig:
 - false
 dtype:
@@ -75,6 +83,8 @@ gpxq_act_order:
 - false
 gpxq_block_name:
 - null
+gpxq_buffer_device:
+- cpu
 gpxq_max_accumulator_bit_width:
 - null
 gpxq_max_accumulator_tile_size:
@@ -85,6 +95,8 @@ input_bit_width:
 - null
 input_group_size:
 - 64
+input_narrow_range:
+- false
 input_param_method:
 - stats
 input_quant_format:
@@ -129,6 +141,8 @@ nsamples_rot_calibration:
 - 800
 optimize_rotations:
 - false
+permute_fn:
+- null
 qronos:
 - false
 qronos_alpha:
@@ -144,6 +158,8 @@ quantize_weight_zero_point:
 replace_rmsnorm:
 - false
 rotation:
+- null
+rotation_block_size:
 - null
 rotation_layers_to_expand:
 - []
@@ -175,12 +191,16 @@ weight_group_dim:
 - null
 weight_group_size:
 - 128
+weight_narrow_range:
+- false
 weight_param_method:
 - stats
 weight_quant_format:
 - int
 weight_quant_granularity:
 - per_group
+weight_quant_rescaling_init:
+- null
 weight_quant_type:
 - sym
 weight_scale_precision:

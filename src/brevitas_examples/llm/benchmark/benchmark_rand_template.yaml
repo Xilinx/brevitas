@@ -46,6 +46,9 @@ bias_corr:
 bos_preprocessing:
   rand_type: const
   rand_values: null
+calibration_batch_size:
+  rand_type: const
+  rand_values: 1
 checkpoint_name:
   rand_type: const
   rand_values: null
@@ -58,9 +61,18 @@ compile_ptq:
 convert_layernorm_to_rmsnorm:
   rand_type: const
   rand_values: false
+custom_quantizer:
+  rand_type: const
+  rand_values: null
 dataset:
   rand_type: const
   rand_values: wikitext2
+dataset_eval_split:
+  rand_type: const
+  rand_values: validation
+disable_block_rotation_for_fused:
+  rand_type: const
+  rand_values: false
 disable_create_weight_orig:
   rand_type: const
   rand_values: false
@@ -113,6 +125,9 @@ gpxq_act_order:
 gpxq_block_name:
   rand_type: const
   rand_values: null
+gpxq_buffer_device:
+  rand_type: const
+  rand_values: cpu
 gpxq_max_accumulator_bit_width:
   rand_type: const
   rand_values: null
@@ -128,6 +143,9 @@ input_bit_width:
 input_group_size:
   rand_type: const
   rand_values: 64
+input_narrow_range:
+  rand_type: const
+  rand_values: false
 input_param_method:
   rand_type: const
   rand_values: stats
@@ -194,6 +212,9 @@ nsamples_rot_calibration:
 optimize_rotations:
   rand_type: const
   rand_values: false
+permute_fn:
+  rand_type: const
+  rand_values: null
 qronos:
   rand_type: const
   rand_values: false
@@ -216,6 +237,9 @@ replace_rmsnorm:
   rand_type: const
   rand_values: false
 rotation:
+  rand_type: const
+  rand_values: null
+rotation_block_size:
   rand_type: const
   rand_values: null
 rotation_layers_to_expand:
@@ -263,6 +287,9 @@ weight_group_dim:
 weight_group_size:
   rand_type: const
   rand_values: 128
+weight_narrow_range:
+  rand_type: const
+  rand_values: false
 weight_param_method:
   rand_type: const
   rand_values: stats
@@ -272,6 +299,9 @@ weight_quant_format:
 weight_quant_granularity:
   rand_type: const
   rand_values: per_group
+weight_quant_rescaling_init:
+  rand_type: const
+  rand_values: null
 weight_quant_type:
   rand_type: const
   rand_values: sym
