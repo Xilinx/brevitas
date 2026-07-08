@@ -14,7 +14,6 @@ from typing import Type
 from typing import Union
 
 import torch
-from torch.optim.lr_scheduler import ConstantLR
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
 import transformers
@@ -23,10 +22,6 @@ from transformers import Trainer
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.trainer_utils import parse_lr_scheduler_class
 from brevitas_examples.common.trainer_utils import parse_optimizer_class
-
-# Default optimizer class name, resolved against ``OPTIMIZER_NAMESPACES`` from
-# ``common.trainer_utils`` (which include ``torch.optim`` and ``brevitas.optim``).
-DEFAULT_OPTIMIZER_CLS = "CaileySGD"
 
 # A parameter-selection callable for a single parameter group:
 # ``(model, training_args) -> List[Parameter]``. Each ``optimizer_scheduler_args``
@@ -242,7 +237,7 @@ def _build_optimizers_from_configs(
             **group["optimizer_kwargs"]} for group in entry["param_setup"]]
 
         # Resolve the optimizer class from its string name.
-        optimizer_cls_name = entry.get("optimizer_cls", DEFAULT_OPTIMIZER_CLS)
+        optimizer_cls_name = entry.get("optimizer_cls")
         optimizer_class = (
             parse_optimizer_class(optimizer_cls_name)
             if isinstance(optimizer_cls_name, str) else optimizer_cls_name)
@@ -267,13 +262,14 @@ def _build_optimizers_from_configs(
         # Always return a MultiScheduler, even when all entries are None.
         # This prevents the HF Trainer from creating its own scheduler
         # (which would fail because MultiOptimizer is not a real Optimizer).
-        # If no scheduler is specified, we use a "dummy" scheduler with constant lr
-        schedulers = [
-            ConstantLR(optimizer, factor=1.) if scheduler is None else scheduler
-            for (optimizer, scheduler) in zip(optimizers, schedulers)]
+        # Entries left as None are filled in later by the Trainer's
+        # ``create_scheduler`` override with the HuggingFace default scheduler
+        # (which requires ``num_training_steps``, unavailable here). MultiScheduler
+        # tolerates None entries until then.
         multi_scheduler = MultiScheduler(schedulers)
         return multi_optimizer, multi_scheduler
     else:
+        # A None scheduler here lets the HF Trainer build its default scheduler.
         return optimizers[0], schedulers[0]
 
 

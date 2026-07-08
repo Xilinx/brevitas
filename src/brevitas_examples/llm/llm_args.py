@@ -543,12 +543,6 @@ def validate(args: Namespace, extra_args: Optional[List[str]] = None) -> None:
             DeprecationWarning,
             stacklevel=2)
         args.fine_tune = True
-    # --custom-trainer implies --fine-tune
-    if args.custom_trainer is not None:
-        args.fine_tune = True
-    # Rotation optimization requires --rotation to be set
-    if args.optimize_rotations and args.rotation is not None:
-        assert args.rotation in ['fx', 'fused_no_fx'], f"Rotations can only be optimized if --rotation=fx or --rotation=fused_no_fx"
     if not args.fine_tune:
         assert extra_args is None or len(extra_args) == 0, f"The following unknown arguments were passed: {[extra_arg for extra_arg in extra_args if extra_arg.startswith('--')]}"
     if args.rotation == 'fx':

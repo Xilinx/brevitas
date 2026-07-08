@@ -15,6 +15,7 @@ from datasets import Dataset
 import torch
 import torch.nn.functional as F
 import transformers
+from transformers import get_scheduler
 from transformers import Trainer
 
 try:
@@ -29,6 +30,8 @@ from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
+from brevitas_examples.llm.llm_quant.trainer_utils import MultiOptimizer
+from brevitas_examples.llm.llm_quant.trainer_utils import MultiScheduler
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
 
 
@@ -52,6 +55,47 @@ class GeneralizedTrainer(Trainer):
         self.temperature = args.temperature
         self.kl_loss_reduction = args.kl_loss_reduction
         self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
+
+    def _default_scheduler(self, optimizer, num_training_steps):
+        """Build the HuggingFace default LR scheduler for a single optimizer.
+
+        Mirrors :meth:`transformers.Trainer.create_scheduler`: honours
+        ``lr_scheduler_type`` (default ``"linear"``), the (possibly ratio-based)
+        warmup steps and any ``lr_scheduler_kwargs``.
+        """
+        return get_scheduler(
+            self.args.lr_scheduler_type,
+            optimizer=optimizer,
+            num_warmup_steps=self.args.get_warmup_steps(num_training_steps),
+            num_training_steps=num_training_steps,
+            scheduler_specific_kwargs=self.args.lr_scheduler_kwargs,
+        )
+
+    def create_scheduler(self, num_training_steps, optimizer=None):
+        """Set up the LR scheduler, matching the HuggingFace default.
+
+        The optimizer/scheduler pair is built eagerly (before the Trainer exists)
+        by :func:`_build_optimizers_from_configs`, which cannot know
+        ``num_training_steps``. Any optimizer left without an explicit scheduler
+        is therefore represented by a ``None`` placeholder and filled in here with
+        the HuggingFace default scheduler (linear warmup + linear decay).
+
+        Handles both the single-optimizer case (``self.lr_scheduler is None``,
+        delegated to the base implementation) and the multi-optimizer case
+        (a :class:`MultiScheduler` with ``None`` entries).
+        """
+        # Multi-optimizer case: fill in any None sub-schedulers in place.
+        if isinstance(self.lr_scheduler, MultiScheduler) and isinstance(self.optimizer,
+                                                                        MultiOptimizer):
+            for idx, (sub_optimizer, sub_scheduler) in enumerate(zip(self.optimizer.optimizers,
+                                                                     self.lr_scheduler.schedulers)):
+                if sub_scheduler is None:
+                    self.lr_scheduler.schedulers[idx] = self._default_scheduler(
+                        sub_optimizer, num_training_steps)
+            return self.lr_scheduler
+        # Single-optimizer case: the base implementation already builds the
+        # HuggingFace default scheduler when self.lr_scheduler is None.
+        return super().create_scheduler(num_training_steps, optimizer)
 
     @staticmethod
     def forward_kl_loss(
@@ -212,8 +256,7 @@ def apply_fine_tuning(
         train_dataset: Dataset,
         collate_fn: Callable,
         custom_trainer_cls: Optional[Type[Trainer]] = None,
-        extra_args: Optional[List[str]] = None,
-        callbacks: Optional[List[Any]] = None) -> None:
+        extra_args: Optional[List[str]] = None) -> None:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
@@ -246,15 +289,7 @@ def apply_fine_tuning(
     extra_args : list of str, optional
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
-    callbacks : list, optional
-        A list of HuggingFace ``TrainerCallback`` instances to attach to
-        the trainer.
     """
-    # When no custom trainer is given but the model has trainable rotation
-    # matrices, default to RotationTrainer (CaileySGD on the rotations, expressed
-    # through the standard optimizer_scheduler_args mechanism).
-    if custom_trainer_cls is None and extract_trainable_rotation_matrices(model):
-        custom_trainer_cls = RotationTrainer
 
     # Parse the training arguments, resolving the training-args class from the
     # (possibly defaulted) trainer.
@@ -274,24 +309,13 @@ def apply_fine_tuning(
     for param in model.parameters():
         param.requires_grad = False
 
-    # Build optimizer / scheduler pair from the training args. When no
-    # optimizer_scheduler_args are provided (e.g. a custom trainer that relies on
-    # the HF Trainer's built-in optimizer), pass (None, None) so the HF Trainer
-    # uses its built-in optimizer.
-    if training_args.optimizer_scheduler_args is not None:
-        # The optimizer-building helpers unfreeze the parameters of each
-        # selected param group.
-        optimizers = _build_optimizers_from_configs(model, training_args)
-    else:
-        # No optimizer_scheduler_args means the HF Trainer builds its own
-        # optimizer over the model's trainable parameters. Since all parameters
-        # were just frozen, explicitly unfreeze the trainable rotation matrices
-        # so that there is something to optimize; otherwise the loss has no
-        # grad_fn and training fails with "element 0 of tensors does not require
-        # grad and does not have a grad_fn".
-        for rot_mat in extract_trainable_rotation_matrices(model):
-            rot_mat.requires_grad = True
-        optimizers = (None, None)
+    # Build optimizer / scheduler pair from the training args.
+    if training_args.optimizer_scheduler_args is None:
+        raise RuntimeError("TrainingArguments needs to specify optimizer_scheduler_args")
+
+    # The optimizer-building helpers unfreeze the parameters of each
+    # selected param group.
+    optimizers = _build_optimizers_from_configs(model, training_args)
 
     trainer_kwargs: Dict[str, Any] = dict(
         model=model,
@@ -302,21 +326,23 @@ def apply_fine_tuning(
         data_collator=collate_fn,
         optimizers=optimizers)
 
-    # Select trainer class: fall back to GeneralizedTrainer (when distillation is
-    # requested) or the built-in Trainer.
-    trainer_cls = custom_trainer_cls
-    if trainer_cls is None:
-        trainer_cls = GeneralizedTrainer if getattr(
-            training_args, 'use_distillation_loss', False) else Trainer
+    # When no custom trainer is given but the model has trainable rotation
+    # matrices, default to RotationTrainer (CaileySGD on the rotations, expressed
+    # through the standard optimizer_scheduler_args mechanism).
+    if custom_trainer_cls is None:
+        if len(extract_trainable_rotation_matrices(model)) == 0:
+            raise RuntimeError(
+                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
+            )
+        trainer_cls = RotationTrainer
+    else:
+        trainer_cls = custom_trainer_cls
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
     if issubclass(trainer_cls, GeneralizedTrainer) and getattr(
             training_args, 'use_distillation_loss', False):
         trainer_kwargs["teacher_model"] = copy.deepcopy(model.cpu())
-
-    if callbacks is not None:
-        trainer_kwargs["callbacks"] = callbacks
 
     trainer = trainer_cls(**trainer_kwargs)
     trainer.train()

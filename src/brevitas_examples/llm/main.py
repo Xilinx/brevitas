@@ -306,17 +306,6 @@ def quantize_llm(args, extra_args=None):
     validation_loader = DataLoader(dataset=validation_dataset, batch_size=1, collate_fn=collate_fn)
 
     if args.fine_tune:
-        # Load custom training plugin if specified. The registered Trainer class
-        # carries its own ``training_args_cls`` class attribute (which in turn
-        # defines the optimizer setup via ``optimizer_scheduler_args``), consumed
-        # inside apply_fine_tuning.
-        custom_trainer_cls = None
-        custom_callbacks = None
-
-        if args.custom_trainer is not None:
-            custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
-            custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
-
         # Load the data for training
         train_dataset = get_dataset_for_model(
             bos_preprocessing=args.bos_preprocessing,
@@ -598,6 +587,16 @@ def quantize_llm(args, extra_args=None):
             print("Act calibration applied.")
 
         if args.fine_tune:
+            # Load custom training plugin if specified. The registered Trainer class
+            # carries its own ``training_args_cls`` class attribute (which in turn
+            # defines the optimizer setup via ``optimizer_scheduler_args``), consumed
+            # inside apply_fine_tuning.
+            custom_trainer_cls = None
+
+            if args.custom_trainer is not None:
+                custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
+                custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
+
             fine_tune_extra_args = list(extra_args) if extra_args is not None else []
             if args.load_checkpoint:
                 # Skip training when loading from a checkpoint by forcing
@@ -611,8 +610,7 @@ def quantize_llm(args, extra_args=None):
                 train_dataset=train_dataset,
                 collate_fn=collate_fn,
                 custom_trainer_cls=custom_trainer_cls,
-                extra_args=fine_tune_extra_args,
-                callbacks=custom_callbacks)
+                extra_args=fine_tune_extra_args)
             # Remove hooks from training
             remove_hooks(model)
             model = offload_model(model)
