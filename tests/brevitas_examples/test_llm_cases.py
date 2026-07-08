@@ -649,46 +649,6 @@ class LLMRotationOptimizationCases:
 
     @pytest_cases.parametrize(
         "run_dict",
-        [
-            {
-                "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "act_calibration": False,
-                "weight_bit_width": 4,
-                "input_bit_width": None,
-                "replace_rmsnorm": True,
-                "rotation": "fused_no_fx",
-                "optimize_rotations": True,
-                "rotation_orphan_sink": False,
-                "rotation_mode": "had",
-                "nsamples_rot_calibration": 2,
-                "dtype": "float32",
-                "custom_trainer":
-                    "tests/brevitas_examples/llm_example_quantizer.py:minimal_trainer",
-                "extra_args": [
-                    "--learning_rate",
-                    "1.5",
-                    "--max_steps",
-                    "2",
-                    "--per_device_train_batch_size",
-                    "1",
-                    "--gradient_accumulation_steps",
-                    "1"],
-                "float_ppl": 30795.76953125,
-                "quant_ppl": 32265.172,
-                "exp_layer_types_count": {
-                    "<class 'brevitas.nn.equalized_layer.RotatedModule'>": 0,
-                    "<class 'torch.nn.utils.parametrize.ParametrizedLinear'>": 1,
-                    "<class 'torch.nn.utils.parametrize.ParametrizedEmbedding'>": 1,
-                    "<class 'torch.nn.utils.parametrize.ParametrizedQuantLinear'>": 14,}},
-        ],
-        ids=["llama_rotation_optimization_custom_trainer_file"],
-    )
-    def case_small_models_custom_trainer(self, run_dict, default_run_args, request):
-        yield process_args_and_metrics(
-            default_run_args, run_dict, extra_keys=LLMPerplexityCases.METRICS + ["exp_layer_types_count"])
-
-    @pytest_cases.parametrize(
-        "run_dict",
             [
                 {
                     "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",

@@ -275,11 +275,22 @@ def apply_fine_tuning(
         param.requires_grad = False
 
     # Build optimizer / scheduler pair from the training args. When no
-    # optimizer_scheduler_args are provided (no custom trainer and no rotations),
-    # pass (None, None) so the HF Trainer uses its built-in optimizer.
+    # optimizer_scheduler_args are provided (e.g. a custom trainer that relies on
+    # the HF Trainer's built-in optimizer), pass (None, None) so the HF Trainer
+    # uses its built-in optimizer.
     if training_args.optimizer_scheduler_args is not None:
+        # The optimizer-building helpers unfreeze the parameters of each
+        # selected param group.
         optimizers = _build_optimizers_from_configs(model, training_args)
     else:
+        # No optimizer_scheduler_args means the HF Trainer builds its own
+        # optimizer over the model's trainable parameters. Since all parameters
+        # were just frozen, explicitly unfreeze the trainable rotation matrices
+        # so that there is something to optimize; otherwise the loss has no
+        # grad_fn and training fails with "element 0 of tensors does not require
+        # grad and does not have a grad_fn".
+        for rot_mat in extract_trainable_rotation_matrices(model):
+            rot_mat.requires_grad = True
         optimizers = (None, None)
 
     trainer_kwargs: Dict[str, Any] = dict(

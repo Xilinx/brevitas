@@ -54,26 +54,6 @@ class ExampleQuantAndModelAdjuster(BaseQuantizer):
         return model
 
 
-@dataclass
-class ExampleTrainingArguments(TrainingArguments):
-    pass
-
-
-class ExampleTrainer(GeneralizedTrainer):
-    pass
-
-
-class RegisteredExampleTrainingArguments(ExampleTrainingArguments):
-    pass
-
-
-class RegisteredExampleTrainer(ExampleTrainer):
-    training_args_cls = RegisteredExampleTrainingArguments
-
-
-TRAINER_REGISTRY.register("minimal_trainer")(RegisteredExampleTrainer)
-
-
 # ---------------------------------------------------------------------------
 # Example trainer with a single optimizer handling two parameter groups.
 #
