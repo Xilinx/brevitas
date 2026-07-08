@@ -110,7 +110,7 @@ def get_clm_dataset(
         bos_preprocessing: Optional[str] = None,
         add_eos_token: bool = False,
         fuse_documents: bool = False,
-        dataset_processing_num_proc_per_process: int = 8,
+        dataset_processing_num_proc_per_process: int = 128,
         text_column_name: str = "text") -> Dataset:
     """
     Methods group_texts, tokenize_and_group_texts and get_clm_dataset are adapted from

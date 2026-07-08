@@ -76,6 +76,9 @@ from brevitas_examples.llm.llm_quant.run_utils import fix_rewriter
 from brevitas_examples.llm.llm_quant.svd_quant import apply_svd_quant
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 
+import brevitas_examples.papers.dMX.custom_trainer
+import brevitas_examples.papers.dMX.learned_float_quantizer
+
 logging = setup_logger(__name__)
 
 try:

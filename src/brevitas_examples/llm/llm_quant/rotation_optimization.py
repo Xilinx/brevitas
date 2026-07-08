@@ -14,6 +14,7 @@ from accelerate.utils import DistributedType
 from datasets import Dataset
 import torch
 import transformers
+from transformers import get_scheduler
 from transformers import Trainer
 
 try:
@@ -23,6 +24,7 @@ except:
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
+from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
@@ -77,6 +79,7 @@ def parse_rotation_optimization_args(
     training_args_cls: Optional[Type[transformers.TrainingArguments]] = None
 ) -> transformers.TrainingArguments:
     """Parse *extra_args* into a training-arguments dataclass.
+
 
     The training-arguments class is resolved with the following precedence:
 
@@ -158,13 +161,13 @@ def apply_fine_tuning(
         Raw CLI-style extra arguments parsed into the training-arguments
         dataclass (see :func:`parse_rotation_optimization_args`).
     """
-
     # Resolve the trainer class up front so that its ``training_args_cls`` (which
     # sets the ``optimizer_scheduler_args`` default) is used when parsing the
     # training arguments. When no custom trainer is given but the model has
     # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
     # rotations, expressed through the standard optimizer_scheduler_args mechanism).
     if trainer_cls is None:
+
         if len(extract_trainable_rotation_matrices(model)) == 0:
             raise RuntimeError(
                 "No Custom Trainer has been defined and no optimizable rotations are present in the model."
@@ -176,6 +179,8 @@ def apply_fine_tuning(
     # Parse the training arguments, resolving the training-args class from the
     # (possibly defaulted) trainer.
     training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
+
+
 
     # Prepare model for training
     model = _prepare_model(model)
@@ -206,6 +211,7 @@ def apply_fine_tuning(
         eval_dataset=None,
         data_collator=collate_fn,
         optimizers=optimizers)
+
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
