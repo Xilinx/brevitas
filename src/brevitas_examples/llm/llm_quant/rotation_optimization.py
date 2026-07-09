@@ -291,10 +291,23 @@ def apply_fine_tuning(
         dataclass (see :func:`parse_rotation_optimization_args`).
     """
 
+    # Resolve the trainer class up front so that its ``training_args_cls`` (which
+    # sets the ``optimizer_scheduler_args`` default) is used when parsing the
+    # training arguments. When no custom trainer is given but the model has
+    # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
+    # rotations, expressed through the standard optimizer_scheduler_args mechanism).
+    if custom_trainer_cls is None:
+        if len(extract_trainable_rotation_matrices(model)) == 0:
+            raise RuntimeError(
+                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
+            )
+        trainer_cls = RotationTrainer
+    else:
+        trainer_cls = custom_trainer_cls
+
     # Parse the training arguments, resolving the training-args class from the
     # (possibly defaulted) trainer.
-    training_args = parse_rotation_optimization_args(
-        extra_args=extra_args, trainer_cls=custom_trainer_cls)
+    training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
 
     # Prepare model for training
     model = _prepare_model(model)
@@ -325,18 +338,6 @@ def apply_fine_tuning(
         eval_dataset=None,
         data_collator=collate_fn,
         optimizers=optimizers)
-
-    # When no custom trainer is given but the model has trainable rotation
-    # matrices, default to RotationTrainer (CaileySGD on the rotations, expressed
-    # through the standard optimizer_scheduler_args mechanism).
-    if custom_trainer_cls is None:
-        if len(extract_trainable_rotation_matrices(model)) == 0:
-            raise RuntimeError(
-                "No Custom Trainer has been defined and no optimizable rotations are present in the model."
-            )
-        trainer_cls = RotationTrainer
-    else:
-        trainer_cls = custom_trainer_cls
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.

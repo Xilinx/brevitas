@@ -307,7 +307,7 @@ def quantize_llm(args, extra_args=None):
 
     if args.fine_tune:
         # Load the data for training
-        train_dataset = get_dataset_for_model(
+        finetune_dataset = get_dataset_for_model(
             bos_preprocessing=args.bos_preprocessing,
             dataset_name=args.dataset,
             tokenizer=tokenizer,
@@ -597,7 +597,7 @@ def quantize_llm(args, extra_args=None):
                 custom_trainer_config_name = parse_custom_trainer(args.custom_trainer)
                 custom_trainer_cls = TRAINER_REGISTRY.get(custom_trainer_config_name)
 
-            fine_tune_extra_args = list(extra_args) if extra_args is not None else []
+            fine_tune_extra_args = extra_args if extra_args is not None else []
             if args.load_checkpoint:
                 # Skip training when loading from a checkpoint by forcing
                 # max_steps to 0 through the training arguments. Appended last so
@@ -607,7 +607,7 @@ def quantize_llm(args, extra_args=None):
             apply_fine_tuning(
                 model=model,
                 tokenizer=tokenizer,
-                train_dataset=train_dataset,
+                train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
                 custom_trainer_cls=custom_trainer_cls,
                 extra_args=fine_tune_extra_args)
