@@ -395,8 +395,8 @@ class GeneralizedTrainer(Trainer):
             student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
         out_dtype = student_logits.dtype
         # Apply temperature scaling
-        student_logits = student_logits.float() / temperature
-        teacher_logits = teacher_logits.float() / temperature
+        student_logits = student_logits / temperature
+        teacher_logits = teacher_logits / temperature
 
         # Compute log probabilities for student and probabilities for teacher
         student_log_probs = F.log_softmax(student_logits, dim=-1)
