@@ -8,7 +8,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
-from brevitas_examples.llm.llm_quant.rotation_optimization import GeneralizedTrainer
+from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
 

@@ -13,9 +13,7 @@ from typing import Type
 from accelerate.utils import DistributedType
 from datasets import Dataset
 import torch
-import torch.nn.functional as F
 import transformers
-from transformers import get_scheduler
 from transformers import Trainer
 
 try:
@@ -24,141 +22,12 @@ except:
     # This has changed in transformers v5
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-from brevitas.graph.calibrate import quantization_status_manager
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
-from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
-from brevitas_examples.llm.llm_quant.trainer_utils import MultiOptimizer
-from brevitas_examples.llm.llm_quant.trainer_utils import MultiScheduler
+from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
 from brevitas_examples.llm.llm_quant.trainer_utils import TrainingArguments
-
-
-class GeneralizedTrainer(Trainer):
-
-    # Training-arguments class consumed by the LLM entrypoint when this trainer
-    # is registered via ``--custom-trainer``. Subclasses may override it to
-    # customise the training arguments (including the optimizer/scheduler setup
-    # exposed through ``optimizer_scheduler_args``). When left at the built-in
-    # ``TrainingArguments``, the default behaviour of the LLM example is used.
-    training_args_cls: Type[transformers.TrainingArguments] = TrainingArguments
-
-    def __init__(
-            self,
-            args: Optional[TrainingArguments] = None,
-            teacher_model: Optional[torch.nn.Module] = None,
-            **kwargs: Any) -> None:
-        super().__init__(args=args, **kwargs)
-        self.use_distillation_loss = args.use_distillation_loss
-        self.gamma = args.gamma
-        self.temperature = args.temperature
-        self.kl_loss_reduction = args.kl_loss_reduction
-        self.teacher_model = None if teacher_model is None else offload_model(teacher_model)
-
-    def _default_scheduler(self, optimizer, num_training_steps):
-        """Build the HuggingFace default LR scheduler for a single optimizer.
-
-        Mirrors :meth:`transformers.Trainer.create_scheduler`: honours
-        ``lr_scheduler_type`` (default ``"linear"``), the (possibly ratio-based)
-        warmup steps and any ``lr_scheduler_kwargs``.
-        """
-        return get_scheduler(
-            self.args.lr_scheduler_type,
-            optimizer=optimizer,
-            num_warmup_steps=self.args.get_warmup_steps(num_training_steps),
-            num_training_steps=num_training_steps,
-            scheduler_specific_kwargs=self.args.lr_scheduler_kwargs,
-        )
-
-    def create_scheduler(self, num_training_steps, optimizer=None):
-        """Set up the LR scheduler, matching the HuggingFace default.
-
-        The optimizer/scheduler pair is built eagerly (before the Trainer exists)
-        by :func:`_build_optimizers_from_configs`, which cannot know
-        ``num_training_steps``. Any optimizer left without an explicit scheduler
-        is therefore represented by a ``None`` placeholder and filled in here with
-        the HuggingFace default scheduler (linear warmup + linear decay).
-
-        Handles both the single-optimizer case (``self.lr_scheduler is None``,
-        delegated to the base implementation) and the multi-optimizer case
-        (a :class:`MultiScheduler` with ``None`` entries).
-        """
-        # Multi-optimizer case: fill in any None sub-schedulers in place.
-        if isinstance(self.lr_scheduler, MultiScheduler) and isinstance(self.optimizer,
-                                                                        MultiOptimizer):
-            for idx, (sub_optimizer, sub_scheduler) in enumerate(zip(self.optimizer.optimizers,
-                                                                     self.lr_scheduler.schedulers)):
-                if sub_scheduler is None:
-                    self.lr_scheduler.schedulers[idx] = self._default_scheduler(
-                        sub_optimizer, num_training_steps)
-            return self.lr_scheduler
-        # Single-optimizer case: the base implementation already builds the
-        # HuggingFace default scheduler when self.lr_scheduler is None.
-        return super().create_scheduler(num_training_steps, optimizer)
-
-    @staticmethod
-    def forward_kl_loss(
-            student_logits, teacher_logits, temperature=1.0, topk=-1, reduction="batchmean"):
-        out_dtype = student_logits.dtype
-        # Apply temperature scaling
-        student_logits = student_logits.float() / temperature
-        teacher_logits = teacher_logits.float() / temperature
-
-        # Compute log probabilities for student and probabilities for teacher
-        student_log_probs = F.log_softmax(student_logits, dim=-1)
-        teacher_log_probs = F.log_softmax(teacher_logits, dim=-1)
-
-        if topk > 0:
-            teacher_log_probs, indices = teacher_log_probs.topk(topk, dim=-1, sorted=False)
-            student_log_probs = student_log_probs.gather(-1, indices)
-            # After selecting the top-k entries, the log-probabilities no longer
-            # sum to one over the truncated vocabulary. Renormalize them via
-            # logsumexp so they form valid log-probability distributions over
-            # the selected subset, consistent with the log_target=True KL below.
-            student_log_probs = student_log_probs - torch.logsumexp(
-                student_log_probs, dim=-1, keepdim=True)
-            teacher_log_probs = teacher_log_probs - torch.logsumexp(
-                teacher_log_probs, dim=-1, keepdim=True)
-
-        loss = F.kl_div(student_log_probs, teacher_log_probs, reduction=reduction, log_target=True)
-        if reduction == "none":
-            # We sum across the vocabulary dim, and then average the rest
-            loss = loss.sum(dim=-1).mean()
-        return loss.to(out_dtype)
-
-    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        """
-        How the loss is computed by Trainer. By default, all models return the loss in the first element.
-
-        Subclass and override for custom behavior.
-        """
-        # If distillation loss is used, we need to retrieve the original model's outputs
-        distillation_return_outputs = return_outputs if not self.use_distillation_loss else True
-
-        loss = super().compute_loss(model, inputs, distillation_return_outputs, num_items_in_batch)
-
-        if distillation_return_outputs:
-            loss, outputs = loss
-
-        if self.use_distillation_loss:
-            with torch.no_grad(), quantization_status_manager(self.teacher_model, disable_act_quant=True, disable_weight_quant=True, disable_bias_quant=True):
-                fp_outputs = self.teacher_model(**inputs)
-            # Compute the distillation loss
-            distill_loss = GeneralizedTrainer.forward_kl_loss(
-                student_logits=outputs.logits,
-                teacher_logits=fp_outputs.logits,
-                temperature=self.temperature,
-                reduction=self.kl_loss_reduction,
-                topk=self.args.topk)
-
-            if (self.args.average_tokens_across_devices and
-                (self.model_accepts_loss_kwargs or self.compute_loss_func) and
-                    num_items_in_batch is not None):
-                distill_loss = distill_loss * self.accelerator.num_processes
-            loss = self.gamma * loss + (1. - self.gamma) * distill_loss
-
-        return (loss, outputs) if return_outputs else loss
 
 
 @dataclass
