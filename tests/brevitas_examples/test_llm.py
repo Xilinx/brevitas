@@ -226,7 +226,7 @@ def test_custom_quantizer_file_override_and_post_process(caplog, default_run_arg
     args = default_run_args
     args.model = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     args.custom_quantizer = (
-        "tests/brevitas_examples/llm_example_quantizer.py:example_quant_and_model_adjuster")
+        "tests/brevitas_examples/llm_test_plugin.py:example_quant_and_model_adjuster")
 
     _, model = main(args)
 

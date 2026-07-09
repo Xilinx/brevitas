@@ -609,7 +609,7 @@ def quantize_llm(args, extra_args=None):
                 tokenizer=tokenizer,
                 train_dataset=finetune_dataset,
                 collate_fn=collate_fn,
-                custom_trainer_cls=custom_trainer_cls,
+                trainer_cls=custom_trainer_cls,
                 extra_args=fine_tune_extra_args)
             # Remove hooks from training
             remove_hooks(model)

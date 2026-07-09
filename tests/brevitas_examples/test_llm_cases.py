@@ -113,7 +113,7 @@ class LLMRunCases:
                 "custom_quantizer": "example_int8_weight_quant",},
             {
                 "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
-                "custom_quantizer": "tests/brevitas_examples/llm_example_quantizer.py:example_int4_weight_quant"},],
+                "custom_quantizer": "tests/brevitas_examples/llm_test_plugin.py:example_int4_weight_quant"},],
         ids=[
             "llama-quant", "llama-quant-file",]
     )

@@ -72,10 +72,9 @@ class RotationTrainer(GeneralizedTrainer):
 
 
 def parse_rotation_optimization_args(
-    extra_args: Optional[List[str]] = None,
-    training_args_cls: Optional[Type[transformers.TrainingArguments]] = None,
-    trainer_cls: Optional[Type[Trainer]] = None,
-) -> transformers.TrainingArguments:
+        extra_args: List[str],
+        training_args_cls: Type[transformers.TrainingArguments],
+        trainer_cls: Type[Trainer]) -> transformers.TrainingArguments:
     """Parse *extra_args* into a training-arguments dataclass.
 
     The training-arguments class is resolved with the following precedence:
@@ -124,13 +123,13 @@ def apply_fine_tuning(
         tokenizer: PreTrainedTokenizerBase,
         train_dataset: Dataset,
         collate_fn: Callable,
-        custom_trainer_cls: Optional[Type[Trainer]] = None,
+        trainer_cls: Optional[Type[Trainer]] = None,
         extra_args: Optional[List[str]] = None) -> None:
     """Fine-tune model weights and/or rotation matrices.
 
     The training arguments are parsed from *extra_args* via
     :func:`parse_rotation_optimization_args`, using
-    ``custom_trainer_cls.training_args_cls`` when available. The optimizer(s) and
+    ``trainer_cls.training_args_cls`` when available. The optimizer(s) and
     scheduler(s) are built from ``training_args.optimizer_scheduler_args``. When
     that is ``None``:
 
@@ -149,7 +148,7 @@ def apply_fine_tuning(
         The training dataset.
     collate_fn : callable
         The data collator passed to the Trainer.
-    custom_trainer_cls : Type[Trainer], optional
+    trainer_cls : Type[Trainer], optional
         A custom Trainer class, typically resolved from ``TRAINER_REGISTRY``.
         Its ``training_args_cls`` class attribute customises the training
         arguments (including the optimizer/scheduler setup through
@@ -165,14 +164,14 @@ def apply_fine_tuning(
     # training arguments. When no custom trainer is given but the model has
     # trainable rotation matrices, default to RotationTrainer (CaileySGD on the
     # rotations, expressed through the standard optimizer_scheduler_args mechanism).
-    if custom_trainer_cls is None:
+    if trainer_cls is None:
         if len(extract_trainable_rotation_matrices(model)) == 0:
             raise RuntimeError(
                 "No Custom Trainer has been defined and no optimizable rotations are present in the model."
             )
         trainer_cls = RotationTrainer
     else:
-        trainer_cls = custom_trainer_cls
+        trainer_cls = trainer_cls
 
     # Parse the training arguments, resolving the training-args class from the
     # (possibly defaulted) trainer.
