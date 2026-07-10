@@ -72,9 +72,10 @@ class RotationTrainer(GeneralizedTrainer):
 
 
 def parse_rotation_optimization_args(
-        extra_args: List[str],
-        training_args_cls: Type[transformers.TrainingArguments],
-        trainer_cls: Type[Trainer]) -> transformers.TrainingArguments:
+    extra_args: List[str],
+    trainer_cls: Type[Trainer],
+    training_args_cls: Optional[Type[transformers.TrainingArguments]] = None
+) -> transformers.TrainingArguments:
     """Parse *extra_args* into a training-arguments dataclass.
 
     The training-arguments class is resolved with the following precedence:
@@ -84,10 +85,9 @@ def parse_rotation_optimization_args(
        attribute is provided.
     3. the built-in :class:`TrainingArguments`.
     """
-    if training_args_cls is None and trainer_cls is not None:
-        training_args_cls = getattr(trainer_cls, "training_args_cls", None)
     if training_args_cls is None:
-        training_args_cls = TrainingArguments
+        training_args_cls = getattr(trainer_cls, "training_args_cls", TrainingArguments)
+
     parser = transformers.HfArgumentParser(training_args_cls)
     training_args = parser.parse_args_into_dataclasses(args=extra_args)
     # If a single-process is running, only one GPU should be available

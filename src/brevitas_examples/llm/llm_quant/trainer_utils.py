@@ -213,8 +213,7 @@ def _resolve_params(
 
 
 def _build_optimizers_from_configs(
-    model: torch.nn.Module,
-    training_args: transformers.TrainingArguments,
+    model: torch.nn.Module, training_args: transformers.TrainingArguments
 ) -> Tuple[Union[Optimizer, MultiOptimizer], Optional[Union[LRScheduler, MultiScheduler]]]:
     """Build a ``(MultiOptimizer, MultiScheduler | None)`` pair from
     ``training_args.optimizer_scheduler_args``: a list with one entry per
