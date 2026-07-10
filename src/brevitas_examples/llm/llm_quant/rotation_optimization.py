@@ -13,7 +13,6 @@ from typing import Type
 from accelerate.utils import DistributedType
 from datasets import Dataset
 import torch
-import transformers
 from transformers import get_scheduler
 from transformers import Trainer
 
@@ -24,7 +23,6 @@ except:
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from brevitas.utils.parametrization_utils import extract_trainable_rotation_matrices
-from brevitas_examples.common.accelerate_utils.accelerate import offload_model
 from brevitas_examples.common.accelerate_utils.accelerate import remove_hooks
 # Optimizer/scheduler building and trainer plumbing live in trainer_utils.
 from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
@@ -180,8 +178,6 @@ def apply_fine_tuning(
     # (possibly defaulted) trainer.
     training_args = parse_rotation_optimization_args(extra_args=extra_args, trainer_cls=trainer_cls)
 
-
-
     # Prepare model for training
     model = _prepare_model(model)
     # Enable skipping training
@@ -211,7 +207,6 @@ def apply_fine_tuning(
         eval_dataset=None,
         data_collator=collate_fn,
         optimizers=optimizers)
-
 
     # Wire the teacher model whenever the selected trainer is a
     # GeneralizedTrainer subclass and distillation loss is enabled.
