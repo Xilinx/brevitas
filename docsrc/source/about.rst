@@ -13,7 +13,7 @@ Cite as
 ::
 
    @software{brevitas,
-     author       = {Franco, Giuseppe and Pappalardo, Alessandro and Colbert, Ian and Fraser, Nicholas J},
+     author       = {Franco, Giuseppe and Monteagudo-Lago, Pablo and Colbert, Ian and Pappalardo, Alessandro and Fraser, Nicholas J},
      title        = {Xilinx/brevitas},
      year         = {2026},
      publisher    = {Zenodo},
