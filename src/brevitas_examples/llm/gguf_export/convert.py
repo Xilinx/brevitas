@@ -60,6 +60,7 @@ from brevitas.nn.quant_embedding import QuantEmbedding
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.llm.gguf_export.base_quantizers import GGUFBaseQuantizer
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
 
 BREVITAS_QUANT_MODULES = (QuantWBIOL, QuantEmbedding)
@@ -436,6 +437,11 @@ class ModelBase:
         zp = quant_weight.zero_point_ if hasattr(
             quant_weight, 'zero_point_') else quant_weight.zero_point
         _, quant_data = self.modify_tensors(quant_data, name, bid)[0]
+
+        # Our quantizer's declared qtype overrides the file's nominal ftype
+        # (e.g. the Q6_K bump on token_embd/output).
+        if issubclass(weight_quant.quant_injector, GGUFBaseQuantizer):
+            data_qtype = weight_quant.quant_injector.gguf_qtype
 
         # TODO: Generalize this to have a map between GGUF quant type
         # and our preprocessing for quant_modules

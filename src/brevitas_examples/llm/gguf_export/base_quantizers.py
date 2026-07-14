@@ -12,18 +12,24 @@ encoders in :mod:`brevitas_examples.llm.gguf_export.quant` without any loss:
 * ``GGUFQ4_1WeightQuant`` -- blocks of 32, unsigned 4-bit, fp16 scale + fp16 min.
 * ``GGUFQ4_KWeightQuant`` -- super-blocks of 256 (8 sub-blocks of 32), unsigned
   4-bit, with 6-bit sub-block scales/mins each scaled by a per-super-block fp16
-  ``d`` / ``dmin`` (nested "double" quantization). This is the quantizer that
-  :func:`...convert.ModelBase.quantize` inspects for ``QuantRestrictValue`` /
-  ``_ScaleShiftQuantZeroPoint`` modules.
+  ``d`` / ``dmin`` (nested "double" quantization).
+* ``GGUFQ5_KWeightQuant`` -- like Q4_K but with 5-bit codes; same nested structure.
 * ``GGUFQ6_KWeightQuant`` -- super-blocks of 256 (16 sub-blocks of 16), signed
   6-bit, symmetric, with 8-bit signed sub-block scales each scaled by a single
   per-super-block fp16 ``d`` (nested "double" quantization, no min). Used for the
   high-impact ``token_embd`` / ``output`` tensors.
 * ``GGUFQ8_0WeightQuant`` -- blocks of 32, signed 8-bit, single fp16 group scale.
+
+Each quantizer inherits from :class:`GGUFBaseQuantizer` and declares a
+``gguf_qtype`` class attribute (a ``gguf.GGMLQuantizationType`` member), so the
+exporter can identify a GGUF-tagged quantizer via
+``issubclass(weight_quant.quant_injector, GGUFBaseQuantizer)`` and read its
+declared qtype.
 """
 
 from dependencies import this
 from dependencies import value
+import gguf
 import torch
 
 from brevitas.core.quant.int import RescalingIntQuant
@@ -40,6 +46,11 @@ from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+
+
+class GGUFBaseQuantizer(ExtendedInjector):
+    """Marker base for GGUF weight quantizers that declare a `gguf_qtype` tag"""
+
 
 # GGML block geometry. A K-quant super-block spans QK_K elements; the smaller
 # integer block sizes (Q4_0/Q4_1/Q8_0) span QK.
@@ -61,30 +72,33 @@ Q5_K_SUB_SCALE_BIT_WIDTH = 6
 Q5_K_SUB_ZP_BIT_WIDTH = 6
 
 
-class GGUFQ4_0WeightQuant(Int8WeightPerChannelFloat):
+class GGUFQ4_0WeightQuant(Int8WeightPerChannelFloat, GGUFBaseQuantizer):
     """Signed symmetric 4-bit group quantizer with one fp16 scale per 32-element block."""
     proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q4_0
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = QK
     bit_width = 4
     narrow_range = False
 
 
-class GGUFQ8_0WeightQuant(Int8WeightPerChannelFloat):
+class GGUFQ8_0WeightQuant(Int8WeightPerChannelFloat, GGUFBaseQuantizer):
     """Signed symmetric 8-bit group quantizer with one fp16 scale per 32-element block."""
     proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q8_0
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = QK
     bit_width = 8
     narrow_range = False
 
 
-class GGUFQ4_1WeightQuant(ShiftedUint8WeightPerChannelFloat):
+class GGUFQ4_1WeightQuant(ShiftedUint8WeightPerChannelFloat, GGUFBaseQuantizer):
     """Asymmetric unsigned 4-bit group quantizer with fp16 scale + fp16 min per block.
 
     The packed min stored by GGUF Q4_1 is ``-zero_point * scale``.
     """
     proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q4_1
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = QK
     bit_width = 4
@@ -157,7 +171,7 @@ class _GGUFQ4KZPInt(Int8WeightPerTensorFloat, _GGUFKQuantShapeMixin):
         return [torch.empty(upstream_shape)]
 
 
-class GGUFQ4_KWeightQuant(ShiftedUint8WeightPerTensorFloat):
+class GGUFQ4_KWeightQuant(ShiftedUint8WeightPerTensorFloat, GGUFBaseQuantizer):
     """Asymmetric unsigned 4-bit Q4_K super-block quantizer with nested scales/mins.
 
     256-element super-blocks split into 8 sub-blocks of 32. Each sub-block has a
@@ -165,6 +179,7 @@ class GGUFQ4_KWeightQuant(ShiftedUint8WeightPerTensorFloat):
     factor (``d`` / ``dmin``).
     """
     proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q4_K
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = Q4_K_GROUP_SIZE
     bit_width = 4
@@ -203,6 +218,7 @@ class GGUFQ5_KWeightQuant(GGUFQ4_KWeightQuant):
     scales/mins, fp16 ``d`` / ``dmin``) except the weight codes use 5 bits ([0, 31])
     instead of 4. Reuses the same nested scale/zero-point sub-injectors.
     """
+    gguf_qtype = gguf.GGMLQuantizationType.Q5_K  # override Q4_K's tag
     group_size = Q5_K_GROUP_SIZE
     bit_width = 5
 
@@ -232,7 +248,7 @@ class _GGUFQ6KScalingInt(Int8WeightPerChannelFloat, _GGUFKQuantShapeMixin):
         return [torch.empty(upstream_shape)]
 
 
-class GGUFQ6_KWeightQuant(Int8WeightPerChannelFloat):
+class GGUFQ6_KWeightQuant(Int8WeightPerChannelFloat, GGUFBaseQuantizer):
     """Signed symmetric 6-bit Q6_K super-block quantizer with nested scales.
 
     256-element super-blocks split into 16 sub-blocks of 16. Each sub-block has an
@@ -241,6 +257,7 @@ class GGUFQ6_KWeightQuant(Int8WeightPerChannelFloat):
     ``output`` tensors under the GGUF Q4_K standard.
     """
     proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q6_K
     scaling_per_output_type = ScalingPerOutputType.GROUP
     group_size = Q6_K_GROUP_SIZE
     bit_width = 6
