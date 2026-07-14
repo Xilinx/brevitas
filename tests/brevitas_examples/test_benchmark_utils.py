@@ -18,6 +18,7 @@ import pytest
 import yaml
 
 from brevitas_examples.common.benchmark.utils import BenchmarkUtils
+from brevitas_examples.common.benchmark.utils import ConstNode
 from brevitas_examples.common.benchmark.utils import EntryPointUtils
 from brevitas_examples.common.benchmark.utils import GridSearchUtils
 from brevitas_examples.common.benchmark.utils import RandomArgNode
@@ -142,6 +143,35 @@ class TestRandomArgNode:
     def test_log2_requires_positive_bounds(self):
         with pytest.raises(ValueError, match="strictly positive"):
             RandomArgNode.from_config(rand_type="log2", rand_values=[0.0, 16.0])
+
+    def test_missing_rand_type_fails_at_instantiation(self):
+        # A concrete node that forgets to override `rand_type` stays abstract:
+        # it can be defined, but ABC rejects instantiation.
+        class NoRandType(RandomArgNode):
+
+            def value(self):
+                return 1
+
+        # It must not have been registered.
+        assert NoRandType not in RandomArgNode._registry.values()
+        with pytest.raises(TypeError, match="rand_type"):
+            NoRandType(rand_values=1)
+
+    def test_non_str_rand_type_fails_at_definition(self):
+        with pytest.raises(TypeError, match="must be a str"):
+
+            class NonStrRandType(RandomArgNode):
+                rand_type = 5
+
+                def value(self):
+                    return 1
+
+    def test_duplicate_rand_type_fails_at_definition(self):
+        # Subclassing a leaf without a new `rand_type` reuses an existing key.
+        with pytest.raises(TypeError, match="already registered"):
+
+            class DuplicateConst(ConstNode):
+                pass
 
 
 # ============================= GridSearchUtils ============================

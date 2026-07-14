@@ -276,16 +276,38 @@ class GridSearchUtils(SearchUtils):
 # from a parsed YAML entry through `RandomArgNode.from_config`.
 class RandomArgNode(ABC):
     # Maps a `rand_type` string to its concrete node class. Populated
-    # automatically whenever a subclass sets a (non-None) `rand_type`.
+    # automatically whenever a subclass overrides `rand_type` (see below).
     _registry: Dict[str, Type["RandomArgNode"]] = {}
-    rand_type: str = None  # Set by each concrete subclass
+
+    # `rand_type` is an abstract attribute: concrete node types override it with a
+    # plain string class attribute (e.g. `rand_type = "const"`). Any class that
+    # does not override it stays abstract and cannot be instantiated (enforced by
+    # ABC), so a leaf that forgets `rand_type` fails at instantiation time.
+    @property
+    @abstractmethod
+    def rand_type(self) -> str:
+        ...
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        # Only register concrete leaf types; intermediate bases (e.g. _RangeNode)
-        # leave `rand_type` as None and are skipped.
-        if cls.rand_type is not None:
-            RandomArgNode._registry[cls.rand_type] = cls
+        rand_type = cls.rand_type  # resolved on the class (does not call getter)
+        # If `rand_type` has not been overridden, this is still an abstract class
+        # (the base, an intermediate like `_RangeNode`, or a leaf that forgot to
+        # set it). Don't register it; ABC will reject instantiation later.
+        if getattr(rand_type, "__isabstractmethod__", False):
+            return
+        # A provided `rand_type` must be a string...
+        if not isinstance(rand_type, str):
+            raise TypeError(
+                f"{cls.__name__}.rand_type must be a str, got {type(rand_type).__name__}")
+        # ...and must be unique across node types. To intentionally replace a
+        # built-in type, pop its key from `RandomArgNode._registry` first.
+        if rand_type in RandomArgNode._registry:
+            existing = RandomArgNode._registry[rand_type]
+            raise TypeError(
+                f"rand_type {rand_type!r} for {cls.__name__} is already registered "
+                f"by {existing.__name__}")
+        RandomArgNode._registry[rand_type] = cls
 
     def __init__(self, rand_values: Any) -> None:
         self.rand_values = rand_values
