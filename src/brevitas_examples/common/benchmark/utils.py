@@ -164,15 +164,15 @@ class SearchUtils(ABC):
             if is_constant and _as_hashable(value) == _as_hashable(defaults[key]):
                 del args_combinations[key]
         non_default = {
-            f"--{key.replace('_', '-')}": cls._format_combination(value)
-            for key, value in args_combinations.items()}
+            f"--{key.replace('_', '-')}": cls._format_combination(value) for key,
+            value in args_combinations.items()}
         _print_indented_dict("Non-default args.:", non_default)
 
     # Per-key representation of the search space, keyed by argument name.
     @classmethod
     @abstractmethod
-    def _collect_arg_combinations(
-            cls, args_dict: Dict[str, Any], args_queue: List[Experiment]) -> Dict[str, Any]:
+    def _collect_arg_combinations(cls, args_dict: Dict[str, Any],
+                                  args_queue: List[Experiment]) -> Dict[str, Any]:
         pass
 
     # Whether a key is held constant and, if so, the constant value (for default
@@ -263,8 +263,8 @@ class GridSearchUtils(SearchUtils):
         return exp_queue
 
     @classmethod
-    def _collect_arg_combinations(
-            cls, args_dict: Dict[str, Any], args_queue: List[Experiment]) -> Dict[str, Any]:
+    def _collect_arg_combinations(cls, args_dict: Dict[str, Any],
+                                  args_queue: List[Experiment]) -> Dict[str, Any]:
         # Collect the set of observed values per argument across all experiments.
         args_combinations = defaultdict(set)
         for _, _, combination_dict in args_queue:
@@ -470,8 +470,8 @@ class RandomSearchUtils(SearchUtils):
         return exp_queue
 
     @classmethod
-    def _collect_arg_combinations(
-            cls, args_dict: Dict[str, Any], args_queue: List[Experiment]) -> Dict[str, Any]:
+    def _collect_arg_combinations(cls, args_dict: Dict[str, Any],
+                                  args_queue: List[Experiment]) -> Dict[str, Any]:
         # Reconstruct the per-argument random nodes from the standardized config.
         return {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
 
