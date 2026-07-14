@@ -33,6 +33,9 @@ import numpy as np
 import pandas as pd
 import yaml
 
+# A single benchmark experiment: (parsed known args, extra CLI args, full arg dict)
+Experiment = Tuple[SimpleNamespace, List[str], Dict[str, Any]]
+
 
 class EntryPointUtils(ABC):
     """Encapsulates everything specific to a benchmark entry point.
@@ -136,7 +139,7 @@ class SearchUtils(ABC):
             args_dict: Dict[str, Any],
             script_args: Namespace,
             entrypoint_parser: ArgumentParser,
-            validate_fn: Callable[[Namespace, List[str]], None]) -> List[Dict[str, Any]]:
+            validate_fn: Callable[[Namespace, List[str]], None]) -> List[Experiment]:
         pass
 
     @classmethod
@@ -144,7 +147,7 @@ class SearchUtils(ABC):
     def print_benchmark_summary(
             cls,
             args_dict: Dict[str, Any],
-            args_queue: List[Dict],
+            args_queue: List[Experiment],
             script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         pass
@@ -190,7 +193,7 @@ class GridSearchUtils(SearchUtils):
         script_args: Namespace,
         entrypoint_parser: ArgumentParser,
         validate_fn: Callable[[Namespace, List[str]], None]
-    ) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+    ) -> List[Experiment]:
         # Generate combinations of arguments
         args_keys, args_values = zip(*args_dict.items())
         # Extract the keys that are known to the argument parser
@@ -228,7 +231,7 @@ class GridSearchUtils(SearchUtils):
     def print_benchmark_summary(
             cls,
             args_dict: Dict[str, Any],
-            args_queue: List[Dict],
+            args_queue: List[Experiment],
             script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
@@ -410,7 +413,7 @@ class RandomSearchUtils(SearchUtils):
         script_args: Namespace,
         entrypoint_parser: ArgumentParser,
         validate_fn: Callable[[Namespace, List[str]], None]
-    ) -> List[Tuple[Dict[str, Any], List[str], Dict[str, Any]]]:
+    ) -> List[Experiment]:
         generator_dict = {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in entrypoint_parser._actions)
@@ -443,7 +446,7 @@ class RandomSearchUtils(SearchUtils):
     def print_benchmark_summary(
             cls,
             args_dict: Dict[str, Any],
-            args_queue: List[Dict],
+            args_queue: List[Experiment],
             script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
