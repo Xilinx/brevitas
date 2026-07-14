@@ -1,0 +1,19 @@
+# non-defaults only; see default_template.yaml for defaults
+model: meta-llama/Llama-3.2-1B
+
+# Q4_K: 4-bit super-blocks (8 sub-blocks of 32) with nested 6-bit scale/min
+# quantization; selected via the custom quantizer registered in
+# brevitas_examples/llm/gguf_export/custom_quantizers.py
+custom_quantizer: gguf_q4_k
+# Required so the custom quantizer's high-precision (Q6_K) bump for
+# token_embd/output is actually applied; otherwise those tensors are left
+# unquantized (F32) at export time.
+quantize_first_last_layer: true
+
+# Eval PPL on wikitext2 before/after quantization (Brevitas's internal loop).
+eval: true
+dataset: wikitext2          # default, shown for clarity
+dataset_eval_split: test    # match llama-perplexity's split for apples-to-apples comparison
+
+# GGUF export.
+export_target: gguf:q4_k_s
