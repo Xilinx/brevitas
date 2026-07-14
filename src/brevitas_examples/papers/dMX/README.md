@@ -16,9 +16,12 @@ YAML configurations.
 | `benchmark.py` | Benchmark entrypoint. Importing it registers the quantizer and trainer as an import side effect, so they can be referenced by bare name in the YAML. It also raises the `torch._dynamo` recompilation limit. |
 | `benchmark/mxfp8_mixed_precision.yaml` | MXFP8 mixed-precision sweep (`custom_quantizer: learned_float`). |
 | `benchmark/mxfp6_mixed_precision.yaml` | MXFP6 mixed-precision sweep (`custom_quantizer: mxfp6_learned_float`). |
+| `benchmark/mxfp8_big_models_mixed_precision.yaml` | MXFP8 sweep tuned for larger models (3B–8B): more calibration samples, more steps, smaller batch with gradient accumulation. |
+| `benchmark/mxfp6_big_models_mixed_precision.yaml` | MXFP6 counterpart of the big-models sweep. |
 
-Both YAMLs sweep the `target_bit_width` regularisation target across several
-models; the only substantive difference between them is the quantizer.
+All YAMLs sweep the `target_bit_width` regularisation target across several
+models; the `mxfp8`/`mxfp6` pairs differ only in the quantizer, while the
+`big_models` variants target larger models with adjusted training budget.
 
 ## Running
 
