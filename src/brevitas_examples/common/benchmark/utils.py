@@ -188,12 +188,11 @@ class GridSearchUtils(SearchUtils):
 
     @classmethod
     def gen_search_space(
-        cls,
-        args_dict: Dict[str, Any],
-        script_args: Namespace,
-        entrypoint_parser: ArgumentParser,
-        validate_fn: Callable[[Namespace, List[str]], None]
-    ) -> List[Experiment]:
+            cls,
+            args_dict: Dict[str, Any],
+            script_args: Namespace,
+            entrypoint_parser: ArgumentParser,
+            validate_fn: Callable[[Namespace, List[str]], None]) -> List[Experiment]:
         # Generate combinations of arguments
         args_keys, args_values = zip(*args_dict.items())
         # Extract the keys that are known to the argument parser
@@ -430,12 +429,11 @@ class RandomSearchUtils(SearchUtils):
 
     @classmethod
     def gen_search_space(
-        cls,
-        args_dict: Dict[str, Any],
-        script_args: Namespace,
-        entrypoint_parser: ArgumentParser,
-        validate_fn: Callable[[Namespace, List[str]], None]
-    ) -> List[Experiment]:
+            cls,
+            args_dict: Dict[str, Any],
+            script_args: Namespace,
+            entrypoint_parser: ArgumentParser,
+            validate_fn: Callable[[Namespace, List[str]], None]) -> List[Experiment]:
         generator_dict = {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
         # Extract the keys that are known to the argument parser
         parser_keys = set(action.dest for action in entrypoint_parser._actions)
