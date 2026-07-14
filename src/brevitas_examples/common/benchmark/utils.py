@@ -150,7 +150,7 @@ class SearchUtils(ABC):
             script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
         print(f"Num. experiments: {len(args_queue)}")
-        _print_indented_dict("Benchmark args.:", vars(script_args))
+        _print_config_block("Benchmark args.:", vars(script_args))
         if len(args_queue) == 0:
             return
         # Per-key summary of the search space (representation is subclass-specific).
@@ -166,7 +166,7 @@ class SearchUtils(ABC):
         non_default = {
             f"--{key.replace('_', '-')}": cls._format_combination(value) for key,
             value in args_combinations.items()}
-        _print_indented_dict("Non-default args.:", non_default)
+        _print_config_block("Non-default args.:", non_default)
 
     # Per-key representation of the search space, keyed by argument name.
     @classmethod
@@ -495,9 +495,10 @@ def _make_float(value: Any) -> Any:
         return value
 
 
-def _print_indented_dict(message: str, dictionary: Dict) -> None:
-    print(message)
-    pprint.pp(dictionary)
+def _print_config_block(title: str, config: Dict) -> None:
+    """Print a titled config block. Central place for config printing preferences."""
+    print(title)
+    pprint.pp(config)
 
 
 # Ensures that the bytestring is the same irrespective
