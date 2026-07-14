@@ -266,22 +266,15 @@ class GridSearchUtils(SearchUtils):
         _print_indented_dict("Non-default args.:", args_combinations_dict)
 
 
-# A node in a tree of (possibly) dependent arguments.
-#
-# Each concrete node type samples a value for a single argument. Node types are
-# identified by a `rand_type` string (as it appears in the benchmark YAML) and
-# are auto-registered into `RandomArgNode._registry` via `__init_subclass__`, so
-# adding a new type only requires defining a new subclass. Instances are built
-# from a parsed YAML entry through `RandomArgNode.from_config`.
+# A node that samples a value for a single benchmark argument. Concrete node
+# types are keyed by `rand_type` (as in the YAML), auto-registered via
+# `__init_subclass__`, and built from parsed YAML by `from_config`.
 class RandomArgNode(ABC):
-    # Maps a `rand_type` string to its concrete node class. Populated
-    # automatically whenever a subclass overrides `rand_type` (see below).
+    # Maps `rand_type` -> concrete node class.
     _registry: Dict[str, Type["RandomArgNode"]] = {}
 
-    # `rand_type` is an abstract attribute: concrete node types override it with a
-    # plain string class attribute (e.g. `rand_type = "const"`). Any class that
-    # does not override it stays abstract and cannot be instantiated (enforced by
-    # ABC), so a leaf that forgets `rand_type` fails at instantiation time.
+    # Abstract attribute: concrete types override this with a plain string
+    # (e.g. `rand_type = "const"`); otherwise the class stays abstract.
     @property
     @abstractmethod
     def rand_type(self) -> str:
@@ -289,18 +282,16 @@ class RandomArgNode(ABC):
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
-        rand_type = cls.rand_type  # resolved on the class (does not call getter)
-        # If `rand_type` has not been overridden, this is still an abstract class
-        # (the base, an intermediate like `_RangeNode`, or a leaf that forgot to
-        # set it). Don't register it; ABC will reject instantiation later.
+        rand_type = cls.rand_type  # accessed on the class
+        # Not overridden -> still abstract; skip registration and let ABC block
+        # instantiation.
         if getattr(rand_type, "__isabstractmethod__", False):
             return
-        # A provided `rand_type` must be a string...
+        # Must be a string...
         if not isinstance(rand_type, str):
             raise TypeError(
                 f"{cls.__name__}.rand_type must be a str, got {type(rand_type).__name__}")
-        # ...and must be unique across node types. To intentionally replace a
-        # built-in type, pop its key from `RandomArgNode._registry` first.
+        # ...and unique (pop the key from `_registry` to replace a built-in).
         if rand_type in RandomArgNode._registry:
             existing = RandomArgNode._registry[rand_type]
             raise TypeError(
@@ -317,8 +308,7 @@ class RandomArgNode(ABC):
 
     @classmethod
     def from_config(cls, rand_type: str, rand_values: Any) -> "RandomArgNode":
-        # Instantiate the node class matching `rand_type`, validating the type at
-        # construction time (fail fast on malformed YAML).
+        # Build the node registered for `rand_type` (fail fast on unknown types).
         if rand_type not in cls._registry:
             raise ValueError(
                 f"{rand_type} is not a valid random type. "
@@ -346,8 +336,7 @@ class ChoicesNode(RandomArgNode):
         return f"type: {self.rand_type}, values: {self.rand_values}"
 
 
-# Shared base for range-based node types ([min, max] sampling). Not registered
-# (leaves `rand_type` as None); validates its bounds at construction time.
+# Shared base for range ([min, max]) node types; validates bounds on construction.
 class _RangeNode(RandomArgNode):
 
     def __init__(self, rand_values: Any) -> None:
