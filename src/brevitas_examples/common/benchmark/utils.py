@@ -143,13 +143,49 @@ class SearchUtils(ABC):
         pass
 
     @classmethod
-    @abstractmethod
     def print_benchmark_summary(
             cls,
             args_dict: Dict[str, Any],
             args_queue: List[Experiment],
             script_args: Namespace,
             entrypoint_parser: ArgumentParser) -> None:
+        print(f"Num. experiments: {len(args_queue)}")
+        _print_indented_dict("Benchmark args.:", vars(script_args))
+        if len(args_queue) == 0:
+            return
+        # Per-key summary of the search space (representation is subclass-specific).
+        args_combinations = cls._collect_arg_combinations(args_dict, args_queue)
+        # Drop args held constant at the entry point's default value.
+        defaults = {action.dest: action.default for action in entrypoint_parser._actions}
+        for key in list(args_combinations):
+            if key not in defaults:
+                continue
+            is_constant, value = cls._constant_value(args_combinations[key])
+            if is_constant and _as_hashable(value) == _as_hashable(defaults[key]):
+                del args_combinations[key]
+        non_default = {
+            f"--{key.replace('_', '-')}": cls._format_combination(value)
+            for key, value in args_combinations.items()}
+        _print_indented_dict("Non-default args.:", non_default)
+
+    # Per-key representation of the search space, keyed by argument name.
+    @classmethod
+    @abstractmethod
+    def _collect_arg_combinations(
+            cls, args_dict: Dict[str, Any], args_queue: List[Experiment]) -> Dict[str, Any]:
+        pass
+
+    # Whether a key is held constant and, if so, the constant value (for default
+    # comparison). Returns (is_constant, value).
+    @classmethod
+    @abstractmethod
+    def _constant_value(cls, combination: Any) -> Tuple[bool, Any]:
+        pass
+
+    # Display representation of a key's combination for the summary.
+    @classmethod
+    @abstractmethod
+    def _format_combination(cls, combination: Any) -> Any:
         pass
 
 
@@ -227,43 +263,25 @@ class GridSearchUtils(SearchUtils):
         return exp_queue
 
     @classmethod
-    def print_benchmark_summary(
-            cls,
-            args_dict: Dict[str, Any],
-            args_queue: List[Experiment],
-            script_args: Namespace,
-            entrypoint_parser: ArgumentParser) -> None:
-        print(f"Num. experiments: {len(args_queue)}")
-        _print_indented_dict("Benchmark args.:", vars(script_args))
-        # Return if there are not valid combination
-        if len(args_queue) == 0:
-            return
-        # Retrieve the arguments that are not set to non-default values
+    def _collect_arg_combinations(
+            cls, args_dict: Dict[str, Any], args_queue: List[Experiment]) -> Dict[str, Any]:
+        # Collect the set of observed values per argument across all experiments.
         args_combinations = defaultdict(set)
         for _, _, combination_dict in args_queue:
             for key, value in combination_dict.items():
-                if isinstance(value, list):
-                    # Convert lists to tuples to make sure values are hashable
-                    value = tuple(value)
-                args_combinations[key].add(value)
-        # Retrieve defaults of argument parser
-        args_parser_defaults = {
-            action.dest: action.default for action in entrypoint_parser._actions}
-        args_keys = list(args_combinations.keys())
-        # Iterate over the keys removing entries with a length of 1 that are set to the default value
-        for key in args_keys:
-            if len(args_combinations[key]) == 1 and key in args_parser_defaults:
-                value = next(iter(args_combinations[key]))
-                default_value = args_parser_defaults[key]
-                if isinstance(default_value, list):
-                    # Cast to tuple for comparison
-                    default_value = tuple(default_value)
-                if value == default_value:
-                    del args_combinations[key]
-        args_combinations_dict = {
-            f"--{key.replace('_','-')}": maybe_sort_values(value) for key,
-            value in args_combinations.items()}
-        _print_indented_dict("Non-default args.:", args_combinations_dict)
+                args_combinations[key].add(_as_hashable(value))
+        return args_combinations
+
+    @classmethod
+    def _constant_value(cls, combination: Any) -> Tuple[bool, Any]:
+        # An argument is constant if only a single value was observed.
+        if len(combination) == 1:
+            return True, next(iter(combination))
+        return False, None
+
+    @classmethod
+    def _format_combination(cls, combination: Any) -> Any:
+        return maybe_sort_values(combination)
 
 
 # A node that samples a value for a single benchmark argument. Concrete node
@@ -452,39 +470,21 @@ class RandomSearchUtils(SearchUtils):
         return exp_queue
 
     @classmethod
-    def print_benchmark_summary(
-            cls,
-            args_dict: Dict[str, Any],
-            args_queue: List[Experiment],
-            script_args: Namespace,
-            entrypoint_parser: ArgumentParser) -> None:
-        print(f"Num. experiments: {len(args_queue)}")
-        _print_indented_dict("Benchmark args.:", vars(script_args))
-        # Return if there are not valid combination
-        if len(args_queue) == 0:
-            return
-        # Retrieve the arguments that are not set to non-default values
-        # Reconstruct the dictionary of random args from the standardized args
-        args_combinations = {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
-        # Retrieve defaults of argument parser
-        args_parser_defaults = {
-            action.dest: action.default for action in entrypoint_parser._actions}
-        args_keys = list(args_combinations.keys())
-        # Iterate over the keys removing entries which are rand_type="const" and the default value
-        for key in args_keys:
-            if args_combinations[key].rand_type == "const" and key in args_parser_defaults:
-                value = args_combinations[key].value()
-                default_value = args_parser_defaults[key]
-                if isinstance(default_value, list):
-                    # Cast to tuple for comparison
-                    default_value = tuple(default_value)
-                if isinstance(value, list):
-                    value = tuple(value)
-                if value == default_value:
-                    del args_combinations[key]
-        args_combinations_dict = {
-            f"--{key.replace('_','-')}": str(value) for key, value in args_combinations.items()}
-        _print_indented_dict("Non-default args.:", args_combinations_dict)
+    def _collect_arg_combinations(
+            cls, args_dict: Dict[str, Any], args_queue: List[Experiment]) -> Dict[str, Any]:
+        # Reconstruct the per-argument random nodes from the standardized config.
+        return {k: RandomArgNode.from_config(**v) for k, v in args_dict.items()}
+
+    @classmethod
+    def _constant_value(cls, combination: Any) -> Tuple[bool, Any]:
+        # A random node is constant only if its rand_type is "const".
+        if combination.rand_type == "const":
+            return True, combination.value()
+        return False, None
+
+    @classmethod
+    def _format_combination(cls, combination: Any) -> Any:
+        return str(combination)
 
 
 def _make_float(value: Any) -> Any:
@@ -642,6 +642,11 @@ def maybe_sort_values(values):
         # Fails if the list contains None
         sorted_values = list(values)
     return sorted_values
+
+
+def _as_hashable(value: Any) -> Any:
+    # Lists are unhashable and can't be compared to tuple defaults; normalize both.
+    return tuple(value) if isinstance(value, list) else value
 
 
 class BenchmarkUtils:
