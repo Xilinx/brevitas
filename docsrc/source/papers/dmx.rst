@@ -138,10 +138,8 @@ Below are the versions used; different versions may yield different results.
 - ``lighteval==0.13.0``
 
 Each dMX row corresponds to a different target average bit-width; the baselines
-apply a single MXFP format uniformly across all layers.
-
-MXFP8/MXFP4 mixed precision
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+apply a single MXFP format uniformly across all layers. The table below reports
+the MXFP8/MXFP4 mixed-precision configuration.
 
 +--------------+--------+-------------------+-----------+--------------+
 | Model        | Type   | Avg Bit-Width     | Wiki2 (↓) | 0-shot (↑)   |
@@ -189,60 +187,16 @@ MXFP8/MXFP4 mixed precision
 |              |        | 7.65              | 10.47     | 54.09        |
 +--------------+--------+-------------------+-----------+--------------+
 
-MXFP6/MXFP4 mixed precision
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+--------------+--------+-------------------+-----------+--------------+
-| Model        | Type   | Avg Bit-Width     | Wiki2 (↓) | 0-shot (↑)   |
-+==============+========+===================+===========+==============+
-| Llama-3.2-1B | Float  | BF16              | 8.94      | 51.53        |
-+              +--------+-------------------+-----------+--------------+
-|              | MXFP4  | 4.0               | 11.68     | 47.82        |
-+              +--------+-------------------+-----------+--------------+
-|              | MXFP6  | 6.0               | 9.16      | 51.39        |
-+              +--------+-------------------+-----------+--------------+
-|              | dMX    | 4.52              | 10.76     | 49.43        |
-+              +        +-------------------+-----------+--------------+
-|              |        | 5.02              | 10.02     | 50.26        |
-+              +        +-------------------+-----------+--------------+
-|              |        | 5.98              | 9.48      | 50.86        |
-+--------------+--------+-------------------+-----------+--------------+
-| SmolLM2-1.7B | Float  | BF16              | 7.61      | 59.52        |
-+              +--------+-------------------+-----------+--------------+
-|              | MXFP4  | 4.0               | 10.28     | 53.42        |
-+              +--------+-------------------+-----------+--------------+
-|              | MXFP6  | 6.0               | 7.81      | 58.18        |
-+              +--------+-------------------+-----------+--------------+
-|              | dMX    | 4.52              | 9.78      | 56.40        |
-+              +        +-------------------+-----------+--------------+
-|              |        | 5.06              | 8.50      | 57.52        |
-+              +        +-------------------+-----------+--------------+
-|              |        | 5.54              | 8.26      | 58.25        |
-+--------------+--------+-------------------+-----------+--------------+
-| Qwen3-1.7B   | Float  | BF16              | 15.74     | 54.12        |
-+              +--------+-------------------+-----------+--------------+
-|              | MXFP4  | 4.0               | 12.57     | 51.15        |
-+              +--------+-------------------+-----------+--------------+
-|              | MXFP6  | 6.0               | 10.67     | 54.05        |
-+              +--------+-------------------+-----------+--------------+
-|              | dMX    | 4.52              | 11.53     | 52.90        |
-+              +        +-------------------+-----------+--------------+
-|              |        | 5.03              | 11.01     | 54.14        |
-+              +        +-------------------+-----------+--------------+
-|              |        | 5.69              | 10.64     | 54.86        |
-+--------------+--------+-------------------+-----------+--------------+
-
 Even a small increase in average bit-width yields consistent gains in both
 perplexity and zero-shot accuracy, and dMX closely matches the requested target
 bit-width. The advantage is largest at *intermediate* bit-widths, where the
 precision budget must be allocated carefully across layers — exactly the regime
 in which end-to-end optimization outperforms KL divergence-based pre-selection.
-The MXFP6/MXFP4 configurations are more bit-width efficient than MXFP8/MXFP4,
-reaching comparable accuracy at a lower average bit-width. Analyzing which layers
-are most often kept at high precision, the ``down_proj`` and ``v_proj``
-projections emerge as the most sensitive to quantization across models. These
-benefits also carry over to larger models (up to 8B parameters; see Appendix D
-of the paper).
+Analyzing which layers are most often kept at high precision, the ``down_proj``
+and ``v_proj`` projections emerge as the most sensitive to quantization across
+models. The paper also reports an MXFP6/MXFP4 configuration — which turns out to
+be more bit-width efficient still — and shows that these benefits carry over to
+larger models, up to 8B parameters (see the paper for both).
 
 
 How to Reproduce
@@ -307,13 +261,66 @@ are loaded through the LLM entrypoint's ``--custom-quantizer`` and
 it to your own problem usually means writing a small ``.py`` file rather than
 touching the library.
 
-Say you want to target a different pair of formats. The ``mxfp6_learned_float``
-quantizer is the template to copy: it starts from the same learned-bit-width base
-as ``learned_float`` but freezes the exponent and learns only the mantissa,
-turning an MXFP8/MXFP4 search into an MXFP6/MXFP4 one. Supporting a new hardware
-format pair is a matter of subclassing the quantizer in
-``learned_float_quantizer.py`` and deciding which of :math:`e` and :math:`m` are
-learned, along with the range :math:`\beta` is allowed to take.
+Say you want to target a different pair of formats. The ``learned_float``
+quantizer is the template to copy: it drives the MXFP8/MXFP4 search by learning
+both the exponent and the mantissa offset, and building a new quantizer is mostly
+a matter of picking which parameters are learnable and over what range. To make
+this concrete, the plugin already ships a variant, ``mxfp6_learned_float``, that
+reuses the very same learned-bit-width machinery but freezes the exponent and
+learns only the mantissa — the one change that turns an MXFP8/MXFP4 search into an
+MXFP6/MXFP4 one.
+
+The same recipe extends beyond floating point. Suppose you want dMX to choose,
+per layer, between INT8 and INT4 integer formats. Integer quantizers have a
+single ``bit_width`` to learn instead of separate exponent and mantissa fields,
+so the plugin is even simpler: start from Brevitas' integer quantizers, mark the
+bit-width as a learnable ``PARAMETER``, and let the shared ``RestrictBitWidth``
+module anneal it between the two admissible values.
+
+.. code:: python
+
+   # my_int_quantizer.py — register with:
+   #   --custom-quantizer my_int_quantizer.py:learned_int
+   from brevitas.core.bit_width import BitWidthImplType
+   from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+   from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+   from brevitas.utils.python_utils import Registry
+   from brevitas_examples.common.generative.quantizers import BaseQuantizer
+   from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
+
+   # Reuse the annealed, learnable bit-width restriction from the dMX plugin,
+   # this time bounded between INT4 (low) and INT8 (high).
+   from learned_float_quantizer import RestrictBitWidth
+
+
+   class LearnedIntBitWidth:
+       # Anneal the learnable bit-width between 4 and 8.
+       min_bit_width = 4
+       bit_width = 4
+       bit_width_min_val = 4
+       bit_width_max_val = 8
+       restrict_bit_width_impl = RestrictBitWidth
+       temperature = 0.4
+
+
+   class Int4to8LearnedbitWeight(Int8WeightPerChannelFloat, LearnedIntBitWidth):
+       bit_width_impl_type = BitWidthImplType.PARAMETER
+
+
+   class Int4to8LearnedbitAct(Int8ActPerTensorFloat, LearnedIntBitWidth):
+       bit_width_impl_type = BitWidthImplType.PARAMETER
+
+
+   @Registry.register(QUANTIZERS_REGISTRY, "learned_int")
+   class LearnedInt(BaseQuantizer):
+       weight_quant = Int4to8LearnedbitWeight
+       linear_input_quant = Int4to8LearnedbitAct
+
+The ``rotation_learned_bitwidth`` trainer, the temperature schedule, and the
+target-aware penalty all work unchanged — they only care that each layer exposes
+a learnable bit-width offset, not whether the underlying format is floating point
+or integer. The snippet above is illustrative rather than tuned; the exact ranges
+and starting formats are the knobs you would adjust for your own hardware target.
 
 Reshaping the objective is just as local. The bit-width penalty lives in
 ``custom_trainer.py``, so trading the target-aware penalty for the simple scaling
