@@ -1,0 +1,126 @@
+compile_ptq:
+- true
+custom_trainer:
+- rotation_learned_bitwidth
+convert_layernorm_to_rmsnorm:
+- false
+dataset:
+- fineweb
+dtype:
+- bfloat16
+eval:
+- true
+attn_quant_config:
+- qkvs
+few_shot_eval:
+- lighteval
+few_shot_zeroshot:
+- true
+gptq:
+- false
+qronos:
+- false
+qronos_alpha:
+- 1.0e-3
+gpxq_block_name:
+- model.layers
+gradient_accumulation_steps:
+- 4
+input_bit_width:
+- 4
+input_quant_format:
+- float_ocp_e2m1
+input_quant_granularity:
+- per_group
+input_quant_type:
+- sym
+input_scale_precision:
+- po2_scale
+input_group_size:
+- 32
+input_scale_type:
+- dynamic
+target_bit_width:
+- 4.1
+- 4.2
+- 4.3
+- 4.5
+- 4.6
+- 4.8
+- 5.
+- 5.3
+- 5.5
+- 5.7
+- 6
+- 6.3
+- 6.5
+- 6.7
+- 7.
+- 7.5
+- 8.
+rotation_lr:
+- 1.5
+log_on_each_node:
+- false
+logging_steps:
+- 10
+lr_scheduler_type:
+- cosine
+max_steps:
+- 600
+model:
+- meta-llama/Llama-3.2-3B
+- meta-llama/Llama-3.1-8B
+- Qwen/Qwen3-4B
+- Qwen/Qwen3-8B
+nsamples_rot_calibration:
+- 4800
+fine_tune:
+- true
+per_device_train_batch_size:
+- 2
+replace_rmsnorm:
+- true
+rotation:
+- fused_no_fx
+rotation_mode:
+- had
+rotation_orphan_sink:
+- true
+rotation_sdpa_regions:
+- true
+save_safetensors:
+- false
+weight_bit_width:
+- 4
+weight_quant_format:
+- float_ocp_e2m1
+weight_quant_granularity:
+- per_group
+weight_quant_type:
+- sym
+weight_scale_precision:
+- po2_scale
+weight_group_size:
+- 32
+scale_rounding_func_type:
+- floor
+delay_start:
+- 0.6
+gpxq_buffer_device:
+- 'same'
+few_shot_limit:
+- null
+few_shot_override_batch_size:
+- 32
+few_shot_tasks:
+- - arc:challenge|0
+  - winogrande|0
+  - arc:easy|0
+  - hellaswag_lm_eval|0
+optimizer_dtype:
+- float32
+custom_quantizer:
+- learned_float
+bw_learning_rate:
+- 2.
