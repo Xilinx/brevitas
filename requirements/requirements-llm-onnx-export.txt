@@ -1,5 +1,8 @@
 # Optional dependencies for ONNX QCDQ export of LLMs (brevitas_examples/llm).
-# `optimum` (via `optimum-onnx`) provides `onnx_export_from_model`. We install the
-# highest available version; note that `optimum-onnx` currently constrains
-# `transformers` to < 4.58, so this extra is not compatible with transformers >= 5.0.
+# `optimum` (via `optimum-onnx`) provides `onnx_export_from_model`. This workflow is
+# not compatible with transformers >= 4.58: newer optimum splits the ONNX exporter into
+# `optimum-onnx` (which pins transformers < 4.58), while older optimum (pre-split) still
+# imports symbols removed in transformers 5.x. We therefore pin transformers < 4.58
+# explicitly so the resolver reliably selects a compatible optimum + transformers pair.
 optimum[onnxruntime]
+transformers<4.58
