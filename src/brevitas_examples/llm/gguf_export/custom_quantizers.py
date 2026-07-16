@@ -83,65 +83,6 @@ class GGUFQ5_K(BaseQuantizer):
     weight_quant = _high_precision_for(GGUFQ5_KWeightQuant, GGUFQ6_KWeightQuant)
 
 
-# TODO: make this more flexible. Right now, Q4_K_S, Q4_K_M, and Q5_K_M are hard-coded
-# based on unsloth/Llama-3.2-1B-Instruct-GGUF's recipe.
-
-# Q4_K_S: attn_v layers 0-3 and ffn_down layers 0-1 bumped to Q5_K (rest stays Q4_K).
-_GGUFQ4_K_S_RECIPE = {
-    "model.layers.0.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.1.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.2.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.3.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.0.mlp.down_proj": GGUFQ5_KWeightQuant,
-    "model.layers.1.mlp.down_proj": GGUFQ5_KWeightQuant,}
-
-# Q4_K_M / Q5_K_M: attn_v AND ffn_down on these 8 layers bumped to Q6_K (rest stays base type).
-_GGUFQ4_K_M_RECIPE = {
-    "model.layers.0.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.1.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.4.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.7.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.10.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.13.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.14.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.15.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.0.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.1.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.4.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.7.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.10.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.13.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.14.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.15.mlp.down_proj": GGUFQ6_KWeightQuant,}
-
-# Same bumped layers as Q4_K_M, applied on top of a Q5_K base instead of Q4_K.
-_GGUFQ5_K_M_RECIPE = _GGUFQ4_K_M_RECIPE
-
-
-@Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_k_s")
-class GGUFQ4_K_S(BaseQuantizer):
-    """GGUF Q4_K_S: 4-bit super-blocks; attn_v[0-3]/ffn_down[0-1] at Q5_K; first/last at Q6_K."""
-    weight_quant = lambda module, name: (
-        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
-        _GGUFQ4_K_S_RECIPE.get(name, GGUFQ4_KWeightQuant))
-
-
-@Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_k_m")
-class GGUFQ4_K_M(BaseQuantizer):
-    """GGUF Q4_K_M: 4-bit super-blocks; attn_v/ffn_down on 8 layers at Q6_K; first/last at Q6_K."""
-    weight_quant = lambda module, name: (
-        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
-        _GGUFQ4_K_M_RECIPE.get(name, GGUFQ4_KWeightQuant))
-
-
-@Registry.register(QUANTIZERS_REGISTRY, "gguf_q5_k_m")
-class GGUFQ5_K_M(BaseQuantizer):
-    """GGUF Q5_K_M: 5-bit super-blocks; attn_v/ffn_down on 8 layers at Q6_K; first/last at Q6_K."""
-    weight_quant = lambda module, name: (
-        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
-        _GGUFQ5_K_M_RECIPE.get(name, GGUFQ5_KWeightQuant))
-
-
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q6_k")
 class GGUFQ6_K(BaseQuantizer):
     """GGUF Q6_K: signed 6-bit super-blocks with nested scales (uniform)."""
