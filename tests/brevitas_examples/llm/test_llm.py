@@ -21,6 +21,7 @@ import pytest
 import pytest_cases
 import torch
 from torch import nn
+import transformers
 
 from brevitas import config
 from brevitas import torch_version
@@ -143,6 +144,20 @@ def main(parser) -> Callable:
                    mock_load_raw_dataset):
             # Validate the arguments before running the entrypoint
             validate_args(parser, args)
+
+            # On torch < 2.7 + transformers >= 5.0, dynamo cannot trace
+            # func.__code__.co_varnames inside the transformers wrapper.
+            # Assert the guard in dynamo_export_ctx fires correctly, then skip.
+            use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
+            tr_ver = version.parse(transformers.__version__)
+            if use_fx and torch_version < version.parse("2.7") and tr_ver >= version.parse("5.0"):
+                with pytest.raises(RuntimeError, match="FX-based quantization.*is not supported"):
+                    quantize_llm(args, extra_args=extra_args)
+                pytest.skip(
+                    f"FX-based quantization not supported with "
+                    f"torch {torch_version} and transformers "
+                    f"{tr_ver}")
+
             results, model = quantize_llm(args, extra_args=extra_args)
         # Return the results along with the model
         return results, model
