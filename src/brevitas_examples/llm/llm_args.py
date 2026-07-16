@@ -446,10 +446,7 @@ def create_args_parser() -> ArgumentParser:
             'vllm',
             'shark',
             'onnx_qcdq',
-            'gguf:q8_0',
-            'gguf:q4_0',
-            'gguf:q4_1',
-            'gguf:q5_k',
+            'gguf',
             'sharded_torchmlir_group_weight',
             'sharded_packed_torchmlir_group_weight'],
         help='Model export.')
@@ -460,6 +457,11 @@ def create_args_parser() -> ArgumentParser:
         help=
         "Path prefix to use for the various export flows. If None, a path will be derived from the model name (default: %(default)s)"
     )
+    parser.add_argument(
+        '--export-filename',
+        type=str,
+        default=None,
+        help="Output filename for the export. Default: %(default)s")
     parser.add_argument(
         '--checkpoint-name',
         type=str,
