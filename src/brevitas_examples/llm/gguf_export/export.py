@@ -44,9 +44,11 @@ FTYPE_MAP: dict[str, gguf.LlamaFileType] = {
     "q4_0": gguf.LlamaFileType.MOSTLY_Q4_0,
     "q4_1": gguf.LlamaFileType.MOSTLY_Q4_1,
     "q4_k_s": gguf.LlamaFileType.MOSTLY_Q4_K_S,
+    "q4_k_m": gguf.LlamaFileType.MOSTLY_Q4_K_M,
     "q5_k": gguf.LlamaFileType.MOSTLY_Q5_K_S,
+    "q5_k_m": gguf.LlamaFileType.MOSTLY_Q5_K_M,
+    "q6_k": gguf.LlamaFileType.MOSTLY_Q6_K,
     "q2_k_s": gguf.LlamaFileType.MOSTLY_Q2_K_S,
-    "q8_0": gguf.LlamaFileType.MOSTLY_Q8_0,
     "auto": gguf.LlamaFileType.GUESSED,}
 
 
@@ -66,12 +68,17 @@ def save_quantized_as_gguf(
         tokenizer,
         backend="gguf:q4_0",
         override_model_tensors=None,
-        override_qtype=None):
+        override_qtype=None,
+        output_filename=None):
     """Export the model to gguf format.
 
     When ``override_model_tensors``/``override_qtype`` are None, no tensor qtype is
     overridden at export time: every tensor follows the quantization it already
     has (or the file type otherwise).
+
+    ``output_filename``, if given, is the exact filename to write (relative to
+    ``output_dir``), bypassing gguf-py's auto-derived ``<name>-<size_label>-<ftype>.gguf``
+    naming.
     """
     st = time.time()
 
@@ -98,11 +105,12 @@ def save_quantized_as_gguf(
         assert output_type.lower() in FTYPE_MAP, f"{output_type} is not supported"
         output_type = FTYPE_MAP.get(output_type.lower())
 
+        fname_out = Path(output_dir) / output_filename if output_filename else Path(output_dir)
         model_instance = model_class(
             model,
             dir_model=tmp_work_dir,
             ftype=output_type,
-            fname_out=Path(output_dir),
+            fname_out=fname_out,
             is_big_endian=False,
             model_name=model_name,
             split_max_tensors=False,

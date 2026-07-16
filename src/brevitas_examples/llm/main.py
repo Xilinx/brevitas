@@ -207,7 +207,8 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             tokenizer,
             args.export_target,
             override_model_tensors=None,
-            override_qtype=None)
+            override_qtype=None,
+            output_filename=args.export_filename)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 

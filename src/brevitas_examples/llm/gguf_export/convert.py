@@ -79,8 +79,10 @@ GGUF_FILE_QUANTIZATION_MAPPING = {
     gguf.LlamaFileType.MOSTLY_Q4_0: gguf.GGMLQuantizationType.Q4_0,
     gguf.LlamaFileType.MOSTLY_Q4_1: gguf.GGMLQuantizationType.Q4_1,
     gguf.LlamaFileType.MOSTLY_Q4_K_S: gguf.GGMLQuantizationType.Q4_K,
+    gguf.LlamaFileType.MOSTLY_Q4_K_M: gguf.GGMLQuantizationType.Q4_K,
     gguf.LlamaFileType.MOSTLY_Q5_K_S: gguf.GGMLQuantizationType.Q5_K,
     gguf.LlamaFileType.MOSTLY_Q5_K_M: gguf.GGMLQuantizationType.Q5_K,
+    gguf.LlamaFileType.MOSTLY_Q6_K: gguf.GGMLQuantizationType.Q6_K,
     gguf.LlamaFileType.MOSTLY_TQ1_0: gguf.GGMLQuantizationType.TQ1_0,
     gguf.LlamaFileType.MOSTLY_TQ2_0: gguf.GGMLQuantizationType.TQ2_0,}
 
