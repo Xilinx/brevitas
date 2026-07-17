@@ -25,6 +25,7 @@ from brevitas.graph.equalize import LayerwiseActivationRotation
 from brevitas.graph.permute import rotate_permute_mode
 from brevitas.graph.quantize import functional_quantization_mode
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import remove_weight_orig
 from brevitas.utils.logging import setup_logger
@@ -568,7 +569,14 @@ def quantize_llm(args, extra_args=None):
         sdpa_quant_map = {
             torch.nn.functional.scaled_dot_product_attention:
                 (sdpa_q_quant, sdpa_k_quant, sdpa_v_quant)}
-        quantization_cm = functional_quantization_mode(model, sdpa_quant_map)
+        # Preparation phase: create the SDPA quantizers by running one example
+        # forward, then apply them within the context manager below. SDPA has no
+        # weight parameters, so parametrization teardown is a no-op here, but we
+        # still request it for a clean one-shot usage.
+        fq_state = prepare_functional_quantization(
+            model, sdpa_quant_map, example_kwargs=next(iter(calibration_loader)))
+        quantization_cm = functional_quantization_mode(
+            fq_state, remove_parametrizations_on_exit=True)
     else:
         quantization_cm = nullcontext()
 

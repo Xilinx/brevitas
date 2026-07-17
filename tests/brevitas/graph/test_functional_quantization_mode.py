@@ -11,6 +11,7 @@ from torch.utils.checkpoint import checkpoint
 
 from brevitas.graph.quantize import _QuantParametrization
 from brevitas.graph.quantize import functional_quantization_mode
+from brevitas.graph.quantize import prepare_functional_quantization
 from brevitas.nn import QuantIdentity
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
@@ -139,45 +140,50 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        with functional_quantization_mode(model, quant_map):
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
+        state.remove_parametrizations()
         assert out.shape == (2, 3)
 
     def test_hooks_removed_on_exit(self):
-        """Test that all hooks are removed when the context manager exits."""
+        """Test that all application hooks are removed when the context manager exits."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        ctx = functional_quantization_mode(state)
         with ctx:
             model(x)
         assert len(ctx._hook_handles) == 0
+        state.remove_parametrizations()
 
-    def test_quantizers_created(self):
-        """Test that quantizers are created after forward pass."""
+    def test_quantizers_created_during_prepare(self):
+        """Test that quantizers are created during prepare, before any apply forward."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
-            model(x)
-        assert len(ctx._quantizers) > 0
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert len(state.quantizers) > 0
+        state.remove_parametrizations()
 
     def test_counters_reset_after_forward(self):
-        """Test that counters reset after each forward pass."""
+        """Test that application counters reset after each forward pass."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        ctx = functional_quantization_mode(state)
         with ctx:
             model(x)
             # After the forward pass, counters should have been reset
             for module_counters in ctx._counters.values():
                 for count in module_counters.values():
                     assert count == 0
+        state.remove_parametrizations()
 
     def test_multiple_forward_passes(self):
         """Test that multiple forward passes work correctly."""
@@ -185,10 +191,11 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out1 = model(x)
             out2 = model(x)
+        state.remove_parametrizations()
         assert out1.shape == (2, 3)
         assert out2.shape == (2, 3)
 
@@ -198,12 +205,13 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 2)
         # Each linear layer should have its own quantizer
-        assert len(ctx._quantizers) >= 2
+        assert len(state.quantizers) >= 2
+        state.remove_parametrizations()
 
     def test_multiple_calls_same_module(self):
         """Test counting multiple calls to F.linear within the same module."""
@@ -211,13 +219,14 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 2)
         # The block module calls F.linear twice, so should have 2 quantizers
-        block_quantizers = [k for k in ctx._quantizers.keys() if 'block' in k and 'linear' in k]
+        block_quantizers = [k for k in state.quantizers.keys() if 'block' in k and 'linear' in k]
         assert len(block_quantizers) == 2
+        state.remove_parametrizations()
 
     def test_disabled_mode(self):
         """Test that disabled mode passes through without quantization."""
@@ -229,9 +238,10 @@ class TestFunctionalQuantizationMode:
         with torch.no_grad():
             expected = model(x)
 
-        ctx = functional_quantization_mode(model, quant_map, enabled=False)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state, enabled=False):
             out = model(x)
+        state.remove_parametrizations()
         assert torch.allclose(expected, out)
 
     def test_quantizers_registered_as_submodules(self):
@@ -240,9 +250,7 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
-            model(x)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
 
         # Check that quantizers are accessible as model attributes
         found = False
@@ -251,6 +259,7 @@ class TestFunctionalQuantizationMode:
                 found = True
                 break
         assert found, "Quantizer modules should be registered on the model"
+        state.remove_parametrizations()
 
     def test_non_quantizable_function_passthrough(self):
         """Test that functions not in quant_map are not affected."""
@@ -269,8 +278,10 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        with functional_quantization_mode(model, quant_map):
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
+        state.remove_parametrizations()
         assert out.shape == (2, 3)
 
     def test_output_differs_from_unquantized(self):
@@ -282,12 +293,13 @@ class TestFunctionalQuantizationMode:
         with torch.no_grad():
             unquant_out = model(x)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with torch.no_grad(), ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with torch.no_grad(), functional_quantization_mode(state):
             # First pass initializes quantizers (calibration)
             model(x)
             # Second pass should use calibrated quantizers
             quant_out = model(x)
+        state.remove_parametrizations()
 
         # With quantization, outputs should generally differ from unquantized
         # (unless by chance they are identical, which is unlikely with large inputs)
@@ -296,19 +308,21 @@ class TestFunctionalQuantizationMode:
         assert quant_out.shape == unquant_out.shape
 
     def test_second_quantizer_with_parameter(self):
-        """Test that when a second quantizer is specified and the second arg is a parameter,
-        it is registered as a parametrization."""
+        """When a second quantizer is specified and the second arg is a parameter,
+        it is registered as a parametrization during prepare."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        # Parametrization is registered during prepare, independently of any apply block.
+        assert is_parametrized(model.linear, 'weight')
+        with functional_quantization_mode(state):
             out = model(x)
-            # During the forward pass, the weight should be parametrized
-            assert is_parametrized(model.linear, 'weight')
         assert out.shape == (2, 3)
-        # After exit, parametrizations should be removed
+        # Still parametrized after an apply block with the default teardown flag.
+        assert is_parametrized(model.linear, 'weight')
+        state.remove_parametrizations()
         assert not is_parametrized(model.linear, 'weight')
 
     def test_second_quantizer_creates_weight_quant_proxy(self):
@@ -317,27 +331,27 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
-            model(x)
-        wq_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        wq_quantizers = [k for k in state.quantizers.keys() if '_wq' in k]
         assert len(wq_quantizers) > 0, "Should have created weight quant proxy"
+        state.remove_parametrizations()
 
     def test_second_arg_non_parameter_uses_explicit_quant_type(self):
-        """Test that when the second argument is not a parameter and a tuple is provided,
+        """When the second argument is not a parameter and a tuple is provided,
         a QuantIdentity quantizer is created for the second arg."""
         model = BmmModel()
         quant_map = {torch.bmm: (Int8ActPerTensorFloat, Int8ActPerTensorFloat)}
         a = torch.randn(2, 3, 4)
         b = torch.randn(2, 4, 3)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(a, b))
+        with functional_quantization_mode(state):
             out = model(a, b)
         assert out.shape == (2, 3, 3)
         # Should have created quantizers for both args
-        arg1_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k]
+        arg1_quantizers = [k for k in state.quantizers.keys() if '_arg1' in k]
         assert len(arg1_quantizers) > 0
+        state.remove_parametrizations()
 
     def test_groupwise_activation_quantizer_with_explicit_group_dim(self):
         """Groupwise activation DI uses the explicitly specified group_dim."""
@@ -345,15 +359,16 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (MXInt8Act, {'group_dim': -1})}
         x = torch.randn(2, 64)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 16)
-        assert len(ctx._quantizers) == 1
-        quantizer = next(iter(ctx._quantizers.values()))
+        assert len(state.quantizers) == 1
+        quantizer = next(iter(state.quantizers.values()))
         assert isinstance(quantizer.act_quant, GroupwiseActQuantProxyFromInjector)
         assert quantizer.act_quant.group_size == 32
         assert quantizer.act_quant.group_dim == -1
+        state.remove_parametrizations()
 
     def test_per_channel_weight_quantizer_with_explicit_output_channel_dim(self):
         """Weight DI derives out_channels from the weight and explicit output_channel_dim."""
@@ -364,15 +379,16 @@ class TestFunctionalQuantizationMode:
                     'output_channel_dim': 0}))}
         x = torch.randn(2, 16)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.linear, 'weight')
+        weight_quantizers = [m for k, m in state.quantizers.items() if '_wq' in k]
+        assert len(weight_quantizers) == 1
+        scale = weight_quantizers[0].scale()
+        assert scale.shape == (8, 1)
+        with functional_quantization_mode(state):
             out = model(x)
-            assert is_parametrized(model.linear, 'weight')
-            weight_quantizers = [m for k, m in ctx._quantizers.items() if '_wq' in k]
-            assert len(weight_quantizers) == 1
-            scale = weight_quantizers[0].scale()
-            assert scale.shape == (8, 1)
         assert out.shape == (2, 8)
+        state.remove_parametrizations()
 
     def test_groupwise_weight_quantizer_with_explicit_transposed_group_dim(self):
         """Functional conv_transpose weight DI uses explicit group_dim/output_channel_dim."""
@@ -382,14 +398,15 @@ class TestFunctionalQuantizationMode:
                 'group_dim': 0, 'output_channel_dim': 1}))}
         x = torch.randn(2, 64, 8)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model, 'weight')
+        weight_quantizers = [m for k, m in state.quantizers.items() if '_wq' in k]
+        assert len(weight_quantizers) == 1
+        assert weight_quantizers[0].group_dim == 0
+        with functional_quantization_mode(state):
             out = model(x)
-            assert is_parametrized(model, 'weight')
-            weight_quantizers = [m for k, m in ctx._quantizers.items() if '_wq' in k]
-            assert len(weight_quantizers) == 1
-            assert weight_quantizers[0].group_dim == 0
         assert out.shape[1] == 16
+        state.remove_parametrizations()
 
     def test_bare_and_di_kwargs_spec_elements_coexist(self):
         """A bare quantizer and a (quantizer, di_kwargs) pair can be mixed in a spec."""
@@ -400,12 +417,13 @@ class TestFunctionalQuantizationMode:
                     'output_channel_dim': 0}))}
         x = torch.randn(2, 16)
 
-        ctx = functional_quantization_mode(model, quant_map)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
         # Bare element -> empty di_kwargs; paired element -> its dict.
-        assert ctx._arg_di_kwargs_map[F.linear] == [{}, {'output_channel_dim': 0}]
-        with ctx:
+        assert state.arg_di_kwargs_map[F.linear] == [{}, {'output_channel_dim': 0}]
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 8)
+        state.remove_parametrizations()
 
     def test_binary_op_three_quantizers_uses_runtime_second_quantizer(self):
         """Test that binary ops use the runtime second-input quantizer for tensor inputs."""
@@ -415,14 +433,15 @@ class TestFunctionalQuantizationMode:
         a = torch.randn(2, 3, 4)
         b = torch.randn(2, 4, 3)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(a, b))
+        with functional_quantization_mode(state):
             out = model(a, b)
         assert out.shape == (2, 3, 3)
-        runtime_second_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
-        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        runtime_second_quantizers = [k for k in state.quantizers.keys() if k.endswith('_arg1')]
+        weight_quantizers = [k for k in state.quantizers.keys() if '_wq' in k]
         assert len(runtime_second_quantizers) == 1
         assert len(weight_quantizers) == 0
+        state.remove_parametrizations()
 
     def test_binary_op_three_quantizers_uses_weight_quantizer_for_parameter(self):
         """Test that binary ops use the weight quantizer when the second input is a parameter."""
@@ -431,15 +450,16 @@ class TestFunctionalQuantizationMode:
             torch.matmul: (Int8ActPerTensorFloat, Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
             out = model(x)
-            assert is_parametrized(model, 'weight')
         assert out.shape == (2, 3)
-        runtime_second_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
-        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+        runtime_second_quantizers = [k for k in state.quantizers.keys() if k.endswith('_arg1')]
+        weight_quantizers = [k for k in state.quantizers.keys() if '_wq' in k]
         assert len(runtime_second_quantizers) == 0
         assert len(weight_quantizers) == 1
+        state.remove_parametrizations()
         assert not is_parametrized(model, 'weight')
 
     def test_second_arg_already_quant_tensor_skipped(self):
@@ -462,58 +482,79 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 3)
         # No weight quant proxy or _arg1 quantizer should have been created because
         # the second arg was already a QuantTensor
-        second_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k or '_wq' in k]
+        second_quantizers = [k for k in state.quantizers.keys() if '_arg1' in k or '_wq' in k]
         assert len(second_quantizers) == 0
+        state.remove_parametrizations()
 
-    def test_parametrization_removed_on_exit(self):
-        """Test that parametrizations registered during the context manager are removed."""
+    def test_parametrization_removed_on_exit_when_requested(self):
+        """With remove_parametrizations_on_exit=True, parametrizations are removed on exit."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        with functional_quantization_mode(model, quant_map):
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.linear, 'weight')
+        with functional_quantization_mode(state, remove_parametrizations_on_exit=True):
             model(x)
             assert is_parametrized(model.linear, 'weight')
 
         # After exiting, parametrization should be gone
         assert not is_parametrized(model.linear, 'weight')
 
-    def test_single_quantizer(self):
-        """Test that the old format {func: quant_class} works."""
-        model = SimpleLinearModel(4, 3)
-        quant_map = {F.linear: Int8ActPerTensorFloat}
-        x = torch.randn(2, 4)
-
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
-            out = model(x)
-        assert out.shape == (2, 3)
-        # No weight or _arg1 quantizers should be created when second quant is not specified
-        second_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k or '_wq' in k]
-        assert len(second_quantizers) == 0
-
-    def test_parametrization_persistent_across_forwards(self):
-        """Test that parametrization persists across multiple forward passes."""
+    def test_parametrization_persists_across_blocks_by_default(self):
+        """By default parametrizations survive multiple apply blocks and reuse one state."""
         model = SimpleLinearModel(4, 3)
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
+            model(x)
+        # Survives the first block ...
+        assert is_parametrized(model.linear, 'weight')
+        with functional_quantization_mode(state):
+            model(x)
+        # ... and the second block.
+        assert is_parametrized(model.linear, 'weight')
+        state.remove_parametrizations()
+        assert not is_parametrized(model.linear, 'weight')
+
+    def test_single_quantizer(self):
+        """Test that the {func: quant_class} format only quantizes the first arg."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: Int8ActPerTensorFloat}
+        x = torch.randn(2, 4)
+
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
+            out = model(x)
+        assert out.shape == (2, 3)
+        # No weight or _arg1 quantizers should be created when second quant is not specified
+        second_quantizers = [k for k in state.quantizers.keys() if '_arg1' in k or '_wq' in k]
+        assert len(second_quantizers) == 0
+        state.remove_parametrizations()
+
+    def test_parametrization_persistent_across_forwards(self):
+        """Test that parametrization persists across multiple forward passes in a block."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
+        x = torch.randn(2, 4)
+
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out1 = model(x)
-            # Parametrization should be registered after first forward
             assert is_parametrized(model.linear, 'weight')
             out2 = model(x)
-            # Still parametrized on second forward
             assert is_parametrized(model.linear, 'weight')
         assert out1.shape == (2, 3)
         assert out2.shape == (2, 3)
+        state.remove_parametrizations()
 
     def test_two_linear_with_second_quantizer(self):
         """Test two linear layers each getting weight parametrization."""
@@ -521,13 +562,14 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.linear1, 'weight')
+        assert is_parametrized(model.linear2, 'weight')
+        with functional_quantization_mode(state):
             out = model(x)
-            assert is_parametrized(model.linear1, 'weight')
-            assert is_parametrized(model.linear2, 'weight')
         assert out.shape == (2, 2)
-        # After exit, all parametrizations removed
+        state.remove_parametrizations()
+        # After teardown, all parametrizations removed
         assert not is_parametrized(model.linear1, 'weight')
         assert not is_parametrized(model.linear2, 'weight')
 
@@ -537,13 +579,12 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        with functional_quantization_mode(model, quant_map):
-            model(x)
-            # Check the parametrization type
-            assert is_parametrized(model.linear, 'weight')
-            param_list = list(model.linear.parametrizations.weight)
-            found = any(isinstance(p, _QuantParametrization) for p in param_list)
-            assert found, "Parametrization should use _QuantParametrization"
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.linear, 'weight')
+        param_list = list(model.linear.parametrizations.weight)
+        found = any(isinstance(p, _QuantParametrization) for p in param_list)
+        assert found, "Parametrization should use _QuantParametrization"
+        state.remove_parametrizations()
 
     def test_none_first_quantizer_skips_first_arg(self):
         """Test that specifying None as the first quantizer skips first-arg quantization."""
@@ -563,15 +604,16 @@ class TestFunctionalQuantizationMode:
         a = torch.randn(2, 3, 4)
         b = torch.randn(2, 4, 3)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(a, b))
+        with functional_quantization_mode(state):
             out = model(a, b)
         assert out.shape == (2, 3, 3)
         # Only second-arg quantizer should be created, not first-arg
-        first_quantizers = [k for k in ctx._quantizers.keys() if not k.endswith('_arg1')]
-        arg1_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
+        first_quantizers = [k for k in state.quantizers.keys() if not k.endswith('_arg1')]
+        arg1_quantizers = [k for k in state.quantizers.keys() if k.endswith('_arg1')]
         assert len(first_quantizers) == 0, "First-arg quantizer should not be created"
         assert len(arg1_quantizers) == 1, "Second-arg quantizer should be created"
+        state.remove_parametrizations()
 
     def test_none_first_with_explicit_second_quantizer(self):
         """Test that the explicit second quantizer class is used even when first is None."""
@@ -590,12 +632,13 @@ class TestFunctionalQuantizationMode:
         a = torch.randn(2, 3, 4)
         b = torch.randn(2, 4, 3)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(a, b))
+        with functional_quantization_mode(state):
             out = model(a, b)
         assert out.shape == (2, 3, 3)
         # The second arg quantizer should exist
-        assert len(ctx._quantizers) == 1
+        assert len(state.quantizers) == 1
+        state.remove_parametrizations()
 
     def test_sdpa_quantization_two_args(self):
         """Test quantizing scaled_dot_product_attention query and key only."""
@@ -617,12 +660,13 @@ class TestFunctionalQuantizationMode:
         k = torch.randn(1, 1, 4, 8)
         v = torch.randn(1, 1, 4, 8)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(q, k, v))
+        with functional_quantization_mode(state):
             out = model(q, k, v)
         assert out.shape == (1, 1, 4, 8)
         # 2 quantizers: one for query, one for key
-        assert len(ctx._quantizers) == 2
+        assert len(state.quantizers) == 2
+        state.remove_parametrizations()
 
     def test_sdpa_quantization_three_args(self):
         """Test quantizing scaled_dot_product_attention query, key, and value."""
@@ -646,18 +690,19 @@ class TestFunctionalQuantizationMode:
         k = torch.randn(1, 1, 4, 8)
         v = torch.randn(1, 1, 4, 8)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(q, k, v))
+        with functional_quantization_mode(state):
             out = model(q, k, v)
         assert out.shape == (1, 1, 4, 8)
         # 3 quantizers: query (arg0), key (arg1), value (arg2)
-        assert len(ctx._quantizers) == 3
-        arg0_keys = [k for k in ctx._quantizers if not '_arg' in k]
-        arg1_keys = [k for k in ctx._quantizers if '_arg1' in k]
-        arg2_keys = [k for k in ctx._quantizers if '_arg2' in k]
+        assert len(state.quantizers) == 3
+        arg0_keys = [k for k in state.quantizers if not '_arg' in k]
+        arg1_keys = [k for k in state.quantizers if '_arg1' in k]
+        arg2_keys = [k for k in state.quantizers if '_arg2' in k]
         assert len(arg0_keys) == 1
         assert len(arg1_keys) == 1
         assert len(arg2_keys) == 1
+        state.remove_parametrizations()
 
     def test_sdpa_none_query_quantize_key(self):
         """Test SDPA with None query quantizer and explicit key quantizer."""
@@ -679,14 +724,15 @@ class TestFunctionalQuantizationMode:
         k = torch.randn(1, 1, 4, 8)
         v = torch.randn(1, 1, 4, 8)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(q, k, v))
+        with functional_quantization_mode(state):
             out = model(q, k, v)
         assert out.shape == (1, 1, 4, 8)
         # Only 1 quantizer for key (second arg)
-        assert len(ctx._quantizers) == 1
-        arg1_keys = [k for k in ctx._quantizers if k.endswith('_arg1')]
+        assert len(state.quantizers) == 1
+        arg1_keys = [k for k in state.quantizers if k.endswith('_arg1')]
         assert len(arg1_keys) == 1
+        state.remove_parametrizations()
 
     def test_sdpa_none_query_quantize_key_and_value(self):
         """Test SDPA with None query quantizer, explicit key and value quantizers."""
@@ -709,16 +755,17 @@ class TestFunctionalQuantizationMode:
         k = torch.randn(1, 1, 4, 8)
         v = torch.randn(1, 1, 4, 8)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(q, k, v))
+        with functional_quantization_mode(state):
             out = model(q, k, v)
         assert out.shape == (1, 1, 4, 8)
         # 2 quantizers: key (arg1) and value (arg2)
-        assert len(ctx._quantizers) == 2
-        arg1_keys = [k for k in ctx._quantizers if '_arg1' in k]
-        arg2_keys = [k for k in ctx._quantizers if '_arg2' in k]
+        assert len(state.quantizers) == 2
+        arg1_keys = [k for k in state.quantizers if '_arg1' in k]
+        arg2_keys = [k for k in state.quantizers if '_arg2' in k]
         assert len(arg1_keys) == 1
         assert len(arg2_keys) == 1
+        state.remove_parametrizations()
 
     def test_nested_module_dots_in_name(self):
         """Test that nested modules with dots in their names are handled correctly."""
@@ -745,13 +792,14 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 3)
         # Quantizer key should not contain dots
-        for key in ctx._quantizers:
+        for key in state.quantizers:
             assert '.' not in key, f"Quantizer key should not contain dots: {key}"
+        state.remove_parametrizations()
 
     def test_lambda_spec_returns_quantizer_class(self):
         """Test that a lambda spec element resolves to a quantizer class and is applied."""
@@ -759,14 +807,15 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: lambda module, name, index: Int8ActPerTensorFloat}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 3)
         # A first-arg activation quantizer should have been created via the lambda
-        assert len(ctx._quantizers) == 1
-        quantizer = next(iter(ctx._quantizers.values()))
+        assert len(state.quantizers) == 1
+        quantizer = next(iter(state.quantizers.values()))
         assert isinstance(quantizer, QuantIdentity)
+        state.remove_parametrizations()
 
     def test_lambda_receives_module_name_and_index(self):
         """Test that the lambda receives the current module instance, name, and index."""
@@ -780,9 +829,7 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: resolver}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
-            model(x)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
 
         # Two F.linear calls in the same 'block' module -> indices 0 and 1
         assert len(received) == 2
@@ -793,6 +840,7 @@ class TestFunctionalQuantizationMode:
         assert indices == [0, 1]
         # The module instance passed must be the actual current nn.Module
         assert all(m is model.block for m in modules)
+        state.remove_parametrizations()
 
     def test_lambda_in_tuple_mixed_with_class_and_none(self):
         """Test that a lambda can be mixed with a quantizer class and None in a tuple."""
@@ -802,17 +850,18 @@ class TestFunctionalQuantizationMode:
             F.linear: (lambda module, name, index: Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model.linear, 'weight')
+        with functional_quantization_mode(state):
             out = model(x)
-            assert is_parametrized(model.linear, 'weight')
         assert out.shape == (2, 3)
         act_quantizers = [
             m for k,
-            m in ctx._quantizers.items() if '_wq' not in k and isinstance(m, QuantIdentity)]
-        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
+            m in state.quantizers.items() if '_wq' not in k and isinstance(m, QuantIdentity)]
+        weight_quantizers = [k for k in state.quantizers.keys() if '_wq' in k]
         assert len(act_quantizers) == 1
         assert len(weight_quantizers) == 1
+        state.remove_parametrizations()
 
     def test_lambda_returns_none_skips_arg(self):
         """Test that a lambda returning None skips quantization of that argument."""
@@ -820,12 +869,13 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: lambda module, name, index: None}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x)
         assert out.shape == (2, 3)
         # No quantizer should be created because the resolver returned None
-        assert len(ctx._quantizers) == 0
+        assert len(state.quantizers) == 0
+        state.remove_parametrizations()
 
     def test_lambda_in_binary_three_quantizer_weight_slot(self):
         """Test that a lambda can be used in the weight slot of a binary 3-quantizer spec."""
@@ -839,16 +889,74 @@ class TestFunctionalQuantizationMode:
                 index: Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        ctx = functional_quantization_mode(model, quant_map)
-        with ctx:
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        assert is_parametrized(model, 'weight')
+        with functional_quantization_mode(state):
             out = model(x)
-            assert is_parametrized(model, 'weight')
         assert out.shape == (2, 3)
-        weight_quantizers = [k for k in ctx._quantizers.keys() if '_wq' in k]
-        runtime_second_quantizers = [k for k in ctx._quantizers.keys() if k.endswith('_arg1')]
+        weight_quantizers = [k for k in state.quantizers.keys() if '_wq' in k]
+        runtime_second_quantizers = [k for k in state.quantizers.keys() if k.endswith('_arg1')]
         assert len(weight_quantizers) == 1
         assert len(runtime_second_quantizers) == 0
+        state.remove_parametrizations()
         assert not is_parametrized(model, 'weight')
+
+    def test_prepare_with_example_kwargs(self):
+        """prepare_functional_quantization accepts keyword example inputs."""
+
+        class KwargModel(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(4, 3)
+
+            def forward(self, x=None):
+                return self.linear(x)
+
+        model = KwargModel()
+        quant_map = {F.linear: Int8ActPerTensorFloat}
+        x = torch.randn(2, 4)
+
+        state = prepare_functional_quantization(model, quant_map, example_kwargs={'x': x})
+        assert len(state.quantizers) == 1
+        with functional_quantization_mode(state):
+            out = model(x=x)
+        assert out.shape == (2, 3)
+        state.remove_parametrizations()
+
+    def test_prepare_requires_example_inputs(self):
+        """prepare_functional_quantization requires at least one example input source."""
+        model = SimpleLinearModel(4, 3)
+        quant_map = {F.linear: Int8ActPerTensorFloat}
+        with pytest.raises(AssertionError):
+            prepare_functional_quantization(model, quant_map)
+
+    def test_unprepared_call_site_raises(self):
+        """Applying to a call site not seen during prepare fails fast."""
+
+        class MaybeSecondLinear(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.linear1 = nn.Linear(4, 3)
+                self.linear2 = nn.Linear(3, 2)
+
+            def forward(self, x, run_second=False):
+                x = self.linear1(x)
+                if run_second:
+                    x = self.linear2(x)
+                return x
+
+        model = MaybeSecondLinear()
+        quant_map = {F.linear: Int8ActPerTensorFloat}
+        x = torch.randn(2, 4)
+
+        # Prepare exercises only linear1 (run_second defaults to False).
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with pytest.raises(RuntimeError, match='No prepared quantizer'):
+            with functional_quantization_mode(state):
+                model(x, run_second=True)
+        state.remove_parametrizations()
 
     def test_gradient_checkpointing_without_context_fn_is_unsupported(self):
         """Without a context_fn, checkpointing is incompatible with the mode.
@@ -865,12 +973,12 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4, requires_grad=True)
 
-        with functional_quantization_mode(model, quant_map) as cm:
-            with torch.no_grad():
-                model(x)  # calibration (no recompute under no_grad)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             out = model(x, use_reentrant=False)
             with pytest.raises(CheckpointError):
                 out.sum().backward()
+        state.remove_parametrizations()
 
     def test_gradient_checkpointing_with_context_fn(self):
         """checkpoint_context_fn re-applies quantization during the recompute.
@@ -879,16 +987,14 @@ class TestFunctionalQuantizationMode:
         the interception fire during the backward recompute, so the saved-tensor
         counts match and the backward completes. We verify that gradients flow, the
         recompute does not create duplicate (mismatched-index) quantizers, and the
-        outer context manager's hooks/parametrizations survive the step.
+        outer context manager's hooks survive the step.
         """
         model = CheckpointedTwoLinearModel(4, 3, 2)
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4, requires_grad=True)
 
-        with functional_quantization_mode(model, quant_map) as cm:
-            # Calibrate first so the checkpointed forward is already steady-state.
-            with torch.no_grad():
-                model(x)
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state) as cm:
             num_hooks = len(cm._hook_handles)
 
             out = model(x, context_fn=cm.checkpoint_context_fn(), use_reentrant=False)
@@ -897,9 +1003,9 @@ class TestFunctionalQuantizationMode:
             # Each block calls F.linear exactly once, so counter alignment between
             # forward and recompute must keep every quantizer at call index 0: no
             # duplicate quantizers at index >= 1 should be created by the recompute.
-            for key in cm._quantizers:
+            for key in state.quantizers:
                 assert '_linear_1' not in key, f"Unexpected duplicated quantizer: {key}"
-            # The outer manager still owns its hooks and parametrizations.
+            # The outer manager still owns its hooks.
             assert len(cm._hook_handles) == num_hooks
             assert is_parametrized(model.block1, 'weight')
             assert is_parametrized(model.block2, 'weight')
@@ -908,7 +1014,7 @@ class TestFunctionalQuantizationMode:
         # Gradients must reach the model weights through the recomputed graph.
         assert model.block1.weight.grad is not None
         assert model.block2.weight.grad is not None
-        # After exit, parametrizations are removed.
+        state.remove_parametrizations()
         assert not is_parametrized(model.block1, 'weight')
         assert not is_parametrized(model.block2, 'weight')
 
@@ -930,16 +1036,17 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4, requires_grad=True)
 
-        with functional_quantization_mode(ckpt_model, quant_map) as cm:
-            with torch.no_grad():
-                ckpt_model(x)  # calibration
+        ckpt_state = prepare_functional_quantization(ckpt_model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(ckpt_state) as cm:
             ckpt_out = ckpt_model(x, context_fn=cm.checkpoint_context_fn(), use_reentrant=False)
             ckpt_out.sum().backward()
+        ckpt_state.remove_parametrizations()
 
+        plain_state = prepare_functional_quantization(plain_model, quant_map, example_inputs=(x,))
         with torch.no_grad():
-            with functional_quantization_mode(plain_model, quant_map):
-                plain_model(x)  # calibration
+            with functional_quantization_mode(plain_state):
                 plain_out = plain_model(x)
+        plain_state.remove_parametrizations()
 
         assert torch.allclose(ckpt_out.detach(), plain_out, atol=1e-6)
 
@@ -953,8 +1060,9 @@ class TestFunctionalQuantizationMode:
         quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerTensorFloat)}
         x = torch.randn(2, 4)
 
-        with functional_quantization_mode(model, quant_map):
+        state = prepare_functional_quantization(model, quant_map, example_inputs=(x,))
+        with functional_quantization_mode(state):
             with torch.no_grad():
-                model(x)  # calibration
                 out = model(x, use_reentrant=False)
+        state.remove_parametrizations()
         assert out.shape == (2, 2)

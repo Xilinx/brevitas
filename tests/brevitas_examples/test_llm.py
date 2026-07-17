@@ -315,7 +315,7 @@ def test_small_models_quant_layer_hyperparam(caplog, layer_args_hyperparam, main
 
     if args.quant_sdpa == "functional":
         # In functional mode, SDPA quantization is handled by QuantIdentity modules
-        # registered as submodules with the _fq_ prefix by functional_quantization_mode.
+        # registered as submodules with the _fq_ prefix by prepare_functional_quantization.
         # With kv config, query is not quantized while key and value are.
         fq_quantizers = [(name, m)
                          for name,
