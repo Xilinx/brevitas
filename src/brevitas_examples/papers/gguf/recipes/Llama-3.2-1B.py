@@ -4,8 +4,9 @@
 """
 Per-model GGUF mixed-precision recipes for Llama 3.2 1B (base or Instruct).
 
-The per-layer bump rules in ``_Q4_K_S_RECIPE`` and ``_Q4_K_M_RECIPE`` (used by
-``gguf_q4_k_s``, ``gguf_q4_k_m``, and ``gguf_q5_k_m``) are adapted from
+The per-layer bump rules in ``_Q4_0_RECIPE``, ``_Q4_K_S_RECIPE``, and
+``_Q4_K_M_RECIPE`` (used by ``gguf_q4_0``, ``gguf_q4_k_s``, ``gguf_q4_k_m``,
+and ``gguf_q5_k_m``) are adapted from
 llama.cpp's ``llama_tensor_get_type_impl`` in
 https://github.com/ggml-org/llama.cpp/blob/master/src/llama-quant.cpp,
 released under the following LICENSE:
@@ -40,6 +41,8 @@ Load via::
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
+from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_0WeightQuant
+from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_1WeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ5_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ6_KWeightQuant
@@ -47,6 +50,11 @@ from brevitas_examples.llm.gguf_export.custom_quantizers import is_first_or_last
 from brevitas_examples.papers.gguf.recipes.common import RecipeMixin
 
 _MODEL_NAME = "Llama-3.2-1B"
+
+# Q4_0: ffn_down on layers 0..(n_layer/8 - 1) bumped to Q4_1 (n_layer=16 -> 0-1).
+_Q4_0_RECIPE = {
+    "model.layers.0.mlp.down_proj": GGUFQ4_1WeightQuant,
+    "model.layers.1.mlp.down_proj": GGUFQ4_1WeightQuant,}
 
 # Q4_K_S: attn_v layers 0-3 and ffn_down layers 0-1 bumped to Q5_K (rest stays Q4_K).
 _Q4_K_S_RECIPE = {
@@ -75,6 +83,14 @@ _Q4_K_M_RECIPE = {
     "model.layers.13.mlp.down_proj": GGUFQ6_KWeightQuant,
     "model.layers.14.mlp.down_proj": GGUFQ6_KWeightQuant,
     "model.layers.15.mlp.down_proj": GGUFQ6_KWeightQuant,}
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_0")
+class GGUFQ4_0(RecipeMixin, BaseQuantizer):
+    expected_model_name = _MODEL_NAME
+    weight_quant = lambda module, name: (
+        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
+        _Q4_0_RECIPE.get(name, GGUFQ4_0WeightQuant))
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_k_s")
