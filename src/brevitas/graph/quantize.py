@@ -64,95 +64,26 @@ if torch_version >= version.parse('1.12'):
     # A lambda/callable that resolves a quantizer class at runtime from the current
     # module instance, its module name, and the per-(module, func) call index.
     QuantResolver = Callable[[nn.Module, str, int], Optional[Type]]
-    # A single spec element is either a quantizer class, a resolver callable, or None.
-    QuantSpecElement = Optional[Union[Type, QuantResolver]]
+    # A quantizer spec element is either a quantizer class, a resolver callable, or
+    # None. Optionally it may be paired with a dict of dependency-injection kwargs
+    # (e.g. ``group_dim``, ``output_channel_dim``) as ``(quantizer, di_kwargs)``.
+    QuantResolvable = Optional[Union[Type, QuantResolver]]
+    QuantSpecElement = Union[QuantResolvable, Tuple[QuantResolvable, Dict[str, Any]]]
     QuantSpecType = Union[QuantSpecElement, Tuple[QuantSpecElement, ...]]
-
-    class _FunctionalQuantModuleBase(nn.Module):
-        """Base shim used to preserve op metadata for functional quantization.
-
-        Dependency injection in Brevitas resolves several quantizer properties from the
-        tracked module. Functional quantization creates quantizers outside of concrete
-        quant layer modules, so this shim mirrors the relevant metadata from the
-        intercepted functional op.
-        """
-
-        def __init__(self, op_metadata: Dict[str, Any]) -> None:
-            super().__init__()
-            self.bias = None
-            self._op_metadata = dict(op_metadata)
-            self.functional_layer_kind = self._op_metadata.get('layer_kind')
-            self.transposed = self._op_metadata.get('transposed', False)
-
-        @property
-        def output_channel_dim(self) -> int:
-            return self._op_metadata.get('output_channel_dim', 0)
-
-        @property
-        def channelwise_separable(self) -> bool:
-            return False
-
-        @property
-        def per_elem_ops(self) -> int:
-            return 0
-
-    class _FunctionalActQuantModule(_FunctionalQuantModuleBase):
-        """Shim module for runtime activation quantization metadata only."""
-
-        def __init__(self, op_metadata: Dict[str, Any]) -> None:
-            super().__init__(op_metadata)
-
-    class _FunctionalWeightQuantModule(_FunctionalQuantModuleBase):
-        """Shim module for weight quantization metadata and weight-shaped properties."""
-
-        def __init__(self, weight: Tensor, op_metadata: Dict[str, Any]) -> None:
-            super().__init__(op_metadata)
-            self.weight = weight
-
-        @property
-        def out_channels(self) -> int:
-            return self.weight.shape[self.output_channel_dim]
-
-    class _FunctionalActQuantIdentity(QuantIdentity):
-        """QuantIdentity wrapper that exposes functional-op metadata to DI solvers."""
-
-        def __init__(
-                self, act_quant: Type, tracked_module: _FunctionalActQuantModule, **kwargs) -> None:
-            self.functional_layer_kind = tracked_module.functional_layer_kind
-            self.transposed = tracked_module.transposed
-            self._functional_output_channel_dim = tracked_module.output_channel_dim
-            super().__init__(act_quant=act_quant, **kwargs)
-
-        @property
-        def output_channel_dim(self) -> int:
-            return self._functional_output_channel_dim
 
     class _WeightQuantHolder(nn.Module):
         """Dummy module that holds a weight parameter so that
         WeightQuantProxyFromInjector can be instantiated through the standard
-        QuantProxyMixin path"""
+        QuantProxyMixin path.
 
-        def __init__(
-                self, weight: nn.Parameter, tracked_module: _FunctionalWeightQuantModule) -> None:
+        Only the weight tensor is exposed: any op-specific dependency-injection
+        attributes (e.g. ``output_channel_dim``, ``group_dim``) must be provided
+        explicitly on the quantizer via the ``quant_map`` spec."""
+
+        def __init__(self, weight: nn.Parameter) -> None:
             super().__init__()
             self.weight = weight
-            self.tracked_module = tracked_module
-
-        @property
-        def functional_layer_kind(self) -> Optional[str]:
-            return self.tracked_module.functional_layer_kind
-
-        @property
-        def transposed(self) -> bool:
-            return self.tracked_module.transposed
-
-        @property
-        def output_channel_dim(self) -> int:
-            return self.tracked_module.output_channel_dim
-
-        @property
-        def out_channels(self) -> int:
-            return self.tracked_module.out_channels
+            self.bias = None
 
     class _QuantParametrization(nn.Module):
         """Parametrization module that quantizes a parameter (e.g., weight) on-the-fly
@@ -186,6 +117,14 @@ if torch_version >= version.parse('1.12'):
                   position, mixed with quantizer classes and None. The quantizer
                   returned by a resolver is created once on first encounter and
                   reused on subsequent forwards (resolvers should be deterministic).
+                - A ``(quantizer, di_kwargs)`` tuple, where ``quantizer`` is any of
+                  the above and ``di_kwargs`` is a dict of dependency-injection
+                  overrides applied via ``quantizer.let(**di_kwargs)``. Functional
+                  quantization does not infer op metadata: any attribute the
+                  quantizer's dependency injection needs but cannot derive from the
+                  tensor itself must be supplied here. In particular, groupwise
+                  quantization requires ``group_dim`` and per-channel/groupwise
+                  weight quantization requires ``output_channel_dim``.
                 The supported spec shapes are:
                 - A single spec element for the first input tensor.
                 - A tuple of spec elements, one per positional argument.
@@ -238,13 +177,48 @@ if torch_version >= version.parse('1.12'):
             self._quant_map: Dict[Callable, QuantSpecType] = {}
             # Per-function list of spec elements per positional arg. Each element is a
             # quantizer class, a resolver callable, or None.
-            self._arg_quant_map: Dict[Callable, List[QuantSpecElement]] = {}
+            self._arg_quant_map: Dict[Callable, List[QuantResolvable]] = {}
+            # Per-function list of dependency-injection kwargs per positional arg,
+            # aligned with ``_arg_quant_map``. Empty dict when none are provided.
+            self._arg_di_kwargs_map: Dict[Callable, List[Dict[str, Any]]] = {}
             for func, spec in quant_map.items():
                 self._quant_map[func] = spec
-                if isinstance(spec, tuple):
-                    self._arg_quant_map[func] = list(spec)
+                # A spec is positional only if it is a tuple that is not itself a
+                # single ``(quantizer, di_kwargs)`` pair. This lets a lone spec
+                # element carry di_kwargs without being mistaken for a per-arg tuple.
+                if isinstance(spec, tuple) and not self._is_di_kwargs_pair(spec):
+                    spec_elements = list(spec)
                 else:
-                    self._arg_quant_map[func] = [spec]
+                    spec_elements = [spec]
+                quantizers: List[QuantResolvable] = []
+                di_kwargs: List[Dict[str, Any]] = []
+                for element in spec_elements:
+                    quantizer, kwargs = self._split_spec_element(element)
+                    quantizers.append(quantizer)
+                    di_kwargs.append(kwargs)
+                self._arg_quant_map[func] = quantizers
+                self._arg_di_kwargs_map[func] = di_kwargs
+
+        @staticmethod
+        def _is_di_kwargs_pair(element: Any) -> bool:
+            """Whether ``element`` is a ``(quantizer, di_kwargs)`` pair.
+
+            Only a 2-tuple whose second item is a dict qualifies; quantizer classes,
+            resolvers, and None are never dicts, so this is unambiguous."""
+            return (
+                isinstance(element, tuple) and len(element) == 2 and isinstance(element[1], dict))
+
+        @classmethod
+        def _split_spec_element(
+                cls, element: 'QuantSpecElement') -> Tuple['QuantResolvable', Dict[str, Any]]:
+            """Split a spec element into a ``(quantizer, di_kwargs)`` pair.
+
+            A spec element is either a bare quantizer/resolver/None, or a
+            ``(quantizer, di_kwargs)`` tuple. Bare elements get an empty di_kwargs
+            dict."""
+            if cls._is_di_kwargs_pair(element):
+                return element[0], dict(element[1])
+            return element, {}
 
         def _make_quantizer_key(
                 self, module_name: str, func: Callable, index: int, suffix: str = '') -> str:
@@ -265,56 +239,28 @@ if torch_version >= version.parse('1.12'):
                 pass
             return module
 
-        def _functional_op_metadata(self, func: Callable, arg_idx: int = 0) -> Dict[str, Any]:
-            """Build functional-op metadata consumed by dependency-injection solvers."""
-            transposed_funcs = {
-                torch.nn.functional.conv_transpose1d,
-                torch.nn.functional.conv_transpose2d,
-                torch.nn.functional.conv_transpose3d}
-            if func == torch.nn.functional.linear:
-                return {'layer_kind': 'linear', 'output_channel_dim': 0, 'transposed': False}
-            elif func in {torch.nn.functional.conv1d,
-                          torch.nn.functional.conv2d,
-                          torch.nn.functional.conv3d}:
-                return {'layer_kind': 'conv', 'output_channel_dim': 0, 'transposed': False}
-            elif func in transposed_funcs:
-                return {'layer_kind': 'conv', 'output_channel_dim': 1, 'transposed': True}
-            elif func in {torch.bmm, torch.matmul}:
-                return {'layer_kind': 'linear', 'output_channel_dim': 0, 'transposed': False}
-            elif func == torch.nn.functional.scaled_dot_product_attention:
-                if arg_idx == 1:
-                    return {'layer_kind': 'linear', 'output_channel_dim': 0, 'transposed': True}
-                return {'layer_kind': 'linear', 'output_channel_dim': 0, 'transposed': False}
-            return {'layer_kind': None, 'output_channel_dim': 0, 'transposed': False}
-
-        def _make_act_tracked_module(
-                self, func: Callable, arg_idx: int) -> _FunctionalActQuantModule:
-            op_metadata = self._functional_op_metadata(func, arg_idx)
-            return _FunctionalActQuantModule(op_metadata)
-
-        def _make_weight_tracked_module(
-                self, func: Callable, tensor: Tensor, arg_idx: int) -> _FunctionalWeightQuantModule:
-            op_metadata = self._functional_op_metadata(func, arg_idx)
-            return _FunctionalWeightQuantModule(tensor, op_metadata)
-
         def _create_act_quantizer(
-                self, quant_class: Type, func: Callable, tensor: Tensor,
-                arg_idx: int) -> QuantIdentity:
-            """Create a QuantIdentity quantizer for activation tensors."""
-            del tensor
-            tracked_module = self._make_act_tracked_module(func, arg_idx)
-            quantizer = _FunctionalActQuantIdentity(
-                act_quant=quant_class, tracked_module=tracked_module, return_quant_tensor=True)
+                self, quant_class: Type, di_kwargs: Dict[str, Any]) -> QuantIdentity:
+            """Create a QuantIdentity quantizer for activation tensors.
+
+            Any dependency-injection overrides (e.g. ``group_dim``) are applied to
+            the quantizer via ``let`` before instantiation."""
+            act_quant = quant_class.let(**di_kwargs) if di_kwargs else quant_class
+            quantizer = QuantIdentity(act_quant=act_quant, return_quant_tensor=True)
             quantizer.train(self.model.training)
             return self._move_to_model_device(quantizer)
 
         def _create_weight_quant_proxy(
-                self, quant_class: Type, weight_param: nn.Parameter, func: Callable,
-                arg_idx: int) -> nn.Module:
-            """Create a weight quantization proxy through an op-aware holder module."""
-            tracked_module = self._make_weight_tracked_module(func, weight_param, arg_idx)
-            holder = _WeightQuantHolder(weight_param, tracked_module)
-            quant_injector = quant_class.let()
+                self, quant_class: Type, weight_param: nn.Parameter,
+                di_kwargs: Dict[str, Any]) -> nn.Module:
+            """Create a weight quantization proxy through a weight-holder module.
+
+            Any dependency-injection overrides (e.g. ``output_channel_dim``,
+            ``group_dim``) are applied to the quantizer via ``let``. Attributes that
+            can be derived from the weight tensor (e.g. ``out_channels``,
+            ``weight_ndims``) are resolved by the solver from the holder's weight."""
+            holder = _WeightQuantHolder(weight_param)
+            quant_injector = quant_class.let(**di_kwargs) if di_kwargs else quant_class.let()
             proxy = quant_injector.proxy_class(holder, quant_injector)
             return self._move_to_model_device(proxy)
 
@@ -325,7 +271,7 @@ if torch_version >= version.parse('1.12'):
                 index: int,
                 arg_idx: int,
                 quant_class: Type,
-                arg: Tensor) -> QuantIdentity:
+                di_kwargs: Dict[str, Any]) -> QuantIdentity:
             """Get an existing activation quantizer or create a new one.
 
             Args:
@@ -334,12 +280,12 @@ if torch_version >= version.parse('1.12'):
                 index: Call index within this module for this function.
                 arg_idx: Positional argument index (0 = first arg, 1 = second, etc.).
                 quant_class: The quantizer class to use.
-                arg: Runtime tensor argument used to build the tracked-module metadata.
+                di_kwargs: Dependency-injection overrides applied to the quantizer.
             """
             suffix = '' if arg_idx == 0 else f'_arg{arg_idx}'
             key = self._make_quantizer_key(module_name, func, index, suffix=suffix)
             if key not in self._quantizers:
-                quantizer = self._create_act_quantizer(quant_class, func, arg, arg_idx)
+                quantizer = self._create_act_quantizer(quant_class, di_kwargs)
                 self._quantizers[key] = quantizer
                 if not hasattr(self.model, key):
                     self.model.add_module(key, quantizer)
@@ -361,10 +307,11 @@ if torch_version >= version.parse('1.12'):
                 module_name: str,
                 index: int,
                 arg_idx: int,
-                quant_class: Type) -> None:
+                quant_class: Type,
+                di_kwargs: Dict[str, Any]) -> None:
             """Register a quantization parametrization on the module that owns the parameter.
 
-            Creates an op-aware weight quant proxy, wraps it in a ``_QuantParametrization``,
+            Creates a weight quant proxy, wraps it in a ``_QuantParametrization``,
             and registers it on the parameter-owning module for the lifetime of the
             context manager.
 
@@ -375,6 +322,7 @@ if torch_version >= version.parse('1.12'):
                 index: Call index within this module for this function.
                 arg_idx: Positional argument index.
                 quant_class: The weight quantizer class to use.
+                di_kwargs: Dependency-injection overrides applied to the quantizer.
             """
             data_ptr = param_tensor.data_ptr()
             if data_ptr not in self._param_to_module:
@@ -388,7 +336,7 @@ if torch_version >= version.parse('1.12'):
 
             # Create weight quant proxy through the standard path
             weight_quant_proxy = self._create_weight_quant_proxy(
-                quant_class, param_tensor, func, arg_idx)
+                quant_class, param_tensor, di_kwargs)
 
             # Store for state tracking
             suffix = f'_arg{arg_idx}_wq' if arg_idx > 1 else '_wq'
@@ -478,7 +426,7 @@ if torch_version >= version.parse('1.12'):
             return isinstance(t, QuantTensor)
 
         def _resolve_spec_element(
-                self, elem: 'QuantSpecElement', module: nn.Module, module_name: str,
+                self, elem: 'QuantResolvable', module: nn.Module, module_name: str,
                 index: int) -> Optional[Type]:
             """Resolve a spec element to a concrete quantizer class.
 
@@ -497,34 +445,36 @@ if torch_version >= version.parse('1.12'):
                 return elem(module, module_name, index)
             return elem
 
-        def _fallback_spec_element(self, func: Callable) -> 'QuantSpecElement':
-            """Return the first non-None spec element in the arg list for ``func``."""
-            for spec_element in self._arg_quant_map.get(func, []):
+        def _fallback_spec_index(self, func: Callable) -> Optional[int]:
+            """Return the index of the first non-None spec element for ``func``."""
+            for idx, spec_element in enumerate(self._arg_quant_map.get(func, [])):
                 if spec_element is not None:
-                    return spec_element
+                    return idx
             return None
 
-        def _effective_spec_element(
-                self, func: Callable, arg_idx: int, num_args: int,
-                is_param: bool) -> 'QuantSpecElement':
-            """Select the spec element to use for a positional argument.
+        def _di_kwargs_at(self, func: Callable, spec_idx: int) -> Dict[str, Any]:
+            """Return the dependency-injection kwargs for a resolved spec index."""
+            di_kwargs = self._arg_di_kwargs_map.get(func, [])
+            if spec_idx is None or spec_idx >= len(di_kwargs):
+                return {}
+            return di_kwargs[spec_idx]
+
+        def _effective_spec_index(
+                self, func: Callable, arg_idx: int, num_args: int, is_param: bool) -> Optional[int]:
+            """Select the spec-list index to use for a positional argument.
 
             By default, quantizer specs are positional. For binary functions only,
             a 3-element spec is also supported with the layout
             ``(arg0_runtime_quant, arg1_runtime_quant, arg1_weight_quant)`` so that
             the second argument can use a different quantizer depending on whether it
             is a runtime tensor or a parameter.
-
-            The returned value is a raw spec element (quantizer class, resolver
-            callable, or ``None``); use ``_resolve_spec_element`` to obtain a
-            concrete quantizer class.
             """
             spec_elements = self._arg_quant_map.get(func, [])
             if arg_idx >= len(spec_elements):
                 return None
             if num_args == 2 and len(spec_elements) == 3 and arg_idx == 1:
-                return spec_elements[2] if is_param else spec_elements[1]
-            return spec_elements[arg_idx]
+                return 2 if is_param else 1
+            return arg_idx
 
         def _quantize_arg(
                 self,
@@ -554,15 +504,17 @@ if torch_version >= version.parse('1.12'):
                 return
 
             is_param = isinstance(arg, nn.Parameter) or arg.data_ptr() in self._param_to_module
-            spec_element = self._effective_spec_element(func, arg_idx, len(args), is_param)
+            spec_idx = self._effective_spec_index(func, arg_idx, len(args), is_param)
+            spec_element = None if spec_idx is None else self._arg_quant_map[func][spec_idx]
             quant_class = self._resolve_spec_element(
                 spec_element, current_module, current_module_name, index)
+            di_kwargs = self._di_kwargs_at(func, spec_idx)
 
             if arg_idx == 0:
                 # First argument: always use an activation quantizer
                 if quant_class is not None:
                     quantizer = self._get_or_create_act_quantizer(
-                        current_module_name, func, index, arg_idx, quant_class, arg)
+                        current_module_name, func, index, arg_idx, quant_class, di_kwargs)
                     args[arg_idx] = quantizer(arg)
             else:
                 # Subsequent arguments: handle parameter vs non-parameter
@@ -588,7 +540,7 @@ if torch_version >= version.parse('1.12'):
                     # we must also quantize explicitly. On subsequent forwards the
                     # parametrization handles it automatically.
                     self._register_weight_parametrization(
-                        arg, func, current_module_name, index, arg_idx, quant_class)
+                        arg, func, current_module_name, index, arg_idx, quant_class, di_kwargs)
                     self._parametrized_slots.add(param_slot)
                     weight_quant_proxy = self._quantizers[wq_key]
                     args[arg_idx] = weight_quant_proxy(arg)
@@ -597,15 +549,23 @@ if torch_version >= version.parse('1.12'):
                     # Use the explicit quantizer class if provided,
                     # otherwise fall back to the first non-None spec element.
                     effective_class = quant_class
+                    effective_di_kwargs = di_kwargs
                     if effective_class is None:
+                        fallback_idx = self._fallback_spec_index(func)
+                        fallback_element = (
+                            None
+                            if fallback_idx is None else self._arg_quant_map[func][fallback_idx])
                         effective_class = self._resolve_spec_element(
-                            self._fallback_spec_element(func),
-                            current_module,
-                            current_module_name,
-                            index)
+                            fallback_element, current_module, current_module_name, index)
+                        effective_di_kwargs = self._di_kwargs_at(func, fallback_idx)
                     if effective_class is not None:
                         quantizer = self._get_or_create_act_quantizer(
-                            current_module_name, func, index, arg_idx, effective_class, arg)
+                            current_module_name,
+                            func,
+                            index,
+                            arg_idx,
+                            effective_class,
+                            effective_di_kwargs)
                         args[arg_idx] = quantizer(arg)
 
         def __torch_function__(

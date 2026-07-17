@@ -38,11 +38,13 @@ class SolveWeightTensorQuantFromEnum(SolveIntQuantFromEnum):
 class SolveWeightScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
     @value
-    def out_channels(module):
+    def out_channels(module, output_channel_dim):
         if isinstance(module, tuple):
-            assert all(m.out_channels == module[0].out_channels for m in module)
+            assert all(
+                m.weight.shape[output_channel_dim] == module[0].weight.shape[output_channel_dim]
+                for m in module)
             module = module[0]
-        return module.out_channels
+        return module.weight.shape[output_channel_dim]
 
     @value
     def weight_ndims(module):

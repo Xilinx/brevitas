@@ -339,10 +339,10 @@ class TestFunctionalQuantizationMode:
         arg1_quantizers = [k for k in ctx._quantizers.keys() if '_arg1' in k]
         assert len(arg1_quantizers) > 0
 
-    def test_groupwise_activation_quantizer_keeps_functional_layer_metadata(self):
-        """Test that groupwise activation DI still resolves module-dependent metadata."""
+    def test_groupwise_activation_quantizer_with_explicit_group_dim(self):
+        """Groupwise activation DI uses the explicitly specified group_dim."""
         model = SimpleLinearModel(64, 16)
-        quant_map = {F.linear: MXInt8Act}
+        quant_map = {F.linear: (MXInt8Act, {'group_dim': -1})}
         x = torch.randn(2, 64)
 
         ctx = functional_quantization_mode(model, quant_map)
@@ -353,11 +353,15 @@ class TestFunctionalQuantizationMode:
         quantizer = next(iter(ctx._quantizers.values()))
         assert isinstance(quantizer.act_quant, GroupwiseActQuantProxyFromInjector)
         assert quantizer.act_quant.group_size == 32
+        assert quantizer.act_quant.group_dim == -1
 
-    def test_per_channel_weight_quantizer_keeps_linear_metadata(self):
-        """Test that weight DI resolves out_channels/output_channel_dim for F.linear."""
+    def test_per_channel_weight_quantizer_with_explicit_output_channel_dim(self):
+        """Weight DI derives out_channels from the weight and explicit output_channel_dim."""
         model = SimpleLinearModel(16, 8)
-        quant_map = {F.linear: (Int8ActPerTensorFloat, Int8WeightPerChannelFloat)}
+        quant_map = {
+            F.linear:
+                (Int8ActPerTensorFloat, (Int8WeightPerChannelFloat, {
+                    'output_channel_dim': 0}))}
         x = torch.randn(2, 16)
 
         ctx = functional_quantization_mode(model, quant_map)
@@ -370,10 +374,12 @@ class TestFunctionalQuantizationMode:
             assert scale.shape == (8, 1)
         assert out.shape == (2, 8)
 
-    def test_groupwise_weight_quantizer_keeps_transposed_metadata(self):
-        """Test that functional conv_transpose weight DI preserves transposed metadata."""
+    def test_groupwise_weight_quantizer_with_explicit_transposed_group_dim(self):
+        """Functional conv_transpose weight DI uses explicit group_dim/output_channel_dim."""
         model = FunctionalConvTranspose1dModel()
-        quant_map = {F.conv_transpose1d: (None, MXInt8Weight)}
+        quant_map = {
+            F.conv_transpose1d: (None, (MXInt8Weight, {
+                'group_dim': 0, 'output_channel_dim': 1}))}
         x = torch.randn(2, 64, 8)
 
         ctx = functional_quantization_mode(model, quant_map)
@@ -384,6 +390,22 @@ class TestFunctionalQuantizationMode:
             assert len(weight_quantizers) == 1
             assert weight_quantizers[0].group_dim == 0
         assert out.shape[1] == 16
+
+    def test_bare_and_di_kwargs_spec_elements_coexist(self):
+        """A bare quantizer and a (quantizer, di_kwargs) pair can be mixed in a spec."""
+        model = SimpleLinearModel(16, 8)
+        quant_map = {
+            F.linear:
+                (Int8ActPerTensorFloat, (Int8WeightPerChannelFloat, {
+                    'output_channel_dim': 0}))}
+        x = torch.randn(2, 16)
+
+        ctx = functional_quantization_mode(model, quant_map)
+        # Bare element -> empty di_kwargs; paired element -> its dict.
+        assert ctx._arg_di_kwargs_map[F.linear] == [{}, {'output_channel_dim': 0}]
+        with ctx:
+            out = model(x)
+        assert out.shape == (2, 8)
 
     def test_binary_op_three_quantizers_uses_runtime_second_quantizer(self):
         """Test that binary ops use the runtime second-input quantizer for tensor inputs."""

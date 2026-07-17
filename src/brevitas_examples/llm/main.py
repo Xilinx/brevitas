@@ -563,6 +563,8 @@ def quantize_llm(args, extra_args=None):
     # If we are doing functional SDPA quantization, we create the correct context manager,
     # otherwise nullcontext. We would love to avoid the extra indentation level but it doesn't seem easy.
     if args.quant_sdpa == "functional":
+        # The Q/K/V quantizers already carry their dependency-injection attributes
+        # (e.g. group_dim) via let(), so no extra DI kwargs are needed in the spec.
         sdpa_quant_map = {
             torch.nn.functional.scaled_dot_product_attention:
                 (sdpa_q_quant, sdpa_k_quant, sdpa_v_quant)}
