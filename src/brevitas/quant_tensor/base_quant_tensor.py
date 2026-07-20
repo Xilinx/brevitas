@@ -39,10 +39,6 @@ class QuantTensor(Tensor):
         # Use as_subclass to preserve grad_fn and requires_grad.
         return Tensor.as_subclass(self, Tensor)
 
-    @property
-    def tensor(self):
-        return self.value
-
     # Mapping from _fields names to constructor parameter names.
     # Override in subclasses where they differ (e.g. groupwise: scale_ -> scale).
     _field_to_constructor_param = {}
