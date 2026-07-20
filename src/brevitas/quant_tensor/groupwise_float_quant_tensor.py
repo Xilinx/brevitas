@@ -199,10 +199,6 @@ class GroupwiseFloatQuantTensor(FloatMixin, QuantTensor):
         return new_value
 
     @property
-    def tensor(self):
-        return self.value
-
-    @property
     def value(self):
         new_value, _, _ = self.expand(expand_metadata=False)
         return new_value
