@@ -26,6 +26,19 @@ class RoundSte(brevitas.jit.ScriptModule):
         return round_ste(x)
 
 
+class RoundRDFS(torch.nn.Module):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.round_rdfs`.
+    """
+
+    def __init__(self) -> None:
+        super(RoundRDFS, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return round_rdfs(x)
+
+
 class FloorSte(brevitas.jit.ScriptModule):
     """
     ScriptModule wrapper for :func:`~brevitas.function.ops_ste.floor_ste`.

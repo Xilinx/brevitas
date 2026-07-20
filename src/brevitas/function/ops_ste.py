@@ -23,6 +23,7 @@ from brevitas.function.ops import tensor_clamp_
 
 __all__ = [
     'round_ste',
+    'round_rdfs',
     'ceil_ste',
     'floor_ste',
     'tensor_clamp_ste',
@@ -65,6 +66,21 @@ def round_ste(x: Tensor) -> Tensor:
     if torch._C._get_tracing_state():
         return torch.round(x)
     return fn_prefix.ops.autograd_ste_ops.round_ste_impl(x)
+
+
+@script_flag
+def round_rdfs(x: Tensor) -> Tensor:
+    """
+    Function that implements :func:`torch.round` with a fourier approximation for gradient estimation.
+
+    Notes:
+        Wrapper for :func:`~brevitas.ops.autograd_ste_ops.round_rdfs_impl` (with env
+        ``BREVITAS_JIT=0``).
+        This function does not have a native just-in-time compiled variant (with ``BREVITAS_JIT=1``).
+    """
+    if torch._C._get_tracing_state():
+        return torch.round(x)
+    return fn_prefix.ops.autograd_ste_ops.round_rdfs_impl(x)
 
 
 @script_flag
