@@ -33,6 +33,33 @@ from brevitas_examples.common.trainer_utils import parse_optimizer_class
 # these under ``get_param_fn``.
 ParamsFn = Callable[[torch.nn.Module, "transformers.TrainingArguments"], List[torch.nn.Parameter]]
 
+
+def _json_safe(value: Any) -> Any:
+    """Return a JSON-serializable deep copy of ``value``.
+
+    ``TrainingArguments`` may carry values that ``json.dumps`` cannot handle --
+    most notably the ``get_param_fn`` callables and the optimizer/scheduler class
+    objects stored inside ``optimizer_scheduler_args``. This helper recursively
+    converts such values into serializable equivalents:
+
+    * ``dict`` / ``list`` / ``tuple`` are traversed recursively.
+    * callables (functions, classes, lambdas, ``functools.partial``) are replaced
+      by their ``__name__`` when available, otherwise ``str(value)``.
+    * JSON-native scalars (``str``, ``int``, ``float``, ``bool``, ``None``) are
+      returned unchanged.
+    * anything else falls back to ``str(value)``.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if callable(value):
+        return getattr(value, "__name__", str(value))
+    return str(value)
+
+
 # Single registry for out-of-source customization of the training process.
 # Users register a custom Trainer class under a config name via a plugin .py
 # file. The Trainer class may expose a ``training_args_cls`` class attribute to
@@ -325,6 +352,11 @@ class TrainingArguments(transformers.TrainingArguments):
         metadata={"help": "Consider the first K logits when computing distillation loss"})
     kl_loss_reduction: str = field(
         default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
+
+    def to_dict(self):
+        # Sanitize non-JSON-serializable fields (e.g. callables in
+        # optimizer_scheduler_args) so to_json_string() works during logging.
+        return {k: _json_safe(v) for k, v in super().to_dict().items()}
 
 
 class GeneralizedTrainer(Trainer):
