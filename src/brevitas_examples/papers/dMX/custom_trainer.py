@@ -242,8 +242,7 @@ class RotationLearnedBitWidthTrainingArguments(TrainingArguments):
             self.optimizer_scheduler_args = [
                 # Optimizer 0: CaileySGD for rotation matrices
                 {
-                    "optimizer_cls":
-                        "CaileySGD",
+                    "optimizer_cls": "CaileySGD",
                     "param_setup": [{
                         "get_param_fn": _get_rotation_params,
                         "optimizer_kwargs": {
@@ -251,12 +250,11 @@ class RotationLearnedBitWidthTrainingArguments(TrainingArguments):
                             "stiefel": True,
                             "dtype": self.optimizer_dtype,},}],
                     "scheduler_cls": "ConstantLR",
-                    "scheduler_kwargs":  {"factor": 1.}
-                    },
+                    "scheduler_kwargs": {
+                        "factor": 1.}},
                 # Optimizer 1: SGD for bit-width parameters
                 {
-                    "optimizer_cls":
-                        "SGD",
+                    "optimizer_cls": "SGD",
                     "param_setup": [{
                         "get_param_fn": _get_bit_width_params,
                         "optimizer_kwargs": {
@@ -265,8 +263,8 @@ class RotationLearnedBitWidthTrainingArguments(TrainingArguments):
                             "weight_decay": 0.,
                             "nesterov": True,},}],
                     "scheduler_cls": "ConstantLR",
-                    "scheduler_kwargs":  {"factor": 1.}
-                    },]
+                    "scheduler_kwargs": {
+                        "factor": 1.}},]
 
 
 # ---------------------------------------------------------------------------
