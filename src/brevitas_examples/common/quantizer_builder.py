@@ -23,15 +23,20 @@ from torch import nn
 
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.function_wrapper.ops_ste import FloorSte
+from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
+from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
+from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import MSE
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
 from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
+from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.core.zero_point import ParameterZeroPoint
+from brevitas.core.zero_point import RuntimeDynamicGroupZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
@@ -44,11 +49,15 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import DynamicActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
+from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.float_base import ScaledFloatActBase
 from brevitas.quant.float_base import ScaledFloatWeightBase
 from brevitas.quant.float_quant_fnuz import FpFNUZMixin
@@ -65,6 +74,8 @@ from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
 from brevitas.quant.solver.weight import WeightQuantSolver
 from brevitas.utils.float_quant_utils import get_midmax_mantissa_bit_bias
 from brevitas.utils.python_utils import AutoName
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsScaling
+from brevitas_examples.common.generative.quant_blocks import RuntimeDynamicStatsZeroPoint
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 
 EnumTypeVar = TypeVar('EnumTypeVar')
@@ -135,15 +146,17 @@ class AsymMixin(ExtendedInjector):
     # zero-point, regardless of whether the scale is STATS/MSE/HQO.
     @value
     def zero_point_impl(
-            zero_point_impl_type: EnumType[ScalingImplType] = None) -> Optional[Type[nn.Module]]:
-        if zero_point_impl_type is None or zero_point_impl_type == ScalingImplType.STATS:
+            zero_point_impl_type: EnumType[ZeroPointImplType] = None) -> Optional[Type[nn.Module]]:
+        if zero_point_impl_type is None or zero_point_impl_type == ZeroPointImplType.STATS:
             return StatsFromParameterZeroPoint
-        elif zero_point_impl_type == ScalingImplType.PARAMETER:
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
             return ParameterZeroPoint
-        elif zero_point_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_STATS:
             return ParameterFromStatsFromParameterZeroPoint
-        elif zero_point_impl_type == ScalingImplType.AFFINE_STATS:
-            return StatsFromParameterZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_RUNTIME:
+            return ParameterFromRuntimeZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.ZERO:
+            return ZeroZeroPoint
         else:
             warnings.warn(
                 f"Defaulting to ZeroZeroPoint for unrecognized zero_point_impl_type {zero_point_impl_type}."
@@ -362,6 +375,11 @@ class BaseQuantizerBuilder(ABC):
     quant type, ...) without committing to whether it quantizes weights or
     activations, so the same infrastructure can be shared by both.
 
+    Convention: every ``_build_*`` override calls ``super()`` **first**, then
+    applies its own ``namespace`` / ``base_classes`` modifications. This way the
+    most-derived builder always has the final say over any ``namespace`` key,
+    making override precedence easy to reason about.
+
     For now this is a minimal stub: the public API is fixed so tests can be
     written against it, but the actual building logic is not implemented yet.
     """
@@ -414,7 +432,8 @@ class BaseQuantizerBuilder(ABC):
         base_classes = base_classes + self._solver_base_classes()
 
         namespace: Dict[str, Any] = self._build_base_namespace()
-        base_classes = self._build_proxy_class(namespace, base_classes)
+        # The proxy class is provided by the concrete builder (weight vs activation)
+        namespace['proxy_class'] = self._proxy_class()
 
         # Enable the scaling parameter method (MSE / HQO) if specified
         base_classes = self._build_scaling_param_method(namespace, base_classes)
@@ -512,8 +531,7 @@ class BaseQuantizerBuilder(ABC):
         return base_classes
 
     @abstractmethod
-    def _build_proxy_class(self, namespace: Dict[str, Any],
-                           base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+    def _proxy_class(self) -> Type[nn.Module]:
         pass
 
     @abstractmethod
@@ -532,41 +550,96 @@ class WeightQuantizerBuilder(BaseQuantizerBuilder):
 class InputQuantizerBuilder(BaseQuantizerBuilder):
     """Kind axis: quantizes *inputs/activations*.
 
-    Adds the activation-specific ``scale_type`` axis and the static runtime
-    percentile scaling. Currently only ``ScaleType.STATIC`` is implemented.
+    Adds the activation-specific ``scale_type`` axis. ``ScaleType.STATIC``
+    (runtime percentile scaling stored as a parameter) and ``ScaleType.DYNAMIC``
+    (scale recomputed per-forward) are supported; ``ScaleType.NO_SCALE`` is not
+    implemented yet.
     """
 
     def __init__(
             self, *, scale_type: Union[str, ScaleType] = ScaleType.STATIC, **kwargs: Any) -> None:
         self.scale_type: Union[str, ScaleType] = scale_type
-        if ScaleType(self.scale_type) != ScaleType.STATIC:
+        if ScaleType(self.scale_type) not in (ScaleType.STATIC, ScaleType.DYNAMIC):
             raise NotImplementedError(
                 f"Input quantization scale_type {self.scale_type} is not supported yet.")
         super().__init__(**kwargs)
 
+    def _is_static(self) -> bool:
+        return ScaleType(self.scale_type) == ScaleType.STATIC
+
+    def _is_dynamic(self) -> bool:
+        return ScaleType(self.scale_type) == ScaleType.DYNAMIC
+
+    def _is_groupwise(self) -> bool:
+        return self.scaling_per_output_type == ScalingPerOutputType.GROUP
+
     def _build_base_namespace(self) -> Dict[str, Any]:
         namespace: Dict[str, Any] = super()._build_base_namespace()
-        # Static activation scaling uses runtime percentile statistics stored as
-        # a learned parameter.
+        # Static scaling learns a runtime-percentile scale stored as a parameter;
+        # dynamic scaling wires a runtime scaling impl recomputed per-forward. The
+        # scaling_stats_op (MAX vs MIN_MAX) is provided by the sym/asym mixins.
         if ScaleType(self.scale_type) == ScaleType.STATIC:
-            # TODO (pml): Verify if other scale types (DYNAMIC, NO_SCALE) can
-            # share some of these attributes.
-            namespace['scaling_impl_type'] = ScalingImplType.PARAMETER_FROM_STATS
-            namespace['high_percentile_q'] = 99.999
-            namespace['collect_stats_steps'] = 300
+            self._build_static_scaling(namespace)
+        elif ScaleType(self.scale_type) == ScaleType.DYNAMIC:
+            self._build_dynamic_scaling(namespace)
         return namespace
 
-    def _build_symmmetric_quantizer(
+    def _build_static_scaling(self, namespace: Dict[str, Any]) -> None:
+        # Kind-agnostic static-scaling attributes. The scaling_stats_op is
+        # kind-specific (int -> PERCENTILE, float -> AbsMax from ScaledFloatActBase)
+        # and is set by the concrete leaf builders.
+        namespace['scaling_impl_type'] = ScalingImplType.PARAMETER_FROM_STATS
+        namespace['high_percentile_q'] = 99.999
+        namespace['collect_stats_steps'] = 300
+
+    def _build_dynamic_scaling(self, namespace: Dict[str, Any]) -> None:
+        """Wire the granularity-specific dynamic scaling impl (kind-agnostic).
+
+        Mirrors the reference ``*Dynamic*`` activation quantizers in
+        ``brevitas_examples.common.generative.quantizers``.
+        """
+        # scaling_impl_type is only meaningful for the static parameter path.
+        namespace.pop('scaling_impl_type', None)
+        if self._is_groupwise():
+            # Per-group: RuntimeDynamicGroupStatsScaling reads group_size/group_dim
+            # and input_view_impl from the (groupwise) act solver.
+            namespace['scaling_impl'] = RuntimeDynamicGroupStatsScaling
+        else:
+            namespace['scaling_impl'] = RuntimeDynamicStatsScaling
+            if self.scaling_per_output_type == ScalingPerOutputType.TENSOR:
+                namespace['scaling_stats_input_view_shape_impl'] = OverTensorView
+                namespace['dynamic_scaling_broadcastable_fn'] = \
+                    lambda x, shape: x.view(SCALAR_SHAPE)
+            else:  # per-row (CHANNEL)
+                namespace['scaling_stats_input_view_shape_impl'] = OverOutputFeaturesView
+
+    def _build_asymmmetric_quantizer(
             self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
-        base_classes = super()._build_symmmetric_quantizer(namespace, base_classes)
-        # Activations use IntQuant (non-narrow), unlike NarrowIntQuant weights.
-        namespace['narrow_range'] = False
+        base_classes = super()._build_asymmmetric_quantizer(namespace, base_classes)
+        if self._is_static():
+            # Interval percentile scale + runtime-percentile zero-point for
+            # asymmetric static activations (mirrors brevitas
+            # ShiftedParamFromPercentileUintQuant). Override the weight AsymMixin
+            # defaults with the activation ones. The weight
+            # zero_point_stats_input_concat_dim (added by AsymMixin) is left
+            # unresolved: ParameterFromRuntimeZeroPoint never requests it.
+            namespace['zero_point_impl_type'] = ZeroPointImplType.PARAMETER_FROM_RUNTIME
+            namespace['zero_point_stats_op'] = StatsOp.NEG_PERCENTILE_OR_ZERO
+            namespace['low_percentile_q'] = 0.001
+            namespace['scaling_stats_op'] = StatsOp.PERCENTILE_INTERVAL
+        elif self._is_dynamic():
+            # Runtime-dynamic zero-point recomputed per-forward; scale (MIN_MAX)
+            # comes from the AsymMixin (mirrors brevitas
+            # ShiftedUint8DynamicActPer{Tensor,Row,Group}Float).
+            namespace['zero_point_impl'] = (
+                RuntimeDynamicGroupZeroPoint
+                if self._is_groupwise() else RuntimeDynamicStatsZeroPoint)
         return base_classes
 
 
 # ----------------------------------------------------------------------
 # Format axis: int vs float. The solver / proxy / float base are deferred to
-# kind-specific hooks (``_quant_solver`` / ``_proxy_class`` / ``_scaled_float_base``)
+# kind-specific hooks (``_quant_solver`` / ``_proxy_class``)
 # implemented by the concrete leaf builders.
 # ----------------------------------------------------------------------
 class IntQuantizerBuilder(BaseQuantizerBuilder):
@@ -582,23 +655,20 @@ class IntQuantizerBuilder(BaseQuantizerBuilder):
         namespace['bit_width'] = self.bit_width
         return namespace
 
-    def _build_proxy_class(self, namespace: Dict[str, Any],
-                           base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
-        namespace['proxy_class'] = self._proxy_class()
-        return base_classes
-
     def _build_symmmetric_quantizer(
             self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        base_classes = super()._build_symmmetric_quantizer(namespace, base_classes)
         namespace['signed'] = True
         namespace['narrow_range'] = True
-        return super()._build_symmmetric_quantizer(namespace, base_classes)
+        return base_classes
 
     def _build_asymmmetric_quantizer(
             self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        base_classes = super()._build_asymmmetric_quantizer(namespace, base_classes)
         namespace['signed'] = False
         namespace['narrow_range'] = False
         namespace['quantize_zero_point'] = True
-        return super()._build_asymmmetric_quantizer(namespace, base_classes)
+        return base_classes
 
     def _solver_base_classes(self) -> Tuple[Type, ...]:
         return (self._quant_solver(),)
@@ -641,12 +711,6 @@ class FloatQuantizerBuilder(BaseQuantizerBuilder):
         format_mixin = FLOAT_FORMAT_MIXIN_MAP.get(FloatFormat(self.float_format).value)
         if format_mixin is not None:
             base_classes = (format_mixin,) + base_classes
-        base_classes = base_classes + (self._scaled_float_base(),)
-        return base_classes
-
-    def _build_proxy_class(self, namespace: Dict[str, Any],
-                           base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
-        namespace['proxy_class'] = self._proxy_class()
         return base_classes
 
     def _build_base_namespace(self) -> Dict[str, Any]:
@@ -684,8 +748,8 @@ class WeightIntQuantizerBuilder(WeightQuantizerBuilder, IntQuantizerBuilder):
 class WeightFloatQuantizerBuilder(WeightQuantizerBuilder, FloatQuantizerBuilder):
     """Float weight quantizer builder."""
 
-    def _scaled_float_base(self) -> Type:
-        return ScaledFloatWeightBase
+    def _solver_base_classes(self) -> Tuple[Type, ...]:
+        return super()._solver_base_classes() + (ScaledFloatWeightBase,)
 
     def _proxy_class(self) -> Type:
         if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
@@ -694,55 +758,47 @@ class WeightFloatQuantizerBuilder(WeightQuantizerBuilder, FloatQuantizerBuilder)
 
 
 class InputIntQuantizerBuilder(InputQuantizerBuilder, IntQuantizerBuilder):
-    """Integer input/activation quantizer builder (static scaling only)."""
+    """Integer input/activation quantizer builder (static or dynamic scaling)."""
 
     def _quant_solver(self) -> Type:
         return ActQuantSolver
 
     def _proxy_class(self) -> Type:
-        # Groupwise activation int proxy is not supported yet.
+        if self._is_dynamic():
+            if self._is_groupwise():
+                return GroupwiseActQuantProxyFromInjector
+            return DynamicActQuantProxyFromInjector
+        # Groupwise static activation int proxy is not supported yet.
         return ActQuantProxyFromInjector
 
     def _build_symmmetric_quantizer(
             self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
-        # One-sided percentile scale for symmetric static activations.
-        namespace['scaling_stats_op'] = StatsOp.PERCENTILE
-        return super()._build_symmmetric_quantizer(namespace, base_classes)
-
-    def _build_asymmmetric_quantizer(
-            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
-        # Interval percentile scale + runtime-percentile zero-point for
-        # asymmetric static activations (mirrors brevitas
-        # ShiftedParamFromPercentileUintQuant).
-        base_classes = super()._build_asymmmetric_quantizer(namespace, base_classes)
-        # Override the weight AsymMixin defaults with the activation ones. The
-        # weight zero_point_stats_input_concat_dim (added by AsymMixin) is left
-        # unresolved: ParameterFromRuntimeZeroPoint never requests it.
-        namespace['zero_point_impl'] = ParameterFromRuntimeZeroPoint
-        namespace['zero_point_stats_op'] = StatsOp.NEG_PERCENTILE_OR_ZERO
-        namespace['low_percentile_q'] = 0.001
-        namespace['scaling_stats_op'] = StatsOp.PERCENTILE_INTERVAL
+        base_classes = super()._build_symmmetric_quantizer(namespace, base_classes)
+        # Static int activations use a one-sided percentile scale.
+        if self._is_static():
+            namespace['scaling_stats_op'] = StatsOp.PERCENTILE
+        # Activations use IntQuant (non-narrow), unlike NarrowIntQuant weights.
+        namespace['narrow_range'] = False
         return base_classes
 
 
 class InputFloatQuantizerBuilder(InputQuantizerBuilder, FloatQuantizerBuilder):
-    """Float input/activation quantizer builder (static scaling only)."""
+    """Float input/activation quantizer builder (static or dynamic scaling)."""
 
-    def _scaled_float_base(self) -> Type:
-        return ScaledFloatActBase
+    def _solver_base_classes(self) -> Tuple[Type, ...]:
+        return super()._solver_base_classes() + (ScaledFloatActBase,)
 
     def _proxy_class(self) -> Type:
-        # Groupwise activation float proxy is not supported yet.
+        if self._is_dynamic():
+            if self._is_groupwise():
+                return GroupwiseActFloatQuantProxyFromInjector
+            if self.scaling_per_output_type == ScalingPerOutputType.CHANNEL:  # per-row
+                return DynamicActFloatQuantProxyFromInjector
+            # Per-tensor dynamic float reuses the plain float act proxy (mirrors
+            # brevitas Fp8e4m3*DynamicActPerTensorFloat).
+            return ActFloatQuantProxyFromInjector
+        # Groupwise static activation float proxy is not supported yet.
         return ActFloatQuantProxyFromInjector
-
-    def _build_base_namespace(self) -> Dict[str, Any]:
-        namespace: Dict[str, Any] = super()._build_base_namespace()
-        # ScaledFloatActBase already sets scaling_impl_type=parameter_from_stats
-        # (with collect_stats_steps); the percentile/static attributes set by the
-        # int path do not apply to float activations.
-        namespace.pop('scaling_impl_type', None)
-        namespace.pop('high_percentile_q', None)
-        return namespace
 
 
 # Maps a quant_type to the concrete *weight* builder responsible for it.

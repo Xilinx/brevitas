@@ -3,8 +3,8 @@
 
 """Tests for the input/activation quantizer builder.
 
-Currently covers the ``static`` scale type of ``INPUT_QUANT_MAP`` (the dynamic
-and no_scale scale types are not implemented in the builder yet).
+Covers the ``static`` and ``dynamic`` scale types of ``INPUT_QUANT_MAP`` (the
+``no_scale`` scale type is not implemented in the builder yet).
 """
 
 import pytest
@@ -27,6 +27,9 @@ from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
+from brevitas_examples.common.generative.quantizers import Fp8e4m3FNUZDynamicActPerTensorFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 from brevitas_examples.common.quantizer_builder import build_input_quantizer
 from brevitas_examples.common.quantizer_builder import FloatFormat
 from brevitas_examples.common.quantizer_builder import ParamMethod
@@ -173,6 +176,46 @@ BUILDER_SPECS = {
             "quant_type": QuantType.FP,
             "quant_param_type": QuantParamType.SYM,
             "scale_type": ScaleType.STATIC,
+            "float_format": FloatFormat.FNUZ,
+            "float_quant_format": "e4m3",
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    # ----------------------------------------------------------------------
+    # dynamic (per_tensor): INPUT_QUANT_MAP['...']['dynamic']. Scale (and, for
+    # asym, zero-point) are recomputed per-forward. Per-tensor granularity is
+    # hosted directly by QuantIdentity; per_row/per_group need a group-aware
+    # layer and are covered elsewhere.
+    # ----------------------------------------------------------------------
+    "int_dynamic_per_tensor_sym": {
+        "ref": Int8DynamicActPerTensorFloat,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    "int_dynamic_per_tensor_asym": {
+        "ref": ShiftedUint8DynamicActPerTensorFloat,
+        "builder_args": {
+            "quant_type": QuantType.INT,
+            "quant_param_type": QuantParamType.ASYM,
+            "scale_type": ScaleType.DYNAMIC,
+            "bit_width": BIT_WIDTH,
+            "scaling_per_output_type": ScalingPerOutputType.TENSOR,
+            "restrict_scaling_type": RestrictValueType.FP,
+            "scaling_min_val": SCALING_MIN_VAL,
+            "kwargs": {},},},
+    "float_fnuz_dynamic_per_tensor_sym": {
+        "ref": Fp8e4m3FNUZDynamicActPerTensorFloat,
+        "builder_args": {
+            "quant_type": QuantType.FP,
+            "quant_param_type": QuantParamType.SYM,
+            "scale_type": ScaleType.DYNAMIC,
             "float_format": FloatFormat.FNUZ,
             "float_quant_format": "e4m3",
             "scaling_per_output_type": ScalingPerOutputType.TENSOR,
