@@ -70,6 +70,16 @@ Q6_K_SUB_SCALE_BIT_WIDTH = 8
 Q5_K_GROUP_SIZE = 32
 Q5_K_SUB_SCALE_BIT_WIDTH = 6
 Q5_K_SUB_ZP_BIT_WIDTH = 6
+# Q2_K: 16 sub-blocks of 16, asymmetric, but with 4-bit (not 6-bit) nested scales
+# and mins, fp16 super-block d / dmin (plain nibble-packed on disk, see quant.py).
+Q2_K_GROUP_SIZE = 16
+Q2_K_SUB_SCALE_BIT_WIDTH = 4
+Q2_K_SUB_ZP_BIT_WIDTH = 4
+# Q3_K: 16 sub-blocks of 16, symmetric (no min), 6-bit signed nested scales, single
+# fp16 super-block d. Shares Q6_K's group size but a narrower sub-scale bit-width;
+# the on-disk encoding stores the signed scale biased by +32 (quant.py packs this).
+Q3_K_GROUP_SIZE = 16
+Q3_K_SUB_SCALE_BIT_WIDTH = 6
 
 
 class GGUFQ4_0WeightQuant(Int8WeightPerChannelFloat, GGUFBaseQuantizer):
@@ -223,6 +233,83 @@ class GGUFQ5_KWeightQuant(GGUFQ4_KWeightQuant):
     bit_width = 5
 
 
+class _GGUFQ2KScalingInt(Int8WeightPerTensorFloat, _GGUFKQuantShapeMixin):
+    """4-bit unsigned quantizer for the per-sub-block scales (the scale-of-scale).
+
+    Q2_K uses 16 sub-blocks of 16 (not Q4_K's 8 of 32), each with a 4-bit (not
+    6-bit) scale code, packed on disk as a plain nibble (see quant.py's
+    ``_q2_k_pack``) rather than Q4_K's 6-bit cross-byte interleave.
+    """
+    module = (this << 1).module
+    rescaling_int_quant = RescalingIntQuant
+    bit_width = Q2_K_SUB_SCALE_BIT_WIDTH
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = QK_K // Q2_K_GROUP_SIZE  # 16 sub-blocks share one super-block factor
+    upstream_shape = (this << 1).scaling_shape
+    signed = False
+
+    @value
+    def tracked_parameter_list(upstream_shape):
+        return [torch.empty(upstream_shape)]
+
+
+class _GGUFQ2KZPInt(Int8WeightPerTensorFloat, _GGUFKQuantShapeMixin):
+    """4-bit unsigned quantizer for the per-sub-block mins (the min-of-min)."""
+    module = (this << 1).module
+    rescaling_int_quant = RescalingIntQuant
+    restrict_threshold_impl = FloatRestrictValue
+    bit_width = Q2_K_SUB_ZP_BIT_WIDTH
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = QK_K // Q2_K_GROUP_SIZE
+    upstream_shape = (this << 1).zero_point_shape
+    signed = False
+
+    @value
+    def tracked_parameter_list(upstream_shape):
+        return [torch.empty(upstream_shape)]
+
+
+class GGUFQ2_KWeightQuant(ShiftedUint8WeightPerTensorFloat, GGUFBaseQuantizer):
+    """Asymmetric unsigned 2-bit Q2_K super-block quantizer with nested scales/mins.
+
+    256-element super-blocks split into 16 sub-blocks of 16. Each sub-block has a
+    4-bit scale and a 4-bit min, both quantized against a per-super-block fp16
+    factor (``d`` / ``dmin``). Unlike Q4_K/Q5_K's 6-bit interleaved packing, the
+    4+4 bit scale/min pair fits exactly one byte per sub-block (plain nibble pack).
+    """
+    proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q2_K
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = Q2_K_GROUP_SIZE
+    bit_width = 2
+
+    scaling_quant = _GGUFQ2KScalingInt
+    zp_quant = _GGUFQ2KZPInt
+    restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+    scale_shift_zero_point_impl = _ScaleShiftQuantZeroPoint
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_quant.rescaling_int_quant
+
+    @value
+    def zp_int_quant():
+        return this.zp_quant.rescaling_int_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
+        return None
+
+    @value
+    def zero_point_dequantized_shape(scaling_per_output_type, zero_point_shape):
+        if scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return zero_point_shape
+        return None
+
+
 class _GGUFQ6KScalingInt(Int8WeightPerChannelFloat, _GGUFKQuantShapeMixin):
     """8-bit *signed* quantizer for the per-sub-block scales (the scale-of-scale).
 
@@ -264,6 +351,63 @@ class GGUFQ6_KWeightQuant(Int8WeightPerChannelFloat, GGUFBaseQuantizer):
     narrow_range = False
 
     scaling_quant = _GGUFQ6KScalingInt
+    restrict_scaling_impl = QuantRestrictValue
+    restrict_threshold_impl = FloatRestrictValue
+
+    @value
+    def restrict_value_float_to_int_impl():
+        return this.scaling_quant.rescaling_int_quant
+
+    @value
+    def scale_dequantized_shape(scaling_per_output_type, scaling_shape):
+        if scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return scaling_shape
+        return None
+
+
+class _GGUFQ3KScalingInt(Int8WeightPerChannelFloat, _GGUFKQuantShapeMixin):
+    """6-bit *signed* quantizer for the per-sub-block scales (the scale-of-scale).
+
+    Q3_K stores 16 signed 6-bit sub-block scales per super-block, each scaled by a
+    single fp16 super-block factor ``d`` -- same 16-sub-block group size as Q6_K's
+    nested scale, just narrower (6 bits, not 8). On disk the signed code is stored
+    biased by +32 as an unsigned value (``ggml-quants.c``'s ``sc + 32``, range
+    [0, 63]); that bias is applied only at pack time in quant.py's ``_q3_k_pack``,
+    so this quantizer itself stays signed/symmetric like Q6_K's.
+    """
+    module = (this << 1).module
+    rescaling_int_quant = RescalingIntQuant
+    bit_width = Q3_K_SUB_SCALE_BIT_WIDTH
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = QK_K // Q3_K_GROUP_SIZE  # 16 sub-blocks share one super-block factor
+    upstream_shape = (this << 1).scaling_shape
+    signed = True
+    narrow_range = False
+    # Signed scale factor: anchor the max-magnitude sub-scale to the signed edge.
+    restrict_scaling_type = RestrictValueType.SIGNED_FP
+    scaling_stats_op = StatsOp.SIGNED_MAX
+
+    @value
+    def tracked_parameter_list(upstream_shape):
+        return [torch.empty(upstream_shape)]
+
+
+class GGUFQ3_KWeightQuant(Int8WeightPerChannelFloat, GGUFBaseQuantizer):
+    """Signed symmetric 3-bit Q3_K super-block quantizer with nested scales.
+
+    256-element super-blocks split into 16 sub-blocks of 16. Each sub-block has a
+    6-bit signed scale (stored biased by +32 as an unsigned value on disk),
+    quantized against a single per-super-block fp16 factor ``d`` (no min /
+    zero-point).
+    """
+    proxy_class = GroupwiseWeightQuantProxyFromInjector
+    gguf_qtype = gguf.GGMLQuantizationType.Q3_K
+    scaling_per_output_type = ScalingPerOutputType.GROUP
+    group_size = Q3_K_GROUP_SIZE
+    bit_width = 3
+    narrow_range = False
+
+    scaling_quant = _GGUFQ3KScalingInt
     restrict_scaling_impl = QuantRestrictValue
     restrict_threshold_impl = FloatRestrictValue
 

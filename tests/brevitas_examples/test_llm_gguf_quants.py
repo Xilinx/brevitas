@@ -11,6 +11,8 @@ import pytest_cases
 
 from brevitas_examples.llm.gguf_export.convert import SUPPORTED_OVERRIDE_QTYPES
 from brevitas_examples.llm.gguf_export.quant import _q6_k_quantize_scales
+from brevitas_examples.llm.gguf_export.quant import q2_k_quant_block
+from brevitas_examples.llm.gguf_export.quant import q3_k_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_0_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_1_quant_block
 from brevitas_examples.llm.gguf_export.quant import q4_k_quant_block
@@ -21,6 +23,8 @@ from brevitas_examples.llm.gguf_export.quant import q8_0_quant_block
 Q4_0 = gguf.GGMLQuantizationType.Q4_0
 Q4_1 = gguf.GGMLQuantizationType.Q4_1
 Q8_0 = gguf.GGMLQuantizationType.Q8_0
+Q2_K = gguf.GGMLQuantizationType.Q2_K
+Q3_K = gguf.GGMLQuantizationType.Q3_K
 Q4_K = gguf.GGMLQuantizationType.Q4_K
 Q5_K = gguf.GGMLQuantizationType.Q5_K
 Q6_K = gguf.GGMLQuantizationType.Q6_K
@@ -92,6 +96,46 @@ class TestQ6KQuant:
         x_hat = gguf_quants.dequantize(self.encoder(x), self.qtype)
         amax = np.abs(x).max()
         assert np.abs(x - x_hat).max() <= amax / 32
+
+
+@pytest.mark.llm
+def test_q2_k_pack():
+    """Lossless pack: 2-bit codes + sub-block scales/mins and fp16 super-scales decode
+    to exactly d_scale*qs*code - d_wmin*qm. Q2_K mirrors Q4_K with 16 sub-blocks."""
+    rng = np.random.default_rng(5)
+    nb = 4
+    n_sub = QK_K // 16
+    codes = rng.integers(0, 4, size=(nb, QK_K)).astype(np.float32)
+    scales = (np.abs(rng.standard_normal((nb, n_sub))) + 0.1).astype(np.float32)
+    mins = (np.abs(rng.standard_normal((nb, n_sub))) + 0.1).astype(np.float32)
+    d_scale = scales.max(1, keepdims=True) / 15
+    d_wmin = mins.max(1, keepdims=True) / 15
+    q = q2_k_quant_block(codes.copy(), scale=scales, wmin_m=mins, d_scale=d_scale, d_wmin_m=d_wmin)
+    x_hat = gguf_quants.dequantize(q, Q2_K).reshape(nb, n_sub, 16)
+    qs = np.round(scales / d_scale).clip(0, 15)
+    qm = np.round(mins / d_wmin).clip(0, 15)
+    expected = (
+        fp16(d_scale)[:, :, None] * qs[:, :, None] * codes.reshape(nb, n_sub, 16) -
+        fp16(d_wmin)[:, :, None] * qm[:, :, None])
+    np.testing.assert_allclose(x_hat, expected, rtol=0, atol=0)
+
+
+@pytest.mark.llm
+def test_q3_k_pack():
+    """Lossless pack: signed 3-bit codes + sub-block scales (6-bit, fp16 super-d) decode
+    to exactly (d*q_scale)*code."""
+    rng = np.random.default_rng(6)
+    nb = 4
+    n_sub = QK_K // 16
+    codes = rng.integers(-4, 4, size=(nb, QK_K)).astype(np.float32)
+    scales = (np.abs(rng.standard_normal((nb, n_sub))) + 0.05).astype(np.float32)
+    d_scale = scales.max(1, keepdims=True) / 32
+    q = q3_k_quant_block(codes.copy(), scale=scales, d_scale=d_scale)
+    x_hat = gguf_quants.dequantize(q, Q3_K).reshape(nb, n_sub, 16)
+    q_scales = np.round(scales / d_scale).clip(-32, 31)
+    eff = fp16(d_scale)[:, :, None] * q_scales[:, :, None]
+    expected = eff * codes.reshape(nb, n_sub, 16)
+    np.testing.assert_allclose(x_hat, expected, rtol=0, atol=0)
 
 
 @pytest.mark.llm

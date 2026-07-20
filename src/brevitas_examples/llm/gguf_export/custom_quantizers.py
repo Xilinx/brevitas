@@ -26,6 +26,8 @@ from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 
+from .base_quantizers import GGUFQ2_KWeightQuant
+from .base_quantizers import GGUFQ3_KWeightQuant
 from .base_quantizers import GGUFQ4_0WeightQuant
 from .base_quantizers import GGUFQ4_1WeightQuant
 from .base_quantizers import GGUFQ4_KWeightQuant
@@ -81,6 +83,18 @@ class GGUFQ4_K(BaseQuantizer):
 class GGUFQ5_K(BaseQuantizer):
     """GGUF Q5_K: 5-bit super-blocks with nested scales/mins; first/last at Q6_K."""
     weight_quant = _high_precision_for(GGUFQ5_KWeightQuant, GGUFQ6_KWeightQuant)
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q2_k")
+class GGUFQ2_K(BaseQuantizer):
+    """GGUF Q2_K: 2-bit super-blocks with nested scales/mins; first/last at Q6_K."""
+    weight_quant = _high_precision_for(GGUFQ2_KWeightQuant, GGUFQ6_KWeightQuant)
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q3_k")
+class GGUFQ3_K(BaseQuantizer):
+    """GGUF Q3_K: 3-bit super-blocks with nested (symmetric) scales; first/last at Q6_K."""
+    weight_quant = _high_precision_for(GGUFQ3_KWeightQuant, GGUFQ6_KWeightQuant)
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q6_k")

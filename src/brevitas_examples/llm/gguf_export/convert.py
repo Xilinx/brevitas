@@ -83,6 +83,11 @@ GGUF_FILE_QUANTIZATION_MAPPING = {
     gguf.LlamaFileType.MOSTLY_Q5_K_S: gguf.GGMLQuantizationType.Q5_K,
     gguf.LlamaFileType.MOSTLY_Q5_K_M: gguf.GGMLQuantizationType.Q5_K,
     gguf.LlamaFileType.MOSTLY_Q6_K: gguf.GGMLQuantizationType.Q6_K,
+    gguf.LlamaFileType.MOSTLY_Q2_K: gguf.GGMLQuantizationType.Q2_K,
+    gguf.LlamaFileType.MOSTLY_Q2_K_S: gguf.GGMLQuantizationType.Q2_K,
+    gguf.LlamaFileType.MOSTLY_Q3_K_S: gguf.GGMLQuantizationType.Q3_K,
+    gguf.LlamaFileType.MOSTLY_Q3_K_M: gguf.GGMLQuantizationType.Q3_K,
+    gguf.LlamaFileType.MOSTLY_Q3_K_L: gguf.GGMLQuantizationType.Q3_K,
     gguf.LlamaFileType.MOSTLY_TQ1_0: gguf.GGMLQuantizationType.TQ1_0,
     gguf.LlamaFileType.MOSTLY_TQ2_0: gguf.GGMLQuantizationType.TQ2_0,}
 
@@ -447,9 +452,10 @@ class ModelBase:
 
         # TODO: Generalize this to have a map between GGUF quant type
         # and our preprocessing for quant_modules
-        # Q4_K and Q5_K share the same super-block structure (8 sub-blocks of 32,
-        # 6-bit nested scales/mins, fp16 d/dmin); only the code bit-width differs.
-        if data_qtype in (gguf.GGMLQuantizationType.Q4_K, gguf.GGMLQuantizationType.Q5_K):
+        # Q4_K/Q5_K/Q2_K all share the same super-block structure
+        if data_qtype in (gguf.GGMLQuantizationType.Q4_K,
+                          gguf.GGMLQuantizationType.Q5_K,
+                          gguf.GGMLQuantizationType.Q2_K):
 
             quant_scale_module = None
 
@@ -482,11 +488,8 @@ class ModelBase:
                 d_scale=scale_scale,
                 d_wmin_m=scale_zp)
 
-        elif data_qtype == gguf.GGMLQuantizationType.Q6_K:
-            # Q6_K is symmetric with a nested ("double") scale: the per-sub-block
-            # scales are quantized to int8 against a per-super-block fp16 factor d.
-            # Use Brevitas' calibrated quantized scale (quant_scale) and its super-
-            # block factor (scale_scale) so the written block matches calibration.
+        elif data_qtype in (gguf.GGMLQuantizationType.Q6_K, gguf.GGMLQuantizationType.Q3_K):
+            # Q6_K/Q3_K are symmetric with a nested ("double") scale
             quant_scale_module = None
             for m in weight_quant.modules():
                 if isinstance(m, QuantRestrictValue):

@@ -2,13 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Per-model GGUF mixed-precision recipes for Llama 3.2 1B (base or Instruct).
+Per-model GGUF mixed-precision recipes for Llama 3.2 1B (Base or Instruct).
 
-The per-layer bump rules in ``_Q4_0_RECIPE``, ``_Q4_K_S_RECIPE``, and
-``_Q4_K_M_RECIPE`` (used by ``gguf_q4_0``, ``gguf_q4_k_s``, ``gguf_q4_k_m``,
-and ``gguf_q5_k_m``) are adapted from
-llama.cpp's ``llama_tensor_get_type_impl`` in
-https://github.com/ggml-org/llama.cpp/blob/master/src/llama-quant.cpp,
+The per-layer bump rules are adapted from llama.cpp's ``llama_tensor_get_type_impl``
+in https://github.com/ggml-org/llama.cpp/blob/master/src/llama-quant.cpp,
 released under the following LICENSE:
 
 MIT License
@@ -41,6 +38,8 @@ Load via::
 from brevitas.utils.python_utils import Registry
 from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
+from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ2_KWeightQuant
+from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ3_KWeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_0WeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_1WeightQuant
 from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ4_KWeightQuant
@@ -50,39 +49,50 @@ from brevitas_examples.llm.gguf_export.custom_quantizers import is_first_or_last
 from brevitas_examples.papers.gguf.recipes.common import RecipeMixin
 
 _MODEL_NAME = "Llama-3.2-1B"
+_N_LAYER = 16
+_ALL_LAYERS = list(range(_N_LAYER))
 
-# Q4_0: ffn_down on layers 0..(n_layer/8 - 1) bumped to Q4_1 (n_layer=16 -> 0-1).
+
+def _bump_layers(layers, module_suffix, weight_quant):
+    return {f"model.layers.{i}.{module_suffix}": weight_quant for i in layers}
+
+
+# Q4_0: ffn_down on layers 0-1 bumped to Q4_1
 _Q4_0_RECIPE = {
-    "model.layers.0.mlp.down_proj": GGUFQ4_1WeightQuant,
-    "model.layers.1.mlp.down_proj": GGUFQ4_1WeightQuant,}
+    **_bump_layers([0, 1], "mlp.down_proj", GGUFQ4_1WeightQuant),}
 
-# Q4_K_S: attn_v layers 0-3 and ffn_down layers 0-1 bumped to Q5_K (rest stays Q4_K).
+# Q4_K_S: attn_v layers 0-3 and ffn_down layers 0-1 bumped to Q5_K
 _Q4_K_S_RECIPE = {
-    "model.layers.0.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.1.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.2.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.3.self_attn.v_proj": GGUFQ5_KWeightQuant,
-    "model.layers.0.mlp.down_proj": GGUFQ5_KWeightQuant,
-    "model.layers.1.mlp.down_proj": GGUFQ5_KWeightQuant,}
+    **_bump_layers([0, 1, 2, 3], "self_attn.v_proj", GGUFQ5_KWeightQuant),
+    **_bump_layers([0, 1], "mlp.down_proj", GGUFQ5_KWeightQuant),}
 
-# Q4_K_M / Q5_K_M: attn_v and ffn_down on these 8 layers bumped to Q6_K.
+# Q4_K_M / Q5_K_M: attn_v and ffn_down on these 8 layers bumped to Q6_K
+_Q4_K_M_LAYERS = [0, 1, 4, 7, 10, 13, 14, 15]
 _Q4_K_M_RECIPE = {
-    "model.layers.0.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.1.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.4.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.7.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.10.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.13.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.14.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.15.self_attn.v_proj": GGUFQ6_KWeightQuant,
-    "model.layers.0.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.1.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.4.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.7.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.10.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.13.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.14.mlp.down_proj": GGUFQ6_KWeightQuant,
-    "model.layers.15.mlp.down_proj": GGUFQ6_KWeightQuant,}
+    **_bump_layers(_Q4_K_M_LAYERS, "self_attn.v_proj", GGUFQ6_KWeightQuant),
+    **_bump_layers(_Q4_K_M_LAYERS, "mlp.down_proj", GGUFQ6_KWeightQuant),}
+
+# Q2_K: attn_v bumped to Q4_K; attn_output and ffn_down bumped to Q3_K on
+# every layer
+_Q2_K_RECIPE = {
+    **_bump_layers(_ALL_LAYERS, "self_attn.v_proj", GGUFQ4_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS, "self_attn.o_proj", GGUFQ3_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS, "mlp.down_proj", GGUFQ3_KWeightQuant),}
+
+# Q3_K_M: attn_v layers 0-1 -> Q5_K, attn_v layers 2-15 -> Q4_K; ffn_down layer 0
+# -> Q5_K, ffn_down layers 1-15 -> Q4_K; attn_output -> Q4_K on every layer
+_Q3_K_M_RECIPE = {
+    **_bump_layers([0, 1], "self_attn.v_proj", GGUFQ5_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS[2:], "self_attn.v_proj", GGUFQ4_KWeightQuant),
+    **_bump_layers([0], "mlp.down_proj", GGUFQ5_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS[1:], "mlp.down_proj", GGUFQ4_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS, "self_attn.o_proj", GGUFQ4_KWeightQuant),}
+
+# Q3_K_L: attn_v, attn_output, and ffn_down all bumped to Q5_K on every layer
+_Q3_K_L_RECIPE = {
+    **_bump_layers(_ALL_LAYERS, "self_attn.v_proj", GGUFQ5_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS, "self_attn.o_proj", GGUFQ5_KWeightQuant),
+    **_bump_layers(_ALL_LAYERS, "mlp.down_proj", GGUFQ5_KWeightQuant),}
 
 
 @Registry.register(QUANTIZERS_REGISTRY, "gguf_q4_0")
@@ -115,3 +125,27 @@ class GGUFQ5_K_M(RecipeMixin, BaseQuantizer):
     weight_quant = lambda module, name: (
         GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
         _Q4_K_M_RECIPE.get(name, GGUFQ5_KWeightQuant))
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q2_k")
+class GGUFQ2_K(RecipeMixin, BaseQuantizer):
+    expected_model_name = _MODEL_NAME
+    weight_quant = lambda module, name: (
+        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
+        _Q2_K_RECIPE.get(name, GGUFQ2_KWeightQuant))
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q3_k_m")
+class GGUFQ3_K_M(RecipeMixin, BaseQuantizer):
+    expected_model_name = _MODEL_NAME
+    weight_quant = lambda module, name: (
+        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
+        _Q3_K_M_RECIPE.get(name, GGUFQ3_KWeightQuant))
+
+
+@Registry.register(QUANTIZERS_REGISTRY, "gguf_q3_k_l")
+class GGUFQ3_K_L(RecipeMixin, BaseQuantizer):
+    expected_model_name = _MODEL_NAME
+    weight_quant = lambda module, name: (
+        GGUFQ6_KWeightQuant if is_first_or_last_layer(module, name) else
+        _Q3_K_L_RECIPE.get(name, GGUFQ3_KWeightQuant))
