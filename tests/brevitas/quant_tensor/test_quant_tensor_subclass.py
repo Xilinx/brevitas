@@ -125,9 +125,9 @@ class TestValueProperty:
         qt = IntQuantTensor(x, torch.tensor(1.0), torch.tensor(0.0), torch.tensor(8.0), True, False)
         assert qt.value.requires_grad is True
 
-    def test_tensor_alias(self):
+    def test_value_is_not_subclass(self):
         qt = _make_int_qt()
-        assert torch.equal(qt.tensor, qt.value)
+        assert type(qt.value) is torch.Tensor
 
     def test_float_qt_value_is_plain_tensor(self):
         qt = _make_float_qt()
