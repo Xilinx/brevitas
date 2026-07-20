@@ -145,9 +145,8 @@ def main(parser) -> Callable:
             # Validate the arguments before running the entrypoint
             validate_args(parser, args)
 
-            # On torch < 2.7 + transformers >= 5.0, dynamo cannot trace
-            # func.__code__.co_varnames inside the transformers wrapper.
-            # Assert the guard in dynamo_export_ctx fires correctly, then skip.
+            # torch < 2.7 + transformers >= 5.0: FX export is unsupported (see dynamo_export_ctx).
+            # Assert the guard fires, then skip.
             use_fx = fx_required(args) or args.rotation == 'fused_no_fx'
             tr_ver = version.parse(transformers.__version__)
             if use_fx and torch_version < version.parse("2.7") and tr_ver >= version.parse("5.0"):

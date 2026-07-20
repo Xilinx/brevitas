@@ -59,10 +59,8 @@ class DummyTokenizer:
                           list(map(ord, text)) for text in texts]}
 
     def __call__(self, text, add_special_tokens: bool = False, **kwargs):
-        # Mimics PreTrainedTokenizerBase.__call__, which (in transformers 5.x) replaces
-        # the removed `batch_encode_plus`. It accepts either a single string or a list
-        # of strings, returning batched outputs for the latter and flattened (single
-        # sequence) outputs for the former.
+        # Mirrors PreTrainedTokenizerBase.__call__ (replaces batch_encode_plus in 5.x):
+        # batched output for list input, flattened output for a single string.
         if isinstance(text, (list, tuple)):
             return self.batch_encode_plus(list(text), add_special_tokens=add_special_tokens)
         output = self.batch_encode_plus([text], add_special_tokens=add_special_tokens)

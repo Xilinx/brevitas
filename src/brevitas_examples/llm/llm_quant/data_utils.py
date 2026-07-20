@@ -83,7 +83,7 @@ def llm_collate(
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:
         config = AutoConfig.from_pretrained(model_name_or_path)
-        # Some configs nest the relevant fields in a text sub-config (e.g. multimodal models)
+        # Multimodal models nest text config fields under get_text_config().
         text_config = config.get_text_config() if hasattr(config, "get_text_config") else config
 
         num_heads = text_config.num_attention_heads

@@ -183,9 +183,7 @@ def set_seed(seed):
 
 def model_export(model, tokenizer, ref_input, args, config=None):
     if args.export_target == 'onnx_qcdq':
-        # `optimum` is only required for ONNX QCDQ export and is an optional dependency
-        # (it currently constrains `transformers` to < 4.58). It is therefore imported
-        # lazily here, behind the export flag, with a clear error message if missing.
+        # Optional dependency; constrains transformers < 4.58 (see llm_onnx_export extra).
         try:
             from optimum.exporters.onnx import onnx_export_from_model
         except ImportError as e:
@@ -200,12 +198,10 @@ def model_export(model, tokenizer, ref_input, args, config=None):
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
 
-        # Consolidate the (potentially device-offloaded) model on a single device so that
-        # tracing does not hit cross-device tensor mismatches. When the model has been
-        # offloaded with accelerate, parameters may live on CPU while the cached activation
-        # quantization metadata (needed for QCDQ export) lives on the execution device, and
-        # `.to()` does not move those cached tensors. We align the whole model to the device
-        # of those cached tensors. This is a no-op when the model is on a single device.
+        # Align the model to the device of the cached activation scales. When offloaded
+        # with accelerate, parameters may be on CPU but cached scales on the execution
+        # device; .to() does not move non-buffer tensors, so we derive the target device
+        # from the scales rather than model.parameters().
         export_device = None
         for m in model.modules():
             cached_act = getattr(m, "_cached_act", None)
@@ -223,7 +219,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False,
-                # Match optimum's traced dummy inputs to the (consolidated) model device.
+                # Align optimum's traced dummy inputs to the model device.
                 device=str(export_device))
     elif 'gguf' in args.export_target:
         import gguf
@@ -286,8 +282,7 @@ def quantize_llm(args, extra_args=None):
 
     # Whether to quantize SDPA with FX
 
-    # `torch_dtype` was renamed to `dtype` in transformers 4.56 and the old alias is
-    # removed in 5.x. Pick the right kwarg name to stay compatible with transformers >=4.52.
+    # `torch_dtype` renamed to `dtype` in transformers 4.56, removed in 5.x.
     dtype_kwarg = "dtype" if version.parse(transformers_version) >= version.parse(
         "4.56.0") else "torch_dtype"
     kwargs = {dtype_kwarg: args.dtype}

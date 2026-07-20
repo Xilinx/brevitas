@@ -79,8 +79,8 @@ def tokenize_and_group_texts(
     # Filter empty sequences
     if filter_empty_sequences:
         texts = [text for text in texts if len(text) > 0]
-    # Note: `batch_encode_plus` was removed in transformers 5.x; calling the tokenizer
-    # directly with a list of texts is the equivalent, version-agnostic API.
+    # `batch_encode_plus` was removed in transformers 5.x; calling the tokenizer
+    # directly is equivalent and works across all supported versions.
     tokenized_batch = tokenizer(
         texts,
         return_attention_mask=False,
