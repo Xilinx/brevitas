@@ -63,14 +63,6 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
 def model_coverage(model_dict: dict):
     model_name, coverage = model_dict
 
-    if model_name == 'googlenet' and torch_version == version.parse('1.8.1'):
-        pytest.skip(
-            'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
-        )
-    if 'vit' in model_name and torch_version < version.parse('1.13'):
-        pytest.skip(
-            f'ViT supported from torch version 1.13, current torch version is {torch_version}')
-
     kwargs = dict()
     if model_name in ('inception_v3', 'googlenet'):
         kwargs['transform_input'] = False
@@ -110,9 +102,6 @@ def bnconv_model():
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
 def linearmha_model(bias, add_bias_kv, batch_first):
-    if torch_version < version.parse('1.9.1'):
-        pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
-
     # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
     if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
         pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
@@ -140,9 +129,6 @@ def linearmha_model(bias, add_bias_kv, batch_first):
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
 def layernormmha_model(bias, add_bias_kv, batch_first):
-    if torch_version < version.parse('1.9.1'):
-        pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
-
     # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
     if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
         pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
@@ -173,9 +159,6 @@ def layernormmha_model(bias, add_bias_kv, batch_first):
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
 def mhalinear_model(bias, add_bias_kv, batch_first):
-    if torch_version < version.parse('1.9.1'):
-        pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
-
     # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
     if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
         pytest.skip(f"Skip due to a regression in pytorch 2.0.1")

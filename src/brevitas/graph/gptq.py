@@ -7,7 +7,6 @@ from typing import List
 from typing import Optional
 import warnings
 
-from packaging import version
 import torch
 
 try:
@@ -15,7 +14,6 @@ try:
 except:
     LinAlgError = RuntimeError
 
-from brevitas import torch_version
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
@@ -69,8 +67,6 @@ class GPTQ(GPxQ):
                                  device=self.device,
                                  dtype=self.dtype)
         self.nsamples = 0
-
-        assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
 
     def compute_iterative_covariance(self, module, input, current_layer):
         # Update reference to current layer

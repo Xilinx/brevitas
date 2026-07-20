@@ -7,12 +7,11 @@ from typing import Optional
 from typing import Tuple
 from typing import Type
 
-from packaging import version
 import torch
 from torch import nn
+from torch.overrides import TorchFunctionMode
 
 from brevitas import config
-from brevitas import torch_version
 from brevitas.core.scaling.standalone import ConstScaling
 from brevitas.core.scaling.standalone import ParameterScaling
 from brevitas.fx.brevitas_tracer import symbolic_trace
@@ -42,33 +41,30 @@ from brevitas.quant import Uint8ActPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloatMaxInit
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 
-if torch_version >= version.parse('1.12'):
-    from torch.overrides import TorchFunctionMode
 
-    class functional_quantization_mode(TorchFunctionMode):
+class functional_quantization_mode(TorchFunctionMode):
 
-        def __init__(self, model: torch.nn.Module, quant_map: Dict, enabled: bool = True):
-            super().__init__()
-            self.quant_map = quant_map
-            self.model = model
-            self.enabled = enabled
-            for stateless_function, stateless_module in quant_map.items():
-                if not hasattr(model, str(stateless_function)):
-                    model.add_module(str(stateless_function), stateless_module())
+    def __init__(self, model: torch.nn.Module, quant_map: Dict, enabled: bool = True):
+        super().__init__()
+        self.quant_map = quant_map
+        self.model = model
+        self.enabled = enabled
+        for stateless_function, stateless_module in quant_map.items():
+            if not hasattr(model, str(stateless_function)):
+                model.add_module(str(stateless_function), stateless_module())
 
-        def __torch_function__(self, func, types, args=(), kwargs=None):
-            if kwargs is None:
-                kwargs = dict()
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = dict()
 
-            if hasattr(self.model, str(func)) and self.enabled:
-                module = getattr(self.model, str(func))
-                out = module(*args, **kwargs)
-            else:
-                out = func(*args, **kwargs)
+        if hasattr(self.model, str(func)) and self.enabled:
+            module = getattr(self.model, str(func))
+            out = module(*args, **kwargs)
+        else:
+            out = func(*args, **kwargs)
 
-            return out
-else:
-    functional_quantization_mode = object()
+        return out
+
 
 COMPUTE_LAYER_MAP = {
     nn.AvgPool2d:

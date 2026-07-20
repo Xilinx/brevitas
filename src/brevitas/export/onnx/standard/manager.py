@@ -7,11 +7,9 @@ from typing import Tuple
 from typing import Union
 import warnings
 
-from packaging import version
 from torch import Tensor
 from torch.nn import Module
 
-from brevitas import torch_version
 from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.quant_tensor import QuantTensor
 
@@ -26,13 +24,6 @@ class StdONNXBaseManager(ONNXBaseManager, ABC):
         if ka not in export_kwargs:
             export_kwargs[ka] = DEFAULT_OPSET
             warnings.warn(f"ONNX opset version set to {DEFAULT_OPSET}, override with {ka}=")
-
-    @classmethod
-    def solve_enable_onnx_checker(cls, export_kwargs):
-        ka = 'enable_onnx_checker'
-        if (torch_version >= version.parse('1.5.0') and torch_version <= version.parse('1.10.0') and
-                ka not in export_kwargs):
-            export_kwargs[ka] = True
 
     @classmethod
     def export_onnx(

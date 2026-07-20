@@ -7,7 +7,6 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 
-from packaging import version
 import torch
 from torch import Tensor
 from torch.nn import ConvTranspose1d
@@ -17,7 +16,6 @@ from torch.nn.functional import conv_transpose1d
 from torch.nn.functional import conv_transpose2d
 from torch.nn.functional import conv_transpose3d
 
-from brevitas import torch_version
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
@@ -96,12 +94,8 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
         return self.forward_impl(input)
 
     def compute_output_padding(self, inp, output_size):
-        if torch_version >= version.parse('1.12'):
-            return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=1)
-        else:
-            return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size)
+        return self._output_padding(
+            inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=1)
 
     def conv_transpose1d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
@@ -191,12 +185,8 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
         return self.forward_impl(input)
 
     def compute_output_padding(self, inp, output_size):
-        if torch_version >= version.parse('1.12'):
-            return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=2)
-        else:
-            return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size)
+        return self._output_padding(
+            inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=2)
 
     def conv_transpose2d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
@@ -286,12 +276,8 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
         return self.forward_impl(input)
 
     def compute_output_padding(self, inp, output_size):
-        if torch_version >= version.parse('1.12'):
-            return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=3)
-        else:
-            return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size)
+        return self._output_padding(
+            inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=3)
 
     def conv_transpose3d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
