@@ -60,7 +60,8 @@ from brevitas.nn.quant_embedding import QuantEmbedding
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.utils.logging import setup_logger
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas_examples.llm.gguf_export.base_quantizers import GGUFBaseQuantizer
+from brevitas_examples.llm.gguf_export.base_quantizers import \
+    GGUFGroupwiseWeightQuantProxyFromInjector
 from brevitas_examples.llm.gguf_export.quant import ggml_quant
 
 BREVITAS_QUANT_MODULES = (QuantWBIOL, QuantEmbedding)
@@ -76,18 +77,18 @@ GGUF_FILE_QUANTIZATION_MAPPING = {
     gguf.LlamaFileType.MOSTLY_F16: gguf.GGMLQuantizationType.F16,
     gguf.LlamaFileType.MOSTLY_BF16: gguf.GGMLQuantizationType.BF16,
     gguf.LlamaFileType.MOSTLY_Q8_0: gguf.GGMLQuantizationType.Q8_0,
-    gguf.LlamaFileType.MOSTLY_Q4_0: gguf.GGMLQuantizationType.Q4_0,
-    gguf.LlamaFileType.MOSTLY_Q4_1: gguf.GGMLQuantizationType.Q4_1,
-    gguf.LlamaFileType.MOSTLY_Q4_K_S: gguf.GGMLQuantizationType.Q4_K,
-    gguf.LlamaFileType.MOSTLY_Q4_K_M: gguf.GGMLQuantizationType.Q4_K,
+    gguf.LlamaFileType.MOSTLY_Q6_K: gguf.GGMLQuantizationType.Q6_K,
     gguf.LlamaFileType.MOSTLY_Q5_K_S: gguf.GGMLQuantizationType.Q5_K,
     gguf.LlamaFileType.MOSTLY_Q5_K_M: gguf.GGMLQuantizationType.Q5_K,
-    gguf.LlamaFileType.MOSTLY_Q6_K: gguf.GGMLQuantizationType.Q6_K,
-    gguf.LlamaFileType.MOSTLY_Q2_K: gguf.GGMLQuantizationType.Q2_K,
-    gguf.LlamaFileType.MOSTLY_Q2_K_S: gguf.GGMLQuantizationType.Q2_K,
+    gguf.LlamaFileType.MOSTLY_Q4_K_S: gguf.GGMLQuantizationType.Q4_K,
+    gguf.LlamaFileType.MOSTLY_Q4_K_M: gguf.GGMLQuantizationType.Q4_K,
+    gguf.LlamaFileType.MOSTLY_Q4_1: gguf.GGMLQuantizationType.Q4_1,
+    gguf.LlamaFileType.MOSTLY_Q4_0: gguf.GGMLQuantizationType.Q4_0,
     gguf.LlamaFileType.MOSTLY_Q3_K_S: gguf.GGMLQuantizationType.Q3_K,
     gguf.LlamaFileType.MOSTLY_Q3_K_M: gguf.GGMLQuantizationType.Q3_K,
     gguf.LlamaFileType.MOSTLY_Q3_K_L: gguf.GGMLQuantizationType.Q3_K,
+    gguf.LlamaFileType.MOSTLY_Q2_K: gguf.GGMLQuantizationType.Q2_K,
+    gguf.LlamaFileType.MOSTLY_Q2_K_S: gguf.GGMLQuantizationType.Q2_K,
     gguf.LlamaFileType.MOSTLY_TQ1_0: gguf.GGMLQuantizationType.TQ1_0,
     gguf.LlamaFileType.MOSTLY_TQ2_0: gguf.GGMLQuantizationType.TQ2_0,}
 
@@ -447,8 +448,8 @@ class ModelBase:
 
         # Our quantizer's declared qtype overrides the file's nominal ftype
         # (e.g. the Q6_K bump on token_embd/output).
-        if issubclass(weight_quant.quant_injector, GGUFBaseQuantizer):
-            data_qtype = weight_quant.quant_injector.gguf_qtype
+        if isinstance(weight_quant, GGUFGroupwiseWeightQuantProxyFromInjector):
+            data_qtype = weight_quant.gguf_qtype
 
         # TODO: Generalize this to have a map between GGUF quant type
         # and our preprocessing for quant_modules
