@@ -73,7 +73,6 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
 ALL_SUPPORTED_PYTHON_VERSIONS = ('3.10', '3.11', '3.12', '3.13', '3.14')
 
 ALL_SUPPORTED_PYTORCH_VERSIONS = (
-    '1.12.1',
     '1.13.1',
     '2.0.1',
     '2.1.1',
@@ -92,18 +91,15 @@ ALL_SUPPORTED_PYTORCH_VERSIONS = (
 
 ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
     [['python_version', [
-        '3.11',]], ['pytorch_version', ['1.12.1', '1.13.1']]],
+        '3.11',]], ['pytorch_version', ['1.13.1']]],
     [['python_version', [
-        '3.12',]], ['pytorch_version', ['1.12.1', '1.13.1', '2.0.1', '2.1.1']]],
+        '3.12',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1']]],
     [['python_version', [
-        '3.13',]],
-     ['pytorch_version', ['1.12.1', '1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1']]],
+        '3.13',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1']]],
     [['python_version', [
         '3.14',]],
      [
-         'pytorch_version',
-         [
-             '1.12.1',
+         'pytorch_version', [
              '1.13.1',
              '2.0.1',
              '2.1.1',
