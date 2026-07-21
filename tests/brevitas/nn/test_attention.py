@@ -1,12 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from packaging import version
 import pytest
 import torch
 from torch.nn import MultiheadAttention
 
-from brevitas import torch_version
 from brevitas.nn import QuantMultiheadAttention
 
 ATOL = 1e-6
@@ -20,9 +18,7 @@ class TestQuantMultiheadAttention:
     @pytest.mark.parametrize("bias", [True, False])
     @pytest.mark.parametrize("packed_in_proj", [True, False])
     def test_mha_quant_disabled_fwd(self, batch_first, bias, packed_in_proj):
-        extra_kwargs = {}
-        if torch_version >= version.parse('1.9.1'):
-            extra_kwargs['batch_first'] = batch_first
+        extra_kwargs = {'batch_first': batch_first}
 
         m = MultiheadAttention(EMBED_DIM, NUM_HEADS, bias=bias, **extra_kwargs)
         qm = QuantMultiheadAttention(

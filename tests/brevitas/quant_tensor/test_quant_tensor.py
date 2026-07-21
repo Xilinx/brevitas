@@ -4,12 +4,10 @@
 from enum import Enum
 
 import numpy as np
-from packaging import version
 import pytest
 import pytest_cases
 import torch
 
-from brevitas import torch_version
 from brevitas.nn import QuantIdentity
 from brevitas.quant.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
@@ -95,9 +93,6 @@ def test_quant_tensor_init():
     'op', [Operator.ADD, Operator.SUBTRACT, Operator.DIVIDE, Operator.MULTIPLY, Operator.MATMUL])
 @pytest.mark.parametrize('quant_fn', [to_quant_tensor, to_float_quant_tensor])
 def test_quant_tensor_operators(op, quant_fn):
-
-    if quant_fn == to_float_quant_tensor and torch_version < version.parse('1.13'):
-        pytest.skip("Torch 1.13 is required for JIT to be compatible with FloatQuantTensor")
 
     # Avoid 0 values
     x = 1 + torch.rand(4, 4)

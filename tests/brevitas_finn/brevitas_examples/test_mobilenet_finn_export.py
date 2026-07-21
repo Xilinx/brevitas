@@ -4,7 +4,6 @@
 from platform import system
 
 import numpy as np
-from packaging.version import parse
 import pytest
 from qonnx.core.modelwrapper import ModelWrapper
 import qonnx.core.onnx_exec as oxe
@@ -15,7 +14,6 @@ from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
-from brevitas import torch_version
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 from tests.conftest import MIN_QONNX_VERSION
 from tests.marker import requires_package_ge
@@ -24,8 +22,7 @@ from ...export_fixture import qonnx_export_fn
 from ...export_fixture import rm_onnx
 
 ort_mac_fail = pytest.mark.skipif(
-    torch_version >= parse('1.5.0') and system() == 'Darwin',
-    reason='Issue with ORT and MobileNet export on MacOS on PyTorch >= 1.5.0')
+    system() == 'Darwin', reason='Issue with ORT and MobileNet export on MacOS')
 
 INPUT_SIZE = (1, 3, 224, 224)
 #ATOL = 1  # Alternative: how many bitflips to tolerate in the 32-bit output

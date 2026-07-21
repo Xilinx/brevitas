@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from packaging import version
 import pytest
 import pytest_cases
 from pytest_cases import get_case_id
@@ -9,7 +8,6 @@ from pytest_cases import set_case_id
 import torch
 import torch.nn as nn
 
-from brevitas import torch_version
 import brevitas.config as config
 from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantConv1d
@@ -650,9 +648,7 @@ def case_mha(
         input_quantized,
         request,
         io_quantizer):
-    extra_kwargs = {}
-    if torch_version >= version.parse('1.9.1'):
-        extra_kwargs['batch_first'] = batch_first
+    extra_kwargs = {'batch_first': batch_first}
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_mha)
