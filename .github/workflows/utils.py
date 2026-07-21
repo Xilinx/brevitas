@@ -72,6 +72,8 @@ class Action:
         template = CustomTemplate(open(base_template_path).read())
         generated_file = template.substitute(d)
         yaml.safe_load(generated_file)  # validate the generated yaml
+        # Normalize to exactly one trailing newline
+        generated_file = generated_file.rstrip('\n') + '\n'
         with open(output_path, 'w', newline=NIX_NEWLINE) as f:
             f.write(generated_file)
 
