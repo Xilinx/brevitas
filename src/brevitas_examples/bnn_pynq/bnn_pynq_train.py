@@ -55,6 +55,11 @@ def parse_args(args):
     parser.add_argument("--gpus", type=none_or_str, default=None, help="Comma separated GPUs")
     # Optimizer hyperparams
     parser.add_argument("--batch_size", default=100, type=int, help="batch size")
+    parser.add_argument(
+        "--num_samples",
+        type=none_or_int,
+        default=None,
+        help="Evaluate only the first N samples of the test set (None = full set)")
     parser.add_argument("--lr", default=0.02, type=float, help="Learning rate")
     parser.add_argument("--optim", type=none_or_str, default="ADAM", help="Optimizer to use")
     parser.add_argument("--loss", type=none_or_str, default="SqrHinge", help="Loss function to use")
