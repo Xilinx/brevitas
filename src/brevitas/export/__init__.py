@@ -7,7 +7,9 @@ from packaging.version import parse
 
 from brevitas import torch_version
 
-from .onnx.debug import enable_debug
+from .onnx.debug import enable_debug as enable_debug
+from .onnx.finn.manager import FINNONNXDynamoManager
+from .onnx.finn.manager import FINNONNXManager
 from .onnx.qonnx.manager import QONNXDynamoManager
 from .onnx.qonnx.manager import QONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXDynamoManager
@@ -45,6 +47,27 @@ def export_qonnx(*args, **kwargs):
     if not _DYNAMO_AVAILABLE:
         kwargs.pop(key, None)
     return _export_qonnx_torchscript(*args, **kwargs)
+
+
+def export_finn_onnx(*args, **kwargs):
+
+    @wraps(FINNONNXManager.export)
+    def _export_finn_onnx_torchscript(*args, **kwargs):
+        return FINNONNXManager.export(*args, **kwargs)
+
+    @wraps(FINNONNXDynamoManager.export)
+    def _export_finn_onnx_dynamo(*args, **kwargs):
+        return FINNONNXDynamoManager.export(*args, **kwargs)
+
+    key = "dynamo"
+    if _DYNAMO_AVAILABLE:
+        kwargs.setdefault(key, _DEFAULT_DYNAMO)
+    if kwargs.get(key, False):
+        return _export_finn_onnx_dynamo(*args, **kwargs)
+    # TorchScript path: torch < 2.5 has no `dynamo` kwarg, so don't forward it.
+    if not _DYNAMO_AVAILABLE:
+        kwargs.pop(key, None)
+    return _export_finn_onnx_torchscript(*args, **kwargs)
 
 
 def export_onnx_qcdq(*args, **kwargs):
