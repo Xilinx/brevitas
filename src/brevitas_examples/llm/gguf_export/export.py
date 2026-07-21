@@ -16,10 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import re
 import shutil
 import sys
+import tempfile
 
 import torch
 
@@ -29,31 +29,12 @@ from brevitas.utils.logging import setup_logger
 # gguf_q4_k, ...) in QUANTIZERS_REGISTRY so they are selectable via --custom-quantizer.
 from . import custom_quantizers  # noqa: F401
 from .convert import ModelBase
+from .targets import FTYPE_MAP
+from .targets import GGUF_EXPORT_TARGETS
 
 logger = setup_logger(__name__)
 from pathlib import Path
 import time
-
-import gguf
-
-FTYPE_MAP: dict[str, gguf.LlamaFileType] = {
-    "f32": gguf.LlamaFileType.ALL_F32,
-    "f16": gguf.LlamaFileType.MOSTLY_F16,
-    "bf16": gguf.LlamaFileType.MOSTLY_BF16,
-    "q8_0": gguf.LlamaFileType.MOSTLY_Q8_0,
-    "q4_0": gguf.LlamaFileType.MOSTLY_Q4_0,
-    "q4_1": gguf.LlamaFileType.MOSTLY_Q4_1,
-    "q4_k_s": gguf.LlamaFileType.MOSTLY_Q4_K_S,
-    "q4_k_m": gguf.LlamaFileType.MOSTLY_Q4_K_M,
-    "q5_k": gguf.LlamaFileType.MOSTLY_Q5_K_S,
-    "q5_k_m": gguf.LlamaFileType.MOSTLY_Q5_K_M,
-    "q6_k": gguf.LlamaFileType.MOSTLY_Q6_K,
-    "q2_k": gguf.LlamaFileType.MOSTLY_Q2_K,
-    "q2_k_s": gguf.LlamaFileType.MOSTLY_Q2_K_S,
-    "q3_k_s": gguf.LlamaFileType.MOSTLY_Q3_K_S,
-    "q3_k_m": gguf.LlamaFileType.MOSTLY_Q3_K_M,
-    "q3_k_l": gguf.LlamaFileType.MOSTLY_Q3_K_L,
-    "auto": gguf.LlamaFileType.GUESSED,}
 
 
 def _resolve_model_name(name_or_path: str) -> str:
@@ -67,28 +48,51 @@ def _resolve_model_name(name_or_path: str) -> str:
 
 
 def save_quantized_as_gguf(
-        output_dir,
         model,
         tokenizer,
         backend="gguf:q4_0",
         override_model_tensors=None,
         override_qtype=None,
-        output_filename=None):
+        export_path=None):
     """Export the model to gguf format.
 
     When ``override_model_tensors``/``override_qtype`` are None, no tensor qtype is
     overridden at export time: every tensor follows the quantization it already
     has (or the file type otherwise).
 
-    ``output_filename``, if given, is the exact filename to write (relative to
-    ``output_dir``), bypassing gguf-py's auto-derived ``<name>-<size_label>-<ftype>.gguf``
-    naming.
+    ``export_path`` controls where the ``.gguf`` file is written:
+
+    * ``None`` (default): write to the current working directory, using gguf-py's
+      auto-derived ``<name>-<size_label>-<ftype>.gguf`` naming.
+    * a path ending in ``.gguf``: treated as the exact file to write (parent
+      directories are created if needed).
+    * any other path: treated as a directory to write into (created if needed),
+      using the same auto-derived naming as the ``None`` case.
     """
     st = time.time()
 
     config = model.config
 
-    tmp_work_dir = Path(os.path.join(output_dir, 'tmp_dir'))
+    # TODO: every tensor now carries its own qtype via
+    # GGUFGroupwiseWeightQuantProxyFromInjector.gguf_qtype, so `ftype` (derived
+    # from `backend` below) no longer determines how already-quantized tensors are
+    # packed. It's still used for the `general.file_type` header, the fallback
+    # qtype applied to any untagged tensor, and `{ftype}`-based auto-naming --
+    # worth revisiting whether `ftype` can be simplified or dropped for those.
+    assert backend in GGUF_EXPORT_TARGETS, f"{backend} is not supported"
+    output_type = backend.split(":")[-1].lower()
+    output_type = FTYPE_MAP.get(output_type)
+
+    if export_path is None:
+        fname_out = Path('.')
+    elif str(export_path).endswith('.gguf'):
+        fname_out = Path(export_path)
+        fname_out.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        fname_out = Path(export_path)
+        fname_out.mkdir(parents=True, exist_ok=True)
+
+    tmp_work_dir = Path(tempfile.mkdtemp(prefix='brevitas_gguf_export_'))
     tokenizer.save_pretrained(tmp_work_dir)
     config.save_pretrained(tmp_work_dir)
     if getattr(model, 'generation_config', None) is not None:
@@ -105,11 +109,6 @@ def save_quantized_as_gguf(
         model_class = ModelBase.from_model_architecture(model_architecture)
         model_name = _resolve_model_name(model.name_or_path)
 
-        output_type = backend.split(":")[-1]
-        assert output_type.lower() in FTYPE_MAP, f"{output_type} is not supported"
-        output_type = FTYPE_MAP.get(output_type.lower())
-
-        fname_out = Path(output_dir) / output_filename if output_filename else Path(output_dir)
         model_instance = model_class(
             model,
             dir_model=tmp_work_dir,
