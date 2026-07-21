@@ -14,5 +14,5 @@ dataset: wikitext2          # default, shown for clarity
 dataset_eval_split: test    # match llama-perplexity's split for apples-to-apples comparison
 
 # GGUF export
-export_target: gguf
-export_filename: Llama-3.2-1B-Instruct-Q4_K_S.gguf
+export_target: gguf:q4_k_s
+export_path: Llama-3.2-1B-Instruct-Q4_K_S.gguf

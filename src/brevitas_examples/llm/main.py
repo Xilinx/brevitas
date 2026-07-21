@@ -198,17 +198,7 @@ def model_export(model, tokenizer, ref_input, args, config=None):
                 task="text-generation-with-past",
                 do_validation=False)
     elif 'gguf' in args.export_target:
-        # No implicit high-precision override at export time: every tensor follows
-        # whatever quantization it already has (the custom quantizer is responsible
-        # for keeping the embedding/last layer at higher precision if desired).
-        save_quantized_as_gguf(
-            '.',
-            model,
-            tokenizer,
-            args.export_target,
-            override_model_tensors=None,
-            override_qtype=None,
-            output_filename=args.export_filename)
+        save_quantized_as_gguf(model, tokenizer, args.export_target, export_path=args.export_path)
     elif args.export_target == 'vllm':
         from brevitas.export.inference.vLLM.manager import vLLMExportManager
 
