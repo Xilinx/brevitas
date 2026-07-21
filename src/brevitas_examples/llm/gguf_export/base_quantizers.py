@@ -54,7 +54,6 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 
-# TODO: temporary workaround to tag/export GGUF qtypes; should revist
 class GGUFGroupwiseWeightQuantProxyFromInjector(GroupwiseWeightQuantProxyFromInjector):
     """Groupwise weight proxy for GGUF quantizers; carries the declared qtype"""
 
@@ -67,6 +66,7 @@ class _GGUFGroupwiseIntWeightInferenceHandler(GroupwiseIntWeightInferenceHandler
     handled_layer = GGUFGroupwiseWeightQuantProxyFromInjector
 
 
+# TODO: temporary workaround to tag/export GGUF qtypes; should revist
 InferenceManager.handlers.append(_GGUFGroupwiseIntWeightInferenceHandler)
 
 
