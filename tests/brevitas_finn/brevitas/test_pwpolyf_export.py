@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from brevitas.export import export_finn_onnx
-from brevitas.nn.target.finn import PWPolyFActivation
+from brevitas.nn.target.finn import PWPolyFGELU
 
 
 @pytest.mark.skipif("FINN_ROOT" not in os.environ, reason="FINN_ROOT is required")
@@ -25,7 +25,7 @@ def test_pwpolyf_export_converts_to_finn_hw_layer(tmp_path):
         pytest.skip("FINN PWPolyF conversion is not available")
 
     export_path = tmp_path / "pwpolyf.onnx"
-    model = PWPolyFActivation(func="gelu", K=3, degree=3).eval()
+    model = PWPolyFGELU(K=3, degree=3).eval()
     export_finn_onnx(
         model,
         torch.randn(1, 8),

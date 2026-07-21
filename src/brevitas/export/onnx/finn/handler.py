@@ -17,6 +17,18 @@ class FINNPWPolyFHandler(ONNXBaseHandler):
         self.func = module.func
         self.K = module.K
         self.degree = module.degree
+        self.neg_clamp = module.eager_impl.neg_clamp
+        self.pos_clamp = module.eager_impl.pos_clamp
+        self.pos_passthrough = module.eager_impl.pos_passthrough
 
     def symbolic_execution(self, x: Tensor):
-        return self.export_op(FINNPWPolyFOp, x, self.coeffs, self.func, self.K, self.degree)
+        return self.export_op(
+            FINNPWPolyFOp,
+            x,
+            self.coeffs,
+            self.func,
+            self.K,
+            self.degree,
+            self.neg_clamp,
+            self.pos_clamp,
+            self.pos_passthrough)

@@ -14,7 +14,8 @@ DOMAIN_VERSION = 1
 class FINNPWPolyFTorchScriptFn(Function):
 
     @staticmethod
-    def symbolic(g, x, coeffs, func, K, degree):
+    def symbolic(
+            g, x, coeffs, func, K, degree, neg_clamp, pos_clamp, pos_passthrough):
         ret = g.op(
             f"{DOMAIN_STRING}::PWPolyF",
             x,
@@ -25,15 +26,22 @@ class FINNPWPolyFTorchScriptFn(Function):
         return ret
 
     @staticmethod
-    def forward(ctx, x, coeffs, func, K, degree):
-        eager_impl = PWPolyFEager(func, int(K), int(degree))
-        return eager_impl.evaluate(x, coeffs)
+    def forward(
+            ctx, x, coeffs, func, K, degree, neg_clamp, pos_clamp, pos_passthrough):
+        return PWPolyFEager.evaluate(
+            x,
+            coeffs,
+            int(K),
+            int(degree),
+            float(neg_clamp),
+            float(pos_clamp),
+            bool(pos_passthrough))
 
 
 class FINNPWPolyFDynamoFn(DynamoFn):
 
     @staticmethod
-    def symbolic(x, coeffs, func, K, degree):
+    def symbolic(x, coeffs, func, K, degree, neg_clamp, pos_clamp, pos_passthrough):
         return torch.onnx.ops.symbolic(
             f"{DOMAIN_STRING}::PWPolyF",
             (x,),

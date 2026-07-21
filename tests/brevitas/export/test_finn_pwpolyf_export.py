@@ -12,12 +12,12 @@ from brevitas import torch_version
 from brevitas.export import export_finn_onnx
 from brevitas.export.onnx.finn.function import DOMAIN_STRING as FINN_PWPOLYF_DOMAIN
 from brevitas.nn import QuantIdentity
-from brevitas.nn.target.finn import PWPolyFActivation
+from brevitas.nn.target.finn import PWPolyFGELU
 
 
 def _export_pwpolyf(dynamo):
     onnx = pytest.importorskip("onnx")
-    mod = PWPolyFActivation(func="gelu", K=3, degree=3)
+    mod = PWPolyFGELU(K=3, degree=3)
     mod.eval()
     dummy = torch.randn(1, 8)
 
@@ -76,7 +76,7 @@ def test_export_finn_onnx_pwpolyf_after_quant_tensor_producer():
     onnx = pytest.importorskip("onnx")
     mod = torch.nn.Sequential(
         QuantIdentity(return_quant_tensor=True),
-        PWPolyFActivation(func="gelu", K=3, degree=3))
+        PWPolyFGELU(K=3, degree=3))
     mod.eval()
     dummy = torch.randn(1, 8)
 
