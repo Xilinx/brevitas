@@ -6,12 +6,10 @@ import torch
 
 from brevitas.export import export_torch_qcdq
 from tests.marker import jit_disabled_for_export
-from tests.marker import requires_pt_ge
 
 from .quant_module_fixture import *
 
 
-@requires_pt_ge('1.9.1')
 @jit_disabled_for_export()
 @torch.no_grad()
 def test_torch_qcdq_wbiol_export(
@@ -55,7 +53,6 @@ def test_torch_qcdq_wbiol_export(
     assert torch.allclose(out, torchscript_out_value, atol=tolerance)
 
 
-@requires_pt_ge('1.9.1')
 @jit_disabled_for_export()
 @parametrize('input_signed', [True, False])
 @torch.no_grad()

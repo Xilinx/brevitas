@@ -12,7 +12,6 @@ from pytest_cases import parametrize_with_cases
 import torch
 
 from brevitas import torch_version
-from tests.marker import requires_pt_ge
 
 from ..export_fixture import rm_onnx
 from .common import *
@@ -23,7 +22,6 @@ from .quant_module_cases import QuantWBIOLCases
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo', 'qonnx', 'qonnx_dynamo'])
-@requires_pt_ge('1.10')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
@@ -105,7 +103,6 @@ def test_ort_wbiol(model, export_type, current_cases):
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qcdq_dynamo'])
-@requires_pt_ge('1.10')
 def test_ort_avgpool(model, export_type, current_cases):
     if export_type == 'qcdq_dynamo' and torch_version < parse('2.8'):
         pytest.skip('QCDQ dynamo export requires PyTorch >= 2.8')
@@ -121,7 +118,6 @@ def test_ort_avgpool(model, export_type, current_cases):
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qonnx_opset14'])
-@requires_pt_ge('1.10')
 def test_ort_lstm(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)

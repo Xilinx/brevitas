@@ -76,19 +76,6 @@ def quantize_float(model):
 def shared_quant_fn(model_name, quantize_fn):
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
-    if torch_version <= version.parse('1.9.1') and model_name == 'regnet_x_400mf':
-        return None
-
-    if torch_version < version.parse('1.9.1') and model_name == 'googlenet':
-        return None
-
-    # EfficientNet is present since 1.10.1. Mobilenet is not correctly exported before 1.10.1
-    if torch_version < version.parse('1.10.1') and model_name in ('efficientnet_b0',
-                                                                  'mobilenet_v3_small'):
-        return None
-    if torch_version < version.parse('1.11.0') and model_name == 'vit_b_32':
-        return None
-
     # Due to a regression in torchvision, we cannot load pretrained weights for effnet_b0
     # https://github.com/pytorch/vision/issues/7744
     if torch_version == version.parse('2.1.0') and model_name == 'efficientnet_b0':
