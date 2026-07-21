@@ -54,6 +54,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 
+# TODO: temporary workaround to tag/export GGUF qtypes; should revist
 class GGUFGroupwiseWeightQuantProxyFromInjector(GroupwiseWeightQuantProxyFromInjector):
     """Groupwise weight proxy for GGUF quantizers; carries the declared qtype"""
 
