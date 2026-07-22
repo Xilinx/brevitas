@@ -15,7 +15,14 @@ from brevitas import torch_version
 from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.quant_tensor import QuantTensor
 
-DEFAULT_OPSET = 13
+# Opset 18 is required for the dynamo (torch.export) path: torch's ONNX exporter only
+# registers the `onnx_symbolic._symbolic` decomposition (used to emit QuantizeLinear/
+# DequantizeLinear) for opset >= TORCHLIB_OPSET (18). Requesting a lower opset makes
+# torch < 2.9 drop that decomposition and fail with a DispatchError. Torch 2.9+ clamps
+# the registry opset up to 18 automatically, but we set it explicitly for older torch.
+# Opset 18 needs torch >= 2.0 (torch <= 1.13 caps the TorchScript exporter below 18),
+# so we fall back to the historical default of 13 on those older versions.
+DEFAULT_OPSET = 18 if torch_version >= version.parse('2.0') else 13
 
 
 class StdONNXBaseManager(ONNXBaseManager, ABC):

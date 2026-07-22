@@ -36,7 +36,7 @@ def test_ort_wbiol(model, export_type, current_cases):
     quantizer = case_id.split('-')[-7]
     o_bit_width = case_id.split('-')[-6]
     i_bit_width = case_id.split('-')[-4]
-    onnx_opset = 14
+    onnx_opset = 18
     export_q_weight = False
 
     # Round weights can be exported as a Q-node (QuantizeLinear); floor weights and A2Q require
