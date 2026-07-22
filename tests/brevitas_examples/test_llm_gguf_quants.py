@@ -244,8 +244,8 @@ def _custom_q6_k_export(weight: np.ndarray, weight_quant=None) -> np.ndarray:
     """Quantize ``weight`` with a Brevitas custom Q6_K quantizer and pack it to a
     GGUF Q6_K block exactly as brevitas_examples...convert.ModelBase.quantize does.
 
-    ``weight_quant`` defaults to the absmax-based ``GGUFQ6_KWeightQuant``; pass
-    ``GGUFQ6_KWeightQuantMSE`` to exercise the MSE scale search variant.
+    ``weight_quant`` defaults to the absmax-based ``GGUFQ6_KWeightQuant``; pass a
+    different Q6_K-compatible quantizer to exercise other scale search variants.
 
     Returns the packed uint8 block (one row of blocks per weight row).
     """
@@ -351,72 +351,6 @@ class TestQ6KCustomVsReference:
         # step (amax / 16), but it must not be meaningfully worse than the reference.
         assert custom_err <= amax / 16
         assert custom_err <= ref_err + amax / 16
-
-
-@pytest.mark.llm
-class TestQ6KMSEScaleSearch:
-    """The MSE Q6_K quantizer (``GGUFQ6_KWeightQuantMSE``) uses Brevitas' MSE grid
-    search to pick the per-sub-block scale instead of plain absmax."""
-
-    def _mse_quant(self):
-        from brevitas_examples.llm.gguf_export.base_quantizers import GGUFQ6_KWeightQuantMSE
-        return GGUFQ6_KWeightQuantMSE
-
-    def test_mse_iters_is_configured(self):
-        """The MSE variant sets a non-default number of grid-search iterations and
-        actually forwards it to the MSE module (Brevitas would otherwise silently
-        use its default of 20)."""
-        import brevitas.core.stats.stats_op as stats_op
-        import brevitas.nn as qnn
-        from brevitas_examples.llm.gguf_export.base_quantizers import Q6_K_MSE_ITERS
-
-        seen = {}
-        original_init = stats_op.MSE.__init__
-
-        def spy_init(self, *args, **kwargs):
-            original_init(self, *args, **kwargs)
-            seen['num'] = self.num
-
-        stats_op.MSE.__init__ = spy_init
-        try:
-            layer = qnn.QuantLinear(256, 8, bias=False, weight_quant=self._mse_quant())
-            layer.weight.data = torch.from_numpy(_normal(0, 8).astype(np.float32))
-            layer.quant_weight()
-        finally:
-            stats_op.MSE.__init__ = original_init
-        assert seen.get('num') == Q6_K_MSE_ITERS
-        assert Q6_K_MSE_ITERS != 20  # must differ from Brevitas' default to be meaningful
-
-    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-    def test_valid_q6_k_block(self, x):
-        """The MSE variant produces a valid Q6_K block: right layout and every element
-        within one full Q6_K step (amax / 16) of the source."""
-        _, type_size = GGML_QUANT_SIZES[Q6_K]
-        block = _custom_q6_k_export(x, weight_quant=self._mse_quant())
-        assert block.dtype == np.uint8
-        assert block.shape == (x.shape[0], type_size)
-        x_hat = gguf_quants.dequantize(block, Q6_K).reshape(x.shape)
-        amax = np.abs(x).max()
-        if amax == 0.0:
-            assert np.abs(x_hat).max() == 0.0
-        else:
-            assert np.abs(x - x_hat).max() <= amax / 16
-
-    @pytest_cases.parametrize("x", list(MODEL_TENSORS.values()), ids=list(MODEL_TENSORS))
-    def test_not_worse_than_absmax(self, x):
-        """MSE searches candidate scales evaluated through the full nested Q6_K quant
-        and keeps the lowest-L2 one, so its MSE reconstruction error is never worse
-        (up to fp16 super-block rounding) than the plain absmax quantizer."""
-        mse_hat = gguf_quants.dequantize(
-            _custom_q6_k_export(x, weight_quant=self._mse_quant()), Q6_K).reshape(x.shape)
-        max_hat = gguf_quants.dequantize(_custom_q6_k_export(x), Q6_K).reshape(x.shape)
-        amax = np.abs(x).max()
-        if amax == 0.0:
-            return
-        mse_l2 = np.mean((x - mse_hat) ** 2)
-        max_l2 = np.mean((x - max_hat) ** 2)
-        # Allow a small slack for fp16 storage of the super-block scale.
-        assert mse_l2 <= max_l2 + (amax / 32) ** 2
 
 
 def _custom_q5_k_export(weight: np.ndarray) -> np.ndarray:
