@@ -31,6 +31,11 @@ from brevitas_examples.common.generative.quantizers import BaseQuantizer
 from brevitas_examples.common.generative.quantizers import QUANTIZERS_REGISTRY
 from brevitas_examples.llm.llm_args import create_args_parser
 from brevitas_examples.llm.llm_quant.ln_affine_merge import rmsnorm_patch
+from brevitas_examples.llm.llm_quant.parse_utils import parse_custom_trainer
+from brevitas_examples.llm.llm_quant.rotation_optimization import parse_rotation_optimization_args
+from brevitas_examples.llm.llm_quant.trainer_utils import _build_optimizers_from_configs
+from brevitas_examples.llm.llm_quant.trainer_utils import GeneralizedTrainer
+from brevitas_examples.llm.llm_quant.trainer_utils import TRAINER_REGISTRY
 from brevitas_examples.llm.main import fx_required
 from brevitas_examples.llm.main import main as llm_main
 from brevitas_examples.llm.main import quantize_llm
@@ -252,6 +257,105 @@ def test_custom_quantizer_file_override_and_post_process(caplog, default_run_arg
     assert any(
         hasattr(proxy, 'bit_width') and proxy.bit_width() is not None and
         proxy.bit_width().item() == 4 for proxy in weight_proxies)
+
+
+# Plugin spec for the example ``two_group_optimizer_trainer`` shipped with the
+# tests. Importing it (via parse_custom_trainer) registers the trainer into
+# TRAINER_REGISTRY as a side-effect.
+_LLM_PLUGIN_SPEC = "tests/brevitas_examples/llm_test_plugin.py:two_group_optimizer_trainer"
+
+
+class _TwoGroupToyModel(nn.Module):
+    """Minimal model exposing both a ``q_proj`` submodule and a non-``q_proj``
+    submodule, so both parameter selectors of the two-group trainer return
+    non-empty parameter lists."""
+
+    def __init__(self):
+        super().__init__()
+        self.q_proj = nn.Linear(4, 4)  # matched by _select_q_proj_params
+        self.other_proj = nn.Linear(4, 4)  # matched by _select_non_q_proj_params
+
+    def forward(self, x):
+        return self.other_proj(self.q_proj(x))
+
+
+@pytest.mark.llm
+class TestTwoGroupOptimizerTrainer:
+    """Tests for the example ``two_group_optimizer_trainer`` custom trainer.
+
+    It registers a ``GeneralizedTrainer`` subclass whose single optimizer
+    (AdamW) handles two parameter groups: ``q_proj`` params at ``q_proj_lr``
+    and everything else at ``non_q_proj_lr``.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _load_plugin(self):
+        # No skip: if the plugin file is missing, parse_custom_trainer raises
+        # FileNotFoundError and the test (correctly) fails.
+        parse_custom_trainer(_LLM_PLUGIN_SPEC)
+
+    def _training_args_cls(self):
+        return TRAINER_REGISTRY.get("two_group_optimizer_trainer").training_args_cls
+
+    def test_registered(self):
+        assert "two_group_optimizer_trainer" in TRAINER_REGISTRY.get_registered_keys()
+        trainer_cls = TRAINER_REGISTRY.get("two_group_optimizer_trainer")
+        assert issubclass(trainer_cls, GeneralizedTrainer)
+
+    def test_default_lr_values(self):
+        cls = self._training_args_cls()
+        args = parse_rotation_optimization_args(
+            extra_args=["--max_steps", "1"], training_args_cls=cls)
+        assert args.q_proj_lr == pytest.approx(1e-3)
+        assert args.non_q_proj_lr == pytest.approx(1e-2)
+
+        os_args = args.optimizer_scheduler_args
+        # A single optimizer with two parameter groups.
+        assert len(os_args) == 1
+        param_setup = os_args[0]["param_setup"]
+        assert len(param_setup) == 2
+        assert param_setup[0]["optimizer_kwargs"]["lr"] == pytest.approx(1e-3)
+        assert param_setup[1]["optimizer_kwargs"]["lr"] == pytest.approx(1e-2)
+
+    def test_cli_override_lr_values(self):
+        cls = self._training_args_cls()
+        extra = [
+            "--max_steps",
+            "1",
+            "--q-proj-lr",
+            "5e-4",
+            "--non-q-proj-lr",
+            "5e-2",]
+        args = parse_rotation_optimization_args(extra_args=extra, training_args_cls=cls)
+        assert args.q_proj_lr == pytest.approx(5e-4)
+        assert args.non_q_proj_lr == pytest.approx(5e-2)
+
+        param_setup = args.optimizer_scheduler_args[0]["param_setup"]
+        assert param_setup[0]["optimizer_kwargs"]["lr"] == pytest.approx(5e-4)
+        assert param_setup[1]["optimizer_kwargs"]["lr"] == pytest.approx(5e-2)
+
+    def test_builds_single_optimizer_two_groups(self):
+        cls = self._training_args_cls()
+        args = parse_rotation_optimization_args(
+            extra_args=["--max_steps", "1"], training_args_cls=cls)
+
+        model = _TwoGroupToyModel()
+        optimizer, _ = _build_optimizers_from_configs(model, args)
+
+        # A single AdamW optimizer (not a MultiOptimizer) with two param groups.
+        assert isinstance(optimizer, torch.optim.AdamW)
+        assert len(optimizer.param_groups) == 2
+        assert optimizer.param_groups[0]["lr"] == pytest.approx(1e-3)
+        assert optimizer.param_groups[1]["lr"] == pytest.approx(1e-2)
+
+        q_ids = {id(p) for name, p in model.named_parameters() if "q_proj" in name}
+        group0_params = optimizer.param_groups[0]["params"]
+        group1_params = optimizer.param_groups[1]["params"]
+        # Each Linear contributes weight + bias.
+        assert len(group0_params) == 2
+        assert len(group1_params) == 2
+        assert all(id(p) in q_ids for p in group0_params)
+        assert all(id(p) not in q_ids for p in group1_params)
 
 
 @pytest_cases.fixture(
