@@ -136,8 +136,6 @@ class LearnedMantissaParams(MantissaBitWidthClass):
     mantissa_bit_width = 1
     restrict_bit_width_impl = RestrictBitWidth
     temperature = 0.4
-    bit_width_min_val = 1
-    bit_width_max_val = 3
     bit_width_offset_min_val = 1
     bit_width_offset_max_val = 3
 
@@ -147,8 +145,6 @@ class LearnedExponentParams(ExponentBitWidthClass):
     exponent_bit_width = 2
     restrict_bit_width_impl = RestrictBitWidth
     temperature = 0.4
-    bit_width_min_val = 2
-    bit_width_max_val = 4
     bit_width_offset_min_val = 2
     bit_width_offset_max_val = 4
 
