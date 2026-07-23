@@ -63,6 +63,7 @@ from brevitas.quant.float_base import ScaledFloatWeightBase
 from brevitas.quant.float_quant_fnuz import FpFNUZMixin
 from brevitas.quant.float_quant_ocp import FpOCPMixin
 from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 from brevitas.quant.solver.common import solve_stats_impl
 from brevitas.quant.solver.common import SolveBitWidthImplFromEnum
 from brevitas.quant.solver.common import SolveIntScalingImplFromEnum
@@ -171,7 +172,6 @@ class RestrictThresholdMixin(ExtendedInjector):
 
 class GroupwisePoTMixin(ExtendedInjector):
     threshold_mixin = RestrictThresholdMixin
-    restrict_value_float_to_int_impl = FloorSte
 
     @value
     def restrict_threshold_impl():
@@ -262,7 +262,8 @@ def zero_point_init_op(zero_point_stats_op: EnumType[StatsOp] = None,) -> Option
     return solve_stats_impl(zero_point_stats_op)
 
 
-def _make_mse_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
+def _make_mse_injector(target: Target = Target.SCALE,
+                       overrides: Optional[Dict[str, Any]] = None) -> Type[ExtendedInjector]:
     prefix = {
         Target.SCALE.value: "scaling",
         Target.ZERO_POINT.value: "zero_point",}[target.value]
@@ -285,6 +286,11 @@ def _make_mse_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
         f"{prefix}_stats_impl": getattr(this, f"mse_{target}").stats_impl,
         f"{prefix}_mse_init_op": _make_scaling_init_op(prefix),
         "inner_stats_input_view_shape_impl": inner_stats_input_view_shape_impl,}
+
+    # Caller can override any of the default namespace entries
+    if overrides is not None:
+        namespace.update(overrides)
+
     mse_injector = type(f'MSE{target.capitalize()}Injector', (ExtendedInjector,), namespace)
     return mse_injector
 
@@ -324,7 +330,7 @@ def _make_hqo_injector(target: Target = Target.SCALE) -> Type[ExtendedInjector]:
 # The init op is derived at the parent injector level from the requested enums
 # (scaling_stats_op / zero_point_stats_op) and pulled into the sub-injector via
 # `(this << 1)`, with a distinct name per target to avoid the mse_init_op clash.
-MSEScaleInjectorMixin = _make_mse_injector(target=Target.SCALE)
+MSEScaleInjectorMixin = _make_mse_injector(target=Target.SCALE, overrides={'keepdim': False})
 MSEZeroPointInjectorMixin = _make_mse_injector(target=Target.ZERO_POINT)
 
 HQOScaleInjectorMixin = _make_hqo_injector(target=Target.SCALE)
@@ -484,13 +490,12 @@ class BaseQuantizerBuilder(ABC):
         # the init op with keepdim=False; we mirror that here to avoid a shape
         # mismatch in mse_grid_search for groupwise (MX) MSE quantizers.
         if self.scaling_param_method == ParamMethod.MSE:
-            namespace['keepdim'] = False
             base_classes = (MSEScaleInjectorMixin,) + base_classes
-            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using MSE
+            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using MSE/HQO
             namespace.pop('scaling_impl_type', None)
         elif self.scaling_param_method == ParamMethod.HQO:
             base_classes = (HQOScaleInjectorMixin,) + base_classes
-            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using HQO
+            # Force the scaling_impl_type to be PARAMETER_FROM_STATS when using MSE/HQO
             namespace.pop('scaling_impl_type', None)
         return base_classes
 
@@ -520,14 +525,23 @@ class BaseQuantizerBuilder(ABC):
         return base_classes
 
     def _build_restrict_param_method(
-            self, namespace: Dict[str, Any], base_classes: Tuple[Type, ...]) -> Tuple[Type, ...]:
+        self,
+        namespace: Dict[str, Any],
+        base_classes: Tuple[Type, ...],
+        restrict_value_float_to_int_impl_type: EnumType[FloatToIntImplType] = FloatToIntImplType
+        .CEIL
+    ) -> Tuple[Type, ...]:
+        # Specify the float-to-int implementation for restricting the scaling value to an integer.
+        # Non-group power-of-two scaling ceils the exponent (PerTensor/PerChannelPoTScaling8bit,
+        # Int8ActPerTensorFixedPoint); groupwise (MX) power-of-two scaling floors it (MXMixin).
         if self.restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
             if self.scaling_per_output_type == ScalingPerOutputType.GROUP:
                 base_classes += (GroupwisePoTMixin,)
-            else:
-                # TODO (pml): Switch to FloatToIntImplType.FLOOR_STE when adding
-                # the solve function
-                namespace['restrict_value_float_to_int_impl'] = CeilSte
+                restrict_value_float_to_int_impl_type = FloatToIntImplType.FLOOR
+
+            # TODO (pml): Add @value for solve_float_to_int_impl_from_enum to appropiate classes
+            namespace['restrict_value_float_to_int_impl'] = solve_float_to_int_impl_from_enum(
+                restrict_value_float_to_int_impl_type)
         return base_classes
 
     @abstractmethod
