@@ -339,7 +339,6 @@ class TrainingArguments(transformers.TrainingArguments):
     kl_loss_reduction: str = field(
         default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
 
-
     def to_dict(self):
         return _serialize_callables(super().to_dict())
 
