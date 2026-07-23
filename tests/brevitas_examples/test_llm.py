@@ -294,8 +294,8 @@ class TestTwoGroupOptimizerTrainer:
         # FileNotFoundError and the test (correctly) fails.
         parse_custom_trainer(_LLM_PLUGIN_SPEC)
 
-    def _training_args_cls(self):
-        return TRAINER_REGISTRY.get("two_group_optimizer_trainer").training_args_cls
+    def _trainer_cls(self):
+        return TRAINER_REGISTRY.get("two_group_optimizer_trainer")
 
     def test_registered(self):
         assert "two_group_optimizer_trainer" in TRAINER_REGISTRY.get_registered_keys()
@@ -303,9 +303,8 @@ class TestTwoGroupOptimizerTrainer:
         assert issubclass(trainer_cls, GeneralizedTrainer)
 
     def test_default_lr_values(self):
-        cls = self._training_args_cls()
         args = parse_rotation_optimization_args(
-            extra_args=["--max_steps", "1"], training_args_cls=cls)
+            extra_args=["--max_steps", "1"], trainer_cls=self._trainer_cls())
         assert args.q_proj_lr == pytest.approx(1e-3)
         assert args.non_q_proj_lr == pytest.approx(1e-2)
 
@@ -318,7 +317,6 @@ class TestTwoGroupOptimizerTrainer:
         assert param_setup[1]["optimizer_kwargs"]["lr"] == pytest.approx(1e-2)
 
     def test_cli_override_lr_values(self):
-        cls = self._training_args_cls()
         extra = [
             "--max_steps",
             "1",
@@ -326,7 +324,7 @@ class TestTwoGroupOptimizerTrainer:
             "5e-4",
             "--non-q-proj-lr",
             "5e-2",]
-        args = parse_rotation_optimization_args(extra_args=extra, training_args_cls=cls)
+        args = parse_rotation_optimization_args(extra_args=extra, trainer_cls=self._trainer_cls())
         assert args.q_proj_lr == pytest.approx(5e-4)
         assert args.non_q_proj_lr == pytest.approx(5e-2)
 
@@ -335,9 +333,8 @@ class TestTwoGroupOptimizerTrainer:
         assert param_setup[1]["optimizer_kwargs"]["lr"] == pytest.approx(5e-2)
 
     def test_builds_single_optimizer_two_groups(self):
-        cls = self._training_args_cls()
         args = parse_rotation_optimization_args(
-            extra_args=["--max_steps", "1"], training_args_cls=cls)
+            extra_args=["--max_steps", "1"], trainer_cls=self._trainer_cls())
 
         model = _TwoGroupToyModel()
         optimizer, _ = _build_optimizers_from_configs(model, args)
