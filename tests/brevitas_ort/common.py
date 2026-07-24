@@ -137,7 +137,7 @@ def is_brevitas_ort_close(
         export_type,
         tolerance=None,
         first_output_only=False,
-        onnx_opset=14,
+        onnx_opset=18,
         export_q_weight=False):
     input_t = torch.from_numpy(np_input)
     inference_inp = torch.randn_like(input_t)
