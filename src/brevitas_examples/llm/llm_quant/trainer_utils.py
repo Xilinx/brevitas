@@ -1,6 +1,8 @@
 # Copyright (C) 2025, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 import os
@@ -32,6 +34,17 @@ from brevitas_examples.common.trainer_utils import parse_optimizer_class
 # entry carries a ``param_setup`` list whose per-group dicts each hold one of
 # these under ``get_param_fn``.
 ParamsFn = Callable[[torch.nn.Module, "transformers.TrainingArguments"], List[torch.nn.Parameter]]
+
+
+def _serialize_callables(value: Any) -> Any:
+    if callable(value):
+        return getattr(value, "__name__", str(value))
+    if isinstance(value, Mapping):
+        return {k: _serialize_callables(v) for k, v in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return type(value)(_serialize_callables(v) for v in value)
+    return value
+
 
 # Single registry for out-of-source customization of the training process.
 # Users register a custom Trainer class under a config name via a plugin .py
@@ -325,6 +338,9 @@ class TrainingArguments(transformers.TrainingArguments):
         metadata={"help": "Consider the first K logits when computing distillation loss"})
     kl_loss_reduction: str = field(
         default="batchmean", metadata={"help": "Reduction mode to use when computing KL loss"})
+
+    def to_dict(self):
+        return _serialize_callables(super().to_dict())
 
 
 class GeneralizedTrainer(Trainer):
