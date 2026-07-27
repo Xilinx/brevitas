@@ -2,13 +2,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from contextvars import ContextVar
-from distutils.util import strtobool
 import os
 
 try:
     from torch.jit import _enabled
 except ImportError:
     from torch.jit._state import _enabled
+
+
+def strtobool(val: str) -> bool:
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    if val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    raise ValueError(f"invalid truth value {val!r}")
 
 
 def env_to_bool(name: str, default: bool) -> bool:
