@@ -13,6 +13,7 @@ from torch import nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from torch.utils.data import Subset
 import torchvision
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
@@ -123,6 +124,9 @@ class Trainer(object):
         train_set = builder(root=args.datadir, train=True, download=True, transform=transform_train)
         test_set = builder(
             root=args.datadir, train=False, download=True, transform=transform_to_tensor)
+        num_samples = getattr(args, 'num_samples', None)
+        if num_samples is not None:
+            test_set = Subset(test_set, range(num_samples))
         self.train_loader = DataLoader(
             train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
         self.test_loader = DataLoader(
