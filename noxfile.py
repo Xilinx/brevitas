@@ -127,21 +127,17 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     session.install(
         '-e', '.[test, tts, stt, vision, export, numpy]', 'pandas',
         *cmd)  # pandas added for benchmark tests
-    if session.posargs:
-        # Allow targeting specific tests/paths, e.g. to (re)generate references.
-        session.run('pytest', '-n', 'logical', *session.posargs)
-    else:
-        session.run(
-            'pytest',
-            '-n',
-            'logical',
-            '--ignore-glob',
-            'tests/brevitas_examples/*llm*',
-            '--ignore-glob',
-            'tests/brevitas_examples/*vision*',
-            '--ignore-glob',
-            'tests/brevitas_examples/*diffusion*',
-            'tests/brevitas_examples')
+    session.run(
+        'pytest',
+        '-n',
+        'logical',
+        '--ignore-glob',
+        'tests/brevitas_examples/*llm*',
+        '--ignore-glob',
+        'tests/brevitas_examples/*vision*',
+        '--ignore-glob',
+        'tests/brevitas_examples/*diffusion*',
+        'tests/brevitas_examples')
 
 
 @nox.session(python=PYTHON_VERSIONS)
