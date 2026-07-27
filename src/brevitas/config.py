@@ -20,7 +20,7 @@ def strtobool(val: str) -> bool:
 
 
 def env_to_bool(name: str, default: bool) -> bool:
-    return bool(strtobool(os.environ.get(name, "{}".format(default))))
+    return strtobool(os.environ.get(name, "{}".format(default)))
 
 
 REINIT_ON_STATE_DICT_LOAD = env_to_bool('BREVITAS_REINIT_ON_STATE_DICT_LOAD', True)
