@@ -6,16 +6,15 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
-from packaging import version
 import torch
 from torch.nn import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from brevitas import config
-from brevitas import torch_version
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.utils.torch_utils import compute_channel_view_shape
+from brevitas.utils.torch_utils import same_storage
 
 
 def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
@@ -112,7 +111,7 @@ def merge_quant_weights(
                 # weight (e.g. ``weight[slice(None)]``), so it shares the same storage but is
                 # a distinct Python object: comparing ``id(...)`` of the tensors (or their
                 # ``.data``, which is re-created on every access) would never match.
-                if _same_storage(m.weight, input_tensor):
+                if same_storage(m.weight, input_tensor):
                     m.weight.data = output.value.data
                     matched = True
                     # We track how many modules have been converted
@@ -146,20 +145,6 @@ def merge_quant_weights(
             if module_tensor_id_mapping.get(module, 0) < len(module.tracked_module_list):
                 raise RuntimeError("Not all weights associated to this quantizer were replaced")
             _reset_quantizer(module)
-
-
-def _same_storage(a: torch.Tensor, b: torch.Tensor) -> bool:
-    """Return ``True`` if two tensors share the same underlying storage.
-
-    This is robust to views (e.g. ``weight[slice(None)]``), which share storage with the
-    source tensor while being distinct Python objects.
-    """
-    if torch_version >= version.parse('2.0'):
-        # ``Tensor.untyped_storage`` is available from PyTorch >= 2.0
-        return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
-    else:
-        # ``untyped_storage`` is not exposed on PyTorch < 2.0
-        return a.storage().data_ptr() == b.storage().data_ptr()
 
 
 def _change_scale_impl_type(proxy) -> None:

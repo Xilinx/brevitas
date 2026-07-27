@@ -28,6 +28,7 @@ from torch.utils._pytree import tree_map
 from transformers import AutoConfig
 
 from brevitas.fx.value_tracer import ValueProxy
+from brevitas.utils.torch_utils import same_storage
 
 
 def modify_dataloader(model_name_or_path, data, dtype):
@@ -95,11 +96,14 @@ class CastFloat16ToFloat32(TorchDispatchMode):
 # We rely on the fact that two versions of the same model (eager vs FX) might have different modules id (id(fx_module) != id (eager_module))
 # However, the underlying tensors are still shared, so we can recostruct the mapping between the two
 # modules.
+# NOTE: two versions of the same model might also wrap the shared tensors in distinct Parameter
+# objects (id(fx_param) != id(eager_param)), so we match on shared storage rather than on id.
 def fix_rewriter(rewriters, old_model_ref, tensor_name):
     for r in rewriters:
-        tensor_id = id(r.old_module_instance.weight)
+        old_tensor = getattr(r.old_module_instance, tensor_name)
         module = [
             m for m in old_model_ref.modules()
-            if hasattr(m, tensor_name) and id(m.weight) == tensor_id]
+            if hasattr(m, tensor_name) and getattr(m, tensor_name) is not None and
+            same_storage(getattr(m, tensor_name), old_tensor)]
         r.old_module_instance = module[0]
     return rewriters
