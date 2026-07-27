@@ -195,7 +195,7 @@ def get_wikitext2(
 
 def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
     if dataset_name == "wikitext2":
-        data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
+        data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "c4":
         if split == "train":
             data = load_dataset(
@@ -212,14 +212,14 @@ def load_raw_dataset(dataset_name: str, split: str, seed: int = 42) -> Dataset:
             data = load_dataset("mit-han-lab/pile-val-backup", split="validation")
         else:
             warnings.warn(f"There is no available {split} split for pile. Defaulting to wikitext2.")
-            data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
+            data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
     elif dataset_name == "fineweb":
         if split == "train":
             data = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")
         else:
             warnings.warn(
                 f"There is no available {split} split for fineweb. Defaulting to wikitext2.")
-            data = load_dataset('wikitext', 'wikitext-2-raw-v1', split=split)
+            data = load_dataset('Salesforce/wikitext', 'wikitext-2-raw-v1', split=split)
     else:
         raise ValueError(f"Dataset {dataset_name} is not available")
     return data
