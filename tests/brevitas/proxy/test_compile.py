@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import platform
+import sys
 
 from hypothesis import given
 from hypothesis import reproduce_failure
@@ -59,6 +60,12 @@ ACT_QUANTIZERS = {
 @jit_disabled_for_compile()
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
+    if torch_version <= version.parse('2.3.1') and sys.version_info >= (3, 12):
+        pytest.skip(
+            'Upstream torch incompatibility: torch.compile is unsupported for '
+            'PyTorch <= 2.3.1 on Python >= 3.12')
+    if version.parse('2.8') <= torch_version < version.parse('2.9'):
+        pytest.skip('Skipping due to random failures')
     if name == 'mxfloat8' and torch_version == version.parse('2.3.1'):
         pytest.skip("Skip test for unknown failure. It works with more recent version of torch.")
     if platform.system() == "Windows":
@@ -86,6 +93,12 @@ def test_compile_weight(weight, weight_quantizer):
 @jit_disabled_for_compile()
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
+    if torch_version <= version.parse('2.3.1') and sys.version_info >= (3, 12):
+        pytest.skip(
+            'Upstream torch incompatibility: torch.compile is unsupported for '
+            'PyTorch <= 2.3.1 on Python >= 3.12')
+    if version.parse('2.8') <= torch_version < version.parse('2.9'):
+        pytest.skip('Skipping due to random failures')
     if platform.system() == "Windows":
         pytest.skip("Skip compile + windows because of unknown failure")
     if torch_version >= version.parse('2.5.0') and torch_version < version.parse('2.8.0'):
