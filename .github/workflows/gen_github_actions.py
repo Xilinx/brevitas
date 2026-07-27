@@ -169,6 +169,14 @@ PYTEST_STEP_LIST = [
         )]),]
 
 EXAMPLES_PYTEST_STEP_LIST = [
+    od([('name', 'Cache bnn_pynq datasets'), ('uses', 'actions/cache@v4'),
+        (
+            'with',
+            od([('path', 'data'),
+                (
+                    'key',
+                    "${{ runner.os }}-bnn-pynq-datasets-${{ hashFiles('src/brevitas_examples/bnn_pynq/cfg/*.ini') }}"
+                ), ('restore-keys', '${{ runner.os }}-bnn-pynq-datasets-')]))]),
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',

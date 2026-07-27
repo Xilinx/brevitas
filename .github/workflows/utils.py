@@ -40,7 +40,14 @@ class Action:
         first_line_prefix = '- ' if indent_first else ''
         repr = first_line_prefix
         for name, val in d.items():
-            if quote_val:
+            if isinstance(val, dict):
+                # Render a nested mapping, e.g. the `with:` block of an action.
+                repr += f"{name}:" + NIX_NEWLINE
+                nested = ''
+                for k, v in val.items():
+                    nested += f"{k}: {v}" + NIX_NEWLINE
+                repr += indent(nested, RELATIVE_INDENT * ' ')
+            elif quote_val:
                 repr += f"{name}: '{val}'" + NIX_NEWLINE
             elif newline_val:
                 for i, v in enumerate(val):
