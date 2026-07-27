@@ -165,50 +165,50 @@ PYTEST_STEP_LIST = [
     od([('name', 'Run Nox session for brevitas pytest'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 EXAMPLES_PYTEST_STEP_LIST = [
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 EXAMPLES_LLM_PYTEST_STEP_LIST = [
     od([('name', 'Run Nox session for brevitas_examples LLM'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_llm-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_llm-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),
     od([('name', 'Run Nox session for brevitas_examples LLM Export'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_llm_export-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_llm_export-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),
     od([('name', 'Run Nox session for brevitas_examples LLM LightEval'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_llm_lighteval-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_llm_lighteval-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),
     od([('name', 'Run Nox session for brevitas_examples LLM lm_eval'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_llm_lm_eval-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_llm_lm_eval-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 EXAMPLES_DIFFUSION_PYTEST_STEP_LIST = [
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_diffusion-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_diffusion-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 EXAMPLES_VISION_PYTEST_STEP_LIST = [
     od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_vision-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_vision-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 FINN_INTEGRATION_STEP_LIST = [
@@ -218,21 +218,21 @@ FINN_INTEGRATION_STEP_LIST = [
     od([('name', 'Run Nox session for Brevitas-FINN integration'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_finn_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_finn_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )])]
 
 PYXIR_INTEGRATION_STEP_LIST = [
     od([('name', 'Run Nox session for Brevitas-PyXIR integration'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_pyxir_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_pyxir_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )])]
 
 ORT_INTEGRATION_STEP_LIST = [
     od([('name', 'Run Nox session for Brevitas-ORT integration'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_ort_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_ort_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )])]
 
 TEST_INSTALL_DEV_STEP_LIST = [
@@ -240,27 +240,27 @@ TEST_INSTALL_DEV_STEP_LIST = [
         ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )]),
     od([('name', 'Run Nox session for testing brevitas_examples develop install and imports'),
         ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )])]
 
 NOTEBOOK_STEP_LIST = [
     od([('name', 'Run Nox session for Notebook execution'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_notebook-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_notebook-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )])]
 
 ENDTOEND_STEP_LIST = [
     od([('name', 'Run Nox session for end-to-end flows'), ('shell', 'bash'),
         (
             'run',
-            'nox -v -s tests_brevitas_end_to_end-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
+            r'nox -v -s tests_brevitas_end_to_end-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)'
         )])]
 
 
