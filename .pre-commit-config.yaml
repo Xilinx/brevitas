@@ -37,3 +37,18 @@ repos:
     - id: yapf
       args: ["-i"]
       additional_dependencies: [toml]
+
+-   repo: local
+    hooks:
+    - id: gen-github-actions
+      name: Regenerate GitHub Actions workflows
+      # Regenerates the workflow YAMLs from gen_github_actions.py upon
+      # changes to gen_github_actions.py or any of the workflow templates.
+      # The generator opens its templates/outputs via bare relative paths, so it
+      # must run from inside .github/workflows/ (pre-commit invokes hooks from
+      # the repo root).
+      entry: bash -c 'cd .github/workflows && python gen_github_actions.py'
+      language: python
+      additional_dependencies: [pyyaml]
+      pass_filenames: false
+      files: '^\.github/workflows/((gen_github_actions|utils)\.py|.*\.yml\.template)$'
