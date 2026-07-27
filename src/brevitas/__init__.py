@@ -1,9 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import glob
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _dist_version
+import glob
 import os
 from typing import List
 from typing import Optional
