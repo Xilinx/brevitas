@@ -51,7 +51,8 @@ def save_reference_entry(network, log_list):
 @pytest.mark.parametrize("model", ["TFC", "SFC", "LFC", "CNV"])
 @pytest.mark.parametrize("weight_bit_width", [1, 2])
 @pytest.mark.parametrize("act_bit_width", [1, 2])
-def test_bnn_pynq_pretrained_accuracy(caplog, model, weight_bit_width, act_bit_width):
+def test_bnn_pynq_pretrained_accuracy(
+        bnn_pynq_datasets, caplog, model, weight_bit_width, act_bit_width):
     if model == "LFC" and weight_bit_width == 2 and act_bit_width == 2:
         pytest.skip("No pretrained LFC_W2A2 present.")
     if weight_bit_width > act_bit_width:

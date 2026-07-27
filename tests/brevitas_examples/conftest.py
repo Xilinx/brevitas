@@ -30,23 +30,16 @@ def _download_datasets(datadir):
             builder(root=datadir, train=train, download=True)
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def bnn_pynq_datasets():
     """Ensure the bnn_pynq datasets are available before any xdist worker uses them.
 
     A file lock plus a sentinel file guarantee that only the first process
     performs the (serial) download while the others wait and then reuse the
-    cached copy.
+    cached copy. This fixture is opt-in (not ``autouse``): only tests that
+    request it, such as the bnn_pynq pretrained accuracy test, trigger the
+    download, so unrelated sessions (LLM, vision, diffusion) are unaffected.
     """
-    try:
-        import torchvision  # noqa: F401
-
-        from brevitas_examples.bnn_pynq.trainer import MirrorMNIST  # noqa: F401
-    except ImportError:
-        # torchvision / bnn_pynq deps not installed in this session
-        # (e.g. the LLM sessions); nothing to pre-download.
-        yield
-        return
     os.makedirs(DATADIR, exist_ok=True)
     lock_path = os.path.join(DATADIR, '.download.lock')
     sentinel_path = os.path.join(DATADIR, '.download.done')
