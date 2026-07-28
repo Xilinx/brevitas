@@ -1,6 +1,12 @@
 name: &{name}
 
 on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
   schedule:
   - cron: '37 19 * * 5' # 7:37am UTC every Friday
 
@@ -13,6 +19,7 @@ jobs:
 &{matrix}
 &{exclude}
 
+    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
