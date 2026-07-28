@@ -27,6 +27,7 @@ from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.quant_tensor.groupwise_float_quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.quant_tensor.groupwise_int_quant_tensor import GroupwiseIntQuantTensor
+from brevitas.utils.torch_utils import rename_tensor
 
 from .utils import filter_kwargs
 
@@ -91,9 +92,9 @@ class QuantLayerMixin(ExportMixin, LayerProtocol):
                 inp = qt_class(*inp)
         if not torch._C._get_tracing_state() and not is_dynamo_compiling():
             if isinstance(inp, QuantTensor):
-                inp = inp.set(value=inp.value.rename(None))
+                inp = inp.set(value=rename_tensor(inp.value, None))
             else:
-                inp = inp.rename(None)
+                inp = rename_tensor(inp, None)
         return inp
 
     def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
