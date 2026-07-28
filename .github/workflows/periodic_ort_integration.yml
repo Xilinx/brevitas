@@ -3,6 +3,12 @@ name: Test Brevitas-ORT integration
 on:
   schedule:
   - cron: '37 19 * * 5' # 7:37am UTC every Friday
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 jobs:
   build:
@@ -83,6 +89,7 @@ jobs:
 
 
 
+    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
