@@ -5,12 +5,14 @@ import re
 
 import numpy as np
 import onnxruntime as ort
+from packaging.version import parse
 import pytest
 from qonnx.core.modelwrapper import ModelWrapper
 import qonnx.core.onnx_exec as oxe
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
+from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv1d
@@ -34,6 +36,8 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
+
+DEFAULT_ONNX_OPSET = 18 if torch_version >= parse('2.0') else 17
 
 SEED = 123456
 OUT_CH = 16
@@ -137,7 +141,7 @@ def is_brevitas_ort_close(
         export_type,
         tolerance=None,
         first_output_only=False,
-        onnx_opset=18,
+        onnx_opset=DEFAULT_ONNX_OPSET,
         export_q_weight=False):
     input_t = torch.from_numpy(np_input)
     inference_inp = torch.randn_like(input_t)
