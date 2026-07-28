@@ -28,14 +28,6 @@ else:
 python_version = version.parse(
     f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
 
-
-def is_compile_unsupported_pt_py(pt_version: str = '2.3.1', py_version: str = '3.12') -> bool:
-    # torch.compile is unsupported on old PyTorch releases with recent Python versions
-    # (e.g. PyTorch <= 2.3.1 on Python >= 3.12) due to an upstream incompatibility.
-    return torch_version <= version.parse(pt_version) and python_version >= version.parse(
-        py_version)
-
-
 try:
     # Attempt _dynamo import
     is_dynamo_compiling = torch._dynamo.is_compiling

@@ -10,7 +10,6 @@ import pytest
 import pytest_cases
 import torch
 
-from brevitas import is_compile_unsupported_pt_py
 from brevitas import torch_version
 from brevitas.export.inference import quant_inference_mode
 import brevitas.nn as qnn
@@ -27,6 +26,7 @@ from brevitas.quant.mx_quant_ocp import MXInt8Weight
 from brevitas_examples.common.generative.quantize import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import FP8e4m3OCPDynamicActPerRowFloat
 from tests.brevitas.hyp_helper import float_tensor_st
+from tests.marker import is_compile_unsupported_pt_py
 from tests.marker import jit_disabled_for_compile
 from tests.marker import requires_pt_ge
 

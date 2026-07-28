@@ -13,7 +13,6 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas import is_compile_unsupported_pt_py
 from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _apply_had_device
 from brevitas.graph.equalize import _apply_ort_device
@@ -33,6 +32,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.nn.equalized_layer import RotatedModule
 from brevitas.utils.parametrization_utils import RotationWeightParametrization
 from brevitas.utils.python_utils import recurse_getattr
+from tests.marker import is_compile_unsupported_pt_py
 from tests.marker import requires_pt_ge
 
 from .equalization_fixtures import ATOL

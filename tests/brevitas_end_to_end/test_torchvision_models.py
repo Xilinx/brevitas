@@ -10,7 +10,6 @@ from pytest_cases import parametrize
 import torch
 import torchvision.models as modelzoo
 
-from brevitas import is_compile_unsupported_pt_py
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
@@ -21,6 +20,7 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
+from tests.marker import is_compile_unsupported_pt_py
 from tests.marker import requires_pt_ge
 
 TORCH_COMPILE_ATOL = 0.35
