@@ -103,7 +103,7 @@ def fix_rewriter(rewriters, old_model_ref, tensor_name):
         old_tensor = getattr(r.old_module_instance, tensor_name)
         module = [
             m for m in old_model_ref.modules()
-            if hasattr(m, tensor_name) and getattr(m, tensor_name) is not None and
+            if hasattr(m, tensor_name) and torch.is_tensor(getattr(m, tensor_name)) and
             same_storage(getattr(m, tensor_name), old_tensor)]
         r.old_module_instance = module[0]
     return rewriters
