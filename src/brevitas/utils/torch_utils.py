@@ -16,7 +16,6 @@ from brevitas import torch_version
 import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
-
 # Named tensors (Tensor.rename/rename_/names) were removed in PyTorch 2.13
 NAMED_TENSORS_SUPPORTED = hasattr(torch.Tensor, 'rename')
 
