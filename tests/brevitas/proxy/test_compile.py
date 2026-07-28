@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import platform
-import sys
 
 from hypothesis import given
 from hypothesis import reproduce_failure
@@ -11,6 +10,7 @@ import pytest
 import pytest_cases
 import torch
 
+from brevitas import is_compile_unsupported_pt_py
 from brevitas import torch_version
 from brevitas.export.inference import quant_inference_mode
 import brevitas.nn as qnn
@@ -60,7 +60,7 @@ ACT_QUANTIZERS = {
 @jit_disabled_for_compile()
 def test_compile_weight(weight, weight_quantizer):
     name, quant = weight_quantizer
-    if torch_version <= version.parse('2.3.1') and sys.version_info >= (3, 12):
+    if is_compile_unsupported_pt_py():
         pytest.skip(
             'Upstream torch incompatibility: torch.compile is unsupported for '
             'PyTorch <= 2.3.1 on Python >= 3.12')
@@ -93,7 +93,7 @@ def test_compile_weight(weight, weight_quantizer):
 @jit_disabled_for_compile()
 def test_compile_act(inp, act_quantizer):
     name, quant = act_quantizer
-    if torch_version <= version.parse('2.3.1') and sys.version_info >= (3, 12):
+    if is_compile_unsupported_pt_py():
         pytest.skip(
             'Upstream torch incompatibility: torch.compile is unsupported for '
             'PyTorch <= 2.3.1 on Python >= 3.12')

@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
-import sys
 
 from packaging import version
 import pytest
@@ -11,6 +10,7 @@ from pytest_cases import parametrize
 import torch
 import torchvision.models as modelzoo
 
+from brevitas import is_compile_unsupported_pt_py
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
@@ -118,7 +118,7 @@ def torchvision_model_compile(model_name, quantize_fn):
 @requires_pt_ge('2.2')
 def test_torchvision_compile(torchvision_model_compile):
     torch._dynamo.config.capture_scalar_outputs = True
-    if torch_version <= version.parse('2.3.1') and sys.version_info >= (3, 12):
+    if is_compile_unsupported_pt_py():
         pytest.skip(
             'Upstream torch incompatibility: torch.compile is unsupported for '
             'PyTorch <= 2.3.1 on Python >= 3.12')

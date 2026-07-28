@@ -5,17 +5,15 @@ import copy
 from functools import partial
 from functools import reduce
 import itertools
-import sys
 from unittest.mock import patch
 
-from packaging import version
 import pytest
 import pytest_cases
 import torch
 import torch.nn as nn
 import torch.nn.utils.parametrize as parametrize
 
-from brevitas import torch_version
+from brevitas import is_compile_unsupported_pt_py
 from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _apply_had_device
 from brevitas.graph.equalize import _apply_ort_device
@@ -384,7 +382,7 @@ def test_fuse_parametrized_modules_after_compile_and_train(device):
     """
     if device == 'cpu':
         pytest.skip('Compile tests are disabled on CPU')
-    if torch_version <= version.parse('2.3.1') and sys.version_info >= (3, 12):
+    if is_compile_unsupported_pt_py():
         pytest.skip(
             'Upstream torch incompatibility: torch.compile is unsupported for '
             'PyTorch <= 2.3.1 on Python >= 3.12')
