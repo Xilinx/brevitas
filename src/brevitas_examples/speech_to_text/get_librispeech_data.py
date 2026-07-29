@@ -85,8 +85,7 @@ def __process_data(data_folder: str, dst_folder: str, manifest_file: str):
 
     """
 
-    if not os.path.exists(dst_folder):
-        os.makedirs(dst_folder)
+    os.makedirs(dst_folder, exist_ok=True)
 
     files = []
     entries = []

@@ -757,8 +757,8 @@ class BenchmarkUtils:
         # Retrieve the argument parser for the entrypoint
         entrypoint_parser = entry_point_utils.argument_parser
         # Instantiate directory for storing the results
-        if not script_args.dry_run and not os.path.exists(script_args.results_folder):
-            os.makedirs(script_args.results_folder)
+        if not script_args.dry_run:
+            os.makedirs(script_args.results_folder, exist_ok=True)
         # If a benchmark YAML is passed, use that to retrieve argument combinations,
         # otherwise generate all possible combinations of arguments from the
         # entrypoint_parser
