@@ -14,6 +14,23 @@ import brevitas
 import brevitas.compiler as brevitas_compiler
 from brevitas.function.ops_ste import floor_ste
 
+# Named tensors (Tensor.rename/rename_/names) were removed in PyTorch 2.13
+NAMED_TENSORS_SUPPORTED = hasattr(torch.Tensor, 'rename')
+
+
+def rename_tensor(tensor, *names):
+    # Out-of-place rename, no-op when named tensors are unsupported (PyTorch >= 2.13)
+    if NAMED_TENSORS_SUPPORTED:
+        return tensor.rename(*names)
+    return tensor
+
+
+def rename_tensor_(tensor, *names):
+    # In-place rename, no-op when named tensors are unsupported (PyTorch >= 2.13)
+    if NAMED_TENSORS_SUPPORTED:
+        tensor.rename_(*names)
+    return tensor
+
 
 class StopFwdException(Exception):
     """Used to throw and catch an exception to stop traversing the graph."""

@@ -63,6 +63,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import rename_tensor_
 
 
 class QuantMultiheadAttention(Module):
@@ -407,9 +408,9 @@ class QuantMultiheadAttention(Module):
                 # Mark dimensions through named tensors.
                 if not torch._C._get_tracing_state():
                     if isinstance(query, QuantTensor):
-                        query.value.rename_('L', 'N', 'E')
+                        rename_tensor_(query.value, 'L', 'N', 'E')
                     else:
-                        query.rename_('L', 'N', 'E')
+                        rename_tensor_(query, 'L', 'N', 'E')
                 # self-attention
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
@@ -424,14 +425,14 @@ class QuantMultiheadAttention(Module):
             if not torch._C._get_tracing_state():
                 for t in [query, key, value]:
                     if isinstance(t, QuantTensor):
-                        t.value.rename_('L', 'N', 'E')
+                        rename_tensor_(t.value, 'L', 'N', 'E')
                     else:
-                        t.rename_('L', 'N', 'E')
+                        rename_tensor_(t, 'L', 'N', 'E')
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
         # Remove names to avoid errors downstream
         if not torch._C._get_tracing_state():
             for t in [q, k, v]:
-                t.rename_(None)
+                rename_tensor_(t, None)
 
         # prep attention mask
         if attn_mask is not None:
@@ -566,14 +567,14 @@ class QuantMultiheadAttention(Module):
         attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
         # Set dim names for PTQ algorithms that requires it
         if not torch._C._get_tracing_state():
-            attn_output.rename_('L', 'N', 'E')
+            rename_tensor_(attn_output, 'L', 'N', 'E')
         attn_output = self.out_proj(attn_output)
         # Remove names to avoid errors un unsupported downstream ops
         if not torch._C._get_tracing_state():
             if isinstance(attn_output, QuantTensor):
-                attn_output.value.rename_(None)
+                rename_tensor_(attn_output.value, None)
             else:
-                attn_output.rename_(None)
+                rename_tensor_(attn_output, None)
 
         if need_weights:
             # optionally average attention weights over heads
