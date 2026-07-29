@@ -268,6 +268,9 @@ def tests_brevitas_ort_integration(session, pytorch):
     cmd += install_pytorch_cmd(pytorch)
     cmd += install_torchvision_cmd(pytorch)
     session.install('-e', '.[test, ort_integration, numpy]', *cmd)
+    # These tests run a seeded random subset of the (very large) configuration space.
+    # Control the subset via BREVITAS_ORT_NUM_SAMPLES (per-family count) and
+    # BREVITAS_ORT_SAMPLE_SEED; see tests/brevitas_ort/sampling.py.
     session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_ort')
 
 
