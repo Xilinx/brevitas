@@ -10,28 +10,42 @@ plus ORT inference, but generating and collecting all of them is what makes the 
 take over an hour.
 
 This module instead enumerates *only the valid* configuration space (the ``pytest.skip``
-conditions are re-expressed here as validity predicates) and then draws a reproducible
-random subset at collection time. The subset is parametrized with plain
+conditions are re-expressed here as validity predicates) and draws a reproducible random
+subset at collection time. The subset is parametrized with plain
 ``pytest.mark.parametrize`` so that ``pytest -n`` (xdist) still distributes the sampled
 nodes across workers.
 
-Two environment variables control sampling:
+Uniform random sampling covers common feature combinations well but is structurally
+poor at *rare* buckets: e.g. fp8, dynamic-activation, floor-rounding and the dynamo-QCDQ
+export each occupy <0.4% of the WBIOL space, so a single uniform draw of a few hundred
+configs will typically contain *zero* of them. To avoid silently skipping whole features
+each run, we therefore combine two strategies per test family:
 
-* ``BREVITAS_ORT_NUM_SAMPLES`` - number of configurations to draw *per test family*
-  (capped at the size of the valid space). Defaults to :data:`DEFAULT_NUM_SAMPLES`.
-* ``BREVITAS_ORT_SAMPLE_SEED`` - RNG seed, for reproducibility. Defaults to
-  :data:`tests.conftest.SEED`.
+* **Guaranteed rare buckets** - for each rare feature, seeded-sample up to
+  :data:`RARE_CAP` configs so the feature is always exercised (~RARE_CAP times).
+* **Plain-random common pool** - sample the (large) remaining space uniformly.
+
+The two are unioned/de-duplicated and sorted deterministically.
+
+Environment variables:
+
+* ``BREVITAS_ORT_SAMPLE_SEED`` - RNG seed (default :data:`tests.conftest.SEED`). CI sets
+  this per matrix job so different (python, pytorch, platform) jobs test different
+  subsets, accumulating combinatorial coverage over time.
+* ``BREVITAS_ORT_NUM_SAMPLES`` - optional single override for the *common-pool* count of
+  the wbiol and lstm families (rare-bucket guarantees always apply regardless). Unset
+  ->  per-family defaults.
 
 Determinism note: every xdist worker imports this module and independently reproduces
-the *same* sampled set (sampling depends only on the seed and a deterministically
-ordered valid list - never on time, PID or process-global RNG state). This is required
-or xdist aborts with a "different tests were collected" error.
+the *same* sampled set (sampling depends only on the seed and deterministically ordered
+valid lists - never on time, PID or process-global RNG state). This is required or xdist
+aborts with a "different tests were collected" error.
 """
 
 import os
 import random
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from packaging.version import parse
 
@@ -45,14 +59,13 @@ from .common import QUANT_WBIOL_IMPL
 from .common import ShiftedUint8DynamicActPerTensorFloat
 from .common import WBIOL_QUANTIZERS
 
-# Configurations drawn *per test family* (wbiol / avgpool / lstm), capped at each
-# family's valid-space size. Chosen to target ~5 minutes on a 4-vCPU GitHub-hosted
-# runner (ubuntu/windows/macos-latest, matching ``pytest -n logical``). Calibration
-# (4 workers, torch 2.9 CPU): the run cost is dominated by a minority of expensive
-# configs, giving a marginal cost of ~1s/config; 268 sampled configs ran in ~4 min
-# locally, so 100/family (~228 configs, ~3.3 min local) leaves headroom for slower
-# CI machines. Override with BREVITAS_ORT_NUM_SAMPLES.
-DEFAULT_NUM_SAMPLES = 100
+# Per-family common-pool sizes. Chosen (together with RARE_CAP) to trade coverage against
+# runtime on a 4-vCPU GitHub-hosted runner (matching ``pytest -n logical``). Override the
+# common-pool count via BREVITAS_ORT_NUM_SAMPLES.
+DEFAULT_WBIOL_SAMPLES = 250
+DEFAULT_LSTM_SAMPLES = 100
+# Max configs drawn from each rare bucket, guaranteeing every feature is exercised.
+RARE_CAP = 15
 
 _TORCH_2_1 = parse('2.1')
 _TORCH_2_8 = parse('2.8')
@@ -62,24 +75,42 @@ AVGPOOL_EXPORT_TYPES = ['qcdq', 'qcdq_dynamo']
 LSTM_EXPORT_TYPES = ['qcdq', 'qonnx_opset14']
 
 
-def num_samples() -> int:
-    return int(os.environ.get('BREVITAS_ORT_NUM_SAMPLES', DEFAULT_NUM_SAMPLES))
-
-
 def sample_seed() -> int:
     return int(os.environ.get('BREVITAS_ORT_SAMPLE_SEED', DEFAULT_SEED))
 
 
-def _sample(configs: list, seed_offset: int) -> list:
-    """Deterministically draw ``num_samples()`` configs from ``configs``.
+def _num_samples_override() -> Optional[int]:
+    val = os.environ.get('BREVITAS_ORT_NUM_SAMPLES')
+    return int(val) if val is not None else None
 
-    ``seed_offset`` differentiates the RNG stream per test family so that, e.g., the
-    WBIOL and LSTM samples are not correlated. Selection is capped at the valid-space
-    size, so a very large BREVITAS_ORT_NUM_SAMPLES naturally yields the full valid set.
+
+def wbiol_common_count() -> int:
+    override = _num_samples_override()
+    return override if override is not None else DEFAULT_WBIOL_SAMPLES
+
+
+def lstm_common_count() -> int:
+    override = _num_samples_override()
+    return override if override is not None else DEFAULT_LSTM_SAMPLES
+
+
+def _sample(configs: list, count: int, seed_offset: int) -> list:
+    """Deterministically draw ``min(count, len(configs))`` configs.
+
+    ``seed_offset`` differentiates the RNG stream per family/bucket so their draws are
+    uncorrelated. Selection is capped at the pool size, so a very large count naturally
+    yields the whole pool.
     """
-    n = min(num_samples(), len(configs))
-    rng = random.Random(sample_seed() + seed_offset)
-    return rng.sample(configs, n)
+    n = min(count, len(configs))
+    return random.Random(sample_seed() + seed_offset).sample(configs, n)
+
+
+def _combine(guaranteed: list, common: list, id_fn: Callable) -> list:
+    """Union guaranteed + common configs, de-duplicate, and order deterministically."""
+    seen = {}
+    for cfg in list(guaranteed) + list(common):
+        seen[id_fn(cfg)] = cfg
+    return [seen[k] for k in sorted(seen)]
 
 
 # -----------------------------------------------------------------------------
@@ -120,6 +151,12 @@ class WBIOLConfig:
         if self.is_fp8:
             return True
         return self.rounding_type == 'round' and 'a2q' not in self.quantizer_name
+
+    @property
+    def is_rare(self) -> bool:
+        return (
+            self.is_fp8 or self.is_dynamic or self.rounding_type == 'floor' or
+            self.export_type == 'qcdq_dynamo')
 
     @property
     def id(self) -> str:
@@ -185,8 +222,27 @@ def _enumerate_wbiol() -> List[WBIOLConfig]:
     return configs
 
 
+# Rare-feature buckets: (name, predicate, seed offset). A config may belong to several;
+# capping each independently guarantees every feature is represented every run.
+_WBIOL_RARE_BUCKETS = [
+    ('fp8', lambda c: c.is_fp8, 10),
+    ('dynamic', lambda c: c.is_dynamic, 11),
+    ('floor', lambda c: c.rounding_type == 'floor', 12),
+    ('qcdq_dynamo', lambda c: c.export_type == 'qcdq_dynamo', 13),]
+
+
+def _sample_wbiol(valid: List[WBIOLConfig]) -> List[WBIOLConfig]:
+    guaranteed = []
+    for _, predicate, offset in _WBIOL_RARE_BUCKETS:
+        bucket = [c for c in valid if predicate(c)]
+        guaranteed += _sample(bucket, RARE_CAP, offset)
+    common = [c for c in valid if not c.is_rare]
+    common_sample = _sample(common, wbiol_common_count(), seed_offset=0)
+    return _combine(guaranteed, common_sample, id_fn=lambda c: c.id)
+
+
 # -----------------------------------------------------------------------------
-# AvgPool
+# AvgPool (small enough to always run in full)
 # -----------------------------------------------------------------------------
 @dataclass(frozen=True)
 class AvgPoolConfig:
@@ -288,6 +344,16 @@ def _enumerate_lstm() -> List[LSTMConfig]:
     return configs
 
 
+def _sample_lstm(valid: List[LSTMConfig]) -> List[LSTMConfig]:
+    # Float LSTMs are a small minority (a distinct qonnx_opset14 execution path), so
+    # guarantee their representation; sample the large quant pool uniformly.
+    float_bucket = [c for c in valid if not c.is_quant]
+    quant_pool = [c for c in valid if c.is_quant]
+    guaranteed = _sample(float_bucket, RARE_CAP, seed_offset=20)
+    common_sample = _sample(quant_pool, lstm_common_count(), seed_offset=2)
+    return _combine(guaranteed, common_sample, id_fn=lambda c: c.id)
+
+
 # -----------------------------------------------------------------------------
 # Public sampled lists (materialized once at import / collection time)
 # -----------------------------------------------------------------------------
@@ -295,16 +361,22 @@ WBIOL_VALID = _enumerate_wbiol()
 AVGPOOL_VALID = _enumerate_avgpool()
 LSTM_VALID = _enumerate_lstm()
 
-WBIOL_CONFIGS = _sample(WBIOL_VALID, seed_offset=0)
-AVGPOOL_CONFIGS = _sample(AVGPOOL_VALID, seed_offset=1)
-LSTM_CONFIGS = _sample(LSTM_VALID, seed_offset=2)
+WBIOL_CONFIGS = _sample_wbiol(WBIOL_VALID)
+AVGPOOL_CONFIGS = AVGPOOL_VALID  # small enough to run in full
+LSTM_CONFIGS = _sample_lstm(LSTM_VALID)
 
 
 def report_lines() -> List[str]:
     """Human-readable summary for ``pytest_report_header``."""
+    n_wbiol_rare = sum(1 for c in WBIOL_CONFIGS if c.is_rare)
+    n_lstm_float = sum(1 for c in LSTM_CONFIGS if not c.is_quant)
+    override = _num_samples_override()
+    knob = f'num_samples={override}' if override is not None else 'num_samples=defaults'
     return [
-        f'brevitas-ort sampling: seed={sample_seed()} num_samples={num_samples()} '
+        f'brevitas-ort sampling: seed={sample_seed()} {knob} rare_cap={RARE_CAP} '
         f'(torch {torch_version})',
-        f'  wbiol:   {len(WBIOL_CONFIGS)}/{len(WBIOL_VALID)} valid configs',
-        f'  avgpool: {len(AVGPOOL_CONFIGS)}/{len(AVGPOOL_VALID)} valid configs',
-        f'  lstm:    {len(LSTM_CONFIGS)}/{len(LSTM_VALID)} valid configs',]
+        f'  wbiol:   {len(WBIOL_CONFIGS)}/{len(WBIOL_VALID)} valid '
+        f'({n_wbiol_rare} guaranteed-rare + {len(WBIOL_CONFIGS) - n_wbiol_rare} common)',
+        f'  avgpool: {len(AVGPOOL_CONFIGS)}/{len(AVGPOOL_VALID)} valid (full)',
+        f'  lstm:    {len(LSTM_CONFIGS)}/{len(LSTM_VALID)} valid '
+        f'({n_lstm_float} guaranteed-float + {len(LSTM_CONFIGS) - n_lstm_float} quant)',]
