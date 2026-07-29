@@ -1,14 +1,8 @@
 name: &{name}
 
-# TEMPORARY (sanity-check): run the full support matrix on PRs like the reduced
-# workflows to validate the torch 2.13.0 fix. Revert to the schedule before merge.
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
+  schedule:
+  - cron: '37 19 * * 5' # 7:37am UTC every Friday
 
 jobs:
   build:
@@ -19,7 +13,6 @@ jobs:
 &{matrix}
 &{exclude}
 
-    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
