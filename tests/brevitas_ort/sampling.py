@@ -184,8 +184,6 @@ def _wbiol_valid(cfg: WBIOLConfig) -> bool:
             return False
     if cfg.export_type == 'qonnx_dynamo' and torch_version < _TORCH_2_8:
         return False
-    if 'per_channel' in quantizer and 'asymmetric' in quantizer:
-        return False  # Per-channel zero-point not well supported in ORT.
     if 'QuantLinear' in cfg.impl_name and 'asymmetric' in quantizer:
         return False  # ORT execution unreliable / fails randomly for these.
     if 'dynamic' in quantizer:
