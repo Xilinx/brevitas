@@ -95,7 +95,8 @@ ALL_SUPPORTED_EXCLUSION_LIST = generate_exclusion_list([
     [['python_version', [
         '3.12',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1']]],
     [['python_version', [
-        '3.13',]], ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1']]],
+        '3.13',]],
+     ['pytorch_version', ['1.13.1', '2.0.1', '2.1.1', '2.2.2', '2.3.1', '2.4.1', '2.5.1']]],
     [['python_version', [
         '3.14',]],
      [

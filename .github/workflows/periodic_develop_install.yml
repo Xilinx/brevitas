@@ -48,6 +48,9 @@ jobs:
           - python_version: '3.13'
             pytorch_version: '2.4.1'
 
+          - python_version: '3.13'
+            pytorch_version: '2.5.1'
+
           - python_version: '3.14'
             pytorch_version: '1.13.1'
 
