@@ -1,6 +1,17 @@
 dependencies==2.0.1
 packaging
-setuptools<70.0
+# setuptools is a shadow dependency of torch.utils.cpp_extension (unconditional
+# top-level import), not a direct brevitas dependency, and torch under-declares
+# it. Per torch version (cpp_extension top-level imports / setuptools metadata):
+#   - 1.13.1, 2.0.1, 2.1.1: import setuptools + pkg_resources; setuptools undeclared
+#   - 2.2.2, 2.3.1, 2.4.1:  import setuptools;                  setuptools undeclared
+#   - 2.5.1 - 2.10.0:       import setuptools; declared only for python_version>=3.12
+#   - 2.11.0, 2.12.1:       import setuptools; declares setuptools<82
+#   - 2.13.0:               import setuptools; declares setuptools>=77.0.3
+# We list it so it is installed for the under-declared versions, and cap at <81 to
+# keep pkg_resources (removed in setuptools 81) for torch<2.2. No lower bound is
+# needed (torch>=2.13 adds its own >=77.0.3), and no torch extra provides it.
+setuptools<81
 sympy
 torch>=1.13
 typing-extensions>=3.7.4
